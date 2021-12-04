@@ -361,5 +361,3 @@ CaMgSiH2O_pal_2 = {
 ###      red #ff0000
 ###      pink  #FF2EE1
 ### light pink #FF9CF1
-
-

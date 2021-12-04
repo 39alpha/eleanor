@@ -68,6 +68,7 @@ vs_basis = {'H+'       : [-7, -9],
 			# 'F-'       : [np.log10(   0.0000708  *_) for _ in [0.1, 1.1]]
 			'F-'       : np.log10(   0.0000708 )
 			}
+			
 # Just create the templates to load into navigator and helms 
 local_3i = three_i(cb)
 local_6i = six_i(suppress_min = suppress_min, iopt4 = '1', min_supp_exemp=min_supp_exemp)

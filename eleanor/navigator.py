@@ -3,16 +3,12 @@
 ### Generates orders (sets of points in VS) to be stored in VS 
 ### postgresql database. These orders are to be managed by the 
 ### helmsman at her leisure.
-### Tucker Ely 
-### October 6nd 2020
-
-
+### Tucker Ely and then 39Alpha
+### October 6nd 2020 and then Dec 12th 2021
 
 version = '0.1'
 
-
-
-import psycopg2 as pg
+import sqlite3 as sql
 import psycopg2.extras as extras
 import sys, uuid, random, itertools
 import numpy as np
@@ -20,19 +16,13 @@ import pandas as pd
 from time import *
 import matplotlib.pyplot as plt
 
-
-
-from db_comms import *
-from tool_room import *
-from data0_tools import *
-
+from hanger.db_comms import *
+from hanger.tool_room import *
+from hanger.data0_tools import *
 
 ### loaded campagin
 import campaign
 import campaign.TEOS_All as camp
-
-
-
 
 def main():
 
@@ -55,7 +45,7 @@ def main():
 	print('Loading campagin {}.\n'.format(camp.name))
 
 
-	conn = establish_server_connection()
+	conn = establish_server_connection(camp.name + ".db")
 
 
 	### Determine campaign status in postgres database. 
@@ -91,7 +81,7 @@ def main():
 
 
 	### Send dataframe containing new orders to postgres database
-	orders_to_postgres(conn, '{}_vs'.format(camp.name), order_number, orders)
+	orders_to_sql(conn, '{}_vs'.format(camp.name), order_number, orders)
 	
 
 
@@ -132,18 +122,15 @@ def huffer(conn):
 
 	os.chdir('{}_huffer'.format(camp.name)) 					#	step into directory
 	
-
 	### build test.3i file from mean vlaues for each variable that is
 	### set to a range in the new campaign.
 	state_dict = {}
 	for _ in camp.vs_state.keys():
 		state_dict[_] = np.mean(camp.vs_state[_])
 
-
 	basis_dict = {}
 	for _ in camp.vs_basis.keys():
 		basis_dict[_] = np.mean(camp.vs_basis[_])
-
 
 	### (1) build and run test.3i
 	print('\n Processing test.3i.')
@@ -197,7 +184,7 @@ def huffer(conn):
 
 def check_campaign_tables(conn):
 	"""
-	(1) query postgres to see if tables already esits for campaign 
+	(1) query sql to see if tables already esits for campaign 
 		'camp_name' (not a new campaign).
 	(2) if so, return most recent order number.
 	(3) if camp_name is new, then return order_num = 1 and run the
@@ -207,8 +194,7 @@ def check_campaign_tables(conn):
 	### (1) query postgres to see if tables already esits for the
 	### loaded campaign 'camp_name'
 	cur = conn.cursor()
-	cur.execute("select * from information_schema.tables where table_name= '{}_vs'".format(camp.name))
-
+	cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='{}_vs'; ".format(camp.name))
 
 
 	if cur.rowcount == 1:
@@ -225,7 +211,7 @@ def check_campaign_tables(conn):
 		return next_order_number
 	
 
-def initiate_postgresql_VS_table(conn, elements):
+def initiate_sql_VS_table(conn, elements):
 	""" 
 	Initiate variable space table on connection 'conn'
 	for campaign 'camp.name' with state dimensions 'camp.vs_state'
@@ -261,11 +247,11 @@ def initiate_postgresql_VS_table(conn, elements):
 
 
 	if len(camp.target_rnt) > 0:
-		execute_postgres_statement(
+		execute_sql_statement(
 			conn, "".join([sql_info, sql_rnt_morr, sql_rnt_rkb1, sql_state, 
 				sql_basis, sql_ele]) + ');')
 	else:	
-		execute_postgres_statement(
+		execute_sql_statement(
 			conn, "".join([sql_info, sql_state, sql_basis, sql_ele]) + ');')
 
 		
@@ -305,12 +291,12 @@ def initiate_postgresql_ES_table(conn, loaded_sp, elements):
 		loaded_sp])
 	
 
-	execute_postgres_statement(conn, "".join([sql_info, sql_run, sql_state, sql_ele, sql_sp]) + ');')
+	execute_sql_statement(conn, "".join([sql_info, sql_run, sql_state, sql_ele, sql_sp]) + ');')
 
 
-def orders_to_postgres(conn, table, ord, df):
+def orders_to_sql(conn, table, ord, df):
 	"""
-	Write pandas dataframe 'df' to postgresql 'table' on connection'conn.'
+	Write pandas dataframe 'df' to sql 'table' on connection'conn.'
 	"""
 	print('Attempting to write order # {}'.format(ord))
 	print('  to postgresql table {}'.format(table))
@@ -322,7 +308,6 @@ def orders_to_postgres(conn, table, ord, df):
 
 
 	cursor = conn.cursor()
-
 
 
 	try:

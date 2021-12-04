@@ -22,8 +22,9 @@ from hanger.data0_tools import *
 
 ### loaded campagin
 import campaign
-import campaign.TEOS_All as camp
+#import campaign.TEOS_All as camp
 
+camp = campaign.Campaign("../CSS0_1.json")
 def main():
 
 	# os.chdir('..')

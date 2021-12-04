@@ -1,0 +1,19 @@
+The hangar_bay contains custom packages, used by multiple projects.
+
+Each of the packages are their own git repos.
+
+https://python-packaging.readthedocs.io/en/latest/minimal.html#creating-the-scaffolding
+
+structure
+foldername/foldernam/__init__.py
+foldername/setup.py
+
+the setup.py file containing: 
+$ from setuptools import setup, find_packages
+$ setup(name='local folder name', packages=find_packages())
+
+. . . must be in first level tool folder, see above
+
+
+to load these custom packages, migrate to package of interest (folder):
+$ pip3 install -e .

@@ -3,14 +3,10 @@
 ### Generates orders (sets of points in VS) to be stored in VS 
 ### postgresql database. These orders are to be managed by the 
 ### helmsman at her leisure.
-### Tucker Ely 
-### October 6nd 2020
-
-
+### Tucker Ely and then 39Alpha
+### October 6nd 2020 and then Dec 12th 2021
 
 version = '0.1'
-
-
 
 import sqlite3 as sql
 import psycopg2.extras as extras
@@ -20,19 +16,13 @@ import pandas as pd
 from time import *
 import matplotlib.pyplot as plt
 
-
-
 from hanger.db_comms import *
 from hanger.tool_room import *
 from hanger.data0_tools import *
 
-
 ### loaded campagin
 import campaign
 import campaign.TEOS_All as camp
-
-
-
 
 def main():
 
@@ -91,7 +81,7 @@ def main():
 
 
 	### Send dataframe containing new orders to postgres database
-	orders_to_postgres(conn, '{}_vs'.format(camp.name), order_number, orders)
+	orders_to_sql(conn, '{}_vs'.format(camp.name), order_number, orders)
 	
 
 
@@ -132,18 +122,15 @@ def huffer(conn):
 
 	os.chdir('{}_huffer'.format(camp.name)) 					#	step into directory
 	
-
 	### build test.3i file from mean vlaues for each variable that is
 	### set to a range in the new campaign.
 	state_dict = {}
 	for _ in camp.vs_state.keys():
 		state_dict[_] = np.mean(camp.vs_state[_])
 
-
 	basis_dict = {}
 	for _ in camp.vs_basis.keys():
 		basis_dict[_] = np.mean(camp.vs_basis[_])
-
 
 	### (1) build and run test.3i
 	print('\n Processing test.3i.')

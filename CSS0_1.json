@@ -5,8 +5,8 @@
 	"creator": "39A",
 	"Mode": "Reaction EQ",
 	"Initial Fluid Constraints":{
-		"T":   [2, 20],
-		"P":   [10, 50],
+		"T_cel":   [2, 20],
+		"P_bar":   [10, 50],
 		"fO2": [-20, -1],
 		"cb":  "Cl-",
 		"basis": {"H+"       : [-7, -9],
@@ -27,7 +27,7 @@
 			"CO2(g)" :["gas",  [-7, -0.5], 1]
 	},
 	"VS_distro":"BF",
-	"reso": 4,
+	"BF resolution": 4,
 	"suppress min":"True",
 	"supress min exemptions": ["calcite"]
 }

@@ -17,15 +17,23 @@ _conn = None
 ###########################   sqlite3   #############################
 
 
-def check_for_local_db():
+def check_for_campaign_db(campaign_name):
 	""" Check the local directory for a sqlite3 DB with the correct tables
 	"""
+	db_name = campaign_name + ".db"
+	file_exists = False
+	tables_valid = False
+	if os.path.isfile(db_name):
+		file_exists = True
+	
+	if file_exists:
+		
 	return False
 
 def make_local_db():
 	""" Construct a local sqlite3 DB with the correct tables """
 	info = {} # Dictionary to store information about the construction process
-	
+
 	return info
 
 def establish_server_connection():

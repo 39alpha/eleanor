@@ -30,11 +30,12 @@ target_rnt = {
 
 cb           = 'Cl-' 							#	charge balance on
 
-suppress_min = False
-min_supp_exemp = []
+suppress_min = False # Suppress all mineral precipitation 
+min_supp_exemp = [] # Only used if supress_min is True
 
-reso = 30 		#	resolution on brute force
+reso = 30 		#	resolution on brute force, only used with bf
 
+# Fluid constraints (or not element constraints)
 vs_state = {'P_bar'  : 10, 
 			'fO2'    : -1,
 			'T_cel'  : 10
@@ -42,7 +43,7 @@ vs_state = {'P_bar'  : 10,
 
 ### HCO3      =  HCO3- + CO3-2 + CO2,AQ   =  0.0017803 + 0.0002477 + 0.0000100
 ### B(OH)3,AQ =  B(OH)3,AQ + B(OH)4- = 0.0003258 + 0.0001045
-
+# These are elemental basis species that form constraints
 vs_basis = {'H+'       : [-7, -9],
 			# 'Na+'      : [np.log10(   0.4860597  *_) for _ in [0.1, 1.1]],
 			'Na+'      : np.log10(0.4860597),
@@ -67,6 +68,6 @@ vs_basis = {'H+'       : [-7, -9],
 			# 'F-'       : [np.log10(   0.0000708  *_) for _ in [0.1, 1.1]]
 			'F-'       : np.log10(   0.0000708 )
 			}
-
+# Just create the templates to load into navigator and helms 
 local_3i = three_i(cb)
 local_6i = six_i(suppress_min = suppress_min, iopt4 = '1', min_supp_exemp=min_supp_exemp)

@@ -22,25 +22,27 @@ from hanger.data0_tools import *
 
 ### loaded campagin
 import campaign
-#import campaign.TEOS_All as camp
+
 
 camp = campaign.Campaign("../CSS0_1.json")
+
 def main():
 
 	# os.chdir('..')
 
 	### number of sample points requested in current order
 	
-	if re.findall('^BF$', sys.argv[1]):
+	if camp.distro == 'BF'
 		### BF = Brute force, whose order lenth is set by the combination 
 		### needed to fulfill the variables listed in the campain file. The
 		### resolution is set by reso in campagin file
-		order_len = sys.argv[1]
+		order_len = 'BF'
 
-	else:
+
+	elif camp.distro == 'random'
 		### first argument is a number corresponding to desired order length
 		### for random uniform order
-		order_len = int(sys.argv[1])
+		order_len = camp.reso
 
 
 	print('Loading campagin {}.\n'.format(camp.name))
@@ -74,9 +76,10 @@ def main():
 
 	### Generate orders. This can be altered later to call a variety of        
 	### functions that yeild different VS point distributions.
-	if type(order_len) == int:
-		orders = random_uniform_order(date, order_number, order_len, elements)
-	elif order_len == 'BF':
+	if camp.disro == 'random':
+		orders = random_uniform_order(date, order_number, camp.reso, elements)
+	
+	elif camp.distro == 'BF'
 		orders = brute_force_order(conn, date, order_number, elements)
 	
 

@@ -1,5 +1,5 @@
 import json
-
+import tool_room
 
 
 class Campaign(object):
@@ -28,13 +28,28 @@ class Campaign(object):
         
         self.target_rnt     = dat['Reactant']
         self.distro         = dat['VS_distro']
-        self.reso = dat.get("BF resolution", None)
-        if self.distro == "BF" and not self.reso:
-            raise AttributeError('Brute force has been declared, but "BF resolution" has not')
+
+        ### if distro == BF, reso = numebr of subdivision on each var
+        ### if distro == random, reso = total numebr of vs points in order
+        self.reso           = dat['resolution']        
+
+        # self.reso = dat.get("BF resolution", None)
+        # if self.distro == "BF" and not self.reso:
+        #     raise AttributeError('Brute force has been declared, but "BF resolution" has not')
+        
+
+
         # In case we need anything else just store it in _raw
         self._raw = dat
-       
-    
+
+        self.SS       = dat['Employ Solid Solutions']
+        if self.SS == Ture:
+            iopt4 = '1'
+        else:
+            iopt4 = '0'
+            
+        self.local_3i = tool_room.three_i(cb)
+        self.local_6i = tool_room.six_i(suppress_min = self.suppress_min, iopt4 = iopt4, min_supp_exemp=self.min_supp_exemp)
 
 
 

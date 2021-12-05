@@ -19,12 +19,14 @@ import numpy as np
 from subprocess import * 
 from time import *
 
+
+from .db_comms import *
+from .constants import *
+
 os.environ['EQ36CO']="/Users/tuckerely/NPP_dev/EQ3_6v8.0a/bin"
 os.environ['PATH']="{}:{}".format(os.environ['PATH'], os.environ['EQ36CO'])
 os.environ['EQ36DA']="/Users/tuckerely/NPP_dev/EQ3_6v8.0a/db"
 
-from .db_comms import *
-from .constants import *
 
 ##################################################################
 #########################  small pieces  #########################

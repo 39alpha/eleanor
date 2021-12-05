@@ -13,7 +13,6 @@ from os.path import dirname, abspath, realpath, join
 
 from .tool_room import *
 
-data0_repo = '/Users/tuckerely/data0/data0/'
 
 DATA_PATH = join(abspath(join(dirname(realpath(__file__)), '..')), 'data')
 SLOP_DF = pd.read_csv(join(DATA_PATH, 'test_worm_data.csv'), index_col=0)

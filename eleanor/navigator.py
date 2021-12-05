@@ -26,28 +26,13 @@ CAMPAIGN_FILE = join(dirname(realpath(__file__)), 'data', 'CSS0_1.json')
 camp = campaign.Campaign(CAMPAIGN_FILE)
 
 def main():
-
-        # os.chdir('..')
+	""" Main function of the navigator"""
 	### number of sample points requested in current order
-	print(os.getcwd())
-	if camp.distro == 'BF':
-		### BF = Brute force, whose order lenth is set by the combination 
-		### needed to fulfill the variables listed in the campain file. The
-		### resolution is set by reso in campagin file
-		order_len = 'BF'
-
-
-	elif camp.distro == 'random':
-		### first argument is a number corresponding to desired order length
-		### for random uniform order
-		order_len = camp.reso
-
+	os.chdir(camp.name)
 
 	print('Loading campagin {}.\n'.format(camp.name))
 
-
-	conn = establish_server_connection(camp.name + ".db")
-
+	conn = establish_server_connection(camp)
 
 	### Determine campaign status in postgres database. 
 	### If VS/ES tables already exist, then dont touch them,
@@ -56,21 +41,16 @@ def main():
 	### huffer to initiate VS/ES, and set order number to 1.
 	order_number = check_campaign_tables(conn)
 	
-
 	if order_number == 1:
 		### new campaign
 		huffer(conn)
 	
-
 	### grab needed species and element data from huffer test.3o files
-	elements = determine_ele_set(path = '{}_huffer/'.format(camp.name))
-	sp_names = determine_loaded_sp(path = '{}_huffer/'.format(camp.name))
-
+	elements = determine_ele_set(path = "huffer/")
+	sp_names = determine_loaded_sp(path =  "huffer/")
 
 	### current order birthday
 	date = strftime("%Y-%m-%d", gmtime()) 			
-
-
 
 	### Generate orders. This can be altered later to call a variety of        
 	### functions that yeild different VS point distributions.
@@ -79,26 +59,17 @@ def main():
 	
 	elif camp.distro == 'BF':
 		orders = brute_force_order(conn, date, order_number, elements)
-	
-
 
 	### Send dataframe containing new orders to postgres database
 	orders_to_sql(conn, '{}_vs'.format(camp.name), order_number, orders)
-	
-
 
 	conn.close()
-
-
 
 	print(' The Navigator has done her job.')
 	print('   While she detected no "obvious" faults,')
 	print('   she notes that you may have fucked up')
 	print('   repeatedly, but the QA code required to')
 	print('   detect your fuck ups has not been written.\n')
-
-
-
 
 def huffer(conn):
 	""" 
@@ -119,10 +90,10 @@ def huffer(conn):
 	
 
 	### build huffer directory and step in
-	mk_check_del_directory('{}_huffer'.format(camp.name))    	#	build test directory
-	mk_check_del_directory('{}_fig'.format(camp.name))    		#	build figure directory
+	mk_check_del_directory("huffer")#    	#	build test directory
+	mk_check_del_directory("fig")    		#	build figure directory
 
-	os.chdir('{}_huffer'.format(camp.name)) 					#	step into directory
+	os.chdir("huffer")			#	step into directory
 	
 	### build test.3i file from mean vlaues for each variable that is
 	### set to a range in the new campaign.
@@ -310,21 +281,8 @@ def orders_to_sql(conn, table, ord, df):
 
 	df.to_sql(table, con=conn, if_exists='append', index= False)#, index_label = "uuid")
 	
-
-
-	# try:
-	# 	cursor.executemany(query, tuples)
 	conn.commit()
 	conn.close()
-	# 	cursor.close()
-	# except (Exception, sql.DatabaseError) as error:
-	# 	print("Error: %s" % error)
-	# 	conn.rollback()
-	# 	cursor.close()
-	# 	
-	# 	sys.exit()
-
-
 
 	print("  Orders writen.\n")
 

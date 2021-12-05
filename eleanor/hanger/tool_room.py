@@ -113,8 +113,13 @@ def runeq(ver, suffix, input_file):
     returns standard out and standard error
     """
     # print(' Calling EQ{} on '.format(ver), input_file, ' using ', suffix)
-    code_path= '/Users/tuckerely/NPP_dev/EQ3_6v8.0a/bin/runeq{}'.format(ver)
-    process = Popen(['/bin/csh', code_path, suffix, input_file], stdout=PIPE, stderr=PIPE)
+    code_path= '/home/colemathis/eq3_6/bin/eq3nr' # Fix the formating
+    data1_file = "../db/data1" + suffix # Generalize
+    input_file = "../" + input_file
+    this_cwd = os.path.dirname(os.path.realpath(__file__)) 
+    test_wd = os.path.join(this_cwd, "test_output")
+    print([code_path, data1_file, input_file])
+    process = Popen([code_path, data1_file, input_file], cwd = test_wd,  stdout=PIPE, stderr=PIPE)
     stdout, stderr = process.communicate()
 
     return stdout, stderr

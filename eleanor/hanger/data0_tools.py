@@ -132,7 +132,9 @@ def data0_suffix(T, P):
 
     """
 
-    char = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z']
+    char = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b',
+            'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 
+            'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z']
     data0_system_T_interval = 7
     data0_system_P_interval = 0.5
     dualchar = []
@@ -140,8 +142,8 @@ def data0_suffix(T, P):
         for j in char:
             dualchar.append(''.join([i, j]))
     ### by using 'floor' below. the correct file is returned for T near the file cutoffs
-    ### for example, T = 7.99 (P=1), does in fact call the data0.002 file. The data0 files themselves
-    ### overlap in their lowest and highest values for consecutive files.
+    ### for example, T = 7.99 (P=1), does in fact call the data0.002 file. The data0 files 
+    ### themselves overlap in their lowest and highest values for consecutive files.
     t_char = char[math.floor(T/data0_system_T_interval)]                         
     tp_char = '{}{}'.format(t_char, dualchar[math.floor(P/data0_system_P_interval)])
 

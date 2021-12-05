@@ -9,21 +9,23 @@ import pandas as pd
 import matplotlib
 import matplotlib.pyplot as plt
 
+from os.path import dirname, abspath, realpath, join
+
 from .tool_room import *
 
-data0_repo = '/Users/tuckerely/data0/data0/'
 
-slop_df = pd.read_csv('test_worm_data.csv', index_col=0)
+DATA_PATH = join(abspath(join(dirname(realpath(__file__)), '..')), 'data')
+SLOP_DF = pd.read_csv(join(DATA_PATH, 'test_worm_data.csv'), index_col=0)
 
 def species_info(sp):
 	"""
 	in: 
-		'species namr in worm slop file 'slop_df'
+		species name in worm slop file 'SLOP_DF'
 	out:
-		dict['ele'] = sto containing ele,ents in species
+		dict['ele'] = sto containing elements in species
 	"""
 	comp_dict = {}
-	formula_ox = slop_df['formula_ox'][sp]
+	formula_ox = SLOP_DF['formula_ox'][sp]
 	for _ in formula_ox.split():
 		front = (re.sub(r'[-+][0-9]{0,2}', '', _))
 		if re.findall('^[A-Za-z]', front):

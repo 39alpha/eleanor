@@ -5,8 +5,8 @@
 	"creator": "39A",
 	"Mode": "Reaction EQ",
 	"Initial Fluid Constraints":{
-		"T_cel":   [2, 20],
-		"P_bar":   [10, 50],
+		"T_cel":   [0.5, 6],
+		"P_bar":   [4, 6],
 		"fO2": [-20, -1],
 		"cb":  "Cl-",
 		"basis": {"H+"       : [-7, -9],

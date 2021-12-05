@@ -114,14 +114,21 @@ def runeq(ver, suffix, input_file):
     """
     # print(' Calling EQ{} on '.format(ver), input_file, ' using ', suffix)
     code_path= '/home/colemathis/eq3_6/bin/eq3nr' # Fix the formating
-    data1_file = "../db/data1" + suffix # Generalize
-    input_file = "../" + input_file
+    data1_file = "../db/data1." + suffix # Generalize
+    print(os.path.isfile(data1_file))
+
+    input_file =  input_file
+    print(os.path.isfile(input_file))
     this_cwd = os.path.dirname(os.path.realpath(__file__)) 
-    test_wd = os.path.join(this_cwd, "test_output")
+    print(this_cwd)
+    test_wd = os.path.join(this_cwd, "../CSS0_huffer")
     print([code_path, data1_file, input_file])
+
+    # proc_1 = Popen(["pwd"], cwd = test_wd, stdout = PIPE, stderr = PIPE)
+    # stdout, stderr = proc_1.communicate()
     process = Popen([code_path, data1_file, input_file], cwd = test_wd,  stdout=PIPE, stderr=PIPE)
     stdout, stderr = process.communicate()
-
+    print(stdout)
     return stdout, stderr
 
 

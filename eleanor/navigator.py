@@ -153,7 +153,7 @@ def huffer(conn):
 
 	try:
 		### if 3o is generated
-		lines = grab_lines('test.3o')
+		lines = grab_lines('CSS0_huffer/output')
 	except:
 		print('\n Huffer fail:')
 		sys.exit('  I fucked that up didnt I?\n')

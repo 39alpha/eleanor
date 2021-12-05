@@ -165,7 +165,7 @@ def huffer(conn):
 
 
 	### estalibsh new table based on vs_state and vs_basis
-	initiate_postgresql_VS_table(conn, elements)
+	initiate_sql_VS_table(conn, elements)
 
 
 
@@ -176,7 +176,7 @@ def huffer(conn):
 
 
 	### estalibsh new ES table based on loaded species.
-	initiate_postgresql_ES_table(conn, sp_names, elements)	
+	initiate_sql_ES_table(conn, sp_names, elements)	
 
 	os.chdir('..')
 	
@@ -258,7 +258,7 @@ def initiate_sql_VS_table(conn, elements):
 			conn, "".join([sql_info, sql_state, sql_basis, sql_ele]) + ');')
 
 		
-def initiate_postgresql_ES_table(conn, loaded_sp, elements):
+def initiate_sql_ES_table(conn, loaded_sp, elements):
 	""" 
 	Initiater equilibrium space (mined from 6o) table on connection 'conn'     
 	for campaign 'camp_name' with state dimensions 'camp_vs_state' and 

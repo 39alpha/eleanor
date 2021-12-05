@@ -75,7 +75,7 @@ def main():
 
 	### Generate orders. This can be altered later to call a variety of        
 	### functions that yeild different VS point distributions.
-	if camp.disro == 'random':
+	if camp.distro == 'random':
 		orders = random_uniform_order(date, order_number, camp.reso, elements)
 	
 	elif camp.distro == 'BF':
@@ -367,6 +367,7 @@ def brute_force_order(conn, date, order_number, elements):
 	
 	### warn user of dataframe size to be built
 	order_size = camp.reso**len(BF_vars)
+        print("Order size: " + str(order_size))
 	if order_size > 100000:
 		answer = input('\n\n The brute force method will generate {} \n\
     VS samples. Thats pretty fucking big.\n\
@@ -377,7 +378,7 @@ def brute_force_order(conn, date, order_number, elements):
 			sys.exit("ABORT !")
 	
 	df = process_BF_vars(BF_vars, camp.reso)
-	
+        print("Size of DF: " + str(len(df)))
 	### value precision in postgres table
 	precision = 6
 

@@ -44,7 +44,7 @@ def determine_ele_set(path = ''):
 	"""
 	elements = []
 	grab_ele = False
-	with open('{}outpu'.format(path), 'r') as f:
+	with open('{}output'.format(path), 'r') as f:
 		for line in f:
 			if '           --- Elemental Composition of the Aqueous Solution ---' in line:
 				grab_ele = True

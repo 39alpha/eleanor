@@ -28,10 +28,9 @@ camp = campaign.Campaign("CSS0_1.json")
 
 def main():
 
-	# os.chdir('..')
-
+        # os.chdir('..')
 	### number of sample points requested in current order
-	
+	print(os.getcwd())
 	if camp.distro == 'BF':
 		### BF = Brute force, whose order lenth is set by the combination 
 		### needed to fulfill the variables listed in the campain file. The
@@ -76,7 +75,7 @@ def main():
 
 	### Generate orders. This can be altered later to call a variety of        
 	### functions that yeild different VS point distributions.
-	if camp.disro == 'random':
+	if camp.distro == 'random':
 		orders = random_uniform_order(date, order_number, camp.reso, elements)
 	
 	elif camp.distro == 'BF':
@@ -153,7 +152,7 @@ def huffer(conn):
 
 	try:
 		### if 3o is generated
-		lines = grab_lines('test.3o')
+		lines = grab_lines('output')
 	except:
 		print('\n Huffer fail:')
 		sys.exit('  I fucked that up didnt I?\n')
@@ -166,7 +165,7 @@ def huffer(conn):
 
 
 	### estalibsh new table based on vs_state and vs_basis
-	initiate_postgresql_VS_table(conn, elements)
+	initiate_sql_VS_table(conn, elements)
 
 
 
@@ -177,7 +176,7 @@ def huffer(conn):
 
 
 	### estalibsh new ES table based on loaded species.
-	initiate_postgresql_ES_table(conn, sp_names, elements)	
+	initiate_sql_ES_table(conn, sp_names, elements)	
 
 	os.chdir('..')
 	
@@ -259,7 +258,7 @@ def initiate_sql_VS_table(conn, elements):
 			conn, "".join([sql_info, sql_state, sql_basis, sql_ele]) + ');')
 
 		
-def initiate_postgresql_ES_table(conn, loaded_sp, elements):
+def initiate_sql_ES_table(conn, loaded_sp, elements):
 	""" 
 	Initiater equilibrium space (mined from 6o) table on connection 'conn'     
 	for campaign 'camp_name' with state dimensions 'camp_vs_state' and 
@@ -303,27 +302,28 @@ def orders_to_sql(conn, table, ord, df):
 	Write pandas dataframe 'df' to sql 'table' on connection'conn.'
 	"""
 	print('Attempting to write order # {}'.format(ord))
-	print('  to postgresql table {}'.format(table))
+	print('  to sql table {}'.format(table))
 	print('  . . . ')
 	tuples = [tuple(x) for x in df.to_numpy()]
 	cols = ','.join([ '"{}"'.format(_) for _ in list(df.columns)])
 	query  = "INSERT INTO %s(%s) VALUES %%s" % (table, cols)
 
 
+	df.to_sql(table, con=conn, if_exists='append', index= False)#, index_label = "uuid")
+	
 
-	cursor = conn.cursor()
 
-
-	try:
-		extras.execute_values(cursor, query, tuples)
-		conn.commit()
-		cursor.close()
-	except (Exception, pg.DatabaseError) as error:
-		print("Error: %s" % error)
-		conn.rollback()
-		cursor.close()
-		conn.close()
-		sys.exit()
+	# try:
+	# 	cursor.executemany(query, tuples)
+	conn.commit()
+	conn.close()
+	# 	cursor.close()
+	# except (Exception, sql.DatabaseError) as error:
+	# 	print("Error: %s" % error)
+	# 	conn.rollback()
+	# 	cursor.close()
+	# 	
+	# 	sys.exit()
 
 
 
@@ -368,17 +368,17 @@ def brute_force_order(conn, date, order_number, elements):
 	
 	### warn user of dataframe size to be built
 	order_size = camp.reso**len(BF_vars)
+	print("Order size: " + str(order_size))
 	if order_size > 100000:
 		answer = input('\n\n The brute force method will generate {} \n\
-    VS samples. Thats pretty fucking big.\n\
-    Are you sure you want to proceed? (Y E S/N)\n'.format(order_size))
+	VS samples. Thats pretty fucking big.\n\
+	Are you sure you want to proceed? (Y E S/N)\n'.format(order_size))
 		if answer == 'Y E S':
 			pass
 		else:
 			sys.exit("ABORT !")
-	
+
 	df = process_BF_vars(BF_vars, camp.reso)
-	
 	### value precision in postgres table
 	precision = 6
 
@@ -501,7 +501,7 @@ def brute_force_order(conn, date, order_number, elements):
 		df['{}'.format(_)] = np.round(np.log10(ele_totals[_]), precision)
 
 
-	print(df)
+	#print(df)
 	### reorder columns to match VS table
 	cols = get_column_names(conn, '{}_vs'.format(camp.name))
 	df = df[cols]
@@ -511,7 +511,7 @@ def brute_force_order(conn, date, order_number, elements):
 
 	return df
 
-def process_BF_vars(BF_vars, reso):
+def process_BF_vars_old(BF_vars, reso):
 	"""
 	create dataframe containing all samples brute force samples
 	"""
@@ -526,9 +526,30 @@ def process_BF_vars(BF_vars, reso):
 		exec_text = '{}{},'.format(exec_text, build_str)
 
 	exec_text = '{}].reshape({},-1).T'.format(exec_text[:-1], len(BF_vars))
-
+	print(exec_text)
 	exec(exec_text, locals(), globals())
+	print(grid.shape)
+	return pd.DataFrame(grid, columns = list(BF_vars.keys()))
 
+def process_BF_vars(BF_vars, reso):
+	"""
+	create dataframe containing all samples brute force samples
+	"""
+	# TODO: Check this against old method
+	all_ranges = []
+	for this_var in BF_vars:
+		### want reso = number of sample poiunts to capture min and max values
+		### hence manipulation of the max value 
+		min_val = BF_vars[this_var][0] #-8
+		max_val = BF_vars[this_var][1] #-6
+		#step = (max_val - min_val) / (reso - 1)
+		this_range = np.linspace(min_val, max_val, num= reso)
+		all_ranges.append(this_range)
+	grid = np.array([np.array(i) for i in itertools.product(*all_ranges)])
+	#grid  = grid.reshape(-1)
+	#grid = np.mgrid[all_ranges]
+	
+	print(grid.shape)
 	return pd.DataFrame(grid, columns = list(BF_vars.keys()))
 
 def random_uniform_order(date, order_number, order_size, elements):

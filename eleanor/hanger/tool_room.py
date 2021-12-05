@@ -56,14 +56,14 @@ def mk_check_del_directory(path):
     """
     if not os.path.exists(path):            #    Check if the dir is alrady pessent
         os.makedirs(path)                   #    Build desired output directory
-    else:
-        answer = input('\n Directory {} already exists.\n\
-    Are you sure you want to overwrite its contents? (Y E S/N)\n'.format(path))
-        if answer == 'Y E S':
-            shutil.rmtree(path)             #    Remove directory and contents if it is already present.
-            os.makedirs(path)
-        else:
-            sys.exit("ABORT !")
+    # else:
+    #     answer = input('\n Directory {} already exists.\n\
+    # Are you sure you want to overwrite its contents? (Y E S/N)\n'.format(path))
+    #     if answer == 'Y E S':
+    #         shutil.rmtree(path)             #    Remove directory and contents if it is already present.
+    #         os.makedirs(path)
+    #     else:
+    #         sys.exit("ABORT !")
 
 def mk_check_del_file(path):
     ###  This code checks for the file being created/moved already exists at the destination. And if so, delets it.
@@ -90,7 +90,12 @@ def grab_str(line, pos):
     return b[pos]
 
 def grab_lines(file):
+    print("in grab lines")
+    print(file)
+    print(os.path.isfile(file))
+    print(os.getcwd())
     f = open(file, "r")
+    print("opened f")
     lines = f.readlines()
     f.close()
     return lines
@@ -113,10 +118,24 @@ def runeq(ver, suffix, input_file):
     returns standard out and standard error
     """
     # print(' Calling EQ{} on '.format(ver), input_file, ' using ', suffix)
-    code_path= '/Users/tuckerely/NPP_dev/EQ3_6v8.0a/bin/runeq{}'.format(ver)
-    process = Popen(['/bin/csh', code_path, suffix, input_file], stdout=PIPE, stderr=PIPE)
+    code_path = None
+    if ver == 3:
+        code_path= '/home/colemathis/eq3_6/bin/eq3nr' # Generalize the formating
+    elif ver == 6:
+        code_path = '/home/colemathis/eq3_6/bin/eq6' # Generalize the formating
+    else:
+        raise ValueError("runeq called with ver arugment set to something besides 3 or 6, you've fucked it")
+    
+    data1_file = "../db/data1." + suffix # Generalize
+    # print(os.path.isfile(data1_file))
+    input_file =  input_file
+    # print(os.path.isfile(input_file))
+    this_cwd = os.path.dirname(os.path.realpath(__file__)) 
+    # print(this_cwd)
+    test_wd = os.path.join(this_cwd, "../CSS0_huffer")
+    # print([code_path, data1_file, input_file])
+    process = Popen([code_path, data1_file, input_file], cwd = test_wd,  stdout=PIPE, stderr=PIPE)
     stdout, stderr = process.communicate()
-
     return stdout, stderr
 
 

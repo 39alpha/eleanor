@@ -22,8 +22,8 @@ from matplotlib.colors import ListedColormap, LinearSegmentedColormap
 
 
 ### custom packages
-from db_comms import *
-from tool_room import *
+from .db_comms import *
+from .tool_room import *
 
 pwd = os.getcwd()
 

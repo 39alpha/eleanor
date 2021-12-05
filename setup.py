@@ -2,7 +2,7 @@ import os
 from setuptools import find_packages, setup
 
 HERE = os.path.dirname(__file__)
-with open(os.path.join(HERE, "README.md")) as o:
+with open(os.path.join(HERE, 'README.md')) as o:
     readme = o.read()
 
 setup(
@@ -10,11 +10,15 @@ setup(
     version='0.0.0',
     description='large scale aqueous geochemical modelling',
     long_description=readme,
-    long_description_content_type="text/markdown",
+    long_description_content_type='text/markdown',
     author='39Alpha',
     author_email='tucker@39alpharesearch.org',
+    license='',
     packages=find_packages(),
-    install_requires=["numpy", "pandas", "matplotlib"],
-    license="",
-    include_package_data=True
+    package_data={'eleanor': ['data/*.csv', 'data/*.json']},
+    install_requires=['numpy', 'pandas', 'matplotlib'],
+    setup_requires=['green'],
+    test_suite='test',
+    include_package_data=True,
+    platforms=['Windows', 'OS X', 'Linux']
 )

@@ -18,13 +18,12 @@ import multiprocessing
 
 
 ### custom packages
-from db_comms import *
-from tool_room import *
-from data0_tools import *
+from .hanger.db_comms import *
+from .hanger.tool_room import *
+from .hanger.data0_tools import *
 
-
-import campaign
-import campaign.TEOS_Cal as camp
+import eleanor.campaign as campaign
+# import campaign.TEOS_Cal as camp
 
 
 

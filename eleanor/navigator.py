@@ -15,15 +15,15 @@ import pandas as pd
 from time import *
 import matplotlib.pyplot as plt
 
-from hanger.db_comms import *
-from hanger.tool_room import *
-from hanger.data0_tools import *
+from .hanger.db_comms import *
+from .hanger.tool_room import *
+from .hanger.data0_tools import *
 
 ### loaded campagin
-import campaign
+import eleanor.campaign as campaign
 
-
-camp = campaign.Campaign("CSS0_1.json")
+CAMPAIGN_FILE = join(dirname(realpath(__file__)), 'data', 'CSS0_1.json')
+camp = campaign.Campaign(CAMPAIGN_FILE)
 
 def main():
 	""" Main function of the navigator"""

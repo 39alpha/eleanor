@@ -1,13 +1,11 @@
+""" The Campaign class for Eleanor contains the class methods for defining modelling objectives"""
 import json
 import os
-from .hanger import tool_room 
-
+from .hanger import tool_room
 
 class Campaign(object):
     """The Campaign class defines the modelling objectives and priorities
         These include -
-        
-        
     """
     def __init__(self, file_name):
         self.file_name = file_name
@@ -15,12 +13,12 @@ class Campaign(object):
         # In case we need anything else just store it in _raw
         self._raw = dat
         # Metadata
-        self.name           = dat['campaign']
-        self.notes          = dat['notes']
-        self.est_date       = dat['est_date']
-        self.target_rnt     = dat['Reactant']
+        self.name = dat['campaign']
+        self.notes = dat['notes']
+        self.est_date = dat['est_date']
+        self.target_rnt = dat['Reactant']
         # modelling data
-        self.suppress_min   = dat['suppress min']
+        self.suppress_min = dat['suppress min']
         self.min_supp_exemp = dat['supress min exemptions']
         #self.reso           = dat['BF resolution']
 

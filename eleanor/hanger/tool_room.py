@@ -56,14 +56,14 @@ def mk_check_del_directory(path):
     """
     if not os.path.exists(path):            #    Check if the dir is alrady pessent
         os.makedirs(path)                   #    Build desired output directory
-    else:
-        answer = input('\n Directory {} already exists.\n\
-    Are you sure you want to overwrite its contents? (Y E S/N)\n'.format(path))
-        if answer == 'Y E S':
-            shutil.rmtree(path)             #    Remove directory and contents if it is already present.
-            os.makedirs(path)
-        else:
-            sys.exit("ABORT !")
+    # else:
+    #     answer = input('\n Directory {} already exists.\n\
+    # Are you sure you want to overwrite its contents? (Y E S/N)\n'.format(path))
+    #     if answer == 'Y E S':
+    #         shutil.rmtree(path)             #    Remove directory and contents if it is already present.
+    #         os.makedirs(path)
+    #     else:
+    #         sys.exit("ABORT !")
 
 def mk_check_del_file(path):
     ###  This code checks for the file being created/moved already exists at the destination. And if so, delets it.

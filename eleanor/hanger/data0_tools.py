@@ -13,7 +13,7 @@ from .tool_room import *
 
 data0_repo = '/Users/tuckerely/data0/data0/'
 
-#slop_df = pd.read_csv('/Users/tuckerely/NPP_dev/0_slop_OBIGT_Data0/tde_lim.csv', index_col=0)
+slop_df = pd.read_csv('test_worm_data.csv', index_col=0)
 
 def species_info(sp):
 	"""

@@ -120,9 +120,9 @@ def runeq(ver, suffix, input_file):
     # print(' Calling EQ{} on '.format(ver), input_file, ' using ', suffix)
     code_path = None
     if ver == 3:
-        code_path= '/home/colemathis/eq3_6/bin/eq3nr' # Generalize the formating
+        code_path= 'eq3nr' # Generalize the formating
     elif ver == 6:
-        code_path = '/home/colemathis/eq3_6/bin/eq6' # Generalize the formating
+        code_path = 'eq6' # Generalize the formating
     else:
         raise ValueError("runeq called with ver arugment set to something besides 3 or 6, you've fucked it")
     

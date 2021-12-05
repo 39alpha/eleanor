@@ -9,7 +9,6 @@
 version = '0.1'
 
 import sqlite3 as sql
-import psycopg2.extras as extras
 import sys, uuid, random, itertools
 import numpy as np
 import pandas as pd
@@ -27,28 +26,13 @@ import campaign
 camp = campaign.Campaign("CSS0_1.json")
 
 def main():
-
-        # os.chdir('..')
+	""" Main function of the navigator"""
 	### number of sample points requested in current order
 	os.chdir(camp.name)
-	if camp.distro == 'BF':
-		### BF = Brute force, whose order lenth is set by the combination 
-		### needed to fulfill the variables listed in the campain file. The
-		### resolution is set by reso in campagin file
-		order_len = 'BF'
-
-
-	elif camp.distro == 'random':
-		### first argument is a number corresponding to desired order length
-		### for random uniform order
-		order_len = camp.reso
-
 
 	print('Loading campagin {}.\n'.format(camp.name))
 
-
 	conn = establish_server_connection(camp)
-
 
 	### Determine campaign status in postgres database. 
 	### If VS/ES tables already exist, then dont touch them,
@@ -57,21 +41,16 @@ def main():
 	### huffer to initiate VS/ES, and set order number to 1.
 	order_number = check_campaign_tables(conn)
 	
-
 	if order_number == 1:
 		### new campaign
 		huffer(conn)
 	
-
 	### grab needed species and element data from huffer test.3o files
 	elements = determine_ele_set(path = "huffer/")
 	sp_names = determine_loaded_sp(path =  "huffer/")
 
-
 	### current order birthday
 	date = strftime("%Y-%m-%d", gmtime()) 			
-
-
 
 	### Generate orders. This can be altered later to call a variety of        
 	### functions that yeild different VS point distributions.
@@ -80,26 +59,17 @@ def main():
 	
 	elif camp.distro == 'BF':
 		orders = brute_force_order(conn, date, order_number, elements)
-	
-
 
 	### Send dataframe containing new orders to postgres database
 	orders_to_sql(conn, '{}_vs'.format(camp.name), order_number, orders)
-	
-
 
 	conn.close()
-
-
 
 	print(' The Navigator has done her job.')
 	print('   While she detected no "obvious" faults,')
 	print('   she notes that you may have fucked up')
 	print('   repeatedly, but the QA code required to')
 	print('   detect your fuck ups has not been written.\n')
-
-
-
 
 def huffer(conn):
 	""" 

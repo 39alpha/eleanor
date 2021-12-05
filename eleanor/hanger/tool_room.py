@@ -90,7 +90,12 @@ def grab_str(line, pos):
     return b[pos]
 
 def grab_lines(file):
+    print("in grab lines")
+    print(file)
+    print(os.path.isfile(file))
+    print(os.getcwd())
     f = open(file, "r")
+    print("opened f")
     lines = f.readlines()
     f.close()
     return lines
@@ -113,6 +118,7 @@ def runeq(ver, suffix, input_file):
     returns standard out and standard error
     """
     # print(' Calling EQ{} on '.format(ver), input_file, ' using ', suffix)
+    original_dir = os.getcwd()
     code_path = None
     if ver == 3:
         code_path= '/home/colemathis/eq3_6/bin/eq3nr' # Generalize the formating
@@ -131,7 +137,7 @@ def runeq(ver, suffix, input_file):
     # print([code_path, data1_file, input_file])
     process = Popen([code_path, data1_file, input_file], cwd = test_wd,  stdout=PIPE, stderr=PIPE)
     stdout, stderr = process.communicate()
-    # print(stdout)
+    os.chdir(original_dir) # This is really hacky we need to fix it. Check the docs on subprocess and popen
     return stdout, stderr
 
 

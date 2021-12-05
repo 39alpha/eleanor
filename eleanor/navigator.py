@@ -28,10 +28,9 @@ camp = campaign.Campaign("CSS0_1.json")
 
 def main():
 
-	# os.chdir('..')
-
+        # os.chdir('..')
 	### number of sample points requested in current order
-	
+	print(os.getcwd())
 	if camp.distro == 'BF':
 		### BF = Brute force, whose order lenth is set by the combination 
 		### needed to fulfill the variables listed in the campain file. The

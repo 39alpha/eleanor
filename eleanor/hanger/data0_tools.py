@@ -11,7 +11,6 @@ import matplotlib.pyplot as plt
 
 from .tool_room import *
 
-data0_repo = '/Users/tuckerely/data0/data0/'
 
 slop_df = pd.read_csv('test_worm_data.csv', index_col=0)
 

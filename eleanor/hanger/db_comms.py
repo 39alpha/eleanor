@@ -15,10 +15,11 @@ _conn = None
 
 ###########################   sqlite3   #############################
 
-def establish_server_connection(campaign_db_name, _conn = None):
+def establish_server_connection(campaign, _conn = None):
 	## TODO: Fix this to work with SQLLite 
 	"""Establish SQL connection with local DB"""
 	if not _conn:
+		campaign_db_name = campaign.name + ".db"
 		print('new connection to local db: ' + campaign_db_name)
 		_conn = sql.connect(campaign_db_name)
 

@@ -113,7 +113,13 @@ def runeq(ver, suffix, input_file):
     returns standard out and standard error
     """
     # print(' Calling EQ{} on '.format(ver), input_file, ' using ', suffix)
-    code_path= '/home/colemathis/eq3_6/bin/eq3nr' # Fix the formating
+    code_path = None
+    if ver == 3:
+        code_path= '/home/colemathis/eq3_6/bin/eq3nr' # Generalize the formating
+    elif ver == 6:
+        code_path = '/home/colemathis/eq3_6/bin/eq6' # Generalize the formating
+    else:
+        raise ValueError("runeq called with ver arugment set to something besides 3 or 6, you've fucked it")
     data1_file = "../db/data1." + suffix # Generalize
     print(os.path.isfile(data1_file))
 

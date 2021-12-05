@@ -14,7 +14,7 @@ class Campaign(object):
         # Metadata
         self.name           = dat['campaign']
         self.notes          = dat['notes']
-        self.est_date       = dat['date']
+        self.est_date       = dat['est_date']
         self.target_rnt     = dat['Reactant']
         # modelling data
         self.suppress_min   = dat['suppress min']

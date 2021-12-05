@@ -27,7 +27,7 @@
 			"CO2(g)" :["gas",  [-7, -0.5], 1]
 	},
 	"VS_distro":"BF",
-	"resoliution": 4,
+	"resolution": 4,
 	"suppress min":"True",
 	"supress min exemptions": ["calcite"],
 	"Employ Solid Solutions": "True"

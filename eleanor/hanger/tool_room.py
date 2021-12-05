@@ -120,21 +120,18 @@ def runeq(ver, suffix, input_file):
         code_path = '/home/colemathis/eq3_6/bin/eq6' # Generalize the formating
     else:
         raise ValueError("runeq called with ver arugment set to something besides 3 or 6, you've fucked it")
+    
     data1_file = "../db/data1." + suffix # Generalize
-    print(os.path.isfile(data1_file))
-
+    # print(os.path.isfile(data1_file))
     input_file =  input_file
-    print(os.path.isfile(input_file))
+    # print(os.path.isfile(input_file))
     this_cwd = os.path.dirname(os.path.realpath(__file__)) 
-    print(this_cwd)
+    # print(this_cwd)
     test_wd = os.path.join(this_cwd, "../CSS0_huffer")
-    print([code_path, data1_file, input_file])
-
-    # proc_1 = Popen(["pwd"], cwd = test_wd, stdout = PIPE, stderr = PIPE)
-    # stdout, stderr = proc_1.communicate()
+    # print([code_path, data1_file, input_file])
     process = Popen([code_path, data1_file, input_file], cwd = test_wd,  stdout=PIPE, stderr=PIPE)
     stdout, stderr = process.communicate()
-    print(stdout)
+    # print(stdout)
     return stdout, stderr
 
 

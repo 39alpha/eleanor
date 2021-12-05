@@ -118,7 +118,6 @@ def runeq(ver, suffix, input_file):
     returns standard out and standard error
     """
     # print(' Calling EQ{} on '.format(ver), input_file, ' using ', suffix)
-    original_dir = os.getcwd()
     code_path = None
     if ver == 3:
         code_path= '/home/colemathis/eq3_6/bin/eq3nr' # Generalize the formating
@@ -137,7 +136,6 @@ def runeq(ver, suffix, input_file):
     # print([code_path, data1_file, input_file])
     process = Popen([code_path, data1_file, input_file], cwd = test_wd,  stdout=PIPE, stderr=PIPE)
     stdout, stderr = process.communicate()
-    os.chdir(original_dir) # This is really hacky we need to fix it. Check the docs on subprocess and popen
     return stdout, stderr
 
 

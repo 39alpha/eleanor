@@ -24,7 +24,7 @@ from hanger.data0_tools import *
 import campaign
 
 
-camp = campaign.Campaign("../CSS0_1.json")
+camp = campaign.Campaign("CSS0_1.json")
 
 def main():
 
@@ -32,14 +32,14 @@ def main():
 
 	### number of sample points requested in current order
 	
-	if camp.distro == 'BF'
+	if camp.distro == 'BF':
 		### BF = Brute force, whose order lenth is set by the combination 
 		### needed to fulfill the variables listed in the campain file. The
 		### resolution is set by reso in campagin file
 		order_len = 'BF'
 
 
-	elif camp.distro == 'random'
+	elif camp.distro == 'random':
 		### first argument is a number corresponding to desired order length
 		### for random uniform order
 		order_len = camp.reso
@@ -79,7 +79,7 @@ def main():
 	if camp.disro == 'random':
 		orders = random_uniform_order(date, order_number, camp.reso, elements)
 	
-	elif camp.distro == 'BF'
+	elif camp.distro == 'BF':
 		orders = brute_force_order(conn, date, order_number, elements)
 	
 

@@ -1,5 +1,5 @@
 import json
-import tool_room
+from hanger import tool_room 
 
 
 class Campaign(object):
@@ -19,7 +19,7 @@ class Campaign(object):
         # modelling data
         self.suppress_min   = dat['suppress min']
         self.min_supp_exemp = dat['supress min exemptions']
-        self.reso           = dat['BF resolution']
+        #self.reso           = dat['BF resolution']
 
         self.cb             = dat['Initial Fluid Constraints']['cb']
         self.vs_state       = {key: dat['Initial Fluid Constraints'][key] for key in [
@@ -43,13 +43,13 @@ class Campaign(object):
         self._raw = dat
 
         self.SS       = dat['Employ Solid Solutions']
-        if self.SS == Ture:
+        if self.SS == True:
             iopt4 = '1'
         else:
             iopt4 = '0'
             
-        self.local_3i = tool_room.three_i(cb)
-        self.local_6i = tool_room.six_i(suppress_min = self.suppress_min, iopt4 = iopt4, min_supp_exemp=self.min_supp_exemp)
+        self.local_3i = tool_room.Three_i(self.cb)
+        self.local_6i = tool_room.Six_i(suppress_min = self.suppress_min, iopt4 = iopt4, min_supp_exemp=self.min_supp_exemp)
 
 
 

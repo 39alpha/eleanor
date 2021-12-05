@@ -3,7 +3,7 @@
 ### 2018-
 ### general EQ3/6 dependencies
 
-###  contains functions and variables
+### contains functions and variables
 ### related to running and manipulating EQ3/6.
 ### This file is my attempt to stremaline the development 
 ### process, as the functions contained herein are 
@@ -15,19 +15,18 @@
 
 import os, shutil, sys, re, math, itertools
 
-
 import numpy as np
 from subprocess import * 
 from time import *
-from .db_comms import *
 
+
+from .db_comms import *
+from .constants import *
 
 os.environ['EQ36CO']="/Users/tuckerely/NPP_dev/EQ3_6v8.0a/bin"
 os.environ['PATH']="{}:{}".format(os.environ['PATH'], os.environ['EQ36CO'])
 os.environ['EQ36DA']="/Users/tuckerely/NPP_dev/EQ3_6v8.0a/db"
 
-
-from .constants import *
 
 ##################################################################
 #########################  small pieces  #########################
@@ -244,8 +243,6 @@ def oxide_conversion(dat, oxide, fe3_frac):
 
      """
 
-
-
     rock = dat[3:] 
 
     ### rock = line from database csv file, rock_name in [0], ridge_name in [1], oxides from there.
@@ -306,10 +303,6 @@ def determine_xi_grab_steps(dlxprn, ximax, starting):
     xi_str_list.insert(0, format_e(starting, 5))        #  prepend first xi step
     return xi_str_list
  
-
-
-
-
 ##############    Reactant Blocks 
 
 def build_special_rnt(phase, phase_dat):
@@ -345,7 +338,6 @@ def build_special_rnt(phase, phase_dat):
     else:
         middle = '   {}{}          1.00000E+00\n'.format(phase, ' '*(2-len(phase))),
         
-
     ### the top and bottom of the reactant block is the same for ele and sr, 
     ### as the reactant is titrated as a single unit (rk1b).    
     top = '\n'.join(['*-----------------------------------------------------------------------------',
@@ -372,7 +364,6 @@ def build_mineral_rnt(phase, morr, rk1b):
     of moles  = morr, and a titration rate relative to xi=1 of rk1b
     """
 
-
     ############ example block ##############
     #   *-----------------------------------------------------------------------------
     # reactant= Quartz
@@ -382,7 +373,6 @@ def build_mineral_rnt(phase, morr, rk1b):
     #     fkrc=  0.00000E+00
     #     nrk1=  1                nrk2=  0
     #     rkb1=  9.40100E-03      rkb2=  0.00000E+00      rkb3=  0.00000E+00
-
 
     return '\n'.join(['*-----------------------------------------------------------------------------',
                 '  reactant= {}'.format(phase),
@@ -448,17 +438,11 @@ def build_gas_rnt(phase, morr, rk1b):
                 '      nrk1=  1',
                 '       rk1=  {}       rk2=  0.00000E+00       rk3=  0.00000E+00\n'.format(format_e(rk1b, 5))])
 
-
-
-
-
-
-
 ##################################################################
 ###########################  classes  ############################
 ##################################################################
 
-class Three_i:
+class Three_i(object):
     """ 
         Instantiates 3i document template that contains the correct
         format (all run setings).
@@ -614,8 +598,7 @@ class Three_i:
 
 
 
-
-class Six_i:
+class Six_i(object):
     """ 
         Instantiates 6i document template that contains the correct
         format (all run setings).
@@ -912,27 +895,3 @@ class Six_i:
             ### load pickup lines
             for _ in pickup_lines:
                 build.write(_)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

@@ -6,12 +6,10 @@
 # Tucker Ely and then 39Alpha
 # October 6nd 2020 and then Dec 12th 2021
 
-import sqlite3 as sql
 import sys, uuid, random, itertools
 import numpy as np
 import pandas as pd
 from time import *
-import matplotlib.pyplot as plt
 
 from .hanger.db_comms import *
 from .hanger.tool_room import *

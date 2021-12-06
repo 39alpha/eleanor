@@ -1,3 +1,4 @@
+# pylint: disable=too-few-public-methods
 """ The Campaign class for Eleanor contains the class methods for defining modelling objectives"""
 import json
 import os

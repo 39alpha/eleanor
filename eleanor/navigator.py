@@ -1,12 +1,10 @@
-###
-### Navigator.py         
-### Generates orders (sets of points in VS) to be stored in VS 
-### postgresql database. These orders are to be managed by the 
-### helmsman at her leisure.
-### Tucker Ely and then 39Alpha
-### October 6nd 2020 and then Dec 12th 2021
-
-version = '0.1'
+"""The Navigator is the main tool to construct orders for the Helmsman to distribute"""
+# Navigator.py
+# Generates orders (sets of points in VS) to be stored in VS
+# postgresql database. These orders are to be managed by the
+# helmsman at her leisure.
+# Tucker Ely and then 39Alpha
+# October 6nd 2020 and then Dec 12th 2021
 
 import sqlite3 as sql
 import sys, uuid, random, itertools
@@ -107,22 +105,18 @@ def huffer(conn):
 
 	### (1) build and run test.3i
 	print('\n Processing test.3i.')
-	
 
 	### select proper data0
 	suffix = data0_suffix(state_dict['T_cel'], state_dict['P_bar'])
 
-
-	###	build 'verbose' 3i, with solid solutions on 
+	###	build 'verbose' 3i, with solid solutions on
 	camp.local_3i.write(
 		'test.3i', state_dict, basis_dict, output_details = 'v')
 	out, err = runeq(3, suffix, 'test.3i')
 
-
-
 	try:
 		### if 3o is generated
-		lines = grab_lines('output')
+		lines = grab_lines('test.3o')
 	except:
 		print('\n Huffer fail:')
 		sys.exit('  I fucked that up didnt I?\n')
@@ -130,14 +124,10 @@ def huffer(conn):
 
 	#### Run QA on 3i
 
-
 	elements = determine_ele_set()
-
 
 	### estalibsh new table based on vs_state and vs_basis
 	initiate_sql_VS_table(conn, elements)
-
-
 
 	### (2) build state_space for es table
 	###	list of loaded aq, solid, and gas species to be appended
@@ -325,11 +315,11 @@ def brute_force_order(conn, date, order_number, elements):
 	
 	### warn user of dataframe size to be built
 	order_size = camp.reso**len(BF_vars)
-	print("Order size: " + str(order_size))
+	# print("Order size: " + str(order_size))
 	if order_size > 100000:
 		answer = input('\n\n The brute force method will generate {} \n\
-	VS samples. Thats pretty fucking big.\n\
-	Are you sure you want to proceed? (Y E S/N)\n'.format(order_size))
+						VS samples. Thats pretty fucking big.\n\
+						Are you sure you want to proceed? (Y E S/N)\n'.format(order_size))
 		if answer == 'Y E S':
 			pass
 		else:
@@ -422,7 +412,7 @@ def brute_force_order(conn, date, order_number, elements):
 		### for a given element	present in the campaign	
 		
 		local_vs_sp = []
-		for b in list(slop_df.index):	
+		for b in list(SLOP_DF.index):	
 
 			### for species listed/constrained in vs
 			sp_dict = species_info(b)# keys = constiuent elements, values= sto
@@ -475,7 +465,7 @@ def process_BF_vars_old(BF_vars, reso):
 	exec_text = 'grid = np.mgrid['
 	for _ in BF_vars:
 		### want reso = number of sample poiunts to capture min and max values
-		### hence manipulation of the max value 
+		### hence manipulation of the max value
 		min_val = BF_vars[_][0] #-8
 		max_val = BF_vars[_][1] #-6
 		step = (max_val - min_val) / (reso - 1)
@@ -633,7 +623,7 @@ def random_uniform_order(date, order_number, order_size, elements):
 		### for a given element	present in the campaign	
 		
 		local_vs_sp = []
-		for b in list(slop_df.index):	
+		for b in list(SLOP_DF.index):	
 
 			### for species listed/constrained in vs
 			sp_dict = species_info(b)# keys = constiuent elements, values= sto

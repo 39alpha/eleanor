@@ -46,7 +46,7 @@ def determine_ele_set(path = ''):
 	"""
 	elements = []
 	grab_ele = False
-	with open('{}output'.format(path), 'r') as f:
+	with open('{}test.3o'.format(path), 'r') as f:
 		for line in f:
 			if '           --- Elemental Composition of the Aqueous Solution ---' in line:
 				grab_ele = True
@@ -65,7 +65,7 @@ def determine_loaded_sp(path = ''):
 		list of loaded sp
 	"""
 	loaded_sp = []
-	with open('{}output'.format(path), 'r') as f:
+	with open('{}test.3o'.format(path), 'r') as f:
 		lines = f.readlines()
 		grab_loaded_sp = False
 		for _ in range(len(lines)):

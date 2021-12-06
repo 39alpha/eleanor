@@ -28,6 +28,7 @@ os.environ['PATH']="{}:{}".format(os.environ['PATH'], os.environ['EQ36CO'])
 os.environ['EQ36DA']="/Users/tuckerely/NPP_dev/EQ3_6v8.0a/db"
 
 
+HERE = os.path.dirname(os.path.abspath(__file__))
 ##################################################################
 #########################  small pieces  #########################
 ##################################################################
@@ -90,12 +91,7 @@ def grab_str(line, pos):
     return b[pos]
 
 def grab_lines(file):
-    print("in grab lines")
-    print(file)
-    print(os.path.isfile(file))
-    print(os.getcwd())
     f = open(file, "r")
-    print("opened f")
     lines = f.readlines()
     f.close()
     return lines
@@ -114,22 +110,22 @@ def grab_float(line, pos):
         return float(c[0])
 
 def runeq(ver, suffix, input_file):
-    """executes EQ(ver=version = 3, 6), with data file  data0.'suffix', on 'input file' 
+    """executes EQ(ver=version = 3, 6), with data file  data0.'suffix', on 'input file'
     returns standard out and standard error
     """
     # print(' Calling EQ{} on '.format(ver), input_file, ' using ', suffix)
     code_path = None
     if ver == 3:
-        code_path= 'eq3nr' # Generalize the formating
+        code_path= 'eq3nr'
     elif ver == 6:
-        code_path = 'eq6' # Generalize the formating
+        code_path = 'eq6'
     else:
         raise ValueError("runeq called with ver arugment set to something besides 3 or 6, you've fucked it")
-    
-    data1_file = "../../db/data1." + suffix # Generalize
-    #print(os.path.isfile(data1_file))
+    # print(os.path.abspath(__file__))
+    data1_file = os.path.join(HERE, "../db/data1." + suffix)  # Generalize
+    # print(os.path.isfile(data1_file))
     # print(os.path.isfile(input_file))
-    #print([code_path, data1_file, input_file])
+    # print([code_path, data1_file, input_file])
     process = Popen([code_path, data1_file, input_file], stdout=PIPE, stderr=PIPE)
     stdout, stderr = process.communicate()
     return stdout, stderr

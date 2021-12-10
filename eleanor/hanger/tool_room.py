@@ -282,8 +282,8 @@ def oxide_conversion(dat, oxide, fe3_frac):
 
         if i == 'H2O': 
             H_build += val
-        
-        val = format_e(val, deci)    
+
+        val = format_e(val, deci)
         O_val = wt_dict[i][2] * (float(amount)*1000.0 / float(wt_dict[i][3]))    #    o mol value
         O_build += O_val
 
@@ -306,7 +306,7 @@ def determine_xi_grab_steps(dlxprn, ximax, starting):
     xi_str_list = [format_e(x * dlxprn, 5) for x in range(1, l + 1)]
     xi_str_list.insert(0, format_e(starting, 5))  # prepend first xi step
     return xi_str_list
- 
+
 # #############    Reactant Blocks
 
 def build_special_rnt(phase, phase_dat):
@@ -334,29 +334,31 @@ def build_special_rnt(phase, phase_dat):
 
         # transpose to create [ele, sto] pairs and iterate
         middle = []
-        for _ in [list(i) for i in zip(*sr_dat)]: 
-            middle.append('   {}{}          {}\n'.format(_[0], ' '*(2-len(_[0])),  format_e(_[1], 5)))
+        for _ in [list(i) for i in zip(*sr_dat)]:
+            middle.append('   {}{}          {}\n'.format(_[0], ' ' * (2 - len(_[0])),
+                                                         format_e(_[1], 5)))
 
-    ### special reactant is a lone element
+    # special reactant is a lone element
     else:
-        middle = '   {}{}          1.00000E+00\n'.format(phase, ' '*(2-len(phase))),
-        
-    ### the top and bottom of the reactant block is the same for ele and sr, 
-    ### as the reactant is titrated as a single unit (rk1b).    
-    top = '\n'.join(['*-----------------------------------------------------------------------------',
-        '  reactant=  {}'.format(phase),
-        '     jcode=  2               jreac=  0',
-        '      morr=  {}      modr=  0.00000E+00'.format(format_e(10**phase_dat[1], 5)),
-        '     vreac=  0.00000E+00\n'])
+        middle = '   {}{}          1.00000E+00\n'.format(phase, ' ' * (2 - len(phase))),
+
+    # the top and bottom of the reactant block is the same for ele and sr,
+    # as the reactant is titrated as a single unit (rk1b).
+    top = '\n'.join([
+                    '*-----------------------------------------------------------------------------',
+                     '  reactant=  {}'.format(phase),
+                     '     jcode=  2               jreac=  0',
+                     '      morr=  {}      modr=  0.00000E+00'.format(format_e(10**phase_dat[1], 5)),
+                     '     vreac=  0.00000E+00\n'])
 
     bottom = '\n'.join(['   endit.',
-        '* Reaction',
-        '   endit.',
-        '       nsk=  0               sfcar=  0.00000E+00    ssfcar=  0.00000E+00',
-        '      fkrc=  0.00000E+00',
-        '      nrk1=  1                nrk2=  0',
-        '      rkb1=  {}      rkb2=  0.00000E+00      rkb3=  0.00000E+00\n'.format(format_e(phase_dat[2], 5))
-        ])
+                        '* Reaction',
+                        '   endit.',
+                        '       nsk=  0               sfcar=  0.00000E+00    ssfcar=  0.00000E+00',
+                        '      fkrc=  0.00000E+00',
+                        '      nrk1=  1                nrk2=  0',
+                        '      rkb1=  {}      rkb2=  0.00000E+00      rkb3=  0.00000E+00\n'.format(format_e(phase_dat[2], 5))
+                        ])
 
     return top + ''.join(middle) + bottom
 
@@ -367,7 +369,7 @@ def build_mineral_rnt(phase, morr, rk1b):
     of moles  = morr, and a titration rate relative to xi=1 of rk1b
     """
 
-    ############ example block ##############
+    # ########### example block ##############
     #   *-----------------------------------------------------------------------------
     # reactant= Quartz
     #    jcode=  0               jreac=  0
@@ -378,17 +380,17 @@ def build_mineral_rnt(phase, morr, rk1b):
     #     rkb1=  9.40100E-03      rkb2=  0.00000E+00      rkb3=  0.00000E+00
 
     return '\n'.join(['*-----------------------------------------------------------------------------',
-                '  reactant= {}'.format(phase),
-                '     jcode=  0               jreac=  0',
-                '      morr=  {}      modr=  0.00000E+00'.format(format_e(float(morr), 5)),
-                '       nsk=  0               sfcar=  0.00000E+00    ssfcar=  0.00000E+00',
-                '      fkrc=  0.00000E+00',
-                '      nrk1=  1',
-                '       rk1=  {}       rk2=  0.00000E+00       rk3=  0.00000E+00\n'.format(format_e(rk1b, 5))])
+                      '  reactant= {}'.format(phase),
+                      '     jcode=  0               jreac=  0',
+                      '      morr=  {}      modr=  0.00000E+00'.format(format_e(float(morr), 5)),
+                      '       nsk=  0               sfcar=  0.00000E+00    ssfcar=  0.00000E+00',
+                      '      fkrc=  0.00000E+00',
+                      '      nrk1=  1',
+                      '       rk1=  {}       rk2=  0.00000E+00       rk3=  0.00000E+00\n'.format(format_e(rk1b, 5))])
 
 
 def build_aqueous_rnt(phase, morr, rk1b):
-
+    # TODO: Tucker is this right?
     # ####### example block #####################
     # *-----------------------------------------------------------------------------
     #   reactant= Aqueous H2SO4, 0.1 N
@@ -431,42 +433,41 @@ def build_gas_rnt(phase, morr, rk1b):
     # rkb1=  1.00000E+00      rkb2=  0.00000E+00      rkb3=  0.00000E+00
 
     return '\n'.join(['*-----------------------------------------------------------------------------',
-                '  reactant= {}'.format(phase),
-                '     jcode=  4               jreac=  0',
-                '      morr=  {}      modr=  0.00000E+00'.format(format_e(float(10**morr), 5)),
-                '       nsk=  0               sfcar=  0.00000E+00    ssfcar=  0.00000E+00',
-                '      fkrc=  0.00000E+00',
-                '      nrk1=  1',
-                '       rk1=  {}       rk2=  0.00000E+00       rk3=  0.00000E+00\n'.format(format_e(rk1b, 5))])
+                      '  reactant= {}'.format(phase),
+                      '     jcode=  4               jreac=  0',
+                      '      morr=  {}      modr=  0.00000E+00'.format(format_e(float(10**morr), 5)),
+                      '       nsk=  0               sfcar=  0.00000E+00    ssfcar=  0.00000E+00',
+                      '      fkrc=  0.00000E+00',
+                      '      nrk1=  1',
+                      '       rk1=  {}       rk2=  0.00000E+00       rk3=  0.00000E+00\n'.format(format_e(rk1b, 5))])
 
 # #################################################################
 # ##########################  classes  ############################
 # #################################################################
 
 class Three_i(object):
-    """ 
+    """
         Instantiates 3i document template that contains the correct
         format (all run setings).
         Any feature of 6i files can be added to the __init__ function,
         to be made amdendable between campaigns.
     """
-    
+
     def __init__(self, cb,
-        iopt4  = '0',    # SS    1 (permit), (ignor)
-        iopt11 = '0',    # Auto basis switching   0 (turn on), 1 (turn off)
-        iopt17 = '0',    # Pickup file:  -1 (dont write), 0 (write)
-        iopt19 = '3',    # pickup type:  0 (normal), 3 (fluid1 set up for fluid mixing)
-        iopr1  = '0',
-        iopr2  = '0',
-        iopr4  = '1',    # incliude all aq species (not just > -100)
-        iopr5  = '0',    # dont print aq/H+ ratios
-        iopr6  = '-1',   # dont print 99% table
-        iopr7  = '-1',   # dont print SI /affinity table
-        iopr9  = '0'
-        ):
+                 iopt4='0',    # SS    1 (permit), (ignor)
+                 iopt11='0',    # Auto basis switching   0 (turn on), 1 (turn off)
+                 iopt17='0',    # Pickup file:  -1 (dont write), 0 (write)
+                 iopt19='3',    # pickup type:  0 (normal), 3 (fluid1 set up for fluid mixing)
+                 iopr1='0',
+                 iopr2='0',
+                 iopr4='1',    # incliude all aq species (not just > -100)
+                 iopr5='0',    # dont print aq/H+ ratios
+                 iopr6='-1',   # dont print 99% table
+                 iopr7='-1',   # dont print SI /affinity table
+                 iopr9='0'
+                 ):
         """
         instantiates three_i constants
-        
         """
         self.cb     = cb
         self.iopt4  = iopt4

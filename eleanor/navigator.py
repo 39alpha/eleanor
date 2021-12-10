@@ -6,6 +6,7 @@
 # Tucker Ely and then 39Alpha
 # October 6nd 2020 and then Dec 12th 2021
 
+from sqlite3.dbapi2 import Error
 import sys
 import uuid
 import random
@@ -116,14 +117,13 @@ def huffer(conn):
     # build 'verbose' 3i, with solid solutions on
     camp.local_3i.write(
         'test.3i', state_dict, basis_dict, output_details='v')
-    out, err = runeq(3, suffix, 'test.3i')
+    _ = runeq(3, suffix, 'test.3i')
 
     try:
         # if 3o is generated
         _ = grab_lines('test.3o')
-    except:
-        print('\n Huffer fail:')
-        sys.exit('  I fucked that up didnt I?\n')
+    except FileNotFoundError:
+        raise Error("The huffer didn't make the .3o file, figure your shit out.")
 
     # Run QA on 3i
     elements = determine_ele_set()

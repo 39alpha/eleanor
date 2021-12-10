@@ -20,9 +20,10 @@ import pandas as pd
 # loaded campagin
 import eleanor.campaign as campaign
 
+from .hanger.eq36 import eq3
 from .hanger.db_comms import establish_server_connection, get_order_number, execute_sql_statement
 from .hanger.db_comms import get_column_names
-from .hanger.tool_room import mk_check_del_directory, grab_lines, runeq
+from .hanger.tool_room import mk_check_del_directory, grab_lines
 from .hanger.data0_tools import determine_ele_set, data0_suffix, determine_loaded_sp, species_info
 from .hanger.data0_tools import SLOP_DF
 

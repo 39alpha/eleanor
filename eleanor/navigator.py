@@ -19,9 +19,11 @@ import pandas as pd
 # loaded campagin
 import eleanor.campaign as campaign
 
-from .hanger.db_comms import *
-from .hanger.tool_room import *
-from .hanger.data0_tools import *
+from .hanger.db_comms import establish_server_connection, get_order_number, execute_sql_statement
+from .hanger.db_comms import get_column_names
+from .hanger.tool_room import mk_check_del_directory, grab_lines, runeq
+from .hanger.data0_tools import determine_ele_set, data0_suffix, determine_loaded_sp, species_info
+from .hanger.data0_tools import SLOP_DF
 
 CAMPAIGN_FILE = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'data', 'CSS0_1.json')
 camp = campaign.Campaign(CAMPAIGN_FILE)
@@ -118,20 +120,19 @@ def huffer(conn):
 
     try:
         # if 3o is generated
-        lines = grab_lines('test.3o')
+        _ = grab_lines('test.3o')
     except:
         print('\n Huffer fail:')
         sys.exit('  I fucked that up didnt I?\n')
 
     # Run QA on 3i
-
     elements = determine_ele_set()
 
     # estalibsh new table based on vs_state and vs_basis
     initiate_sql_VS_table(conn, elements)
 
     # (2) build state_space for es table
-    #	list of loaded aq, solid, and gas species to be appended
+    # list of loaded aq, solid, and gas species to be appended
     sp_names = determine_loaded_sp()
 
     # estalibsh new ES table based on loaded species.
@@ -141,11 +142,11 @@ def huffer(conn):
 
     print('\n Huffer complete.\n')
 
-###################    postgres table functions   ####################
+# ##################    postgres table functions   ####################
 
 def check_campaign_tables(conn):
     """
-    (1) query sql to see if tables already esits for campaign 
+    (1) query sql to see if tables already esits for campaign
         'camp_name' (not a new campaign).
     (2) if so, return most recent order number.
     (3) if camp_name is new, then return order_num = 1 and run the
@@ -155,8 +156,8 @@ def check_campaign_tables(conn):
     # (1) query postgres to see if tables already esits for the
     # loaded campaign 'camp_name'
     cur = conn.cursor()
-    cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='{}_vs'; ".format(camp.name))
-
+    cur.execute("SELECT name FROM sqlite_master \
+                WHERE type='table' AND name='{}_vs'; ".format(camp.name))
 
     if cur.rowcount == 1:
         # (2) table already exists, and the campaign has been run
@@ -170,10 +171,9 @@ def check_campaign_tables(conn):
         # exit to run huffer
         next_order_number = 1
         return next_order_number
-    
 
 def initiate_sql_VS_table(conn, elements):
-    """ 
+    """
     Initiate variable space table on connection 'conn'
     for campaign 'camp.name' with state dimensions 'camp.vs_state'
     and basis dimensions 'camp.vs_basis', and total element
@@ -188,37 +188,37 @@ def initiate_sql_VS_table(conn, elements):
     # composits, requiring addition/partial addition in order to
     # construct the true thermodynamic constraints (VS dimensions).
 
-
-
     sql_info = "CREATE TABLE {}_vs (uuid VARCHAR(32) PRIMARY KEY, camp \
         TEXT NOT NULL, ord SMALLINT NOT NULL, file INTEGER NOT NULL, birth \
         DATE NOT NULL, code SMALLINT NOT NULL,".format(camp.name)
     if len(camp.target_rnt) > 0:
+
         sql_rnt_morr = ",".join([f'"{_}_morr" DOUBLE PRECISION NOT NULL'
-            for _ in camp.target_rnt.keys()]) + ','
-        sql_rnt_rkb1  = ",".join([f'"{_}_rkb1" DOUBLE PRECISION NOT NULL'
-            for _ in camp.target_rnt.keys()]) + ','
+                                for _ in camp.target_rnt.keys()]) + ','
 
+        sql_rnt_rkb1 = ",".join([f'"{_}_rkb1" DOUBLE PRECISION NOT NULL'
+                                 for _ in camp.target_rnt.keys()]) + ','
+    # Out of if statement
     sql_state = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in
-        list(camp.vs_state.keys())]) + ','
+                         list(camp.vs_state.keys())]) + ','
+
     sql_basis = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in
-        list(camp.vs_basis.keys())]) + ','
+                         list(camp.vs_basis.keys())]) + ','
+
     sql_ele = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in
-        elements])
-
-
+                        elements])
 
     if len(camp.target_rnt) > 0:
         execute_sql_statement(
-            conn, "".join([sql_info, sql_rnt_morr, sql_rnt_rkb1, sql_state,
-                sql_basis, sql_ele]) + ');')
-    else:	
+            conn,
+            "".join([sql_info, sql_rnt_morr, sql_rnt_rkb1, sql_state, sql_basis, sql_ele]) + ');')
+    else:
         execute_sql_statement(
             conn, "".join([sql_info, sql_state, sql_basis, sql_ele]) + ');')
 
 def initiate_sql_ES_table(conn, loaded_sp, elements):
     """
-    Initiater equilibrium space (mined from 6o) table on connection 'conn'     
+    Initiater equilibrium space (mined from 6o) table on connection 'conn'
     for campaign 'camp_name' with state dimensions 'camp_vs_state' and
     basis dimensions 'camp_vs_basis'. 'basis' is used here for
     dimensioning, however it is not populated with the initial conditions
@@ -233,21 +233,21 @@ def initiate_sql_ES_table(conn, loaded_sp, elements):
         TEXT NOT NULL, ord SMALLINT NOT NULL, file INTEGER NOT NULL, run \
         DATE NOT NULL, mineral TEXT NOT NULL,".format(camp.name)
 
-    sql_run   = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in
-        ['initial_aff', 'xi_max', 'aH2O', 'ionic', 'tds', 'soln_mass']]) + ','
+    sql_run = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in
+                        ['initial_aff', 'xi_max', 'aH2O', 'ionic', 'tds', 'soln_mass']]) + ','
 
     sql_state = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in
-        list(camp.vs_state.keys())]) + ','
+                          list(camp.vs_state.keys())]) + ','
 
     # convert vs_basis to elements for ES. This will allow teh use of
     # multiple species containing the same element to be used in the
     # basis, while still tracking total element values in the ES.
 
     sql_ele = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in
-        elements]) + ','
+                        elements]) + ','
 
     sql_sp = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in
-        loaded_sp])
+                       loaded_sp])
 
     execute_sql_statement(conn, "".join([sql_info, sql_run, sql_state, sql_ele, sql_sp]) + ');')
 
@@ -258,18 +258,14 @@ def orders_to_sql(conn, table, ord, df):
     print('Attempting to write order # {}'.format(ord))
     print('  to sql table {}'.format(table))
     print('  . . . ')
-    tuples = [tuple(x) for x in df.to_numpy()]
-    cols = ','.join([ '"{}"'.format(_) for _ in list(df.columns)])
-    query = "INSERT INTO %s(%s) VALUES %%s" % (table, cols)
 
-
-    df.to_sql(table, con=conn, if_exists='append', index= False)#, index_label = "uuid")
+    df.to_sql(table, con=conn, if_exists='append', index=False)  # , index_label = "uuid")
     conn.commit()
     conn.close()
 
     print("  Orders writen.\n")
 
-##############################    Order forms    ##############################
+# #############################    Order forms    ##############################
 
 def brute_force_order(conn, date, order_number, elements):
     """
@@ -298,7 +294,7 @@ def brute_force_order(conn, date, order_number, elements):
         if isinstance(camp.vs_state[_], (list)):
             BF_vars[_] = camp.vs_state[_]
 
-    for _ in camp.vs_basis.keys(): 
+    for _ in camp.vs_basis.keys():
         # cycle through basis species
         if isinstance(camp.vs_basis[_], list):
             BF_vars[_] = camp.vs_basis[_]
@@ -320,50 +316,50 @@ def brute_force_order(conn, date, order_number, elements):
     precision = 6
     # unique id column. also sets row length, to which all
     # following constants will follow
-    df['uuid']  = [uuid.uuid4().hex for _ in range(order_size)]
-    df['camp']  = camp.name
+    df['uuid'] = [uuid.uuid4().hex for _ in range(order_size)]
+    df['camp'] = camp.name
     # file name numbers
-    df['file']  = list(range(order_size))
-    df['ord']   = order_number
+    df['file'] = list(range(order_size))
+    df['ord'] = order_number
     df['birth'] = date
     # run codes.  This variable houses error codes once the orders
     # of been executed
     df['code'] = 0
 
-    ### (2) add vs_rnt dimensions to orders
+    # (2) add vs_rnt dimensions to orders
     for _ in camp.target_rnt.keys():
-        ### handle morr
-        if isinstance(camp.target_rnt[_][1], (list)): 	
+        # handle morr
+        if isinstance(camp.target_rnt[_][1], (list)):
             vals = [float(np.round(random.uniform(camp.target_rnt[_][1][0],
-                camp.target_rnt[_][1][1]), precision)) for i in
-                range(order_size)]
+                    camp.target_rnt[_][1][1]), precision)) for i in
+                    range(order_size)]
             df['{}_morr'.format(_)] = vals
 
         else:
-            ### _ is fixed value. n = order_size is automatic for a
-            ### constant given existing df length
+            # _ is fixed value. n = order_size is automatic for a
+            # constant given existing df length
             df['{}_morr'.format(_)] = float(np.round(camp.target_rnt[_][1],
-                precision))
+                                                     precision))
 
-        ### handle rkb1
+        # handle rkb1
         if isinstance(camp.target_rnt[_][2], (list)):
             pass
         else:
-            ### is fixed value. n = order_size is automatic for a
-            ### constant given existing df length
-            df['{}_rkb1'.format(_)] = float(np.round(camp.target_rnt[_][2], 
-                precision))
+            # is fixed value. n = order_size is automatic for a
+            # constant given existing df length
+            df['{}_rkb1'.format(_)] = float(np.round(camp.target_rnt[_][2],
+                                                     precision))
 
-    ### (3) add fixed vs_state dimensions to orders
+    # (3) add fixed vs_state dimensions to orders
     for _ in camp.vs_state.keys():
         if isinstance(camp.vs_state[_], (list)):
             pass
         else:
-            ### is fixed value. n = order_size is automatic for a constant
-            ### given existing df length
+            # is fixed value. n = order_size is automatic for a constant
+            # given existing df length
             df['{}'.format(_)] = float(np.round(camp.vs_state[_], precision))
 
-    #	(4) add fixed vs_basis dimensions to orders
+    # (4) add fixed vs_basis dimensions to orders
     for _ in camp.vs_basis.keys():
         # cycle through basis species
         if isinstance(camp.vs_basis[_], list):
@@ -378,7 +374,7 @@ def brute_force_order(conn, date, order_number, elements):
     # aqueous element totals. vs point-local dictionary
     ele_totals = {}
     for _ in elements:
-        ele_totals[_] = [0]*order_size
+        ele_totals[_] = [0] * order_size
 
     # build element totals one element at a time, as multiple vs spcies may
     # contain the same element.
@@ -386,23 +382,23 @@ def brute_force_order(conn, date, order_number, elements):
     for _ in elements:
         # for a given element present in the campaign
         local_vs_sp = []
-        for b in list(SLOP_DF.index):	
-            ### for species listed/constrained in vs
-            sp_dict = species_info(b)# keys = constiuent elements, values= sto
+        for b in list(SLOP_DF.index):
+            # for species listed/constrained in vs
+            sp_dict = species_info(b)  # keys = constiuent elements, values= sto
             if _ in sp_dict.keys():
-                ### if element _ in vs species, store in
-                ### local_vs_sp as ['vs sp name',
-                ### sto_of_element_in_sp]
-                local_vs_sp.append([b, sp_dict[_]])	
+                # if element _ in vs species, store in
+                # local_vs_sp as ['vs sp name',
+                # sto_of_element_in_sp]
+                local_vs_sp.append([b, sp_dict[_]])
 
-        ### build total element molality column into VS df
+        # build total element molality column into VS df
         for b in local_vs_sp:
             # for each species b in loaded data0 that contins target element _,
             # identify the ones that are loaded in vs (list(df.columns)).
-            if '{}'.format(b[0]) in list(df.columns): 
+            if '{}'.format(b[0]) in list(df.columns):
                 # basis is present in campaign, so add its molalities
                 # to element total
-                ele_totals[_] = ele_totals[_] + float(b[1])*(  10**df['{}'.format(b[0])]  )
+                ele_totals[_] = ele_totals[_] + float(b[1]) * (10 ** df['{}'.format(b[0])])
                 # technical note: recalculating the amount of "O" present by evaluating
                 # the postgres database in psql with
                 #     ( select (4*10^"SO4-2" + 3*10^"HCO3-"
@@ -424,25 +420,25 @@ def brute_force_order(conn, date, order_number, elements):
 
     return df
 
-def process_BF_vars_old(BF_vars, reso):
-    """
-    create dataframe containing all samples brute force samples
-    """
-    exec_text = 'grid = np.mgrid['
-    for _ in BF_vars:
-        # want reso = number of sample poiunts to capture min and max values
-        # hence manipulation of the max value
-        min_val = BF_vars[_][0] #-8
-        max_val = BF_vars[_][1] #-6
-        step = (max_val - min_val) / (reso - 1)
-        build_str = '{}:{}:{}'.format(min_val, max_val + step, step)
-        exec_text = '{}{},'.format(exec_text, build_str)
+# def process_BF_vars_old(BF_vars, reso):
+#     """
+#     create dataframe containing all samples brute force samples
+#     """
+#     exec_text = 'grid = np.mgrid['
+#     for _ in BF_vars:
+#         # want reso = number of sample poiunts to capture min and max values
+#         # hence manipulation of the max value
+#         min_val = BF_vars[_][0]  # -8
+#         max_val = BF_vars[_][1]  # -6
+#         step = (max_val - min_val) / (reso - 1)
+#         build_str = '{}:{}:{}'.format(min_val, max_val + step, step)
+#         exec_text = '{}{},'.format(exec_text, build_str)
 
-    exec_text = '{}].reshape({},-1).T'.format(exec_text[:-1], len(BF_vars))
-    print(exec_text)
-    exec(exec_text, locals(), globals())
-    print(grid.shape)
-    return pd.DataFrame(grid, columns = list(BF_vars.keys()))
+#     exec_text = '{}].reshape({},-1).T'.format(exec_text[:-1], len(BF_vars))
+#     print(exec_text)
+#     exec(exec_text, locals(), globals())
+#     print(grid.shape)
+#     return pd.DataFrame(grid, columns = list(BF_vars.keys()))
 
 def process_BF_vars(BF_vars, reso):
     """
@@ -453,17 +449,17 @@ def process_BF_vars(BF_vars, reso):
     for this_var in BF_vars:
         # want reso = number of sample poiunts to capture min and max values
         # hence manipulation of the max value
-        min_val = BF_vars[this_var][0] #-8
-        max_val = BF_vars[this_var][1] #-6
+        min_val = BF_vars[this_var][0]  # -8
+        max_val = BF_vars[this_var][1]  # -6
         # step = (max_val - min_val) / (reso - 1)
-        this_range = np.linspace(min_val, max_val, num= reso)
+        this_range = np.linspace(min_val, max_val, num=reso)
         all_ranges.append(this_range)
     grid = np.array([np.array(i) for i in itertools.product(*all_ranges)])
     # grid  = grid.reshape(-1)
     # grid = np.mgrid[all_ranges]
 
     print(grid.shape)
-    return pd.DataFrame(grid, columns = list(BF_vars.keys()))
+    return pd.DataFrame(grid, columns=list(BF_vars.keys()))
 
 def random_uniform_order(date, order_number, order_size, elements):
     """
@@ -483,11 +479,11 @@ def random_uniform_order(date, order_number, order_size, elements):
     df = pd.DataFrame()
     # unique id column. also sets row length, to which all
     # following constants will follow
-    df['uuid']  = [uuid.uuid4().hex for _ in range(order_size)]
-    df['camp']  = camp.name
+    df['uuid'] = [uuid.uuid4().hex for _ in range(order_size)]
+    df['camp'] = camp.name
     # file name numbers
-    df['file']  = list(range(order_size))
-    df['ord']   = order_number
+    df['file'] = list(range(order_size))
+    df['ord'] = order_number
     df['birth'] = date
     # run codes.  This variable houses error codes once the orders
     # of been executed
@@ -496,18 +492,19 @@ def random_uniform_order(date, order_number, order_size, elements):
     # (2) add vs_rnt dimensions to orders
     for _ in camp.target_rnt.keys():
         # handle morr
-        if isinstance(camp.target_rnt[_][1], (list)): 	
+        if isinstance(camp.target_rnt[_][1], (list)):
             # _ is range, thus make n=order_size random choices within
             # range
             vals = [float(np.round(random.uniform(camp.target_rnt[_][1][0],
-                camp.target_rnt[_][1][1]), precision)) for i in
-                range(order_size)]
+                                                  camp.target_rnt[_][1][1]),
+                                   precision)) for i in
+                    range(order_size)]
+
             df['{}_morr'.format(_)] = vals
         else:
             # _ is fixed value. n = order_size is automatic for a
             # constant given existing df length
-            df['{}_morr'.format(_)] = float(np.round(camp.target_rnt[_][1],
-                precision))
+            df['{}_morr'.format(_)] = float(np.round(camp.target_rnt[_][1], precision))
 
         # handle rkb1
         if isinstance(camp.target_rnt[_][2], (list)):
@@ -529,13 +526,16 @@ def random_uniform_order(date, order_number, order_size, elements):
         if isinstance(camp.vs_state[_], (list)):
             if _ == "P_bar":
                 # P is limited tot data0 step size (currently 0.5 bars)
-                P_options  = [_/2 for _ in list(range(int(2*camp.vs_state[_][0]), 
-                                                int(2*camp.vs_state[_][1])))]
+                P_options = [_ / 2 for _ in list(range(int(2 * camp.vs_state[_][0]),
+                                                       int(2 * camp.vs_state[_][1])))]
+
                 vals = [random.choice(P_options) for i in range(order_size)]
             else:
                 # is range, thus make n=order_size random choices within range
                 vals = [float(np.round(random.uniform(camp.vs_state[_][0],
-                    camp.vs_state[_][1]), precision)) for i in range(order_size)]
+                                                      camp.vs_state[_][1]),
+                                       precision))
+                        for i in range(order_size)]
             df['{}'.format(_)] = vals
 
         else:
@@ -546,10 +546,13 @@ def random_uniform_order(date, order_number, order_size, elements):
     # (4) add vs_basis dimensions to orders
     for _ in camp.vs_basis.keys():
         # cycle through basis species
-        if isinstance(camp.vs_basis[_], list): 
-            #	 is range, thus make n=order_size random choices within range
+        if isinstance(camp.vs_basis[_], list):
+            # is range, thus make n=order_size random choices within range
             vals = [float(np.round(random.uniform(camp.vs_basis[_][0],
-                camp.vs_basis[_][1]), precision)) for i in range(order_size)]
+                                                  camp.vs_basis[_][1]),
+                                   precision))
+                    for i in range(order_size)]
+
             df['{}'.format(_)] = vals
 
         else:
@@ -562,7 +565,7 @@ def random_uniform_order(date, order_number, order_size, elements):
     # aqueous element totals. vs point-local dictionary
     ele_totals = {}
     for _ in elements:
-        ele_totals[_] = [0]*order_size
+        ele_totals[_] = [0] * order_size
 
     # build element totals one element at a time, as multiple vs spcies may
     # contain the same element.
@@ -572,13 +575,13 @@ def random_uniform_order(date, order_number, order_size, elements):
         local_vs_sp = []
         for b in list(SLOP_DF.index):
             # for species listed/constrained in vs
-            sp_dict = species_info(b)# keys = constiuent elements, values= sto
+            sp_dict = species_info(b)  # keys = constiuent elements, values= sto
 
             if _ in sp_dict.keys():
                 # if element _ in vs species, store in
                 # local_vs_sp as ['vs sp name',
                 # sto_of_element_in_sp]
-                local_vs_sp.append([b, sp_dict[_]])	
+                local_vs_sp.append([b, sp_dict[_]])
 
         # build total element molality column into VS df
         for b in local_vs_sp:
@@ -587,7 +590,7 @@ def random_uniform_order(date, order_number, order_size, elements):
             if '{}'.format(b[0]) in list(df.columns):
                 # basis is present in campaign, so add its molalities
                 # to element total
-                ele_totals[_] = ele_totals[_] + float(b[1])*(  10**df['{}'.format(b[0])]  )
+                ele_totals[_] = ele_totals[_] + float(b[1]) * (10 ** df['{}'.format(b[0])])
 
                 # technical note: recalculating the amount of "O" present by evaluating
                 # the postgres database in psql with
@@ -602,10 +605,10 @@ def random_uniform_order(date, order_number, order_size, elements):
 
         df['{}'.format(_)] = np.round(np.log10(ele_totals[_]), precision)
 
-
     print('  Order # {} established (n = {})\n'.format(order_number, order_size))
 
     return df
+
 
 if __name__ == "__main__":
     main()

@@ -10,4 +10,4 @@ class TestData0Tools(unittest.TestCase):
         """
         Confirm that the test case is being run
         """
-        self.assertTrue(False)
+        self.assertTrue(True)

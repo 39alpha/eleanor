@@ -21,6 +21,7 @@ import multiprocessing
 from .hanger.db_comms import *
 from .hanger.tool_room import *
 from .hanger.data0_tools import *
+from .hanger.eq36 import eq3, eq6
 
 import eleanor.campaign as campaign
 # import campaign.TEOS_Cal as camp
@@ -196,7 +197,7 @@ def sailor(order_path, date, dat, elements, col_names):
 
 	### build and execute 3i
 	camp.local_3i.write(file, state_dict, basis_dict, output_details = 'n')
-	out, err = runeq(3, suffix, file)
+	out, err = eq3("../../db/data1." + suffix, file)
 
 
 
@@ -227,7 +228,7 @@ def sailor(order_path, date, dat, elements, col_names):
 	
 
 	camp.local_6i.write(file[:-2] + '6i', rnt_dict, pickup, state_dict['T_cel'])	
-	out, err = runeq(6, suffix, file[:-2] + '6i')
+	out, err = eq6("../../db/data1." + suffix, file[:-2] + '6i')
 
 
 

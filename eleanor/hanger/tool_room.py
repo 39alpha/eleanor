@@ -113,28 +113,6 @@ def grab_float(line, pos):
         c = re.findall('[0-9Ee\+\.-]+', b[pos])
         return float(c[0])
 
-def runeq(ver, suffix, input_file):
-    """executes EQ(ver=version = 3, 6), with data file  data0.'suffix', on 'input file' 
-    returns standard out and standard error
-    """
-    # print(' Calling EQ{} on '.format(ver), input_file, ' using ', suffix)
-    code_path = None
-    if ver == 3:
-        code_path= 'eq3nr' # Generalize the formating
-    elif ver == 6:
-        code_path = 'eq6' # Generalize the formating
-    else:
-        raise ValueError("runeq called with ver arugment set to something besides 3 or 6, you've fucked it")
-    
-    data1_file = "../../db/data1." + suffix # Generalize
-    #print(os.path.isfile(data1_file))
-    # print(os.path.isfile(input_file))
-    #print([code_path, data1_file, input_file])
-    process = Popen([code_path, data1_file, input_file], stdout=PIPE, stderr=PIPE)
-    stdout, stderr = process.communicate()
-    return stdout, stderr
-
-
 def mine_pickup_lines(pp, file, position):
     """
     pp = project path

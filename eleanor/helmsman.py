@@ -14,6 +14,7 @@ import multiprocessing
 from .hanger.db_comms import *
 from .hanger.tool_room import *
 from .hanger.data0_tools import *
+from .hanger.eq36 import eq3, eq6
 
 # ### rebuild without *
 from .hanger.db_comms import establish_server_connection
@@ -197,6 +198,7 @@ def sailor(order_path, date, dat, elements, col_names):
     reset_sailor(order_path, start, conn, camp.name, file, dat[0], run_code, delete_local = delete_after_running)
 
 
+
 def mine_6o(conn, date, order_path, elements, file, dat, col_names):
     """
     conn = open postgresql connection to database with camp.__ tables
@@ -238,8 +240,6 @@ def mine_6o(conn, date, order_path, elements, file, dat, col_names):
             ### is the final EQ step of interest for populating ES.
             last_xi_step_begins = _     #    grab index for later.
             break
-    
-
 
     if run_code == 0:
         ### run code has not be altered, therefore unknown error

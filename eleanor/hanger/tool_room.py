@@ -287,56 +287,52 @@ def oxide_conversion(dat, oxide, fe3_frac):
         O_val = wt_dict[i][2] * (float(amount)*1000.0 / float(wt_dict[i][3]))    #    o mol value
         O_build += O_val
 
-
         if i != 'H2O':
-            print_list.append( '   ' + name + ' '*(12 - len(name)) + val + '\n')
+            print_list.append('   ' + name + ' ' * (12 - len(name)) + val + '\n')
 
-        
-        
     O_build = format_e(O_build, deci)
     name = 'O'
-    print_list.append( '   ' + name + ' '*(12 - len(name)) + O_build + '\n')
+    print_list.append('   ' + name + ' ' * (12 - len(name)) + O_build + '\n')
 
     H_build = format_e(H_build, deci)
     name = 'H'
-    print_list.append( '   ' + name + ' '*(12 - len(name)) + H_build + '\n')
+    print_list.append('   ' + name + ' ' * (12 - len(name)) + H_build + '\n')
 
     return print_list
 
 def determine_xi_grab_steps(dlxprn, ximax, starting):
     """ build list of linear xi print steps to grab output data from """
     l = int(ximax / dlxprn)
-    xi_str_list = [format_e(x*dlxprn, 5) for x in range( 1, l + 1)]
-    xi_str_list.insert(0, format_e(starting, 5))        #  prepend first xi step
+    xi_str_list = [format_e(x * dlxprn, 5) for x in range(1, l + 1)]
+    xi_str_list.insert(0, format_e(starting, 5))  # prepend first xi step
     return xi_str_list
  
-##############    Reactant Blocks 
+# #############    Reactant Blocks
 
 def build_special_rnt(phase, phase_dat):
     """
     The function returns a 6i reactant block for special reactant 'phase' of type jcode = 2.
     pahse_dat is the data in the reactant dictionary build for a specific VS by a sailor.
     THis dictionary has the same structure as the camp.target_rnt dictionary in the loaded campaign
-    file, but without any ranges, as values have already been selected by the navigator function which
-    built the campaigns VS table and generated the local set of orders.
+    file, but without any ranges, as values have already been selected by the navigator function
+    which built the campaigns VS table and generated the local set of orders.
 
-    This function accepts lone elements 'ele' or custom species 'sr' existing in the special reactant dictionary (sr_dict)
-    The reactants which may be passed are interations within the camp.target_rnt dictionary
-    defined in th eloaded campaign file.
+    This function accepts lone elements 'ele' or custom species 'sr' existing in the special
+    reactant dictionary (sr_dict) The reactants which may be passed are interations within
+    the camp.target_rnt dictionary defined in th eloaded campaign file.
     """
-    
-    ### special reactant is specified and it is not a lone element
-    if phase_dat[0] == 'sr':
 
-        ### does special reactnat exists in sr_dict
+    # special reactant is specified and it is not a lone element
+    if phase_dat[0] == 'sr':
+        # does special reactnat exists in sr_dict
         try:
             sr_dat = sr_dict[phase]
-        
-        except Exception as e: 
+
+        except Exception as e:
             print('Special reactant not installed:')
             sys.exit(e)
 
-        ### transpose to create [ele, sto] pairs and iterate
+        # transpose to create [ele, sto] pairs and iterate
         middle = []
         for _ in [list(i) for i in zip(*sr_dat)]: 
             middle.append('   {}{}          {}\n'.format(_[0], ' '*(2-len(_[0])),  format_e(_[1], 5)))
@@ -393,7 +389,7 @@ def build_mineral_rnt(phase, morr, rk1b):
 
 def build_aqueous_rnt(phase, morr, rk1b):
 
-    ######## example block #####################
+    # ####### example block #####################
     # *-----------------------------------------------------------------------------
     #   reactant= Aqueous H2SO4, 0.1 N
     #      jcode=  2               jreac=  0
@@ -419,22 +415,20 @@ def build_aqueous_rnt(phase, morr, rk1b):
     #       rkb1=  1.00000E+00      rkb2=  0.00000E+00      rkb3=  0.00000E+00
     pass
 
-
-
 def build_gas_rnt(phase, morr, rk1b):
     """
     build gas reactant block
     """
 
-    ############# example block ###############
-    ### *-----------------------------------------------------------------------------
-    ### reactant= CH4(g)
-    ### jcode=  4               jreac=  0
-    ### morr=  1.50000E-03      modr=  0.00000E+00
-    ### nsk=  0               sfcar=  0.00000E+00    ssfcar=  0.00000E+00
-    ### fkrc=  0.00000E+00
-    ### nrk1=  1                nrk2=  0
-    ### rkb1=  1.00000E+00      rkb2=  0.00000E+00      rkb3=  0.00000E+00
+    # ############ example block ###############
+    # *-----------------------------------------------------------------------------
+    # reactant= CH4(g)
+    # jcode=  4               jreac=  0
+    # morr=  1.50000E-03      modr=  0.00000E+00
+    # nsk=  0               sfcar=  0.00000E+00    ssfcar=  0.00000E+00
+    # fkrc=  0.00000E+00
+    # nrk1=  1                nrk2=  0
+    # rkb1=  1.00000E+00      rkb2=  0.00000E+00      rkb3=  0.00000E+00
 
     return '\n'.join(['*-----------------------------------------------------------------------------',
                 '  reactant= {}'.format(phase),
@@ -445,9 +439,9 @@ def build_gas_rnt(phase, morr, rk1b):
                 '      nrk1=  1',
                 '       rk1=  {}       rk2=  0.00000E+00       rk3=  0.00000E+00\n'.format(format_e(rk1b, 5))])
 
-##################################################################
-###########################  classes  ############################
-##################################################################
+# #################################################################
+# ##########################  classes  ############################
+# #################################################################
 
 class Three_i(object):
     """ 
@@ -612,63 +606,63 @@ class Six_i(object):
         Any feature of 6i files can be added to the __init__ function,
         to be made amdendable between campaigns
     """
-    
+
     def __init__(self,
-        suppress_min = False,   #   mineral suppression
-        min_supp_exemp = [],    #   exemptions ot mineral suppression
-        iopt1   = '1',          #   0 = closed, 1 = titration, 2 = fluid-centered flow through
-        iopt2   = '0',
-        iopt3   = '0',
-        iopt4   = '1',
-        iopt5   = '0',
-        iopt6   = '0',          #   clear soldis at first step in rxn progress. When on (1) this can cause titratiosn to fail.
-        iopt7   = '0',
-        iopt8   = '0',
-        iopt9   = '0',
-        iopt10  = '0',
-        iopr1   = '0',
-        iopr2   = '0',
-        iopr3   = '0',
-        iopr4   = '1',
-        iopr5   = '0',
-        iopr6   = '-1',
-        iopr7   = '1',
-        iopr8   = '0',
-        iopr9   = '0',
-        iopr10  = '0',
-        iopr17  = '1'
-        ):
+                 suppress_min=False,  # mineral suppression
+                 min_supp_exemp=[],  # exemptions ot mineral suppression
+                 iopt1='1',  # 0 = closed, 1 = titration, 2 = fluid-centered flow through
+                 iopt2='0',
+                 iopt3='0',
+                 iopt4='1',
+                 iopt5='0',
+                 iopt6='0',  # clear solids @ 1st step in rxn progress. When on (1) this titration can fail.
+                 iopt7='0',
+                 iopt8='0',
+                 iopt9='0',
+                 iopt10='0',
+                 iopr1='0',
+                 iopr2='0',
+                 iopr3='0',
+                 iopr4='1',
+                 iopr5='0',
+                 iopr6='-1',
+                 iopr7='1',
+                 iopr8='0',
+                 iopr9='0',
+                 iopr10='0',
+                 iopr17='1'
+                 ):
         """
         instantiates six_i constants
-        
         """
-        self.suppress_min     = suppress_min
-        self.min_supp_exemp   = min_supp_exemp
-        self.iopt1     = ' '*(2-len(iopt1)) + iopt1
-        self.iopt2     = ' '*(2-len(iopt2)) + iopt2
-        self.iopt3     = ' '*(2-len(iopt3)) + iopt3
-        self.iopt4     = ' '*(2-len(iopt4)) + iopt4
-        self.iopt5     = ' '*(2-len(iopt5)) + iopt5
-        self.iopt6     = ' '*(2-len(iopt6)) + iopt6
-        self.iopt7     = ' '*(2-len(iopt7)) + iopt7
-        self.iopt8     = ' '*(2-len(iopt8)) + iopt8
-        self.iopt9     = ' '*(2-len(iopt9)) + iopt9
-        self.iopt10    = ' '*(2-len(iopt10)) + iopt10
-        self.iopr1     = ' '*(2-len(iopr1)) + iopr1
-        self.iopr2     = ' '*(2-len(iopr2)) + iopr2
-        self.iopr3     = ' '*(2-len(iopr3)) + iopr3
-        self.iopr4     = ' '*(2-len(iopr4)) + iopr4
-        self.iopr5     = ' '*(2-len(iopr5)) + iopr5
-        self.iopr6     = ' '*(2-len(iopr6)) + iopr6
-        self.iopr7     = ' '*(2-len(iopr7)) + iopr7
-        self.iopr8     = ' '*(2-len(iopr8)) + iopr8
-        self.iopr9     = ' '*(2-len(iopr9)) + iopr9
-        self.iopr10    = ' '*(2-len(iopr10)) + iopr10
-        self.iopr17    = ' '*(2-len(iopr10)) + iopr17
+        self.suppress_min = suppress_min
+        self.min_supp_exemp = min_supp_exemp
+        self.iopt1 = ' ' * (2 - len(iopt1)) + iopt1
+        self.iopt2 = ' ' * (2 - len(iopt2)) + iopt2
+        self.iopt3 = ' ' * (2 - len(iopt3)) + iopt3
+        self.iopt4 = ' ' * (2 - len(iopt4)) + iopt4
+        self.iopt5 = ' ' * (2 - len(iopt5)) + iopt5
+        self.iopt6 = ' ' * (2 - len(iopt6)) + iopt6
+        self.iopt7 = ' ' * (2 - len(iopt7)) + iopt7
+        self.iopt8 = ' ' * (2 - len(iopt8)) + iopt8
+        self.iopt9 = ' ' * (2 - len(iopt9)) + iopt9
+        self.iopt10 = ' ' * (2 - len(iopt10)) + iopt10
+        self.iopr1 = ' ' * (2 - len(iopr1)) + iopr1
+        self.iopr2 = ' ' * (2 - len(iopr2)) + iopr2
+        self.iopr3 = ' ' * (2 - len(iopr3)) + iopr3
+        self.iopr4 = ' ' * (2 - len(iopr4)) + iopr4
+        self.iopr5 = ' ' * (2 - len(iopr5)) + iopr5
+        self.iopr6 = ' ' * (2 - len(iopr6)) + iopr6
+        self.iopr7 = ' ' * (2 - len(iopr7)) + iopr7
+        self.iopr8 = ' ' * (2 - len(iopr8)) + iopr8
+        self.iopr9 = ' ' * (2 - len(iopr9)) + iopr9
+        self.iopr10 = ' ' * (2 - len(iopr10)) + iopr10
+        self.iopr17 = ' ' * (2 - len(iopr10)) + iopr17
 
-
-    def write(self, local_name, reactants, pickup_lines, temp, output_details = 'm', xi_max = 100, morr = 100, mix_dlxprn = 1, mix_dlxprl = 1, jtemp = '0', additional_sw_rxn = False):
-        """ 
+    def write(self, local_name, reactants, pickup_lines, temp,
+              output_details='m', xi_max=100, morr=100,
+              mix_dlxprn=1, mix_dlxprl=1, jtemp='0', additional_sw_rxn=False):
+        """
         Constructs a 6i file 'local_name' with instantiated constants
 
         reactants = dictionary of reactant:value pairs. This dictionary has the same structure
@@ -684,58 +678,53 @@ class Six_i(object):
             normal = the instantiation defaults (self.)
 
         additional_sw_rxn = True, triggers the inclusion of seawater as an adidtional reactant.
-            This is used to allow remixing of seawater when i am also seeking continued mienral interaction
-
+            This is used to allow remixing of seawater when i am also seeking continued
+            mineral interaction
         """
-
         if output_details == 'm':
-            ### minimal output sought:
+            # minimal output sought:
             pass
         elif output_details == 'v':
-            ### maximal infomration sought from the 6o file for debugging
+            # maximal infomration sought from the 6o file for debugging
             pass
-
-
-        ### reactant count
+        # reactant count
         reactant_n = len(reactants.keys())
 
-        if additional_sw_rxn == True:
+        if additional_sw_rxn:
             reactant_n += 1
 
-
-        if jtemp == '0':        
-            ### t constant
+        if jtemp == '0':
+            # t constant
             tempcb = temp
-            ttk1   = '0.00000E+00'
-            ttk2   = '0.00000E+00'
-        
-        elif jtemp == '3':
-            ### fluid mixing desired. 
-            ### this renders temp (target end temp of the reaction) something to be solved for 
-            ### via xi. must check that it is possible (cant reach 25 C of the two fluids being mixed
-            ### are above that.)
+            ttk1 = '0.00000E+00'
+            ttk2 = '0.00000E+00'
 
-            ### tempcb = high T fluid temp. this is listed in the pickup lines about 
-            ### to be attched to the bottom.
+        elif jtemp == '3':
+            # fluid mixing desired.
+            # this renders temp (target end temp of the reaction) something to be solved for
+            # via xi. must check that it is possible (cant reach 25 C of the two fluids being mixed
+            # are above that.)
+
+            # tempcb = high T fluid temp. this is listed in the pickup lines about
+            # to be attched to the bottom.
 
             for _ in pickup_lines:
                 if '    tempci=  ' in _:
                     tempcb = grab_str(_, -1)
 
-            ### temp of fluid 2 (reactant block seawater)
-            ttk2   = '2.00000E+00' 
+            # temp of fluid 2 (reactant block seawater)
+            ttk2 = '2.00000E+00'
             format_e(float(temp), 5)
-            
-            ### mass ratio fluid 1 to fluid 2 at xi = 1. THis is solved for the desired T_sys = temp
-            ### T_sys = (T_vfl*ttk1 + Xi*T_sw) / (Xi + ttk1)
-            ### To get T)sys to taget 'temp' at Xi  = 1:
-            ###     ttk1 = (T_sw - temp) / (temp - T_vfl)
+
+            # mass ratio fluid 1 to fluid 2 at xi = 1. THis is solved for the desired T_sys = temp
+            # T_sys = (T_vfl*ttk1 + Xi*T_sw) / (Xi + ttk1)
+            # To get T)sys to taget 'temp' at Xi  = 1:
+            #     ttk1 = (T_sw - temp) / (temp - T_vfl)
             ttk1 = '1.00000E+00'
             ttk1 = format_e((float(ttk2) - temp) / (temp - float(tempcb)), 5)
 
-            ### reset ximax so the xi_max = 1 lands on correct system temp, given ttk1
+            # reset ximax so the xi_max = 1 lands on correct system temp, given ttk1
             xi_max = 1
-
 
         with open(local_name, 'w') as build:
             build.write('\n'.join([
@@ -749,35 +738,32 @@ class Six_i(object):
                 '      ptk1=  0.00000E+00      ptk2=  0.00000E+00',
                 '      nrct=  {}\n'.format(str(reactant_n))]))
 
-
             if len(reactants) > 0:
                 for _ in reactants.keys():
-                    ### This assumes that the reactant info read from the vs table
-                    ### is passed in the same manner as the table listed in the campaign .py file
-                    if reactants[_][0] == 'ele' or reactants[_][0] =='sr': 
-                        ### element or special reactant
-                        ### special reactants must be in sr_dict:
+                    # This assumes that the reactant info read from the vs table
+                    # is passed in the same manner as the table listed in the campaign .py file
+                    if reactants[_][0] == 'ele' or reactants[_][0] =='sr':
+                        # element or special reactant
+                        # special reactants must be in sr_dict:
                         build.write(build_special_rnt(_, reactants[_]))
                     # elif reactants[_][0] == 'sr':
-                    #     ### special reactant
+                    #     # special reactant
                         # build.write(build_special_rnt(_, reactants[_][1], reactants[_][2]))
                     elif reactants[_][0] == 'solid':
-                        ### mineral reactant
+                        # mineral reactant
                         build.write(build_mineral_rnt(_, reactants[_][1], reactants[_][2]))
                     elif reactants[_][0] == 'gas':
-                        ### gas reactant
+                        # gas reactant
                         build.write(build_gas_rnt(_, reactants[_][1], reactants[_][2]))
-                    
+
                     # elif reactants[_][0] == 'Gale':
                     #     load_gale
                     #     build.write
-            
 
-            if additional_sw_rxn == True:
-               
-                ### drop in seawater as an additional reactant, to exhaustion.
-                ### this is obviously incomplete, as i should be able to pick which fluid i want to
-                ### add as an aditional reaction
+            if additional_sw_rxn:
+                # drop in seawater as an additional reactant, to exhaustion.
+                # this is obviously incomplete, as i should be able to pick which fluid i want to
+                # add as an aditional reaction
                 build.write(
                     '\n'.join([
                     '*-----------------------------------------------------------------------------',
@@ -828,7 +814,7 @@ class Six_i(object):
                     '      rkb1=  1.00000E+00      rkb2=  0.00000E+00      rkb3=  0.00000E+00\n']))
 
             else:
-                ### no reactants, closed system                    
+                # no reactants, closed system
                 self.iopt1 = ' 0'
 
             build.write(
@@ -863,29 +849,21 @@ class Six_i(object):
                                 '  iodb1-10=     0    0    0    0    0    0    0    0    0    0',
                                 ' iodb11-20=     0    0    0    0    0    0    0    0    0    0\n']))
 
-
-
-            ### Handle mineral supression
+            # Handle mineral supression
             if self.suppress_min:
                 build.write('     nxopt=  1\n    option= All    \n')
             else:
                 build.write('     nxopt=  0\n')
 
-                
-
-            ### handle exemptions to suppressions    
+            # handle exemptions to suppressions
             if len(self.min_supp_exemp) > 0:
-                ### list specific mineral exeptions to the 'all' suppression statement above
+                # list specific mineral exeptions to the 'all' suppression statement above
                 build.write('    nxopex=  {}\n'.format(str(int(len(self.min_supp_exemp)))))
                 for _ in self.min_supp_exemp:
                     build.write('   species= {}\n'.format(_))
 
-
-            
             elif len(self.min_supp_exemp) == 0 and self.suppress_min:
                 build.write('    nxopex=  0\n')
-
-
 
             build.write('\n'.join([
                 '      nffg=  0',
@@ -899,6 +877,6 @@ class Six_i(object):
                 '    dlxdmp=  0.00000E+00',
                 '*-----------------------------------------------------------------------------\n']))
 
-            ### load pickup lines
+            # load pickup lines
             for _ in pickup_lines:
                 build.write(_)

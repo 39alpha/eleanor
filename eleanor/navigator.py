@@ -116,7 +116,7 @@ def huffer(conn):
 	###	build 'verbose' 3i, with solid solutions on 
 	camp.local_3i.write(
 		'test.3i', state_dict, basis_dict, output_details = 'v')
-	out, err = runeq(3, suffix, 'test.3i')
+	out, err = eq3("../../db/data1." + suffix, 'test.3i')
 
 
 

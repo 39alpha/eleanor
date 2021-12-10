@@ -218,7 +218,6 @@ def initiate_sql_VS_table(conn, elements):
 		elements])
 
 
-
 	if len(camp.target_rnt) > 0:
 		execute_sql_statement(
 			conn, "".join([sql_info, sql_rnt_morr, sql_rnt_rkb1, sql_state, 

@@ -6,8 +6,6 @@ from .hanger import tool_room
 class Campaign(object):
     """The Campaign class defines the modelling objectives and priorities
         These include -
-        
-        
     """
     def __init__(self, file_name):
         self.file_name = file_name

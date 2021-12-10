@@ -1,92 +1,91 @@
-### tool_room
-### Developed by Tucker Ely 
-### 2018-
-### general EQ3/6 dependencies
+""" The tool room module contains functions and variables
+related to running and manipulating EQ3/6.
+This file is my attempt to stremaline the development
+process, as the functions contained herein are
+commonily duplicated between projects. """
 
-### contains functions and variables
-### related to running and manipulating EQ3/6.
-### This file is my attempt to stremaline the development 
-### process, as the functions contained herein are 
-### commonily duplicated between projects.
-### the 'local' here refers to its use on my local machine
-### differentiating it from the copy being built within
-### the NPP project
+# tool_room
+# Developed by Tucker Ely
+# 2018-
+# general EQ3/6 dependencies
+# Adapted by 39A 2021
 
-
-import os, shutil, sys, re, math, itertools
+import os
+import shutil
+import sys
+import re
 
 import numpy as np
-from subprocess import * 
-from time import *
+from subprocess import Popen, PIPE
+from time import time
 
-
-from .db_comms import *
+from .db_comms import execute_sql_statement
 from .constants import *
 
 os.environ['EQ36CO']="/Users/tuckerely/NPP_dev/EQ3_6v8.0a/bin"
 os.environ['PATH']="{}:{}".format(os.environ['PATH'], os.environ['EQ36CO'])
 os.environ['EQ36DA']="/Users/tuckerely/NPP_dev/EQ3_6v8.0a/db"
 
-
 HERE = os.path.dirname(os.path.abspath(__file__))
-##################################################################
-#########################  small pieces  #########################
-##################################################################
+# #################################################################
+# ########################  small pieces  #########################
+# #################################################################
 
-def read_inputs(file_extension, location, str_loc = 'suffix'):
-    ### this function can find all 'file_extension' files in all downstream folders, of the 'location'
-    file_name = []      #     file names
-    file_list = []      #     file names with paths
+def read_inputs(file_extension, location, str_loc='suffix'):
+    # this function can find all 'file_extension' files in downstream folders, of the 'location'
+    file_name = []  # file names
+    file_list = []  # file names with paths
 
     for root, dirs, files in os.walk(location):
         for file in files:
             if str_loc == 'suffix':
                 if file.endswith(file_extension):
                     file_name.append(file)
-                    file_list.append(os.path.join(root, file))                     
+                    file_list.append(os.path.join(root, file))
             if str_loc == 'prefix':
                 if file.startswith(file_extension):
                     file_name.append(file)
-                    file_list.append(os.path.join(root, file))                     
+                    file_list.append(os.path.join(root, file))
     return file_name, file_list
 
 def mk_check_del_directory(path):
     """
-    This code checks for the dir being created, and if it is already 
+    This code checks for the dir being created, and if it is already
     present, deletes it (with warning), before recreating it
     """
-    if not os.path.exists(path):            #    Check if the dir is alrady pessent
-        os.makedirs(path)                   #    Build desired output directory
-    # else:
-    #     answer = input('\n Directory {} already exists.\n\
-    # Are you sure you want to overwrite its contents? (Y E S/N)\n'.format(path))
-    #     if answer == 'Y E S':
-    #         shutil.rmtree(path)             #    Remove directory and contents if it is already present.
-    #         os.makedirs(path)
-    #     else:
-    #         sys.exit("ABORT !")
+    if not os.path.exists(path):  # Check if the dir is alrady pessent
+        os.makedirs(path)  # Build desired output directory
+    else:
+        answer = input('\n Directory {} already exists.\n\
+                        Are you sure you want to overwrite its contents? (Y E S/N)\n'.format(path))
+        if answer == 'Y E S':
+            shutil.rmtree(path)  # Remove directory and contents if it is already present.
+            os.makedirs(path)
+        else:
+            sys.exit("ABORT !")
 
 def mk_check_del_file(path):
-    ###  This code checks for the file being created/moved already exists at the destination. And if so, delets it.
-    if os.path.isfile(path):                #    Check if the file is alrady pessent
-        os.remove(path)                     #    Delete file
+    #  This code checks for the file being created/moved already exists at the destination.
+    #  And if so, delets it.
+    if os.path.isfile(path):  # Check if the file is alrady pessent
+        os.remove(path)  # Delete file
 
 def ck_for_empty_file(f):
-    if     os.stat(f).st_size == 0:
+    if os.stat(f).st_size == 0:
         print('file: ' + str(f) + ' is empty.')
         sys.exit()
 
 def format_e(n, p):
-    ####     n = number, p = precisions
-    return "%0.*E"%(p,n)
+    # n = number, p = precisions
+    return "%0.*E" % (p, n)
     # return b.split('E')[0].rstrip('0').rstrip('.') + 'E' + b.split('E')[1]
 
 def format_n(n, p):
-    ####     n = number, p = precisions
-    return "%0.*f"%(p,n)
+    # n = number, p = precisions
+    return "%0.*f" % (p, n)
 
 def grab_str(line, pos):
-    a = str(line)       
+    a = str(line)
     b = a.split()
     return b[pos]
 
@@ -97,15 +96,16 @@ def grab_lines(file):
     return lines
 
 def grab_float(line, pos):
-    ### grabs the 'n'th string split component of a 'line' as a float.
+    # grabs the 'n'th string split component of a 'line' as a float.
     a = str(line)
     b = a.split()
-    ###    designed to catch exponents of 3 digits, which are misprinted in EQ3/6 outputs,
-    ### ommiting the 'E'. Such numebr have
+    # designed to catch exponents of 3 digits, which are misprinted in EQ3/6 outputs,
+    # ommiting the 'E'. Such numebr have
     if re.findall('[0-9][-\+][0-9]', b[pos]):
         return 0.000
     else:
-        ### handle attached units if present (rid of letters) without bothering the E+ in scientific notation if present.
+        # handle attached units if present (rid of letters) without bothering the E+ in scientific
+        # notation if present.
         c = re.findall('[0-9Ee\+\.-]+', b[pos])
         return float(c[0])
 
@@ -116,11 +116,12 @@ def runeq(ver, suffix, input_file):
     # print(' Calling EQ{} on '.format(ver), input_file, ' using ', suffix)
     code_path = None
     if ver == 3:
-        code_path= 'eq3nr'
+        code_path = 'eq3nr'
     elif ver == 6:
         code_path = 'eq6'
     else:
-        raise ValueError("runeq called with ver arugment set to something besides 3 or 6, you've fucked it")
+        raise ValueError("runeq called with ver arugment set to something besides 3 or 6, \
+                          you've fucked it")
     # print(os.path.abspath(__file__))
     data1_file = os.path.join(HERE, "../db/data1." + suffix)  # Generalize
     # print(os.path.isfile(data1_file))
@@ -142,43 +143,41 @@ def mine_pickup_lines(pp, file, position):
     to be employed in two different ways. The top of a 3p or 6p file
     presents the fluid as a reactant (to be reloaded into the reactant bloack)
     of another 6i file. This can also be thought of as the dynamic system/fluid,
-    as it is the fluid that is changing during a titration, being added as a 
+    as it is the fluid that is changing during a titration, being added as a
     function of Xi. The second block, below the reactant pickup lines,
-    contains a traditional pickup file. THis can also be thought of as a static 
+    contains a traditional pickup file. THis can also be thought of as a static
     system/fluid, as it is the system that is initiated at a fixed mass during a titration
     """
 
-    p_lines = grab_lines(os.path.join(pp,file))
+    p_lines = grab_lines(os.path.join(pp, file))
 
     if position == 'd':
-        ### mine the reactant block (dynamic fluid)
+        # mine the reactant block (dynamic fluid)
         x = 0
         while not re.findall('^\*------------------', p_lines[x]):
             x += 1
         x += 1
         start_sw = x
         while not re.findall('^\*------------------', p_lines[x]):
-            ### replace morr value to excess, so that it can be continuesly titrated in pickup fluid, without exhaustion
-            ### this is a default standin. note that other codes may alter this later, such as when some limited amount of seawater
-            ### entrainment is accounted for.
+            # replace morr value to excess, so that it can be continuesly titrated in pickup fluid,
+            # without exhaustion this is a default standin. note that other codes may alter this
+            # later, such as when some limited amount of seawater entrainment is accounted for.
             if re.findall('^      morr=', p_lines[x]):
-                p_lines[x] = p_lines[x].replace('morr=  1.00000E+00','morr=  1.00000E+20')
+                p_lines[x] = p_lines[x].replace('morr=  1.00000E+00', 'morr=  1.00000E+20')
                 x += 1
             else:
                 x += 1
 
-        end_sw = x        
+        end_sw = x
         return p_lines[start_sw:end_sw]
-    
 
     elif position == 's':
-        ### mine fluid in the 'pickup' position from the bottom of the 3p file
+        # mine fluid in the 'pickup' position from the bottom of the 3p file
         x = len(p_lines) - 1
         while not re.findall('^\*------------------', p_lines[x]):
             x -= 1
         x += 1
         return p_lines[x:]
-
 
     else:
         print('Ya Fucked up!')
@@ -189,24 +188,21 @@ def mine_pickup_lines(pp, file, position):
         print('  pickup position which exists at a fixed mass.')
         sys.exit()
 
-
 def log_rng(mid, error_in_frac):
-    return [np.log10(mid*_) for _ in [1-error_in_frac, 1+error_in_frac]]
-
+    return [np.log10(mid * _) for _ in [1 - error_in_frac, 1 + error_in_frac]]
 
 def norm_list(data):
     return list((data - np.min(data)) / (np.max(data) - np.min(data)))
 
-
-
-def reset_sailor(order_path, start, conn, camp_name, file, uuid, code, delete_local = False):
+def reset_sailor(order_path, start, conn, camp_name, file, uuid, code, delete_local=False):
     """ the sailor has failed to run the 'file'
     (1) report to vs database 'camp_name' via server connection 'conn' the exit 'code'
         for 'file' with unique vs_table id 'uuid'
     (2) step back into order folder 'order_path' for next vs point.
     """
-    sql = "UPDATE {} SET {} = {} WHERE uuid = '{}';".format('{}_vs'.format(camp_name), 'code', code, uuid)
-    execute_postgres_statement(conn, sql)
+    sql = "UPDATE {} SET {} = {} WHERE uuid = '{}';".format('{}_vs'.format(camp_name),
+                                                            'code', code, uuid)
+    execute_sql_statement(conn, sql)
     print("  {}     {}      {} s".format(file, code, round(time()-start, 4)))
     os.chdir(order_path)
 

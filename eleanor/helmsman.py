@@ -94,7 +94,7 @@ def sailor(order_path, date, dat, elements, col_names):
 
     conn = establish_server_connection()
 
-    ord_id = str(dat[2])
+    # ord_id = str(dat[2])
     run_num = str(dat[3])
     file = '{}.3i'.format(run_num)
 
@@ -277,14 +277,13 @@ def mine_6o(conn, date, order_path, elements, file, dat, col_names):
         elif ' --- Elemental Composition' in lines[_]:
             x = 4
             while not re.findall('^\n', lines[_ + x]):
-                if grab_str(lines[_ + x ], 0) in elements:
+                if grab_str(lines[_ + x], 0) in elements:
                     # ## log molality data
-                    build_df['{}'.format(grab_str(lines[_ + x ], 0))] = [
-                        np.round(np.log10(grab_float(lines[_ + x], -1)), 6)]
+                    this_dat = [np.round(np.log10(grab_float(lines[_ + x], -1)), 6)]
+                    build_df['{}'.format(grab_str(lines[_ + x], 0))] = this_dat
                     x += 1
                 else:
                     x += 1
-
 
         elif '                Log oxygen fugacity=' in lines[_]:
             # ##    log fO2
@@ -340,8 +339,7 @@ def mine_6o(conn, date, order_path, elements, file, dat, col_names):
                     # ## function, for the same reason.
 
                     # ### mols
-                    temp_s_dict[lines[_ + x][:25].strip()] = [grab_float(
-                        lines[_ +x], -3)]
+                    temp_s_dict[lines[_ + x][:25].strip()] = [grab_float(lines[_ + x], -3)]
                     x += 1
                 else:
                     x += 1
@@ -350,7 +348,7 @@ def mine_6o(conn, date, order_path, elements, file, dat, col_names):
         elif '--- Saturation States of Pure Solids ---' in lines[_]:
             x = 4
             while not re.findall('^\n', lines[_ + x]):
-                if re.findall('\*{4}$', lines[_ + x]):
+                if re.findall(r'\*{4}$', lines[_ + x]):
                     # ## ****** fills in the value region for numbers
                     # ## lower than -999.9999. So I am replacing them
                     # ## here with the boundry condition.
@@ -370,7 +368,7 @@ def mine_6o(conn, date, order_path, elements, file, dat, col_names):
         elif ' --- Saturation States of Solid Solutions ---' in lines[_]:
             x = 4
             while not re.findall('^\n', lines[_ + x]):
-                if  re.findall('\*{4}$', lines[_ + x]):
+                if re.findall(r'\*{4}$', lines[_ + x]):
                     # ## ****** fills in the value region for numbers
                     # ## lower than -999.9999, So I am replacing them
                     # ## here with the boundry condition.
@@ -378,7 +376,7 @@ def mine_6o(conn, date, order_path, elements, file, dat, col_names):
                     # ## affinity (kcal)
                     build_df[lines[_ + x][:30].strip()] = [float(-999.9999)]
                     x += 1
-                elif 'None' not in lines[_ +x]: 
+                elif 'None' not in lines[_ + x]:
                     # ## affinity (kcal)
                     build_df[lines[_ + x][:30].strip()] = [
                         float(lines[_ + x][44:55])]
@@ -391,8 +389,8 @@ def mine_6o(conn, date, order_path, elements, file, dat, col_names):
             x = 4
             while not re.findall('^\n', lines[_ + x]):
 
-                if 'None' not in lines[_ +x]:  # log f
-                    if  re.findall('\*{4}', lines[_ + x]):
+                if 'None' not in lines[_ + x]:  # log f
+                    if re.findall(r'\*{4}', lines[_ + x]):
                         # ## ****** fills in the value region for numbers
                         # ## lower than -999.9999 and for gasses that have
                         # ## been user suppressed. So I am replacing them
@@ -435,7 +433,8 @@ def six_o_data_to_postgres(conn, table, df):
     """
     Write dataframe 'df' to postgresql 'table' on connection'conn.'
     """
-
+    # TODO: Move to DB comms, and figure out how write to table effectively
+    # with pandas
     tuples = [tuple(x) for x in df.to_numpy()]
     # ##    must wrap col names in "" for pastgres to accept special
     # ## characters within names
@@ -444,10 +443,10 @@ def six_o_data_to_postgres(conn, table, df):
     cursor = conn.cursor()
 
     try:
-        extras.execute_values(cursor, query, tuples)
+        extras.execute_values(cursor, query, tuples)  # TODO: This shit won't work
         conn.commit()
         cursor.close()
-    except (Exception, pg.DatabaseError) as error:
+    except Exception as error:
         print("Postgres Error: %s" % error)
         print("  I. fuckked. up.")
         print("  I misdialed!\n")

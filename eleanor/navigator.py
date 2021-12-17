@@ -118,7 +118,7 @@ def huffer(conn):
     # build 'verbose' 3i, with solid solutions on
     camp.local_3i.write(
         'test.3i', state_dict, basis_dict, output_details='v')
-    out, err = eq3("../../db/data1." + suffix, 'test.3i')
+    out, err = eq3("/home/colemathis/eleanor/eleanor/db/data1." + suffix, 'test.3i')
 
     try:
         # if 3o is generated
@@ -459,7 +459,6 @@ def process_BF_vars(BF_vars, reso):
     # grid  = grid.reshape(-1)
     # grid = np.mgrid[all_ranges]
 
-    print(grid.shape)
     return pd.DataFrame(grid, columns=list(BF_vars.keys()))
 
 def random_uniform_order(date, order_number, order_size, elements):

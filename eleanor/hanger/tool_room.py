@@ -16,11 +16,10 @@ import sys
 import re
 
 import numpy as np
-from subprocess import Popen, PIPE
 from time import time
 
 from .db_comms import execute_sql_statement
-from .constants import *
+from .constants import *  # noqa (F403)
 
 os.environ['EQ36CO']="/Users/tuckerely/NPP_dev/EQ3_6v8.0a/bin"
 os.environ['PATH']="{}:{}".format(os.environ['PATH'], os.environ['EQ36CO'])
@@ -101,12 +100,12 @@ def grab_float(line, pos):
     b = a.split()
     # designed to catch exponents of 3 digits, which are misprinted in EQ3/6 outputs,
     # ommiting the 'E'. Such numebr have
-    if re.findall('[0-9][-\+][0-9]', b[pos]):
+    if re.findall(r'[0-9][-\+][0-9]', b[pos]):
         return 0.000
     else:
         # handle attached units if present (rid of letters) without bothering the E+ in scientific
         # notation if present.
-        c = re.findall('[0-9Ee\+\.-]+', b[pos])
+        c = re.findall(r'[0-9Ee\+\.-]+', b[pos])
         return float(c[0])
 
 
@@ -132,11 +131,11 @@ def mine_pickup_lines(pp, file, position):
     if position == 'd':
         # mine the reactant block (dynamic fluid)
         x = 0
-        while not re.findall('^\*------------------', p_lines[x]):
+        while not re.findall(r'^\*------------------', p_lines[x]):
             x += 1
         x += 1
         start_sw = x
-        while not re.findall('^\*------------------', p_lines[x]):
+        while not re.findall(r'^\*------------------', p_lines[x]):
             # replace morr value to excess, so that it can be continuesly titrated in pickup fluid,
             # without exhaustion this is a default standin. note that other codes may alter this
             # later, such as when some limited amount of seawater entrainment is accounted for.
@@ -152,7 +151,7 @@ def mine_pickup_lines(pp, file, position):
     elif position == 's':
         # mine fluid in the 'pickup' position from the bottom of the 3p file
         x = len(p_lines) - 1
-        while not re.findall('^\*------------------', p_lines[x]):
+        while not re.findall(r'^\*------------------', p_lines[x]):
             x -= 1
         x += 1
         return p_lines[x:]
@@ -181,61 +180,54 @@ def reset_sailor(order_path, start, conn, camp_name, file, uuid, code, delete_lo
     sql = "UPDATE {} SET {} = {} WHERE uuid = '{}';".format('{}_vs'.format(camp_name),
                                                             'code', code, uuid)
     execute_sql_statement(conn, sql)
-    print("  {}     {}      {} s".format(file, code, round(time()-start, 4)))
+    print("  {}     {}      {} s".format(file, code, round(time() - start, 4)))
     os.chdir(order_path)
 
     if delete_local:
         # print('deleting {}'.format(file[:-3]))
         shutil.rmtree(file[:-3])
 
+# ##################################################################
+# ###########################    debug   ###########################
+# ##################################################################
 
-##################################################################
-###########################    debug   ###########################
-##################################################################
+# def track_times():
+#     profile = cProfile.Profile()
+#     profile.enable()
+#     return profile
 
-def track_times():
-    profile = cProfile.Profile()
-    profile.enable()
-    return profile
+# def report_times(profile):
+#     profile.disable()
+#     ps = pstats.Stats(profile)
+#     ps.sort_stats('cumtime') 
+#     ps.print_stats()
 
-def report_times(profile):
-    profile.disable()
-    ps = pstats.Stats(profile)
-    ps.sort_stats('cumtime') 
-    ps.print_stats()
+# #####################################################################
+# ###########################  3i/6i  #################################
+# #####################################################################\
 
-
-
-
-
-
-######################################################################
-############################  3i/6i  #################################
-######################################################################
-
-
-##############    Old function from Gale database work.
+# #############    Old function from Gale database work.
 
 def oxide_conversion(dat, oxide, fe3_frac):
     """
-    WARNING: This function was used purely for Gale alteration work, and requires a specific rock db file column format
-    
-    Converts wt% oxides listed in desired database to mols/kg, as required by eq6. 
-    This function  uses the information listed in the oxide dictionary ‘wt_dict’ 
-    to handle the correct oxygen mol numbers properly. 
-    This function also handles oxygen as it relates to accounting for Fe(III)/Fe(tot). 
-    This function DOES NOT normalize to 100 wt%.
+    WARNING: This function was used purely for Gale alteration work,
+    and requires a specific rock db file column format
 
+    Converts wt% oxides listed in desired database to mols/kg, as required by eq6.
+    This function  uses the information listed in the oxide dictionary ‘wt_dict’
+    to handle the correct oxygen mol numbers properly.
+    This function also handles oxygen as it relates to accounting for Fe(III)/Fe(tot).
+    This function DOES NOT normalize to 100 wt%.
      """
 
-    rock = dat[3:] 
+    rock = dat[3:]
 
-    ### rock = line from database csv file, rock_name in [0], ridge_name in [1], oxides from there.
-    ### Oxide is a list of just these oxides
-    ### Fe3_frac is the fraction of fe2 that is to me simulated as fe3
-    
-    deci = 5        #   number of decimal places for oxide mol numbers printed on 6i file
-    
+    # ## rock = line from database csv file, rock_name in [0], ridge_name in [1], oxides from there.
+    # ## Oxide is a list of just these oxides
+    # ## Fe3_frac is the fraction of fe2 that is to me simulated as fe3
+
+    deci = 5  # number of decimal places for oxide mol numbers printed on 6i file
+
     print_list = []
     O_build = 0
     H_build = 0
@@ -248,7 +240,7 @@ def oxide_conversion(dat, oxide, fe3_frac):
 
         ### Account for Fe+3 fraction of O to be added
         if i == 'FeO':
-            ### fe3_frac * r_Fe_mols * 0.5     (0.5 is the number of adidional O, beyond the 1 in FeO, 
+            ### fe3_frac * r_Fe_mols * 0.5     (0.5 is the number of adidional O, beyond the 1 in FeO,
             ### needed to pull an additional e- from Fe2, coverting it to Fe3). 
             ### The one oxygen in FeO is account for in full below, 
             ### when Fe goes on to be treated like any other oxide. 
@@ -304,7 +296,7 @@ def build_special_rnt(phase, phase_dat):
     if phase_dat[0] == 'sr':
         # does special reactnat exists in sr_dict
         try:
-            sr_dat = sr_dict[phase]
+            sr_dat = sr_dict[phase]  # in constants
 
         except Exception as e:
             print('Special reactant not installed:')
@@ -460,7 +452,7 @@ class Three_i(object):
         self.iopr7 = iopr7
         self.iopr9 = iopr9
 
-    def write(self, local_name, v_state, v_basis, output_details = 'n'):
+    def write(self, local_name, v_state, v_basis, output_details='n'):
         """
         local_name = actual file name
         v_state = dict['state_parameter_name'] = value
@@ -472,9 +464,10 @@ class Three_i(object):
         """
 
         if output_details == 'v':
-            ### maximal infomration sought from the 3o file, to added chemiocal space investigations:
-            ### note extra space in front of number value. this is needed.
-            l_iopt4 = ' 1'  #   turn on SS so that they are listed in 3o loaded sp.
+            # ## maximal infomration sought from the 3o file,
+            # ## to added chemiocal space investigations:
+            # ## note extra space in front of number value. this is needed.
+            l_iopt4 = ' 1'  # turn on SS so that they are listed in 3o loaded sp.
             l_iopr1 = ' 1'
             l_iopr2 = ' 3'
             l_iopr4 = ' 1'
@@ -487,36 +480,35 @@ class Three_i(object):
             l_iodb4 = ' 4'
             l_iodb6 = ' 2'
 
-
         elif output_details == 'n':
-            ### normal olutput sought = instantiation defaults (self.)
+            # ## normal olutput sought = instantiation defaults (self.)
 
-            ### no string leading space addition is needed for iopt, 
-            ### becuas ei am not intersted in - values there.
+            # ## no string leading space addition is needed for iopt,
+            # ## becuas ei am not intersted in - values there.
 
-            ### adjust leading space for iopr strings, as they may have 
-            ### leading negative values
-            l_iopt4 = ' '*(2-len(self.iopt4)) + self.iopt4
-            l_iopr1 = ' '*(2-len(self.iopr1)) + self.iopr1
-            l_iopr2 = ' '*(2-len(self.iopr2)) + self.iopr2
-            l_iopr4 = ' '*(2-len(self.iopr4)) + self.iopr4
-            l_iopr5 = ' '*(2-len(self.iopr5)) + self.iopr5
-            l_iopr6 = ' '*(2-len(self.iopr6)) + self.iopr6
-            l_iopr7 = ' '*(2-len(self.iopr7)) + self.iopr7
-            l_iopr9 = ' '*(2-len(self.iopr9)) + self.iopr9
+            # ## adjust leading space for iopr strings, as they may have
+            # ## leading negative values
+            l_iopt4 = ' ' * (2 - len(self.iopt4)) + self.iopt4
+            l_iopr1 = ' ' * (2 - len(self.iopr1)) + self.iopr1
+            l_iopr2 = ' ' * (2 - len(self.iopr2)) + self.iopr2
+            l_iopr4 = ' ' * (2 - len(self.iopr4)) + self.iopr4
+            l_iopr5 = ' ' * (2 - len(self.iopr5)) + self.iopr5
+            l_iopr6 = ' ' * (2 - len(self.iopr6)) + self.iopr6
+            l_iopr7 = ' ' * (2 - len(self.iopr7)) + self.iopr7
+            l_iopr9 = ' ' * (2 - len(self.iopr9)) + self.iopr9
             l_iodb1 = ' 0'
             l_iodb3 = ' 0'
             l_iodb4 = ' 0'
             l_iodb6 = ' 0'
 
         else:
-            ### output_details set improperly
+            # ## output_details set improperly
             print('Error: {} is not recognized'.format(output_details))
             print('  as a valid output_details value. Must be "n" = ')
             print('  normal or "v" = verbose (for debugging)')
             sys.exit()
 
-        ### write template to file, amending values into the variable vars
+        # ## write template to file, amending values into the variable vars
         with open(local_name, 'w') as build:
             build.write('EQ3NR input file name= local' + '\n' +
                 'endit.' + '\n' +
@@ -576,10 +568,8 @@ class Three_i(object):
                 '* Aqueous phase scale factor' + '\n' +
                 '    scamas=  1.00000E+00')
 
-
-
 class Six_i(object):
-    """ 
+    """
         Instantiates 6i document template that contains the correct
         format (all run setings).
         Any feature of 6i files can be added to the __init__ function,
@@ -594,7 +584,7 @@ class Six_i(object):
                  iopt3='0',
                  iopt4='1',
                  iopt5='0',
-                 iopt6='0',  # clear solids @ 1st step in rxn progress. When on (1) this titration can fail.
+                 iopt6='0',  # clear solids @ 1st step in rxn progress. When on (1) this can fail.
                  iopt7='0',
                  iopt8='0',
                  iopt9='0',
@@ -721,7 +711,7 @@ class Six_i(object):
                 for _ in reactants.keys():
                     # This assumes that the reactant info read from the vs table
                     # is passed in the same manner as the table listed in the campaign .py file
-                    if reactants[_][0] == 'ele' or reactants[_][0] =='sr':
+                    if reactants[_][0] == 'ele' or reactants[_][0] == 'sr':
                         # element or special reactant
                         # special reactants must be in sr_dict:
                         build.write(build_special_rnt(_, reactants[_]))

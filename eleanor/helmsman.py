@@ -6,45 +6,40 @@
 import sys
 import os
 import time
-from subprocess import *
-from time import *
 import multiprocessing
+import re
+import numpy as np
+import pandas as pd
 
 # ### custom packages
-from .hanger.db_comms import *
-from .hanger.tool_room import *
-from .hanger.data0_tools import *
-from .hanger.eq36 import eq3, eq6
-
 # ### rebuild without *
-from .hanger.db_comms import establish_server_connection
-from .hanger.data0_tools import determine_ele_set
+from .hanger.eq36 import eq3, eq6
+from .hanger.db_comms import establish_server_connection, retrieve_record
+from .hanger.data0_tools import determine_ele_set, data0_suffix
+from .hanger.tool_room import mk_check_del_directory, mine_pickup_lines, reset_sailor, grab_float
+from .hanger.tool_room import grab_lines, grab_str
+# TODO: MOVE RESET_SAILOR INTO THE SAME FILE AS SAILOR
 
 import eleanor.campaign as campaign
 
 
-CAMPAIGN_FILE = join(dirname(realpath(__file__)), 'data', 'CSS0_1.json')
+CAMPAIGN_FILE = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'data', 'CSS0_1.json')
+HOME = os.getcwd()
+
 camp = campaign.Campaign(CAMPAIGN_FILE)
 
-home = os.getcwd()
+def main(ord_id=None):
+    """TODO: What does the helmsmen do??"""
+    conn = establish_server_connection()
 
-
-def main():
-
-    conn = establish_server_connection()  # noqa: F405
-
-    try:
-        ord_id = sys.argv[1]  # order id to be retireved in vs table
-    except Exception:
+    if not ord_id:
         sys.exit('give order number')
 
     conn = establish_server_connection()
-
     elements = determine_ele_set(path='{}_huffer/'.format(camp.name))
 
     # ### retrieve issued order 'ord_id'
-    rec = retrieve_postgres_record(conn, "select * from {}_vs where ord = {}".
-                                   format(camp.name, ord_id))
+    rec = retrieve_record(conn, "select * from {}_vs where ord = {}".format(camp.name, ord_id))
 
     try:
         # ### retrieve es col names for this specific campaign
@@ -52,37 +47,37 @@ def main():
         cursor.execute("Select * FROM {}_es LIMIT 0".format(camp.name))
         col_names = [_[0] for _ in cursor.description]
         cursor.close()
-    except (Exception, pg.Error) as error:
-        print ("Error while fetching data from PostgreSQL", error)
+    except Exception as error:
+        print("Error while fetching data from SQL", error)
         cursor.close()
-        print('  Postgresql couldnt understand whatever bullshit')
+        print('  SQL couldnt understand whatever bullshit')
         print('  you were trying to tell it.\n')
         sys.exit()
 
     conn.close()
 
     # ### date time stamp for run date
-    date = strftime("%Y-%m-%d", gmtime())
+    date = time.strftime("%Y-%m-%d", time.gmtime())
 
     # ### build order specific local working directory
-    order_path = os.path.join(home, '{}_order_{}'.format(camp.name, ord_id))
+    order_path = os.path.join(HOME, '{}_order_{}'.format(camp.name, ord_id))
     mk_check_del_directory(order_path)
     os.chdir(order_path)
 
     # ###############   Multiprocessing  ##################
-    start = time()
+    start = time.time()
     print('Processing Order {}'.format(ord_id))
-    cores = 6
+    cores = 6  # TODO: This doesn't make no damn sense, detect or pass as an argument
     with multiprocessing.Pool(processes=cores) as pool:
-        results = pool.starmap(sailor, zip([order_path] * len(rec),
-                                           [date] * len(rec), rec,
-                                           [elements] * len(rec),
-                                           [col_names] * len(rec)))
+        _ = pool.starmap(sailor, zip([order_path] * len(rec),
+                                     [date] * len(rec), rec,
+                                     [elements] * len(rec),
+                                     [col_names] * len(rec)))
 
     print('\nOrder {} complete.'.format(ord_id))
-    print('        total time: {}'.format(round(time()-start, 4)))
-    print('     time/vs_point: {}'.format(round((time()-start)/len(rec), 4)))
-    print('time/vs_point/core: {}\n'.format(round((cores*(time()-start))/len(rec), 4)))
+    print('        total time: {}'.format(round(time.time() - start, 4)))
+    print('     time/vs_point: {}'.format(round((time.time() - start) / len(rec), 4)))
+    print('time/vs_point/core: {}\n'.format(round((cores * (time.time() - start)) / len(rec), 4)))
 
 
 def sailor(order_path, date, dat, elements, col_names):
@@ -108,13 +103,13 @@ def sailor(order_path, date, dat, elements, col_names):
     # ### of data generated during large runs. If a specifc output file is desired
     # ### it can simply be rerun fromt he data in the vs table and the campaign sheet.
     keep_every_n_files = 50
-    if int(run_num) in [int(_) for _ in np.arange(1, 1000000, keep_every_n_files)]:
+    if int(run_num) in [int(idx) for idx in np.arange(1, 1000000, keep_every_n_files)]:
         delete_after_running = False
     else:
         delete_after_running = True
 
     # ### weave rnt/basis/state names with thier values from the current
-    # ### order entry. This feels inefficient. There must be room for 
+    # ### order entry. This feels inefficient. There must be room for
     # ### optimization here
     rnt_n = len(camp.target_rnt.keys())
     state_n = len(camp.vs_state.keys())
@@ -151,8 +146,8 @@ def sailor(order_path, date, dat, elements, col_names):
     suffix = data0_suffix(state_dict['T_cel'], state_dict['P_bar'])
 
     # ### build and execute 3i
-    camp.local_3i.write(file, state_dict, basis_dict, output_details = 'n')
-    out, err = runeq(3, suffix, file)
+    camp.local_3i.write(file, state_dict, basis_dict, output_details='n')
+    out, err = eq3("/home/colemathis/eleanor/eleanor/db/data1." + suffix, file)
 
     # ### check 3p and 3o to determine system status
     if not os.path.isfile(file[:-1] + 'p'):
@@ -161,9 +156,10 @@ def sailor(order_path, date, dat, elements, col_names):
         # ### course not help converge the file, but will provide the
         # ### infomration needed to map evidence of the failure for
         # ### future code to assess.
-        reset_sailor(
-            order_path, start, conn, camp.name, file, dat[0], 30,
-            delete_local=delete_after_running)
+        reset_sailor(order_path, start, conn,
+                     camp.name, file, dat[0],
+                     30,
+                     delete_local=delete_after_running)
         return
 
     # ### process 3p file
@@ -172,19 +168,21 @@ def sailor(order_path, date, dat, elements, col_names):
     except Exception as e:
         # ### cannot mine pickup lines
         print('{}\n  {}\n'.format(file, e))
-        reset_sailor(
-            order_path, start, conn, camp.name, file, dat[0], 31, 
-            delete_local=delete_after_running)
+        reset_sailor(order_path, start, conn,
+                     camp.name, file, dat[0],
+                     31,
+                     delete_local=delete_after_running)
         return
 
-    camp.local_6i.write(file[:-2] + '6i', rnt_dict, pickup, state_dict['T_cel'])    
-    out, err = runeq(6, suffix, file[:-2] + '6i')
+    camp.local_6i.write(file[:-2] + '6i', rnt_dict, pickup, state_dict['T_cel'])
+    out, err = eq6(suffix, file[:-2] + '6i')
 
     # ### check that 6o was generated
     if not os.path.isfile(file[:-2] + '6o'):
-        reset_sailor(
-            order_path, start, conn, camp.name, file, dat[0], 60, 
-            delete_local=delete_after_running)
+        reset_sailor(order_path, start, conn,
+                     camp.name, file, dat[0],
+                     60,
+                     delete_local=delete_after_running)
         return
 
     # ### mine 6o and record in es if complete
@@ -195,9 +193,10 @@ def sailor(order_path, date, dat, elements, col_names):
     if run_code == 100:
         six_o_data_to_postgres(conn, '{}_es'.format(camp.name), build_df)
 
-    reset_sailor(order_path, start, conn, camp.name, file, dat[0], run_code, delete_local = delete_after_running)
-
-
+    reset_sailor(order_path, start, conn,
+                 camp.name, file, dat[0],
+                 run_code,
+                 delete_local=delete_after_running)
 
 def mine_6o(conn, date, order_path, elements, file, dat, col_names):
     """
@@ -207,71 +206,66 @@ def mine_6o(conn, date, order_path, elements, file, dat, col_names):
     dat = data from orders issueed for file
     col_names = ES table columns, in correct order (arrangement).
     """
-    ### initiate values dataframe with the full column name list.
-    ### note: each solid only has one column. Affinity is written, 
-    ### and then moles precipiated is written over it, if it exists.
-    ###
-    ### Therefore, negative values always equal affinities, but 
-    ### positive values could either be positive affinities, or 
-    ### moles precipitated. However, in any given system they can 
-    ### never be both. If precipitation is allowed, then posative 
-    ### values equal moles, if precipiatation for a given pahse is 
-    ### inhibited, then posative values equals affinties
+    # ## initiate values dataframe with the full column name list.
+    # ## note: each solid only has one column. Affinity is written,
+    # ## and then moles precipiated is written over it, if it exists.
 
-    build_df = pd.DataFrame(columns = col_names)                 
+    # ## Therefore, negative values always equal affinities, but
+    # ## positive values could either be positive affinities, or
+    # ## moles precipitated. However, in any given system they can
+    # ## never be both. If precipitation is allowed, then posative
+    # ## values equal moles, if precipiatation for a given pahse is
+    # ## inhibited, then posative values equals affinties
 
-    ### 6o file as a list of strings
+    build_df = pd.DataFrame(columns=col_names)
+
+    # ## 6o file as a list of strings
     lines = grab_lines(file)
 
-    ### handel braod exit conditions
-    run_code = 0             #    default to un-run file '0'
+    # ## handel braod exit conditions
+    run_code = 0  # default to un-run file '0'
     search_for_xi = False
-    for _ in range(len(lines)-1, 0, -1):
-        ### search from bottom of file
+    for _ in range(len(lines) - 1, 0, -1):
+        # ## search from bottom of file
         if '---  The reaction path has terminated early ---' in lines[_]:
-            ### do not process 6o
+            # ## do not process 6o
             return 70, build_df
         elif '---  The reaction path has terminated normally ---' in lines[_]:
             run_code = 100
-            ### Healthy file. Search for index of the last xi step
+            # ## Healthy file. Search for index of the last xi step
             search_for_xi = True
         elif search_for_xi and '                Log Xi=' in lines[_]:
-            ### The first appearnce of this, when searching from the bottom
-            ### is the final EQ step of interest for populating ES.
-            last_xi_step_begins = _     #    grab index for later.
+            # ## The first appearnce of this, when searching from the bottom
+            # ## is the final EQ step of interest for populating ES.
+            last_xi_step_begins = _  # grab index for later.
             break
 
     if run_code == 0:
-        ### run code has not be altered, therefore unknown error
-        ### has occured 
+        # ## run code has not be altered, therefore unknown error
+        # ## has occured
         return 61, build_df
 
-
-
-    ### grab data and populate ES table
+    # ## grab data and populate ES table
     for _ in range(len(lines)):
         if '   Affinity of the overall irreversible reaction=' in lines[_]:
-            ### the first instance of this line is xi = 0.0 
-            ### (initial disequilibria with target mineral)
+            # ## the first instance of this line is xi = 0.0
+            # ## (initial disequilibria with target mineral)
 
-            ###  kcal/mol
+            # ##  kcal/mol
             build_df['initial_aff'] = [grab_float(lines[_], -2)]
             break
 
-
-
-    ### search from beginning of last xi step (set in last_xi_step_begins)
-    ### grab xi_max. since intial index conatins log Xi. 
+    # ## search from beginning of last xi step (set in last_xi_step_begins)
+    # ## grab xi_max. since intial index conatins log Xi.
     build_df['xi_max'] = [grab_float(lines[last_xi_step_begins], -1)]
 
-
     for _ in range(last_xi_step_begins, len(lines)):
-        
+
         if re.findall('^\n', lines[_]):
-            ### efficincy test. I thin this if statemement will catch
-            ### all of the empty lines, without having to cycle through
-            ### all of the below elif statements to discover that none
-            ###of them work.
+            # ## efficincy test. I thin this if statemement will catch
+            # ## all of the empty lines, without having to cycle through
+            # ## all of the below elif statements to discover that none
+            # ## of them work.
             pass
 
         elif ' Temperature=' in lines[_]:
@@ -280,13 +274,11 @@ def mine_6o(conn, date, order_path, elements, file, dat, col_names):
         elif ' Pressure=' in lines[_]:
             build_df['P_bar'] = [grab_float(lines[_], -2)]
 
-
-
         elif ' --- Elemental Composition' in lines[_]:
             x = 4
             while not re.findall('^\n', lines[_ + x]):
                 if grab_str(lines[_ + x ], 0) in elements:
-                    ### log molality data
+                    # ## log molality data
                     build_df['{}'.format(grab_str(lines[_ + x ], 0))] = [
                         np.round(np.log10(grab_float(lines[_ + x], -1)), 6)]
                     x += 1
@@ -295,32 +287,30 @@ def mine_6o(conn, date, order_path, elements, file, dat, col_names):
 
 
         elif '                Log oxygen fugacity=' in lines[_]:
-            ###    log fO2
+            # ##    log fO2
             build_df['fO2'] = [grab_float(lines[_], -1)]
 
         elif '              Log activity of water=' in lines[_]:
-            ###    log aH2O
+            # ##    log aH2O
             build_df['aH2O'] = [grab_float(lines[_], -1)]
 
         elif '                 Ionic strength (I)=' in lines[_]:
-            ###    molal
+            # ##    molal
             build_df['ionic'] = [grab_float(lines[_], -2)]
 
         elif '                 Solutes (TDS) mass=' in lines[_]:
-            ###    grams
+            # ##    grams
             build_df['tds'] = [grab_float(lines[_], -2)]
 
         elif '              Aqueous solution mass=' in lines[_]:
-            ### grams
+            # ## grams
             build_df['soln_mass'] = [grab_float(lines[_], -2)]
-
-
 
         elif '--- Distribution of Aqueous Solute Species ---' in lines[_]:
             x = 4
             while not re.findall('^\n', lines[_ + x]):
                 if grab_str(lines[_ + x], 0) != 'O2(g)':
-                    ###    loga
+                    # ##    loga
                     build_df[grab_str(lines[_ + x], 0)] = [grab_float(
                         lines[_ + x], -1)]
                     x += 1
@@ -328,51 +318,48 @@ def mine_6o(conn, date, order_path, elements, file, dat, col_names):
                     x += 1
             del x
 
-
-
         elif '--- Summary of Solid Phases (ES) ---' in lines[_]:
-            ###    Solids precip data is stored in a temp_s_dict, to be
-            ### added to the build_df after the file is processed.
-            ### This way precipitation moles overwrites the affinity
-            ### data, only if it exists. See notes at the beginning of
-            ### this function for explanantion. This temporary 
-            ### dictionary is only necessary because the solids 
-            ### precipiation moles is reported ahead of the affinity 
-            ### data in the 6o file.
-            temp_s_dict  = {}    
+            # ###    Solids precip data is stored in a temp_s_dict, to be
+            # ### added to the build_df after the file is processed.
+            # ### This way precipitation moles overwrites the affinity
+            # ### data, only if it exists. See notes at the beginning of
+            # ### this function for explanantion. This temporary
+            # ### dictionary is only necessary because the solids
+            # ### precipiation moles is reported ahead of the affinity
+            # ### data in the 6o file.
+            temp_s_dict = {}
 
             x = 4     # lines offset from beginning of sp data
             while not re.findall('^\n', lines[_ + x]):
                 if 'None' not in lines[_ + x]:
-                    ### solids value grab_float()'s must reach from the 
-                    ### end of the line (-1, -2, etc.)
-                    ### becuase some solid names contain spaces. 
-                    ### Additionally, solid names are grabbed based 
-                    ### in-line index as opposed to the grab_str() 
-                    ### function, for the same reason.
+                    # ## solids value grab_float()'s must reach from the
+                    # ## end of the line (-1, -2, etc.)
+                    # ## becuase some solid names contain spaces.
+                    # ## Additionally, solid names are grabbed based
+                    # ## in-line index as opposed to the grab_str()
+                    # ## function, for the same reason.
 
-                    #### mols
+                    # ### mols
                     temp_s_dict[lines[_ + x][:25].strip()] = [grab_float(
-                        lines[_ +x], -3)]         
+                        lines[_ +x], -3)]
                     x += 1
                 else:
                     x += 1
             del x
 
-
         elif '--- Saturation States of Pure Solids ---' in lines[_]:
             x = 4
             while not re.findall('^\n', lines[_ + x]):
-                if  re.findall('\*{4}$', lines[_ + x]):
-                    ### ****** fills in the value region for numbers 
-                    ### lower than -999.9999. So I am replacing them 
-                    ### here with the boundry condition.
+                if re.findall('\*{4}$', lines[_ + x]):
+                    # ## ****** fills in the value region for numbers
+                    # ## lower than -999.9999. So I am replacing them
+                    # ## here with the boundry condition.
 
-                     ### affinity (kcal)
+                    # ## affinity (kcal)
                     build_df[lines[_ + x][:30].strip()] = [float(-999.9999)]
                     x += 1
-                elif 'None' not in lines[_ +x]: 
-                    ###    affinity (kcal)
+                elif 'None' not in lines[_ + x]:
+                    # ##    affinity (kcal)
                     build_df[lines[_ + x][:30].strip()] = [
                         float(lines[_ + x][44:55])]
                     x += 1
@@ -380,20 +367,19 @@ def mine_6o(conn, date, order_path, elements, file, dat, col_names):
                     x += 1
             del x
 
-
         elif ' --- Saturation States of Solid Solutions ---' in lines[_]:
             x = 4
             while not re.findall('^\n', lines[_ + x]):
                 if  re.findall('\*{4}$', lines[_ + x]):
-                    ### ****** fills in the value region for numbers 
-                    ### lower than -999.9999, So I am replacing them 
-                    ### here with the boundry condition.
+                    # ## ****** fills in the value region for numbers
+                    # ## lower than -999.9999, So I am replacing them
+                    # ## here with the boundry condition.
 
-                    ### affinity (kcal)
+                    # ## affinity (kcal)
                     build_df[lines[_ + x][:30].strip()] = [float(-999.9999)]
                     x += 1
                 elif 'None' not in lines[_ +x]: 
-                    ### affinity (kcal)
+                    # ## affinity (kcal)
                     build_df[lines[_ + x][:30].strip()] = [
                         float(lines[_ + x][44:55])]
                     x += 1
@@ -405,14 +391,14 @@ def mine_6o(conn, date, order_path, elements, file, dat, col_names):
             x = 4
             while not re.findall('^\n', lines[_ + x]):
 
-                if 'None' not in lines[_ +x]:     ### log f
+                if 'None' not in lines[_ +x]:  # log f
                     if  re.findall('\*{4}', lines[_ + x]):
-                        ### ****** fills in the value region for numbers 
-                        ### lower than -999.9999 and for gasses that have
-                        ### been user suppressed. So I am replacing them 
-                        ### here with the boundry condition.
+                        # ## ****** fills in the value region for numbers
+                        # ## lower than -999.9999 and for gasses that have
+                        # ## been user suppressed. So I am replacing them
+                        # ## here with the boundry condition.
 
-                        ### affinity (kcal)
+                        # ## affinity (kcal)
                         build_df[lines[_ + x][:30].strip()] = [float(-999.9999)]
                         x += 1
                     else:
@@ -424,30 +410,24 @@ def mine_6o(conn, date, order_path, elements, file, dat, col_names):
             del x
             break
 
-    ### combine temp_s_dict containing solid moles precip, and the 
-    ### build_df, which continas the affinity data.
+    # ## combine temp_s_dict containing solid moles precip, and the
+    # ## build_df, which continas the affinity data.
     for _ in temp_s_dict.keys():
-        ### write temp_s_dict[_] to build_df[_]. As temp_s_dict only
-        ### contains solids that actually precipitated, the 
-        ### affinity vlaues in build_df[_] can simply be overwritten
+        # ## write temp_s_dict[_] to build_df[_]. As temp_s_dict only
+        # ## contains solids that actually precipitated, the
+        # ## affinity vlaues in build_df[_] can simply be overwritten
         build_df[_] = temp_s_dict[_]
 
+    # ## set remaining es table variables
+    build_df['uuid'] = [dat[0]]
+    build_df['camp'] = [dat[1]]
+    build_df['ord'] = [dat[2]]
+    build_df['file'] = [dat[3]]
+    build_df['run'] = [date]
+    build_df['mineral'] = [dat[5]]
 
-
-    ### set remaining es table variables 
-    build_df['uuid']         = [dat[0]]
-    build_df['camp']         = [dat[1]]
-    build_df['ord']         = [dat[2]]
-    build_df['file']        = [dat[3]]
-    build_df['run']            = [date]
-    build_df['mineral']        = [dat[5]]
-
-
-
-    ### reorganize columns to match es table
+    # ## reorganize columns to match es table
     build_df = build_df[col_names]
-
-
 
     return run_code, build_df
 
@@ -455,12 +435,12 @@ def six_o_data_to_postgres(conn, table, df):
     """
     Write dataframe 'df' to postgresql 'table' on connection'conn.'
     """
-    
+
     tuples = [tuple(x) for x in df.to_numpy()]
-    ###    must wrap col names in "" for pastgres to accept special 
-    ### characters within names
+    # ##    must wrap col names in "" for pastgres to accept special
+    # ## characters within names
     cols = ','.join(['"{}"'.format(_) for _ in df.columns])
-    query  = "INSERT INTO %s(%s) VALUES %%s" % (table, cols)
+    query = "INSERT INTO %s(%s) VALUES %%s" % (table, cols)
     cursor = conn.cursor()
 
     try:
@@ -473,12 +453,7 @@ def six_o_data_to_postgres(conn, table, df):
         print("  I misdialed!\n")
         conn.rollback()
         cursor.close()
-        
-    
 
 
 if __name__ == "__main__":
     main()
-
-
-

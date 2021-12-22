@@ -3,6 +3,8 @@ API Reference
 
 .. automodule:: eleanor
    :synopsis: Large-scale Aqueous Geochemical Modeling
+   :members:
+   :undoc-members:
 
 .. toctree::
 

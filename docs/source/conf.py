@@ -12,6 +12,7 @@
 #
 import os
 import sys
+import sphinx_bootstrap_theme
 sys.path.insert(0, os.path.abspath('../..'))
 
 
@@ -53,7 +54,13 @@ exclude_patterns = []
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-html_theme = 'alabaster'
+html_theme = 'bootstrap'
+html_logo = '_static/39alpha.png'
+html_favicon = '_static/favicon.ico'
+html_theme_path = sphinx_bootstrap_theme.get_html_theme_path()
+html_theme_options = {
+    'globaltoc_depth': -1,
+}
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,

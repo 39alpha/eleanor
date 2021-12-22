@@ -4,3 +4,4 @@ EQ3/6 API
 .. automodule:: eleanor.hanger.eq36
    :synopsis: A simple API for calling the EQ3/6 binaries
    :members:
+   :undoc-members:

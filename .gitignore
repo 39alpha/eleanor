@@ -3,3 +3,4 @@ __pycache__
 *.xlsx
 *.egg-info
 CSS0
+docs/build

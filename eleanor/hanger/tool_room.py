@@ -172,9 +172,11 @@ def norm_list(data):
     return list((data - np.min(data)) / (np.max(data) - np.min(data)))
 
 def reset_sailor(order_path, start, conn, camp_name, file, uuid, code, delete_local=False):
-    """ the sailor has failed to run the 'file'
-    (1) report to vs database 'camp_name' via server connection 'conn' the exit 'code'
-        for 'file' with unique vs_table id 'uuid'
+    """
+    The sailor has failed to run the :code:`file`.
+
+    (1) report to vs database 'camp_name' via server connection 'conn' the exit 'code' for 'file'
+        with unique vs_table id 'uuid'
     (2) step back into order folder 'order_path' for next vs point.
     """
     sql = "UPDATE {} SET {} = {} WHERE uuid = '{}';".format('{}_vs'.format(camp_name),

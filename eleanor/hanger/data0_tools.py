@@ -38,10 +38,8 @@ def species_info(sp):
 def determine_ele_set(path = ''):
 	"""
 	Use the verbose test.3o file run by the huffer to determine the loaded elements
-	in:
-		path = campaign huffer path where test.3o is located
-	out:
-		list of elements
+        :param path: campaign huffer path to test.3o file
+        :return: list of elements
 
 	"""
 	elements = []
@@ -59,10 +57,8 @@ def determine_ele_set(path = ''):
 def determine_loaded_sp(path = ''):
 	"""
 	Use the verbose test.3o file run by the huffer to determine the loaded species 
-	in:
-		path = campaign huffer path where test.3o is located
-	out:
-		list of loaded sp
+        :param path: campaign huffer path to test.3o file
+        :return: list of loaded species
 	"""
 	loaded_sp = []
 	with open('{}test.3o'.format(path), 'r') as f:
@@ -107,11 +103,9 @@ def determine_loaded_sp(path = ''):
 
 def basis_to_ele_dict(slop_file):
 	"""
-	determin species-element relationships vis worm slop.csv.
-	in:
-		path = campaign huffer path where test.3o is located
-	out:
-		list of loaded sp
+        Determine species-element relationships via a WORM slop.csv file.
+        :param slop_file: campaign huffer path of test.3o
+        :return: list of loaded species
 	"""
 	df = pd.read_csv('/Users/tuckerely/NPP_dev/0_slop_OBIGT_Data0/{}'.format(file), index_col=0)
 	basis_df = df[df['tag'] == 'basis']

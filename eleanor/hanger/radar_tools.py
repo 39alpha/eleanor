@@ -219,18 +219,20 @@ color_dict = {
 
 def get_continuous_cmap(hex_list, float_list=None):
     ### https://towardsdatascience.com/beautiful-custom-colormaps-with-matplotlib-5bab3d1f0e72
-    ''' creates and returns a color map that can be used in heat map figures.
-        If float_list is not provided, colour map graduates linearly between each color in hex_list.
-        If float_list is provided, each color in hex_list is mapped to the respective location in float_list. 
-        
-        Parameters
-        ----------
-        hex_list: list of hex code strings
-        float_list: list of floats between 0 and 1, same length as hex_list. Must start with 0 and end with 1.
-        
-        Returns
-        ----------
-        colour map'''
+    """
+    Create and return a color map that can be used in heatmap figures. If :code:`float_list` is
+    not provided, then the color map graduates linearly betwean each color in :code:`hex_list`.
+    If :code:`float_list` is provided, then each each color in :code:`hex_list` is mapped to the
+    respective location in :code:`float_list`.
+
+    :param hex_list: hex-code strings
+    :type hex_list: list
+    :param float_list: Floating-point values between 0 and 1 with the same length as :code:`hex_list`. Must start with 0 and end with 1.
+    :type float_list: list
+
+    :return: A color map
+    :rtype: matplotlib.colors.LinearSegmentedColormap
+    """
 
     rgb_list = [rgb_to_dec(hex_to_rgb(i)) for i in hex_list]
     if type(float_list) != list:

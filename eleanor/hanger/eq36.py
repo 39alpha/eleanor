@@ -11,7 +11,7 @@ def run(cmd, *args):
     :code:`args`, capture the standard input and output, and return them.
 
     :param cmd: the command to run, e.g. `ls`
-    :param *args: arguments to the command
+    :param \*args: arguments to the command
     :return: the standard output and error
     """
     process = Popen([cmd, *args], stdout=PIPE, stderr=PIPE)

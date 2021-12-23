@@ -16,7 +16,7 @@ setup(
     license='',
     packages=find_packages(),
     package_data={'eleanor': ['data/*.csv', 'data/*.json']},
-    install_requires=['numpy', 'pandas', 'matplotlib'],
+    install_requires=['numpy', 'pandas', 'matplotlib', 'sklearn'],
     setup_requires=['green'],
     test_suite='test',
     include_package_data=True,

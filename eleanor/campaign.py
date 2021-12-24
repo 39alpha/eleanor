@@ -13,6 +13,27 @@ class Campaign:
     """
     The Campaign class is used to specify modeling objectives.
 
+    A Campaign can be initialized by either providing a dictionary configuration or using the
+    :meth:`from_json` method to load from a JSON-formatted file.
+
+    The following keys must exist in the dictionary or JSON file:
+
+    - :code:`'campaign'` - the name of the campaign (:code:`str`)
+    - :code:`'notes'` - any nodes about the campaign (:code:`str`)
+    - :code:`'est_date'` - date of the campaign creation (:code:`str`)
+    - :code:`'reactant'` - *TODO*
+    - :code:`'suppress min'` - *TODO*
+    - :code:`'suppress min exemptions'` - *TODO*
+    - :code:`'initial fluid constraints'` - configuration of fluid constraints (:code:`dict`)
+        - :code:`'T_cel'` - temperature in celsius (:code:`float` or :code:`List[float]`)
+        - :code:`'P_bar'` - pressure in bars (:code:`float` or :code:`List[float]`)
+        - :code:`'fO2'` - *TODO*
+        - :code:`'cb'` - *TODO*
+        - :code:`'basis'` - *TODO*
+    - :code:`'vs_distro'` - *TODO*
+    - :code:`'resolution'` - *TODO*
+    - :code:`'solid solutions'` - whether or not to employ solid solutions
+
     .. autosummary:
        :nosignatures:
 
@@ -63,6 +84,25 @@ class Campaign:
     def create_env(self, dir='.', verbose=True):
         """
         Prepare a directory to store information about the campaign.
+
+        This method will create the following directory and file structure: ::
+
+           {dir}/{name}
+           |
+           +-- huffer
+           |
+           +-- fig
+           |
+           +-- campaign.json
+
+        where :code:`{dir}` is the root directory, :code:`{name}` is the campaign name,
+        :code:`huffer` and :code:`fig` are directories, and :code:`campaign.json` is... well... a
+        JSON file containing the campaign configuration.
+
+        :param dir: The root directory in which to create the campaing directory
+        :type dir: str
+        :param verbose: Generate verbose terminal output
+        :type verbose: bool
         """
         # Top level directory
         campaign_dir = join(dir, self.name)

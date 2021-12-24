@@ -1,66 +1,100 @@
 # pylint: disable=too-few-public-methods
-""" The Campaign class for Eleanor contains the class methods for defining modelling objectives"""
+"""
+.. currentmodule:: eleanor.campaign
+
+The :class:`Campaign` class contains the specification of modeling objectives.
+"""
 import json
-import os
+from os import mkdir
+from os.path import isdir, join
 from .hanger import tool_room
 
 class Campaign:
-    """The Campaign class defines the modelling objectives and priorities
-        These include -
     """
-    def __init__(self, file_name):
-        self.file_name = file_name
-        with open(file_name, "r") as this_file:
-            dat = json.load(this_file)
-        this_file.close()
-        # In case we need anything else just store it in _raw
-        self._raw = dat
-        # Metadata
-        self.name = dat['campaign']
-        self.notes = dat['notes']
-        self.est_date = dat['est_date']
-        self.target_rnt = dat['Reactant']
-        # modelling data
-        self.suppress_min = dat['suppress min']
-        self.min_supp_exemp = dat['supress min exemptions']
-        # self.reso = dat['BF resolution']
-        self.cb = dat['Initial Fluid Constraints']['cb']
-        self.vs_state = {key: dat['Initial Fluid Constraints'][key] for key in
-                            ['T_cel', 'P_bar', 'fO2']}
-        self.vs_basis = dat['Initial Fluid Constraints']['basis']
+    The Campaign class is used to specify modeling objectives.
 
-        self.target_rnt = dat['Reactant']
-        self.distro = dat['VS_distro']
+    .. autosummary:
+       :nosignatures:
+
+       create_campaign_env
+
+    :param config: a campaign configuration
+    :type config: dict
+    """
+    def __init__(self, config):
+        # In case we need anything else just store it in _raw
+        self._raw = config
+        # Metadata
+        self.name = self._raw['campaign']
+        self.notes = self._raw['notes']
+        self.est_date = self._raw['est_date']
+        self.target_rnt = self._raw['reactant']
+        # modelling data
+        self.suppress_min = self._raw['suppress min']
+        self.min_supp_exemp = self._raw['suppress min exemptions']
+        # self.reso = self._raw['bf resolution']
+        self.cb = self._raw['initial fluid constraints']['cb']
+        self.vs_state = {key: self._raw['initial fluid constraints'][key] for key in
+                         ['T_cel', 'P_bar', 'fO2']}
+        self.vs_basis = self._raw['initial fluid constraints']['basis']
+
+        self.distro = self._raw['vs_distro']
         # if distro == BF, reso = numebr of subdivision on each var
         # if distro == random, reso = total numebr of vs points in order
-        self.reso = dat['resolution']
+        self.reso = self._raw['resolution']
 
-        self.SS = dat['Employ Solid Solutions']
+        self.SS = self._raw['solid solutions']
         if self.SS:
             iopt4 = '1'
         else:
             iopt4 = '0'
 
-        self.create_campaign_env()
+        # It's best not to create the directory structure at intialization time. Doing so makes
+        # testing more difficult, and means we have to be careful when and where Campaign objects
+        # are created.
+        #
+        # self.create_env()
 
         self.local_3i = tool_room.Three_i(self.cb)
         self.local_6i = tool_room.Six_i(suppress_min=self.suppress_min,
                                         iopt4=iopt4,
                                         min_supp_exemp=self.min_supp_exemp)
 
-    def create_campaign_env(self):
-        """ Prepare the local directory to store information about the campaign in a single
-            directory
+    def create_env(self, dir='.', verbose=True):
+        """
+        Prepare a directory to store information about the campaign.
         """
         # Top level directory
-        if not os.path.isdir(self.name):
-            print("Building new Campaign folder based on name")
-            os.mkdir(self.name)
-            os.mkdir(os.path.join(self.name, "huffer"))
+        campaign_dir = join(dir, self.name)
+        if not isdir(campaign_dir):
+            if verbose:
+                print(f'Creating campaign directory {campaign_dir}')
+            mkdir(campaign_dir)
+
+            huffer_dir = join(campaign_dir, 'huffer')
+            mkdir(huffer_dir)
+
         # Check Figure directory
-        if not os.path.isdir(os.path.join(self.name, "fig")):
-            os.mkdir(os.path.join(self.name, "fig"))
+        fig_dir = join(campaign_dir, 'fig')
+        if not isdir(fig_dir):
+            mkdir(fig_dir)
+
         # Write campaign spec to file (as a hard copy)
-        campaign_name_fname = os.path.join(self.name, self.name + ".json")
-        with open(campaign_name_fname, "w", encoding='UTF-8') as outfile:
-            outfile.write(json.dumps(self._raw))
+        campaign_json = join(campaign_dir, 'campaign.json')
+        with open(campaign_json, mode='w', encoding='utf-8') as handle:
+            json.dump(self._raw, handle, indent=True)
+
+    @classmethod
+    def from_json(cls, fname):
+        """
+        Create a :class:`Campaign` from the contents of a JSON file.
+
+        :param fname: path to the campain JSON file
+        :type fname: str
+
+        :return: a :class:`Campaign`
+        :rtype: eleanor.eleanor.Campaign
+        """
+        with open(fname, 'r') as handle:
+            data = json.load(handle)
+            return cls(data)

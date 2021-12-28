@@ -28,9 +28,8 @@ from .hanger.data0_tools import determine_ele_set, data0_suffix, determine_loade
 from .hanger.data0_tools import SLOP_DF
 
 CAMPAIGN_FILE = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'data', 'CSS0_1.json')
-camp = campaign.Campaign(CAMPAIGN_FILE)
 
-def main():
+def main(camp):
     """ Main function of the navigator"""
     # number of sample points requested in current order
     os.chdir(camp.name)
@@ -611,4 +610,6 @@ def random_uniform_order(date, order_number, order_size, elements):
 
 
 if __name__ == "__main__":
-    main()
+    camp = campaign.Campaign.from_json(CAMPAIGN_FILE)
+    camp.create_env()
+    main(camp)

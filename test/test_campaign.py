@@ -1,13 +1,174 @@
 import unittest
-import eleanor.campaign as compaign
+from eleanor.campaign import Campaign
+from eleanor.hanger.tool_room import Three_i, Six_i
+from tempfile import NamedTemporaryFile, TemporaryDirectory
+from os.path import isdir, isfile, join
+import json
 
 class TestCampaign(unittest.TestCase):
     """
     Tests of the eleanor.campaign module
     """
 
+    def setUp(self):
+        """
+        Setup the tests
+        """
+        self.config = {
+            'campaign': 'CSS0',
+            'est_date': '4Dec2021',
+            'notes': 'template',
+            'creator': '39A',
+            'mode': 'Reaction EQ',
+            'initial fluid constraints': {
+                'T_cel': [0.5, 6],
+                'P_bar': [4, 6],
+                'fO2': [-20, -1],
+                'cb': 'Cl-',
+                'basis': {
+                    'H+': [-7, -9],
+                    'Na+': 0.4860597,
+                    'Mg+2': 0.0547421,
+                    'Ca+2': [0.008, 0.012],
+                    'K+': 0.0105797,
+                    'Sr+2': 0.0000940,
+                    'Cl-': 0.5657647,
+                    'SO4-2': 0.0292643,
+                    'HCO3-': 0.0020380,
+                    'Br-': 0.0008728,
+                    'B(OH)3': 0.0004303,
+                    'F-': 0.0000708
+                }
+            },
+            'reactant': {
+                'CO2(g)': ['gas', [-7, -0.5], 1]
+            },
+            'vs_distro': 'BF',
+            'resolution': 4,
+            'suppress min': True,
+            'suppress min exemptions': ['calcite'],
+            'solid solutions': True
+        }
+
     def test_canary(self):
         """
         Confirm that the test case is being run
         """
         self.assertTrue(True)
+
+    def test_init_with_solid_solution(self):
+        """
+        Ensure that campaigns can be initialized to use solid solutions
+        """
+        camp = Campaign(self.config)
+
+        self.assertEqual(camp._raw, self.config)
+
+        self.assertEqual(camp.name, self.config['campaign'])
+        self.assertEqual(camp.notes, self.config['notes'])
+        self.assertEqual(camp.est_date, self.config['est_date'])
+        self.assertEqual(camp.target_rnt, self.config['reactant'])
+        self.assertEqual(camp.suppress_min, self.config['suppress min'])
+        self.assertEqual(camp.min_supp_exemp, self.config['suppress min exemptions'])
+        self.assertEqual(camp.cb, 'Cl-')
+        self.assertEqual(camp.vs_state, {'T_cel': [0.5, 6], 'P_bar': [4, 6], 'fO2': [-20, -1]})
+        self.assertEqual(camp.vs_basis, self.config['initial fluid constraints']['basis'])
+        self.assertEqual(camp.distro, self.config['vs_distro'])
+        self.assertEqual(camp.reso, self.config['resolution'])
+        self.assertEqual(camp.SS, self.config['solid solutions'])
+
+        self.assertIsInstance(camp.local_3i, Three_i)
+        self.assertEqual(camp.local_3i.cb, 'Cl-')
+
+        self.assertIsInstance(camp.local_6i, Six_i)
+        self.assertEqual(camp.local_6i.iopt4, ' 1')
+        self.assertEqual(camp.local_6i.suppress_min, self.config['suppress min'])
+        self.assertEqual(camp.local_6i.min_supp_exemp, self.config['suppress min exemptions'])
+
+    def test_init_without_solid_solution(self):
+        """
+        Ensure that campaigns can be initalized without solid solutions
+        """
+        self.config['solid solutions'] = False
+
+        camp = Campaign(self.config)
+
+        self.assertEqual(camp._raw, self.config)
+
+        self.assertEqual(camp.name, self.config['campaign'])
+        self.assertEqual(camp.notes, self.config['notes'])
+        self.assertEqual(camp.est_date, self.config['est_date'])
+        self.assertEqual(camp.target_rnt, self.config['reactant'])
+        self.assertEqual(camp.suppress_min, self.config['suppress min'])
+        self.assertEqual(camp.min_supp_exemp, self.config['suppress min exemptions'])
+        self.assertEqual(camp.cb, 'Cl-')
+        self.assertEqual(camp.vs_state, {'T_cel': [0.5, 6], 'P_bar': [4, 6], 'fO2': [-20, -1]})
+        self.assertEqual(camp.vs_basis, self.config['initial fluid constraints']['basis'])
+        self.assertEqual(camp.distro, self.config['vs_distro'])
+        self.assertEqual(camp.reso, self.config['resolution'])
+        self.assertEqual(camp.SS, self.config['solid solutions'])
+
+        self.assertIsInstance(camp.local_3i, Three_i)
+        self.assertEqual(camp.local_3i.cb, 'Cl-')
+
+        self.assertIsInstance(camp.local_6i, Six_i)
+        self.assertEqual(camp.local_6i.iopt4, ' 0')
+        self.assertEqual(camp.local_6i.suppress_min, self.config['suppress min'])
+        self.assertEqual(camp.local_6i.min_supp_exemp, self.config['suppress min exemptions'])
+
+    def test_load_from_json(self):
+        """
+        Ensure that a campaign can be loaded from a JSON-formatted file.
+        """
+        with NamedTemporaryFile(mode='w+') as handle:
+            json.dump(self.config, handle, indent=True)
+            handle.seek(0)
+            camp = Campaign.from_json(handle.name)
+
+        self.assertEqual(camp._raw, self.config)
+
+        self.assertEqual(camp.name, self.config['campaign'])
+        self.assertEqual(camp.notes, self.config['notes'])
+        self.assertEqual(camp.est_date, self.config['est_date'])
+        self.assertEqual(camp.target_rnt, self.config['reactant'])
+        self.assertEqual(camp.suppress_min, self.config['suppress min'])
+        self.assertEqual(camp.min_supp_exemp, self.config['suppress min exemptions'])
+        self.assertEqual(camp.cb, 'Cl-')
+        self.assertEqual(camp.vs_state, {'T_cel': [0.5, 6], 'P_bar': [4, 6], 'fO2': [-20, -1]})
+        self.assertEqual(camp.vs_basis, self.config['initial fluid constraints']['basis'])
+        self.assertEqual(camp.distro, self.config['vs_distro'])
+        self.assertEqual(camp.reso, self.config['resolution'])
+        self.assertEqual(camp.SS, self.config['solid solutions'])
+
+        self.assertIsInstance(camp.local_3i, Three_i)
+        self.assertEqual(camp.local_3i.cb, 'Cl-')
+
+        self.assertIsInstance(camp.local_6i, Six_i)
+        self.assertEqual(camp.local_6i.iopt4, ' 1')
+        self.assertEqual(camp.local_6i.suppress_min, self.config['suppress min'])
+        self.assertEqual(camp.local_6i.min_supp_exemp, self.config['suppress min exemptions'])
+
+    def test_create_env(self):
+        """
+        Ensure that a campaign's working directory can be created
+        """
+        camp = Campaign(self.config)
+
+        with TemporaryDirectory() as root:
+            camp.create_env(dir=root, verbose=False)
+
+            campaign_dir = join(root, self.config['campaign'])
+            self.assertTrue(isdir(campaign_dir))
+
+            huffer_dir = join(campaign_dir, 'huffer')
+            self.assertTrue(isdir(huffer_dir))
+
+            fig_dir = join(campaign_dir, 'fig')
+            self.assertTrue(isdir(fig_dir))
+
+            campaign_json = join(campaign_dir, 'campaign.json')
+            self.assertTrue(isfile(campaign_json))
+
+            with open(campaign_json, mode='r', encoding='utf-8') as handle:
+                dumped = json.load(handle)
+                self.assertEqual(dumped, self.config)

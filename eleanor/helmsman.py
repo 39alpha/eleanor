@@ -26,9 +26,8 @@ import eleanor.campaign as campaign
 CAMPAIGN_FILE = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'data', 'CSS0_1.json')
 HOME = os.getcwd()
 
-camp = campaign.Campaign(CAMPAIGN_FILE)
 
-def main(ord_id=None):
+def main(camp, ord_id=None):
     """TODO: What does the helmsmen do??"""
     conn = establish_server_connection()
 
@@ -455,4 +454,6 @@ def six_o_data_to_postgres(conn, table, df):
 
 
 if __name__ == "__main__":
-    main()
+    camp = campaign.Campaign.from_json(CAMPAIGN_FILE)
+    camp.create_env()
+    main(camp)

@@ -6,7 +6,7 @@ The :class:`Campaign` class contains the specification of modeling objectives.
 """
 import json
 from os import mkdir
-from os.path import isdir, join
+from os.path import isdir, join, realpath
 from .hanger import tool_room
 
 class Campaign:
@@ -81,9 +81,23 @@ class Campaign:
                                         iopt4=iopt4,
                                         min_supp_exemp=self.min_supp_exemp)
 
-    def create_env(self, dir='.', verbose=True):
+        self._campaign_dir = None
+
+    @property
+    def campaign_dir(self):
         """
-        Prepare a directory to store information about the campaign.
+        Get the current campaign directory. Will be :code:`None` if :meth:`create_env` has not been
+        called.
+
+        :return: the current campaign directory
+        :rtype: str or None
+        """
+        return self._campaign_dir
+
+    def create_env(self, dir=None, verbose=True):
+        """
+        Prepare a directory to store information about the campaign, and save the absolute path in
+        :prop:`campaign_dir`.
 
         This method will create the following directory and file structure: ::
 
@@ -105,24 +119,38 @@ class Campaign:
         :type verbose: bool
         """
         # Top level directory
-        campaign_dir = join(dir, self.name)
-        if not isdir(campaign_dir):
-            if verbose:
-                print(f'Creating campaign directory {campaign_dir}')
-            mkdir(campaign_dir)
+        if dir is None and self._campaign_dir is None:
+            self._campaign_dir = realpath(join('.', self.name))
+        elif dir is not None:
+            self._campaign_dir = realpath(join(dir, self.name))
 
-            huffer_dir = join(campaign_dir, 'huffer')
+        if not isdir(self.campaign_dir):
+            if verbose:
+                print(f'Creating campaign directory {self.campaign_dir}')
+            mkdir(self.campaign_dir)
+
+            huffer_dir = join(self.campaign_dir, 'huffer')
             mkdir(huffer_dir)
 
         # Check Figure directory
-        fig_dir = join(campaign_dir, 'fig')
+        fig_dir = join(self.campaign_dir, 'fig')
         if not isdir(fig_dir):
             mkdir(fig_dir)
 
         # Write campaign spec to file (as a hard copy)
-        campaign_json = join(campaign_dir, 'campaign.json')
+        campaign_json = join(self.campaign_dir, 'campaign.json')
         with open(campaign_json, mode='w', encoding='utf-8') as handle:
             json.dump(self._raw, handle, indent=True)
+
+    def working_directory(self, *args, **kwargs):
+        """
+        Return a context manager for switching into and out of the campaign directory.
+
+        This will create the campaign directory if it doesn't already exist using
+        :meth:`create_env`. Any arguments passed to this method will be forwarded there.
+        """
+        self.create_env(*args, **kwargs)
+        return tool_room.WorkingDirectory(self.campaign_dir)
 
     @classmethod
     def from_json(cls, fname):

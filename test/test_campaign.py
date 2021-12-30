@@ -2,8 +2,9 @@ import unittest
 from eleanor.campaign import Campaign
 from eleanor.hanger.tool_room import Three_i, Six_i
 from tempfile import NamedTemporaryFile, TemporaryDirectory
-from os.path import isdir, isfile, join
+from os.path import isdir, isfile, join, realpath
 import json
+import os
 
 class TestCampaign(unittest.TestCase):
     """
@@ -157,6 +158,8 @@ class TestCampaign(unittest.TestCase):
         with TemporaryDirectory() as root:
             camp.create_env(dir=root, verbose=False)
 
+            self.assertEquals(camp.campaign_dir, realpath(join(root, camp.name)))
+
             campaign_dir = join(root, self.config['campaign'])
             self.assertTrue(isdir(campaign_dir))
 
@@ -172,3 +175,63 @@ class TestCampaign(unittest.TestCase):
             with open(campaign_json, mode='r', encoding='utf-8') as handle:
                 dumped = json.load(handle)
                 self.assertEqual(dumped, self.config)
+
+    def test_change_env(self):
+        """
+        Ensure that calling create_env with a new :code:`dir` argument creates a new campaign
+        directory.
+        """
+        camp = Campaign(self.config)
+        with TemporaryDirectory() as root:
+            camp.create_env(dir=root, verbose=False)
+        self.assertEquals(camp.campaign_dir, realpath(join(root, camp.name)))
+
+        with TemporaryDirectory() as root:
+            camp.create_env(dir=root, verbose=False)
+
+            campaign_dir = join(root, self.config['campaign'])
+            self.assertTrue(isdir(campaign_dir))
+
+            huffer_dir = join(campaign_dir, 'huffer')
+            self.assertTrue(isdir(huffer_dir))
+
+            fig_dir = join(campaign_dir, 'fig')
+            self.assertTrue(isdir(fig_dir))
+
+            campaign_json = join(campaign_dir, 'campaign.json')
+            self.assertTrue(isfile(campaign_json))
+
+            with open(campaign_json, mode='r', encoding='utf-8') as handle:
+                dumped = json.load(handle)
+                self.assertEqual(dumped, self.config)
+
+        self.assertEquals(camp.campaign_dir, realpath(join(root, camp.name)))
+
+    def test_working_directory(self):
+        """
+        Ensure that the campaign can provide a context manager for switching into and out of the
+        campaign directory.
+        """
+        camp = Campaign(self.config)
+        with TemporaryDirectory() as root:
+            camp.create_env(dir=root, verbose=False)
+            with camp.working_directory():
+                self.assertEquals(os.getcwd(), realpath(join(root, self.config['campaign'])))
+
+                self.assertTrue(isdir('huffer'))
+                self.assertTrue(isdir('fig'))
+                self.assertTrue(isfile('campaign.json'))
+
+    def test_working_directory_creates_env(self):
+        """
+        Ensure that the campaign creates the working directory before swtiching into and out of the
+        directory.
+        """
+        camp = Campaign(self.config)
+        with TemporaryDirectory() as root:
+            with camp.working_directory(dir=root, verbose=False):
+                self.assertEquals(os.getcwd(), realpath(join(root, self.config['campaign'])))
+
+                self.assertTrue(isdir('huffer'))
+                self.assertTrue(isdir('fig'))
+                self.assertTrue(isfile('campaign.json'))

@@ -851,3 +851,33 @@ class Six_i(object):
             # load pickup lines
             for _ in pickup_lines:
                 build.write(_)
+
+
+class WorkingDirectory(object):
+    """
+    A context manager for changing the current working directory.
+
+    :param path: The path of the new current working directory
+    :type path: str
+    """
+    def __init__(self, path):
+        self.path = os.path.realpath(path)
+        self.cwd = os.getcwd()
+
+    def __enter__(self):
+        """
+        Change into the new current working directory that path.
+
+        :return: the absolute path of the new current working directory
+        :rtype: str
+        """
+        os.chdir(self.path)
+        self.cwd, self.path = self.path, self.cwd
+        return self.cwd
+
+    def __exit__(self, *args):
+        """
+        Change back to the original current working directory.
+        """
+        os.chdir(self.path)
+        self.cwd, self.path = self.path, self.cwd

@@ -1,132 +1,138 @@
-""" The db_comms module contains functions that aid in
-    communicating with the VS and SS databases.
-    This is used by navigator, helmsman, and sailor in
-    the corse of reading and writing to and from the postgres
-    databases housing the VS and SS infromation generating
-    in the course of sucessful operation. """
+"""
+.. currentmodule:: eleanor.hanger
 
-import sqlite3 as sql
+The :mod:`db_comms` module contains functions that aid in communicating with the VS and SS
+databases. This is used by :mod:`navigator`, :mod:`helmsman`, and sailor in the corse of reading
+and writing to and from the postgres databases housing the VS and SS infromation generating in the
+course of sucessful operation.
+"""
+from contextlib import closing
+from os.path import splitext
 import pandas as pd
+import sqlite3
+import sys
 
-_conn = None
-# ##########################   sqlite3   #############################
-
-def establish_server_connection(campaign, _conn=None):
-    # TODO: Fix this to work with SQLLite
-    """Establish SQL connection with local DB"""
-    if not _conn:
-        campaign_db_name = campaign.name + ".db"
-        print('new connection to local db: ' + campaign_db_name)
-        _conn = sql.connect(campaign_db_name)
-    return _conn
-
-def get_order_number(conn, camp_name):
+def establish_database_connection(camp, verbose=True):
     """
-    This code reaches out to the sql database to check
-    for the highest order number sitting in 'campaign'.vs
+    Connect to a campaign SQLite database.
+
+    :param camp: The campaign whose DB to load
+    :type camp: eleanor.campaign.Campaign
+
+    :return: a connection to the campaign's SQLite database
+    :rtype: sqlite3.Connection
     """
-    rec = retrieve_record(conn, 'select ord from {}_vs'.format(camp_name))
-    if len(rec) == 0:
-        # if table exists but contains no records, then return order number 0
-        # so that the follow on function spicking order numbers move count to 1
+    conn = sqlite3.connect(camp.campaign_db)
+    if verbose:
+        print("New connection to db: {camp.campaign_db}")
+    return conn
+
+def get_order_number(conn):
+    """
+    Get the highest order number from the campaign's variable space table.
+
+    :param conn: connection to the database
+    :type conn: sqlite3.Connection
+
+    :return: the greatest order number
+    :rtype: int
+    """
+    rec = retrieve_records(conn, f"SELECT MAX(`ord`) FROM `vs`")
+    if len(rec) == 0 or rec[0][0] is None:
         return 0
     else:
-        return rec[-1][0]
+        return rec[0][0]
 
+def retrieve_records(conn, query, *args, **kwargs):
+    """
+    Execute an SQL query on a connection and return the resulting record.
 
-def retrieve_record(conn, sql_query):
+    :param conn: The connection
+    :type conn: sqlite3.Connection
+    :param query: The query (may include placeholders)
+    :type query: str
+    :param \*args: Additional arguments to Connection.execute
+
+    :return: the resulting records
+    :rtype: list
     """
-    Execute 'postgres_query' on connection 'conn' and return
-    the record 'rec' of that search.
-    """
+    cursor = conn.cursor()
     try:
-        cursor = conn.cursor()  # establish cursor
-        cursor.execute(sql_query)  # excute query
-        rec = cursor.fetchall()  # retrieve record
+        cursor.execute(query, *args, **kwargs)
+        return cursor.fetchall()
+    finally:
         cursor.close()
-        return rec
 
-    except (Exception, sql.Error) as error:
-        print("Error while fetching data from SQL.", error)
-        cursor.close()
-        print('  sqlite3 couldnt understand whatever bullshit')
-        print('  you were trying to tell it.\n')
-        return None
+def execute_query(conn, query, *args, **kwargs):
+    """
+    Execute an SQL query on a connection, discarding the results.
 
-def execute_sql_statement(conn, sql_query):
+    :param conn: the connection
+    :type conn: sqlite3.Connection
+    :param *args: additional arguments to be propagated to Connection.execute
     """
-    Execute 'sql_query' on connection 'conn'
-    """
-    try:
-        cursor = conn.cursor()  # establish cursor
-        cursor.execute(sql_query)  # excute query
-        conn.commit()
-        cursor.close()
-    except (Exception, sql.Error) as error:
-        print("Error while fetching data from SQL.", error)
-        cursor.close()
-        print('  sqlite3 couldnt understand whatever bullshit')
-        print('  you were trying to tell it.\n')
-        print('  Im proud of you Marty.\n')
-        return None
+    with conn:
+        conn.execute(query, *args, **kwargs)
 
 def get_column_names(conn, table):
     """
-    return column names from sql 'table'
-    on connection 'conn'
+    Get the column names of a given database table.
+
+    :param conn: the database connection
+    :type conn: sqlite3.Connection
+    :param table: the table
+    :type table: str
+
+    :return: the names of the columns of the table
+    :rtype: list
     """
-    try:
-        cursor = conn.cursor()  # establish cursor
-        cursor.execute("Select * FROM {} LIMIT 0".format(table))
-        columns = [_[0] for _ in cursor.description]  # column names from ss table
-        cursor.close()
-        return columns
-    except (Exception, sql.Error) as error:
-        print("Error while fetching data from SQL", error)
-        cursor.close()
-        print('  SQL couldnt understand whatever bullshit')
-        print('  you were trying to tell it.\n')
-        conn.close()
-        return None
+    with closing(conn.execute(f"PRAGMA table_info(`{table}`)")) as cursor:
+        return [row[1] for row in cursor.fetchall()]
 
-def retrieve_vs_es_record(conn, vs_cols, es_cols, table, ord_id, format='df', name=''):
+def retrieve_combined_records(conn, vs_cols, es_cols, ord_id=None, fname=None):
     """
-    Retrieve a postgres record of columns combined from
-    a vs table (variable space points), and an es table
-    (equilibrium space points), and store in a pandas datafram.
+    Retrieve columns from the VS and ES tables, joined on the :code:`uuid` column. The results are
+    returned as a Pandas :code:`DataFrame`.
 
-    The join function that allows this union of two tables is joining on
-    the uuid column in each, as limited by the es table.
+    Since not all of the systems ordered by the navigator will converge in eq3/6, the VS table may
+    contain orders for systems that do not exist in the ES table.
 
-    This is necessary becausue the vs table contains all systems that were
-    attempted in a given order. However, some systems may not converge in eq3/6,
-    and therefore may not be represented in the es table.
+    If the :code:`fname` is provided and has either a JSON or CSV file extension, the dataframe
+    will be written to that file.
 
-    if a name is supplied, the df will also be exported to file.
-    json and csv are currently supported.
+    :param conn: the database connection
+    :type conn: sqlite3.Connection
+    :param vs_cols: the columns to be selected from the VS table
+    :type vs_cols: list
+    :param es_cols: the columns to be selected from the ES table
+    :type es_cols: list
+    :param ord_id: select only rows with this order ID.
+    :type order_id: int
+    :param fname: path of an output file
+    :type fname: str or None
 
+    :return: A dataframe with the selected columns and rows
+    :rtype: pandas.DataFrame
     """
+    query = f"SELECT `vs`.`{'`, `vs`.`'.join(vs_cols)}`, \
+                     `es`.`{'`, `es`.`'.join(es_cols)}` \
+              FROM `vs` INNER JOIN `es` ON `vs`.`uuid` = `es`.`uuid`"
 
-    combo_rec = retrieve_record(
-        conn, 'select A."{}", B."{}" \
-        from {}_vs as A \
-        inner join {}_es as B \
-        on A.uuid=B.uuid \
-        where B.ord = {}'.format(
-            '", A."'.join(vs_cols),
-            '", B."'.join(es_cols),
-            table,
-            table,
-            ord_id))
+    if ord_id is not None:
+        query += f" WHERE `es`.`ord` = {ord_id}"
 
-    df_col_names = ["{}_v".format(_) for _ in vs_cols] + ["{}_e".format(_) for _ in es_cols]
-    df = pd.DataFrame(combo_rec, columns=df_col_names)
+    records = retrieve_records(conn, query)
 
-    # if a file name was given, then export the df accordingly
-    if name != '':
-        if name.split('.')[-1] == 'json':
-            df.to_json(name, orient='records')
-        elif name.split('.')[-1] == 'csv':
-            df.to_csv(name, index=False)
+    df_columns = [f"{c}_v" for c in vs_cols] + [f"{c}_e" for c in es_cols]
+    df = pd.DataFrame(records, columns=df_columns)
+
+    if fname is not None:
+        _, ext = splitext(fname)
+        if ext == '.json':
+            df.to_json(fname, orient='records')
+        elif ext == '.csv':
+            df.to_csv(fname, index=False)
+        else:
+            sys.stderr.write(f"warning: cannot write records; unrecognized format '{ext}'\n");
 
     return df

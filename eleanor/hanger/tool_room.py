@@ -18,7 +18,7 @@ import re
 import numpy as np
 from time import time
 
-from .db_comms import execute_sql_statement
+from .db_comms import execute_query
 from .constants import *  # noqa (F403)
 
 os.environ['EQ36CO']="/Users/tuckerely/NPP_dev/EQ3_6v8.0a/bin"
@@ -181,7 +181,7 @@ def reset_sailor(order_path, start, conn, camp_name, file, uuid, code, delete_lo
     """
     sql = "UPDATE {} SET {} = {} WHERE uuid = '{}';".format('{}_vs'.format(camp_name),
                                                             'code', code, uuid)
-    execute_sql_statement(conn, sql)
+    execute_query(conn, sql)
     print("  {}     {}      {} s".format(file, code, round(time() - start, 4)))
     os.chdir(order_path)
 

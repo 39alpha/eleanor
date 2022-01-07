@@ -94,6 +94,12 @@ class Campaign:
         """
         return self._campaign_dir
 
+    @property
+    def campaign_db(self):
+        if self._campaign_dir is None:
+            raise Error("campaign environment not created; cannot get campaign database path")
+        return join(self._campaign_dir, 'campaign.sql')
+
     def create_env(self, dir=None, verbose=True):
         """
         Prepare a directory to store information about the campaign, and save the absolute path in

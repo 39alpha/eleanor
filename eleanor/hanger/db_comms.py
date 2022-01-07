@@ -69,7 +69,7 @@ def execute_query(conn, query, *args, **kwargs):
 
     :param conn: the connection
     :type conn: sqlite3.Connection
-    :param *args: additional arguments to be propagated to Connection.execute
+    :param \*args: additional arguments to be propagated to Connection.execute
     """
     with conn:
         conn.execute(query, *args, **kwargs)

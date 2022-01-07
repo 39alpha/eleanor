@@ -103,7 +103,7 @@ class Campaign:
     def create_env(self, dir=None, verbose=True):
         """
         Prepare a directory to store information about the campaign, and save the absolute path in
-        :prop:`campaign_dir`.
+        :attr:`campaign_dir`.
 
         This method will create the following directory and file structure: ::
 

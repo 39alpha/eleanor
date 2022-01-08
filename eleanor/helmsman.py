@@ -14,7 +14,7 @@ import pandas as pd
 # ### custom packages
 # ### rebuild without *
 from .hanger.eq36 import eq3, eq6
-from .hanger.db_comms import establish_server_connection, retrieve_record
+from .hanger.db_comms import establish_database_connection, retrieve_records
 from .hanger.data0_tools import determine_ele_set, data0_suffix
 from .hanger.tool_room import mk_check_del_directory, mine_pickup_lines, reset_sailor, grab_float
 from .hanger.tool_room import grab_lines, grab_str
@@ -29,12 +29,12 @@ HOME = os.getcwd()
 
 def main(camp, ord_id=None):
     """TODO: What does the helmsmen do??"""
-    conn = establish_server_connection()
+    conn = establish_database_connection()
 
     if not ord_id:
         sys.exit('give order number')
 
-    conn = establish_server_connection()
+    conn = establish_database_connection()
     elements = determine_ele_set(path='{}_huffer/'.format(camp.name))
 
     # ### retrieve issued order 'ord_id'
@@ -91,7 +91,7 @@ def sailor(order_path, date, dat, elements, col_names):
 
     start = time()
 
-    conn = establish_server_connection()
+    conn = establish_database_connection()
 
     # ord_id = str(dat[2])
     run_num = str(dat[3])

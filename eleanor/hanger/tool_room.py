@@ -18,7 +18,7 @@ import re
 import numpy as np
 from time import time
 
-from .db_comms import execute_sql_statement
+from .db_comms import execute_query
 from .constants import *  # noqa (F403)
 
 os.environ['EQ36CO']="/Users/tuckerely/NPP_dev/EQ3_6v8.0a/bin"
@@ -181,7 +181,7 @@ def reset_sailor(order_path, start, conn, camp_name, file, uuid, code, delete_lo
     """
     sql = "UPDATE {} SET {} = {} WHERE uuid = '{}';".format('{}_vs'.format(camp_name),
                                                             'code', code, uuid)
-    execute_sql_statement(conn, sql)
+    execute_query(conn, sql)
     print("  {}     {}      {} s".format(file, code, round(time() - start, 4)))
     os.chdir(order_path)
 
@@ -851,3 +851,33 @@ class Six_i(object):
             # load pickup lines
             for _ in pickup_lines:
                 build.write(_)
+
+
+class WorkingDirectory(object):
+    """
+    A context manager for changing the current working directory.
+
+    :param path: The path of the new current working directory
+    :type path: str
+    """
+    def __init__(self, path):
+        self.path = os.path.realpath(path)
+        self.cwd = os.getcwd()
+
+    def __enter__(self):
+        """
+        Change into the new current working directory that path.
+
+        :return: the absolute path of the new current working directory
+        :rtype: str
+        """
+        os.chdir(self.path)
+        self.cwd, self.path = self.path, self.cwd
+        return self.cwd
+
+    def __exit__(self, *args):
+        """
+        Change back to the original current working directory.
+        """
+        os.chdir(self.path)
+        self.cwd, self.path = self.path, self.cwd

@@ -1,5 +1,11 @@
-import unittest
+from contextlib import closing
+from eleanor.campaign import Campaign
+from os.path import isfile, join
+from tempfile import TemporaryDirectory
 import eleanor.hanger.db_comms as dbc
+import pandas as pd
+import sqlite3
+import unittest
 
 class TestDBComms(unittest.TestCase):
     """
@@ -11,3 +17,193 @@ class TestDBComms(unittest.TestCase):
         Confirm that the test case is being run
         """
         self.assertTrue(True)
+
+    def setUp(self):
+        """
+        Set up the TestCase.
+        """
+        self.campaign = Campaign({
+            'campaign': 'CSS0',
+            'est_date': '4Dec2021',
+            'notes': 'template',
+            'creator': '39A',
+            'mode': 'Reaction EQ',
+            'initial fluid constraints': {
+                'T_cel': [0.5, 6],
+                'P_bar': [4, 6],
+                'fO2': [-20, -1],
+                'cb': 'Cl-',
+                'basis': {
+                    'H+': [-7, -9],
+                    'Na+': 0.4860597,
+                    'Mg+2': 0.0547421,
+                    'Ca+2': [0.008, 0.012],
+                    'K+': 0.0105797,
+                    'Sr+2': 0.0000940,
+                    'Cl-': 0.5657647,
+                    'SO4-2': 0.0292643,
+                    'HCO3-': 0.0020380,
+                    'Br-': 0.0008728,
+                    'B(OH)3': 0.0004303,
+                    'F-': 0.0000708
+                }
+            },
+            'reactant': {
+                'CO2(g)': ['gas', [-7, -0.5], 1]
+            },
+            'vs_distro': 'BF',
+            'resolution': 4,
+            'suppress min': True,
+            'suppress min exemptions': ['calcite'],
+            'solid solutions': True
+        })
+
+    def test_establish_database_connection(self):
+        """
+        Ensure that we can connect to a campaign's database.
+        """
+        with TemporaryDirectory() as root:
+            self.campaign.create_env(dir=root, verbose=False)
+            conn = dbc.establish_database_connection(self.campaign, verbose=False)
+            conn.close()
+
+            self.assertTrue(isfile(join(self.campaign.campaign_dir, 'campaign.sql')))
+
+    def test_get_order_number(self):
+        """
+        Ensure that :meth:`get_order_number` returns the correct answer.
+        """
+        with TemporaryDirectory() as root:
+            self.campaign.create_env(dir=root, verbose=False)
+            conn = dbc.establish_database_connection(self.campaign, verbose=False)
+
+            conn.execute('CREATE TABLE `vs` (`ord` SMALLINT)')
+
+            max_order = dbc.get_order_number(conn)
+            self.assertEquals(max_order, 0)
+
+            conn.execute('INSERT INTO `vs` VALUES (5)')
+            max_order = dbc.get_order_number(conn)
+            self.assertEquals(max_order, 5)
+
+            conn.executemany('INSERT INTO `vs` VALUES (?)',
+                             [(max_order + n,) for n in range(1, 11)])
+            max_order = dbc.get_order_number(conn)
+            self.assertEquals(max_order, 15)
+
+    def test_retrieve_records(self):
+        with TemporaryDirectory() as root:
+            self.campaign.create_env(dir=root, verbose=False)
+            conn = dbc.establish_database_connection(self.campaign, verbose=False)
+
+            with self.assertRaises(sqlite3.Error):
+                dbc.retrieve_records(conn, 'SELECT * FROM `vs`')
+
+            conn.execute('CREATE TABLE `vs` (`ord` SMALLINT)')
+
+            with self.assertRaises(sqlite3.Error):
+                dbc.retrieve_records(conn, 'nonsense query')
+
+            conn.executemany('INSERT INTO `vs` VALUES (?)',
+                             [(1,), (2,), (3,)])
+
+            records = dbc.retrieve_records(conn, 'SELECT * FROM `vs`')
+            self.assertEquals(len(records), 3)
+
+    def test_execute_query(self):
+        with TemporaryDirectory() as root:
+            self.campaign.create_env(dir=root, verbose=False)
+            conn = dbc.establish_database_connection(self.campaign, verbose=False)
+
+            with self.assertRaises(sqlite3.Error):
+                dbc.execute_query(conn, 'INSERT INTO `vs` VALUES (1)')
+
+            with self.assertRaises(sqlite3.Error):
+                dbc.execute_query(conn, 'nonsense query')
+
+            dbc.execute_query(conn, 'CREATE TABLE `vs` (`ord` SMALLINT)')
+
+            with closing(conn.execute('PRAGMA table_info(`vs`)')) as cursor:
+                columns = [row[1] for row in cursor.fetchall()]
+
+            self.assertEquals(columns, ['ord'])
+
+    def test_get_column_names(self):
+        with TemporaryDirectory() as root:
+            self.campaign.create_env(dir=root, verbose=False)
+            conn = dbc.establish_database_connection(self.campaign, verbose=False)
+
+            dbc.execute_query(conn, 'CREATE TABLE `vs` (`ord` SMALLINT)')
+
+            self.assertEquals(dbc.get_column_names(conn, 'not-a-real-table'), [])
+            self.assertEquals(dbc.get_column_names(conn, 'vs'), ['ord'])
+
+    def test_retrieve_combined_records(self):
+        with TemporaryDirectory() as root:
+            self.campaign.create_env(dir=root, verbose=False)
+            conn = dbc.establish_database_connection(self.campaign, verbose=False)
+
+            with self.assertRaises(sqlite3.Error):
+                dbc.retrieve_combined_records(conn, ['X'], ['Y'])
+
+            dbc.execute_query(conn, 'CREATE TABLE `vs` (`uuid` VAR(256), `ord` SMALLINT)')
+            dbc.execute_query(conn, 'CREATE TABLE `es` (`uuid` VARCHAR(256), `ord` SMALLINT)')
+
+            with self.assertRaises(sqlite3.Error):
+                dbc.retrieve_combined_records(conn, ['X'], ['Y'])
+
+            dbc.execute_query(conn, 'DROP TABLE `vs`')
+            dbc.execute_query(conn, 'DROP TABLE `es`')
+            dbc.execute_query(conn, 'CREATE TABLE `vs` (`uuid` VARCHAR(256), `ord` SMALLINT, `X` REAL, `U` REAL)')
+            dbc.execute_query(conn, 'CREATE TABLE `es` (`uuid` VARCHAR(256), `ord` SMALLINT, `Y` REAL, `V` REAL)')
+
+            df = dbc.retrieve_combined_records(conn, ['X'], ['Y'])
+            self.assertEquals(sorted(df.columns), ['X_v', 'Y_e'])
+            self.assertEquals(len(df), 0)
+
+            conn.executemany('INSERT INTO `vs` VALUES (?, ?, ?, ?)',
+                             [('a', 1, 1.1, 2.1),
+                              ('b', 1, 1.2, 2.2),
+                              ('c', 2, 1.3, 2.3)])
+
+            df = dbc.retrieve_combined_records(conn, ['X'], ['Y'])
+            self.assertEquals(sorted(df.columns), ['X_v', 'Y_e'])
+            self.assertEquals(len(df), 0)
+
+            conn.executemany('INSERT INTO `es` VALUES (?, ?, ?, ?)',
+                             [('a', 1, 3.1, 4.1),
+                              ('b', 1, 3.2, 4.2)])
+
+            df = dbc.retrieve_combined_records(conn, ['X'], ['Y'])
+            self.assertEquals(sorted(df.columns), ['X_v', 'Y_e'])
+            self.assertEquals(len(df), 2)
+            self.assertEquals([tuple(r) for r in df.to_numpy()],
+                              [(1.1, 3.1), (1.2, 3.2)])
+
+            conn.executemany('INSERT INTO `es` VALUES (?, ?, ?, ?)',
+                             [('c', 2, 3.3, 4.3)])
+
+            df = dbc.retrieve_combined_records(conn, ['X'], ['Y'])
+            self.assertEquals(sorted(df.columns), ['X_v', 'Y_e'])
+            self.assertEquals(len(df), 3)
+            self.assertEquals([tuple(r) for r in df.to_numpy()],
+                              [(1.1, 3.1), (1.2, 3.2), (1.3, 3.3)])
+
+            df = dbc.retrieve_combined_records(conn, ['X'], ['Y'], ord_id=2)
+            self.assertEquals(sorted(df.columns), ['X_v', 'Y_e'])
+            self.assertEquals(len(df), 1)
+            self.assertEquals([tuple(r) for r in df.to_numpy()],
+                              [(1.3, 3.3)])
+
+            with self.campaign.working_directory() as campdir:
+                expected = dbc.retrieve_combined_records(conn, ['X'], ['Y'], fname='data.json')
+                self.assertTrue(isfile(join(campdir, 'data.json')))
+                got = pd.read_json('data.json')
+                self.assertTrue((got.columns == expected.columns).all())
+                self.assertTrue((got.to_numpy() == expected.to_numpy()).all())
+
+                expected = dbc.retrieve_combined_records(conn, ['X'], ['Y'], fname='data.csv')
+                self.assertTrue(isfile(join(campdir, 'data.csv')))
+                got = pd.read_csv('data.csv')
+                self.assertTrue((got.columns == expected.columns).all())
+                self.assertTrue((got.to_numpy() == expected.to_numpy()).all())

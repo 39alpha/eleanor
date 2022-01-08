@@ -21,7 +21,7 @@ import pandas as pd
 import eleanor.campaign as campaign
 
 from .hanger.eq36 import eq3
-from .hanger.db_comms import establish_server_connection, get_order_number, execute_sql_statement
+from .hanger.db_comms import establish_database_connection, get_order_number, execute_query
 from .hanger.db_comms import get_column_names
 from .hanger.tool_room import mk_check_del_directory, grab_lines
 from .hanger.data0_tools import determine_ele_set, data0_suffix, determine_loaded_sp, species_info
@@ -36,7 +36,7 @@ def main(camp):
 
     print('Loading campagin {}.\n'.format(camp.name))
 
-    conn = establish_server_connection(camp)
+    conn = establish_database_connection(camp)
 
     # Determine campaign status in postgres database.
     # If VS/ES tables already exist, then dont touch them,
@@ -209,11 +209,11 @@ def initiate_sql_VS_table(conn, elements):
                         elements])
 
     if len(camp.target_rnt) > 0:
-        execute_sql_statement(
+        execute_query(
             conn,
             "".join([sql_info, sql_rnt_morr, sql_rnt_rkb1, sql_state, sql_basis, sql_ele]) + ');')
     else:
-        execute_sql_statement(
+        execute_query(
             conn, "".join([sql_info, sql_state, sql_basis, sql_ele]) + ');')
 
 def initiate_sql_ES_table(conn, loaded_sp, elements):
@@ -249,7 +249,7 @@ def initiate_sql_ES_table(conn, loaded_sp, elements):
     sql_sp = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in
                        loaded_sp])
 
-    execute_sql_statement(conn, "".join([sql_info, sql_run, sql_state, sql_ele, sql_sp]) + ');')
+    execute_query(conn, "".join([sql_info, sql_run, sql_state, sql_ele, sql_sp]) + ');')
 
 def orders_to_sql(conn, table, ord, df):
     """

@@ -97,7 +97,8 @@ class Campaign:
     @property
     def campaign_db(self):
         if self._campaign_dir is None:
-            raise Error("campaign environment not created; cannot get campaign database path")
+            error_msg = "campaign environment not created; cannot get campaign database path"
+            raise RuntimeError(error_msg)
         return join(self._campaign_dir, 'campaign.sql')
 
     def create_env(self, dir=None, verbose=True):

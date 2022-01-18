@@ -18,7 +18,7 @@ import numpy as np
 import pandas as pd
 
 # loaded campagin
-import eleanor.campaign as campaign
+# import eleanor.campaign as campaign
 
 from .hanger.eq36 import eq3
 from .hanger.db_comms import establish_database_connection, get_order_number, execute_query
@@ -27,55 +27,55 @@ from .hanger.tool_room import mk_check_del_directory, grab_lines
 from .hanger.data0_tools import determine_ele_set, data0_suffix, determine_loaded_sp, species_info
 from .hanger.data0_tools import SLOP_DF
 
-CAMPAIGN_FILE = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'data', 'CSS0_1.json')
 
-def main(camp):
+def Navigator(this_campaign):
     """ Main function of the navigator"""
-    # number of sample points requested in current order
-    os.chdir(camp.name)
 
-    print('Loading campagin {}.\n'.format(camp.name))
+    # Enter the Campaigns env
+    with this_campaign.working_directory():
+        print('Preparing Orders from campagin {}.\n'.format(this_campaign.name))
 
-    conn = establish_database_connection(camp)
+        conn = establish_database_connection(this_campaign)
 
-    # Determine campaign status in postgres database.
-    # If VS/ES tables already exist, then dont touch them,
-    # just determine the next new order number.
-    # If no tables exists for the campaign, then run the
-    # huffer to initiate VS/ES, and set order number to 1.
-    order_number = check_campaign_tables(conn)
+        # Determine campaign status in postgres database.
+        # If VS/ES tables already exist, then dont touch them,
+        # just determine the next new order number.
+        # If no tables exists for the campaign, then run the
+        # huffer to initiate VS/ES, and set order number to 1.
+        order_number = check_campaign_tables(conn, this_campaign)
 
-    if order_number == 1:
-        # new campaign
-        huffer(conn)
+        if order_number == 1:
+            # new campaign
+            huffer(conn, this_campaign)
 
-    # grab needed species and element data from huffer test.3o files
-    elements = determine_ele_set(path="huffer/")
-    # sp_names = determine_loaded_sp(path =  "huffer/")
+        # grab needed species and element data from huffer test.3o files
+        elements = determine_ele_set(path="huffer/")
+        # sp_names = determine_loaded_sp(path =  "huffer/")
 
-    # current order birthday
-    date = time.strftime("%Y-%m-%d", time.gmtime())
+        # current order birthday
+        date = time.strftime("%Y-%m-%d", time.gmtime())
 
-    # Generate orders. This can be altered later to call a variety of
-    # functions that yeild different VS point distributions.
-    if camp.distro == 'random':
-        orders = random_uniform_order(date, order_number, camp.reso, elements)
+        # Generate orders. This can be altered later to call a variety of
+        # functions that yeild different VS point distributions.
+        if this_campaign.distro == 'random':
+            orders = random_uniform_order(this_campaign, date, order_number,
+                                          this_campaign.reso, elements)
 
-    elif camp.distro == 'BF':
-        orders = brute_force_order(conn, date, order_number, elements)
+        elif this_campaign.distro == 'BF':
+            orders = brute_force_order(conn, this_campaign, date, order_number, elements)
 
-    # Send dataframe containing new orders to postgres database
-    orders_to_sql(conn, '{}_vs'.format(camp.name), order_number, orders)
+        # Send dataframe containing new orders to postgres database
+        orders_to_sql(conn, 'vs', order_number, orders)
 
-    conn.close()
+        conn.close()
 
-    print(' The Navigator has done her job.')
-    print('   While she detected no "obvious" faults,')
-    print('   she notes that you may have fucked up')
-    print('   repeatedly, but the QA code required to')
-    print('   detect your fuck ups has not been written.\n')
+        print(' The Navigator has done her job.')
+        print('   While she detected no "obvious" faults,')
+        print('   she notes that you may have fucked up')
+        print('   repeatedly, but the QA code required to')
+        print('   detect your fuck ups has not been written.\n')
 
-def huffer(conn):
+def huffer(conn, camp):
     """
     The huffer performs steps required to initiate a new campaign.
     It is only run to initiate a new campaign, and not to initiate
@@ -129,14 +129,14 @@ def huffer(conn):
     elements = determine_ele_set()
 
     # estalibsh new table based on vs_state and vs_basis
-    initiate_sql_VS_table(conn, elements)
+    initiate_sql_VS_table(conn, camp, elements)
 
     # (2) build state_space for es table
     # list of loaded aq, solid, and gas species to be appended
     sp_names = determine_loaded_sp()
 
     # estalibsh new ES table based on loaded species.
-    initiate_sql_ES_table(conn, sp_names, elements)
+    initiate_sql_ES_table(conn, camp, sp_names, elements)
 
     os.chdir('..')
 
@@ -144,7 +144,7 @@ def huffer(conn):
 
 # ##################    postgres table functions   ####################
 
-def check_campaign_tables(conn):
+def check_campaign_tables(conn, camp):
     """
     (1) query sql to see if tables already esits for campaign
         'camp_name' (not a new campaign).
@@ -172,7 +172,7 @@ def check_campaign_tables(conn):
         next_order_number = 1
         return next_order_number
 
-def initiate_sql_VS_table(conn, elements):
+def initiate_sql_VS_table(conn, camp, elements):
     """
     Initiate variable space table on connection 'conn'
     for campaign 'camp.name' with state dimensions 'camp.vs_state'
@@ -188,9 +188,9 @@ def initiate_sql_VS_table(conn, elements):
     # composits, requiring addition/partial addition in order to
     # construct the true thermodynamic constraints (VS dimensions).
 
-    sql_info = "CREATE TABLE {}_vs (uuid VARCHAR(32) PRIMARY KEY, camp \
+    sql_info = "CREATE TABLE vs (uuid VARCHAR(32) PRIMARY KEY, camp \
         TEXT NOT NULL, ord SMALLINT NOT NULL, file INTEGER NOT NULL, birth \
-        DATE NOT NULL, code SMALLINT NOT NULL,".format(camp.name)
+        DATE NOT NULL, code SMALLINT NOT NULL,"
     if len(camp.target_rnt) > 0:
 
         sql_rnt_morr = ",".join([f'"{_}_morr" DOUBLE PRECISION NOT NULL'
@@ -216,7 +216,7 @@ def initiate_sql_VS_table(conn, elements):
         execute_query(
             conn, "".join([sql_info, sql_state, sql_basis, sql_ele]) + ');')
 
-def initiate_sql_ES_table(conn, loaded_sp, elements):
+def initiate_sql_ES_table(conn, camp, loaded_sp, elements):
     """
     Initiater equilibrium space (mined from 6o) table on connection 'conn'
     for campaign 'camp_name' with state dimensions 'camp_vs_state' and
@@ -229,9 +229,9 @@ def initiate_sql_ES_table(conn, loaded_sp, elements):
     instantiated fof the campaign
     """
 
-    sql_info = "CREATE TABLE {}_es (uuid VARCHAR(32) PRIMARY KEY, camp \
+    sql_info = "CREATE TABLE es (uuid VARCHAR(32) PRIMARY KEY, camp \
         TEXT NOT NULL, ord SMALLINT NOT NULL, file INTEGER NOT NULL, run \
-        DATE NOT NULL, mineral TEXT NOT NULL,".format(camp.name)
+        DATE NOT NULL, mineral TEXT NOT NULL,"
 
     sql_run = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in
                         ['initial_aff', 'xi_max', 'aH2O', 'ionic', 'tds', 'soln_mass']]) + ','
@@ -267,7 +267,7 @@ def orders_to_sql(conn, table, ord, df):
 
 # #############################    Order forms    ##############################
 
-def brute_force_order(conn, date, order_number, elements):
+def brute_force_order(conn, camp, date, order_number, elements):
     """
     Generate randomily distributed points in VS to be managed
     by the helmsman as a sinlge 'order'
@@ -413,32 +413,12 @@ def brute_force_order(conn, date, order_number, elements):
         df['{}'.format(_)] = np.round(np.log10(ele_totals[_]), precision)
 
     # reorder columns to match VS table
-    cols = get_column_names(conn, '{}_vs'.format(camp.name))
+    cols = get_column_names(conn, 'vs')
     df = df[cols]
 
     print('  Order # {} established (n = {})\n'.format(order_number, order_size))
 
     return df
-
-# def process_BF_vars_old(BF_vars, reso):
-#     """
-#     create dataframe containing all samples brute force samples
-#     """
-#     exec_text = 'grid = np.mgrid['
-#     for _ in BF_vars:
-#         # want reso = number of sample poiunts to capture min and max values
-#         # hence manipulation of the max value
-#         min_val = BF_vars[_][0]  # -8
-#         max_val = BF_vars[_][1]  # -6
-#         step = (max_val - min_val) / (reso - 1)
-#         build_str = '{}:{}:{}'.format(min_val, max_val + step, step)
-#         exec_text = '{}{},'.format(exec_text, build_str)
-
-#     exec_text = '{}].reshape({},-1).T'.format(exec_text[:-1], len(BF_vars))
-#     print(exec_text)
-#     exec(exec_text, locals(), globals())
-#     print(grid.shape)
-#     return pd.DataFrame(grid, columns = list(BF_vars.keys()))
 
 def process_BF_vars(BF_vars, reso):
     """
@@ -460,7 +440,7 @@ def process_BF_vars(BF_vars, reso):
 
     return pd.DataFrame(grid, columns=list(BF_vars.keys()))
 
-def random_uniform_order(date, order_number, order_size, elements):
+def random_uniform_order(camp, date, order_number, order_size, elements):
     """
     Generate randomily sampled points in VS to be managed by the
     helmsman as a sinlge 'order'
@@ -607,9 +587,3 @@ def random_uniform_order(date, order_number, order_size, elements):
     print('  Order # {} established (n = {})\n'.format(order_number, order_size))
 
     return df
-
-
-if __name__ == "__main__":
-    camp = campaign.Campaign.from_json(CAMPAIGN_FILE)
-    camp.create_env()
-    main(camp)

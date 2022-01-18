@@ -1,5 +1,5 @@
 import unittest
-import eleanor.hanger.radar_tools as rd
+# import eleanor.hanger.radar_tools as rd
 
 class TestRadarTools(unittest.TestCase):
     """

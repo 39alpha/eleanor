@@ -1,1 +1,35 @@
-{"campaign": "CSS0", "est_date": "4Dec2021", "notes": "template", "creator": "39A", "Mode": "Reaction EQ", "initial fluid constraints": {"T_cel": [0.5, 6], "P_bar": [4, 6], "fO2": [-20, -1], "cb": "Cl-", "basis": {"H+": [-7, -9], "Na+": 0.4860597, "Mg+2": 0.0547421, "Ca+2": [0.008, 0.012], "K+": 0.0105797, "Sr+2": 9.4e-05, "Cl-": 0.5657647, "SO4-2": 0.0292643, "HCO3-": 0.002038, "Br-": 0.0008728, "B(OH)3": 0.0004303, "F-": 7.08e-05}}, "reactant": {"CO2(g)": ["gas", [-7, -0.5], 1]}, "vs_distro": "BF", "resolution": 4, "suppress min": "True", "suppress min exemptions": ["calcite"], "solid solutions": "True"}
+{
+    "campaign": "CSS0",
+    "est_date": "4Dec2021",
+    "notes": "template",
+    "creator": "39A", 
+    "Mode": "Reaction EQ", 
+    "initial fluid constraints": {
+        "T_cel": [0.5, 6],
+        "P_bar": [4, 6],
+        "fO2": [-20, -1],
+        "cb": "Cl-",
+        "basis": {
+            "H+": [-7, -9],
+            "Na+": 0.4860597,
+            "Mg+2": 0.0547421,
+            "Ca+2": [0.008, 0.012],
+            "K+": 0.0105797,
+            "Sr+2": 9.4e-05,
+            "Cl-": 0.5657647,
+            "SO4-2": 0.0292643,
+            "HCO3-": 0.002038,
+            "Br-": 0.0008728,
+            "B(OH)3": 0.0004303,
+            "F-": 7.08e-05
+        }
+    },
+    "reactant": {
+        "CO2(g)":["gas", [-7, -0.5],1]
+    },
+    "vs_distro": "BF",
+    "resolution": 4,
+    "suppress min": "True",
+    "suppress min exemptions": ["calcite"],
+    "solid solutions": "True"
+}

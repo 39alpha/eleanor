@@ -12,7 +12,6 @@
 import sys, os, random
 from subprocess import * 
 from time import *
-from sklearn import preprocessing
 
 import matplotlib
 import matplotlib.pyplot as plt

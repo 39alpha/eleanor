@@ -2,7 +2,7 @@ import unittest
 import eleanor
 from tempfile import TemporaryDirectory
 
-class TestCampaign_to_Orders(unittest.TestCase):
+class TestCampaign_to_Helmsman(unittest.TestCase):
     """
     Tests integration between Campaign, Navigator and Helmsmen Classes
     """

@@ -179,7 +179,7 @@ def reset_sailor(order_path, start, conn, camp_name, file, uuid, code, delete_lo
         with unique vs_table id 'uuid'
     (2) step back into order folder 'order_path' for next vs point.
     """
-    sql = "UPDATE {} SET {} = {} WHERE uuid = '{}';".format('{}_vs'.format(camp_name),
+    sql = "UPDATE {} SET {} = {} WHERE uuid = '{}';".format('vs',
                                                             'code', code, uuid)
     execute_query(conn, sql)
     print("  {}     {}      {} s".format(file, code, round(time() - start, 4)))

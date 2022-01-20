@@ -22,64 +22,57 @@ from .hanger.tool_room import grab_lines, grab_str
 
 import eleanor.campaign as campaign
 
-
-CAMPAIGN_FILE = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'data', 'CSS0_1.json')
-HOME = os.getcwd()
-
-
 def main(camp, ord_id=None):
     """TODO: What does the helmsmen do??"""
-    conn = establish_database_connection()
 
-    if not ord_id:
-        sys.exit('give order number')
+    with camp.working_directory():
+        conn = establish_database_connection(camp)
+        elements = determine_ele_set(path='huffer/')
 
-    conn = establish_database_connection()
-    elements = determine_ele_set(path='{}_huffer/'.format(camp.name))
+        # ### retrieve issued order 'ord_id'
+        rec = retrieve_records(conn, "select * from vs where ord = {}".format(ord_id))
 
-    # ### retrieve issued order 'ord_id'
-    rec = retrieve_records(conn, "select * from {}_vs where ord = {}".format(camp.name, ord_id))
+        try:
+            # ### retrieve es col names for this specific campaign
+            cursor = conn.cursor()
+            cursor.execute("Select * FROM es LIMIT 0")
+            col_names = [_[0] for _ in cursor.description]
+            cursor.close()
+        except Exception as error:  # TODO: better error handling
+            print("Error while fetching data from SQL", error)
+            cursor.close()
+            print('  SQL couldnt understand whatever bullshit')
+            print('  you were trying to tell it.\n')
+            sys.exit()
 
-    try:
-        # ### retrieve es col names for this specific campaign
-        cursor = conn.cursor()
-        cursor.execute("Select * FROM {}_es LIMIT 0".format(camp.name))
-        col_names = [_[0] for _ in cursor.description]
-        cursor.close()
-    except Exception as error:
-        print("Error while fetching data from SQL", error)
-        cursor.close()
-        print('  SQL couldnt understand whatever bullshit')
-        print('  you were trying to tell it.\n')
-        sys.exit()
+        conn.close()
 
-    conn.close()
+        # ### date time stamp for run date
+        date = time.strftime("%Y-%m-%d", time.gmtime())
 
-    # ### date time stamp for run date
-    date = time.strftime("%Y-%m-%d", time.gmtime())
+        # ### build order specific local working directory
+        order_path = os.path.join('order_{}'.format(ord_id))
+        mk_check_del_directory(order_path)
+        os.chdir(order_path)
 
-    # ### build order specific local working directory
-    order_path = os.path.join(HOME, '{}_order_{}'.format(camp.name, ord_id))
-    mk_check_del_directory(order_path)
-    os.chdir(order_path)
+        # ###############   Multiprocessing  ##################
+        start = time.time()
+        print('Processing Order {}'.format(ord_id))
+        cores = 6  # TODO: This doesn't make no damn sense, detect or pass as an argument
+        with multiprocessing.Pool(processes=cores) as pool:
+            _ = pool.starmap(sailor, zip([camp] * len(rec),
+                                         [order_path] * len(rec),
+                                         [date] * len(rec), rec,
+                                         [elements] * len(rec),
+                                         [col_names] * len(rec)))
 
-    # ###############   Multiprocessing  ##################
-    start = time.time()
-    print('Processing Order {}'.format(ord_id))
-    cores = 6  # TODO: This doesn't make no damn sense, detect or pass as an argument
-    with multiprocessing.Pool(processes=cores) as pool:
-        _ = pool.starmap(sailor, zip([order_path] * len(rec),
-                                     [date] * len(rec), rec,
-                                     [elements] * len(rec),
-                                     [col_names] * len(rec)))
-
-    print('\nOrder {} complete.'.format(ord_id))
-    print('        total time: {}'.format(round(time.time() - start, 4)))
-    print('     time/vs_point: {}'.format(round((time.time() - start) / len(rec), 4)))
-    print('time/vs_point/core: {}\n'.format(round((cores * (time.time() - start)) / len(rec), 4)))
+        print('\nOrder {} complete.'.format(ord_id))
+        print('        total time: {}'.format(round(time.time() - start, 4)))
+        print('     time/point: {}'.format(round((time.time() - start) / len(rec), 4)))
+        print('time/point/core: {}\n'.format(round((cores * (time.time() - start)) / len(rec), 4)))
 
 
-def sailor(order_path, date, dat, elements, col_names):
+def sailor(camp, order_path, date, dat, elements, col_names):
     """
     Run system 'run', a point (vs) in variable space (VS) retireved from vs table
     (1) build 3i
@@ -89,9 +82,9 @@ def sailor(order_path, date, dat, elements, col_names):
     (5) mine 6o
     """
 
-    start = time()
+    start = time.time()
 
-    conn = establish_database_connection()
+    conn = establish_database_connection(camp)
 
     # ord_id = str(dat[2])
     run_num = str(dat[3])
@@ -146,7 +139,7 @@ def sailor(order_path, date, dat, elements, col_names):
 
     # ### build and execute 3i
     camp.local_3i.write(file, state_dict, basis_dict, output_details='n')
-    out, err = eq3("/home/colemathis/eleanor/eleanor/db/data1." + suffix, file)
+    out, err = eq3("/home/colemathis/eleanor/eleanor/db/data1." + suffix, file) # TODO: Look at yourself, what the fuck.
 
     # ### check 3p and 3o to determine system status
     if not os.path.isfile(file[:-1] + 'p'):

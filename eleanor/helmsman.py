@@ -38,7 +38,7 @@ def main(camp, ord_id=None):
     elements = determine_ele_set(path='{}_huffer/'.format(camp.name))
 
     # ### retrieve issued order 'ord_id'
-    rec = retrieve_record(conn, "select * from {}_vs where ord = {}".format(camp.name, ord_id))
+    rec = retrieve_records(conn, "select * from {}_vs where ord = {}".format(camp.name, ord_id))
 
     try:
         # ### retrieve es col names for this specific campaign

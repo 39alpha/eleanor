@@ -1,18 +1,14 @@
-###
-### radar tools
-### functions used for viasualizing vs and ss data
-### This file is loaded as a package by the radar family of
-### codes.
-###
-### Tucker Ely 
-### January 2021
+"""
+ radar tools
+ functions used for viasualizing vs and ss data
+ This file is loaded as a package by the radar family of
+ codes.
 
+ Tucker Ely
+ January 2021
+"""
 
-
-import sys, os, random
-from subprocess import * 
-from time import *
-from sklearn import preprocessing
+import os
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -20,41 +16,34 @@ from matplotlib.lines import Line2D
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from matplotlib.colors import ListedColormap, LinearSegmentedColormap
 
-
-### custom packages
+# custom packages
 from .db_comms import *
 from .tool_room import *
 
-pwd = os.getcwd()
+PWD = os.getcwd()
 
+BIG_PALETTE1 = ['#7CEA9C', '#F433AB', '#2E5EAA', '#593959', '#F0C808', '#DD1C1A', '#F05365',
+                '#FF9B42', '#B2945B', '#000000', '#FF0000', '#FFA500', '#FFFF00', '#008000',
+                '#0000FF', '#4B0082']
 
+BIG_PALETTE2 = ['#ff0000', '#4F8BEB']
 
-big_palette1 = ['#7CEA9C','#F433AB','#2E5EAA','#593959','#F0C808','#DD1C1A','#F05365','#FF9B42','#B2945B','#000000','#FF0000', '#FFA500', '#FFFF00', '#008000', '#0000FF', '#4B0082']
+BLU_GREN = ['#7CEA9C', '#00B2CA']
+BLU_PNK = ['#F433AB', '#00B2CA']
 
-blu_gren = ['#7CEA9C', '#00B2CA']
-blu_pnk = ['#F433AB', '#00B2CA']
+RAINBOW_BLK = LinearSegmentedColormap.from_list("mycmap", ["#020004", "#75228f", "#3e53d2",
+                                                           "#4eb01f", "#ffd805", "#fd9108",
+                                                           "#dd2823"])
+RAINBOW = LinearSegmentedColormap.from_list("mycmap", ["#75228f", "#3e53d2", "#4eb01f",
+                                                       "#ffd805", "#fd9108", "#dd2823"])
 
-big_palette2 = ['#ff0000', '#4F8BEB']
-
-
-
-rainbow_blk = LinearSegmentedColormap.from_list("mycmap", ["#020004","#75228f","#3e53d2","#4eb01f","#ffd805","#fd9108","#dd2823"])
-rainbow = LinearSegmentedColormap.from_list("mycmap", ["#75228f","#3e53d2","#4eb01f","#ffd805","#fd9108","#dd2823"])
-
-
-
-
-
-		
 def group_by_solids(conn, camp_name, ord_id):
-	
-	"""
-	Determine each unique combination of precipitates in a order (ord_id)
-	"""
-
-	lines = grab_lines(os.path.join(pwd, '{}_huffer'.format(camp_name), 'test.3o'))
-	solids 			= []
-	solid_solutions	= []
+    """
+    Determine each unique combination of precipitates in a order (ord_id)
+    """
+    lines = grab_lines(os.path.join(PWD, '{}_huffer'.format(camp_name), 'test.3o'))
+    solids = []
+    solid_solutions	= []
 
 	for _ in range(len(lines)):
 		if re.findall('^\n', lines[_]):

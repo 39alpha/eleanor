@@ -42,7 +42,8 @@ class Campaign:
     :param config: a campaign configuration
     :type config: dict
     """
-    def __init__(self, config):
+    def __init__(self, config, data0dir):
+        self.data0dir = data0dir
         # In case we need anything else just store it in _raw
         self._raw = config
         # Metadata
@@ -160,7 +161,7 @@ class Campaign:
         return tool_room.WorkingDirectory(self.campaign_dir)
 
     @classmethod
-    def from_json(cls, fname):
+    def from_json(cls, fname, *args, **kwargs):
         """
         Create a :class:`Campaign` from the contents of a JSON file.
 
@@ -172,4 +173,4 @@ class Campaign:
         """
         with open(fname, 'r') as handle:
             data = json.load(handle)
-            return cls(data)
+            return cls(data, *args, **kwargs)

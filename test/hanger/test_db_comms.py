@@ -56,7 +56,7 @@ class TestDBComms(unittest.TestCase):
             'suppress min': True,
             'suppress min exemptions': ['calcite'],
             'solid solutions': True
-        })
+        }, '/path/to/db')
 
     def test_establish_database_connection(self):
         """

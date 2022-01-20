@@ -235,28 +235,27 @@ def oxide_conversion(dat, oxide, fe3_frac):
     H_build = 0
 
     for i in oxide:
-        name = wt_dict[i][0]                                   #    element name
-        amount = float(rock[(oxide.index(i) + 4)]) / 100.0     #    pul wt% value from rock csv line
-        val = wt_dict[i][1] * (amount*1000.0 / float(wt_dict[i][3]))       #    element mol value
-        
+        name = wt_dict[i][0]  # element name
+        amount = float(rock[(oxide.index(i) + 4)]) / 100.0  # pul wt% value from rock csv line
+        val = wt_dict[i][1] * (amount * 1000.0 / float(wt_dict[i][3]))  # element mol value
 
-        ### Account for Fe+3 fraction of O to be added
+        # ## Account for Fe+3 fraction of O to be added
         if i == 'FeO':
-            ### fe3_frac * r_Fe_mols * 0.5     (0.5 is the number of adidional O, beyond the 1 in FeO,
-            ### needed to pull an additional e- from Fe2, coverting it to Fe3). 
-            ### The one oxygen in FeO is account for in full below, 
-            ### when Fe goes on to be treated like any other oxide. 
-            O_build += 0.5*fe3_frac*val 
+            # ## fe3_frac * r_Fe_mols * 0.5  (0.5 is the number of adidional O, beyond the 1 in FeO,
+            # ## needed to pull an additional e- from Fe2, coverting it to Fe3).
+            # ## The one oxygen in FeO is account for in full below,
+            # ## when Fe goes on to be treated like any other oxide.
+            O_build += 0.5 * fe3_frac * val
 
-        ### if S-2 is desired, then offset S with 2 mol equivalent H
+        # ## if S-2 is desired, then offset S with 2 mol equivalent H
         if i == 'S':
-            H_build += 2*val
+            H_build += 2 * val
 
-        if i == 'H2O': 
+        if i == 'H2O':
             H_build += val
 
         val = format_e(val, deci)
-        O_val = wt_dict[i][2] * (float(amount)*1000.0 / float(wt_dict[i][3]))    #    o mol value
+        O_val = wt_dict[i][2] * (float(amount) * 1000.0 / float(wt_dict[i][3]))  # o mol value
         O_build += O_val
 
         if i != 'H2O':

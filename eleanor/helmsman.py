@@ -17,7 +17,7 @@ from .hanger.eq36 import eq3, eq6
 from .hanger.db_comms import establish_database_connection, retrieve_records
 from .hanger.data0_tools import determine_ele_set, data0_suffix
 from .hanger.tool_room import mk_check_del_directory, mine_pickup_lines, reset_sailor, grab_float
-from .hanger.tool_room import grab_lines, grab_str
+from .hanger.tool_room import grab_lines, grab_str, WorkingDirectory
 # TODO: MOVE RESET_SAILOR INTO THE SAME FILE AS SAILOR
 
 import eleanor.campaign as campaign
@@ -47,29 +47,38 @@ def main(camp, ord_id=None):
 
         conn.close()
 
-        # ### date time stamp for run date
-        date = time.strftime("%Y-%m-%d", time.gmtime())
+    
+    # ### date time stamp for run date
+    date = time.strftime("%Y-%m-%d", time.gmtime())
 
-        # ### build order specific local working directory
-        order_path = os.path.join('order_{}'.format(ord_id))
-        mk_check_del_directory(order_path)
-        os.chdir(order_path)
+    # ### build order specific local working directory
+    order_path = os.path.join(camp.campaign_dir, 'order_{}'.format(ord_id))
 
+    mk_check_del_directory(order_path)
+    os.chdir(order_path)
+
+    start = time.time()
+    print('Processing Order {}'.format(ord_id))
+    cores = 6  # TODO: This doesn't make no damn sense, detect or pass as an argument
+    
+    with WorkingDirectory(order_path):
         # ###############   Multiprocessing  ##################
-        start = time.time()
-        print('Processing Order {}'.format(ord_id))
-        cores = 6  # TODO: This doesn't make no damn sense, detect or pass as an argument
-        with multiprocessing.Pool(processes=cores) as pool:
-            _ = pool.starmap(sailor, zip([camp] * len(rec),
-                                         [order_path] * len(rec),
-                                         [date] * len(rec), rec,
-                                         [elements] * len(rec),
-                                         [col_names] * len(rec)))
+        # with multiprocessing.Pool(processes=cores) as pool:
+        #     _ = pool.starmap(sailor, zip([camp] * len(rec),
+        #                                  [order_path] * len(rec),
+        #                                  [date] * len(rec),
+        #                                  rec,
+        #                                  [elements] * len(rec),
+        #                                  [col_names] * len(rec)))
 
-        print('\nOrder {} complete.'.format(ord_id))
-        print('        total time: {}'.format(round(time.time() - start, 4)))
-        print('     time/point: {}'.format(round((time.time() - start) / len(rec), 4)))
-        print('time/point/core: {}\n'.format(round((cores * (time.time() - start)) / len(rec), 4)))
+        # Testing with serial computation for easier error reporting
+        for r in rec[:100]:
+            sailor(camp, order_path, date, r, elements, col_names)
+
+    print('\nOrder {} complete.'.format(ord_id))
+    print('        total time: {}'.format(round(time.time() - start, 4)))
+    print('     time/point: {}'.format(round((time.time() - start) / len(rec), 4)))
+    print('time/point/core: {}\n'.format(round((cores * (time.time() - start)) / len(rec), 4)))
 
 
 def sailor(camp, order_path, date, dat, elements, col_names):
@@ -132,7 +141,7 @@ def sailor(camp, order_path, date, dat, elements, col_names):
 
     # ### build and enter temp directory
     mk_check_del_directory(run_num)
-    os.chdir(run_num)
+    # os.chdir(run_num)
 
     # ### select proper data0
     suffix = data0_suffix(state_dict['T_cel'], state_dict['P_bar'])
@@ -421,7 +430,7 @@ def mine_6o(conn, date, order_path, elements, file, dat, col_names):
 
     return run_code, build_df
 
-def six_o_data_to_postgres(conn, table, df):
+def six_o_data_to_sql(conn, table, df):
     """
     Write dataframe 'df' to postgresql 'table' on connection'conn.'
     """
@@ -446,7 +455,7 @@ def six_o_data_to_postgres(conn, table, df):
         cursor.close()
 
 
-if __name__ == "__main__":
-    camp = campaign.Campaign.from_json(CAMPAIGN_FILE)
-    camp.create_env()
-    main(camp)
+# if __name__ == "__main__":
+#     camp = campaign.Campaign.from_json(CAMPAIGN_FILE)
+#     camp.create_env()
+#     main(camp)

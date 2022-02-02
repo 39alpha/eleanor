@@ -60,7 +60,7 @@ def main(camp, ord_id=None):
     start = time.time()
     print('Processing Order {}'.format(ord_id))
     cores = 6  # TODO: This doesn't make no damn sense, detect or pass as an argument
-    
+
     with WorkingDirectory(order_path):
         # ###############   Multiprocessing  ##################
         # with multiprocessing.Pool(processes=cores) as pool:
@@ -75,7 +75,7 @@ def main(camp, ord_id=None):
         for r in rec[:100]:
             sailor(camp, order_path, date, r, elements, col_names)
 
-    print('\nOrder {} complete.'.format(ord_id))
+    print('\nOrder {} complete. Debugging Dont believe these times'.format(ord_id))
     print('        total time: {}'.format(round(time.time() - start, 4)))
     print('     time/point: {}'.format(round((time.time() - start) / len(rec), 4)))
     print('time/point/core: {}\n'.format(round((cores * (time.time() - start)) / len(rec), 4)))

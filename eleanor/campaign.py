@@ -5,9 +5,11 @@
 The :class:`Campaign` class contains the specification of modeling objectives.
 """
 import json
-from os import getcwd, mkdir
-from os.path import exists, isdir, join, realpath
+from datetime import datetime
+from os import getcwd, mkdir, rename, remove
+from os.path import exists, isdir, isfile, join, realpath
 from .hanger import tool_room
+from shutil import rmtree
 
 class Campaign:
     """
@@ -145,9 +147,25 @@ class Campaign:
             raise FileExistsError(f'{fig_dir} is not a directory')
 
         # Write campaign spec to file (as a hard copy)
+        backup_dir = realpath(join(self.campaign_dir, 'backup'))
         campaign_json = join(self.campaign_dir, 'campaign.json')
+        backup_json = realpath(join(backup_dir, f'campaign_{datetime.now().isoformat()}.json'))
+        is_backed_up, backup_dir_created = False, False
+        if isfile(campaign_json):
+            if not isdir(backup_dir):
+                mkdir(backup_dir)
+                backup_dir_created = True
+            rename(campaign_json, backup_json)
+            is_backed_up = True
+
         with open(campaign_json, mode='w', encoding='utf-8') as handle:
             json.dump(self._raw, handle, indent=True)
+
+        if is_backed_up and tool_room.sha256(campaign_json) == tool_room.sha256(backup_json):
+            if backup_dir_created:
+                rmtree(backup_dir)
+            else:
+                remove(backup_json)
 
     def working_directory(self, *args, **kwargs):
         """

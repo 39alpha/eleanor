@@ -2,7 +2,9 @@ import unittest
 from eleanor.campaign import Campaign
 from eleanor.hanger.tool_room import Three_i, Six_i
 from tempfile import NamedTemporaryFile, TemporaryDirectory
+from os import listdir
 from os.path import isdir, isfile, join, realpath
+import re
 import json
 import os
 
@@ -222,6 +224,7 @@ class TestCampaign(unittest.TestCase):
 
                 self.assertTrue(isdir('huffer'))
                 self.assertTrue(isdir('fig'))
+                self.assertFalse(isdir('backup'))
                 self.assertTrue(isfile('campaign.json'))
 
     def test_working_directory_creates_env(self):
@@ -237,3 +240,33 @@ class TestCampaign(unittest.TestCase):
                 self.assertTrue(isdir('huffer'))
                 self.assertTrue(isdir('fig'))
                 self.assertTrue(isfile('campaign.json'))
+
+    def test_no_backup(self):
+        """
+        Ensure that we do not create a backup when an identical JSON file is loaded in the same
+        environment.
+        """
+        camp = Campaign(self.config, '/path/to/db')
+        with TemporaryDirectory() as campaign_dir:
+            camp.create_env(dir=campaign_dir, verbose=False)
+            camp.create_env(dir=campaign_dir, verbose=False)
+            self.assertFalse(isdir(join(camp.campaign_dir, 'backup')))
+
+    def test_create_backup(self):
+        """
+        Ensure that we create a backup when the campaign is changed and we load the same
+        environment.
+        """
+        camp = Campaign(self.config, '/path/to/db')
+        with TemporaryDirectory() as campaign_dir:
+            camp.create_env(dir=campaign_dir, verbose=False)
+
+            # This is a hack until we get get some proper getters and setters setup for the
+            # Campaign.
+            camp._raw['campaign'] = 'a different name'
+            camp.create_env(dir=campaign_dir, verbose=False)
+            backup_dir = join(camp.campaign_dir, 'backup')
+            self.assertTrue(isdir(backup_dir))
+            backups = listdir(backup_dir)
+            pattern = re.compile('^campaign_\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d+.json')
+            self.assertTrue(all(map(lambda f: pattern.match(f), backups)))

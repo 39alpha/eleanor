@@ -10,6 +10,7 @@ commonily duplicated between projects. """
 # general EQ3/6 dependencies
 # Adapted by 39A 2021
 
+import hashlib
 import os
 import shutil
 import sys
@@ -881,3 +882,13 @@ class WorkingDirectory(object):
         """
         os.chdir(self.path)
         self.cwd, self.path = self.path, self.cwd
+
+def sha256(fname):
+    """
+    Compute the sha256 hash of a file.
+    """
+    hasher = hashlib.sha256()
+    with open(fname, 'rb') as handle:
+        for block in iter(lambda: handle.read(4096), b''):
+            hasher.update(block)
+        return hasher.hexdigest()

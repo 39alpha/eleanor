@@ -5,8 +5,8 @@
 The :class:`Campaign` class contains the specification of modeling objectives.
 """
 import json
-from os import mkdir
-from os.path import isdir, join, realpath
+from os import getcwd, mkdir
+from os.path import exists, isdir, join, realpath
 from .hanger import tool_room
 
 class Campaign:
@@ -71,12 +71,6 @@ class Campaign:
         else:
             iopt4 = '0'
 
-        # It's best not to create the directory structure at intialization time. Doing so makes
-        # testing more difficult, and means we have to be careful when and where Campaign objects
-        # are created.
-        #
-        # self.create_env()
-
         self.local_3i = tool_room.Three_i(self.cb)
         self.local_6i = tool_room.Six_i(suppress_min=self.suppress_min,
                                         iopt4=iopt4,
@@ -128,22 +122,27 @@ class Campaign:
         """
         # Top level directory
         if dir is None and self._campaign_dir is None:
-            self._campaign_dir = realpath(join('.', self.name))
+            self._campaign_dir = getcwd()
         elif dir is not None:
-            self._campaign_dir = realpath(join(dir, self.name))
+            self._campaign_dir = realpath(dir)
 
         if not isdir(self.campaign_dir):
             if verbose:
                 print(f'Creating campaign directory {self.campaign_dir}')
             mkdir(self.campaign_dir)
 
-            huffer_dir = join(self.campaign_dir, 'huffer')
+        huffer_dir = join(self.campaign_dir, 'huffer')
+        if not exists(huffer_dir):
             mkdir(huffer_dir)
+        elif not isdir(huffer_dir):
+            raise FileExistsError(f'{huffer_dir} is not a directory')
 
         # Check Figure directory
         fig_dir = join(self.campaign_dir, 'fig')
-        if not isdir(fig_dir):
+        if not exists(fig_dir):
             mkdir(fig_dir)
+        elif not isdir(fig_dir):
+            raise FileExistsError(f'{fig_dir} is not a directory')
 
         # Write campaign spec to file (as a hard copy)
         campaign_json = join(self.campaign_dir, 'campaign.json')

@@ -158,12 +158,12 @@ class TestCampaign(unittest.TestCase):
         """
         camp = Campaign(self.config, '/path/to/db')
 
-        with TemporaryDirectory() as root:
-            camp.create_env(dir=root, verbose=False)
+        with TemporaryDirectory() as campaign_dir:
+            camp.create_env(dir=campaign_dir, verbose=False)
 
-            self.assertEquals(camp.campaign_dir, realpath(join(root, camp.name)))
+            self.assertEquals(camp.campaign_dir, campaign_dir)
 
-            campaign_dir = join(root, self.config['campaign'])
+            campaign_dir = campaign_dir
             self.assertTrue(isdir(campaign_dir))
 
             huffer_dir = join(campaign_dir, 'huffer')
@@ -185,14 +185,13 @@ class TestCampaign(unittest.TestCase):
         directory.
         """
         camp = Campaign(self.config, '/path/to/db')
-        with TemporaryDirectory() as root:
-            camp.create_env(dir=root, verbose=False)
-        self.assertEquals(camp.campaign_dir, realpath(join(root, camp.name)))
+        with TemporaryDirectory() as campaign_dir:
+            camp.create_env(dir=campaign_dir, verbose=False)
+        self.assertEquals(camp.campaign_dir, campaign_dir)
 
-        with TemporaryDirectory() as root:
-            camp.create_env(dir=root, verbose=False)
+        with TemporaryDirectory() as campaign_dir:
+            camp.create_env(dir=campaign_dir, verbose=False)
 
-            campaign_dir = join(root, self.config['campaign'])
             self.assertTrue(isdir(campaign_dir))
 
             huffer_dir = join(campaign_dir, 'huffer')
@@ -208,7 +207,7 @@ class TestCampaign(unittest.TestCase):
                 dumped = json.load(handle)
                 self.assertEqual(dumped, self.config)
 
-        self.assertEquals(camp.campaign_dir, realpath(join(root, camp.name)))
+        self.assertEquals(camp.campaign_dir, campaign_dir)
 
     def test_working_directory(self):
         """
@@ -216,10 +215,10 @@ class TestCampaign(unittest.TestCase):
         campaign directory.
         """
         camp = Campaign(self.config, '/path/to/db')
-        with TemporaryDirectory() as root:
-            camp.create_env(dir=root, verbose=False)
+        with TemporaryDirectory() as campaign_dir:
+            camp.create_env(dir=campaign_dir, verbose=False)
             with camp.working_directory():
-                self.assertEquals(os.getcwd(), realpath(join(root, self.config['campaign'])))
+                self.assertEquals(os.getcwd(), campaign_dir)
 
                 self.assertTrue(isdir('huffer'))
                 self.assertTrue(isdir('fig'))
@@ -231,9 +230,9 @@ class TestCampaign(unittest.TestCase):
         directory.
         """
         camp = Campaign(self.config, '/path/to/db')
-        with TemporaryDirectory() as root:
-            with camp.working_directory(dir=root, verbose=False):
-                self.assertEquals(os.getcwd(), realpath(join(root, self.config['campaign'])))
+        with TemporaryDirectory() as campaign_dir:
+            with camp.working_directory(dir=campaign_dir, verbose=False):
+                self.assertEquals(os.getcwd(), campaign_dir)
 
                 self.assertTrue(isdir('huffer'))
                 self.assertTrue(isdir('fig'))

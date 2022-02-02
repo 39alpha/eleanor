@@ -13,6 +13,7 @@ class TestCampaign_to_Orders(unittest.TestCase):
         """
         self.assertTrue(True)
 
+    @unittest.skip('We are still working through how Eleanor should be run')
     def test_campaign_to_orders(self):
         """
         Confirm that the demo campaign CSS0 can be generated and converted into orders

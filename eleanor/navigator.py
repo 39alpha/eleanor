@@ -117,7 +117,7 @@ def huffer(conn, camp):
     # build 'verbose' 3i, with solid solutions on
     camp.local_3i.write(
         'test.3i', state_dict, basis_dict, output_details='v')
-    out, err = eq3("/home/colemathis/eleanor/eleanor/db/data1." + suffix, 'test.3i')
+    out, err = eq3("/Users/tuckerely/39A_NavHelm/eleanor/eleanor/db/data1." + suffix, 'test.3i')
 
     try:
         # if 3o is generated

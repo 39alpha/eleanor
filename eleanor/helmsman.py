@@ -47,7 +47,6 @@ def main(camp, ord_id=None):
 
         conn.close()
 
-    
     # ### date time stamp for run date
     date = time.strftime("%Y-%m-%d", time.gmtime())
 
@@ -59,21 +58,21 @@ def main(camp, ord_id=None):
 
     start = time.time()
     print('Processing Order {}'.format(ord_id))
-    cores = 6  # TODO: This doesn't make no damn sense, detect or pass as an argument
+    cores = 1  # TODO: This doesn't make no damn sense, detect or pass as an argument
 
     with WorkingDirectory(order_path):
-        # ###############   Multiprocessing  ##################
-        # with multiprocessing.Pool(processes=cores) as pool:
-        #     _ = pool.starmap(sailor, zip([camp] * len(rec),
-        #                                  [order_path] * len(rec),
-        #                                  [date] * len(rec),
-        #                                  rec,
-        #                                  [elements] * len(rec),
-        #                                  [col_names] * len(rec)))
+        ###############   Multiprocessing  ##################
+        with multiprocessing.Pool(processes=cores) as pool:
+            _ = pool.starmap(sailor, zip([camp] * len(rec),
+                                         [order_path] * len(rec),
+                                         [date] * len(rec),
+                                         rec,
+                                         [elements] * len(rec),
+                                         [col_names] * len(rec)))
 
         # Testing with serial computation for easier error reporting
-        for r in rec[:100]:
-            sailor(camp, order_path, date, r, elements, col_names)
+        # for r in rec[:100]:
+        #     sailor(camp, order_path, date, r, elements, col_names)
 
     print('\nOrder {} complete. Debugging Dont believe these times'.format(ord_id))
     print('        total time: {}'.format(round(time.time() - start, 4)))
@@ -90,7 +89,7 @@ def sailor(camp, order_path, date, dat, elements, col_names):
     (4) run 6i
     (5) mine 6o
     """
-
+    print('a')
     start = time.time()
 
     conn = establish_database_connection(camp)
@@ -141,14 +140,15 @@ def sailor(camp, order_path, date, dat, elements, col_names):
 
     # ### build and enter temp directory
     mk_check_del_directory(run_num)
-    # os.chdir(run_num)
+    os.chdir(run_num)
 
+    print('b')
     # ### select proper data0
     suffix = data0_suffix(state_dict['T_cel'], state_dict['P_bar'])
 
     # ### build and execute 3i
     camp.local_3i.write(file, state_dict, basis_dict, output_details='n')
-    out, err = eq3("/home/colemathis/eleanor/eleanor/db/data1." + suffix, file) # TODO: Look at yourself, what the fuck.
+    out, err = eq3("/Users/tuckerely/39A_NavHelm/eleanor/eleanor/db/data1." + suffix, file) # TODO: Look at yourself, what the fuck.
 
     # ### check 3p and 3o to determine system status
     if not os.path.isfile(file[:-1] + 'p'):
@@ -162,7 +162,7 @@ def sailor(camp, order_path, date, dat, elements, col_names):
                      30,
                      delete_local=delete_after_running)
         return
-
+    print('c')
     # ### process 3p file
     try:
         pickup = mine_pickup_lines('.', file[:-1] + 'p', 's')
@@ -176,7 +176,7 @@ def sailor(camp, order_path, date, dat, elements, col_names):
         return
 
     camp.local_6i.write(file[:-2] + '6i', rnt_dict, pickup, state_dict['T_cel'])
-    out, err = eq6(suffix, file[:-2] + '6i')
+    out, err = eq6("/Users/tuckerely/39A_NavHelm/eleanor/eleanor/db/data1." + suffix, file[:-2] + '6i')
 
     # ### check that 6o was generated
     if not os.path.isfile(file[:-2] + '6o'):
@@ -192,7 +192,7 @@ def sailor(camp, order_path, date, dat, elements, col_names):
 
     # ### load into es_table
     if run_code == 100:
-        six_o_data_to_postgres(conn, '{}_es'.format(camp.name), build_df)
+        six_o_data_to_sql(conn, '{}_es'.format(camp.name), build_df)
 
     reset_sailor(order_path, start, conn,
                  camp.name, file, dat[0],
@@ -431,6 +431,9 @@ def mine_6o(conn, date, order_path, elements, file, dat, col_names):
     return run_code, build_df
 
 def six_o_data_to_sql(conn, table, df):
+    df.to_sql(table, conn, if_exists='replace', index=False)
+
+def six_o_data_to_sql_old(conn, table, df):
     """
     Write dataframe 'df' to postgresql 'table' on connection'conn.'
     """
@@ -442,6 +445,8 @@ def six_o_data_to_sql(conn, table, df):
     cols = ','.join(['"{}"'.format(_) for _ in df.columns])
     query = "INSERT INTO %s(%s) VALUES %%s" % (table, cols)
     cursor = conn.cursor()
+
+    print('1')
 
     try:
         extras.execute_values(cursor, query, tuples)  # TODO: This shit won't work

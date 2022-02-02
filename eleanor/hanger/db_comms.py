@@ -24,7 +24,7 @@ def establish_database_connection(camp, verbose=True):
     """
     conn = sqlite3.connect(camp.campaign_db)
     if verbose:
-        print("New connection to db: {camp.campaign_db}")
+        print(f"New connection to db: {camp.campaign_db}")
     return conn
 
 def get_order_number(conn):

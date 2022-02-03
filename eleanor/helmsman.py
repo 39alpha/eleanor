@@ -14,13 +14,13 @@ import pandas as pd
 # ### custom packages
 # ### rebuild without *
 from .hanger.eq36 import eq3, eq6
-from .hanger.db_comms import establish_database_connection, retrieve_records
+from .hanger.db_comms import establish_database_connection, retrieve_records, get_column_names
 from .hanger.data0_tools import determine_ele_set, data0_suffix
 from .hanger.tool_room import mk_check_del_directory, mine_pickup_lines, reset_sailor, grab_float
 from .hanger.tool_room import grab_lines, grab_str, WorkingDirectory
 # TODO: MOVE RESET_SAILOR INTO THE SAME FILE AS SAILOR
 
-import eleanor.campaign as campaign
+# import eleanor.campaign as campaign
 
 def main(camp, ord_id=None):
     """TODO: What does the helmsmen do??"""
@@ -32,18 +32,21 @@ def main(camp, ord_id=None):
         # ### retrieve issued order 'ord_id'
         rec = retrieve_records(conn, "select * from vs where ord = {}".format(ord_id))
 
-        try:
-            # ### retrieve es col names for this specific campaign
-            cursor = conn.cursor()
-            cursor.execute("Select * FROM es LIMIT 0")
-            col_names = [_[0] for _ in cursor.description]
-            cursor.close()
-        except Exception as error:  # TODO: better error handling
-            print("Error while fetching data from SQL", error)
-            cursor.close()
-            print('  SQL couldnt understand whatever bullshit')
-            print('  you were trying to tell it.\n')
-            sys.exit()
+        vs_col_names = get_column_names(conn, 'vs')
+        es_col_names = get_column_names(conn, 'es')
+
+        # try:
+        #     # ### retrieve es col names for this specific campaign
+        #     cursor = conn.cursor()
+        #     cursor.execute("Select * FROM es LIMIT 0")
+        #     col_names = [_[0] for _ in cursor.description]
+        #     cursor.close()
+        # except Exception as error:  # TODO: better error handling
+        #     print("Error while fetching data from SQL", error)
+        #     cursor.close()
+        #     print('  SQL couldnt understand whatever bullshit')
+        #     print('  you were trying to tell it.\n')
+        #     sys.exit()
 
         conn.close()
 
@@ -58,21 +61,22 @@ def main(camp, ord_id=None):
 
     start = time.time()
     print('Processing Order {}'.format(ord_id))
-    cores = 1  # TODO: This doesn't make no damn sense, detect or pass as an argument
+    cores = 6  # TODO: This doesn't make no damn sense, detect or pass as an argument
 
     with WorkingDirectory(order_path):
-        ###############   Multiprocessing  ##################
+        # ##############   Multiprocessing  ##################
         with multiprocessing.Pool(processes=cores) as pool:
             _ = pool.starmap(sailor, zip([camp] * len(rec),
                                          [order_path] * len(rec),
                                          [date] * len(rec),
                                          rec,
                                          [elements] * len(rec),
-                                         [col_names] * len(rec)))
+                                         [vs_col_names] * len(rec),
+                                         [es_col_names] * len(rec)))
 
         # Testing with serial computation for easier error reporting
         # for r in rec[:100]:
-        #     sailor(camp, order_path, date, r, elements, col_names)
+        # sailor(camp, order_path, date, rec[0], elements, vs_col_names, es_col_names)
 
     print('\nOrder {} complete. Debugging Dont believe these times'.format(ord_id))
     print('        total time: {}'.format(round(time.time() - start, 4)))
@@ -80,7 +84,7 @@ def main(camp, ord_id=None):
     print('time/point/core: {}\n'.format(round((cores * (time.time() - start)) / len(rec), 4)))
 
 
-def sailor(camp, order_path, date, dat, elements, col_names):
+def sailor(camp, order_path, date, dat, elements, vs_col_names, es_col_names):
     """
     Run system 'run', a point (vs) in variable space (VS) retireved from vs table
     (1) build 3i
@@ -89,7 +93,7 @@ def sailor(camp, order_path, date, dat, elements, col_names):
     (4) run 6i
     (5) mine 6o
     """
-    print('a')
+
     start = time.time()
 
     conn = establish_database_connection(camp)
@@ -101,48 +105,84 @@ def sailor(camp, order_path, date, dat, elements, col_names):
     # ### determine if the run folder will be kept for later evaluation
     # ### this functionality was installed in order to limit the quantity
     # ### of data generated during large runs. If a specifc output file is desired
-    # ### it can simply be rerun fromt he data in the vs table and the campaign sheet.
+    # ### it can simply be rerun from the data in the vs table and the campaign sheet.
     keep_every_n_files = 50
     if int(run_num) in [int(idx) for idx in np.arange(1, 1000000, keep_every_n_files)]:
         delete_after_running = False
     else:
         delete_after_running = True
 
-    # ### weave rnt/basis/state names with thier values from the current
-    # ### order entry. This feels inefficient. There must be room for
-    # ### optimization here
-    rnt_n = len(camp.target_rnt.keys())
-    state_n = len(camp.vs_state.keys())
-    basis_n = len(camp.vs_basis.keys())
+    master_dict = {}
+    for i, j in zip(vs_col_names, dat):
+        master_dict[i] = j
+
+    state_dict = {}
+    for _ in camp.vs_state:
+        state_dict[_] = master_dict[_]
+
+    basis_dict = {}
+    for _ in camp.vs_basis:
+        basis_dict[_] = master_dict[_]
 
     rnt_dict = {}
     rnt_keys = list(camp.target_rnt.keys())
 
     for _ in range(len(rnt_keys)):
         name = rnt_keys[_]
+
+        # if '.json' in name:
+        #     name = name[:-5]
+        #     morr = master_dict['{}_morr'.format(name)]
+        #     rkb1 = master_dict['{}_rkb1'.format(name)]
+
+        #     rock_ele_dict = {}
+        #     ele_in_rock = rock_dat.grab_rock_ele()
+        #     for _ in ele_in_rock:
+        #         rock_ele_dict[_] = master_dict['{}_morr'.format(_)]
+        #     # ### pass elements in 2 spot
+        #     rnt_dict['whole_rock'] = [morr, rkb1, rock_ele_dict]
+
+        # else:
+
         rnt_type = camp.target_rnt[name][0]
-        morr = dat[6 + _]
-        rk1b = dat[6 + rnt_n + _]
-        # ### this works becuase dicts in py3.6 on, maintain insertion order
-        rnt_dict[name] = [rnt_type, morr, rk1b]
+        morr = master_dict['{}_morr'.format(name)]
+        rkb1 = master_dict['{}_rkb1'.format(name)]
+        rnt_dict[name] = [rnt_type, morr, rkb1]
 
-    state_dict = {}
-    state_start = 6 + 2 * rnt_n
-    state_end = 6 + 2 * rnt_n + state_n
-    for i, j in zip(camp.vs_state.keys(), dat[state_start: state_end]):
-        state_dict[i] = j
+    # ### weave rnt/basis/state names with thier values from the current
+    # ### order entry. This feels inefficient. There must be room for
+    # ### optimization here
+    # rnt_n = len(camp.target_rnt.keys())
+    # state_n = len(camp.vs_state.keys())
+    # basis_n = len(camp.vs_basis.keys())
 
-    basis_dict = {}
-    basis_start = 6 + 2 * rnt_n + state_n
-    basis_end = 6 + 2 * rnt_n + state_n + basis_n
-    for i, j in zip(camp.vs_basis.keys(), dat[basis_start: basis_end]):
-        basis_dict[i] = j
+    # rnt_dict = {}
+    # rnt_keys = list(camp.target_rnt.keys())
+
+    # for _ in range(len(rnt_keys)):
+    #     name = rnt_keys[_]
+    #     rnt_type = camp.target_rnt[name][0]
+    #     morr = dat[6 + _]
+    #     rk1b = dat[6 + rnt_n + _]
+    #     # ### this works becuase dicts in py3.6 on, maintain insertion order
+    #     rnt_dict[name] = [rnt_type, morr, rk1b]
+
+    # state_dict = {}
+    # state_start = 6 + 2 * rnt_n
+    # state_end = 6 + 2 * rnt_n + state_n
+    # for i, j in zip(camp.vs_state.keys(), dat[state_start: state_end]):
+    #     state_dict[i] = j
+
+    # basis_dict = {}
+    # basis_start = 6 + 2 * rnt_n + state_n
+    # basis_end = 6 + 2 * rnt_n + state_n + basis_n
+    # for i, j in zip(camp.vs_basis.keys(), dat[basis_start: basis_end]):
+    #     basis_dict[i] = j
 
     # ### build and enter temp directory
     mk_check_del_directory(run_num)
     os.chdir(run_num)
 
-    print('b')
     # ### select proper data0
     suffix = data0_suffix(state_dict['T_cel'], state_dict['P_bar'])
 
@@ -163,7 +203,7 @@ def sailor(camp, order_path, date, dat, elements, col_names):
                      30,
                      delete_local=delete_after_running)
         return
-    print('c')
+
     # ### process 3p file
     try:
         pickup = mine_pickup_lines('.', file[:-1] + 'p', 's')
@@ -189,11 +229,11 @@ def sailor(camp, order_path, date, dat, elements, col_names):
 
     # ### mine 6o and record in es if complete
     run_code, build_df = mine_6o(
-        conn, date, order_path, elements, file[:-2] + '6o', dat, col_names)
+        conn, date, order_path, elements, file[:-2] + '6o', dat, es_col_names)
 
     # ### load into es_table
     if run_code == 100:
-        six_o_data_to_sql(conn, '{}_es'.format(camp.name), build_df)
+        six_o_data_to_sql(conn, 'es', build_df)
 
     reset_sailor(order_path, start, conn,
                  camp.name, file, dat[0],
@@ -218,7 +258,6 @@ def mine_6o(conn, date, order_path, elements, file, dat, col_names):
     # ## never be both. If precipitation is allowed, then posative
     # ## values equal moles, if precipiatation for a given pahse is
     # ## inhibited, then posative values equals affinties
-
     build_df = pd.DataFrame(columns=col_names)
 
     # ## 6o file as a list of strings
@@ -432,36 +471,4 @@ def mine_6o(conn, date, order_path, elements, file, dat, col_names):
     return run_code, build_df
 
 def six_o_data_to_sql(conn, table, df):
-    df.to_sql(table, conn, if_exists='replace', index=False)
-
-def six_o_data_to_sql_old(conn, table, df):
-    """
-    Write dataframe 'df' to postgresql 'table' on connection'conn.'
-    """
-    # TODO: Move to DB comms, and figure out how write to table effectively
-    # with pandas
-    tuples = [tuple(x) for x in df.to_numpy()]
-    # ##    must wrap col names in "" for pastgres to accept special
-    # ## characters within names
-    cols = ','.join(['"{}"'.format(_) for _ in df.columns])
-    query = "INSERT INTO %s(%s) VALUES %%s" % (table, cols)
-    cursor = conn.cursor()
-
-    print('1')
-
-    try:
-        extras.execute_values(cursor, query, tuples)  # TODO: This shit won't work
-        conn.commit()
-        cursor.close()
-    except Exception as error:
-        print("Postgres Error: %s" % error)
-        print("  I. fuckked. up.")
-        print("  I misdialed!\n")
-        conn.rollback()
-        cursor.close()
-
-
-# if __name__ == "__main__":
-#     camp = campaign.Campaign.from_json(CAMPAIGN_FILE)
-#     camp.create_env()
-#     main(camp)
+    df.to_sql(table, conn, if_exists='append', index=False)

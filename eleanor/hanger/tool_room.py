@@ -21,9 +21,9 @@ from time import time
 from .db_comms import execute_query
 from .constants import *  # noqa (F403)
 
-os.environ['EQ36CO']="/Users/tuckerely/NPP_dev/EQ3_6v8.0a/bin"
-os.environ['PATH']="{}:{}".format(os.environ['PATH'], os.environ['EQ36CO'])
-os.environ['EQ36DA']="/Users/tuckerely/NPP_dev/EQ3_6v8.0a/db"
+# os.environ['EQ36CO']="/Users/tuckerely/NPP_dev/EQ3_6v8.0a/bin"
+# os.environ['PATH']="{}:{}".format(os.environ['PATH'], os.environ['EQ36CO'])
+# os.environ['EQ36DA']="/Users/tuckerely/NPP_dev/EQ3_6v8.0a/db"
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 # #################################################################
@@ -179,10 +179,9 @@ def reset_sailor(order_path, start, conn, camp_name, file, uuid, code, delete_lo
         with unique vs_table id 'uuid'
     (2) step back into order folder 'order_path' for next vs point.
     """
-    sql = "UPDATE {} SET {} = {} WHERE uuid = '{}';".format('vs',
-                                                            'code', code, uuid)
+    sql = """UPDATE vs SET code = {} WHERE uuid = '{}';""".format(code, uuid)
     execute_query(conn, sql)
-    print("  {}     {}      {} s".format(file, code, round(time() - start, 4)))
+    print("  {}     {}      {} s".format(file[:-3], code, round(time() - start, 4)))
     os.chdir(order_path)
 
     if delete_local:
@@ -201,7 +200,7 @@ def reset_sailor(order_path, start, conn, camp_name, file, uuid, code, delete_lo
 # def report_times(profile):
 #     profile.disable()
 #     ps = pstats.Stats(profile)
-#     ps.sort_stats('cumtime') 
+#     ps.sort_stats('cumtime')
 #     ps.print_stats()
 
 # #####################################################################

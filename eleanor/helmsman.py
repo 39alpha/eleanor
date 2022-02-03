@@ -148,7 +148,8 @@ def sailor(camp, order_path, date, dat, elements, col_names):
 
     # ### build and execute 3i
     camp.local_3i.write(file, state_dict, basis_dict, output_details='n')
-    out, err = eq3("/Users/tuckerely/39A_NavHelm/eleanor/eleanor/db/data1." + suffix, file) # TODO: Look at yourself, what the fuck.
+    data1_file = os.path.join(camp.data0dir, "data1." + suffix)
+    out, err = eq3(data1_file, file)  # TODO: Look at yourself, what the fuck.
 
     # ### check 3p and 3o to determine system status
     if not os.path.isfile(file[:-1] + 'p'):
@@ -176,7 +177,7 @@ def sailor(camp, order_path, date, dat, elements, col_names):
         return
 
     camp.local_6i.write(file[:-2] + '6i', rnt_dict, pickup, state_dict['T_cel'])
-    out, err = eq6("/Users/tuckerely/39A_NavHelm/eleanor/eleanor/db/data1." + suffix, file[:-2] + '6i')
+    out, err = eq6(data1_file, file[:-2] + '6i')
 
     # ### check that 6o was generated
     if not os.path.isfile(file[:-2] + '6o'):

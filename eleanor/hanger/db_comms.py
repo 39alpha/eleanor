@@ -89,7 +89,8 @@ def get_column_names(conn, table):
     with closing(conn.execute(f"PRAGMA table_info(`{table}`)")) as cursor:
         return [row[1] for row in cursor.fetchall()]
 
-def retrieve_combined_records(conn, vs_cols, es_cols, ord_id=None, fname=None):
+def retrieve_combined_records(conn, vs_cols, es_cols, limit, ord_id=None, where_constrain=None,
+                              fname=None):
     """
     Retrieve columns from the VS and ES tables, joined on the :code:`uuid` column. The results are
     returned as a Pandas :code:`DataFrame`.
@@ -106,10 +107,15 @@ def retrieve_combined_records(conn, vs_cols, es_cols, ord_id=None, fname=None):
     :type vs_cols: list
     :param es_cols: the columns to be selected from the ES table
     :type es_cols: list
+    :param limit: limit the numebr of records retrieved ' limit'
+    :type limit: int
     :param ord_id: select only rows with this order ID.
     :type order_id: int
     :param fname: path of an output file
     :type fname: str or None
+    :param where_constrain: limit sql query with 'where statement',
+        for exmaple, where '"CO2" > -3'
+    :type where_constrain: str
 
     :return: A dataframe with the selected columns and rows
     :rtype: pandas.DataFrame
@@ -118,8 +124,14 @@ def retrieve_combined_records(conn, vs_cols, es_cols, ord_id=None, fname=None):
                      `es`.`{'`, `es`.`'.join(es_cols)}` \
               FROM `vs` INNER JOIN `es` ON `vs`.`uuid` = `es`.`uuid`"
 
-    if ord_id is not None:
+    if ord_id is not None and where_constrain is not None:
+        query += f" WHERE `es`.`ord` = {ord_id} and {where_constrain}"
+
+    elif ord_id is not None:
         query += f" WHERE `es`.`ord` = {ord_id}"
+
+    elif ord_id is not None:
+        query += f" WHERE {where_constrain}"
 
     records = retrieve_records(conn, query)
 

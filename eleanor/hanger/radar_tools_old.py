@@ -42,66 +42,66 @@ def group_by_solids(conn, camp_name, ord_id):
     Determine each unique combination of precipitates in a order (ord_id)
     """
     lines = grab_lines(os.path.join(PWD, '{}_huffer'.format(camp_name), 'test.3o'))
-    solids = []
-    solid_solutions	= []
+    solids =[]
+    solid_solutions = []
 
-	for _ in range(len(lines)):
-		if re.findall('^\n', lines[_]):
-			pass
-		
-		elif '           --- Saturation States of Pure Solids ---' in lines[_]:
-			x = 4
-			while not re.findall('^\n', lines[_ + x]): 	#	signals the end of the solid solutions block	
-				if 'None' not in lines[_ + x]:
-					solids.append(lines[_ + x][:30].strip())
-					x += 1
-				else:
-					x += 1
-			del x
-		
-		elif '           --- Saturation States of Solid Solutions ---' in lines[_]:
-			x = 4
-			while not re.findall('^\n', lines[_ + x]): 	#	signals the end of the solid solutions block	
-				if 'None' not in lines[_ + x]:
-					solids.append(lines[_ + x][:30].strip())
-					x += 1
-				else:
-					x += 1
-			del x
+    for _ in range(len(lines)):
+        if re.findall('^\n', lines[_]):
+            pass
+        
+        elif '           --- Saturation States of Pure Solids ---' in lines[_]:
+            x = 4
+            while not re.findall('^\n', lines[_ + x]):     #    signals the end of the solid solutions block    
+                if 'None' not in lines[_ + x]:
+                    solids.append(lines[_ + x][:30].strip())
+                    x += 1
+                else:
+                    x += 1
+            del x
+        
+        elif '           --- Saturation States of Solid Solutions ---' in lines[_]:
+            x = 4
+            while not re.findall('^\n', lines[_ + x]):     #    signals the end of the solid solutions block    
+                if 'None' not in lines[_ + x]:
+                    solids.append(lines[_ + x][:30].strip())
+                    x += 1
+                else:
+                    x += 1
+            del x
 
-	all_precip = [_ for _ in solids + solid_solutions]# if _ != camp.tm] 		#	lsit of all possible precipaiutes, excluing the target mineral, which is in all files.
-
-
-	### retrieve record of all_precip columns from postgres table 'camp.name', for order # 'ord_id'
-	solids_sql   = ",".join([f'"{_}"' for _ in all_precip])
-	all_rec = retrieve_postgres_record(conn, 'select {} from {}_es where ord = {}'.format(solids_sql, camp_name, ord_id))
-	
-
-	### find unique co-precipitation combinations 
-	solid_combinations = [] 	#	build list for precipitation combinations
+    all_precip = [_ for _ in solids + solid_solutions]# if _ != camp.tm]         #    lsit of all possible precipaiutes, excluing the target mineral, which is in all files.
 
 
-	for _ in all_rec:
-		ind = []
-		for x in range(len(_)):
-			if _[x] > 0:
-				ind.append(x)
+    ### retrieve record of all_precip columns from postgres table 'camp.name', for order # 'ord_id'
+    solids_sql   = ",".join([f'"{_}"' for _ in all_precip])
+    all_rec = retrieve_postgres_record(conn, 'select {} from {}_es where ord = {}'.format(solids_sql, camp_name, ord_id))
+    
 
-		### grab index of values over 0,
-		solid_combinations.append([all_precip[i] for i in ind])
-	
+    ### find unique co-precipitation combinations 
+    solid_combinations = []     #    build list for precipitation combinations
 
-	### unique mineral co-precipiation occrrances in  order # ord_id
-	unique_combinations = [ list(x) for x in set(tuple(x) for x in solid_combinations) if list(x) !=[]] + ['']
 
-	### dictionary of unique mineral combinations, with an int index to reference color
-	### this random association between the names and the color, once established here, presists.
-	combo_dict = {}
-	for _ in range(len(unique_combinations)):
-		### z_dict['miner_set_name'] = index
-		combo_dict['_'.join(unique_combinations[_])] = _
+    for _ in all_rec:
+        ind = []
+        for x in range(len(_)):
+            if _[x] > 0:
+                ind.append(x)
 
-	return combo_dict
+        ### grab index of values over 0,
+        solid_combinations.append([all_precip[i] for i in ind])
+    
+
+    ### unique mineral co-precipiation occrrances in  order # ord_id
+    unique_combinations = [ list(x) for x in set(tuple(x) for x in solid_combinations) if list(x) !=[]] + ['']
+
+    ### dictionary of unique mineral combinations, with an int index to reference color
+    ### this random association between the names and the color, once established here, presists.
+    combo_dict = {}
+    for _ in range(len(unique_combinations)):
+        ### z_dict['miner_set_name'] = index
+        combo_dict['_'.join(unique_combinations[_])] = _
+
+    return combo_dict
 
 
 
@@ -199,10 +199,10 @@ def solid_groups(conn, pwd, camp_name, ord_id, out = 'assemblages'):
 ###################################################################################
 ################################  Color Fucntions  ################################
 color_dict = {
-		'1': ['#E76F51', '#264653', '#2A9D8F', '#F4A261', '#E9C46A', '#100B00', '#A5CBC3', '#3B341f', '#2F004F'],
-		'2': ['#ff0000', '#ffa500', '#ffff00', '#008000', '#0000ff', '#4b0082', '#000000'],
-		'3': ['#7CEA9C','#F433AB','#2E5EAA','#593959','#F0C808','#DD1C1A','#F05365','#FF9B42','#B2945B','#000000','#FF0000', '#FFA500', '#FFFF00', '#008000', '#0000FF', '#4B0082']
-		}
+        '1': ['#E76F51', '#264653', '#2A9D8F', '#F4A261', '#E9C46A', '#100B00', '#A5CBC3', '#3B341f', '#2F004F'],
+        '2': ['#ff0000', '#ffa500', '#ffff00', '#008000', '#0000ff', '#4b0082', '#000000'],
+        '3': ['#7CEA9C','#F433AB','#2E5EAA','#593959','#F0C808','#DD1C1A','#F05365','#FF9B42','#B2945B','#000000','#FF0000', '#FFA500', '#FFFF00', '#008000', '#0000FF', '#4B0082']
+        }
 
 
 

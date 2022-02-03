@@ -4,6 +4,7 @@
  April 8th 2020
 """
 import math
+import sys
 import re
 import pandas as pd
 
@@ -39,6 +40,7 @@ def determine_ele_set(path=''):
     """
     Use the verbose test.3o file run by the huffer to determine the loaded elements
         :param path: campaign huffer path to test.3o file
+        :type path: str
         :return: list of elements
 
     """
@@ -53,12 +55,107 @@ def determine_ele_set(path=''):
             elif '--- Numerical Composition of the Aqueous Solution ---' in line:
                 return elements
 
+def determine_species_set(path=''):
+    """
+    Use the verbose test.3o file run by the huffer to determine the loaded species
+        separated into their groups (elements, aqueous, solids, solid solutions, and gases)
+        :param path: campaign huffer path to test.3o file
+        :return:
+            list of elements,
+            list of aqueous species,
+            list of solids
+            list of solid solutions
+            list of gases
+
+    """
+    suppress = []
+
+    elements = []
+    aqueous_sp = []
+    solids = []
+    solid_solutions = []
+    gases = []
+
+    with open('{}test.3o'.format(path), 'r') as f:
+        lines = f.readlines()
+
+        # ### gather suppress info from near the top of the
+        for i in range(len(lines)):
+            if ' * Alter/suppress options' in lines[i]:
+                # ### numebr of suppresion options
+                supp_n = int(lines[i + 1].split()[-1])
+                print(supp_n)
+                for j in range(1, supp_n + 1):
+                    suppress.append(lines[i + 2 * j][12:].strip())
+                break
+
+        # ### search for all other info from teh bottom of the file
+        for i in range(len(lines) - 1, 0, -1):
+            # ### find the beginning of the print section for the final system compostion.
+            if ' Done. Hybrid Newton-Raphson iteration converged in ' in lines[i]:
+                break
+
+        # ### now count forward in lines against to read the system compostion
+        while i < len(lines):
+
+            if re.findall('^\n', lines[i]):
+                i += 1
+
+            elif '           --- Elemental Composition of the Aqueous Solution ---' in lines[i]:
+                i += 4
+                while not re.findall('^\n', lines[i]):
+                    elements.append(lines[i][:13].strip())
+                    i += 1
+
+            elif '--- Distribution of Aqueous Solute Species ---' in lines[i]:
+                i += 4
+                while not re.findall('^\n', lines[i]):
+                    aqueous_sp.append(lines[i][:26].strip())
+                    i += 1
+
+                # ### this fictive aq speices shows up in the aqueous block
+                aqueous_sp.remove('O2(g)')
+
+            elif '           --- Saturation States of Pure Solids ---' in lines[i]:
+                i += 4
+                while not re.findall('^\n', lines[i]):
+                    solids.append(lines[i][:26].strip())
+                    i += 1
+
+            elif '--- Saturation States of Solid Solutions ---' in lines[i]:
+                i += 4
+                while not re.findall('^\n', lines[i]):
+                    solid_solutions.append(lines[i][:26].strip())
+                    i += 1
+
+            elif '--- Fugacities ---' in lines[i]:
+                i += 4
+                while not re.findall('^\n', lines[i]):
+                    gases.append(lines[i][:26].strip())
+                    i += 1
+
+                break
+
+            else:
+                i += 1
+
+    # ### without knowing which lists contain the supressions, they all must be searched
+    elements = [_ for _ in elements if _ not in suppress]
+    aqueous_sp = [_ for _ in aqueous_sp if _ not in suppress]
+    solids = [_ for _ in solids if _ not in suppress]
+    solid_solutions = [_ for _ in solid_solutions if _ not in suppress]
+    gases = [_ for _ in gases if _ not in suppress]
+
+    return elements, aqueous_sp, solids, solid_solutions, gases
+
 
 def determine_loaded_sp(path=''):
     """
-    Use the verbose test.3o file run by the huffer to determine the loaded species
+    Use the verbose test.3o file run by the huffer to determine the loaded species,
+        which includes all non-basis blocks from the data0 (aq solids, gases, etc.)
         :param path: campaign huffer path to test.3o file
         :return: list of loaded species
+
     """
     loaded_sp = []
     with open('{}test.3o'.format(path), 'r') as f:

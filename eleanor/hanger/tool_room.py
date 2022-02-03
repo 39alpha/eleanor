@@ -171,23 +171,6 @@ def log_rng(mid, error_in_frac):
 def norm_list(data):
     return list((data - np.min(data)) / (np.max(data) - np.min(data)))
 
-def reset_sailor(order_path, start, conn, camp_name, file, uuid, code, delete_local=False):
-    """
-    The sailor has failed to run the :code:`file`.
-
-    (1) report to vs database 'camp_name' via server connection 'conn' the exit 'code' for 'file'
-        with unique vs_table id 'uuid'
-    (2) step back into order folder 'order_path' for next vs point.
-    """
-    sql = """UPDATE vs SET code = {} WHERE uuid = '{}';""".format(code, uuid)
-    execute_query(conn, sql)
-    print("  {}     {}      {} s".format(file[:-3], code, round(time() - start, 4)))
-    os.chdir(order_path)
-
-    if delete_local:
-        # print('deleting {}'.format(file[:-3]))
-        shutil.rmtree(file[:-3])
-
 # ##################################################################
 # ###########################    debug   ###########################
 # ##################################################################

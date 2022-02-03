@@ -12,7 +12,7 @@ import pandas as pd
 import sqlite3
 import sys
 
-def establish_database_connection(camp, verbose=True):
+def establish_database_connection(camp, verbose=False):
     """
     Connect to a campaign SQLite database.
 
@@ -24,7 +24,7 @@ def establish_database_connection(camp, verbose=True):
     """
     conn = sqlite3.connect(camp.campaign_db)
     if verbose:
-        print("New connection to db: {camp.campaign_db}")
+        print("New connection to campaign db")
     return conn
 
 def get_order_number(conn):

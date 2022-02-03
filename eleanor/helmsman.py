@@ -9,6 +9,7 @@ import re
 import shutil
 import sys
 import time
+from nbformat import from_dict
 
 import numpy as np
 import pandas as pd
@@ -24,7 +25,7 @@ from .hanger.tool_room import grab_lines, grab_str, WorkingDirectory
 
 # import eleanor.campaign as campaign
 
-def main(camp, ord_id=None):
+def Helmsman(camp, ord_id=None):
     """
     Keeping with the naval terminaology:
         The Navigator charts where to go.
@@ -185,9 +186,7 @@ def sailor(camp, order_path, date, dat, elements, vs_col_names, es_col_names):
         # ### course not help converge the file, but will provide the
         # ### infomration needed to map evidence of the failure for
         # ### future code to assess.
-        reset_sailor(order_path, start, conn,
-                     camp.name, file, dat[0],
-                     30,
+        reset_sailor(order_path, conn, file, dat[0], 30,
                      delete_local=delete_after_running)
         return
 
@@ -197,9 +196,7 @@ def sailor(camp, order_path, date, dat, elements, vs_col_names, es_col_names):
     except Exception as e:
         # ### cannot mine pickup lines
         print('{}\n  {}\n'.format(file, e))
-        reset_sailor(order_path, start, conn,
-                     camp.name, file, dat[0],
-                     31,
+        reset_sailor(order_path, conn, file, dat[0], 31,
                      delete_local=delete_after_running)
         return
 
@@ -208,27 +205,22 @@ def sailor(camp, order_path, date, dat, elements, vs_col_names, es_col_names):
 
     # ### check that 6o was generated
     if not os.path.isfile(file[:-2] + '6o'):
-        reset_sailor(order_path, start, conn,
-                     camp.name, file, dat[0],
-                     60,
+        reset_sailor(order_path, conn, file, dat[0], 60,
                      delete_local=delete_after_running)
 
         return
 
     # ### mine 6o and record in es if complete
-    run_code, build_df = mine_6o(
-        conn, date, order_path, elements, file[:-2] + '6o', dat, es_col_names)
+    run_code, build_df = mine_6o(date, elements, file[:-2] + '6o', dat, es_col_names)
 
     # ### load into es_table
     if run_code == 100:
         six_o_data_to_sql(conn, 'es', build_df)
 
-    reset_sailor(order_path, start, conn,
-                 camp.name, file, dat[0],
-                 run_code,
+    reset_sailor(order_path, conn, file, dat[0], run_code,
                  delete_local=delete_after_running)
 
-def mine_6o(conn, date, order_path, elements, file, dat, col_names):
+def mine_6o(date, elements, file, dat, col_names):
     """
     conn = open postgresql connection to database with camp.__ tables
     date = run date for file
@@ -246,8 +238,9 @@ def mine_6o(conn, date, order_path, elements, file, dat, col_names):
     # ## never be both. If precipitation is allowed, then posative
     # ## values equal moles, if precipiatation for a given pahse is
     # ## inhibited, then posative values equals affinties
-    build_df = pd.DataFrame(columns=col_names)
-
+    # build_df = pd.DataFrame(columns=col_names)
+    build_dict = {k : [] for k in col_names}
+    # print(build_df.columns)
     # ## 6o file as a list of strings
     lines = grab_lines(file)
 
@@ -258,6 +251,7 @@ def mine_6o(conn, date, order_path, elements, file, dat, col_names):
         # ## search from bottom of file
         if '---  The reaction path has terminated early ---' in lines[_]:
             # ## do not process 6o
+            build_df = pd.DataFrame.from_dict(build_dict)
             return 70, build_df
         elif '---  The reaction path has terminated normally ---' in lines[_]:
             run_code = 100
@@ -272,6 +266,7 @@ def mine_6o(conn, date, order_path, elements, file, dat, col_names):
     if run_code == 0:
         # ## run code has not be altered, therefore unknown error
         # ## has occured
+        build_df = pd.DataFrame.from_dict(build_dict)
         return 61, build_df
 
     # ## grab data and populate ES table
@@ -281,12 +276,14 @@ def mine_6o(conn, date, order_path, elements, file, dat, col_names):
             # ## (initial disequilibria with target mineral)
 
             # ##  kcal/mol
-            build_df['initial_aff'] = [grab_float(lines[_], -2)]
+            # build_df['initial_aff'] = [grab_float(lines[_], -2)]
+            build_dict["initial_aff"] = [grab_float(lines[_], -2)]
             break
 
     # ## search from beginning of last xi step (set in last_xi_step_begins)
     # ## grab xi_max. since intial index conatins log Xi.
-    build_df['xi_max'] = [grab_float(lines[last_xi_step_begins], -1)]
+    # build_df['xi_max'] = [grab_float(lines[last_xi_step_begins], -1)]
+    build_dict['xi_max'] = [grab_float(lines[last_xi_step_begins], -1)]
 
     for _ in range(last_xi_step_begins, len(lines)):
 
@@ -298,10 +295,12 @@ def mine_6o(conn, date, order_path, elements, file, dat, col_names):
             pass
 
         elif ' Temperature=' in lines[_]:
-            build_df['T_cel'] = [grab_float(lines[_], -2)]
+            # build_df['T_cel'] = [grab_float(lines[_], -2)]
+            build_dict['T_cel'] = [grab_float(lines[_], -2)]
 
         elif ' Pressure=' in lines[_]:
-            build_df['P_bar'] = [grab_float(lines[_], -2)]
+            # build_df['P_bar'] = [grab_float(lines[_], -2)]
+            build_dict['P_bar'] = [grab_float(lines[_], -2)]
 
         elif ' --- Elemental Composition' in lines[_]:
             x = 4
@@ -309,37 +308,46 @@ def mine_6o(conn, date, order_path, elements, file, dat, col_names):
                 if grab_str(lines[_ + x], 0) in elements:
                     # ## log molality data
                     this_dat = [np.round(np.log10(grab_float(lines[_ + x], -1)), 6)]
-                    build_df['{}'.format(grab_str(lines[_ + x], 0))] = this_dat
+                    # build_df['{}'.format(grab_str(lines[_ + x], 0))] = this_dat
+                    build_dict['{}'.format(grab_str(lines[_ + x], 0))] = this_dat
                     x += 1
                 else:
                     x += 1
 
         elif '                Log oxygen fugacity=' in lines[_]:
             # ##    log fO2
-            build_df['fO2'] = [grab_float(lines[_], -1)]
+            # build_df['fO2'] = [grab_float(lines[_], -1)]
+            build_dict['fO2'] = [grab_float(lines[_], -1)]
+            
 
         elif '              Log activity of water=' in lines[_]:
             # ##    log aH2O
-            build_df['aH2O'] = [grab_float(lines[_], -1)]
+            # build_df['aH2O'] = [grab_float(lines[_], -1)]
+            build_dict['aH2O'] = [grab_float(lines[_], -1)]
 
         elif '                 Ionic strength (I)=' in lines[_]:
             # ##    molal
-            build_df['ionic'] = [grab_float(lines[_], -2)]
+            # build_df['ionic'] = [grab_float(lines[_], -2)]
+            build_dict['ionic'] = [grab_float(lines[_], -2)]
 
         elif '                 Solutes (TDS) mass=' in lines[_]:
             # ##    grams
-            build_df['tds'] = [grab_float(lines[_], -2)]
+            # build_df['tds'] = [grab_float(lines[_], -2)]
+            build_dict['tds'] = [grab_float(lines[_], -2)]
 
         elif '              Aqueous solution mass=' in lines[_]:
             # ## grams
-            build_df['soln_mass'] = [grab_float(lines[_], -2)]
+            # build_df['soln_mass'] = [grab_float(lines[_], -2)]
+            build_dict['soln_mass'] = [grab_float(lines[_], -2)]
 
         elif '--- Distribution of Aqueous Solute Species ---' in lines[_]:
             x = 4
             while not re.findall('^\n', lines[_ + x]):
                 if grab_str(lines[_ + x], 0) != 'O2(g)':
                     # ##    loga
-                    build_df[grab_str(lines[_ + x], 0)] = [grab_float(
+                    # build_df[grab_str(lines[_ + x], 0)] = [grab_float(
+                    #    lines[_ + x], -1)]
+                    build_dict[grab_str(lines[_ + x], 0)] = [grab_float(
                         lines[_ + x], -1)]
                     x += 1
                 else:
@@ -383,11 +391,14 @@ def mine_6o(conn, date, order_path, elements, file, dat, col_names):
                     # ## here with the boundry condition.
 
                     # ## affinity (kcal)
-                    build_df[lines[_ + x][:30].strip()] = [float(-999.9999)]
+                    # build_df[lines[_ + x][:30].strip()] = [float(-999.9999)]
+                    build_dict[lines[_ + x][:30].strip()] = [float(-999.9999)]
                     x += 1
                 elif 'None' not in lines[_ + x]:
                     # ##    affinity (kcal)
-                    build_df[lines[_ + x][:30].strip()] = [
+                    # build_df[lines[_ + x][:30].strip()] = [
+                    #    float(lines[_ + x][44:55])]
+                    build_dict[lines[_ + x][:30].strip()] = [
                         float(lines[_ + x][44:55])]
                     x += 1
                 else:
@@ -403,11 +414,14 @@ def mine_6o(conn, date, order_path, elements, file, dat, col_names):
                     # ## here with the boundry condition.
 
                     # ## affinity (kcal)
-                    build_df[lines[_ + x][:30].strip()] = [float(-999.9999)]
+                    # build_df[lines[_ + x][:30].strip()] = [float(-999.9999)]
+                    build_dict[lines[_ + x][:30].strip()] = [float(-999.9999)]
                     x += 1
                 elif 'None' not in lines[_ + x]:
                     # ## affinity (kcal)
-                    build_df[lines[_ + x][:30].strip()] = [
+                    # build_df[lines[_ + x][:30].strip()] = [
+                    #     float(lines[_ + x][44:55])]
+                    build_dict[lines[_ + x][:30].strip()] = [
                         float(lines[_ + x][44:55])]
                     x += 1
                 else:
@@ -426,10 +440,13 @@ def mine_6o(conn, date, order_path, elements, file, dat, col_names):
                         # ## here with the boundry condition.
 
                         # ## affinity (kcal)
-                        build_df[lines[_ + x][:30].strip()] = [float(-999.9999)]
+                        # build_df[lines[_ + x][:30].strip()] = [float(-999.9999)]
+                        build_dict[lines[_ + x][:30].strip()] = [float(-999.9999)]
                         x += 1
                     else:
-                        build_df[grab_str(lines[_ + x], 0)] = [
+                        # build_df[grab_str(lines[_ + x], 0)] = [
+                        #    float(lines[_ + x][28:41])]
+                        build_dict[grab_str(lines[_ + x], 0)] = [
                             float(lines[_ + x][28:41])]
                         x += 1
                 else:
@@ -443,17 +460,26 @@ def mine_6o(conn, date, order_path, elements, file, dat, col_names):
         # ## write temp_s_dict[_] to build_df[_]. As temp_s_dict only
         # ## contains solids that actually precipitated, the
         # ## affinity vlaues in build_df[_] can simply be overwritten
-        build_df[_] = temp_s_dict[_]
+        # build_df[_] = temp_s_dict[_]
+        build_dict[_] = temp_s_dict[_]
 
     # ## set remaining es table variables
-    build_df['uuid'] = [dat[0]]
-    build_df['camp'] = [dat[1]]
-    build_df['ord'] = [dat[2]]
-    build_df['file'] = [dat[3]]
-    build_df['run'] = [date]
-    build_df['mineral'] = [dat[5]]
+    # build_df['uuid'] = [dat[0]]
+    # build_df['camp'] = [dat[1]]
+    # build_df['ord'] = [dat[2]]
+    # build_df['file'] = [dat[3]]
+    # build_df['run'] = [date]
+    # build_df['mineral'] = [dat[5]]
+
+    build_dict['uuid'] = [dat[0]]
+    build_dict['camp'] = [dat[1]]
+    build_dict['ord'] = [dat[2]]
+    build_dict['file'] = [dat[3]]
+    build_dict['run'] = [date]
+    build_dict['mineral'] = [dat[5]]
 
     # ## reorganize columns to match es table
+    build_df = pd.DataFrame.from_dict(build_dict)
     build_df = build_df[col_names]
 
     return run_code, build_df
@@ -461,8 +487,7 @@ def mine_6o(conn, date, order_path, elements, file, dat, col_names):
 def six_o_data_to_sql(conn, table, df):
     df.to_sql(table, conn, if_exists='append', index=False)
 
-def reset_sailor(order_path, start, conn, camp_name, file, uuid, code, delete_local=False):
-    print(file)
+def reset_sailor(order_path, conn, file, uuid, code, delete_local=False):
     """
     The sailor is finished, for better or worse, with run number 'file'
     with exid code 'code'
@@ -473,7 +498,6 @@ def reset_sailor(order_path, start, conn, camp_name, file, uuid, code, delete_lo
     """
     sql = """UPDATE vs SET code = {} WHERE uuid = '{}';""".format(code, uuid)
     execute_query(conn, sql)
-    # print("  {}     {}      {} s".format(file[:-3], code, round(time() - start, 4)))
     os.chdir(order_path)
 
     if delete_local:

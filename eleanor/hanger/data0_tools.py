@@ -84,7 +84,7 @@ def determine_species_set(path=''):
             if ' * Alter/suppress options' in lines[i]:
                 # ### numebr of suppresion options
                 supp_n = int(lines[i + 1].split()[-1])
-                print(supp_n)
+                # print(supp_n)
                 for j in range(1, supp_n + 1):
                     suppress.append(lines[i + 2 * j][12:].strip())
                 break

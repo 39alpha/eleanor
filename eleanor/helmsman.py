@@ -7,9 +7,8 @@ import multiprocessing
 import os
 import re
 import shutil
-import sys
 import time
-from nbformat import from_dict
+# from nbformat import from_dict
 
 import numpy as np
 import pandas as pd
@@ -110,8 +109,6 @@ def sailor(camp, order_path, date, dat, elements, vs_col_names, es_col_names):
     (4) run 6i
     (5) mine 6o
     """
-
-    start = time.time()
 
     conn = establish_database_connection(camp)
 
@@ -239,7 +236,7 @@ def mine_6o(date, elements, file, dat, col_names):
     # ## values equal moles, if precipiatation for a given pahse is
     # ## inhibited, then posative values equals affinties
     # build_df = pd.DataFrame(columns=col_names)
-    build_dict = {k : [] for k in col_names}
+    build_dict = {k: [] for k in col_names}
     # print(build_df.columns)
     # ## 6o file as a list of strings
     lines = grab_lines(file)
@@ -318,7 +315,6 @@ def mine_6o(date, elements, file, dat, col_names):
             # ##    log fO2
             # build_df['fO2'] = [grab_float(lines[_], -1)]
             build_dict['fO2'] = [grab_float(lines[_], -1)]
-            
 
         elif '              Log activity of water=' in lines[_]:
             # ##    log aH2O

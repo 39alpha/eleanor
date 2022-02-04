@@ -4,7 +4,6 @@
  April 8th 2020
 """
 import math
-import sys
 import re
 import pandas as pd
 
@@ -31,7 +30,7 @@ def species_info(sp):
         front = (re.sub(r'[-+][0-9]{0,2}', '', _))
         if re.findall('^[A-Za-z]', front):
             front = '1{}'.format(front)
-        sto, ele = re.findall('([0-9+\.]{1,}|[A-Za-z]+)', front)
+        sto, ele = re.findall(r'([0-9+\.]{1,}|[A-Za-z]+)', front)
         comp_dict[ele] = sto
     return comp_dict
 
@@ -199,14 +198,15 @@ def determine_loaded_sp(path=''):
     return sp_names
 
 
-def basis_to_ele_dict(slop_file):
-    """
-        Determine species-element relationships via a WORM slop.csv file.
-        :param slop_file: campaign huffer path of test.3o
-        :return: list of loaded species
-    """
-    df = pd.read_csv('/Users/tuckerely/NPP_dev/0_slop_OBIGT_Data0/{}'.format(file), index_col=0)
-    basis_df = df[df['tag'] == 'basis']
+# def basis_to_ele_dict(slopfile):
+#     """
+#         Determine species-element relationships via a WORM slop.csv file.
+#         :param slop_file: campaign huffer path of test.3o
+#         :return: list of loaded species
+#     """
+#     df = pd.read_csv('/Users/tuckerely/NPP_dev/0_slop_OBIGT_Data0/{}'.format(slopfile),
+#                      index_col=0)
+#     basis_df = df[df['tag'] == 'basis']
 
 
 def data0_suffix(T, P):

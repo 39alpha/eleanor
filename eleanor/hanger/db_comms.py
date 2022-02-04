@@ -37,7 +37,7 @@ def get_order_number(conn):
     :return: the greatest order number
     :rtype: int
     """
-    rec = retrieve_records(conn, f"SELECT MAX(`ord`) FROM `vs`")
+    rec = retrieve_records(conn, "SELECT MAX(`ord`) FROM `vs`")
     if len(rec) == 0 or rec[0][0] is None:
         return 0
     else:
@@ -51,7 +51,7 @@ def retrieve_records(conn, query, *args, **kwargs):
     :type conn: sqlite3.Connection
     :param query: The query (may include placeholders)
     :type query: str
-    :param \*args: Additional arguments to Connection.execute
+    :param \*args: Additional arguments to Connection.execute # noqa (EW605)
 
     :return: the resulting records
     :rtype: list
@@ -69,7 +69,7 @@ def execute_query(conn, query, *args, **kwargs):
 
     :param conn: the connection
     :type conn: sqlite3.Connection
-    :param \*args: additional arguments to be propagated to Connection.execute
+    :param \*args: additional arguments to be propagated to Connection.execute # noqa (EW605)
     """
     with conn:
         conn.execute(query, *args, **kwargs)
@@ -107,7 +107,7 @@ def retrieve_combined_records(conn, vs_cols, es_cols, limit, ord_id=None, where_
     :type vs_cols: list
     :param es_cols: the columns to be selected from the ES table
     :type es_cols: list
-    :param limit: limit the numebr of records retrieved ' limit'
+    :param limit: limit the number of records retrieved 'limit'
     :type limit: int
     :param ord_id: select only rows with this order ID.
     :type order_id: int
@@ -145,6 +145,6 @@ def retrieve_combined_records(conn, vs_cols, es_cols, limit, ord_id=None, where_
         elif ext == '.csv':
             df.to_csv(fname, index=False)
         else:
-            sys.stderr.write(f"warning: cannot write records; unrecognized format '{ext}'\n");
+            sys.stderr.write(f"warning: cannot write records; unrecognized format '{ext}'\n")
 
     return df

@@ -5,11 +5,15 @@ A package for large scale aqueous geochemical modeling.
 
 ## Install
 
-Aspirationally we want the install to be as simple as
+Install is as simple as
 
 ```pip install elanor```
 
-We'll see if that's a reality.
+### Environment Variable
+
+You can specify where you want Eleanor to look for data0 files. The easiest thing to do 
+is to modify your computer environment to set that globally
+```$ export DATA0DIR=/path/to/db ```
 
 
 ## A warning

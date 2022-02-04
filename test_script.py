@@ -1,12 +1,13 @@
 import eleanor
-from eleanor.helmsman import main
 demo_camp_file = "demo/CSS0.json"
 
 def test():
-    my_camp = eleanor.Campaign.from_json(demo_camp_file, '/Users/tuckerely/39A_NavHelm/eleanor/eleanor/db')
+    from os import environ
+    data0dir = environ["DATA0DIR"]
+    my_camp = eleanor.Campaign.from_json(demo_camp_file, data0dir)
     my_camp.create_env(verbose=False)
     eleanor.Navigator(my_camp)
-    main(my_camp, 1)
+    eleanor.Helmsman(my_camp, 1)
 
 
 if __name__ == '__main__':

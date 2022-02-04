@@ -29,7 +29,8 @@ from .hanger.data0_tools import SLOP_DF
 
 
 def Navigator(this_campaign):
-    """ Main function of the navigator"""
+    """ TODO: What does the Navigator do??
+        Main function of the navigator"""
 
     # Enter the Campaigns env
     with this_campaign.working_directory():
@@ -135,7 +136,7 @@ def huffer(conn, camp):
     # (2) build state_space for es table
     # list of loaded aq, solid, and gas species to be appended
     sp_names = determine_loaded_sp()
-    
+
     # estalibsh new ES table based on loaded species.
     initiate_sql_ES_table(conn, camp, sp_names, elements)
 

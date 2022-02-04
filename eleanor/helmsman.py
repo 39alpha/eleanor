@@ -22,8 +22,6 @@ from .hanger.tool_room import mk_check_del_directory, mine_pickup_lines, grab_fl
 from .hanger.tool_room import grab_lines, grab_str, WorkingDirectory
 
 
-# import eleanor.campaign as campaign
-
 def Helmsman(camp, ord_id=None):
     """
     Keeping with the naval terminaology:
@@ -43,7 +41,7 @@ def Helmsman(camp, ord_id=None):
         distributed about the variable space (vs).
 
         The Helmsman does this by spawning a small numebr of sailors (with number of sailors
-        determined by system capabilites), assignsing each a vs point that they will thermodynamic
+        determined by system capabilites), assigning each a vs point that they will thermodynamic
         'solve' in sucession untill all points have been solved.
 
         Each vs point assigned to a siolr, contains enough infomration to define a closed

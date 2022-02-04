@@ -117,7 +117,8 @@ def huffer(conn, camp):
     # build 'verbose' 3i, with solid solutions on
     camp.local_3i.write(
         'test.3i', state_dict, basis_dict, output_details='v')
-    out, err = eq3("/home/colemathis/eleanor/eleanor/db/data1." + suffix, 'test.3i')
+    data1_file = os.path.join(camp.data0dir, "data1." + suffix)
+    out, err = eq3(data1_file, 'test.3i')
 
     try:
         # if 3o is generated
@@ -134,7 +135,7 @@ def huffer(conn, camp):
     # (2) build state_space for es table
     # list of loaded aq, solid, and gas species to be appended
     sp_names = determine_loaded_sp()
-
+    
     # estalibsh new ES table based on loaded species.
     initiate_sql_ES_table(conn, camp, sp_names, elements)
 

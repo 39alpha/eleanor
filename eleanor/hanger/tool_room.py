@@ -11,19 +11,16 @@ commonily duplicated between projects. """
 # Adapted by 39A 2021
 
 import os
-import shutil
 import sys
 import re
-
 import numpy as np
-from time import time
 
-from .db_comms import execute_query
+from .constants import wt_dict, sr_dict
 from .constants import *  # noqa (F403)
 
-os.environ['EQ36CO']="/Users/tuckerely/NPP_dev/EQ3_6v8.0a/bin"
-os.environ['PATH']="{}:{}".format(os.environ['PATH'], os.environ['EQ36CO'])
-os.environ['EQ36DA']="/Users/tuckerely/NPP_dev/EQ3_6v8.0a/db"
+# os.environ['EQ36CO']="/Users/tuckerely/NPP_dev/EQ3_6v8.0a/bin"
+# os.environ['PATH']="{}:{}".format(os.environ['PATH'], os.environ['EQ36CO'])
+# os.environ['EQ36DA']="/Users/tuckerely/NPP_dev/EQ3_6v8.0a/db"
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 # #################################################################
@@ -56,7 +53,7 @@ def mk_check_del_directory(path):
         os.makedirs(path)  # Build desired output directory
     # else:
     #     answer = input('\n Directory {} already exists.\n\
-    #                     Are you sure you want to overwrite its contents? (Y E S/N)\n'.format(path))
+    #              Are you sure you want to overwrite its contents? (Y E S/N)\n'.format(path))
     #     if answer == 'Y E S':
     #         shutil.rmtree(path)  # Remove directory and contents if it is already present.
     #         os.makedirs(path)
@@ -171,24 +168,6 @@ def log_rng(mid, error_in_frac):
 def norm_list(data):
     return list((data - np.min(data)) / (np.max(data) - np.min(data)))
 
-def reset_sailor(order_path, start, conn, camp_name, file, uuid, code, delete_local=False):
-    """
-    The sailor has failed to run the :code:`file`.
-
-    (1) report to vs database 'camp_name' via server connection 'conn' the exit 'code' for 'file'
-        with unique vs_table id 'uuid'
-    (2) step back into order folder 'order_path' for next vs point.
-    """
-    sql = "UPDATE {} SET {} = {} WHERE uuid = '{}';".format('{}_vs'.format(camp_name),
-                                                            'code', code, uuid)
-    execute_query(conn, sql)
-    print("  {}     {}      {} s".format(file, code, round(time() - start, 4)))
-    os.chdir(order_path)
-
-    if delete_local:
-        # print('deleting {}'.format(file[:-3]))
-        shutil.rmtree(file[:-3])
-
 # ##################################################################
 # ###########################    debug   ###########################
 # ##################################################################
@@ -201,7 +180,7 @@ def reset_sailor(order_path, start, conn, camp_name, file, uuid, code, delete_lo
 # def report_times(profile):
 #     profile.disable()
 #     ps = pstats.Stats(profile)
-#     ps.sort_stats('cumtime') 
+#     ps.sort_stats('cumtime')
 #     ps.print_stats()
 
 # #####################################################################
@@ -216,7 +195,7 @@ def oxide_conversion(dat, oxide, fe3_frac):
     and requires a specific rock db file column format
 
     Converts wt% oxides listed in desired database to mols/kg, as required by eq6.
-    This function  uses the information listed in the oxide dictionary ‘wt_dict’
+    This function  uses the information listed in the oxide dictionary 'wt_dict'
     to handle the correct oxygen mol numbers properly.
     This function also handles oxygen as it relates to accounting for Fe(III)/Fe(tot).
     This function DOES NOT normalize to 100 wt%.
@@ -235,28 +214,27 @@ def oxide_conversion(dat, oxide, fe3_frac):
     H_build = 0
 
     for i in oxide:
-        name = wt_dict[i][0]                                   #    element name
-        amount = float(rock[(oxide.index(i) + 4)]) / 100.0     #    pul wt% value from rock csv line
-        val = wt_dict[i][1] * (amount*1000.0 / float(wt_dict[i][3]))       #    element mol value
-        
+        name = wt_dict[i][0]  # element name
+        amount = float(rock[(oxide.index(i) + 4)]) / 100.0  # pul wt% value from rock csv line
+        val = wt_dict[i][1] * (amount * 1000.0 / float(wt_dict[i][3]))  # element mol value
 
-        ### Account for Fe+3 fraction of O to be added
+        # ## Account for Fe+3 fraction of O to be added
         if i == 'FeO':
-            ### fe3_frac * r_Fe_mols * 0.5     (0.5 is the number of adidional O, beyond the 1 in FeO,
-            ### needed to pull an additional e- from Fe2, coverting it to Fe3). 
-            ### The one oxygen in FeO is account for in full below, 
-            ### when Fe goes on to be treated like any other oxide. 
-            O_build += 0.5*fe3_frac*val 
+            # ## fe3_frac * r_Fe_mols * 0.5  (0.5 is the number of adidional O, beyond the 1 in FeO,
+            # ## needed to pull an additional e- from Fe2, coverting it to Fe3).
+            # ## The one oxygen in FeO is account for in full below,
+            # ## when Fe goes on to be treated like any other oxide.
+            O_build += 0.5 * fe3_frac * val
 
-        ### if S-2 is desired, then offset S with 2 mol equivalent H
+        # ## if S-2 is desired, then offset S with 2 mol equivalent H
         if i == 'S':
-            H_build += 2*val
+            H_build += 2 * val
 
-        if i == 'H2O': 
+        if i == 'H2O':
             H_build += val
 
         val = format_e(val, deci)
-        O_val = wt_dict[i][2] * (float(amount)*1000.0 / float(wt_dict[i][3]))    #    o mol value
+        O_val = wt_dict[i][2] * (float(amount) * 1000.0 / float(wt_dict[i][3]))  # o mol value
         O_build += O_val
 
         if i != 'H2O':
@@ -274,8 +252,8 @@ def oxide_conversion(dat, oxide, fe3_frac):
 
 def determine_xi_grab_steps(dlxprn, ximax, starting):
     """ build list of linear xi print steps to grab output data from """
-    l = int(ximax / dlxprn)
-    xi_str_list = [format_e(x * dlxprn, 5) for x in range(1, l + 1)]
+    l_ = int(ximax / dlxprn)
+    xi_str_list = [format_e(x * dlxprn, 5) for x in range(1, l_ + 1)]
     xi_str_list.insert(0, format_e(starting, 5))  # prepend first xi step
     return xi_str_list
 
@@ -317,11 +295,11 @@ def build_special_rnt(phase, phase_dat):
     # the top and bottom of the reactant block is the same for ele and sr,
     # as the reactant is titrated as a single unit (rk1b).
     top = '\n'.join([
-                    '*-----------------------------------------------------------------------------',
-                     '  reactant=  {}'.format(phase),
-                     '     jcode=  2               jreac=  0',
-                     '      morr=  {}      modr=  0.00000E+00'.format(format_e(10**phase_dat[1], 5)),
-                     '     vreac=  0.00000E+00\n'])
+                    '*-----------------------------------------------------------------------------', # noqa (E501)
+                    '  reactant=  {}'.format(phase),
+                    '     jcode=  2               jreac=  0',
+                    '      morr=  {}      modr=  0.00000E+00'.format(format_e(10**phase_dat[1], 5)), # noqa (E501)
+                    '     vreac=  0.00000E+00\n'])
 
     bottom = '\n'.join(['   endit.',
                         '* Reaction',
@@ -329,7 +307,7 @@ def build_special_rnt(phase, phase_dat):
                         '       nsk=  0               sfcar=  0.00000E+00    ssfcar=  0.00000E+00',
                         '      fkrc=  0.00000E+00',
                         '      nrk1=  1                nrk2=  0',
-                        '      rkb1=  {}      rkb2=  0.00000E+00      rkb3=  0.00000E+00\n'.format(format_e(phase_dat[2], 5))
+                        '      rkb1=  {}      rkb2=  0.00000E+00      rkb3=  0.00000E+00\n'.format(format_e(phase_dat[2], 5)) # noqa (E501)
                         ])
 
     return top + ''.join(middle) + bottom
@@ -351,14 +329,14 @@ def build_mineral_rnt(phase, morr, rk1b):
     #     nrk1=  1                nrk2=  0
     #     rkb1=  9.40100E-03      rkb2=  0.00000E+00      rkb3=  0.00000E+00
 
-    return '\n'.join(['*-----------------------------------------------------------------------------',
+    return '\n'.join(['*-----------------------------------------------------------------------------', # noqa (E501)
                       '  reactant= {}'.format(phase),
                       '     jcode=  0               jreac=  0',
                       '      morr=  {}      modr=  0.00000E+00'.format(format_e(float(morr), 5)),
                       '       nsk=  0               sfcar=  0.00000E+00    ssfcar=  0.00000E+00',
                       '      fkrc=  0.00000E+00',
                       '      nrk1=  1',
-                      '       rk1=  {}       rk2=  0.00000E+00       rk3=  0.00000E+00\n'.format(format_e(rk1b, 5))])
+                      '       rk1=  {}       rk2=  0.00000E+00       rk3=  0.00000E+00\n'.format(format_e(rk1b, 5))]) # noqa (E501)
 
 
 def build_aqueous_rnt(phase, morr, rk1b):
@@ -404,14 +382,14 @@ def build_gas_rnt(phase, morr, rk1b):
     # nrk1=  1                nrk2=  0
     # rkb1=  1.00000E+00      rkb2=  0.00000E+00      rkb3=  0.00000E+00
 
-    return '\n'.join(['*-----------------------------------------------------------------------------',
+    return '\n'.join(['*-----------------------------------------------------------------------------', # noqa (E501)
                       '  reactant= {}'.format(phase),
                       '     jcode=  4               jreac=  0',
-                      '      morr=  {}      modr=  0.00000E+00'.format(format_e(float(10**morr), 5)),
+                      '      morr=  {}      modr=  0.00000E+00'.format(format_e(float(10**morr), 5)), # noqa (E501)
                       '       nsk=  0               sfcar=  0.00000E+00    ssfcar=  0.00000E+00',
                       '      fkrc=  0.00000E+00',
                       '      nrk1=  1',
-                      '       rk1=  {}       rk2=  0.00000E+00       rk3=  0.00000E+00\n'.format(format_e(rk1b, 5))])
+                      '       rk1=  {}       rk2=  0.00000E+00       rk3=  0.00000E+00\n'.format(format_e(rk1b, 5))]) # noqa (E501)
 
 # #################################################################
 # ##########################  classes  ############################
@@ -441,8 +419,8 @@ class Three_i(object):
         """
         instantiates three_i constants
         """
-        self.cb     = cb
-        self.iopt4  = iopt4
+        self.cb = cb
+        self.iopt4 = iopt4
         self.iopt11 = iopt11
         self.iopt17 = iopt17
         self.iopt19 = iopt19
@@ -512,63 +490,63 @@ class Three_i(object):
 
         # ## write template to file, amending values into the variable vars
         with open(local_name, 'w') as build:
-            build.write('EQ3NR input file name= local' + '\n' +
-                'endit.' + '\n' +
-                '* Special basis switches' + '\n' +
-                '    nsbswt=   0' + '\n' +
-                '* General' + '\n' +
-                '     tempc=  ' + format_e(v_state['T_cel'], 5) + '\n' +
-                '    jpres3=   0' + '\n' +
-                '     press=  ' + format_e(v_state['P_bar'], 5) + '\n' +
-                '       rho=  1.00000E+00' + '\n' +
-                '    itdsf3=   0' + '\n' +
-                '    tdspkg=  0.00000E+00     tdspl=  0.00000E+00' + '\n' +
-                '    iebal3=   1' + '\n' +
-                '     uebal= ' + self.cb + '\n' +
-                '    irdxc3=   0' + '\n' +
-                '    fo2lgi= ' + format_e(v_state['fO2'], 5) + '       ehi=  0.00000E+00' + '\n' +
-                '       pei=  0.00000E+00    uredox= None' + '\n' +
-                '* Aqueous basis species' + '\n')
+            build.write("".join(('EQ3NR input file name= local' + '\n',
+                                 'endit.' + '\n',
+                                 '* Special basis switches' + '\n',
+                                 '    nsbswt=   0' + '\n',
+                                 '* General' + '\n',
+                                 '     tempc=  ' + format_e(v_state['T_cel'], 5) + '\n',
+                                 '    jpres3=   0' + '\n',
+                                 '     press=  ' + format_e(v_state['P_bar'], 5) + '\n',
+                                 '       rho=  1.00000E+00' + '\n',
+                                 '    itdsf3=   0' + '\n',
+                                 '    tdspkg=  0.00000E+00     tdspl=  0.00000E+00' + '\n',
+                                 '    iebal3=   1' + '\n',
+                                 '     uebal= ' + self.cb + '\n',
+                                 '    irdxc3=   0' + '\n',
+                                 '    fo2lgi= ' + format_e(v_state['fO2'], 5) + '       ehi=  0.00000E+00' + '\n', # noqa (E501)
+                                 '       pei=  0.00000E+00    uredox= None' + '\n',
+                                 '* Aqueous basis species' + '\n')))
 
             for _ in v_basis.keys():
                 if _ == 'H+':
                     build.write('species= {}\n   jflgi= 16    covali=  {}\n'.format(_, v_basis[_]))
                 else:
-                    build.write('species= {}\n   jflgi=  0    covali=  {}\n'.format(_, format_e(10**v_basis[_], 5)))
+                    build.write('species= {}\n   jflgi=  0    covali=  {}\n'.format(_, format_e(10**v_basis[_], 5))) # noqa (E501)
 
-            build.write('endit.' + '\n' +
-                '* Ion exchangers' + '\n' +
-                '    qgexsh=        F' + '\n' +
-                '       net=   0' + '\n' +
-                '* Ion exchanger compositions' + '\n' +
-                '      neti=   0' + '\n' +
-                '* Solid solution compositions' + '\n' +
-                '      nxti=   0' + '\n' +
-                '* Alter/suppress options' + '\n' +
-                '     nxmod=   2' + '\n' +
-                '   species= METHANE' + '\n' +
-                '    option= -1              xlkmod=  0.00000E+00' + '\n' +
-                '   species= ETHYLENE(g)' + '\n' +
-                '    option= -1              xlkmod=  0.00000E+00' + '\n' +
-                '* Iopt, iopg, iopr, and iodb options' + '\n' +
-                '*               1    2    3    4    5    6    7    8    9   10' + '\n' +
-                '  iopt1-10=     0    0    0   ' + l_iopt4 + '    0    0    0    0    0    0' + '\n' +
-                ' iopt11-20=     ' + self.iopt11 + '    0    0    0    0    0    ' + self.iopt17 + '    0    ' + self.iopt19 + '    0' + '\n' +
-                '  iopg1-10=     0    0    0    0    0    0    0    0    0    0' + '\n' +
-                ' iopg11-20=     0    0    0    0    0    0    0    0    0    0' + '\n' +
-                '  iopr1-10=    ' + l_iopr1 + '   ' + l_iopr2 + '    0   ' + l_iopr4 + '   ' + l_iopr5 + '   ' + l_iopr6 + '   ' + l_iopr7 + '    0   ' + l_iopr9 + '    0' + '\n' +
-                ' iopr11-20=     0    0    0    0    0    0    0    0    0    0' + '\n' +
-                '  iodb1-10=    ' + l_iodb1 + '    0   ' + l_iodb3 + '   ' + l_iodb4 + '    0   ' + l_iodb6 + '    0    0    0    0' + '\n' +
-                ' iodb11-20=     0    0    0    0    0    0    0    0    0    0' + '\n' +
-                '* Numerical parameters' + '\n' +
-                '     tolbt=  0.00000E+00     toldl=  0.00000E+00' + '\n' +
-                '    itermx=   0' + '\n' +
-                '* Ordinary basis switches' + '\n' +
-                '    nobswt=   0' + '\n' +
-                '* Saturation flag tolerance' + '\n' +
-                '    tolspf=  0.00000E+00' + '\n' +
-                '* Aqueous phase scale factor' + '\n' +
-                '    scamas=  1.00000E+00')
+            build.write("".join(('endit.' + '\n',
+                                 '* Ion exchangers' + '\n',
+                                 '    qgexsh=        F' + '\n',
+                                 '       net=   0' + '\n',
+                                 '* Ion exchanger compositions' + '\n',
+                                 '      neti=   0' + '\n',
+                                 '* Solid solution compositions' + '\n',
+                                 '      nxti=   0' + '\n',
+                                 '* Alter/suppress options' + '\n',
+                                 '     nxmod=   2' + '\n',
+                                 '   species= METHANE' + '\n',
+                                 '    option= -1              xlkmod=  0.00000E+00' + '\n',
+                                 '   species= ETHYLENE(g)' + '\n',
+                                 '    option= -1              xlkmod=  0.00000E+00' + '\n',
+                                 '* Iopt, iopg, iopr, and iodb options' + '\n',
+                                 '*               1    2    3    4    5    6    7    8    9   10' + '\n', # noqa (E501)
+                                 '  iopt1-10=     0    0    0   ' + l_iopt4 + '    0    0    0    0    0    0' + '\n', # noqa (E501)
+                                 ' iopt11-20=     ' + self.iopt11 + '    0    0    0    0    0    ' + self.iopt17 + '    0    ' + self.iopt19 + '    0' + '\n', # noqa (E501)
+                                 '  iopg1-10=     0    0    0    0    0    0    0    0    0    0' + '\n', # noqa (E501)
+                                 ' iopg11-20=     0    0    0    0    0    0    0    0    0    0' + '\n', # noqa (E501)
+                                 '  iopr1-10=    ' + l_iopr1 + '   ' + l_iopr2 + '    0   ' + l_iopr4 + '   ' + l_iopr5 + '   ' + l_iopr6 + '   ' + l_iopr7 + '    0   ' + l_iopr9 + '    0' + '\n', # noqa (E501)
+                                 ' iopr11-20=     0    0    0    0    0    0    0    0    0    0' + '\n', # noqa (E501)
+                                 '  iodb1-10=    ' + l_iodb1 + '    0   ' + l_iodb3 + '   ' + l_iodb4 + '    0   ' + l_iodb6 + '    0    0    0    0' + '\n', # noqa (E501)
+                                 ' iodb11-20=     0    0    0    0    0    0    0    0    0    0' + '\n', # noqa (E501)
+                                 '* Numerical parameters' + '\n',
+                                 '     tolbt=  0.00000E+00     toldl=  0.00000E+00' + '\n',
+                                 '    itermx=   0' + '\n',
+                                 '* Ordinary basis switches' + '\n',
+                                 '    nobswt=   0' + '\n',
+                                 '* Saturation flag tolerance' + '\n',
+                                 '    tolspf=  0.00000E+00' + '\n',
+                                 '* Aqueous phase scale factor' + '\n',
+                                 '    scamas=  1.00000E+00')))
 
 class Six_i(object):
     """
@@ -735,90 +713,93 @@ class Six_i(object):
                 # drop in seawater as an additional reactant, to exhaustion.
                 # this is obviously incomplete, as i should be able to pick which fluid i want to
                 # add as an aditional reaction
-                build.write(
-                    '\n'.join([
-                    '*-----------------------------------------------------------------------------',
-                    '  reactant= Fluid 2',
-                    '     jcode=  2               jreac=  0',
-                    '      morr=  1.00000E+10      modr=  0.00000E+00',
-                    '     vreac=  0.10000E+01',
-                    '* Elemental composition',
-                    '   O           5.562748395365903E+01',
-                    '   Al          2.000000039235638E-08',
-                    '   Br          8.400000000320019E-07',
-                    '   Ca          1.020000004340294E-02',
-                    '   Cl          5.339131409252369E-01',
-                    '   Fe          1.530000029742448E-09',
-                    '   H           1.110191390994818E+02',
-                    '   C           2.300000303802816E-03',
-                    '   K           2.300000001660159E-03',
-                    '   Mg          5.270000005630820E-02',
-                    '   N           3.000010000000001E-07',
-                    '   Na          4.640000001062417E-01',
-                    '   S           2.790000003661272E-02',
-                    '   Si          1.600000002691423E-04',
-                    '   endit.',
-                    '* Reaction',
-                    '   Fluid 2                    -1.000000000000000E+00',
-                    '   H2O                         5.550846244103924E+01',
-                    '   Al+3                        2.000000039235638E-08',
-                    '   Br-                         8.400000000320019E-07',
-                    '   Ca+2                        1.020000004340294E-02',
-                    '   Cl-                         5.339131409252369E-01',
-                    '   Fe+2                        3.000000003396551E-11',
-                    '   H+                         -8.578380445936970E-05',
-                    '   HCO3-                       2.300000003802816E-03',
-                    '   K+                          2.300000001660159E-03',
-                    '   Mg+2                        5.270000005630820E-02',
-                    '   NO3-                        3.000000000000001E-07',
-                    '   Na+                         4.640000001062417E-01',
-                    '   SO4-2                       2.790000003661272E-02',
-                    '   SiO2,AQ                     1.600000002691423E-04',
-                    '   O2(g)                       1.003062307023703E-04',
-                    '   NH4+                        1.000000000021125E-12',
-                    '   Fe+3                        1.500000029708482E-09',
-                    '   METHANE,AQ                  3.000000000000001E-10',
-                    '   endit.',
-                    '       nsk=  0               sfcar=  0.00000E+00    ssfcar=  0.00000E+00',
-                    '      fkrc=  0.00000E+00',
-                    '      nrk1=  1                nrk2=  0',
-                    '      rkb1=  1.00000E+00      rkb2=  0.00000E+00      rkb3=  0.00000E+00\n']))
+                build.write('\n'.join([
+                            '*-----------------------------------------------------------------------------', # noqa (E501)
+                            '  reactant= Fluid 2',
+                            '     jcode=  2               jreac=  0',
+                            '      morr=  1.00000E+10      modr=  0.00000E+00',
+                            '     vreac=  0.10000E+01',
+                            '* Elemental composition',
+                            '   O           5.562748395365903E+01',
+                            '   Al          2.000000039235638E-08',
+                            '   Br          8.400000000320019E-07',
+                            '   Ca          1.020000004340294E-02',
+                            '   Cl          5.339131409252369E-01',
+                            '   Fe          1.530000029742448E-09',
+                            '   H           1.110191390994818E+02',
+                            '   C           2.300000303802816E-03',
+                            '   K           2.300000001660159E-03',
+                            '   Mg          5.270000005630820E-02',
+                            '   N           3.000010000000001E-07',
+                            '   Na          4.640000001062417E-01',
+                            '   S           2.790000003661272E-02',
+                            '   Si          1.600000002691423E-04',
+                            '   endit.',
+                            '* Reaction',
+                            '   Fluid 2                    -1.000000000000000E+00',
+                            '   H2O                         5.550846244103924E+01',
+                            '   Al+3                        2.000000039235638E-08',
+                            '   Br-                         8.400000000320019E-07',
+                            '   Ca+2                        1.020000004340294E-02',
+                            '   Cl-                         5.339131409252369E-01',
+                            '   Fe+2                        3.000000003396551E-11',
+                            '   H+                         -8.578380445936970E-05',
+                            '   HCO3-                       2.300000003802816E-03',
+                            '   K+                          2.300000001660159E-03',
+                            '   Mg+2                        5.270000005630820E-02',
+                            '   NO3-                        3.000000000000001E-07',
+                            '   Na+                         4.640000001062417E-01',
+                            '   SO4-2                       2.790000003661272E-02',
+                            '   SiO2,AQ                     1.600000002691423E-04',
+                            '   O2(g)                       1.003062307023703E-04',
+                            '   NH4+                        1.000000000021125E-12',
+                            '   Fe+3                        1.500000029708482E-09',
+                            '   METHANE,AQ                  3.000000000000001E-10',
+                            '   endit.',
+                            '       nsk=  0               sfcar=  0.00000E+00    ssfcar=  0.00000E+00', # noqa (E501)
+                            '      fkrc=  0.00000E+00',
+                            '      nrk1=  1                nrk2=  0',
+                            '      rkb1=  1.00000E+00      rkb2=  0.00000E+00      rkb3=  0.00000E+00\n'])) # noqa (E501)
 
             else:
                 # no reactants, closed system
                 self.iopt1 = ' 0'
 
             build.write(
-                '\n'.join(['*-----------------------------------------------------------------------------',
-                '    xistti=  0.00000E+00    ximaxi=  {}'.format(format_e(float(xi_max), 5)),
-                '    tistti=  0.00000E+00    timmxi=  1.00000E+38',
-                '    phmini= -1.00000E+38    phmaxi=  1.00000E+38',
-                '    ehmini= -1.00000E+38    ehmaxi=  1.00000E+38',
-                '    o2mini= -1.00000E+38    o2maxi=  1.00000E+38',
-                '    awmini= -1.00000E+38    awmaxi=  1.00000E+38',
-                '    kstpmx=        10000',
-                '    dlxprn=  1.00000E+38    dlxprl=  1.00000E+38',
-                '    dltprn=  1.00000E+38    dltprl=  1.00000E+38',
-                '    dlhprn=  1.00000E+38    dleprn=  1.00000E+38',
-                '    dloprn=  1.00000E+38    dlaprn=  1.00000E+38',
-                '    ksppmx=          999',
-                '    dlxplo=  1.00000E+38    dlxpll=  1.00000E+38',
-                '    dltplo=  1.00000E+38    dltpll=  1.00000E+38',
-                '    dlhplo=  1.00000E+38    dleplo=  1.00000E+38',
-                '    dloplo=  1.00000E+38    dlaplo=  1.00000E+38',
-                '    ksplmx=        10000',
-                '*               1    2    3    4    5    6    7    8    9   10\n']))
+                '\n'.join(['*-----------------------------------------------------------------------------', # noqa (E501)
+                           '    xistti=  0.00000E+00    ximaxi=  {}'.format(format_e(float(xi_max), 5)), # noqa (E501)
+                           '    tistti=  0.00000E+00    timmxi=  1.00000E+38',
+                           '    phmini= -1.00000E+38    phmaxi=  1.00000E+38',
+                           '    ehmini= -1.00000E+38    ehmaxi=  1.00000E+38',
+                           '    o2mini= -1.00000E+38    o2maxi=  1.00000E+38',
+                           '    awmini= -1.00000E+38    awmaxi=  1.00000E+38',
+                           '    kstpmx=        10000',
+                           '    dlxprn=  1.00000E+38    dlxprl=  1.00000E+38',
+                           '    dltprn=  1.00000E+38    dltprl=  1.00000E+38',
+                           '    dlhprn=  1.00000E+38    dleprn=  1.00000E+38',
+                           '    dloprn=  1.00000E+38    dlaprn=  1.00000E+38',
+                           '    ksppmx=          999',
+                           '    dlxplo=  1.00000E+38    dlxpll=  1.00000E+38',
+                           '    dltplo=  1.00000E+38    dltpll=  1.00000E+38',
+                           '    dlhplo=  1.00000E+38    dleplo=  1.00000E+38',
+                           '    dloplo=  1.00000E+38    dlaplo=  1.00000E+38',
+                           '    ksplmx=        10000',
+                           '*               1    2    3    4    5    6    7    8    9   10\n']))
 
             build.write(
-                '  iopt1-10=    ' + '   '.join([_ for _ in 
-                    [self.iopt1, self.iopt2, self.iopt3, self.iopt4, self.iopt5, self.iopt6, self.iopt7, self.iopt8, self.iopt9, self.iopt10]]) + '\n')
+                '  iopt1-10=    ' + '   '.join([_ for _ in
+                                                [self.iopt1, self.iopt2, self.iopt3, self.iopt4,
+                                                 self.iopt5, self.iopt6, self.iopt7, self.iopt8,
+                                                 self.iopt9, self.iopt10]]) + '\n')
             build.write(' iopt11-20=     0    0    0    0    0   -1    0   -1    0    0\n')
             build.write(
-                '  iopr1-10=    ' + '   '.join([_ for _ in 
-                    [self.iopr1, self.iopr2, self.iopr3, self.iopr4, self.iopr5, self.iopr6, self.iopr7, self.iopr8, self.iopr9, self.iopr10]]) + '\n')
-            build.write('\n'.join([' iopr11-20=     0    0    0    0    0    0   {}    0    0    0'.format(self.iopr17),
-                                '  iodb1-10=     0    0    0    0    0    0    0    0    0    0',
-                                ' iodb11-20=     0    0    0    0    0    0    0    0    0    0\n']))
+                '  iopr1-10=    ' + '   '.join([_ for _ in
+                                                [self.iopr1, self.iopr2, self.iopr3, self.iopr4,
+                                                 self.iopr5, self.iopr6, self.iopr7, self.iopr8,
+                                                 self.iopr9, self.iopr10]]) + '\n')
+            build.write('\n'.join([' iopr11-20=     0    0    0    0    0    0   {}    0    0    0'.format(self.iopr17), # noqa (E501)
+                                   '  iodb1-10=     0    0    0    0    0    0    0    0    0    0',
+                                   ' iodb11-20=     0    0    0    0    0    0    0    0    0    0\n'])) # noqa (E501)
 
             # Handle mineral supression
             if self.suppress_min:
@@ -846,7 +827,7 @@ class Six_i(object):
                 '    ntrymx=   0',
                 '    dlxmx0=  0.00000E+00',
                 '    dlxdmp=  0.00000E+00',
-                '*-----------------------------------------------------------------------------\n']))
+                '*-----------------------------------------------------------------------------\n'])) # noqa (E501)
 
             # load pickup lines
             for _ in pickup_lines:

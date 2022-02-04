@@ -12,7 +12,7 @@ import pandas as pd
 import sqlite3
 import sys
 
-def establish_database_connection(camp, verbose=True):
+def establish_database_connection(camp, verbose=False):
     """
     Connect to a campaign SQLite database.
 
@@ -24,7 +24,7 @@ def establish_database_connection(camp, verbose=True):
     """
     conn = sqlite3.connect(camp.campaign_db)
     if verbose:
-        print("New connection to db: {camp.campaign_db}")
+        print("New connection to campaign db")
     return conn
 
 def get_order_number(conn):
@@ -37,7 +37,7 @@ def get_order_number(conn):
     :return: the greatest order number
     :rtype: int
     """
-    rec = retrieve_records(conn, f"SELECT MAX(`ord`) FROM `vs`")
+    rec = retrieve_records(conn, "SELECT MAX(`ord`) FROM `vs`")
     if len(rec) == 0 or rec[0][0] is None:
         return 0
     else:
@@ -51,7 +51,7 @@ def retrieve_records(conn, query, *args, **kwargs):
     :type conn: sqlite3.Connection
     :param query: The query (may include placeholders)
     :type query: str
-    :param \*args: Additional arguments to Connection.execute
+    :param \*args: Additional arguments to Connection.execute # noqa (EW605)
 
     :return: the resulting records
     :rtype: list
@@ -69,7 +69,7 @@ def execute_query(conn, query, *args, **kwargs):
 
     :param conn: the connection
     :type conn: sqlite3.Connection
-    :param \*args: additional arguments to be propagated to Connection.execute
+    :param \*args: additional arguments to be propagated to Connection.execute # noqa (EW605)
     """
     with conn:
         conn.execute(query, *args, **kwargs)
@@ -89,7 +89,8 @@ def get_column_names(conn, table):
     with closing(conn.execute(f"PRAGMA table_info(`{table}`)")) as cursor:
         return [row[1] for row in cursor.fetchall()]
 
-def retrieve_combined_records(conn, vs_cols, es_cols, ord_id=None, fname=None):
+def retrieve_combined_records(conn, vs_cols, es_cols, limit, ord_id=None, where_constrain=None,
+                              fname=None):
     """
     Retrieve columns from the VS and ES tables, joined on the :code:`uuid` column. The results are
     returned as a Pandas :code:`DataFrame`.
@@ -106,10 +107,15 @@ def retrieve_combined_records(conn, vs_cols, es_cols, ord_id=None, fname=None):
     :type vs_cols: list
     :param es_cols: the columns to be selected from the ES table
     :type es_cols: list
+    :param limit: limit the number of records retrieved 'limit'
+    :type limit: int
     :param ord_id: select only rows with this order ID.
     :type order_id: int
     :param fname: path of an output file
     :type fname: str or None
+    :param where_constrain: limit sql query with 'where statement',
+        for exmaple, where '"CO2" > -3'
+    :type where_constrain: str
 
     :return: A dataframe with the selected columns and rows
     :rtype: pandas.DataFrame
@@ -118,8 +124,14 @@ def retrieve_combined_records(conn, vs_cols, es_cols, ord_id=None, fname=None):
                      `es`.`{'`, `es`.`'.join(es_cols)}` \
               FROM `vs` INNER JOIN `es` ON `vs`.`uuid` = `es`.`uuid`"
 
-    if ord_id is not None:
+    if ord_id is not None and where_constrain is not None:
+        query += f" WHERE `es`.`ord` = {ord_id} and {where_constrain}"
+
+    elif ord_id is not None:
         query += f" WHERE `es`.`ord` = {ord_id}"
+
+    elif ord_id is not None:
+        query += f" WHERE {where_constrain}"
 
     records = retrieve_records(conn, query)
 
@@ -133,6 +145,6 @@ def retrieve_combined_records(conn, vs_cols, es_cols, ord_id=None, fname=None):
         elif ext == '.csv':
             df.to_csv(fname, index=False)
         else:
-            sys.stderr.write(f"warning: cannot write records; unrecognized format '{ext}'\n");
+            sys.stderr.write(f"warning: cannot write records; unrecognized format '{ext}'\n")
 
     return df

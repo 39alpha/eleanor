@@ -258,6 +258,8 @@ def rgb_to_dec(value):
     Returns: list (length 3) of decimal values'''
     return [v/256 for v in value]
 
+def hide_current_axis(*args, **kwds):
+    plt.gca().set_visible(False)
 
 
 

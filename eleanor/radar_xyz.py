@@ -60,13 +60,11 @@ def Radar(camp, x_sp, y_sp, z_sp, description, ord_id=None, limit=1000, where=No
     # ### extract species {} from x_sp, y_sp, and z_sp strings
     all_sp = [x_sp, y_sp, z_sp]
     full_call = ' '.join(all_sp)
-    e_pat = '\{([^ ]*_e)\}'
-    v_pat = '\{([^ ]*_v)\}'
-    es_sp = [_[:-2] for _ in set(re.findall(e_pat, full_call))]
-    vs_sp = [_[:-2] for _ in set(re.findall(v_pat, full_call))]
+    es_sp = [_[:-2] for _ in set(re.findall('\{([^ ]*_e)\}', full_call))]
+    vs_sp = [_[:-2] for _ in set(re.findall('\{([^ ]*_v)\}', full_call))]
 
     if len(vs_sp) == 0:
-        # ### need at least one
+        # ### need at least one vs
         vs_sp = ['T_cel']
 
     with camp.working_directory():
@@ -143,10 +141,11 @@ def Radar(camp, x_sp, y_sp, z_sp, description, ord_id=None, limit=1000, where=No
         # ### lower ax is for notes and data
         ax2.axis('off')
         date = time.strftime("%Y-%m-%d", time.gmtime())
-        add_text = '\n'.join([f"campaign = {camp.name}", f"order = {ord_id}",
-                              f"n = {len(df)}", f"x = {x_sp}", f"y = {y_sp}",
-                              f"z = {z_sp}", f"where claus: {where}",
-                              f"data = {date}", description])
+        add_text = '\n'.join([f"campaign: {camp.name}", f"order/s: {ord_id}",
+                              f"data: {date}", f"n = {len(df)}", f"x = {x_sp}",
+                              f"y = {y_sp}", f"z = {z_sp}", 
+                              f"sql 'where' claus: {where}",
+                              f"notes: {description}"])
         ax2.text(0.0, .9, add_text, ha="left", va='top', fontsize=8)
 
         fig_name = 'fig/test.png'

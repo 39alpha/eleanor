@@ -269,9 +269,6 @@ def mine_6o(date, elements, file, dat, col_names):
         if '   Affinity of the overall irreversible reaction=' in lines[_]:
             # ## the first instance of this line is xi = 0.0
             # ## (initial disequilibria with target mineral)
-
-            # ##  kcal/mol
-            # build_df['initial_aff'] = [grab_float(lines[_], -2)]
             build_dict["initial_aff"] = [grab_float(lines[_], -2)]
             break
 
@@ -290,11 +287,9 @@ def mine_6o(date, elements, file, dat, col_names):
             pass
 
         elif ' Temperature=' in lines[_]:
-            # build_df['T_cel'] = [grab_float(lines[_], -2)]
             build_dict['T_cel'] = [grab_float(lines[_], -2)]
 
         elif ' Pressure=' in lines[_]:
-            # build_df['P_bar'] = [grab_float(lines[_], -2)]
             build_dict['P_bar'] = [grab_float(lines[_], -2)]
 
         elif ' --- Elemental Composition' in lines[_]:
@@ -303,44 +298,30 @@ def mine_6o(date, elements, file, dat, col_names):
                 if grab_str(lines[_ + x], 0) in elements:
                     # ## log molality data
                     this_dat = [np.round(np.log10(grab_float(lines[_ + x], -1)), 6)]
-                    # build_df['{}'.format(grab_str(lines[_ + x], 0))] = this_dat
                     build_dict['{}'.format(grab_str(lines[_ + x], 0))] = this_dat
                     x += 1
                 else:
                     x += 1
 
         elif '                Log oxygen fugacity=' in lines[_]:
-            # ##    log fO2
-            # build_df['fO2'] = [grab_float(lines[_], -1)]
             build_dict['fO2'] = [grab_float(lines[_], -1)]
 
         elif '              Log activity of water=' in lines[_]:
-            # ##    log aH2O
-            # build_df['aH2O'] = [grab_float(lines[_], -1)]
             build_dict['aH2O'] = [grab_float(lines[_], -1)]
 
         elif '                 Ionic strength (I)=' in lines[_]:
-            # ##    molal
-            # build_df['ionic'] = [grab_float(lines[_], -2)]
             build_dict['ionic'] = [grab_float(lines[_], -2)]
 
         elif '                 Solutes (TDS) mass=' in lines[_]:
-            # ##    grams
-            # build_df['tds'] = [grab_float(lines[_], -2)]
             build_dict['tds'] = [grab_float(lines[_], -2)]
 
         elif '              Aqueous solution mass=' in lines[_]:
-            # ## grams
-            # build_df['soln_mass'] = [grab_float(lines[_], -2)]
             build_dict['soln_mass'] = [grab_float(lines[_], -2)]
 
         elif '--- Distribution of Aqueous Solute Species ---' in lines[_]:
             x = 4
             while not re.findall('^\n', lines[_ + x]):
                 if grab_str(lines[_ + x], 0) != 'O2(g)':
-                    # ##    loga
-                    # build_df[grab_str(lines[_ + x], 0)] = [grab_float(
-                    #    lines[_ + x], -1)]
                     build_dict[grab_str(lines[_ + x], 0)] = [grab_float(
                         lines[_ + x], -1)]
                     x += 1

@@ -37,6 +37,13 @@ RAINBOW_BLK = LinearSegmentedColormap.from_list("mycmap", ["#020004", "#75228f",
 RAINBOW = LinearSegmentedColormap.from_list("mycmap", ["#75228f", "#3e53d2", "#4eb01f",
                                                        "#ffd805", "#fd9108", "#dd2823"])
 
+
+
+blu_to_orng = ["#47eaff", "#2bbae0", "#2f8fd1", "#3363c2", "#3a0ca3",
+                 "#9d2a52", "#ff4800", "#ff7900", "#ffa224", "#ffcb47"]
+
+
+
 def group_by_solids(conn, camp_name, ord_id):
     """
     Determine each unique combination of precipitates in a order (ord_id)
@@ -251,6 +258,8 @@ def rgb_to_dec(value):
     Returns: list (length 3) of decimal values'''
     return [v/256 for v in value]
 
+def hide_current_axis(*args, **kwds):
+    plt.gca().set_visible(False)
 
 
 

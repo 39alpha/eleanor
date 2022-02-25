@@ -89,7 +89,7 @@ def get_column_names(conn, table):
     with closing(conn.execute(f"PRAGMA table_info(`{table}`)")) as cursor:
         return [row[1] for row in cursor.fetchall()]
 
-def retrieve_combined_records(conn, vs_cols, es_cols, limit, ord_id=None, where=None,
+def retrieve_combined_records(conn, vs_cols, es_cols, limit=None, ord_id=None, where=None,
                               fname=None):
     """
     Retrieve columns from the VS and ES tables, joined on the :code:`uuid` column. The results are
@@ -132,6 +132,9 @@ def retrieve_combined_records(conn, vs_cols, es_cols, limit, ord_id=None, where=
 
     elif ord_id is not None:
         query += f" WHERE {where}"
+
+    if limit is not None:
+        query += f" LIMIT {limit}"
 
     records = retrieve_records(conn, query)
 

@@ -14,6 +14,7 @@ import os
 import sys
 import re
 import numpy as np
+import hashlib
 
 from .constants import wt_dict, sr_dict
 from .constants import *  # noqa (F403)
@@ -862,3 +863,38 @@ class WorkingDirectory(object):
         """
         os.chdir(self.path)
         self.cwd, self.path = self.path, self.cwd
+
+
+def hash_file(filename, hasher=None):
+    if hasher is None:
+        hasher = hashlib.sha256()
+    with open(filename, 'rb') as handle:
+        for bytes in iter(lambda: handle.read(4096), b''):
+            hasher.update(bytes)
+    return hasher.hexdigest()
+
+
+def hash_dir(dirname, hasher=None):
+    """
+    Compute the hash of a named directory (sha256 by default). The hash is computed in a
+    depth-first fashion. For a given directory, this function is called on each subdirectory in
+    sorted order. Then :func:`hash_file` is called on each file at that level.
+
+    :param dirname: path to a directory
+    :type dirname: str
+    :param hasher: an optional hasher, defaults to `hasherlib.sha256()`
+    :return: the hex-encode sha256 hash of the file contents
+    :rtype: str
+    """
+    if hasher is None:
+        hasher = hashlib.sha256()
+
+    contents = list(map(lambda f: os.path.join(dirname, f), os.listdir(dirname)))
+
+    for dir in sorted(filter(os.path.isdir, contents)):
+        hash_dir(dir, hasher)
+
+    for filename in sorted(filter(os.path.isfile, contents)):
+        hash_file(filename, hasher)
+
+    return hasher.hexdigest()

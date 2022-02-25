@@ -115,11 +115,10 @@ class Campaign:
            |
            +-- fig
            |
-           +-- campaign.json
+           +-- orders
 
         where :code:`{dir}` is the root directory, :code:`{name}` is the campaign name,
-        :code:`huffer` and :code:`fig` are directories, and :code:`campaign.json` is... well... a
-        JSON file containing the campaign configuration.
+        and :code:`huffer`, :code:`fig` and :code:`orders` are directories.
 
         :param dir: The root directory in which to create the campaing directory
         :type dir: str

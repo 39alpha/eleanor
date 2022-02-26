@@ -118,7 +118,7 @@ def huffer(conn, camp):
     # build 'verbose' 3i, with solid solutions on
     camp.local_3i.write(
         'test.3i', state_dict, basis_dict, output_details='v')
-    data1_file = os.path.join(camp.data0dir, "data1." + suffix)
+    data1_file = os.path.join(camp.data0_dir, "data1." + suffix)
     out, err = eq3(data1_file, 'test.3i')
 
     try:

@@ -192,7 +192,7 @@ def sailor(camp, order_path, vs_queue, es_queue, date, dat, elements, vs_col_nam
 
     # ### build and execute 3i
     camp.local_3i.write(file, state_dict, basis_dict, output_details='n')
-    data1_file = os.path.join(camp.data0dir, "data1." + suffix)
+    data1_file = os.path.join(camp.data0_dir, "data1." + suffix)
     out, err = eq3(data1_file, file)  # TODO: Look at yourself, what the fuck.
 
     # ### check 3p and 3o to determine system status

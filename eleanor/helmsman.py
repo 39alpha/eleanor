@@ -139,7 +139,7 @@ def sailor(camp, order_path, vs_queue, es_queue, date, dat, elements, vs_col_nam
     # ### this functionality was installed in order to limit the quantity
     # ### of data generated during large runs. If a specifc output file is desired
     # ### it can simply be rerun from the data in the vs table and the campaign sheet.
-    keep_every_n_files = 50
+    keep_every_n_files = 1000
     if int(run_num) in [int(idx) for idx in np.arange(1, 1000000, keep_every_n_files)]:
         delete_after_running = False
     else:

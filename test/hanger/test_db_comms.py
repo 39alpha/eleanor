@@ -207,3 +207,25 @@ class TestDBComms(TestCase):
                 got = pd.read_csv('data.csv')
                 self.assertTrue((got.columns == expected.columns).all())
                 self.assertTrue((got.to_numpy() == expected.to_numpy()).all())
+
+    def test_create_vs_table(self):
+        with TemporaryDirectory() as root:
+            self.campaign.create_env(dir=root, verbose=False)
+            conn = dbc.establish_database_connection(self.campaign, verbose=False)
+            dbc.create_vs_table(conn, self.campaign, ['X'])
+
+            result = list(dbc.execute_query(conn, 'pragma table_info(vs)'))
+            self.assertEquals(len(result), 24)
+            columns = list(map(lambda x: x[1], result))
+            self.assertEquals(columns[-1], 'X')
+
+    def test_create_es_table(self):
+        with TemporaryDirectory() as root:
+            self.campaign.create_env(dir=root, verbose=False)
+            conn = dbc.establish_database_connection(self.campaign, verbose=False)
+            dbc.create_es_table(conn, self.campaign, ['X'], ['Y'])
+
+            result = list(dbc.execute_query(conn, 'pragma table_info(es)'))
+            self.assertEquals(len(result), 17)
+            columns = list(map(lambda x: x[1], result))
+            self.assertEquals(columns[-2:], ['Y', 'X'])

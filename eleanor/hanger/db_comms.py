@@ -27,6 +27,85 @@ def establish_database_connection(camp, verbose=False):
         print("New connection to campaign db")
     return conn
 
+def create_vs_table(conn, camp, elements):
+    """
+    Initiate variable space table on connection 'conn'
+    for campaign 'camp.name' with state dimensions 'camp.vs_state'
+    and basis dimensions 'camp.vs_basis', and total element
+    concentration for ele.
+    """
+
+    # Add total eleent columns, which contain element sums from the
+    # other columns which include it.
+    # ie, vs[C] = HCO3- + CH4 + CO2(g)_morr
+    # This will allow VS dimensions to be compiled piecewise. I must
+    # be carefull to note that some columns in this vs table are
+    # composits, requiring addition/partial addition in order to
+    # construct the true thermodynamic constraints (VS dimensions).
+
+    sql_info = "CREATE TABLE vs (uuid VARCHAR(32) PRIMARY KEY, camp \
+        TEXT NOT NULL, ord SMALLINT NOT NULL, file INTEGER NOT NULL, birth \
+        DATE NOT NULL, code SMALLINT NOT NULL,"
+    if len(camp.target_rnt) > 0:
+
+        sql_rnt_morr = ",".join([f'"{_}_morr" DOUBLE PRECISION NOT NULL'
+                                for _ in camp.target_rnt.keys()]) + ','
+
+        sql_rnt_rkb1 = ",".join([f'"{_}_rkb1" DOUBLE PRECISION NOT NULL'
+                                 for _ in camp.target_rnt.keys()]) + ','
+    # Out of if statement
+    sql_state = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in
+                         list(camp.vs_state.keys())]) + ','
+
+    sql_basis = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in
+                         list(camp.vs_basis.keys())]) + ','
+
+    sql_ele = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in
+                        elements])
+
+    if len(camp.target_rnt) > 0:
+        execute_query(
+            conn,
+            "".join([sql_info, sql_rnt_morr, sql_rnt_rkb1, sql_state, sql_basis, sql_ele]) + ');')
+    else:
+        execute_query(
+            conn, "".join([sql_info, sql_state, sql_basis, sql_ele]) + ');')
+
+def create_es_table(conn, camp, loaded_sp, elements):
+    """
+    Initiater equilibrium space (mined from 6o) table on connection 'conn'
+    for campaign 'camp_name' with state dimensions 'camp_vs_state' and
+    basis dimensions 'camp_vs_basis'. 'basis' is used here for
+    dimensioning, however it is not populated with the initial conditions
+    (3i) as the vs table is, but is instead popuilated with the output (6o)
+    total abundences.
+
+    loaded_sp = list of aq, solid,a nd gas species loaded in test.3i
+    instantiated fof the campaign
+    """
+
+    sql_info = "CREATE TABLE es (uuid VARCHAR(32) PRIMARY KEY, camp \
+        TEXT NOT NULL, ord SMALLINT NOT NULL, file INTEGER NOT NULL, run \
+        DATE NOT NULL, mineral TEXT NOT NULL,"
+
+    sql_run = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in
+                        ['initial_aff', 'xi_max', 'aH2O', 'ionic', 'tds', 'soln_mass']]) + ','
+
+    sql_state = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in
+                          list(camp.vs_state.keys())]) + ','
+
+    # convert vs_basis to elements for ES. This will allow teh use of
+    # multiple species containing the same element to be used in the
+    # basis, while still tracking total element values in the ES.
+
+    sql_ele = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in
+                        elements]) + ','
+
+    sql_sp = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in
+                       loaded_sp])
+
+    execute_query(conn, "".join([sql_info, sql_run, sql_state, sql_ele, sql_sp]) + ');')
+
 def get_order_number(conn):
     """
     Get the highest order number from the campaign's variable space table.
@@ -70,9 +149,10 @@ def execute_query(conn, query, *args, **kwargs):
     :param conn: the connection
     :type conn: sqlite3.Connection
     :param \*args: additional arguments to be propagated to Connection.execute # noqa (EW605)
+    :return: the results of the query
     """
     with conn:
-        conn.execute(query, *args, **kwargs)
+        return conn.execute(query, *args, **kwargs)
 
 def get_column_names(conn, table):
     """

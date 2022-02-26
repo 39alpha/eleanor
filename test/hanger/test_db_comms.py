@@ -5,9 +5,9 @@ from tempfile import TemporaryDirectory
 import eleanor.hanger.db_comms as dbc
 import pandas as pd
 import sqlite3
-import unittest
+from .. common import TestCase
 
-class TestDBComms(unittest.TestCase):
+class TestDBComms(TestCase):
     """
     Tests of the eleanor.hanger.db_comms module
     """
@@ -56,7 +56,7 @@ class TestDBComms(unittest.TestCase):
             'suppress min': True,
             'suppress min exemptions': ['calcite'],
             'solid solutions': True
-        }, '/path/to/db')
+        }, self.data0_dir)
 
     def test_establish_database_connection(self):
         """
@@ -77,19 +77,19 @@ class TestDBComms(unittest.TestCase):
             self.campaign.create_env(dir=root, verbose=False)
             conn = dbc.establish_database_connection(self.campaign, verbose=False)
 
-            conn.execute('CREATE TABLE `vs` (`ord` SMALLINT)')
+            order_number = dbc.get_order_number(conn, self.campaign)
+            self.assertEquals(order_number, 1)
 
-            max_order = dbc.get_order_number(conn)
-            self.assertEquals(max_order, 0)
+            order_number = dbc.get_order_number(conn, self.campaign)
+            self.assertEquals(order_number, 1)
 
-            conn.execute('INSERT INTO `vs` VALUES (5)')
-            max_order = dbc.get_order_number(conn)
-            self.assertEquals(max_order, 5)
+            self.campaign._hash = 'abc123'
+            order_number = dbc.get_order_number(conn, self.campaign)
+            self.assertEquals(order_number, 2)
 
-            conn.executemany('INSERT INTO `vs` VALUES (?)',
-                             [(max_order + n,) for n in range(1, 11)])
-            max_order = dbc.get_order_number(conn)
-            self.assertEquals(max_order, 15)
+            self.campaign._data0_hash = '123abc'
+            order_number = dbc.get_order_number(conn, self.campaign)
+            self.assertEquals(order_number, 3)
 
     def test_retrieve_records(self):
         with TemporaryDirectory() as root:
@@ -207,3 +207,35 @@ class TestDBComms(unittest.TestCase):
                 got = pd.read_csv('data.csv')
                 self.assertTrue((got.columns == expected.columns).all())
                 self.assertTrue((got.to_numpy() == expected.to_numpy()).all())
+
+    def test_create_vs_table(self):
+        with TemporaryDirectory() as root:
+            self.campaign.create_env(dir=root, verbose=False)
+            conn = dbc.establish_database_connection(self.campaign, verbose=False)
+            dbc.create_vs_table(conn, self.campaign, ['X'])
+
+            result = dbc.execute_query(conn, 'pragma table_info(vs)').fetchall()
+            self.assertEquals(len(result), 24)
+            columns = list(map(lambda x: x[1], result))
+            self.assertEquals(columns[-1], 'X')
+
+    def test_create_es_table(self):
+        with TemporaryDirectory() as root:
+            self.campaign.create_env(dir=root, verbose=False)
+            conn = dbc.establish_database_connection(self.campaign, verbose=False)
+            dbc.create_es_table(conn, self.campaign, ['X'], ['Y'])
+
+            result = dbc.execute_query(conn, 'pragma table_info(es)').fetchall()
+            self.assertEquals(len(result), 17)
+            columns = list(map(lambda x: x[1], result))
+            self.assertEquals(columns[-2:], ['Y', 'X'])
+
+    def test_create_orders_table(self):
+        with TemporaryDirectory() as root:
+            self.campaign.create_env(dir=root, verbose=False)
+            conn = dbc.establish_database_connection(self.campaign, verbose=False)
+            dbc.create_orders_table(conn)
+
+            result = dbc.execute_query(conn, 'pragma table_info(orders)').fetchall()
+            columns = list(map(lambda x: x[1], result))
+            self.assertEquals(columns, ['id', 'campaign_hash', 'data0_hash', 'name', 'create_date'])

@@ -27,21 +27,146 @@ def establish_database_connection(camp, verbose=False):
         print("New connection to campaign db")
     return conn
 
-def get_order_number(conn):
+def create_vs_table(conn, camp, elements):
     """
-    Get the highest order number from the campaign's variable space table.
+    Initiate variable space table on connection 'conn'
+    for campaign 'camp.name' with state dimensions 'camp.vs_state'
+    and basis dimensions 'camp.vs_basis', and total element
+    concentration for ele.
+    """
+
+    # Add total eleent columns, which contain element sums from the
+    # other columns which include it.
+    # ie, vs[C] = HCO3- + CH4 + CO2(g)_morr
+    # This will allow VS dimensions to be compiled piecewise. I must
+    # be carefull to note that some columns in this vs table are
+    # composits, requiring addition/partial addition in order to
+    # construct the true thermodynamic constraints (VS dimensions).
+
+    sql_info = "CREATE TABLE IF NOT EXISTS vs (uuid VARCHAR(32) PRIMARY KEY, camp \
+        TEXT NOT NULL, ord INTEGER NOT NULL, file INTEGER NOT NULL, birth \
+        DATE NOT NULL, code SMALLINT NOT NULL,"
+    if len(camp.target_rnt) > 0:
+        sql_rnt_morr = ",".join([f'"{_}_morr" DOUBLE PRECISION NOT NULL'
+                                for _ in camp.target_rnt.keys()]) + ','
+
+        sql_rnt_rkb1 = ",".join([f'"{_}_rkb1" DOUBLE PRECISION NOT NULL'
+                                 for _ in camp.target_rnt.keys()]) + ','
+    # Out of if statement
+    sql_state = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in
+                         list(camp.vs_state.keys())]) + ','
+
+    sql_basis = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in
+                         list(camp.vs_basis.keys())]) + ','
+
+    sql_ele = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in
+                        elements]) + ','
+
+    sql_fk = ' FOREIGN KEY(`ord`) REFERENCES `orders`(`id`)'
+    if len(camp.target_rnt) > 0:
+        parts = [sql_info, sql_rnt_morr, sql_rnt_rkb1, sql_state, sql_basis, sql_ele, sql_fk]
+    else:
+        parts = [sql_info, sql_state, sql_basis, sql_ele, sql_fk]
+
+    execute_query(conn, ''.join(parts) + ')')
+
+def create_orders_table(conn):
+    """
+    Create the orders table with the following columns:
+      * :code:`id` (:code:`SMALLINT`) - the order id
+      * :code:`campaign_hash` (:code:`VARCHAR(64)`) - the hash of the campaign specification
+      * :code:`data`0_hash (:code:`VARCHAR(64)`) - the hash of the data0 directory
+      * :code:`name` (:code:`TEXT`) - the name of the campaign
+      * :code:`create_date` (:code:`TIMESTAMP`) - the date the order was created
+
+    The :code:`create_date` defaults to the time at which the row is created. The :code:`id` is the
+    primary key for the table, and :code:`campaign_hash` and :code:`data0_hash` jointly form an
+    index.
+    """
+    execute_query(conn, '''
+        CREATE TABLE IF NOT EXISTS `orders` (`id` INTEGER PRIMARY KEY AUTOINCREMENT,
+                               `campaign_hash` VARCHAR(64) NOT NULL,
+                               `data0_hash` VARCHAR(64) NOT NULL,
+                               `name` TEXT NOT NULL,
+                               `create_date` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP)
+    ''')
+
+    execute_query(conn, '''
+        CREATE UNIQUE INDEX IF NOT EXISTS `orders_hash_index`
+        ON `orders` (`campaign_hash`, `data0_hash`)
+    ''')
+
+def create_es_table(conn, camp, loaded_sp, elements):
+    """
+    Initiater equilibrium space (mined from 6o) table on connection 'conn'
+    for campaign 'camp_name' with state dimensions 'camp_vs_state' and
+    basis dimensions 'camp_vs_basis'. 'basis' is used here for
+    dimensioning, however it is not populated with the initial conditions
+    (3i) as the vs table is, but is instead popuilated with the output (6o)
+    total abundences.
+
+    loaded_sp = list of aq, solid,a nd gas species loaded in test.3i
+    instantiated fof the campaign
+    """
+
+    sql_info = "CREATE TABLE IF NOT EXISTS es (uuid VARCHAR(32) PRIMARY KEY, camp \
+        TEXT NOT NULL, ord INTEGER NOT NULL, file INTEGER NOT NULL, run \
+        DATE NOT NULL, mineral TEXT NOT NULL,"
+
+    sql_run = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in
+                        ['initial_aff', 'xi_max', 'aH2O', 'ionic', 'tds', 'soln_mass']]) + ','
+
+    sql_state = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in
+                          list(camp.vs_state.keys())]) + ','
+
+    # convert vs_basis to elements for ES. This will allow teh use of
+    # multiple species containing the same element to be used in the
+    # basis, while still tracking total element values in the ES.
+
+    sql_ele = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in
+                        elements]) + ','
+
+    sql_sp = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in
+                       loaded_sp]) + ','
+
+    sql_fk = ' FOREIGN KEY(`ord`) REFERENCES `orders`(`id`), \
+               FOREIGN KEY(`uuid`) REFERENCES `vs`(`uuid`)'
+
+    parts = [sql_info, sql_run, sql_state, sql_ele, sql_sp, sql_fk]
+    execute_query(conn, ''.join(parts) + ')')
+
+def get_order_number(conn, camp, insert=True):
+    """
+    Get the order number based on the campaign hashes. If no corresponding order is found and
+    :code:`insert = True`, the hashes are added to the order table and the new order number is
+    returned.
 
     :param conn: connection to the database
     :type conn: sqlite3.Connection
+    :param camp: the campaign
+    :type camp: eleanor.campaign.Campaign
 
     :return: the greatest order number
     :rtype: int
     """
-    rec = retrieve_records(conn, "SELECT MAX(`ord`) FROM `vs`")
-    if len(rec) == 0 or rec[0][0] is None:
-        return 0
+    create_orders_table(conn)
+
+    orders = execute_query(conn, f"SELECT `id` FROM `orders` where `campaign_hash` = '{camp.hash}' \
+        AND `data0_hash` = '{camp.data0_hash}'").fetchall()
+
+    if len(orders) > 1:
+        # DGM: This should never happen because there is a unique index on the hash columns
+        raise RuntimeError('more than one order found for campaign and data0 hash')
+    elif len(orders) == 1:
+        return orders[0][0]
+
+    if insert:
+        execute_query(conn,
+            f"INSERT INTO `orders` (`campaign_hash`, `data0_hash`, `name`) \
+            VALUES ('{camp.hash}', '{camp.data0_hash}', '{camp.name}')").fetchall()
+        return get_order_number(conn, camp, insert=False)
     else:
-        return rec[0][0]
+        raise RuntimeError('failed to insert order')
 
 def retrieve_records(conn, query, *args, **kwargs):
     """
@@ -70,9 +195,10 @@ def execute_query(conn, query, *args, **kwargs):
     :param conn: the connection
     :type conn: sqlite3.Connection
     :param \*args: additional arguments to be propagated to Connection.execute # noqa (EW605)
+    :return: the results of the query
     """
     with conn:
-        conn.execute(query, *args, **kwargs)
+        return conn.execute(query, *args, **kwargs)
 
 def get_column_names(conn, table):
     """
@@ -89,7 +215,7 @@ def get_column_names(conn, table):
     with closing(conn.execute(f"PRAGMA table_info(`{table}`)")) as cursor:
         return [row[1] for row in cursor.fetchall()]
 
-def retrieve_combined_records(conn, vs_cols, es_cols, limit, ord_id=None, where=None,
+def retrieve_combined_records(conn, vs_cols, es_cols, limit=None, ord_id=None, where=None,
                               fname=None):
     """
     Retrieve columns from the VS and ES tables, joined on the :code:`uuid` column. The results are
@@ -130,6 +256,9 @@ def retrieve_combined_records(conn, vs_cols, es_cols, limit, ord_id=None, where=
         query += f" WHERE `es`.`ord` = {ord_id}"
     elif where is not None:
         query += f" WHERE {where}"
+
+    if limit is not None:
+        query += f" LIMIT {limit}"
 
     records = retrieve_records(conn, query)
 

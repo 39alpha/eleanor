@@ -1,12 +1,13 @@
-import unittest
 from eleanor.campaign import Campaign
 from eleanor.hanger.tool_room import Three_i, Six_i
 from tempfile import NamedTemporaryFile, TemporaryDirectory
-from os.path import isdir, isfile, join, realpath
+from os.path import dirname, isdir, isfile, join, realpath
 import json
 import os
+from .common import TestCase
 
-class TestCampaign(unittest.TestCase):
+
+class TestCampaign(TestCase):
     """
     Tests of the eleanor.campaign module
     """
@@ -61,9 +62,9 @@ class TestCampaign(unittest.TestCase):
         """
         Ensure that campaigns can be initialized to use solid solutions
         """
-        camp = Campaign(self.config, '/path/to/db')
+        camp = Campaign(self.config, self.data0_dir)
 
-        self.assertEqual(camp.data0dir, '/path/to/db')
+        self.assertEqual(camp.data0_dir, self.data0_dir)
         self.assertEqual(camp._raw, self.config)
 
         self.assertEqual(camp.name, self.config['campaign'])
@@ -93,9 +94,9 @@ class TestCampaign(unittest.TestCase):
         """
         self.config['solid solutions'] = False
 
-        camp = Campaign(self.config, '/path/to/db')
+        camp = Campaign(self.config, self.data0_dir)
 
-        self.assertEqual(camp.data0dir, '/path/to/db')
+        self.assertEqual(camp.data0_dir, self.data0_dir)
         self.assertEqual(camp._raw, self.config)
 
         self.assertEqual(camp.name, self.config['campaign'])
@@ -126,9 +127,9 @@ class TestCampaign(unittest.TestCase):
         with NamedTemporaryFile(mode='w+') as handle:
             json.dump(self.config, handle, indent=True)
             handle.seek(0)
-            camp = Campaign.from_json(handle.name, '/path/to/db')
+            camp = Campaign.from_json(handle.name, self.data0_dir)
 
-        self.assertEqual(camp.data0dir, '/path/to/db')
+        self.assertEqual(camp.data0_dir, self.data0_dir)
         self.assertEqual(camp._raw, self.config)
 
         self.assertEqual(camp.name, self.config['campaign'])
@@ -156,7 +157,7 @@ class TestCampaign(unittest.TestCase):
         """
         Ensure that a campaign's working directory can be created
         """
-        camp = Campaign(self.config, '/path/to/db')
+        camp = Campaign(self.config, self.data0_dir)
 
         with TemporaryDirectory() as root:
             camp.create_env(dir=root, verbose=False)
@@ -172,10 +173,11 @@ class TestCampaign(unittest.TestCase):
             fig_dir = join(campaign_dir, 'fig')
             self.assertTrue(isdir(fig_dir))
 
-            campaign_json = join(campaign_dir, 'campaign.json')
-            self.assertTrue(isfile(campaign_json))
+            order_json = join(campaign_dir, 'orders', camp.hash + '.json')
+            self.assertTrue(isfile(order_json))
+            self.assertTrue(isfile(join(campaign_dir, 'orders', 'campaign.json')))
 
-            with open(campaign_json, mode='r', encoding='utf-8') as handle:
+            with open(order_json, mode='r', encoding='utf-8') as handle:
                 dumped = json.load(handle)
                 self.assertEqual(dumped, self.config)
 
@@ -184,7 +186,7 @@ class TestCampaign(unittest.TestCase):
         Ensure that calling create_env with a new :code:`dir` argument creates a new campaign
         directory.
         """
-        camp = Campaign(self.config, '/path/to/db')
+        camp = Campaign(self.config, self.data0_dir)
         with TemporaryDirectory() as root:
             camp.create_env(dir=root, verbose=False)
         self.assertEquals(camp.campaign_dir, realpath(join(root, camp.name)))
@@ -201,21 +203,23 @@ class TestCampaign(unittest.TestCase):
             fig_dir = join(campaign_dir, 'fig')
             self.assertTrue(isdir(fig_dir))
 
-            campaign_json = join(campaign_dir, 'campaign.json')
-            self.assertTrue(isfile(campaign_json))
+            order_json = join(campaign_dir, 'orders', camp.hash + '.json')
+            self.assertTrue(isfile(order_json))
+            self.assertTrue(isfile(join(campaign_dir, 'orders', 'campaign.json')))
 
-            with open(campaign_json, mode='r', encoding='utf-8') as handle:
+            with open(order_json, mode='r', encoding='utf-8') as handle:
                 dumped = json.load(handle)
                 self.assertEqual(dumped, self.config)
 
         self.assertEquals(camp.campaign_dir, realpath(join(root, camp.name)))
+        self.assertEquals(camp.order_file, join(camp.campaign_dir, 'orders', camp.hash + '.json'))
 
     def test_working_directory(self):
         """
         Ensure that the campaign can provide a context manager for switching into and out of the
         campaign directory.
         """
-        camp = Campaign(self.config, '/path/to/db')
+        camp = Campaign(self.config, self.data0_dir)
         with TemporaryDirectory() as root:
             camp.create_env(dir=root, verbose=False)
             with camp.working_directory():
@@ -223,18 +227,20 @@ class TestCampaign(unittest.TestCase):
 
                 self.assertTrue(isdir('huffer'))
                 self.assertTrue(isdir('fig'))
-                self.assertTrue(isfile('campaign.json'))
+                self.assertTrue(isfile(join('orders', camp.hash + '.json')))
+                self.assertTrue(isfile(join('orders', 'campaign.json')))
 
     def test_working_directory_creates_env(self):
         """
         Ensure that the campaign creates the working directory before swtiching into and out of the
         directory.
         """
-        camp = Campaign(self.config, '/path/to/db')
+        camp = Campaign(self.config, self.data0_dir)
         with TemporaryDirectory() as root:
             with camp.working_directory(dir=root, verbose=False):
                 self.assertEquals(os.getcwd(), realpath(join(root, self.config['campaign'])))
 
                 self.assertTrue(isdir('huffer'))
                 self.assertTrue(isdir('fig'))
-                self.assertTrue(isfile('campaign.json'))
+                self.assertTrue(isfile(join('orders', camp.hash + '.json')))
+                self.assertTrue(isfile(join('orders', 'campaign.json')))

@@ -21,7 +21,7 @@ import pandas as pd
 # import eleanor.campaign as campaign
 
 from .hanger.eq36 import eq3
-from .hanger.db_comms import establish_database_connection, get_order_number, execute_query
+from .hanger import db_comms
 from .hanger.db_comms import get_column_names
 from .hanger.tool_room import mk_check_del_directory, grab_lines
 from .hanger.data0_tools import determine_ele_set, data0_suffix, determine_loaded_sp, species_info
@@ -36,7 +36,7 @@ def Navigator(this_campaign):
     with this_campaign.working_directory():
         print('Preparing Orders from campagin {}.\n'.format(this_campaign.name))
 
-        conn = establish_database_connection(this_campaign)
+        conn = db_comms.establish_database_connection(this_campaign)
 
         # Determine campaign status in postgres database.
         # If VS/ES tables already exist, then dont touch them,
@@ -118,7 +118,7 @@ def huffer(conn, camp):
     # build 'verbose' 3i, with solid solutions on
     camp.local_3i.write(
         'test.3i', state_dict, basis_dict, output_details='v')
-    data1_file = os.path.join(camp.data0dir, "data1." + suffix)
+    data1_file = os.path.join(camp.data0_dir, "data1." + suffix)
     out, err = eq3(data1_file, 'test.3i')
 
     try:
@@ -131,14 +131,14 @@ def huffer(conn, camp):
     elements = determine_ele_set()
 
     # estalibsh new table based on vs_state and vs_basis
-    initiate_sql_VS_table(conn, camp, elements)
+    db_comms.create_vs_table(conn, camp, elements)
 
     # (2) build state_space for es table
     # list of loaded aq, solid, and gas species to be appended
     sp_names = determine_loaded_sp()
 
     # estalibsh new ES table based on loaded species.
-    initiate_sql_ES_table(conn, camp, sp_names, elements)
+    db_comms.create_es_table(conn, camp, sp_names, elements)
 
     os.chdir('..')
 
@@ -164,7 +164,7 @@ def check_campaign_tables(conn, camp):
     if cur.rowcount == 1:
         # (2) table already exists, and the campaign has been run
         # before.
-        last_order = get_order_number(conn, camp.name)
+        last_order = db_comms.get_order_number(conn, camp)
 
         next_order_number = last_order + 1
         return next_order_number
@@ -174,84 +174,6 @@ def check_campaign_tables(conn, camp):
         next_order_number = 1
         return next_order_number
 
-def initiate_sql_VS_table(conn, camp, elements):
-    """
-    Initiate variable space table on connection 'conn'
-    for campaign 'camp.name' with state dimensions 'camp.vs_state'
-    and basis dimensions 'camp.vs_basis', and total element
-    concentration for ele.
-    """
-
-    # Add total eleent columns, which contain element sums from the
-    # other columns which include it.
-    # ie, vs[C] = HCO3- + CH4 + CO2(g)_morr
-    # This will allow VS dimensions to be compiled piecewise. I must
-    # be carefull to note that some columns in this vs table are
-    # composits, requiring addition/partial addition in order to
-    # construct the true thermodynamic constraints (VS dimensions).
-
-    sql_info = "CREATE TABLE vs (uuid VARCHAR(32) PRIMARY KEY, camp \
-        TEXT NOT NULL, ord SMALLINT NOT NULL, file INTEGER NOT NULL, birth \
-        DATE NOT NULL, code SMALLINT NOT NULL,"
-    if len(camp.target_rnt) > 0:
-
-        sql_rnt_morr = ",".join([f'"{_}_morr" DOUBLE PRECISION NOT NULL'
-                                for _ in camp.target_rnt.keys()]) + ','
-
-        sql_rnt_rkb1 = ",".join([f'"{_}_rkb1" DOUBLE PRECISION NOT NULL'
-                                 for _ in camp.target_rnt.keys()]) + ','
-    # Out of if statement
-    sql_state = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in
-                         list(camp.vs_state.keys())]) + ','
-
-    sql_basis = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in
-                         list(camp.vs_basis.keys())]) + ','
-
-    sql_ele = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in
-                        elements])
-
-    if len(camp.target_rnt) > 0:
-        execute_query(
-            conn,
-            "".join([sql_info, sql_rnt_morr, sql_rnt_rkb1, sql_state, sql_basis, sql_ele]) + ');')
-    else:
-        execute_query(
-            conn, "".join([sql_info, sql_state, sql_basis, sql_ele]) + ');')
-
-def initiate_sql_ES_table(conn, camp, loaded_sp, elements):
-    """
-    Initiater equilibrium space (mined from 6o) table on connection 'conn'
-    for campaign 'camp_name' with state dimensions 'camp_vs_state' and
-    basis dimensions 'camp_vs_basis'. 'basis' is used here for
-    dimensioning, however it is not populated with the initial conditions
-    (3i) as the vs table is, but is instead popuilated with the output (6o)
-    total abundences.
-
-    loaded_sp = list of aq, solid,a nd gas species loaded in test.3i
-    instantiated fof the campaign
-    """
-
-    sql_info = "CREATE TABLE es (uuid VARCHAR(32) PRIMARY KEY, camp \
-        TEXT NOT NULL, ord SMALLINT NOT NULL, file INTEGER NOT NULL, run \
-        DATE NOT NULL, mineral TEXT NOT NULL,"
-
-    sql_run = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in
-                        ['initial_aff', 'xi_max', 'aH2O', 'ionic', 'tds', 'soln_mass']]) + ','
-
-    sql_state = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in
-                          list(camp.vs_state.keys())]) + ','
-
-    # convert vs_basis to elements for ES. This will allow teh use of
-    # multiple species containing the same element to be used in the
-    # basis, while still tracking total element values in the ES.
-
-    sql_ele = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in
-                        elements]) + ','
-
-    sql_sp = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in
-                       loaded_sp])
-
-    execute_query(conn, "".join([sql_info, sql_run, sql_state, sql_ele, sql_sp]) + ');')
 
 def orders_to_sql(conn, table, ord, df):
     """

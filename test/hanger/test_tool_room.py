@@ -1,10 +1,10 @@
-import unittest
+from .. common import TestCase
 import eleanor.hanger.tool_room as tr
 import os
 from os.path import realpath, join
 from tempfile import TemporaryDirectory
 
-class TestToolRoom(unittest.TestCase):
+class TestToolRoom(TestCase):
     """
     Tests of the eleanor.hanger.tool_room module
     """

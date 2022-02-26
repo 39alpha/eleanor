@@ -1,4 +1,4 @@
-import unittest
+from .. common import TestCase
 from eleanor.hanger.eq36 import eqpt, eq3, eq6
 from tempfile import TemporaryDirectory
 from os.path import abspath, dirname, exists, join, realpath
@@ -7,7 +7,7 @@ import os
 
 DATADIR = abspath(join(dirname(realpath(__file__)), '..', 'data'))
 
-class TestEQ36(unittest.TestCase):
+class TestEQ36(TestCase):
     """
     Test the eleanor.hanger.eq36 module
     """

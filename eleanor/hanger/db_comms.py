@@ -44,10 +44,9 @@ def create_vs_table(conn, camp, elements):
     # construct the true thermodynamic constraints (VS dimensions).
 
     sql_info = "CREATE TABLE vs (uuid VARCHAR(32) PRIMARY KEY, camp \
-        TEXT NOT NULL, ord SMALLINT NOT NULL, file INTEGER NOT NULL, birth \
+        TEXT NOT NULL, ord INTEGER NOT NULL, file INTEGER NOT NULL, birth \
         DATE NOT NULL, code SMALLINT NOT NULL,"
     if len(camp.target_rnt) > 0:
-
         sql_rnt_morr = ",".join([f'"{_}_morr" DOUBLE PRECISION NOT NULL'
                                 for _ in camp.target_rnt.keys()]) + ','
 
@@ -61,15 +60,15 @@ def create_vs_table(conn, camp, elements):
                          list(camp.vs_basis.keys())]) + ','
 
     sql_ele = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in
-                        elements])
+                        elements]) + ','
 
+    sql_fk = ' FOREIGN KEY(`ord`) REFERENCES `orders`(`id`)'
     if len(camp.target_rnt) > 0:
-        execute_query(
-            conn,
-            "".join([sql_info, sql_rnt_morr, sql_rnt_rkb1, sql_state, sql_basis, sql_ele]) + ');')
+        parts = [sql_info, sql_rnt_morr, sql_rnt_rkb1, sql_state, sql_basis, sql_ele, sql_fk]
     else:
-        execute_query(
-            conn, "".join([sql_info, sql_state, sql_basis, sql_ele]) + ');')
+        parts = [sql_info, sql_state, sql_basis, sql_ele, sql_fk]
+
+    execute_query(conn, ''.join(parts) + ')')
 
 def create_orders_table(conn):
     """
@@ -110,7 +109,7 @@ def create_es_table(conn, camp, loaded_sp, elements):
     """
 
     sql_info = "CREATE TABLE es (uuid VARCHAR(32) PRIMARY KEY, camp \
-        TEXT NOT NULL, ord SMALLINT NOT NULL, file INTEGER NOT NULL, run \
+        TEXT NOT NULL, ord INTEGER NOT NULL, file INTEGER NOT NULL, run \
         DATE NOT NULL, mineral TEXT NOT NULL,"
 
     sql_run = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in
@@ -127,9 +126,13 @@ def create_es_table(conn, camp, loaded_sp, elements):
                         elements]) + ','
 
     sql_sp = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in
-                       loaded_sp])
+                       loaded_sp]) + ','
 
-    execute_query(conn, "".join([sql_info, sql_run, sql_state, sql_ele, sql_sp]) + ');')
+    sql_fk = ' FOREIGN KEY(`ord`) REFERENCES `orders`(`id`), \
+               FOREIGN KEY(`uuid`) REFERENCES `vs`(`uuid`)'
+
+    parts = [sql_info, sql_run, sql_state, sql_ele, sql_sp, sql_fk]
+    execute_query(conn, ''.join(parts) + ')')
 
 def get_order_number(conn, camp, insert=True):
     """

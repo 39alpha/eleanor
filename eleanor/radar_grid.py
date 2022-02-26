@@ -102,7 +102,7 @@ def Radar(camp, vars, color_condition, description, ord_id=None, limit=1000, whe
                 the_math = all_sp[s].split('=')[1].strip()
                 all_sp[s] = new_var.replace('{', '').replace('}', '')
                 the_math = the_math.replace('{', 'df["').replace('}', '"]')
-                df['dpH'] = eval(the_math)
+                df[new_var] = eval(the_math)
             else:
                 all_sp[s] = all_sp[s].replace('{', '').replace('}', '')
 

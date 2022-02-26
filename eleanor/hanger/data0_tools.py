@@ -40,7 +40,7 @@ def determine_ele_set(path=''):
     Use the verbose test.3o file run by the huffer to determine the loaded elements
         :param path: campaign huffer path to test.3o file
         :type path: str
-        :return: list of elements
+            :return: list of elements
 
     """
     elements = []

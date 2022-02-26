@@ -1,7 +1,7 @@
-import unittest
+from . common import TestCase
 import eleanor.helmsman as helmsman
 
-class TestHelmsman(unittest.TestCase):
+class TestHelmsman(TestCase):
     """
     Tests of the eleanor.helmsman module
     """

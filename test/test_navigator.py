@@ -1,7 +1,7 @@
-import unittest
+from . common import TestCase
 import eleanor.navigator as navigator
 
-class TestNavigator(unittest.TestCase):
+class TestNavigator(TestCase):
     """
     Tests of the eleanor.navigator module
     """

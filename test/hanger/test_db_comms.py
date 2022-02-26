@@ -5,9 +5,9 @@ from tempfile import TemporaryDirectory
 import eleanor.hanger.db_comms as dbc
 import pandas as pd
 import sqlite3
-import unittest
+from .. common import TestCase
 
-class TestDBComms(unittest.TestCase):
+class TestDBComms(TestCase):
     """
     Tests of the eleanor.hanger.db_comms module
     """
@@ -56,7 +56,7 @@ class TestDBComms(unittest.TestCase):
             'suppress min': True,
             'suppress min exemptions': ['calcite'],
             'solid solutions': True
-        }, '/path/to/db')
+        }, self.data0dir)
 
     def test_establish_database_connection(self):
         """

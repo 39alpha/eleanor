@@ -1,9 +1,10 @@
 import unittest
+from . common import TestCase
 import eleanor
 from tempfile import TemporaryDirectory
 
 @unittest.skip('Integration tests are borked')
-class TestCampaign_to_Helmsman(unittest.TestCase):
+class TestCampaign_to_Helmsman(TestCase):
     """
     Tests integration between Campaign, Navigator and Helmsmen Classes
     """

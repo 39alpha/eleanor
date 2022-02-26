@@ -1,7 +1,7 @@
-import unittest
+from .. common import TestCase
 # import eleanor.hanger.radar_tools as rd
 
-class TestRadarTools(unittest.TestCase):
+class TestRadarTools(TestCase):
     """
     Tests of the eleanor.hanger.radar_tools module
     """

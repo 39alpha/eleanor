@@ -5,7 +5,7 @@
 The :class:`Campaign` class contains the specification of modeling objectives.
 """
 import json
-from os import mkdir
+from os import mkdir, rename
 from os.path import isdir, join, realpath
 from .hanger import tool_room
 
@@ -84,6 +84,9 @@ class Campaign:
 
         self._campaign_dir = None
 
+        self._hash = None
+        self._data0hash = None
+
     @property
     def campaign_dir(self):
         """
@@ -101,6 +104,18 @@ class Campaign:
             error_msg = "campaign environment not created; cannot get campaign database path"
             raise RuntimeError(error_msg)
         return join(self._campaign_dir, 'campaign.sql')
+
+    @property
+    def hash(self):
+        return self._hash
+
+    @property
+    def data0hash(self):
+        return self._data0hash
+
+    @property
+    def order_file(self):
+        return join(self.campaign_dir, 'orders', self.hash + '.json')
 
     def create_env(self, dir=None, verbose=True):
         """
@@ -144,10 +159,19 @@ class Campaign:
         if not isdir(fig_dir):
             mkdir(fig_dir)
 
+        order_dir = join(self.campaign_dir, 'orders')
+        if not isdir(order_dir):
+            mkdir(order_dir)
+
         # Write campaign spec to file (as a hard copy)
-        campaign_json = join(self.campaign_dir, 'campaign.json')
-        with open(campaign_json, mode='w', encoding='utf-8') as handle:
+        order_json = join(order_dir, 'campaign.json');
+        with open(order_json, mode='w', encoding='utf-8') as handle:
             json.dump(self._raw, handle, indent=True)
+
+        self._hash = tool_room.hash_file(order_json)
+        rename(order_json, self.order_file)
+
+        self._data0hash = tool_room.hash_dir(self.data0dir)
 
     def working_directory(self, *args, **kwargs):
         """

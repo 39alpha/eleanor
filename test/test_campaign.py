@@ -175,6 +175,7 @@ class TestCampaign(TestCase):
 
             order_json = join(campaign_dir, 'orders', camp.hash + '.json')
             self.assertTrue(isfile(order_json))
+            self.assertTrue(isfile(join(campaign_dir, 'orders', 'campaign.json')))
 
             with open(order_json, mode='r', encoding='utf-8') as handle:
                 dumped = json.load(handle)
@@ -204,6 +205,7 @@ class TestCampaign(TestCase):
 
             order_json = join(campaign_dir, 'orders', camp.hash + '.json')
             self.assertTrue(isfile(order_json))
+            self.assertTrue(isfile(join(campaign_dir, 'orders', 'campaign.json')))
 
             with open(order_json, mode='r', encoding='utf-8') as handle:
                 dumped = json.load(handle)
@@ -226,6 +228,7 @@ class TestCampaign(TestCase):
                 self.assertTrue(isdir('huffer'))
                 self.assertTrue(isdir('fig'))
                 self.assertTrue(isfile(join('orders', camp.hash + '.json')))
+                self.assertTrue(isfile(join('orders', 'campaign.json')))
 
     def test_working_directory_creates_env(self):
         """
@@ -240,3 +243,4 @@ class TestCampaign(TestCase):
                 self.assertTrue(isdir('huffer'))
                 self.assertTrue(isdir('fig'))
                 self.assertTrue(isfile(join('orders', camp.hash + '.json')))
+                self.assertTrue(isfile(join('orders', 'campaign.json')))

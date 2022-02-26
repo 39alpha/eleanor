@@ -4,10 +4,11 @@
 
 The :class:`Campaign` class contains the specification of modeling objectives.
 """
-import json
+from .hanger import tool_room
 from os import mkdir, rename
 from os.path import isdir, join, realpath
-from .hanger import tool_room
+import json
+import shutil
 
 class Campaign:
     """
@@ -169,7 +170,7 @@ class Campaign:
             json.dump(self._raw, handle, indent=True)
 
         self._hash = tool_room.hash_file(order_json)
-        rename(order_json, self.order_file)
+        shutil.copyfile(order_json, self.order_file)
 
         self._data0_hash = tool_room.hash_dir(self.data0_dir)
 

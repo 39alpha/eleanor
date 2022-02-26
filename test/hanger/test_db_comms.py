@@ -77,8 +77,6 @@ class TestDBComms(TestCase):
             self.campaign.create_env(dir=root, verbose=False)
             conn = dbc.establish_database_connection(self.campaign, verbose=False)
 
-            dbc.create_orders_table(conn)
-
             order_number = dbc.get_order_number(conn, self.campaign)
             self.assertEquals(order_number, 1)
 

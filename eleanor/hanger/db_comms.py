@@ -43,7 +43,7 @@ def create_vs_table(conn, camp, elements):
     # composits, requiring addition/partial addition in order to
     # construct the true thermodynamic constraints (VS dimensions).
 
-    sql_info = "CREATE TABLE vs (uuid VARCHAR(32) PRIMARY KEY, camp \
+    sql_info = "CREATE TABLE IF NOT EXISTS vs (uuid VARCHAR(32) PRIMARY KEY, camp \
         TEXT NOT NULL, ord INTEGER NOT NULL, file INTEGER NOT NULL, birth \
         DATE NOT NULL, code SMALLINT NOT NULL,"
     if len(camp.target_rnt) > 0:
@@ -84,7 +84,7 @@ def create_orders_table(conn):
     index.
     """
     execute_query(conn, '''
-        CREATE TABLE `orders` (`id` INTEGER PRIMARY KEY AUTOINCREMENT,
+        CREATE TABLE IF NOT EXISTS `orders` (`id` INTEGER PRIMARY KEY AUTOINCREMENT,
                                `campaign_hash` VARCHAR(64) NOT NULL,
                                `data0_hash` VARCHAR(64) NOT NULL,
                                `name` TEXT NOT NULL,
@@ -92,7 +92,8 @@ def create_orders_table(conn):
     ''')
 
     execute_query(conn, '''
-        CREATE UNIQUE INDEX `orders_hash_index` ON `orders` (`campaign_hash`, `data0_hash`)
+        CREATE UNIQUE INDEX IF NOT EXISTS `orders_hash_index`
+        ON `orders` (`campaign_hash`, `data0_hash`)
     ''')
 
 def create_es_table(conn, camp, loaded_sp, elements):
@@ -108,7 +109,7 @@ def create_es_table(conn, camp, loaded_sp, elements):
     instantiated fof the campaign
     """
 
-    sql_info = "CREATE TABLE es (uuid VARCHAR(32) PRIMARY KEY, camp \
+    sql_info = "CREATE TABLE IF NOT EXISTS es (uuid VARCHAR(32) PRIMARY KEY, camp \
         TEXT NOT NULL, ord INTEGER NOT NULL, file INTEGER NOT NULL, run \
         DATE NOT NULL, mineral TEXT NOT NULL,"
 
@@ -148,6 +149,8 @@ def get_order_number(conn, camp, insert=True):
     :return: the greatest order number
     :rtype: int
     """
+    create_orders_table(conn)
+
     orders = execute_query(conn, f"SELECT `id` FROM `orders` where `campaign_hash` = '{camp.hash}' \
         AND `data0_hash` = '{camp.data0_hash}'").fetchall()
 

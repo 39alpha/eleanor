@@ -125,11 +125,9 @@ def retrieve_combined_records(conn, vs_cols, es_cols, limit, ord_id=None, where=
               FROM `vs` INNER JOIN `es` ON `vs`.`uuid` = `es`.`uuid`"
 
     if ord_id is not None and where is not None:
-        query += f" WHERE `es`.`ord` = {ord_id} and {where_constrain}"
-
+        query += f" WHERE `es`.`ord` = {ord_id} and {where}"
     elif ord_id is not None:
         query += f" WHERE `es`.`ord` = {ord_id}"
-
     elif where is not None:
         query += f" WHERE {where}"
 

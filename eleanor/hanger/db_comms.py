@@ -252,11 +252,9 @@ def retrieve_combined_records(conn, vs_cols, es_cols, limit=None, ord_id=None, w
 
     if ord_id is not None and where is not None:
         query += f" WHERE `es`.`ord` = {ord_id} and {where}"
-
     elif ord_id is not None:
         query += f" WHERE `es`.`ord` = {ord_id}"
-
-    elif ord_id is not None:
+    elif where is not None:
         query += f" WHERE {where}"
 
     if limit is not None:

@@ -8,6 +8,7 @@ import os
 import re
 import shutil
 import time
+import queue
 # from nbformat import from_dict
 
 import numpy as np
@@ -78,27 +79,49 @@ def Helmsman(camp, ord_id=None):
     cores = 6  # TODO: This doesn't make no damn sense, detect or pass as an argument
 
     with WorkingDirectory(order_path):
-        # ##############   Multiprocessing  ##################
+        # # ### build vs/es queues
+        queue_manager = multiprocessing.Manager()
+        vs_queue = queue_manager.Queue()
+        es_queue = queue_manager.Queue()
+
+        keep_running_yoeman = multiprocessing.Value('b', True)
+        yoeman_process = multiprocessing.Process(target=yoeman, args=(camp, keep_running_yoeman,
+                                                 vs_queue, es_queue))
+        yoeman_process.start()
+        # # ##############   Multiprocessing  ##################
         with multiprocessing.Pool(processes=cores) as pool:
             _ = pool.starmap(sailor, zip([camp] * len(rec),
                                          [order_path] * len(rec),
+                                         [vs_queue] * len(rec),
+                                         [es_queue] * len(rec),
                                          [date] * len(rec),
                                          rec,
                                          [elements] * len(rec),
                                          [vs_col_names] * len(rec),
                                          [es_col_names] * len(rec)))
+        # # ### check to see if queues are empty to kill
 
-        # Testing with serial computation for easier error reporting
+        # ### Testing with serial computation for easier error reporting
         # for r in rec[:100]:
-        # sailor(camp, order_path, date, rec[0], elements, vs_col_names, es_col_names)
+        #     sailor(camp, order_path, vs_queue, es_queue, date, r, elements, vs_col_names, es_col_names)
+
+        while not vs_queue.empty():
+            time.sleep(1)
+        while not es_queue.empty():
+            time.sleep(1)
+
+        with keep_running_yoeman.get_lock():
+            keep_running_yoeman.value = False
 
     print('\nOrder {} complete. Debugging Dont believe these times'.format(ord_id))
     print('        total time: {}'.format(round(time.time() - start, 4)))
     print('     time/point: {}'.format(round((time.time() - start) / len(rec), 4)))
     print('time/point/core: {}\n'.format(round((cores * (time.time() - start)) / len(rec), 4)))
 
+    yoeman_process.terminate()
 
-def sailor(camp, order_path, date, dat, elements, vs_col_names, es_col_names):
+
+def sailor(camp, order_path, vs_queue, es_queue, date, dat, elements, vs_col_names, es_col_names):
     """
     Run system 'run', a point (vs) in variable space (VS) retireved from vs table
     (1) build 3i
@@ -108,8 +131,6 @@ def sailor(camp, order_path, date, dat, elements, vs_col_names, es_col_names):
     (5) mine 6o
     """
 
-    conn = establish_database_connection(camp)
-
     # ord_id = str(dat[2])
     run_num = str(dat[3])
     file = '{}.3i'.format(run_num)
@@ -118,7 +139,7 @@ def sailor(camp, order_path, date, dat, elements, vs_col_names, es_col_names):
     # ### this functionality was installed in order to limit the quantity
     # ### of data generated during large runs. If a specifc output file is desired
     # ### it can simply be rerun from the data in the vs table and the campaign sheet.
-    keep_every_n_files = 50
+    keep_every_n_files = 1000
     if int(run_num) in [int(idx) for idx in np.arange(1, 1000000, keep_every_n_files)]:
         delete_after_running = False
     else:
@@ -181,7 +202,7 @@ def sailor(camp, order_path, date, dat, elements, vs_col_names, es_col_names):
         # ### course not help converge the file, but will provide the
         # ### infomration needed to map evidence of the failure for
         # ### future code to assess.
-        reset_sailor(order_path, conn, file, dat[0], 30,
+        reset_sailor(order_path, vs_queue, file, dat[0], 30,
                      delete_local=delete_after_running)
         return
 
@@ -191,7 +212,7 @@ def sailor(camp, order_path, date, dat, elements, vs_col_names, es_col_names):
     except Exception as e:
         # ### cannot mine pickup lines
         print('{}\n  {}\n'.format(file, e))
-        reset_sailor(order_path, conn, file, dat[0], 31,
+        reset_sailor(order_path, vs_queue, file, dat[0], 31,
                      delete_local=delete_after_running)
         return
 
@@ -200,7 +221,7 @@ def sailor(camp, order_path, date, dat, elements, vs_col_names, es_col_names):
 
     # ### check that 6o was generated
     if not os.path.isfile(file[:-2] + '6o'):
-        reset_sailor(order_path, conn, file, dat[0], 60,
+        reset_sailor(order_path, vs_queue, file, dat[0], 60,
                      delete_local=delete_after_running)
 
         return
@@ -210,9 +231,11 @@ def sailor(camp, order_path, date, dat, elements, vs_col_names, es_col_names):
 
     # ### load into es_table
     if run_code == 100:
-        six_o_data_to_sql(conn, 'es', build_df)
+        # ### push bould_df onto eq_q
+        es_queue.put(build_df)
+        # ### old #### six_o_data_to_sql(conn, 'es', build_df)
 
-    reset_sailor(order_path, conn, file, dat[0], run_code,
+    reset_sailor(order_path, vs_queue, file, dat[0], run_code,
                  delete_local=delete_after_running)
 
 def mine_6o(date, elements, file, dat, col_names):
@@ -459,10 +482,43 @@ def mine_6o(date, elements, file, dat, col_names):
 
     return run_code, build_df
 
+
+def yoeman(camp, keep_running, write_vs_q, write_es_q):
+    """
+    Colecting each sailors dict output, and then writing it in
+    bulk to sql
+    """
+    conn = establish_database_connection(camp)
+
+    vs_n_written = 0
+
+    while keep_running:
+
+        # ### check that es has something to write
+        try:
+            es_df = write_es_q.get_nowait()
+        except queue.Empty:
+            time.sleep(5)
+        else:
+            # ### write es data to sql
+            es_df.to_sql('es', conn, if_exists='append', index=False)
+
+        # ### check that vs has something to write
+        try:
+            vs_sql = write_vs_q.get_nowait()
+        except queue.Empty:
+            time.sleep(5)
+        else:
+            # ### write vs data to sql
+            execute_query(conn, vs_sql)
+            vs_n_written += 1
+
+
 def six_o_data_to_sql(conn, table, df):
     df.to_sql(table, conn, if_exists='append', index=False)
 
-def reset_sailor(order_path, conn, file, uuid, code, delete_local=False):
+
+def reset_sailor(order_path, vs_queue, file, uuid, code, delete_local=False):
     """
     The sailor is finished, for better or worse, with run number 'file'
     with exid code 'code'
@@ -472,7 +528,12 @@ def reset_sailor(order_path, conn, file, uuid, code, delete_local=False):
     (2) Step back into order folder 'order_path' for next vs point.
     """
     sql = """UPDATE vs SET code = {} WHERE uuid = '{}';""".format(code, uuid)
-    execute_query(conn, sql)
+
+    # ### push sql onto yoeman for submission
+    # execute_query(conn, sql)
+
+    vs_queue.put(sql)
+
     os.chdir(order_path)
 
     if delete_local:

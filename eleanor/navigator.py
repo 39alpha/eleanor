@@ -164,7 +164,7 @@ def check_campaign_tables(conn, camp):
     if cur.rowcount == 1:
         # (2) table already exists, and the campaign has been run
         # before.
-        last_order = db_comms.get_order_number(conn, camp.name)
+        last_order = db_comms.get_order_number(conn, camp)
 
         next_order_number = last_order + 1
         return next_order_number

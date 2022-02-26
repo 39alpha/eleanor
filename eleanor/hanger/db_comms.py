@@ -71,6 +71,31 @@ def create_vs_table(conn, camp, elements):
         execute_query(
             conn, "".join([sql_info, sql_state, sql_basis, sql_ele]) + ');')
 
+def create_orders_table(conn):
+    """
+    Create the orders table with the following columns:
+      * :code:`id` (:code:`SMALLINT`) - the order id
+      * :code:`campaign_hash` (:code:`VARCHAR(64)`) - the hash of the campaign specification
+      * :code:`data`0_hash (:code:`VARCHAR(64)`) - the hash of the data0 directory
+      * :code:`name` (:code:`TEXT`) - the name of the campaign
+      * :code:`create_date` (:code:`TIMESTAMP`) - the date the order was created
+
+    The :code:`create_date` defaults to the time at which the row is created. The :code:`id` is the
+    primary key for the table, and :code:`campaign_hash` and :code:`data0_hash` jointly form an
+    index.
+    """
+    execute_query(conn, '''
+        CREATE TABLE `orders` (`id` INTEGER PRIMARY KEY AUTOINCREMENT,
+                               `campaign_hash` VARCHAR(64) NOT NULL,
+                               `data0_hash` VARCHAR(64) NOT NULL,
+                               `name` TEXT NOT NULL,
+                               `create_date` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP)
+    ''')
+
+    execute_query(conn, '''
+        CREATE UNIQUE INDEX `orders_hash_index` ON `orders` (`campaign_hash`, `data0_hash`)
+    ''')
+
 def create_es_table(conn, camp, loaded_sp, elements):
     """
     Initiater equilibrium space (mined from 6o) table on connection 'conn'
@@ -106,21 +131,36 @@ def create_es_table(conn, camp, loaded_sp, elements):
 
     execute_query(conn, "".join([sql_info, sql_run, sql_state, sql_ele, sql_sp]) + ');')
 
-def get_order_number(conn):
+def get_order_number(conn, camp, insert=True):
     """
-    Get the highest order number from the campaign's variable space table.
+    Get the order number based on the campaign hashes. If no corresponding order is found and
+    :code:`insert = True`, the hashes are added to the order table and the new order number is
+    returned.
 
     :param conn: connection to the database
     :type conn: sqlite3.Connection
+    :param camp: the campaign
+    :type camp: eleanor.campaign.Campaign
 
     :return: the greatest order number
     :rtype: int
     """
-    rec = retrieve_records(conn, "SELECT MAX(`ord`) FROM `vs`")
-    if len(rec) == 0 or rec[0][0] is None:
-        return 0
+    orders = execute_query(conn, f"SELECT `id` FROM `orders` where `campaign_hash` = '{camp.hash}' \
+        AND `data0_hash` = '{camp.data0_hash}'").fetchall()
+
+    if len(orders) > 1:
+        # DGM: This should never happen because there is a unique index on the hash columns
+        raise RuntimeError('more than one order found for campaign and data0 hash')
+    elif len(orders) == 1:
+        return orders[0][0]
+
+    if insert:
+        execute_query(conn,
+            f"INSERT INTO `orders` (`campaign_hash`, `data0_hash`, `name`) \
+            VALUES ('{camp.hash}', '{camp.data0_hash}', '{camp.name}')").fetchall()
+        return get_order_number(conn, camp, insert=False)
     else:
-        return rec[0][0]
+        raise RuntimeError('failed to insert order')
 
 def retrieve_records(conn, query, *args, **kwargs):
     """

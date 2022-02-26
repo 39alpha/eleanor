@@ -62,9 +62,9 @@ class TestCampaign(TestCase):
         """
         Ensure that campaigns can be initialized to use solid solutions
         """
-        camp = Campaign(self.config, self.data0dir)
+        camp = Campaign(self.config, self.data0_dir)
 
-        self.assertEqual(camp.data0dir, self.data0dir)
+        self.assertEqual(camp.data0_dir, self.data0_dir)
         self.assertEqual(camp._raw, self.config)
 
         self.assertEqual(camp.name, self.config['campaign'])
@@ -94,9 +94,9 @@ class TestCampaign(TestCase):
         """
         self.config['solid solutions'] = False
 
-        camp = Campaign(self.config, self.data0dir)
+        camp = Campaign(self.config, self.data0_dir)
 
-        self.assertEqual(camp.data0dir, self.data0dir)
+        self.assertEqual(camp.data0_dir, self.data0_dir)
         self.assertEqual(camp._raw, self.config)
 
         self.assertEqual(camp.name, self.config['campaign'])
@@ -127,9 +127,9 @@ class TestCampaign(TestCase):
         with NamedTemporaryFile(mode='w+') as handle:
             json.dump(self.config, handle, indent=True)
             handle.seek(0)
-            camp = Campaign.from_json(handle.name, self.data0dir)
+            camp = Campaign.from_json(handle.name, self.data0_dir)
 
-        self.assertEqual(camp.data0dir, self.data0dir)
+        self.assertEqual(camp.data0_dir, self.data0_dir)
         self.assertEqual(camp._raw, self.config)
 
         self.assertEqual(camp.name, self.config['campaign'])
@@ -157,7 +157,7 @@ class TestCampaign(TestCase):
         """
         Ensure that a campaign's working directory can be created
         """
-        camp = Campaign(self.config, self.data0dir)
+        camp = Campaign(self.config, self.data0_dir)
 
         with TemporaryDirectory() as root:
             camp.create_env(dir=root, verbose=False)
@@ -185,7 +185,7 @@ class TestCampaign(TestCase):
         Ensure that calling create_env with a new :code:`dir` argument creates a new campaign
         directory.
         """
-        camp = Campaign(self.config, self.data0dir)
+        camp = Campaign(self.config, self.data0_dir)
         with TemporaryDirectory() as root:
             camp.create_env(dir=root, verbose=False)
         self.assertEquals(camp.campaign_dir, realpath(join(root, camp.name)))
@@ -217,7 +217,7 @@ class TestCampaign(TestCase):
         Ensure that the campaign can provide a context manager for switching into and out of the
         campaign directory.
         """
-        camp = Campaign(self.config, self.data0dir)
+        camp = Campaign(self.config, self.data0_dir)
         with TemporaryDirectory() as root:
             camp.create_env(dir=root, verbose=False)
             with camp.working_directory():
@@ -232,7 +232,7 @@ class TestCampaign(TestCase):
         Ensure that the campaign creates the working directory before swtiching into and out of the
         directory.
         """
-        camp = Campaign(self.config, self.data0dir)
+        camp = Campaign(self.config, self.data0_dir)
         with TemporaryDirectory() as root:
             with camp.working_directory(dir=root, verbose=False):
                 self.assertEquals(os.getcwd(), realpath(join(root, self.config['campaign'])))

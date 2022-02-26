@@ -42,8 +42,8 @@ class Campaign:
     :param config: a campaign configuration
     :type config: dict
     """
-    def __init__(self, config, data0dir):
-        self.data0dir = data0dir
+    def __init__(self, config, data0_dir):
+        self.data0_dir = data0_dir
         # In case we need anything else just store it in _raw
         self._raw = config
         # Metadata
@@ -85,7 +85,7 @@ class Campaign:
         self._campaign_dir = None
 
         self._hash = None
-        self._data0hash = None
+        self._data0_hash = None
 
     @property
     def campaign_dir(self):
@@ -110,8 +110,8 @@ class Campaign:
         return self._hash
 
     @property
-    def data0hash(self):
-        return self._data0hash
+    def data0_hash(self):
+        return self._data0_hash
 
     @property
     def order_file(self):
@@ -171,7 +171,7 @@ class Campaign:
         self._hash = tool_room.hash_file(order_json)
         rename(order_json, self.order_file)
 
-        self._data0hash = tool_room.hash_dir(self.data0dir)
+        self._data0_hash = tool_room.hash_dir(self.data0_dir)
 
     def working_directory(self, *args, **kwargs):
         """

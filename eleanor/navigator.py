@@ -43,7 +43,7 @@ def Navigator(this_campaign):
         # just determine the next new order number.
         # If no tables exists for the campaign, then run the
         # huffer to initiate VS/ES, and set order number to 1.
-        order_number = check_campaign_tables(conn, this_campaign)
+        order_number = db_comms.get_order_number(conn, this_campaign)
 
         if order_number == 1:
             # new campaign
@@ -145,36 +145,6 @@ def huffer(conn, camp):
     print('\n Huffer complete.\n')
 
 # ##################    postgres table functions   ####################
-
-def check_campaign_tables(conn, camp):
-    """
-    (1) query sql to see if tables already esits for campaign
-        'camp_name' (not a new campaign).
-    (2) if so, return most recent order number.
-    (3) if camp_name is new, then return order_num = 1 and run the
-        huffer.
-    """
-
-    # (1) query postgres to see if tables already esits for the
-    # loaded campaign 'camp_name'
-    cur = conn.cursor()
-    cur.execute("SELECT name FROM sqlite_master \
-                WHERE type='table' AND name='{}_vs'; ".format(camp.name))
-
-    if cur.rowcount == 1:
-        # (2) table already exists, and the campaign has been run
-        # before.
-        last_order = db_comms.get_order_number(conn, camp)
-
-        next_order_number = last_order + 1
-        return next_order_number
-    else:
-        # (3) new campaign!  Congratulations!
-        # exit to run huffer
-        next_order_number = 1
-        return next_order_number
-
-
 def orders_to_sql(conn, table, ord, df):
     """
     Write pandas dataframe 'df' to sql 'table' on connection'conn.'

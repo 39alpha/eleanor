@@ -79,8 +79,9 @@ def Helmsman(camp, ord_id=None):
     cores = 6  # TODO: This doesn't make no damn sense, detect or pass as an argument
 
     with WorkingDirectory(order_path):
-        # # ### build vs/es queues
+        # ### build vs/es queues
         queue_manager = multiprocessing.Manager()
+
         vs_queue = queue_manager.Queue()
         es_queue = queue_manager.Queue()
 
@@ -89,6 +90,7 @@ def Helmsman(camp, ord_id=None):
                                                  vs_queue, es_queue))
         yoeman_process.start()
         # # ##############   Multiprocessing  ##################
+
         with multiprocessing.Pool(processes=cores) as pool:
             _ = pool.starmap(sailor, zip([camp] * len(rec),
                                          [order_path] * len(rec),
@@ -498,7 +500,7 @@ def yoeman(camp, keep_running, write_vs_q, write_es_q):
         try:
             es_df = write_es_q.get_nowait()
         except queue.Empty:
-            time.sleep(5)
+            pass
         else:
             # ### write es data to sql
             es_df.to_sql('es', conn, if_exists='append', index=False)
@@ -507,7 +509,7 @@ def yoeman(camp, keep_running, write_vs_q, write_es_q):
         try:
             vs_sql = write_vs_q.get_nowait()
         except queue.Empty:
-            time.sleep(5)
+            pass
         else:
             # ### write vs data to sql
             execute_query(conn, vs_sql)

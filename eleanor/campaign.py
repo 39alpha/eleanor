@@ -44,7 +44,7 @@ class Campaign:
     :type config: dict
     """
     def __init__(self, config, data0_dir):
-        self.data0_dir = data0_dir
+        self.data0_dir = realpath(data0_dir)
         # In case we need anything else just store it in _raw
         self._raw = config
         # Metadata

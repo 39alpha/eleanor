@@ -67,6 +67,10 @@ def Helmsman(camp, ord_id=None):
 
         conn.close()
 
+    if len(rec) == 0:
+        print(f"The Helmsman found no unexecuted VS entries for order {ord_id}")
+        return
+
     # ### date time stamp for run date
     date = time.strftime("%Y-%m-%d", time.gmtime())
 

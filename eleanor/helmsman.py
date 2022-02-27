@@ -57,10 +57,13 @@ def Helmsman(camp, ord_id=None):
         elements = determine_ele_set(path='huffer/')
 
         # ### retrieve issued order 'ord_id'
-        rec = retrieve_records(conn, '''
+        order_query = '''
             SELECT * FROM `vs`
-            WHERE `ord` = ? AND `code` = 0 AND `uuid` NOT IN (SELECT `uuid` FROM `es`)
-        ''', (ord_id,))
+            WHERE `code` = 0 AND `uuid` NOT IN (SELECT `uuid` FROM `es`)
+        '''
+        if ord_id is not None:
+            order_query += f' AND `ord` = {ord_id}'
+        rec = retrieve_records(conn, order_query)
 
         vs_col_names = get_column_names(conn, 'vs')
         es_col_names = get_column_names(conn, 'es')
@@ -68,7 +71,10 @@ def Helmsman(camp, ord_id=None):
         conn.close()
 
     if len(rec) == 0:
-        print(f"The Helmsman found no unexecuted VS entries for order {ord_id}")
+        msg = "The Helmsman found no unexecuted points"
+        if ord_id is not None:
+            msg += f" for order {ord_id}"
+        print(msg)
         return
 
     # ### date time stamp for run date
@@ -82,7 +88,10 @@ def Helmsman(camp, ord_id=None):
     os.chdir(order_path)
 
     start = time.time()
-    print('Processing Order {}'.format(ord_id))
+    if ord_id is None:
+        print(f"Processing all unfullfiled orders ({len(rec)} points)")
+    else:
+        print(f"Processing Order {ord_id} ({len(rec)} points)")
     cores = 6  # TODO: This doesn't make no damn sense, detect or pass as an argument
 
     with WorkingDirectory(order_path):

@@ -9,10 +9,11 @@ import re
 import shutil
 import time
 import queue
-# from nbformat import from_dict
 
 import numpy as np
 import pandas as pd
+
+from tqdm import tqdm
 
 # ### custom packages
 from .hanger.db_comms import execute_query
@@ -103,7 +104,7 @@ def Helmsman(camp, ord_id=None):
 
         keep_running_yoeman = multiprocessing.Value('b', True)
         yoeman_process = multiprocessing.Process(target=yoeman, args=(camp, keep_running_yoeman,
-                                                 vs_queue, es_queue))
+                                                 vs_queue, es_queue, len(rec)))
         yoeman_process.start()
         # # ##############   Multiprocessing  ##################
 
@@ -501,7 +502,7 @@ def mine_6o(date, elements, file, dat, col_names):
     return run_code, build_df
 
 
-def yoeman(camp, keep_running, write_vs_q, write_es_q):
+def yoeman(camp, keep_running, write_vs_q, write_es_q, num_points):
     """
     Colecting each sailors dict output, and then writing it in
     bulk to sql
@@ -510,6 +511,7 @@ def yoeman(camp, keep_running, write_vs_q, write_es_q):
 
     vs_n_written = 0
 
+    progress = tqdm(total = num_points)
     while keep_running:
 
         # ### check that es has something to write
@@ -520,6 +522,7 @@ def yoeman(camp, keep_running, write_vs_q, write_es_q):
         else:
             # ### write es data to sql
             es_df.to_sql('es', conn, if_exists='append', index=False)
+            progress.update()
 
         # ### check that vs has something to write
         try:
@@ -530,6 +533,7 @@ def yoeman(camp, keep_running, write_vs_q, write_es_q):
             # ### write vs data to sql
             execute_query(conn, vs_sql)
             vs_n_written += 1
+
 
 
 def six_o_data_to_sql(conn, table, df):

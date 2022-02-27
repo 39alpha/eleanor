@@ -57,7 +57,10 @@ def Helmsman(camp, ord_id=None):
         elements = determine_ele_set(path='huffer/')
 
         # ### retrieve issued order 'ord_id'
-        rec = retrieve_records(conn, "select * from vs where ord = {}".format(ord_id))
+        rec = retrieve_records(conn, '''
+            SELECT * FROM `vs`
+            WHERE `ord` = ? AND `code` = 0 AND `uuid` NOT IN (SELECT `uuid` FROM `es`)
+        ''', (ord_id,))
 
         vs_col_names = get_column_names(conn, 'vs')
         es_col_names = get_column_names(conn, 'es')

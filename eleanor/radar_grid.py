@@ -20,9 +20,9 @@ from .hanger import radar_tools
 from .hanger.data0_tools import determine_species_set
 from .hanger.radar_tools import get_continuous_cmap
 from .hanger.radar_tools import hide_current_axis
+from .hanger.radar_tools import color_dict
 
-
-def Radar(camp, vars, color_condition, description, ord_id=None, limit=1000, where=None, 
+def Radar_Grid(camp, vars, color_condition, description, ord_id=None, limit=1000, where=None, 
           add_analytics=False):
     """
     Plots 3 dimenions from vs and es camp databases
@@ -36,6 +36,7 @@ def Radar(camp, vars, color_condition, description, ord_id=None, limit=1000, whe
             ['grid', ['CO2_e', 'Ca_e']] cresate a 3 by 3 color grid on CO2 and Ca.
             ['color', 'black'].         makes all markers black.
             ['solid', '{CO2_e} > -2.5'] bimodal (false: red, ture: blue) for condition.
+            ['order'].  categorize on order
     :param description: notes on data to show beneath image
     :type description: str
     :param ord_id: order number of interest
@@ -66,8 +67,11 @@ def Radar(camp, vars, color_condition, description, ord_id=None, limit=1000, whe
         # ### capture extra species stached in color conditions, so that they appear in df
         col_es = [_[:-2] for _ in set(re.findall('\{([^ ]*_e)\}', color_condition[1]))]
         col_vs = [_[:-2] for _ in set(re.findall('\{([^ ]*_v)\}', color_condition[1]))]
-        es_sp = es_sp + col_es
-        vs_sp = vs_sp + col_vs
+        es_sp = list(set(es_sp + col_es))
+        vs_sp = list(set(vs_sp + col_vs))
+
+    if color_condition[0] == 'ord':
+        vs_sp = list(set(vs_sp + ['ord']))
 
     if len(vs_sp) == 0:
         # ### need at least one vs
@@ -87,12 +91,11 @@ def Radar(camp, vars, color_condition, description, ord_id=None, limit=1000, whe
         # ### ord_id.
         df_list = []
         for order in ord_id:
-            df = retrieve_combined_records(conn, vs_sp, es_sp, limit, ord_id=order,
+            df = retrieve_combined_records(conn, vs_sp, es_sp, limit=None, ord_id=order,
                                            where=where)
             df_list.append(df)
         df = pd.concat(df_list)
         conn.close()
-
 
         # ### process x, y and z, adding new df columns where math is detected
         for s in range(len(all_sp)):
@@ -131,21 +134,27 @@ def Radar(camp, vars, color_condition, description, ord_id=None, limit=1000, whe
                  'ab': "#c2c0c0", 'bb': "#5e5d5d", 'cb': "#000000",  # greyscale  (light to dark)
                  'aa': "#3ad4f2", 'ba': "#146ee3", 'ca': "#1c0069"  # cold tones (light to dark)
                  }
+        elif color_condition[0] == 'ord':
+            palette = dict(zip(ord_id, color_dict['5'][:len(ord_id)]))
+            print(palette)
+            df['color'] = df['ord_v']
+
         elif color_condition[0] == 'color':
             palette = {True: color_condition[1]}
             df['color'] = True
+
         elif color_condition[0] in ['species', 'solid']:
             the_math = color_condition[1].replace('{', 'df["').replace('}', '"]')
             df['color'] = eval(the_math)
             palette = {True: "#ff0000", False: "#79baf7"}
 
-        # ### gitd plots all_sp as axes, which does nto include any speices required to determine color
+        # ### gitd plots all_sp as axes, which does nto include any speicexs required to determine color
         grid = sns.PairGrid(data=df, hue='color', vars=all_sp,  # hue_order=[False, True],
                             palette=palette, height=4,
                             layout_pad=1.5)
         # grid.map_upper(sns.kdeplot,  alpha=0.6, levels=10, thresh=0.05, linewidth=0.1)
-        grid.map_lower(plt.scatter, alpha=0.5, edgecolor=None, s=5, linewidth=0)
-        grid.map_diag(plt.hist, bins=20)
+        grid.map_lower(plt.scatter, alpha=0.5, edgecolor=None, s=1, linewidth=0)
+        grid.map_diag(plt.hist, bins=40)
         # grid.map_diag(sns.kdeplot, fill=False, alpha=0.2, levels=1, thresh=0.05)      # conditions for test 6 and first big Py plot
         grid.map_upper(hide_current_axis)
 

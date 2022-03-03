@@ -37,11 +37,16 @@ RAINBOW_BLK = LinearSegmentedColormap.from_list("mycmap", ["#020004", "#75228f",
 RAINBOW = LinearSegmentedColormap.from_list("mycmap", ["#75228f", "#3e53d2", "#4eb01f",
                                                        "#ffd805", "#fd9108", "#dd2823"])
 
-
-
 blu_to_orng = ["#47eaff", "#2bbae0", "#2f8fd1", "#3363c2", "#3a0ca3",
                  "#9d2a52", "#ff4800", "#ff7900", "#ffa224", "#ffcb47"]
 
+color_dict = {
+        '1': ['#E76F51', '#264653', '#2A9D8F', '#F4A261', '#E9C46A', '#100B00', '#A5CBC3', '#3B341f', '#2F004F'],
+        '2': ['#ff0000', '#ffa500', '#ffff00', '#008000', '#0000ff', '#4b0082', '#000000'],
+        '3': ['#7CEA9C', '#F433AB','#2E5EAA','#593959','#F0C808','#DD1C1A','#F05365','#FF9B42','#B2945B','#000000','#FF0000', '#FFA500', '#FFFF00', '#008000', '#0000FF', '#4B0082'],
+        '4': ["#ff0000", "#79baf7", '#000000'],
+        '5': ["#000000", "#02d625", "#f7e14f", "#ff8c00", "#e6c785", "#3ad4f2", "#146ee3", "#0211b5", "#ff05b0", "#ff0000"]
+        }
 
 
 def group_by_solids(conn, camp_name, ord_id):
@@ -49,7 +54,7 @@ def group_by_solids(conn, camp_name, ord_id):
     Determine each unique combination of precipitates in a order (ord_id)
     """
     lines = grab_lines(os.path.join(PWD, '{}_huffer'.format(camp_name), 'test.3o'))
-    solids =[]
+    solids = []
     solid_solutions = []
 
     for _ in range(len(lines)):
@@ -205,12 +210,6 @@ def solid_groups(conn, pwd, camp_name, ord_id, out = 'assemblages'):
 
 ###################################################################################
 ################################  Color Fucntions  ################################
-color_dict = {
-        '1': ['#E76F51', '#264653', '#2A9D8F', '#F4A261', '#E9C46A', '#100B00', '#A5CBC3', '#3B341f', '#2F004F'],
-        '2': ['#ff0000', '#ffa500', '#ffff00', '#008000', '#0000ff', '#4b0082', '#000000'],
-        '3': ['#7CEA9C','#F433AB','#2E5EAA','#593959','#F0C808','#DD1C1A','#F05365','#FF9B42','#B2945B','#000000','#FF0000', '#FFA500', '#FFFF00', '#008000', '#0000FF', '#4B0082']
-        }
-
 
 
 def get_continuous_cmap(hex_list, float_list=None):

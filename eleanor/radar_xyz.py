@@ -25,7 +25,7 @@ from .hanger.radar_tools import get_continuous_cmap
 
 def Radar(camp, x_sp, y_sp, z_sp, description, ord_id=None, limit=1000, where=None, 
           transparent=True, add_analytics=False):
-    """ 
+    """
     Plots 3 dimenions from vs and es camp databases
     :param camp: campaign
     :type camp: Class instance
@@ -81,7 +81,8 @@ def Radar(camp, x_sp, y_sp, z_sp, description, ord_id=None, limit=1000, where=No
         # ### ord_id.
         df_list = []
         for order in ord_id:
-            df = retrieve_combined_records(conn, vs_sp, es_sp, limit, ord_id=order,
+
+            df = retrieve_combined_records(conn, vs_sp, es_sp, limit=None, ord_id=order,
                                            where=where)
             df_list.append(df)
 
@@ -97,7 +98,7 @@ def Radar(camp, x_sp, y_sp, z_sp, description, ord_id=None, limit=1000, where=No
                 the_math = all_sp[s].split('=')[1].strip()
                 all_sp[s] = new_var.replace('{', '').replace('}', '')
                 the_math = the_math.replace('{', 'df["').replace('}', '"]')
-                df['dpH'] = eval(the_math)
+                df[new_var] = eval(the_math)
             else:
                 all_sp[s] = all_sp[s].replace('{', '').replace('}', '')
 
@@ -131,7 +132,7 @@ def Radar(camp, x_sp, y_sp, z_sp, description, ord_id=None, limit=1000, where=No
             df = df.sort_values(by=all_sp[2], ascending=False, na_position='first')
             cb = ax1.scatter(all_sp[0], all_sp[1], c=all_sp[2],
                              data=df, cmap=cmap, facecolors='black', marker='o',
-                             alpha=1, edgecolor=None, s=4, linewidth=0,
+                             alpha=1, edgecolor=None, s=0.5, linewidth=0,
                              label=all_sp[2])
             ax1.set_xlabel(all_sp[0])
             ax1.set_ylabel(all_sp[1])

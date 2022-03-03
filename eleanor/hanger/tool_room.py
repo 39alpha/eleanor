@@ -809,7 +809,7 @@ class Six_i(object):
                 build.write('     nxopt=  0\n')
 
             # handle exemptions to suppressions
-            if len(self.min_supp_exemp) > 0:
+            if len(self.min_supp_exemp) != 0:
                 # list specific mineral exeptions to the 'all' suppression statement above
                 build.write('    nxopex=  {}\n'.format(str(int(len(self.min_supp_exemp)))))
                 for _ in self.min_supp_exemp:

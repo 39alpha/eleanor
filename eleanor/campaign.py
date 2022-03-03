@@ -65,7 +65,6 @@ class Campaign:
         # if distro == BF, reso = numebr of subdivision on each var
         # if distro == random, reso = total numebr of vs points in order
         self.reso = self._raw['resolution']
-
         self.SS = self._raw['solid solutions']
         if self.SS:
             iopt4 = '1'

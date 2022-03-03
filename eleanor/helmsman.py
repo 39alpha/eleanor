@@ -4,7 +4,7 @@
 # ### Tucker Ely, Douglas G. Moore, Cole Mathis
 
 import multiprocessing
-import os
+import os, sys
 import re
 import shutil
 import time
@@ -19,7 +19,7 @@ from tqdm import tqdm
 from .hanger.db_comms import execute_query
 from .hanger.db_comms import establish_database_connection, retrieve_records, get_column_names
 from .hanger.eq36 import eq3, eq6
-from .hanger.data0_tools import determine_ele_set, data0_suffix
+from .hanger.data0_tools import determine_ele_set, determine_species_set, data0_suffix
 from .hanger.tool_room import mk_check_del_directory, mine_pickup_lines, grab_float
 from .hanger.tool_room import grab_lines, grab_str, WorkingDirectory
 
@@ -55,7 +55,9 @@ def Helmsman(camp, ord_id=None):
 
     with camp.working_directory():
         conn = establish_database_connection(camp)
-        elements = determine_ele_set(path='huffer/')
+        # elements = determine_ele_set(path='huffer/')
+
+        elements, aq_sp, solids, ss, gasses = determine_species_set(path='huffer/')
 
         # ### retrieve issued order 'ord_id'
         order_query = '''
@@ -93,7 +95,7 @@ def Helmsman(camp, ord_id=None):
         print(f"Processing all unfullfiled orders ({len(rec)} points)")
     else:
         print(f"Processing Order {ord_id} ({len(rec)} points)")
-    cores = 6  # TODO: This doesn't make no damn sense, detect or pass as an argument
+    cores = 3  # TODO: This doesn't make no damn sense, detect or pass as an argument
 
     with WorkingDirectory(order_path):
         # ### build vs/es queues
@@ -116,6 +118,7 @@ def Helmsman(camp, ord_id=None):
                                          [date] * len(rec),
                                          rec,
                                          [elements] * len(rec),
+                                         [ss] * len(rec),
                                          [vs_col_names] * len(rec),
                                          [es_col_names] * len(rec)))
         # # ### check to see if queues are empty to kill
@@ -140,7 +143,7 @@ def Helmsman(camp, ord_id=None):
     yoeman_process.terminate()
 
 
-def sailor(camp, order_path, vs_queue, es_queue, date, dat, elements, vs_col_names, es_col_names):
+def sailor(camp, order_path, vs_queue, es_queue, date, dat, elements, ss, vs_col_names, es_col_names):
     """
     Run system 'run', a point (vs) in variable space (VS) retireved from vs table
     (1) build 3i
@@ -158,7 +161,7 @@ def sailor(camp, order_path, vs_queue, es_queue, date, dat, elements, vs_col_nam
     # ### this functionality was installed in order to limit the quantity
     # ### of data generated during large runs. If a specifc output file is desired
     # ### it can simply be rerun from the data in the vs table and the campaign sheet.
-    keep_every_n_files = 1000
+    keep_every_n_files = 500
     if int(run_num) in [int(idx) for idx in np.arange(1, 1000000, keep_every_n_files)]:
         delete_after_running = False
     else:
@@ -246,7 +249,7 @@ def sailor(camp, order_path, vs_queue, es_queue, date, dat, elements, vs_col_nam
         return
 
     # ### mine 6o and record in es if complete
-    run_code, build_df = mine_6o(date, elements, file[:-2] + '6o', dat, es_col_names)
+    run_code, build_df = mine_6o(camp, date, elements, ss, file[:-2] + '6o', dat, es_col_names)
 
     # ### load into es_table
     if run_code == 100:
@@ -257,7 +260,7 @@ def sailor(camp, order_path, vs_queue, es_queue, date, dat, elements, vs_col_nam
     reset_sailor(order_path, vs_queue, file, dat[0], run_code,
                  delete_local=delete_after_running)
 
-def mine_6o(date, elements, file, dat, col_names):
+def mine_6o(camp, date, elements, ss, file, dat, col_names):
     """
     conn = open postgresql connection to database with camp.__ tables
     date = run date for file
@@ -277,7 +280,6 @@ def mine_6o(date, elements, file, dat, col_names):
     # ## inhibited, then posative values equals affinties
     # build_df = pd.DataFrame(columns=col_names)
     build_dict = {k: [] for k in col_names}
-    # print(build_df.columns)
     # ## 6o file as a list of strings
     lines = grab_lines(file)
 
@@ -422,7 +424,7 @@ def mine_6o(date, elements, file, dat, col_names):
                     x += 1
             del x
 
-        elif ' --- Saturation States of Solid Solutions ---' in lines[_]:
+        elif camp.SS and ' --- Saturation States of Solid Solutions ---' in lines[_]:
             x = 4
             while not re.findall('^\n', lines[_ + x]):
                 if re.findall(r'\*{4}$', lines[_ + x]):
@@ -495,8 +497,17 @@ def mine_6o(date, elements, file, dat, col_names):
     build_dict['run'] = [date]
     build_dict['mineral'] = [dat[5]]
 
+    # ### if solid solutions are turned off, then NaN is suppplied in their
+    # ### place this is done, instead of removing them altogether, so that
+    # ### difffernet orders in teh same campaign can turn them on and off,
+    # ### without effecting the es table columns
+    if not camp.SS:
+        for _ in ss:
+            build_dict[_] = [-999999]
+
     # ## reorganize columns to match es table
     build_df = pd.DataFrame.from_dict(build_dict)
+
     build_df = build_df[col_names]
 
     return run_code, build_df
@@ -511,7 +522,7 @@ def yoeman(camp, keep_running, write_vs_q, write_es_q, num_points):
 
     vs_n_written = 0
 
-    progress = tqdm(total = num_points)
+    progress = tqdm(total=num_points)
     while keep_running:
 
         # ### check that es has something to write

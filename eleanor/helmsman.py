@@ -95,7 +95,7 @@ def Helmsman(camp, ord_id=None):
         print(f"Processing all unfullfiled orders ({len(rec)} points)")
     else:
         print(f"Processing Order {ord_id} ({len(rec)} points)")
-    cores = 3  # TODO: This doesn't make no damn sense, detect or pass as an argument
+    cores = 2  # TODO: This doesn't make no damn sense, detect or pass as an argument
 
     with WorkingDirectory(order_path):
         # ### build vs/es queues

@@ -95,7 +95,7 @@ def Helmsman(camp, ord_id=None):
         print(f"Processing all unfullfiled orders ({len(rec)} points)")
     else:
         print(f"Processing Order {ord_id} ({len(rec)} points)")
-    cores = 2  # TODO: This doesn't make no damn sense, detect or pass as an argument
+    cores = 4  # TODO: This doesn't make no damn sense, detect or pass as an argument
 
     with WorkingDirectory(order_path):
         # ### build vs/es queues
@@ -161,8 +161,8 @@ def sailor(camp, order_path, vs_queue, es_queue, date, dat, elements, ss, vs_col
     # ### this functionality was installed in order to limit the quantity
     # ### of data generated during large runs. If a specifc output file is desired
     # ### it can simply be rerun from the data in the vs table and the campaign sheet.
-    keep_every_n_files = 500
-    if int(run_num) in [int(idx) for idx in np.arange(1, 1000000, keep_every_n_files)]:
+    keep_every_n_files = 1000
+    if int(run_num) in [int(idx) for idx in np.arange(1, 10000000, keep_every_n_files)]:
         delete_after_running = False
     else:
         delete_after_running = True

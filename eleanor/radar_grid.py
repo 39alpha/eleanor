@@ -8,7 +8,7 @@ import matplotlib
 import re
 import sys
 import time
-# import numpy as np
+import numpy as np
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
@@ -22,8 +22,9 @@ from .hanger.radar_tools import get_continuous_cmap
 from .hanger.radar_tools import hide_current_axis
 from .hanger.radar_tools import color_dict
 
+
 def Radar_Grid(camp, vars, color_condition, description, ord_id=None, limit=1000, where=None, 
-          add_analytics=False):
+               add_analytics=False):
     """
     Plots 3 dimenions from vs and es camp databases
     :param camp: campaign
@@ -140,20 +141,36 @@ def Radar_Grid(camp, vars, color_condition, description, ord_id=None, limit=1000
             df['color'] = df['ord_v']
 
         elif color_condition[0] == 'color':
-            palette = {True: color_condition[1]}
-            df['color'] = True
+            # palette = {True: color_condition[1]}
+            # df['color'] = True
+            df['color'] = color_condition[1]
 
         elif color_condition[0] in ['species', 'solid']:
             the_math = color_condition[1].replace('{', 'df["').replace('}', '"]')
             df['color'] = eval(the_math)
             palette = {True: "#ff0000", False: "#79baf7"}
 
+
+        # ### PMH
+        df['color'] = df['color'].mask((df['magnetite_e'] > 0) & (df['hematite_e'] > 0), '#EA1515')
+
+        # ### PM
+        df['color'] = df['color'].mask((df['magnetite_e'] > 0) & (df['hematite_e'] < 0), '#9A28CF')
+
+        # ### PH
+        df['color'] = df['color'].mask((df['magnetite_e'] < 0) & (df['hematite_e'] > 0), '#3ACF28')
+
+        # ### blue passes through as Py only
+
+        # df.drop(['magnetite_e', 'hematite_e'], axis=1, inplace=True)
+
         # ### gitd plots all_sp as axes, which does nto include any speicexs required to determine color
         grid = sns.PairGrid(data=df, hue='color', vars=all_sp,  # hue_order=[False, True],
-                            palette=palette, height=4,
+                            # palette=palette,
+                            height=4,
                             layout_pad=1.5)
         # grid.map_upper(sns.kdeplot,  alpha=0.6, levels=10, thresh=0.05, linewidth=0.1)
-        grid.map_lower(plt.scatter, alpha=0.5, edgecolor=None, s=1, linewidth=0)
+        grid.map_lower(plt.scatter, alpha=0.5, edgecolor=None, s=3, linewidth=0)
         grid.map_diag(plt.hist, bins=40)
         # grid.map_diag(sns.kdeplot, fill=False, alpha=0.2, levels=1, thresh=0.05)      # conditions for test 6 and first big Py plot
         grid.map_upper(hide_current_axis)
@@ -186,7 +203,7 @@ def Radar_Grid(camp, vars, color_condition, description, ord_id=None, limit=1000
                     # grid.axes[j, i].set_yticklabels(yticks[j])
                     yrng = grid.axes[j, i].get_ylim()
                     xrng = grid.axes[j, i].get_xlim()
-                    grid.axes[j, i].plot([-1000, 1000], [-1000, 1000], color='black', linewidth=1)
+                    grid.axes[j, i].plot([-10000, 10000], [-10000, 10000], color='#fa70ec', linewidth=0.4)
 
                     # ### set 0-lines for solids to make it easier to differentiate affinity from moles
                     if xlabels[i][:-2] in solids or solid_solutions:

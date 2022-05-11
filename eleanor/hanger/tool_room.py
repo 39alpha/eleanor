@@ -549,6 +549,7 @@ class Three_i(object):
                                  '* Aqueous phase scale factor' + '\n',
                                  '    scamas=  1.00000E+00')))
 
+
 class Six_i(object):
     """
         Instantiates 6i document template that contains the correct

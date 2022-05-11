@@ -23,6 +23,10 @@ from .hanger.radar_tools import get_continuous_cmap
 
 # import eleanor.campaign as campaign
 
+# ### make Radar a class, then add methods for 
+#    def to_mpl
+#    def to_vega
+
 def Radar(camp, x_sp, y_sp, z_sp, description, ord_id=None, limit=1000, where=None, 
           transparent=True, add_analytics=False):
     """
@@ -50,6 +54,33 @@ def Radar(camp, x_sp, y_sp, z_sp, description, ord_id=None, limit=1000, where=No
     :param add_analytics: UNBUILT add mean line and sd's to plot
     :type add_analytics: str
     """
+
+    def plt_set(ax, df, x, y, mk, cmap=None, sz=10, fc='white', ec='black',
+                lw=0.5):
+        """
+        plot subset of marhys database with style (mk=marker, sz=marker size,
+            fc=face color, ec=edge color, lw-edge line width)
+
+        The subset plotted is the group (groupby), within the column (col_name) on
+            the datafram df.
+
+        z order refers to the plotting layer relative to other groups which may
+            be plotted ont the same ax, which is exstablished outside this
+            function prioir to its first calling.
+        """
+        ax.scatter(x,
+                   y,
+                   c='temp',
+                   s=sz,
+                   marker=mk,
+                   cmap=cmap,
+                   linewidth=lw,
+                   facecolors=fc,
+                   # edgecolors=ec,
+                   data=df
+                   # zorder=zorder
+                   )
+
     # ### error chekc arguments
     if not ord_id:
         sys.exit('please supply order id, or list of order ids to be plotted')
@@ -62,7 +93,6 @@ def Radar(camp, x_sp, y_sp, z_sp, description, ord_id=None, limit=1000, where=No
     full_call = ' '.join(all_sp)
     es_sp = [_[:-2] for _ in set(re.findall('\{([^ ]*_e)\}', full_call))]
     vs_sp = [_[:-2] for _ in set(re.findall('\{([^ ]*_v)\}', full_call))]
-
     if len(vs_sp) == 0:
         # ### need at least one vs
         vs_sp = ['T_cel']
@@ -89,7 +119,6 @@ def Radar(camp, x_sp, y_sp, z_sp, description, ord_id=None, limit=1000, where=No
         conn.close()
 
         df = pd.concat(df_list)
-
         # ### process x, y and z, adding new df columns where math is detected
         for s in range(len(all_sp)):
             if '=' in all_sp[s]:
@@ -102,7 +131,7 @@ def Radar(camp, x_sp, y_sp, z_sp, description, ord_id=None, limit=1000, where=No
             else:
                 all_sp[s] = all_sp[s].replace('{', '').replace('}', '')
 
-        # ###  ploting 
+        # ###  ploting
         font = {'family': 'andale mono', 'size': 8}
         matplotlib.rc('font', **font)
         matplotlib.rcParams['axes.edgecolor'] = '#000000'
@@ -120,7 +149,7 @@ def Radar(camp, x_sp, y_sp, z_sp, description, ord_id=None, limit=1000, where=No
         if z_sp == '':
             fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(5, 9), tight_layout=True)
             ax1.scatter(all_sp[0], all_sp[1], data=df, facecolors='black', marker='o',
-                        alpha=0.3, edgecolor=None, s=4, linewidth=0)
+                        alpha=0.7, edgecolor=None, s=4, linewidth=0)
             ax1.xlabel(all_sp[0])
             ax1.ylabel(all_sp[1])
 
@@ -132,10 +161,23 @@ def Radar(camp, x_sp, y_sp, z_sp, description, ord_id=None, limit=1000, where=No
             df = df.sort_values(by=all_sp[2], ascending=False, na_position='first')
             cb = ax1.scatter(all_sp[0], all_sp[1], c=all_sp[2],
                              data=df, cmap=cmap, facecolors='black', marker='o',
-                             alpha=1, edgecolor=None, s=0.5, linewidth=0,
+                             alpha=0.7, edgecolor=None, s=4, linewidth=0,
                              label=all_sp[2])
             ax1.set_xlabel(all_sp[0])
             ax1.set_ylabel(all_sp[1])
+
+            # yrng = ax1.get_ylim()
+            # xrng = ax1.get_xlim()
+            # ax1.set_ylim([-10, -4])
+            # ax1.set_xlim([-10., -4])
+
+            # ax1.plot([-10000, 10000], [-10000, 10000], color='#fa70ec', linewidth=0.4)
+
+        ###  HOTS field data:
+        # dg = pd.read_csv('/Users/tuckerely/39A/CarbonState-Space-Reduction/HOTS/Complete_HOTS_all_stations_2022-02-26.csv')
+        # dg.drop(dg[dg['dic'] == -9].index, inplace=True)
+        # dg.drop(dg[dg['ph'] == -9].index, inplace=True)
+        # plt_set(ax1, dg, 'ph', 'dic', 'o', cmap=cmap, fc='None', lw=0.2, sz=8)
 
         fig.colorbar(cb, ax=ax1)
 
@@ -152,3 +194,6 @@ def Radar(camp, x_sp, y_sp, z_sp, description, ord_id=None, limit=1000, where=No
         fig_name = 'fig/test.png'
         print(f'wrote {fig_name}')
         plt.savefig(fig_name, dpi=400)
+
+
+

@@ -336,7 +336,7 @@ def process_BF_vars(BF_vars, reso):
 
     return pd.DataFrame(grid, columns=list(BF_vars.keys()))
 
-def random_uniform_order(camp, date, order_number, order_size, elements):
+def random_uniform_order(camp, date, order_number, order_size, elements, threshold_cb=0.001):
     """
     Generate randomily sampled points in VS to be managed by the
     helmsman as a sinlge 'order'
@@ -486,7 +486,7 @@ def random_uniform_order(camp, date, order_number, order_size, elements):
     d_cb = calculate_charge_imbalance(camp, key_charge, arr)
 
     # molal cutoff gor +- charge imbalance.
-    threshold_cb = 0.0001
+    
 
     # cycle through arr rows, removing those that violate charge imbalance
     # threshold identified in d_cb
@@ -501,7 +501,7 @@ def random_uniform_order(camp, date, order_number, order_size, elements):
     while len(arr) < order_size:
         print(f'order lenth = {len(arr)}')
         # calculate some more sample points, rebuild dbasis to fill to order size
-        new_dbasis = build_basis(camp, precision, order_size * 5)
+        new_dbasis = build_basis(camp, precision, order_size)
         new_arr = 10**np.array(new_dbasis)
         d_cb = calculate_charge_imbalance(camp, key_charge, new_arr)
         for _ in list(reversed(range(len(new_arr)))):

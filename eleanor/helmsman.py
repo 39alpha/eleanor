@@ -142,7 +142,7 @@ def Helmsman(camp, ord_id=None):
     yoeman_process.terminate()
 
 
-def sailor(camp, order_path, vs_queue, es_queue, date, dat, elements, ss, vs_col_names, es_col_names):
+def sailor(camp, order_path, vs_queue, es_queue, date, dat, elements, ss, vs_col_names, es_col_names, keep_every_n_files=1000):
     """
     Run system 'run', a point (vs) in variable space (VS) retireved from vs table
     (1) build 3i
@@ -160,7 +160,6 @@ def sailor(camp, order_path, vs_queue, es_queue, date, dat, elements, ss, vs_col
     # ### this functionality was installed in order to limit the quantity
     # ### of data generated during large runs. If a specifc output file is desired
     # ### it can simply be rerun from the data in the vs table and the campaign sheet.
-    keep_every_n_files = 1
     if int(run_num) in [int(idx) for idx in np.arange(0, 10000000, keep_every_n_files)]:
         delete_after_running = False
     else:

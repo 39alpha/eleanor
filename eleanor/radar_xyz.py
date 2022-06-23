@@ -23,7 +23,7 @@ from .hanger.radar_tools import get_continuous_cmap
 
 # import eleanor.campaign as campaign
 
-# ### make Radar a class, then add methods for 
+# ### make Radar a class, then add methods for
 #    def to_mpl
 #    def to_vega
 
@@ -70,13 +70,12 @@ def Radar(camp, x_sp, y_sp, z_sp, description, ord_id=None, limit=1000, where=No
         """
         ax.scatter(x,
                    y,
-                   c='temp',
                    s=sz,
                    marker=mk,
                    cmap=cmap,
                    linewidth=lw,
                    facecolors=fc,
-                   # edgecolors=ec,
+                   edgecolors=ec,
                    data=df
                    # zorder=zorder
                    )
@@ -174,10 +173,10 @@ def Radar(camp, x_sp, y_sp, z_sp, description, ord_id=None, limit=1000, where=No
             # ax1.plot([-10000, 10000], [-10000, 10000], color='#fa70ec', linewidth=0.4)
 
         ###  HOTS field data:
-        # dg = pd.read_csv('/Users/tuckerely/39A/CarbonState-Space-Reduction/HOTS/Complete_HOTS_all_stations_2022-02-26.csv')
-        # dg.drop(dg[dg['dic'] == -9].index, inplace=True)
-        # dg.drop(dg[dg['ph'] == -9].index, inplace=True)
-        # plt_set(ax1, dg, 'ph', 'dic', 'o', cmap=cmap, fc='None', lw=0.2, sz=8)
+        dg = pd.read_csv('/Users/tuckerely/39A/CarbonState-Space-Reduction/HOTS/Complete_HOTS_all_stations_2022-02-26.csv')
+        dg.drop(dg[dg['DIC_umol'] == -9].index, inplace=True)
+        dg.drop(dg[dg['pH'] == -9].index, inplace=True)
+        plt_set(ax1, dg, 'pH', 'DIC_umol', 'o', cmap=cmap, fc='None', ec='black', lw=0.2, sz=8)
 
         fig.colorbar(cb, ax=ax1)
 
@@ -194,6 +193,3 @@ def Radar(camp, x_sp, y_sp, z_sp, description, ord_id=None, limit=1000, where=No
         fig_name = 'fig/test.png'
         print(f'wrote {fig_name}')
         plt.savefig(fig_name, dpi=400)
-
-
-

@@ -106,7 +106,6 @@ def grab_float(line, pos):
         c = re.findall(r'[0-9Ee\+\.-]+', b[pos])
         return float(c[0])
 
-
 def mine_pickup_lines(pp, file, position):
     """
     pp = project path
@@ -404,7 +403,7 @@ class Three_i(object):
         to be made amdendable between campaigns.
     """
 
-    def __init__(self, cb,
+    def __init__(self,
                  iopt4='0',    # SS    1 (permit), (ignor)
                  iopt11='0',    # Auto basis switching   0 (turn on), 1 (turn off)
                  iopt17='0',    # Pickup file:  -1 (dont write), 0 (write)
@@ -420,7 +419,6 @@ class Three_i(object):
         """
         instantiates three_i constants
         """
-        self.cb = cb
         self.iopt4 = iopt4
         self.iopt11 = iopt11
         self.iopt17 = iopt17
@@ -433,7 +431,7 @@ class Three_i(object):
         self.iopr7 = iopr7
         self.iopr9 = iopr9
 
-    def write(self, local_name, v_state, v_basis, output_details='n'):
+    def write(self, local_name, v_state, v_basis, cb, output_details='n'):
         """
         local_name = actual file name
         v_state = dict['state_parameter_name'] = value
@@ -503,7 +501,7 @@ class Three_i(object):
                                  '    itdsf3=   0' + '\n',
                                  '    tdspkg=  0.00000E+00     tdspl=  0.00000E+00' + '\n',
                                  '    iebal3=   1' + '\n',
-                                 '     uebal= ' + self.cb + '\n',
+                                 '     uebal= ' + cb + '\n',
                                  '    irdxc3=   0' + '\n',
                                  '    fo2lgi= ' + format_e(v_state['fO2'], 5) + '       ehi=  0.00000E+00' + '\n', # noqa (E501)
                                  '       pei=  0.00000E+00    uredox= None' + '\n',

@@ -67,7 +67,6 @@ def Helmsman(camp, ord_id=None):
         if ord_id is not None:
             order_query += f' AND `ord` = {ord_id}'
         rec = retrieve_records(conn, order_query)
-
         vs_col_names = get_column_names(conn, 'vs')
         es_col_names = get_column_names(conn, 'es')
 
@@ -161,8 +160,8 @@ def sailor(camp, order_path, vs_queue, es_queue, date, dat, elements, ss, vs_col
     # ### this functionality was installed in order to limit the quantity
     # ### of data generated during large runs. If a specifc output file is desired
     # ### it can simply be rerun from the data in the vs table and the campaign sheet.
-    keep_every_n_files = 1000
-    if int(run_num) in [int(idx) for idx in np.arange(1, 10000000, keep_every_n_files)]:
+    keep_every_n_files = 1
+    if int(run_num) in [int(idx) for idx in np.arange(0, 10000000, keep_every_n_files)]:
         delete_after_running = False
     else:
         delete_after_running = True
@@ -213,7 +212,7 @@ def sailor(camp, order_path, vs_queue, es_queue, date, dat, elements, ss, vs_col
     suffix = data0_suffix(state_dict['T_cel'], state_dict['P_bar'])
 
     # ### build and execute 3i
-    camp.local_3i.write(file, state_dict, basis_dict, output_details='n')
+    camp.local_3i.write(file, state_dict, basis_dict, master_dict['cb'], output_details='n')
     data1_file = os.path.join(camp.data0_dir, "data1." + suffix)
     out, err = eq3(data1_file, file)  # TODO: Look at yourself, what the fuck.
 
@@ -366,8 +365,9 @@ def mine_6o(camp, date, elements, ss, file, dat, col_names):
             x = 4
             while not re.findall('^\n', lines[_ + x]):
                 if grab_str(lines[_ + x], 0) != 'O2(g)':
+                    # ### -1 position is log activity, -3 is log molality
                     build_dict[grab_str(lines[_ + x], 0)] = [grab_float(
-                        lines[_ + x], -1)]
+                        lines[_ + x], -3)]
                     x += 1
                 else:
                     x += 1
@@ -544,7 +544,6 @@ def yoeman(camp, keep_running, write_vs_q, write_es_q, num_points):
             # ### write vs data to sql
             execute_query(conn, vs_sql)
             vs_n_written += 1
-
 
 
 def six_o_data_to_sql(conn, table, df):

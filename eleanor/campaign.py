@@ -77,7 +77,7 @@ class Campaign:
         #
         # self.create_env()
 
-        self.local_3i = tool_room.Three_i(self.cb)
+        self.local_3i = tool_room.Three_i()
         self.local_6i = tool_room.Six_i(suppress_min=self.suppress_min,
                                         iopt4=iopt4,
                                         min_supp_exemp=self.min_supp_exemp)

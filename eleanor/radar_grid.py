@@ -12,6 +12,8 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
+from scipy.spatial import distance
+from sklearn.cluster import KMeans
 
 # ### custom packages
 from .hanger.db_comms import establish_database_connection, retrieve_combined_records
@@ -51,6 +53,7 @@ def Radar_Grid(camp, vars, color_condition, description, ord_id=None, limit=1000
     :param add_analytics: UNBUILT add mean line and sd's to plot
     :type add_analytics: str
     """
+
     # ### error check arguments
     if not ord_id:
         sys.exit('check docstring for arguments')
@@ -110,6 +113,33 @@ def Radar_Grid(camp, vars, color_condition, description, ord_id=None, limit=1000
             else:
                 all_sp[s] = all_sp[s].replace('{', '').replace('}', '')
 
+        # def find_clusters(df, vars, verbose=False):
+        #     # ### try to find 5 points that are furthest from
+        #     # ### Center point
+        #     # ### The data edges
+        #     # ### Each other
+
+        #     def closest_node(target_node, point_array):
+        #         """ Find point closest to target_node in point array """
+        #         closest_index = distance.cdist([target_node], point_array).argmin()
+        #         return point_array[closest_index]
+
+        #     # ### the center point based on mean log values.
+        #     # ### no reason to believe this point is special by the way.
+        #     mean_point = list(df[vars].mean())
+        #     df_array = np.array(df[vars])
+        #     centerish_point = closest_node(mean_point, df_array)
+
+        #     # find clusters
+        #     plt.scatter(X[:, 0], X[:, 1], c=y_kmeans, s=50, cmap='viridis')
+        #     centers = kmeans.cluster_centers_
+        #     plt.scatter(centers[:, 0], centers[:, 1], c='black', s=200, alpha=0.5)
+
+        # ### caluclate usefull points
+        # vars = ["tds_e", "Na_e", "Mg_e", "Ca_e", "K_e", "Sr_e", "Cl_e", "S_e", "Br_e", "F_e", "B_e", "C_e", "Si_e", "P_e", "N_e"]
+        # find_clusters(df, vars, n=5)
+        # sys.exit()
+
         # ###  ploting
         font = {'family': 'andale mono', 'size': 8}
         matplotlib.rc('font', **font)
@@ -136,42 +166,61 @@ def Radar_Grid(camp, vars, color_condition, description, ord_id=None, limit=1000
                  'aa': "#3ad4f2", 'ba': "#146ee3", 'ca': "#1c0069"  # cold tones (light to dark)
                  }
         elif color_condition[0] == 'ord':
-            palette = dict(zip(ord_id, color_dict['5'][:len(ord_id)]))
+            palette = dict(zip(ord_id, color_dict['4'][:len(ord_id)]))
             print(palette)
             df['color'] = df['ord_v']
+            # df['color'].mask([(df['calcite_e'] > 0) & (df['ord_v'] == 2)], 3)
+
+            df['color'] = df['color'].mask((df['calcite_e'] > 0) & (df['ord_v'] == 2), 3)
+            print(df['color'].value_counts())
+            palette[3] = '#000000'
+
+            df['color'] = df['color'].mask((df['T_cel_v'] < 3) & (df['P_bar_v'] > 410), 4)
+            print(df['color'].value_counts())
+            palette[4] = '#00cc00'
+
+            print(palette)
 
         elif color_condition[0] == 'color':
             # palette = {True: color_condition[1]}
             # df['color'] = True
-            df['color'] = color_condition[1]
+            df['color'] = 'Ponly'
 
         elif color_condition[0] in ['species', 'solid']:
             the_math = color_condition[1].replace('{', 'df["').replace('}', '"]')
             df['color'] = eval(the_math)
             palette = {True: "#ff0000", False: "#79baf7"}
+            print(df['color'])
 
-
+        # red = "#ff0000"
+        # blk = "#000000"
+        # pink = '#F974F5'
+        # blu = '#79baf7'
+        # orng = '#FD8F00'
+        # lorng = '#FF9C40'
+        # ylw = '#FEEB1E'
+        # palette = {'PHM':red, 'PM':blk, 'PH':lorng, 'Ponly':blu}
         # ### PMH
-        df['color'] = df['color'].mask((df['magnetite_e'] > 0) & (df['hematite_e'] > 0), '#EA1515')
+        # df['color'] = df['color'].mask((df['magnetite_e'] > 0) & (df['hematite_e'] > 0), 'PHM')
 
         # ### PM
-        df['color'] = df['color'].mask((df['magnetite_e'] > 0) & (df['hematite_e'] < 0), '#9A28CF')
+        # df['color'] = df['color'].mask((df['magnetite_e'] > 0) & (df['hematite_e'] < 0), 'PM')
 
         # ### PH
-        df['color'] = df['color'].mask((df['magnetite_e'] < 0) & (df['hematite_e'] > 0), '#3ACF28')
-
+        # df['color'] = df['color'].mask((df['magnetite_e'] < 0) & (df['hematite_e'] > 0), 'PH')
         # ### blue passes through as Py only
-
-        # df.drop(['magnetite_e', 'hematite_e'], axis=1, inplace=True)
+        # drop_list = ['magnetite_e', 'hematite_e']
+        # df.drop(drop_list, axis=1, inplace=True)
+        # all_sp = [_ for _ in all_sp if _ not in drop_list]
 
         # ### gitd plots all_sp as axes, which does nto include any speicexs required to determine color
         grid = sns.PairGrid(data=df, hue='color', vars=all_sp,  # hue_order=[False, True],
-                            # palette=palette,
+                            palette=palette,
                             height=4,
                             layout_pad=1.5)
         # grid.map_upper(sns.kdeplot,  alpha=0.6, levels=10, thresh=0.05, linewidth=0.1)
-        grid.map_lower(plt.scatter, alpha=0.5, edgecolor=None, s=3, linewidth=0)
-        grid.map_diag(plt.hist, bins=40)
+        grid.map_lower(plt.scatter, alpha=0.8, edgecolor=None, s=5, linewidth=0)
+        # grid.map_diag(plt.hist, bins=40)
         # grid.map_diag(sns.kdeplot, fill=False, alpha=0.2, levels=1, thresh=0.05)      # conditions for test 6 and first big Py plot
         grid.map_upper(hide_current_axis)
 

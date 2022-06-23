@@ -11,6 +11,7 @@ import sys
 import uuid
 import random
 import itertools
+import re
 import os
 import time
 
@@ -115,9 +116,10 @@ def huffer(conn, camp):
     # select proper data0
     suffix = data0_suffix(state_dict['T_cel'], state_dict['P_bar'])
 
-    # build 'verbose' 3i, with solid solutions on
+    # build 'verbose' 3i, with solid solutions on. cb defaults to H+ jsut for
+    # huffer.
     camp.local_3i.write(
-        'test.3i', state_dict, basis_dict, output_details='v')
+        'test.3i', state_dict, basis_dict, 'H+', output_details='v')
     data1_file = os.path.join(camp.data0_dir, "data1." + suffix)
     out, err = eq3(data1_file, 'test.3i')
 
@@ -316,7 +318,7 @@ def brute_force_order(conn, camp, date, order_number, elements):
 
 def process_BF_vars(BF_vars, reso):
     """
-    create dataframe containing all samples brute force samples
+    create dataframe containing all brute force samples
     """
     # TODO: Check this against old method
     all_ranges = []
@@ -395,10 +397,11 @@ def random_uniform_order(camp, date, order_number, order_size, elements):
                                             precision))
 
     # (3) add vs_state dimensions to orders
+    
     for _ in camp.vs_state.keys():
         if isinstance(camp.vs_state[_], (list)):
             if _ == "P_bar":
-                # P is limited tot data0 step size (currently 0.5 bars)
+                # P is limited to data0 step size (currently 0.5 bars)
                 P_options = [_ / 2 for _ in list(range(int(2 * camp.vs_state[_][0]),
                                                        int(2 * camp.vs_state[_][1])))]
 
@@ -416,23 +419,121 @@ def random_uniform_order(camp, date, order_number, order_size, elements):
             # given existing df length
             df['{}'.format(_)] = float(np.round(camp.vs_state[_], precision))
 
-    # (4) add vs_basis dimensions to orders
-    for _ in camp.vs_basis.keys():
-        # cycle through basis species
-        if isinstance(camp.vs_basis[_], list):
-            # is range, thus make n=order_size random choices within range
-            vals = [float(np.round(random.uniform(camp.vs_basis[_][0],
-                                                  camp.vs_basis[_][1]),
-                                   precision))
-                    for i in range(order_size)]
 
-            df['{}'.format(_)] = vals
+    # (4) add vs_basis dimensions to orders. The array to be added to the order
+    # is built in stages here, to reduce all samoles to a charge imbalance that
+    # is realistically managed by cb.
+    def build_basis(camp, precision, n):
+        """
+        build basis vs of len = n.
+        THis is a function so that it can be iterable, unlike the other
+        vs dimensions, becuase we want to build it in stages after removeing
+        rows that are too far from charge balance for any one species to
+        realistically adust.
+        """
+        dlocal = pd.DataFrame()
+        for _ in camp.vs_basis.keys():
+            # cycle through basis species
+            if isinstance(camp.vs_basis[_], list):
+                # is range, thus make n=order_size random choices within range
+                vals = [float(np.round(random.uniform(camp.vs_basis[_][0],
+                                                      camp.vs_basis[_][1]),
+                                       precision))
+                        for i in range(n)]
+                dlocal['{}'.format(_)] = vals
+            else:
+                # is fixed value. n = order_size is automatic for a constant
+                # given existing df length
+                vals = np.round(camp.vs_basis[_], precision)
+                dlocal['{}'.format(_)] = float(vals)
+        return dlocal
 
+    def calculate_charge_imbalance(camp, key_charge, arr):
+        n = len(arr)
+        new_arr = np.array([0.0] * n)
+        for sp in key_charge.keys():
+            sp_idx = list(camp.vs_basis.keys()).index(sp)
+            new_arr += key_charge[sp] * arr[:, sp_idx]
+        return new_arr
+
+    # determine species to measure for charge imbalance
+    key_charge = {}  # dict of basis (keys) charges (values)
+    for sp in camp.vs_basis.keys():
+        explode = re.split(r'([\-+])', sp)
+        if len(explode) == 1 or sp == 'H+':
+            # no charge
+            pass
+        elif explode[-1] == '':
+            # -1 or +1
+            if explode[-2] == '+':
+                key_charge[sp] = 1
+            elif explode[-2] == '-':
+                key_charge[sp] = -1
+        elif '-' in explode:
+            # <= -2
+            key_charge[sp] = -int(explode[-1])
         else:
-            # is fixed value. n = order_size is automatic for a constant
-            # given existing df length
-            vals = np.round(camp.vs_basis[_], precision)
-            df['{}'.format(_)] = float(vals)
+            # >= +2
+            key_charge[sp] = int(explode[-1])
+
+    # build first df of correct length
+    dbasis = build_basis(camp, precision, order_size)
+
+    # convert to natural array for removal of rows
+    arr = 10**np.array(dbasis)
+
+    # ### calcuate imbalance of each sample.
+    d_cb = calculate_charge_imbalance(camp, key_charge, arr)
+
+    # molal cutoff gor +- charge imbalance.
+    threshold_cb = 0.0001
+
+    # cycle through arr rows, removing those that violate charge imbalance
+    # threshold identified in d_cb
+    for _ in list(reversed(range(len(arr)))):
+        # remove rows from arr in reverse order that violate
+        # charge balance tolerance. first pass.
+        if abs(d_cb[_]) > threshold_cb:
+            arr = np.delete(arr, _, 0)
+
+    print(f'filling order (n = {order_size}) up based on charge ')
+    print(f'    imbalance threshold: {threshold_cb}')
+    while len(arr) < order_size:
+        print(f'order lenth = {len(arr)}')
+        # calculate some more sample points, rebuild dbasis to fill to order size
+        new_dbasis = build_basis(camp, precision, order_size * 5)
+        new_arr = 10**np.array(new_dbasis)
+        d_cb = calculate_charge_imbalance(camp, key_charge, new_arr)
+        for _ in list(reversed(range(len(new_arr)))):
+            if abs(d_cb[_]) > threshold_cb:
+                new_arr = np.delete(new_arr, _, 0)
+
+        # add new_dbasis to dbasis
+        arr = np.vstack((arr, new_arr))
+
+    arr = arr[:order_size]  # snip excess
+
+    d_cb = calculate_charge_imbalance(camp, key_charge, arr)
+
+    # build new df from arr, columns = camp.vs_basis.keys()
+    # which assumes I left all basis columns in, even those not
+    # manipulated by
+    dbasis = pd.DataFrame(np.log10(arr), columns=camp.vs_basis.keys())
+
+    # build basis into main df
+    df = pd.concat([df, dbasis], axis=1)
+    # df.vstack = pd.DataFrame(arr, columns=camp.vs_basis.keys())
+
+    # now chose charge balance
+    if camp.cb == 'dynamic':
+        # select for speices opposit charge movement
+        # key_charge.keys() is ajusted here to remove species
+        # known to be problamatic for cb (ie, alot of the element mass)
+        # is in neutral sp (e, C, S, N)
+        max_keys = df[key_charge.keys()].idxmax(axis=1)
+        df['cb'] = max_keys
+    else:
+        df['cb'] = camp.cb
 
     # calculate element totals columns
     # aqueous element totals. vs point-local dictionary

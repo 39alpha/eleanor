@@ -1,8 +1,7 @@
-"""The Navigator is the main tool to construct orders for the Helmsman to distribute"""
-# Navigator.py
-# Generates orders (sets of points in VS) to be stored in VS
-# postgresql database. These orders are to be managed by the
-# helmsman at her leisure.
+"""The Navigator is the main tool to construct orders for the Helmsman to distribute.
+   It generates orders- sets of points in the variable space (VS) which are stored in the table
+   `VS` in the SQLight DB. These orders are to be managed by the Helmsmen at her leisure.
+"""
 # Tucker Ely and then 39Alpha
 # October 6nd 2020 and then Dec 12th 2021
 
@@ -30,8 +29,13 @@ from .hanger.data0_tools import SLOP_DF
 
 
 def Navigator(this_campaign):
-    """ TODO: What does the Navigator do??
-        Main function of the navigator"""
+    """ Main function of the navigator. The Navigator generates samples in the variable space for
+        the Helmsmen to run when needed. While the Navigator generates data it tests one run, for
+        quality control using the huffer to ensure at least some of the samples will run in EQ3/6
+
+        :param this_campaign: A campaign object which defines the variable space for the Helmsman,
+        see Campaign.py for more details.
+    """
 
     # Enter the Campaigns env
     with this_campaign.working_directory():

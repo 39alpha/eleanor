@@ -470,7 +470,7 @@ def orders_to_sql(conn, table, ord, df):
     connection 'conn'
 
     :param conn: sql database connnection
-    :type conn: TODO
+    :type conn: sqlite3.Connection
 
     :param table: sql table name
     :type table: str

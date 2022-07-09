@@ -331,7 +331,7 @@ def brute_force_order(camp, date, ord, elements, precision=6):
 
 def process_BF_vars(BF_vars, reso):
     """
-    Evenily spaces all vs points across all brute force dimensions
+    Evenly spaces all vs points across all brute force dimensions
 
     :param BF_vars: varible names (keys) and their range limts (values)
     :type BF_vars: dict

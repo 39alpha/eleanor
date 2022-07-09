@@ -705,10 +705,6 @@ class Six_i(object):
                         # gas reactant
                         build.write(build_gas_rnt(_, reactants[_][1], reactants[_][2]))
 
-                    # elif reactants[_][0] == 'Gale':
-                    #     load_gale
-                    #     build.write
-
             if additional_sw_rxn:
                 # drop in seawater as an additional reactant, to exhaustion.
                 # this is obviously incomplete, as i should be able to pick which fluid i want to

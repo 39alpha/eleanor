@@ -50,9 +50,16 @@ def determine_ele_set(path=''):
             if '           --- Elemental Composition of the Aqueous Solution ---' in line:
                 grab_ele = True
             elif grab_ele and re.findall('^     [A-Z]', line):
-                elements.append(grab_str(line, 0))
+
+                if float(line.split()[1]) == 0.0:
+                    # element not loaded (ie. Cl). this shows up in
+                    # the eq3 element set even if set to 0.
+                    pass
+                else:
+                    elements.append(grab_str(line, 0))
             elif '--- Numerical Composition of the Aqueous Solution ---' in line:
-                return elements
+                return [_ for _ in elements if _ not in ['O', 'H']]
+
 
 def determine_species_set(path=''):
     """
@@ -103,8 +110,17 @@ def determine_species_set(path=''):
             elif '           --- Elemental Composition of the Aqueous Solution ---' in lines[i]:
                 i += 4
                 while not re.findall('^\n', lines[i]):
-                    elements.append(lines[i][:13].strip())
-                    i += 1
+                    ele = lines[i][:13].strip()
+                    if ele not in ['O', 'H']:
+                        if float(lines[i].split()[1]) == 0.0:
+                            # element not loaded (ie. Cl). this shows up in
+                            # the eq3 element set even if set to 0.
+                            pass
+                        else:
+                            elements.append(ele)
+                        i += 1
+                    else:
+                        i += 1
 
             elif '--- Distribution of Aqueous Solute Species ---' in lines[i]:
                 i += 4

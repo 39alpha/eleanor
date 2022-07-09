@@ -142,7 +142,7 @@ def Helmsman(camp, ord_id=None):
     yoeman_process.terminate()
 
 
-def sailor(camp, order_path, vs_queue, es_queue, date, dat, elements, ss, vs_col_names, es_col_names, keep_every_n_files=1000):
+def sailor(camp, order_path, vs_queue, es_queue, date, dat, elements, ss, vs_col_names, es_col_names, keep_every_n_files=1):
     """
     Run system 'run', a point (vs) in variable space (VS) retireved from vs table
     (1) build 3i
@@ -182,22 +182,6 @@ def sailor(camp, order_path, vs_queue, es_queue, date, dat, elements, ss, vs_col
 
     for _ in range(len(rnt_keys)):
         name = rnt_keys[_]
-
-        # ### TODO: add rock reactant cpaability, partial below
-        # if '.json' in name:
-        #     name = name[:-5]
-        #     morr = master_dict['{}_morr'.format(name)]
-        #     rkb1 = master_dict['{}_rkb1'.format(name)]
-
-        #     rock_ele_dict = {}
-        #     ele_in_rock = rock_dat.grab_rock_ele()
-        #     for _ in ele_in_rock:
-        #         rock_ele_dict[_] = master_dict['{}_morr'.format(_)]
-        #     # ### pass elements in 2 spot
-        #     rnt_dict['whole_rock'] = [morr, rkb1, rock_ele_dict]
-
-        # else:
-
         rnt_type = camp.target_rnt[name][0]
         morr = master_dict['{}_morr'.format(name)]
         rkb1 = master_dict['{}_rkb1'.format(name)]
@@ -322,10 +306,6 @@ def mine_6o(camp, date, elements, ss, file, dat, col_names):
     for _ in range(last_xi_step_begins, len(lines)):
 
         if re.findall('^\n', lines[_]):
-            # ## efficincy test. I thin this if statemement will catch
-            # ## all of the empty lines, without having to cycle through
-            # ## all of the below elif statements to discover that none
-            # ## of them work.
             pass
 
         elif ' Temperature=' in lines[_]:
@@ -338,7 +318,7 @@ def mine_6o(camp, date, elements, ss, file, dat, col_names):
             x = 4
             while not re.findall('^\n', lines[_ + x]):
                 if grab_str(lines[_ + x], 0) in elements:
-                    # ## log molality data
+                    # log molality data
                     this_dat = [np.round(np.log10(grab_float(lines[_ + x], -1)), 6)]
                     build_dict['{}'.format(grab_str(lines[_ + x], 0))] = this_dat
                     x += 1

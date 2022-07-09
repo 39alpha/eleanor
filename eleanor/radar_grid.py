@@ -13,7 +13,7 @@ import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 from scipy.spatial import distance
-from sklearn.cluster import KMeans
+from sklearn_extra.cluster import KMedoids
 
 # ### custom packages
 from .hanger.db_comms import establish_database_connection, retrieve_combined_records
@@ -25,8 +25,8 @@ from .hanger.radar_tools import hide_current_axis
 from .hanger.radar_tools import color_dict
 
 
-def Radar_Grid(camp, vars, color_condition, description, ord_id=None, limit=1000, where=None, 
-               add_analytics=False):
+def Radar_Grid(camp, vars, color_condition, description, ord_id=None, limit=1000, where=None,
+               add_analytics=None):
     """
     Plots 3 dimenions from vs and es camp databases
     :param camp: campaign
@@ -53,6 +53,44 @@ def Radar_Grid(camp, vars, color_condition, description, ord_id=None, limit=1000
     :param add_analytics: UNBUILT add mean line and sd's to plot
     :type add_analytics: str
     """
+
+    def calculate_medoids(df, n=5, ax=None, x_sp=None, y_sp=None):
+        if x_sp:
+            x_idx = list(df.keys()).index(x_sp)
+        if y_sp:
+            y_idx = list(df.keys()).index(y_sp)
+
+        X = np.array(df)
+        cobj = KMedoids(n_clusters=5).fit(X)
+        labels = cobj.labels_
+
+        if ax:
+            # seeking plot
+            unique_labels = set(labels)
+            colors = [
+                plt.cm.Spectral(each) for each in np.linspace(0, 1, len(unique_labels))
+            ]
+
+            for k, col in zip(unique_labels, colors):
+                class_member_mask = labels == k
+                xy = X[class_member_mask]
+                ax.plot(
+                    xy[:, x_idx],
+                    xy[:, y_idx],
+                    "o",
+                    markerfacecolor=tuple(col),
+                    markeredgecolor=None,
+                    markersize=1,
+                )
+            ax.plot(
+                cobj.cluster_centers_[:, x_idx],
+                cobj.cluster_centers_[:, y_idx],
+                "o",
+                markerfacecolor="black",
+                markeredgecolor=None,
+                markersize=6,
+            )
+        return labels, pd.DataFrame(cobj.cluster_centers_, columns=df.keys())
 
     # ### error check arguments
     if not ord_id:
@@ -99,6 +137,7 @@ def Radar_Grid(camp, vars, color_condition, description, ord_id=None, limit=1000
                                            where=where)
             df_list.append(df)
         df = pd.concat(df_list)
+
         conn.close()
 
         # ### process x, y and z, adding new df columns where math is detected
@@ -112,33 +151,6 @@ def Radar_Grid(camp, vars, color_condition, description, ord_id=None, limit=1000
                 df[new_var] = eval(the_math)
             else:
                 all_sp[s] = all_sp[s].replace('{', '').replace('}', '')
-
-        # def find_clusters(df, vars, verbose=False):
-        #     # ### try to find 5 points that are furthest from
-        #     # ### Center point
-        #     # ### The data edges
-        #     # ### Each other
-
-        #     def closest_node(target_node, point_array):
-        #         """ Find point closest to target_node in point array """
-        #         closest_index = distance.cdist([target_node], point_array).argmin()
-        #         return point_array[closest_index]
-
-        #     # ### the center point based on mean log values.
-        #     # ### no reason to believe this point is special by the way.
-        #     mean_point = list(df[vars].mean())
-        #     df_array = np.array(df[vars])
-        #     centerish_point = closest_node(mean_point, df_array)
-
-        #     # find clusters
-        #     plt.scatter(X[:, 0], X[:, 1], c=y_kmeans, s=50, cmap='viridis')
-        #     centers = kmeans.cluster_centers_
-        #     plt.scatter(centers[:, 0], centers[:, 1], c='black', s=200, alpha=0.5)
-
-        # ### caluclate usefull points
-        # vars = ["tds_e", "Na_e", "Mg_e", "Ca_e", "K_e", "Sr_e", "Cl_e", "S_e", "Br_e", "F_e", "B_e", "C_e", "Si_e", "P_e", "N_e"]
-        # find_clusters(df, vars, n=5)
-        # sys.exit()
 
         # ###  ploting
         font = {'family': 'andale mono', 'size': 8}
@@ -154,6 +166,21 @@ def Radar_Grid(camp, vars, color_condition, description, ord_id=None, limit=1000
         matplotlib.rcParams['legend.frameon'] = False
 
         # ### process color choice
+        if color_condition[0] == 'medoid':
+            # calculate medoids and thier clusters
+            n_clusters = 5
+            cluster_labels, cluster_centers = calculate_medoids(df, n=n_clusters)
+            df['clusters'] = cluster_labels  # add cluster association to df
+            # with pd.option_context('display.max_rows', None, 'display.max_columns', None):  # more options can be specified also
+            #     print(cluster_centers)
+            cluster_centers['clusters'] = 1000  #  cluster centers are set arbitrarily
+            cluster_centers = cluster_centers[(cluster_centers['clusters'] == 1000) & (cluster_centers['pH'] >9)]['clusters'] = 2000
+            df = pd.concat([df, cluster_centers])
+            palette = {
+                0: "#f7e14f", 1: "#ff8c00", 2: "#e60000",
+                3: "#3ad4f2", 4: "#1c0069", 1000: "#000000", 2000: "#000000"}
+
+
         if color_condition[0] == 'grid':
             df['x_coarse'] = pd.qcut(df[color_condition[1][0]], 3, labels=['a', 'b', 'c'])
             df['y_coarse'] = pd.qcut(df[color_condition[1][1]], 3, labels=['a', 'b', 'c'])
@@ -190,7 +217,6 @@ def Radar_Grid(camp, vars, color_condition, description, ord_id=None, limit=1000
             the_math = color_condition[1].replace('{', 'df["').replace('}', '"]')
             df['color'] = eval(the_math)
             palette = {True: "#ff0000", False: "#79baf7"}
-            print(df['color'])
 
         # red = "#ff0000"
         # blk = "#000000"
@@ -214,13 +240,17 @@ def Radar_Grid(camp, vars, color_condition, description, ord_id=None, limit=1000
         # all_sp = [_ for _ in all_sp if _ not in drop_list]
 
         # ### gitd plots all_sp as axes, which does nto include any speicexs required to determine color
-        grid = sns.PairGrid(data=df, hue='color', vars=all_sp,  # hue_order=[False, True],
+        grid = sns.PairGrid(data=df, hue='color', vars=all_sp,
                             palette=palette,
                             height=4,
-                            layout_pad=1.5)
+                            layout_pad=1.5
+                            # hue_order=[0, 1, 2, 3, 4, 1000, 2000],
+                            # hue_kws={"s": [4, 4, 4, 4, 4, 40, 100], "alpha":[0.3, 0.3, 0.3, 0.3, 0.3, 1.0, 1.0]}
+                            )
+
         # grid.map_upper(sns.kdeplot,  alpha=0.6, levels=10, thresh=0.05, linewidth=0.1)
-        grid.map_lower(plt.scatter, alpha=0.8, edgecolor=None, s=5, linewidth=0)
-        # grid.map_diag(plt.hist, bins=40)
+        grid.map_lower(plt.scatter, alpha=0.5, edgecolor=None, s=80, linewidth=0)
+        grid.map_diag(plt.hist, bins=40)
         # grid.map_diag(sns.kdeplot, fill=False, alpha=0.2, levels=1, thresh=0.05)      # conditions for test 6 and first big Py plot
         grid.map_upper(hide_current_axis)
 
@@ -292,5 +322,6 @@ def Radar_Grid(camp, vars, color_condition, description, ord_id=None, limit=1000
                               f"notes: {description}"])
         grid = grid.fig.suptitle(add_text, fontsize=20)
         fig_name = 'fig/test_grid.png'
-        print(f'wrote {fig_name}')
+
         plt.savefig(fig_name, dpi=400)
+        print(f'wrote {fig_name}')

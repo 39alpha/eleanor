@@ -1,5 +1,5 @@
 from .. common import TestCase
-from eleanor.hanger.eq36 import eqpt, eq3, eq6
+from eleanor.hanger.eq36 import Eq36Exception, eqpt, eq3, eq6
 from tempfile import TemporaryDirectory
 from os.path import abspath, dirname, exists, join, realpath
 
@@ -55,6 +55,22 @@ class TestEQ36(TestCase):
             for ext in ['.3p', '.3o']:
                 fname = join(tmpdir, "acidmwb" + ext)
                 self.assertTrue(exists(fname))
+
+            os.chdir(cwd)
+
+    def test_eq3_error(self):
+        """
+        Ensure that running EQ3 on a broken 3i file raises an EQ36Exception.
+        """
+        cwd = os.getcwd()
+        with TemporaryDirectory() as tmpdir:
+            self.assertNotEqual(os.getcwd(), tmpdir)
+            os.chdir(tmpdir)
+            data1 = join(DATADIR, "eq36_error", "test.d1")
+            threei = join(DATADIR, "eq36_error", "test.3i")
+
+            with self.assertRaises(Eq36Exception):
+                eq3(data1, threei)
 
             os.chdir(cwd)
 

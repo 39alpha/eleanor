@@ -1,0 +1,74 @@
+EQ3NR input file name= local
+endit.
+* Special basis switches
+    nsbswt=   0
+* General
+     tempc=  5.50000E+00
+    jpres3=   0
+     press=  5.00000E+00
+       rho=  1.00000E+00
+    itdsf3=   0
+    tdspkg=  0.00000E+00     tdspl=  0.00000E+00
+    iebal3=   1
+     uebal= H+
+    irdxc3=   0
+    fo2lgi= -1.05000E+01       ehi=  0.00000E+00
+       pei=  0.00000E+00    uredox= None
+* Aqueous basis species
+species= H+
+   jflgi= 16    covali=  -8.0
+species= Na+
+   jflgi=  0    covali=  4.86060E-01
+species= Mg+2
+   jflgi=  0    covali=  5.47421E-02
+species= Ca+2
+   jflgi=  0    covali=  5.62341E-03
+species= K+
+   jflgi=  0    covali=  1.05797E-02
+species= Sr+2
+   jflgi=  0    covali=  9.40000E-05
+species= Cl-
+   jflgi=  0    covali=  5.65765E-01
+species= SO4-2
+   jflgi=  0    covali=  2.92643E-02
+species= HCO2-
+   jflgi=  0    covali=  2.03800E-03
+species= Br-
+   jflgi=  0    covali=  8.72800E-04
+species= B(OH)3
+   jflgi=  0    covali=  4.30300E-04
+species= F-
+   jflgi=  0    covali=  7.08000E-05
+endit.
+* Ion exchangers
+    qgexsh=        F
+       net=   0
+* Ion exchanger compositions
+      neti=   0
+* Solid solution compositions
+      nxti=   0
+* Alter/suppress options
+     nxmod=   2
+   species= METHANE
+    option= -1              xlkmod=  0.00000E+00
+   species= ETHYLENE(g)
+    option= -1              xlkmod=  0.00000E+00
+* Iopt, iopg, iopr, and iodb options
+*               1    2    3    4    5    6    7    8    9   10
+  iopt1-10=     0    0    0    1    0    0    0    0    0    0
+ iopt11-20=     0    0    0    0    0    0    0    0    3    0
+  iopg1-10=     0    0    0    0    0    0    0    0    0    0
+ iopg11-20=     0    0    0    0    0    0    0    0    0    0
+  iopr1-10=     1    3    0    1    3    1    1    0    1    0
+ iopr11-20=     0    0    0    0    0    0    0    0    0    0
+  iodb1-10=     2    0    4    4    0    2    0    0    0    0
+ iodb11-20=     0    0    0    0    0    0    0    0    0    0
+* Numerical parameters
+     tolbt=  0.00000E+00     toldl=  0.00000E+00
+    itermx=   0
+* Ordinary basis switches
+    nobswt=   0
+* Saturation flag tolerance
+    tolspf=  0.00000E+00
+* Aqueous phase scale factor
+    scamas=  1.00000E+00

@@ -98,14 +98,21 @@ def Navigator(this_campaign):
 
 def huffer(conn, camp):
     """
-    The huffer runs test 3i files to determine the loaded elelents and species
+    The huffer runs test 3i files to determine the loaded elements and species
     for said campaign, and to check for obvious user erros given system
     configuration.
 
     The huffer also establishes the VS (variable space, input) and ES
     (equilibrium space, output) tables in the campaign SQL database.
     These are only set up the first time a campaign is run. Subsequent
-    calls to the same campaign simply generate new orders in sequential order.
+    calls to the same campaign simply generate new sequentially numberd orders.
+
+    :param conn: sql database connnection
+    :type conn: :class: sqlite3.Connection
+
+    :param camp: loaded campaign
+    :type camp: :class:`Campaign` instance
+
     """
     print('Running the Huffer.')
 
@@ -470,7 +477,7 @@ def orders_to_sql(conn, table, ord, df):
     connection 'conn'
 
     :param conn: sql database connnection
-    :type conn: sqlite3.Connection
+    :type conn: :class: sqlite3.Connection
 
     :param table: sql table name
     :type table: str
@@ -479,7 +486,7 @@ def orders_to_sql(conn, table, ord, df):
     :type ord: int
 
     :param df: pandas Dataframe containing the orders
-    :type df: class pandas.core.frame.DataFrame
+    :type df: :class: pandas.core.frame.DataFrame
 
     """
     print(f'Writing order # {ord} to table {table}')

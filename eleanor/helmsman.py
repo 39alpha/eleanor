@@ -67,7 +67,6 @@ def Helmsman(camp, ord_id=None):
         if ord_id is not None:
             order_query += f' AND `ord` = {ord_id}'
         rec = retrieve_records(conn, order_query)
-
         vs_col_names = get_column_names(conn, 'vs')
         es_col_names = get_column_names(conn, 'es')
 
@@ -143,7 +142,7 @@ def Helmsman(camp, ord_id=None):
     yoeman_process.terminate()
 
 
-def sailor(camp, order_path, vs_queue, es_queue, date, dat, elements, ss, vs_col_names, es_col_names):
+def sailor(camp, order_path, vs_queue, es_queue, date, dat, elements, ss, vs_col_names, es_col_names, keep_every_n_files=1):
     """
     Run system 'run', a point (vs) in variable space (VS) retireved from vs table
     (1) build 3i
@@ -161,8 +160,7 @@ def sailor(camp, order_path, vs_queue, es_queue, date, dat, elements, ss, vs_col
     # ### this functionality was installed in order to limit the quantity
     # ### of data generated during large runs. If a specifc output file is desired
     # ### it can simply be rerun from the data in the vs table and the campaign sheet.
-    keep_every_n_files = 1000
-    if int(run_num) in [int(idx) for idx in np.arange(1, 10000000, keep_every_n_files)]:
+    if int(run_num) in [int(idx) for idx in np.arange(0, 10000000, keep_every_n_files)]:
         delete_after_running = False
     else:
         delete_after_running = True
@@ -184,22 +182,6 @@ def sailor(camp, order_path, vs_queue, es_queue, date, dat, elements, ss, vs_col
 
     for _ in range(len(rnt_keys)):
         name = rnt_keys[_]
-
-        # ### TODO: add rock reactant cpaability, partial below
-        # if '.json' in name:
-        #     name = name[:-5]
-        #     morr = master_dict['{}_morr'.format(name)]
-        #     rkb1 = master_dict['{}_rkb1'.format(name)]
-
-        #     rock_ele_dict = {}
-        #     ele_in_rock = rock_dat.grab_rock_ele()
-        #     for _ in ele_in_rock:
-        #         rock_ele_dict[_] = master_dict['{}_morr'.format(_)]
-        #     # ### pass elements in 2 spot
-        #     rnt_dict['whole_rock'] = [morr, rkb1, rock_ele_dict]
-
-        # else:
-
         rnt_type = camp.target_rnt[name][0]
         morr = master_dict['{}_morr'.format(name)]
         rkb1 = master_dict['{}_rkb1'.format(name)]
@@ -213,7 +195,7 @@ def sailor(camp, order_path, vs_queue, es_queue, date, dat, elements, ss, vs_col
     suffix = data0_suffix(state_dict['T_cel'], state_dict['P_bar'])
 
     # ### build and execute 3i
-    camp.local_3i.write(file, state_dict, basis_dict, output_details='n')
+    camp.local_3i.write(file, state_dict, basis_dict, master_dict['cb'], output_details='n')
     data1_file = os.path.join(camp.data0_dir, "data1." + suffix)
     out, err = eq3(data1_file, file)  # TODO: Look at yourself, what the fuck.
 
@@ -324,10 +306,6 @@ def mine_6o(camp, date, elements, ss, file, dat, col_names):
     for _ in range(last_xi_step_begins, len(lines)):
 
         if re.findall('^\n', lines[_]):
-            # ## efficincy test. I thin this if statemement will catch
-            # ## all of the empty lines, without having to cycle through
-            # ## all of the below elif statements to discover that none
-            # ## of them work.
             pass
 
         elif ' Temperature=' in lines[_]:
@@ -340,7 +318,7 @@ def mine_6o(camp, date, elements, ss, file, dat, col_names):
             x = 4
             while not re.findall('^\n', lines[_ + x]):
                 if grab_str(lines[_ + x], 0) in elements:
-                    # ## log molality data
+                    # log molality data
                     this_dat = [np.round(np.log10(grab_float(lines[_ + x], -1)), 6)]
                     build_dict['{}'.format(grab_str(lines[_ + x], 0))] = this_dat
                     x += 1
@@ -366,8 +344,9 @@ def mine_6o(camp, date, elements, ss, file, dat, col_names):
             x = 4
             while not re.findall('^\n', lines[_ + x]):
                 if grab_str(lines[_ + x], 0) != 'O2(g)':
+                    # ### -1 position is log activity, -3 is log molality
                     build_dict[grab_str(lines[_ + x], 0)] = [grab_float(
-                        lines[_ + x], -1)]
+                        lines[_ + x], -3)]
                     x += 1
                 else:
                     x += 1
@@ -544,7 +523,6 @@ def yoeman(camp, keep_running, write_vs_q, write_es_q, num_points):
             # ### write vs data to sql
             execute_query(conn, vs_sql)
             vs_n_written += 1
-
 
 
 def six_o_data_to_sql(conn, table, df):

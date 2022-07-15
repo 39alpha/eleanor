@@ -11,6 +11,7 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
+from sklearn_extra.cluster import KMedoids
 
 # ### custom packages
 
@@ -23,12 +24,12 @@ from .hanger.radar_tools import get_continuous_cmap
 
 # import eleanor.campaign as campaign
 
-# ### make Radar a class, then add methods for 
+# ### make Radar a class, then add methods for
 #    def to_mpl
 #    def to_vega
 
 def Radar(camp, x_sp, y_sp, z_sp, description, ord_id=None, limit=1000, where=None, 
-          transparent=True, add_analytics=False):
+          transparent=True, add_analytics=None):
     """
     Plots 3 dimenions from vs and es camp databases
     :param camp: campaign
@@ -70,16 +71,55 @@ def Radar(camp, x_sp, y_sp, z_sp, description, ord_id=None, limit=1000, where=No
         """
         ax.scatter(x,
                    y,
-                   c='temp',
                    s=sz,
                    marker=mk,
                    cmap=cmap,
                    linewidth=lw,
                    facecolors=fc,
-                   # edgecolors=ec,
+                   edgecolors=ec,
                    data=df
                    # zorder=zorder
                    )
+
+    def calculate_medoids(df, n=5, ax=None, x_sp=None, y_sp=None):
+        if x_sp:
+            x_idx = list(df.keys()).index(x_sp)
+        if y_sp:
+            y_idx = list(df.keys()).index(y_sp)
+
+        X = np.array(df)
+        cobj = KMedoids(n_clusters=5).fit(X)
+        print(cobj.inertia_)
+        sys.exit()
+
+        if ax:
+            # seeking plot
+            labels = cobj.labels_
+            unique_labels = set(labels)
+            colors = [
+                plt.cm.Spectral(each) for each in np.linspace(0, 1, len(unique_labels))
+            ]
+
+            for k, col in zip(unique_labels, colors):
+                class_member_mask = labels == k
+                xy = X[class_member_mask]
+                ax.plot(
+                    xy[:, x_idx],
+                    xy[:, y_idx],
+                    "o",
+                    markerfacecolor=tuple(col),
+                    markeredgecolor=None,
+                    markersize=1,
+                )
+            ax.plot(
+                cobj.cluster_centers_[:, x_idx],
+                cobj.cluster_centers_[:, y_idx],
+                "o",
+                markerfacecolor="black",
+                markeredgecolor=None,
+                markersize=6,
+            )
+        return pd.DataFrame(cobj.cluster_centers_, columns=df.keys())
 
     # ### error chekc arguments
     if not ord_id:
@@ -87,6 +127,9 @@ def Radar(camp, x_sp, y_sp, z_sp, description, ord_id=None, limit=1000, where=No
     if type(ord_id) == int:
         # ### convert to list of 1, if a single order number is supplied
         ord_id = [ord_id]
+
+
+
 
     # ### extract species {} from x_sp, y_sp, and z_sp strings
     all_sp = [x_sp, y_sp, z_sp]
@@ -119,6 +162,7 @@ def Radar(camp, x_sp, y_sp, z_sp, description, ord_id=None, limit=1000, where=No
         conn.close()
 
         df = pd.concat(df_list)
+
         # ### process x, y and z, adding new df columns where math is detected
         for s in range(len(all_sp)):
             if '=' in all_sp[s]:
@@ -145,6 +189,9 @@ def Radar(camp, x_sp, y_sp, z_sp, description, ord_id=None, limit=1000, where=No
         matplotlib.rcParams['legend.frameon'] = False
         matplotlib.rcParams['savefig.transparent'] = transparent
 
+        # calculate_medoids(df, n=5)
+        
+
         # ### process plot
         if z_sp == '':
             fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(5, 9), tight_layout=True)
@@ -156,6 +203,7 @@ def Radar(camp, x_sp, y_sp, z_sp, description, ord_id=None, limit=1000, where=No
         else:
             # ### with z_sp as color
             fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(5.5, 9), tight_layout=True)
+
             hex_list = radar_tools.blu_to_orng
             cmap = get_continuous_cmap(hex_list)
             df = df.sort_values(by=all_sp[2], ascending=False, na_position='first')
@@ -175,9 +223,9 @@ def Radar(camp, x_sp, y_sp, z_sp, description, ord_id=None, limit=1000, where=No
 
         ###  HOTS field data:
         # dg = pd.read_csv('/Users/tuckerely/39A/CarbonState-Space-Reduction/HOTS/Complete_HOTS_all_stations_2022-02-26.csv')
-        # dg.drop(dg[dg['dic'] == -9].index, inplace=True)
-        # dg.drop(dg[dg['ph'] == -9].index, inplace=True)
-        # plt_set(ax1, dg, 'ph', 'dic', 'o', cmap=cmap, fc='None', lw=0.2, sz=8)
+        # dg.drop(dg[dg['DIC_umol'] == -9].index, inplace=True)
+        # dg.drop(dg[dg['pH'] == -9].index, inplace=True)
+        # plt_set(ax1, dg, 'pH', 'DIC_umol', 'o', cmap=cmap, fc='None', ec='black', lw=0.2, sz=8)
 
         fig.colorbar(cb, ax=ax1)
 
@@ -194,6 +242,3 @@ def Radar(camp, x_sp, y_sp, z_sp, description, ord_id=None, limit=1000, where=No
         fig_name = 'fig/test.png'
         print(f'wrote {fig_name}')
         plt.savefig(fig_name, dpi=400)
-
-
-

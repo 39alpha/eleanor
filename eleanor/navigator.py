@@ -29,77 +29,100 @@ from .hanger.data0_tools import SLOP_DF
 
 
 def Navigator(this_campaign):
-    """ TODO: What does the Navigator do??
-        Main function of the navigator"""
+    """
+    The Navigator decides where to go (see what we did there), given the
+    praticulars of the loaded Campaign. The Navigator drafts an order,
+    which contain a collection of modeling sample points, and stores them in
+    the VS (Variable Space) table of the loaded campaign's SQL database.
+
+    Each line in the VS table (which is a vs point in n dimensiopns) contains
+    enough information to define a closed chemical system in those n dimensions
+    and thus contains enough information to execute eq3 and eq6, depending on
+    the praticulars of the loaded campaign.
+
+    Currently only two VS point distributions are supported.
+    (1) :param:`'this_campaign.distro'` == 'BF'
+        Brute Force, which calculates evenily spaced points for all non-fixed
+        dimensions.
+
+    (2) :param:`'this_campaign.distro'` == 'random'
+        Which randomily selects points for the non-fixed dimensions.
+
+    :param this_campaign: loaded campaign
+    :type this_campaign: :class:`Campaign` instance
+
+    """
 
     # Enter the Campaigns env
     with this_campaign.working_directory():
-        print('Preparing Orders from campagin {}.\n'.format(this_campaign.name))
+        print(f'Preparing order for campagin {this_campaign.name}.\n')
 
         conn = db_comms.establish_database_connection(this_campaign)
 
-        # Determine campaign status in postgres database.
+        # determine campaign status in sql database.
         # If VS/ES tables already exist, then dont touch them,
         # just determine the next new order number.
-        # If no tables exists for the campaign, then run the
-        # huffer to initiate VS/ES, and set order number to 1.
+        # If no tables exists for the campaign, then set order number to 1.
         order_number = db_comms.get_order_number(conn, this_campaign)
 
+        # run huffer to initiate VS/ES if no tables exist
         if order_number == 1:
             # new campaign
             huffer(conn, this_campaign)
 
-        # grab needed species and element data from huffer test.3o files
+        # Grab non O/H elements and species data from the verbose huffer test.3o files
         elements = determine_ele_set(path="huffer/")
-        # sp_names = determine_loaded_sp(path =  "huffer/")
+        # sp_names = determine_loaded_sp(path="huffer/")
 
-        # current order birthday
+        # Current order birthday
         date = time.strftime("%Y-%m-%d", time.gmtime())
 
-        # Generate orders. This can be altered later to call a variety of
-        # functions that yeild different VS point distributions.
+        # Generate orders
         if this_campaign.distro == 'random':
             orders = random_uniform_order(this_campaign, date, order_number,
                                           this_campaign.reso, elements)
 
         elif this_campaign.distro == 'BF':
-            orders = brute_force_order(conn, this_campaign, date, order_number, elements)
+            orders = brute_force_order(this_campaign, date, order_number, elements)
 
         # Send dataframe containing new orders to postgres database
         orders_to_sql(conn, 'vs', order_number, orders)
 
         conn.close()
 
-        print(' The Navigator has done her job.')
+        print('The Navigator has completed her task.')
         print('   While she detected no "obvious" faults,')
         print('   she notes that you may have fucked up')
-        print('   repeatedly, but the QA code required to')
-        print('   detect your fuck ups has not been written.\n')
+        print('   repeatedly in ways she couldnt anticipate.\n')
+
 
 def huffer(conn, camp):
     """
-    The huffer performs steps required to initiate a new campaign.
-    It is only run to initiate a new campaign, and not to initiate
-    new orders on an existing campaign. This is becuase the VS and
-    ES only need to be set up once per campaign. Any information
-    that may be needed throughout the life of a campign which the
-    huffer might provide, is stored in the huffers folder.
+    The huffer runs test 3i files to determine the loaded elements and species
+    for said campaign, and to check for obvious user erros given system
+    configuration.
 
-    (1) Test instantiated 3i file for errors.
-    (2) Determine the correct varaibels for vs and es
-        tables given loaded species.
-    (3) Establish dynamically accessed data0's (not yet built)
+    The huffer also establishes the VS (variable space, input) and ES
+    (equilibrium space, output) tables in the campaign SQL database.
+    These are only set up the first time a campaign is run. Subsequent
+    calls to the same campaign simply generate new sequentially numberd orders.
+
+    :param conn: sql database connnection
+    :type conn: :class: sqlite3.Connection
+
+    :param camp: loaded campaign
+    :type camp: :class:`Campaign` instance
 
     """
     print('Running the Huffer.')
 
-    # build huffer directory and step in
+    # Build huffer directory and step in
     mk_check_del_directory("huffer")  # build test directory
     mk_check_del_directory("fig")  # build figure directory
 
-    os.chdir("huffer")  # step into directory
+    os.chdir("huffer")
 
-    # build test.3i file from mean vlaues for each variable that is
+    # Build test.3i file from mean vlaues for each variable that is
     # set to a range in the new campaign.
     state_dict = {}
     for _ in camp.vs_state.keys():
@@ -109,15 +132,12 @@ def huffer(conn, camp):
     for _ in camp.vs_basis.keys():
         basis_dict[_] = np.mean(camp.vs_basis[_])
 
-    # (1) build and run test.3i
-    print('\n Processing test.3i.')
-
     # select proper data0
     suffix = data0_suffix(state_dict['T_cel'], state_dict['P_bar'])
 
-    # build 'verbose' 3i, with solid solutions on
+    # build 'verbose' 3i, with solid solutions on. cb defaults to H+
     camp.local_3i.write(
-        'test.3i', state_dict, basis_dict, output_details='v')
+        'test.3i', state_dict, basis_dict, 'H+', output_details='v')
     data1_file = os.path.join(camp.data0_dir, "data1." + suffix)
     out, err = eq3(data1_file, 'test.3i')
 
@@ -125,286 +145,90 @@ def huffer(conn, camp):
         # if 3o is generated
         _ = grab_lines('test.3o')
     except FileNotFoundError:
-        raise Error("The huffer didn't make the .3o file, figure your shit out.")
+        raise Error("The huffer failed. Figure your shit out.")
 
-    # Run QA on 3i
     elements = determine_ele_set()
 
-    # estalibsh new table based on vs_state and vs_basis
+    # New VS table based on vs_state and vs_basis
     db_comms.create_vs_table(conn, camp, elements)
 
-    # (2) build state_space for es table
-    # list of loaded aq, solid, and gas species to be appended
+    # Determine column names fof ES table
+    # List of loaded aq, solid, and gas species to be appended
     sp_names = determine_loaded_sp()
 
-    # estalibsh new ES table based on loaded species.
+    # New ES table based on loaded species.
     db_comms.create_es_table(conn, camp, sp_names, elements)
 
-    os.chdir('..')
+    os.chdir('..')  # back it up!
 
-    print('\n Huffer complete.\n')
+    print('   Huffer complete.\n')
 
-# ##################    postgres table functions   ####################
-def orders_to_sql(conn, table, ord, df):
+
+def random_uniform_order(camp, date, ord, order_size, elements, precision=6):
     """
-    Write pandas dataframe 'df' to sql 'table' on connection'conn.'
-    """
-    print('Attempting to write order # {}'.format(ord))
-    print('  to sql table {}'.format(table))
-    print('  . . . ')
+    Generate randomily spaced points in VS
 
-    df.to_sql(table, con=conn, if_exists='append', index=False)  # , index_label = "uuid")
-    conn.commit()
-    conn.close()
+    :param camp: loaded campaign
+    :type camp: :class:`Campaign` instance
 
-    print("  Orders writen.\n")
+    :param date: birthdate of order
+    :type data: str
 
-# #############################    Order forms    ##############################
+    :param ord: the order id, relative to other orders issued for the loaded campagin
+    :type ord: int
 
-def brute_force_order(conn, camp, date, order_number, elements):
-    """
-    Generate randomily distributed points in VS to be managed
-    by the helmsman as a sinlge 'order'
-    ### (1) determin brute force dimensions, then calculate into order
+    :param order_size: number of vs points in current order
+    :type order_size: int
 
-    ### (2) add 6i rnt info
-    ### (2) add state
-    ### (3) add basis
-    """
+    :param elements: list of loaded element, excepting O and H
+    :type elements: list
 
-    print('Generating order # {} via brute_force_order().'.format(order_number))
+    :param precision: number of digits recorded in vs table
+    :type precision: int
 
-    # (1) add BF_var dimensions to order
-    # calculate order size, warn user, then proceded:
-    BF_vars = {}  # brute force variables
+    :return: dataframe containing all vs points
+    :rtype: :class:'pandas.core.frame.DataFrame'
 
-    for _ in camp.target_rnt.keys():
-        if isinstance(camp.target_rnt[_][1], (list)):
-            BF_vars['"{}_morr"'.format(_)] = camp.target_rnt[_][1]
-        if isinstance(camp.target_rnt[_][2], (list)):
-            BF_vars['"{}_rkb1"'.format(_)] = camp.target_rnt[_][2]
-
-    for _ in camp.vs_state.keys():
-        if isinstance(camp.vs_state[_], (list)):
-            BF_vars[_] = camp.vs_state[_]
-
-    for _ in camp.vs_basis.keys():
-        # cycle through basis species
-        if isinstance(camp.vs_basis[_], list):
-            BF_vars[_] = camp.vs_basis[_]
-
-    # warn user of dataframe size to be built
-    order_size = camp.reso**len(BF_vars)
-    # print("Order size: " + str(order_size))
-    if order_size > 100000:
-        answer = input('\n\n The brute force method will generate {} \n\
-                        VS samples. Thats pretty fucking big.\n\
-                        Are you sure you want to proceed? (Y E S/N)\n'.format(order_size))
-        if answer == 'Y E S':
-            pass
-        else:
-            sys.exit("ABORT !")
-
-    df = process_BF_vars(BF_vars, camp.reso)
-    # value precision in postgres table
-    precision = 6
-    # unique id column. also sets row length, to which all
-    # following constants will follow
-    df['uuid'] = [uuid.uuid4().hex for _ in range(order_size)]
-    df['camp'] = camp.name
-    # file name numbers
-    df['file'] = list(range(order_size))
-    df['ord'] = order_number
-    df['birth'] = date
-    # run codes.  This variable houses error codes once the orders
-    # of been executed
-    df['code'] = 0
-
-    # (2) add vs_rnt dimensions to orders
-    for _ in camp.target_rnt.keys():
-        # handle morr
-        if isinstance(camp.target_rnt[_][1], (list)):
-            vals = [float(np.round(random.uniform(camp.target_rnt[_][1][0],
-                    camp.target_rnt[_][1][1]), precision)) for i in
-                    range(order_size)]
-            df['{}_morr'.format(_)] = vals
-
-        else:
-            # _ is fixed value. n = order_size is automatic for a
-            # constant given existing df length
-            df['{}_morr'.format(_)] = float(np.round(camp.target_rnt[_][1],
-                                                     precision))
-
-        # handle rkb1
-        if isinstance(camp.target_rnt[_][2], (list)):
-            pass
-        else:
-            # is fixed value. n = order_size is automatic for a
-            # constant given existing df length
-            df['{}_rkb1'.format(_)] = float(np.round(camp.target_rnt[_][2],
-                                                     precision))
-
-    # (3) add fixed vs_state dimensions to orders
-    for _ in camp.vs_state.keys():
-        if isinstance(camp.vs_state[_], (list)):
-            pass
-        else:
-            # is fixed value. n = order_size is automatic for a constant
-            # given existing df length
-            df['{}'.format(_)] = float(np.round(camp.vs_state[_], precision))
-
-    # (4) add fixed vs_basis dimensions to orders
-    for _ in camp.vs_basis.keys():
-        # cycle through basis species
-        if isinstance(camp.vs_basis[_], list):
-            pass
-        else:
-            # is fixed value. n = order_size is automatic for a constant
-            # given existing df length
-            vals = np.round(camp.vs_basis[_], precision)
-            df['{}'.format(_)] = float(vals)
-    # stack df's together
-    # calculate element totals columns
-    # aqueous element totals. vs point-local dictionary
-    ele_totals = {}
-    for _ in elements:
-        ele_totals[_] = [0] * order_size
-
-    # build element totals one element at a time, as multiple vs spcies may
-    # contain the same element.
-
-    for _ in elements:
-        # for a given element present in the campaign
-        local_vs_sp = []
-        for b in list(SLOP_DF.index):
-            # for species listed/constrained in vs
-            sp_dict = species_info(b)  # keys = constiuent elements, values= sto
-            if _ in sp_dict.keys():
-                # if element _ in vs species, store in
-                # local_vs_sp as ['vs sp name',
-                # sto_of_element_in_sp]
-                local_vs_sp.append([b, sp_dict[_]])
-
-        # build total element molality column into VS df
-        for b in local_vs_sp:
-            # for each species b in loaded data0 that contins target element _,
-            # identify the ones that are loaded in vs (list(df.columns)).
-            if '{}'.format(b[0]) in list(df.columns):
-                # basis is present in campaign, so add its molalities
-                # to element total
-                ele_totals[_] = ele_totals[_] + float(b[1]) * (10 ** df['{}'.format(b[0])])
-                # technical note: recalculating the amount of "O" present by evaluating
-                # the postgres database in psql with
-                #     ( select (4*10^"SO4-2" + 3*10^"HCO3-"
-                #      + 3*10^"B(OH)3" + 2*10^"SiO2" + 4*10^"HPO4-2"
-                #      + 3*10^"NO3-"), 10^"O" from teos_cal_2_vs;)
-                # reveals potential machine errror magnitudes. as the element totals calculated
-                # in the lines immediately preceduing this comment are off by +- 10^-7->10^-9
-                # from the psql derived totals. THis is problematic given that I do evalute element
-                # totals across 10^-7 --> 10^-9  concentrations. I imagine thaty i can decrese
-                # this error by not moving between log and normal so many times.
-
-        df['{}'.format(_)] = np.round(np.log10(ele_totals[_]), precision)
-
-    # reorder columns to match VS table
-    cols = get_column_names(conn, 'vs')
-    df = df[cols]
-
-    print('  Order # {} established (n = {})\n'.format(order_number, order_size))
-
-    return df
-
-def process_BF_vars(BF_vars, reso):
-    """
-    create dataframe containing all samples brute force samples
-    """
-    # TODO: Check this against old method
-    all_ranges = []
-    for this_var in BF_vars:
-        # want reso = number of sample poiunts to capture min and max values
-        # hence manipulation of the max value
-        min_val = BF_vars[this_var][0]  # -8
-        max_val = BF_vars[this_var][1]  # -6
-        # step = (max_val - min_val) / (reso - 1)
-        this_range = np.linspace(min_val, max_val, num=reso)
-        all_ranges.append(this_range)
-    grid = np.array([np.array(i) for i in itertools.product(*all_ranges)])
-    # grid  = grid.reshape(-1)
-    # grid = np.mgrid[all_ranges]
-
-    return pd.DataFrame(grid, columns=list(BF_vars.keys()))
-
-def random_uniform_order(camp, date, order_number, order_size, elements):
-    """
-    Generate randomily sampled points in VS to be managed by the
-    helmsman as a sinlge 'order'
-    ### (1) add info to all runs
-    ### (2) add 6i rnt info
-    ### (2) add state
-    ### (3) add basis
     """
 
-    print('Generating order # {} via random_uniform.'.format(order_number))
-    # value precision in postgres table
-    precision = 6
+    print('Generating order # {} via random_uniform.'.format(ord))
 
-    # (1) add run info to orders
     df = pd.DataFrame()
-    # unique id column. also sets row length, to which all
-    # following constants will follow
-    df['uuid'] = [uuid.uuid4().hex for _ in range(order_size)]
-    df['camp'] = camp.name
-    # file name numbers
-    df['file'] = list(range(order_size))
-    df['ord'] = order_number
-    df['birth'] = date
-    # run codes.  This variable houses error codes once the orders
-    # of been executed
-    df['code'] = 0
+    df = build_admin_info(camp, df, ord, order_size, date)
 
-    # (2) add vs_rnt dimensions to orders
+    # add vs_rnt dimensions to orders
     for _ in camp.target_rnt.keys():
-        # handle morr
+        # morr, mols of reactant avaialbe for titration
         if isinstance(camp.target_rnt[_][1], (list)):
-            # _ is range, thus make n=order_size random choices within
-            # range
             vals = [float(np.round(random.uniform(camp.target_rnt[_][1][0],
                                                   camp.target_rnt[_][1][1]),
                                    precision)) for i in
                     range(order_size)]
-
             df['{}_morr'.format(_)] = vals
         else:
-            # _ is fixed value. n = order_size is automatic for a
-            # constant given existing df length
             df['{}_morr'.format(_)] = float(np.round(camp.target_rnt[_][1], precision))
 
-        # handle rkb1
+        # rkb1 (rate in xi at which reactant is titrated)
         if isinstance(camp.target_rnt[_][2], (list)):
-            # is range, thus make n=order_size random choices within
-            # range
             vals = [float(np.round(random.uniform(camp.target_rnt[_][2][0],
                     camp.target_rnt[_][2][1]), precision)) for i in
                     range(order_size)]
             df['{}_rkb1'.format(_)] = vals
 
         else:
-            # is fixed value. n = order_size is automatic for a
-            # constant given existing df length
             df['{}_rkb1'.format(_)] = float(np.round(camp.target_rnt[_][2],
                                             precision))
 
-    # (3) add vs_state dimensions to orders
+    # add vs_state dimensions to orders
     for _ in camp.vs_state.keys():
         if isinstance(camp.vs_state[_], (list)):
             if _ == "P_bar":
-                # P is limited tot data0 step size (currently 0.5 bars)
+                # P is limited to data0 step size (currently 0.5 bars)
                 P_options = [_ / 2 for _ in list(range(int(2 * camp.vs_state[_][0]),
                                                        int(2 * camp.vs_state[_][1])))]
 
                 vals = [random.choice(P_options) for i in range(order_size)]
             else:
-                # is range, thus make n=order_size random choices within range
                 vals = [float(np.round(random.uniform(camp.vs_state[_][0],
                                                       camp.vs_state[_][1]),
                                        precision))
@@ -412,44 +236,222 @@ def random_uniform_order(camp, date, order_number, order_size, elements):
             df['{}'.format(_)] = vals
 
         else:
-            # is fixed value. n = order_size is automatic for a constant
-            # given existing df length
             df['{}'.format(_)] = float(np.round(camp.vs_state[_], precision))
 
-    # (4) add vs_basis dimensions to orders
+    # add vs_basis dimensions to orders.
+    dbasis = build_basis(camp, precision, order_size)
+
+    # build basis into main df
+    df = pd.concat([df, dbasis], axis=1)
+
+    df = calculate_ele_totals(df, elements, order_size, precision)
+
+    return df
+
+
+def brute_force_order(camp, date, ord, elements, precision=6):
+    """
+    Generate evenily spaced points in VS
+
+    :param camp: loaded campaign
+    :type camp: :class:`Campaign` instance
+
+    :param date: birthdate of order
+    :type data: str
+
+    :param ord: the order id, relative to other orders issued for the loaded campagin
+    :type ord: int
+
+    :param elements: list of loaded element, excepting O and H
+    :type elements: list
+
+    :param precision: number of digits recorded in vs table
+    :type precision: int
+
+    """
+
+    print('Generating order # {} via brute_force_order().'.format(ord))
+
+    # determine BF_var dimensions that are set as a range
+    BF_vars = {}  # brute force variables
+    for _ in camp.target_rnt.keys():
+        # morr, mols of reactant avaialbe for titration
+        if isinstance(camp.target_rnt[_][1], (list)):
+            BF_vars['{}_morr'.format(_)] = camp.target_rnt[_][1]
+        # rkb1 (rate in xi at which reactant is titrated)
+        if isinstance(camp.target_rnt[_][2], (list)):
+            BF_vars['{}_rkb1'.format(_)] = camp.target_rnt[_][2]
+    for _ in camp.vs_state.keys():
+        if isinstance(camp.vs_state[_], (list)):
+            BF_vars[_] = camp.vs_state[_]
+
     for _ in camp.vs_basis.keys():
-        # cycle through basis species
         if isinstance(camp.vs_basis[_], list):
-            # is range, thus make n=order_size random choices within range
-            vals = [float(np.round(random.uniform(camp.vs_basis[_][0],
-                                                  camp.vs_basis[_][1]),
-                                   precision))
-                    for i in range(order_size)]
+            BF_vars[_] = camp.vs_basis[_]
 
-            df['{}'.format(_)] = vals
-
+    order_size = camp.reso**len(BF_vars)
+    # warn user of dataframe size to be built
+    if order_size > 100000:
+        answer = input(f'\n\n The brute force method will generate {order_size}\n\
+                        VS samples. Thats pretty fucking big.\n\
+                        Are you sure you want to proceed? (Y E S/N)\n')
+        if answer == 'Y E S':
+            pass
         else:
-            # is fixed value. n = order_size is automatic for a constant
-            # given existing df length
+            sys.exit("ABORT !")
+
+    # calculate brute force dimensions and populate initial dataframe
+    df = process_BF_vars(BF_vars, camp.reso)
+
+    df = build_admin_info(camp, df, ord, order_size, date)
+
+    # add vs_rnt dimensions to orders for fixed dimensions
+    for _ in camp.target_rnt.keys():
+        # morr, mols of reactant avaialbe for titration
+        if not isinstance(camp.target_rnt[_][1], (list)):
+            df['{}_morr'.format(_)] = float(np.round(camp.target_rnt[_][1],
+                                                     precision))
+        # rkb1 (rate in xi at which reactant is titrated)
+        if not isinstance(camp.target_rnt[_][2], (list)):
+            df['{}_rkb1'.format(_)] = float(np.round(camp.target_rnt[_][2],
+                                                     precision))
+
+    # add fixed vs_state dimensions to orders
+    for _ in camp.vs_state.keys():
+        if isinstance(camp.vs_state[_], (list)):
+            pass
+        else:
+            df['{}'.format(_)] = float(np.round(camp.vs_state[_], precision))
+
+    # add fixed vs_basis dimensions to orders
+    for _ in camp.vs_basis.keys():
+        if not isinstance(camp.vs_basis[_], list):
             vals = np.round(camp.vs_basis[_], precision)
             df['{}'.format(_)] = float(vals)
 
-    # calculate element totals columns
-    # aqueous element totals. vs point-local dictionary
+    df = calculate_ele_totals(df, elements, order_size, precision)
+
+    print('  Order # {} established (n = {})\n'.format(ord, order_size))
+
+    return df
+
+
+def process_BF_vars(BF_vars, reso):
+    """
+    Evenly spaces all vs points across all brute force dimensions
+
+    :param BF_vars: varible names (keys) and their range limts (values)
+    :type BF_vars: dict
+
+    :param reso: number of evenily spaced divisions on each BF dimension
+    :type reso: int
+
+    :return: dataframe with all BF dimenions for all vs points
+    :rtype: :class:'pandas.core.frame.DataFrame'
+    """
+    all_ranges = []
+    for this_var in BF_vars:
+        min_val = BF_vars[this_var][0]
+        max_val = BF_vars[this_var][1]
+        this_range = np.linspace(min_val, max_val, num=reso)
+        all_ranges.append(this_range)
+    grid = np.array([np.array(i) for i in itertools.product(*all_ranges)])
+    return pd.DataFrame(grid, columns=list(BF_vars.keys()))
+
+
+def build_basis(camp, precision, n):
+    """
+    build basis vs of len = n.
+    This is its own function, so that it can iterated over in later versions,
+    where we anticipate wanting to pre-optimize basis selection with rejection
+    sampling.
+
+    :param camp: loaded campaign
+    :type camp: :class:`Campaign` instance
+
+    :param precision: number of decimal places to round log floats
+    :type precision: int
+
+    :return: dataframe with all basis species dimensions for all vs points
+    :rtype: :class:'pandas.core.frame.DataFrame'
+
+    """
+    df = pd.DataFrame()
+    for _ in camp.vs_basis.keys():
+        if isinstance(camp.vs_basis[_], list):
+            vals = [float(np.round(random.uniform(camp.vs_basis[_][0],
+                                                  camp.vs_basis[_][1]),
+                                   precision))
+                    for i in range(n)]
+            df['{}'.format(_)] = vals
+        else:
+            vals = np.round(camp.vs_basis[_], precision)
+            df['{}'.format(_)] = float(vals)
+    return df
+
+
+def build_admin_info(camp, df, ord, order_size, date):
+    """
+    Construct the 'admin_info' into dataframe
+
+    :param camp: loaded campaign
+    :type camp: :class:`Campaign` instance
+
+    :param df: dataframe, either empty, or with some columns apready in place
+    :type df: :class:'pandas.core.frame.DataFrame'
+
+    :param order_size: number of vs points in current order
+    :type order_size: int
+
+    :param date: birthdate of order
+    :type data: str
+
+    :return: dataframe with all admin info columns added
+    :rtype: :class:'pandas.core.frame.DataFrame'
+
+    """
+
+    df['uuid'] = [uuid.uuid4().hex for _ in range(order_size)]
+    df['camp'] = camp.name
+    df['file'] = list(range(order_size))  # file name numbers
+    df['ord'] = ord
+    df['birth'] = date
+    df['cb'] = camp.cb
+    df['code'] = 0  # custom exit codes
+
+    return df
+
+
+def calculate_ele_totals(df, elements, order_size, precision):
+    """
+    Calculate element totals, as multiple VS spcies may
+    contain the same element.
+
+    :param df: dataframe with all state and basis dimensions
+    :type df: :class:'pandas.core.frame.DataFrame'
+
+    :param elements: list of loaded element, excepting O and H
+    :type elements: list
+
+    :param order_size: number of vs points in current order
+    :type order_size: int
+
+    :param precision: number of decimal places to round log floats
+    :type precision: int
+
+    :return: dataframe with all BF dimenions for all vs points
+    :rtype: :class:'pandas.core.frame.DataFrame'
+    """
     ele_totals = {}
     for _ in elements:
         ele_totals[_] = [0] * order_size
 
-    # build element totals one element at a time, as multiple vs spcies may
-    # contain the same element.
     for _ in elements:
         # for a given element present in the campaign
-
         local_vs_sp = []
         for b in list(SLOP_DF.index):
             # for species listed/constrained in vs
             sp_dict = species_info(b)  # keys = constiuent elements, values= sto
-
             if _ in sp_dict.keys():
                 # if element _ in vs species, store in
                 # local_vs_sp as ['vs sp name',
@@ -465,19 +467,32 @@ def random_uniform_order(camp, date, order_number, order_size, elements):
                 # to element total
                 ele_totals[_] = ele_totals[_] + float(b[1]) * (10 ** df['{}'.format(b[0])])
 
-                # technical note: recalculating the amount of "O" present by evaluating
-                # the postgres database in psql with
-                #     ( select (4*10^"SO4-2" + 3*10^"HCO3-"
-                #      + 3*10^"B(OH)3" + 2*10^"SiO2" + 4*10^"HPO4-2"
-                #      + 3*10^"NO3-"), 10^"O" from teos_cal_2_vs;)
-                # reveals potential machine errror magnitudes. as the element totals calculated
-                # in the lines immediately preceduing this comment are off by +- 10^-7->10^-9
-                # from the psql derived totals. THis is problematic given that I do evalute
-                # element totals across 10^-7 --> 10^-9  concentrations. I imagine thaty i can
-                # decrese this error by not moving between log and normal so many times.
-
         df['{}'.format(_)] = np.round(np.log10(ele_totals[_]), precision)
-
-    print('  Order # {} established (n = {})\n'.format(order_number, order_size))
-
     return df
+
+
+def orders_to_sql(conn, table, ord, df):
+    """
+    Write dataframe 'df' to sql 'table' for order number 'ord' on
+    connection 'conn'
+
+    :param conn: sql database connnection
+    :type conn: :class: sqlite3.Connection
+
+    :param table: sql table name
+    :type table: str
+
+    :param ord: order number
+    :type ord: int
+
+    :param df: pandas Dataframe containing the orders
+    :type df: :class: pandas.core.frame.DataFrame
+
+    """
+    print(f'Writing order # {ord} to table {table}')
+
+    df.to_sql(table, con=conn, if_exists='append', index=False)
+    conn.commit()
+    conn.close()
+
+    print("  Orders writen.\n")

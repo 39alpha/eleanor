@@ -10,12 +10,15 @@ from os.path import isdir, join, realpath
 import json
 import shutil
 
+
 class Campaign:
     """
-    The Campaign class is used to specify modeling objectives.
+    The Campaign class is used to specify modeling objectives, before the 
+    Navigator and Helmsman are run.
 
-    A Campaign can be initialized by either providing a dictionary configuration or using the
-    :meth:`from_json` method to load from a JSON-formatted file.
+    A Campaign can be initialized by either providing a dictionary
+    configuration or using the :meth:`from_json` method to load
+    from a JSON-formatted file.
 
     The following keys must exist in the dictionary or JSON file:
 
@@ -28,12 +31,14 @@ class Campaign:
     - :code:`'initial fluid constraints'` - configuration of fluid constraints (:code:`dict`)
         - :code:`'T_cel'` - temperature in celsius (:code:`float` or :code:`List[float]`)
         - :code:`'P_bar'` - pressure in bars (:code:`float` or :code:`List[float]`)
-        - :code:`'fO2'` - *TODO*
-        - :code:`'cb'` - *TODO*
-        - :code:`'basis'` - *TODO*
-    - :code:`'vs_distro'` - *TODO*
-    - :code:`'resolution'` - *TODO*
-    - :code:`'solid solutions'` - whether or not to employ solid solutions
+        - :code:`'fO2'` - log oxygen fugacity (:code:`float` or :code:`List[float]`)
+        - :code:`'cb'` - basis species to adjust for charge balance on (:code:`str` )
+        - :code:`'basis'` - configuration of basis species and values (:code:`dict`)
+    - :code:`'vs_distro'` - method for sampling variable space (vs) (:code:`str` )
+    - :code:`'resolution'` - number of vs points in order ( if :code:`'vs_distro' == 'random')
+                           - subdivisions on each non-fixed dimension ( if :code:`'vs_distro' ==
+                             'BF')
+    - :code:`'solid solutions'` - turn on solid solutions (:code:`bool`)
 
     .. autosummary:
        :nosignatures:
@@ -55,17 +60,14 @@ class Campaign:
         # modelling data
         self.suppress_min = self._raw['suppress min']
         self.min_supp_exemp = self._raw['suppress min exemptions']
-        # self.reso = self._raw['bf resolution']
         self.cb = self._raw['initial fluid constraints']['cb']
         self.vs_state = {key: self._raw['initial fluid constraints'][key] for key in
                          ['T_cel', 'P_bar', 'fO2']}
         self.vs_basis = self._raw['initial fluid constraints']['basis']
-
         self.distro = self._raw['vs_distro']
-        # if distro == BF, reso = numebr of subdivision on each var
-        # if distro == random, reso = total numebr of vs points in order
         self.reso = self._raw['resolution']
         self.SS = self._raw['solid solutions']
+
         if self.SS:
             iopt4 = '1'
         else:
@@ -77,7 +79,7 @@ class Campaign:
         #
         # self.create_env()
 
-        self.local_3i = tool_room.Three_i(self.cb)
+        self.local_3i = tool_room.Three_i()
         self.local_6i = tool_room.Six_i(suppress_min=self.suppress_min,
                                         iopt4=iopt4,
                                         min_supp_exemp=self.min_supp_exemp)
@@ -148,13 +150,13 @@ class Campaign:
 
         if not isdir(self.campaign_dir):
             if verbose:
-                print(f'Creating campaign directory {self.campaign_dir}')
+                print(f'Creating campaign directory {self.campaign_dir}\n')
             mkdir(self.campaign_dir)
 
             huffer_dir = join(self.campaign_dir, 'huffer')
             mkdir(huffer_dir)
 
-        # Check Figure directory
+        # Check figure directory
         fig_dir = join(self.campaign_dir, 'fig')
         if not isdir(fig_dir):
             mkdir(fig_dir)

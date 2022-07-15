@@ -153,9 +153,7 @@ def solid_groups(conn, pwd, camp_name, ord_id, out = 'assemblages'):
                     x += 1
             del x
 
-
     all_precip = [_ for _ in solids + solid_solutions]
-
 
     if out == 'phases':
         ### only the list of solids is wanted
@@ -203,6 +201,15 @@ def solid_groups(conn, pwd, camp_name, ord_id, out = 'assemblages'):
         return combo_dict
 
 
+def plt_grid(df, ):
+
+    grid = sns.PairGrid(data=df, color='blue', height=4, layout_pad=1.5)
+
+
+###################################################################################
+################################  ES/VS searching  ################################
+
+
 
 
 ###################################################################################
@@ -210,9 +217,9 @@ def solid_groups(conn, pwd, camp_name, ord_id, out = 'assemblages'):
 color_dict = {
         '1': ['#E76F51', '#264653', '#2A9D8F', '#F4A261', '#E9C46A', '#100B00', '#A5CBC3', '#3B341f', '#2F004F'],
         '2': ['#ff0000', '#ffa500', '#ffff00', '#008000', '#0000ff', '#4b0082', '#000000'],
-        '3': ['#7CEA9C','#F433AB','#2E5EAA','#593959','#F0C808','#DD1C1A','#F05365','#FF9B42','#B2945B','#000000','#FF0000', '#FFA500', '#FFFF00', '#008000', '#0000FF', '#4B0082']
+        '3': ['#7CEA9C','#F433AB','#2E5EAA','#593959','#F0C808','#DD1C1A','#F05365','#FF9B42','#B2945B','#000000','#FF0000', '#FFA500', '#FFFF00', '#008000', '#0000FF', '#4B0082'],
+        '4': ['#79baf7', '#ff0000', '#000000']
         }
-
 
 
 def get_continuous_cmap(hex_list, float_list=None):
@@ -259,11 +266,6 @@ def rgb_to_dec(value):
     value: list (length 3) of RGB values
     Returns: list (length 3) of decimal values'''
     return [v/256 for v in value]
-
-
-
-
-
 
 
 Fe_O_S_palette = {

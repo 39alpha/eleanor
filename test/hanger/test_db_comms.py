@@ -78,18 +78,18 @@ class TestDBComms(TestCase):
             conn = dbc.establish_database_connection(self.campaign, verbose=False)
 
             order_number = dbc.get_order_number(conn, self.campaign)
-            self.assertEquals(order_number, 1)
+            self.assertEqual(order_number, 1)
 
             order_number = dbc.get_order_number(conn, self.campaign)
-            self.assertEquals(order_number, 1)
+            self.assertEqual(order_number, 1)
 
             self.campaign._hash = 'abc123'
             order_number = dbc.get_order_number(conn, self.campaign)
-            self.assertEquals(order_number, 2)
+            self.assertEqual(order_number, 2)
 
             self.campaign._data0_hash = '123abc'
             order_number = dbc.get_order_number(conn, self.campaign)
-            self.assertEquals(order_number, 3)
+            self.assertEqual(order_number, 3)
 
     def test_retrieve_records(self):
         with TemporaryDirectory() as root:
@@ -108,7 +108,7 @@ class TestDBComms(TestCase):
                              [(1,), (2,), (3,)])
 
             records = dbc.retrieve_records(conn, 'SELECT * FROM `vs`')
-            self.assertEquals(len(records), 3)
+            self.assertEqual(len(records), 3)
 
     def test_execute_query(self):
         with TemporaryDirectory() as root:
@@ -126,7 +126,7 @@ class TestDBComms(TestCase):
             with closing(conn.execute('PRAGMA table_info(`vs`)')) as cursor:
                 columns = [row[1] for row in cursor.fetchall()]
 
-            self.assertEquals(columns, ['ord'])
+            self.assertEqual(columns, ['ord'])
 
     def test_get_column_names(self):
         with TemporaryDirectory() as root:
@@ -135,8 +135,8 @@ class TestDBComms(TestCase):
 
             dbc.execute_query(conn, 'CREATE TABLE `vs` (`ord` SMALLINT)')
 
-            self.assertEquals(dbc.get_column_names(conn, 'not-a-real-table'), [])
-            self.assertEquals(dbc.get_column_names(conn, 'vs'), ['ord'])
+            self.assertEqual(dbc.get_column_names(conn, 'not-a-real-table'), [])
+            self.assertEqual(dbc.get_column_names(conn, 'vs'), ['ord'])
 
     def test_retrieve_combined_records(self):
         with TemporaryDirectory() as root:
@@ -158,8 +158,8 @@ class TestDBComms(TestCase):
             dbc.execute_query(conn, 'CREATE TABLE `es` (`uuid` VARCHAR(256), `ord` SMALLINT, `Y` REAL, `V` REAL)')
 
             df = dbc.retrieve_combined_records(conn, ['X'], ['Y'])
-            self.assertEquals(sorted(df.columns), ['X_v', 'Y_e'])
-            self.assertEquals(len(df), 0)
+            self.assertEqual(sorted(df.columns), ['X_v', 'Y_e'])
+            self.assertEqual(len(df), 0)
 
             conn.executemany('INSERT INTO `vs` VALUES (?, ?, ?, ?)',
                              [('a', 1, 1.1, 2.1),
@@ -167,32 +167,32 @@ class TestDBComms(TestCase):
                               ('c', 2, 1.3, 2.3)])
 
             df = dbc.retrieve_combined_records(conn, ['X'], ['Y'])
-            self.assertEquals(sorted(df.columns), ['X_v', 'Y_e'])
-            self.assertEquals(len(df), 0)
+            self.assertEqual(sorted(df.columns), ['X_v', 'Y_e'])
+            self.assertEqual(len(df), 0)
 
             conn.executemany('INSERT INTO `es` VALUES (?, ?, ?, ?)',
                              [('a', 1, 3.1, 4.1),
                               ('b', 1, 3.2, 4.2)])
 
             df = dbc.retrieve_combined_records(conn, ['X'], ['Y'])
-            self.assertEquals(sorted(df.columns), ['X_v', 'Y_e'])
-            self.assertEquals(len(df), 2)
-            self.assertEquals([tuple(r) for r in df.to_numpy()],
+            self.assertEqual(sorted(df.columns), ['X_v', 'Y_e'])
+            self.assertEqual(len(df), 2)
+            self.assertEqual([tuple(r) for r in df.to_numpy()],
                               [(1.1, 3.1), (1.2, 3.2)])
 
             conn.executemany('INSERT INTO `es` VALUES (?, ?, ?, ?)',
                              [('c', 2, 3.3, 4.3)])
 
             df = dbc.retrieve_combined_records(conn, ['X'], ['Y'])
-            self.assertEquals(sorted(df.columns), ['X_v', 'Y_e'])
-            self.assertEquals(len(df), 3)
-            self.assertEquals([tuple(r) for r in df.to_numpy()],
+            self.assertEqual(sorted(df.columns), ['X_v', 'Y_e'])
+            self.assertEqual(len(df), 3)
+            self.assertEqual([tuple(r) for r in df.to_numpy()],
                               [(1.1, 3.1), (1.2, 3.2), (1.3, 3.3)])
 
             df = dbc.retrieve_combined_records(conn, ['X'], ['Y'], ord_id=2)
-            self.assertEquals(sorted(df.columns), ['X_v', 'Y_e'])
-            self.assertEquals(len(df), 1)
-            self.assertEquals([tuple(r) for r in df.to_numpy()],
+            self.assertEqual(sorted(df.columns), ['X_v', 'Y_e'])
+            self.assertEqual(len(df), 1)
+            self.assertEqual([tuple(r) for r in df.to_numpy()],
                               [(1.3, 3.3)])
 
             with self.campaign.working_directory() as campdir:
@@ -215,9 +215,9 @@ class TestDBComms(TestCase):
             dbc.create_vs_table(conn, self.campaign, ['X'])
 
             result = dbc.execute_query(conn, 'pragma table_info(vs)').fetchall()
-            self.assertEquals(len(result), 24)
+            self.assertEqual(len(result), 24)
             columns = list(map(lambda x: x[1], result))
-            self.assertEquals(columns[-1], 'X')
+            self.assertEqual(columns[-1], 'X')
 
     def test_create_es_table(self):
         with TemporaryDirectory() as root:
@@ -226,9 +226,9 @@ class TestDBComms(TestCase):
             dbc.create_es_table(conn, self.campaign, ['X'], ['Y'])
 
             result = dbc.execute_query(conn, 'pragma table_info(es)').fetchall()
-            self.assertEquals(len(result), 17)
+            self.assertEqual(len(result), 17)
             columns = list(map(lambda x: x[1], result))
-            self.assertEquals(columns[-2:], ['Y', 'X'])
+            self.assertEqual(columns[-2:], ['Y', 'X'])
 
     def test_create_orders_table(self):
         with TemporaryDirectory() as root:
@@ -238,4 +238,4 @@ class TestDBComms(TestCase):
 
             result = dbc.execute_query(conn, 'pragma table_info(orders)').fetchall()
             columns = list(map(lambda x: x[1], result))
-            self.assertEquals(columns, ['id', 'campaign_hash', 'data0_hash', 'name', 'create_date'])
+            self.assertEqual(columns, ['id', 'campaign_hash', 'data0_hash', 'name', 'create_date'])

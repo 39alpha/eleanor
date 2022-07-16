@@ -55,7 +55,6 @@ def Helmsman(camp, ord_id=None):
 
     with camp.working_directory():
         conn = establish_database_connection(camp)
-        # elements = determine_ele_set(path='huffer/')
 
         elements, aq_sp, solids, ss, gasses = determine_species_set(path='huffer/')
 
@@ -107,8 +106,8 @@ def Helmsman(camp, ord_id=None):
         yoeman_process = multiprocessing.Process(target=yoeman, args=(camp, keep_running_yoeman,
                                                  vs_queue, es_queue, len(rec)))
         yoeman_process.start()
-        # # ##############   Multiprocessing  ##################
 
+        # # ##############   Multiprocessing  ##################
         with multiprocessing.Pool(processes=cores) as pool:
             _ = pool.starmap(sailor, zip([camp] * len(rec),
                                          [order_path] * len(rec),
@@ -120,8 +119,9 @@ def Helmsman(camp, ord_id=None):
                                          [ss] * len(rec),
                                          [vs_col_names] * len(rec),
                                          [es_col_names] * len(rec)))
-        # # ### check to see if queues are empty to kill
 
+        # TODO
+        # # ### check to see if queues are empty to kill
         # ### Testing with serial computation for easier error reporting
         # for r in rec[:100]:
         #     sailor(camp, order_path, vs_queue, es_queue, date, r, elements, vs_col_names, es_col_names)
@@ -134,25 +134,68 @@ def Helmsman(camp, ord_id=None):
         with keep_running_yoeman.get_lock():
             keep_running_yoeman.value = False
 
-    print('\nOrder {} complete. Debugging Dont believe these times'.format(ord_id))
-    print('        total time: {}'.format(round(time.time() - start, 4)))
-    print('     time/point: {}'.format(round((time.time() - start) / len(rec), 4)))
-    print('time/point/core: {}\n'.format(round((cores * (time.time() - start)) / len(rec), 4)))
+    print(f'\nOrder {ord_id} complete.')
+    print(f'        total time: {round(time.time() - start, 4)}')
+    print(f'        time/point: {round((time.time() - start) / len(rec), 4)}')
+    print(f'   time/point/core: {round((cores * (time.time() - start)) / len(rec), 4)}\n')
 
     yoeman_process.terminate()
 
 
 def sailor(camp, order_path, vs_queue, es_queue, date, dat, elements, ss, vs_col_names, es_col_names, keep_every_n_files=1):
     """
-    Run system 'run', a point (vs) in variable space (VS) retireved from vs table
-    (1) build 3i
-    (2) run 3i
-    (3) build 6i
-    (4) run 6i
-    (5) mine 6o
-    """
+    Each of these 'saiors, spun up and handled by multiprocessing,Pool, manages the execution of all
+    required steps needed to geochemically model the system described by a single vs point
+    in the Variable Space (VS), retireved from VS table.
+    These steps included:
 
-    # ord_id = str(dat[2])
+        (1) build 3i
+        (2) run 3i
+        (3) build 6i
+        (4) run 6i
+        (5) mine 6o
+
+    :param camp: loaded campaign
+    :type camp: :class:`Campaign` instance
+
+    :param order_path: local directory path for the current order
+    :type order_path: str
+
+    :param vs_queue: a waiting list of lines that need to be written to vs table
+    :type vs_queue: class 'multiprocessing.managers.AutoProxy[Queue]
+
+    :param es_queue: a queue of pandas data frames that need to be written to es table
+    :type es_queue: class 'multiprocessing.managers.AutoProxy[Queue]
+
+    :param date: birthdate of order
+    :type data: str
+
+    :param dat: all vs specific data neede by teh sailor to complete mission.
+    :type dat: list
+
+    :param elements: list of loaded element, excepting O and H
+    :type elements: list of strings
+
+    :param ss: list of loaded solid solutions
+    :type ss: list of strings
+
+    :param vs_col_names: column headers in vs table. If a value in the eq3/6 run files is not in
+                         the column names, then it is not captured.
+    :type vs_col_names: list of strings
+
+    :param es_col_names: column headers in es table. If a value in the eq3/6 run files is not in
+                         the column names, then it is not captured.
+
+    :type es_col_names: list of strings
+
+    :param keep_every_n_files: keep every n (multiple) files. All run files get deleted after being
+                               processed into the sql database, as they are collectively very large.
+                               This arguemnt allows you to keep the raw data eq3/6 for a subset of
+                               runs so that you can evaluate the output directly. the sql codes grab
+                               alot of the eq3.6 run ionformaiton, but not all of it.
+    :type keep_every_n_files: int
+
+    """
     run_num = str(dat[3])
     file = '{}.3i'.format(run_num)
 
@@ -197,7 +240,7 @@ def sailor(camp, order_path, vs_queue, es_queue, date, dat, elements, ss, vs_col
     # ### build and execute 3i
     camp.local_3i.write(file, state_dict, basis_dict, master_dict['cb'], output_details='n')
     data1_file = os.path.join(camp.data0_dir, "data1." + suffix)
-    out, err = eq3(data1_file, file)  # TODO: Look at yourself, what the fuck.
+    out, err = eq3(data1_file, file)  # TODO: update after dougs error handelign is ready. these are not currently used.
 
     # ### check 3p and 3o to determine system status
     if not os.path.isfile(file[:-1] + 'p'):
@@ -242,26 +285,50 @@ def sailor(camp, order_path, vs_queue, es_queue, date, dat, elements, ss, vs_col
     reset_sailor(order_path, vs_queue, file, dat[0], run_code,
                  delete_local=delete_after_running)
 
+
 def mine_6o(camp, date, elements, ss, file, dat, col_names):
     """
-    conn = open postgresql connection to database with camp.__ tables
-    date = run date for file
-    file = local 6o file or file path
-    dat = data from orders issueed for file
-    col_names = ES table columns, in correct order (arrangement).
-    """
-    # ## initiate values dataframe with the full column name list.
-    # ## note: each solid only has one column. Affinity is written,
-    # ## and then moles precipiated is written over it, if it exists.
+    open and mine the eq6 output file ('file'.6o) for all of the run information
+    with associated columns in the ES table.
 
-    # ## Therefore, negative values always equal affinities, but
-    # ## positive values could either be positive affinities, or
-    # ## moles precipitated. However, in any given system they can
-    # ## never be both. If precipitation is allowed, then posative
-    # ## values equal moles, if precipiatation for a given pahse is
-    # ## inhibited, then posative values equals affinties
+    :param camp: loaded campaign
+    :type camp: :class:`Campaign` instance
+
+    :param date: birthdate of order
+    :type data: str
+
+    :param elements: list of loaded element, excepting O and H
+    :type elements: list of strings
+
+    :param ss: list of loaded solid solutions
+    :type ss: list of strings
+
+    :param file: 'file'.6o file name
+    :type file: str
+
+    :param dat: all vs specific data neede by teh sailor to complete mission.
+    :type dat: list
+
+    :param col_names: ES table columns
+    :type col_names: list of strings
+
+    note on the the way mienrals and solid solutions are gathered:
+        initiate values dataframe with the full column name list.
+        note: each solid only has one column. Affinity is written,
+        and then moles precipiated is written over it, if it exists.
+        this works because affinities are explusively negative, if
+        precip is turned on, and moles is exclusively posative.
+        Therefore, negative values always equal affinities, but
+        positive values could either be positive affinities, or
+        moles precipitated. However, in any given system they can
+        never be both. If precipitation is allowed, then posative
+        values = moles, if precipiatation for a given pahse is
+        inhibited, then posative values = affinties
+    """
+
     # build_df = pd.DataFrame(columns=col_names)
     build_dict = {k: [] for k in col_names}
+
     # ## 6o file as a list of strings
     lines = grab_lines(file)
 
@@ -496,13 +563,22 @@ def yoeman(camp, keep_running, write_vs_q, write_es_q, num_points):
     """
     Colecting each sailors dict output, and then writing it in
     bulk to sql
+
+    :param camp: loaded campaign
+    :type camp: :class:`Campaign` instance
+
+    :param keep_running: should the yoeman continue to run (ie. is there shit 
+                         left to write to the VS/ES)
+    :type keep_running: multiprocessing.value boolean
+
+
     """
     conn = establish_database_connection(camp)
 
     vs_n_written = 0
 
     progress = tqdm(total=num_points)
-    while keep_running:
+    while keep_running.value:
 
         # ### check that es has something to write
         try:
@@ -526,6 +602,9 @@ def yoeman(camp, keep_running, write_vs_q, write_es_q, num_points):
 
 
 def six_o_data_to_sql(conn, table, df):
+    """
+
+    """
     df.to_sql(table, conn, if_exists='append', index=False)
 
 

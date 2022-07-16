@@ -1,0 +1,147 @@
+EQ3NR input file name= local
+endit.
+     jtemp=  0
+    tempcb=  40.00000E+00
+      ttk1=  0.00000E+00      ttk2=  0.00000E+00
+    jpress=  0
+    pressb=  0.00000E+00
+      ptk1=  0.00000E+00      ptk2=  0.00000E+00
+      nrct=  1
+*-----------------------------------------------------------------------------
+  reactant= CO2(g)
+     jcode=  10               jreac=  0
+      morr=  5.19094E-04      modr=  0.00000E+00
+       nsk=  0               sfcar=  0.00000E+00    ssfcar=  0.00000E+00
+      fkrc=  0.00000E+00
+      nrk1=  1
+       rk1=  1.00000E+00       rk2=  0.00000E+00       rk3=  0.00000E+00
+*-----------------------------------------------------------------------------
+    xistti=  0.00000E+00    ximaxi=  1.00000E+02
+    ehmini= -1.00000E+38    ehmaxi=  1.00000E+38
+    o2mini= -1.00000E+38    o2maxi=  1.00000E+38
+    awmini= -1.00000E+38    awmaxi=  1.00000E+38
+    kstpmx=        10000
+    dlxprn=  1.00000E+38    dlxprl=  1.00000E+38
+    dltprn=  1.00000E+38    dltprl=  1.00000E+38
+    dlhprn=  1.00000E+38    dleprn=  1.00000E+38
+    dloprn=  1.00000E+38    dlaprn=  1.00000E+38
+    ksppmx=          999
+    dlxplo=  1.00000E+38    dlxpll=  1.00000E+38
+    dltplo=  1.00000E+38    dltpll=  1.00000E+38
+    dlhplo=  1.00000E+38    dleplo=  1.00000E+38
+    dloplo=  1.00000E+38    dlaplo=  1.00000E+38
+    ksplmx=        10000
+*               1    2    3    4    5    6    7    8    9   10
+  iopt1-10=     0    0    0    0    0    0    0    0    0    0
+ iopt11-20=     0    0    0    0    0   -1    0   -1    0    0
+  iopr1-10=     0    0    0    1    0   -1    1    0    0    0
+ iopr11-20=     0    0    0    0    0    0    1    0    0    0
+  iodb1-10=     0    0    0    0    0    0    0    0    0    0
+ iodb11-20=     0    0    0    0    0    0    0    0    0    0
+     nxopt=  1
+    option= All    
+    nxopex=  0
+      nffg=  0
+    nordmx=   6
+     tolbt=  0.00000E+00     toldl=  0.00000E+00
+    itermx=   0
+    tolxsf=  0.00000E+00
+    tolsat=  0.00000E+00
+    ntrymx=   0
+    dlxmx0=  0.00000E+00
+    dlxdmp=  0.00000E+00
+*-----------------------------------------------------------------------------
+EQ3NR input file name= local
+endit.
+*   Special basis switches
+    nsbswt=   0
+    tempci=  1.00000E+00
+    pressi=  1.00000E+00
+* Ion exchanger creation
+    qgexsh=        F
+       net=   0
+     nxmod=  2
+   species= METHANE
+    option= -1              xlkmod=  0.00000E+00
+   species= ETHYLENE(g)
+    option= -1              xlkmod=  0.00000E+00
+*               1    2    3    4    5    6    7    8    9   10
+  iopg1-10=     0    0    0    0    0    0    0    0    0    0
+ iopg11-20=     0    0    0    0    0    0    0    0    0    0
+       kct= 16                 kbt= 17                 kmt= 17
+       kxt= 17                kdim= 17                kprs=  0
+* Data file basis species and jflgi values
+   H2O                     Aqueous solution            0
+   Cl-                     Aqueous solution            0
+   H+                      Aqueous solution            0
+   B(OH)3                  Aqueous solution            0
+   Br-                     Aqueous solution            0
+   Ca+2                    Aqueous solution            0
+   F-                      Aqueous solution            0
+   HCO3-                   Aqueous solution            0
+   HPO4-2                  Aqueous solution            0
+   K+                      Aqueous solution            0
+   Mg+2                    Aqueous solution            0
+   Na+                     Aqueous solution            0
+   NO3-                    Aqueous solution            0
+   SiO2                    Aqueous solution            0
+   SO4-2                   Aqueous solution            0
+   Sr+2                    Aqueous solution            0
+   O2(g)                   Aqueous solution            0
+*       Mass balance totals     Aqueous mass balance totals
+       5.550847209407714E+01       5.550847209407714E+01
+       5.659086505267211E-01       5.659086505267211E-01
+      -1.578985032862642E-04      -1.578985032862642E-04
+       4.302999999921252E-04       4.302999999921252E-04
+       8.728010000060280E-04       8.728010000060280E-04
+       1.065680000576210E-02       1.065680000576210E-02
+       7.080000002250817E-05       7.080000002250817E-05
+       2.038000000520083E-03       2.038000000520083E-03
+       3.100000000310001E-06       3.100000000310001E-06
+       1.057970000077440E-02       1.057970000077440E-02
+       5.474200003597668E-02       5.474200003597668E-02
+       4.860600000406929E-01       4.860600000406929E-01
+       4.234999999999997E-05       4.234999999999997E-05
+       1.627400000492028E-04       1.627400000492028E-04
+       2.926430005301750E-02       2.926430005301750E-02
+       9.400000001415017E-05       9.400000001415017E-05
+       1.818378276515316E-04       1.818378276515316E-04
+         Electrical imbalance=    -1.161837293039980E-11
+*   Ordinary basis switches
+    nobswt=   0
+* Matrix species or entities
+   H2O                     Aqueous solution
+   Cl-                     Aqueous solution
+   H+                      Aqueous solution
+   B(OH)3                  Aqueous solution
+   Br-                     Aqueous solution
+   Ca+2                    Aqueous solution
+   F-                      Aqueous solution
+   HCO3-                   Aqueous solution
+   HPO4-2                  Aqueous solution
+   K+                      Aqueous solution
+   Mg+2                    Aqueous solution
+   Na+                     Aqueous solution
+   NO3-                    Aqueous solution
+   SiO2                    Aqueous solution
+   SO4-2                   Aqueous solution
+   Sr+2                    Aqueous solution
+   O2(g)                   Aqueous solution
+*   Values of matrix variables
+    1.744358983526984E+00
+   -2.647497186613064E-01
+   -8.054627591310261E+00
+   -3.392677614528370E+00
+   -3.062325356427978E+00
+   -2.036182679885783E+00
+   -4.284193765696592E+00
+   -2.787767163113782E+00
+   -5.525090986100060E+00
+   -1.984367561481192E+00
+   -1.368149577248098E+00
+   -3.337431027637137E-01
+   -4.373146585390755E+00
+   -4.113768513865542E+00
+   -1.793836405492046E+00
+   -4.050679747218696E+00
+   -1.000000000000000E+00

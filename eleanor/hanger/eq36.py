@@ -22,7 +22,7 @@ def error_guard(output):
     :param output: the content of the EQ3/6 output file
     :raises Eq36Exception: if an error message is found
     """
-    matches = re.search('Error - (.|\n)*(?=No\\ further)', str(output))
+    matches = re.search('Error - (.|\n)*', str(output))
     if matches is not None:
         errors = matches.group(0).split('\\n\\n')
         for error in errors:

@@ -51,11 +51,17 @@ def Helmsman(camp, ord_id=None):
         characteristic of the system defined by the vs point, thus generating an associated point
         in the equilibrium space (es) table.
 
+    :param camp: loaded campaign
+    :type camp: :class:`Campaign` instance
+
+    :param ord_id: order number
+    :type ord_id: int
+
+
     """
 
     with camp.working_directory():
         conn = establish_database_connection(camp)
-        # elements = determine_ele_set(path='huffer/')
 
         elements, aq_sp, solids, ss, gasses = determine_species_set(path='huffer/')
 
@@ -79,17 +85,14 @@ def Helmsman(camp, ord_id=None):
         print(msg)
         return
 
-    # ### date time stamp for run date
     date = time.strftime("%Y-%m-%d", time.gmtime())
 
-    # ### build order specific local working directory
+    # ### build order-specific local working directory
     order_path = os.path.join(camp.campaign_dir, 'order_{}'.format(ord_id))
-
-    # ### create local directory for samaple run
     mk_check_del_directory(order_path)
     os.chdir(order_path)
 
-    start = time.time()
+    start = time.time()  # for diagnostic times
     if ord_id is None:
         print(f"Processing all unfullfiled orders ({len(rec)} points)")
     else:
@@ -97,9 +100,9 @@ def Helmsman(camp, ord_id=None):
     cores = 4  # TODO: This doesn't make no damn sense, detect or pass as an argument
 
     with WorkingDirectory(order_path):
+        
         # ### build vs/es queues
         queue_manager = multiprocessing.Manager()
-
         vs_queue = queue_manager.Queue()
         es_queue = queue_manager.Queue()
 
@@ -107,8 +110,8 @@ def Helmsman(camp, ord_id=None):
         yoeman_process = multiprocessing.Process(target=yoeman, args=(camp, keep_running_yoeman,
                                                  vs_queue, es_queue, len(rec)))
         yoeman_process.start()
-        # # ##############   Multiprocessing  ##################
 
+        # # ##############   Multiprocessing  ##################
         with multiprocessing.Pool(processes=cores) as pool:
             _ = pool.starmap(sailor, zip([camp] * len(rec),
                                          [order_path] * len(rec),
@@ -120,12 +123,9 @@ def Helmsman(camp, ord_id=None):
                                          [ss] * len(rec),
                                          [vs_col_names] * len(rec),
                                          [es_col_names] * len(rec)))
+
+        # TODO
         # # ### check to see if queues are empty to kill
-
-        # ### Testing with serial computation for easier error reporting
-        # for r in rec[:100]:
-        #     sailor(camp, order_path, vs_queue, es_queue, date, r, elements, vs_col_names, es_col_names)
-
         while not vs_queue.empty():
             time.sleep(1)
         while not es_queue.empty():
@@ -134,32 +134,70 @@ def Helmsman(camp, ord_id=None):
         with keep_running_yoeman.get_lock():
             keep_running_yoeman.value = False
 
-    print('\nOrder {} complete. Debugging Dont believe these times'.format(ord_id))
-    print('        total time: {}'.format(round(time.time() - start, 4)))
-    print('     time/point: {}'.format(round((time.time() - start) / len(rec), 4)))
-    print('time/point/core: {}\n'.format(round((cores * (time.time() - start)) / len(rec), 4)))
+    print(f'\nOrder {ord_id} complete.')
+    print(f'        total time: {round(time.time() - start, 4)}')
+    print(f'        time/point: {round((time.time() - start) / len(rec), 4)}')
+    print(f'   time/point/core: {round((cores * (time.time() - start)) / len(rec), 4)}\n')
 
-    yoeman_process.terminate()
+    yoeman_process.join()
 
 
 def sailor(camp, order_path, vs_queue, es_queue, date, dat, elements, ss, vs_col_names, es_col_names, keep_every_n_files=1):
     """
-    Run system 'run', a point (vs) in variable space (VS) retireved from vs table
-    (1) build 3i
-    (2) run 3i
-    (3) build 6i
-    (4) run 6i
-    (5) mine 6o
-    """
+    Each sailor manages the execution of all geochemically model steps associated
+    with a single vs point in the Variable Space (VS).
+    These steps included:
 
-    # ord_id = str(dat[2])
+        (1) build 3i
+        (2) run 3i
+        (3) build 6i
+        (4) run 6i
+        (5) mine 6o
+
+    :param camp: loaded campaign
+    :type camp: :class:`Campaign` instance
+
+    :param order_path: local directory path for the current order
+    :type order_path: str
+
+    :param vs_queue: a waiting list of lines that need to be written to vs table
+    :type vs_queue: class 'multiprocessing.managers.AutoProxy[Queue]
+
+    :param es_queue: a queue of pandas data frames that need to be written to es table
+    :type es_queue: class 'multiprocessing.managers.AutoProxy[Queue]
+
+    :param date: birthdate of order
+    :type data: str
+
+    :param dat: all vs specific data neede by teh sailor to complete mission.
+    :type dat: list
+
+    :param elements: list of loaded element, excepting O and H
+    :type elements: list of strings
+
+    :param ss: list of loaded solid solutions
+    :type ss: list of strings
+
+    :param vs_col_names: column headers in vs table. If a value in the eq3/6 run files is not in
+                         the column names, then it is not captured.
+    :type vs_col_names: list of strings
+
+    :param es_col_names: column headers in es table. If a value in the eq3/6 run files is not in
+                         the column names, then it is not captured.
+
+    :type es_col_names: list of strings
+
+    :param keep_every_n_files: keep every n (multiple) files. All run files get deleted after being
+                               processed into the VS/ES sql database, as they are collectively very
+                               large. A subset of files can be kept here for later manual
+                               This arguemnt allows you to keep the raw data eq3/6 for a subset of
+                               runs so that you can evaluate the output directly. the sql codes grab
+                               alot of the eq3.6 run ionformaiton, but not all of it.
+    :type keep_every_n_files: int
+
+    """
     run_num = str(dat[3])
     file = '{}.3i'.format(run_num)
-
-    # ### determine if the run folder will be kept for later evaluation
-    # ### this functionality was installed in order to limit the quantity
-    # ### of data generated during large runs. If a specifc output file is desired
-    # ### it can simply be rerun from the data in the vs table and the campaign sheet.
     if int(run_num) in [int(idx) for idx in np.arange(0, 10000000, keep_every_n_files)]:
         delete_after_running = False
     else:
@@ -197,9 +235,8 @@ def sailor(camp, order_path, vs_queue, es_queue, date, dat, elements, ss, vs_col
     # ### build and execute 3i
     camp.local_3i.write(file, state_dict, basis_dict, master_dict['cb'], output_details='n')
     data1_file = os.path.join(camp.data0_dir, "data1." + suffix)
-    out, err = eq3(data1_file, file)  # TODO: Look at yourself, what the fuck.
+    out, err = eq3(data1_file, file)  # TODO: update after dougs error handelign is ready. these are not currently used.
 
-    # ### check 3p and 3o to determine system status
     if not os.path.isfile(file[:-1] + 'p'):
         # ### check 3p not generated. Then rebuild 3i and rerun as
         # ### 'v = verbose' to generate diagnostics. This will of
@@ -223,49 +260,53 @@ def sailor(camp, order_path, vs_queue, es_queue, date, dat, elements, ss, vs_col
     camp.local_6i.write(file[:-2] + '6i', rnt_dict, pickup, state_dict['T_cel'])
     out, err = eq6(data1_file, file[:-2] + '6i')
 
-    # ### check that 6o was generated
     if not os.path.isfile(file[:-2] + '6o'):
         reset_sailor(order_path, vs_queue, file, dat[0], 60,
                      delete_local=delete_after_running)
 
         return
 
-    # ### mine 6o and record in es if complete
     run_code, build_df = mine_6o(camp, date, elements, ss, file[:-2] + '6o', dat, es_col_names)
 
-    # ### load into es_table
     if run_code == 100:
-        # ### push bould_df onto eq_q
+        # ### write to ES
         es_queue.put(build_df)
-        # ### old #### six_o_data_to_sql(conn, 'es', build_df)
 
     reset_sailor(order_path, vs_queue, file, dat[0], run_code,
                  delete_local=delete_after_running)
 
+
 def mine_6o(camp, date, elements, ss, file, dat, col_names):
     """
-    conn = open postgresql connection to database with camp.__ tables
-    date = run date for file
-    file = local 6o file or file path
-    dat = data from orders issueed for file
-    col_names = ES table columns, in correct order (arrangement).
+    open and mine the eq6 output file ('file'.6o) for all of the run information
+    with associated columns in the ES table.
+
+    :param camp: loaded campaign
+    :type camp: :class:`Campaign` instance
+
+    :param date: birthdate of order
+    :type data: str
+
+    :param elements: list of loaded element, excepting O and H
+    :type elements: list of strings
+
+    :param ss: list of loaded solid solutions
+    :type ss: list of strings
+
+    :param file: 'file'.6o file name
+    :type file: str
+
+    :param dat: all vs specific data neede by teh sailor to complete mission.
+    :type dat: list
+
+    :param col_names: ES table columns
+    :type col_names: list of strings
     """
-    # ## initiate values dataframe with the full column name list.
-    # ## note: each solid only has one column. Affinity is written,
-    # ## and then moles precipiated is written over it, if it exists.
 
-    # ## Therefore, negative values always equal affinities, but
-    # ## positive values could either be positive affinities, or
-    # ## moles precipitated. However, in any given system they can
-    # ## never be both. If precipitation is allowed, then posative
-    # ## values equal moles, if precipiatation for a given pahse is
-    # ## inhibited, then posative values equals affinties
-    # build_df = pd.DataFrame(columns=col_names)
     build_dict = {k: [] for k in col_names}
-    # ## 6o file as a list of strings
-    lines = grab_lines(file)
 
-    # ## handel braod exit conditions
+    lines = grab_lines(file)  # 6o file
+
     run_code = 0  # default to un-run file '0'
     search_for_xi = False
     for _ in range(len(lines) - 1, 0, -1):
@@ -286,11 +327,10 @@ def mine_6o(camp, date, elements, ss, file, dat, col_names):
 
     if run_code == 0:
         # ## run code has not be altered, therefore unknown error
-        # ## has occured
         build_df = pd.DataFrame.from_dict(build_dict)
         return 61, build_df
 
-    # ## grab data and populate ES table
+    # ## populate ES table
     for _ in range(len(lines)):
         if '   Affinity of the overall irreversible reaction=' in lines[_]:
             # ## the first instance of this line is xi = 0.0
@@ -300,11 +340,9 @@ def mine_6o(camp, date, elements, ss, file, dat, col_names):
 
     # ## search from beginning of last xi step (set in last_xi_step_begins)
     # ## grab xi_max. since intial index conatins log Xi.
-    # build_df['xi_max'] = [grab_float(lines[last_xi_step_begins], -1)]
     build_dict['xi_max'] = [grab_float(lines[last_xi_step_begins], -1)]
 
     for _ in range(last_xi_step_begins, len(lines)):
-
         if re.findall('^\n', lines[_]):
             pass
 
@@ -318,7 +356,7 @@ def mine_6o(camp, date, elements, ss, file, dat, col_names):
             x = 4
             while not re.findall('^\n', lines[_ + x]):
                 if grab_str(lines[_ + x], 0) in elements:
-                    # log molality data
+                    # ### log molality
                     this_dat = [np.round(np.log10(grab_float(lines[_ + x], -1)), 6)]
                     build_dict['{}'.format(grab_str(lines[_ + x], 0))] = this_dat
                     x += 1
@@ -346,24 +384,24 @@ def mine_6o(camp, date, elements, ss, file, dat, col_names):
                 if grab_str(lines[_ + x], 0) != 'O2(g)':
                     # ### -1 position is log activity, -3 is log molality
                     build_dict[grab_str(lines[_ + x], 0)] = [grab_float(
-                        lines[_ + x], -3)]
+                        lines[_ + x], -1)]
                     x += 1
                 else:
                     x += 1
             del x
 
         elif '--- Summary of Solid Phases (ES) ---' in lines[_]:
-            # ###    Solids precip data is stored in a temp_s_dict, to be
+            # ### Solids data is stored in a temp_s_dict, to be
             # ### added to the build_df after the file is processed.
-            # ### This way precipitation moles overwrites the affinity
-            # ### data, only if it exists. See notes at the beginning of
+            # ### This way 'moles precipitated', if it exists, overwrites
+            # ### the affinity data. See notes at the beginning of
             # ### this function for explanantion. This temporary
             # ### dictionary is only necessary because the solids
             # ### precipiation moles is reported ahead of the affinity
             # ### data in the 6o file.
             temp_s_dict = {}
 
-            x = 4     # lines offset from beginning of sp data
+            x = 4
             while not re.findall('^\n', lines[_ + x]):
                 if 'None' not in lines[_ + x]:
                     # ## solids value grab_float()'s must reach from the
@@ -384,18 +422,13 @@ def mine_6o(camp, date, elements, ss, file, dat, col_names):
             x = 4
             while not re.findall('^\n', lines[_ + x]):
                 if re.findall(r'\*{4}$', lines[_ + x]):
-                    # ## ****** fills in the value region for numbers
-                    # ## lower than -999.9999. So I am replacing them
-                    # ## here with the boundry condition.
+                    # ## '******'' fills in the value region for numbers
+                    # ## lower than -999.9999. Replace with boundry condition
 
                     # ## affinity (kcal)
-                    # build_df[lines[_ + x][:30].strip()] = [float(-999.9999)]
                     build_dict[lines[_ + x][:30].strip()] = [float(-999.9999)]
                     x += 1
                 elif 'None' not in lines[_ + x]:
-                    # ##    affinity (kcal)
-                    # build_df[lines[_ + x][:30].strip()] = [
-                    #    float(lines[_ + x][44:55])]
                     build_dict[lines[_ + x][:30].strip()] = [
                         float(lines[_ + x][44:55])]
                     x += 1
@@ -407,18 +440,14 @@ def mine_6o(camp, date, elements, ss, file, dat, col_names):
             x = 4
             while not re.findall('^\n', lines[_ + x]):
                 if re.findall(r'\*{4}$', lines[_ + x]):
-                    # ## ****** fills in the value region for numbers
-                    # ## lower than -999.9999, So I am replacing them
-                    # ## here with the boundry condition.
+                    # ## '******'' fills in the value region for numbers
+                    # ## lower than -999.9999. Replace with boundry condition
 
                     # ## affinity (kcal)
-                    # build_df[lines[_ + x][:30].strip()] = [float(-999.9999)]
                     build_dict[lines[_ + x][:30].strip()] = [float(-999.9999)]
                     x += 1
                 elif 'None' not in lines[_ + x]:
                     # ## affinity (kcal)
-                    # build_df[lines[_ + x][:30].strip()] = [
-                    #     float(lines[_ + x][44:55])]
                     build_dict[lines[_ + x][:30].strip()] = [
                         float(lines[_ + x][44:55])]
                     x += 1
@@ -432,18 +461,13 @@ def mine_6o(camp, date, elements, ss, file, dat, col_names):
 
                 if 'None' not in lines[_ + x]:  # log f
                     if re.findall(r'\*{4}', lines[_ + x]):
-                        # ## ****** fills in the value region for numbers
-                        # ## lower than -999.9999 and for gasses that have
-                        # ## been user suppressed. So I am replacing them
-                        # ## here with the boundry condition.
+                        # ## '******'' fills in the value region for numbers
+                        # ## lower than -999.9999. Replace with boundry condition
 
                         # ## affinity (kcal)
-                        # build_df[lines[_ + x][:30].strip()] = [float(-999.9999)]
                         build_dict[lines[_ + x][:30].strip()] = [float(-999.9999)]
                         x += 1
                     else:
-                        # build_df[grab_str(lines[_ + x], 0)] = [
-                        #    float(lines[_ + x][28:41])]
                         build_dict[grab_str(lines[_ + x], 0)] = [
                             float(lines[_ + x][28:41])]
                         x += 1
@@ -452,22 +476,12 @@ def mine_6o(camp, date, elements, ss, file, dat, col_names):
             del x
             break
 
-    # ## combine temp_s_dict containing solid moles precip, and the
-    # ## build_df, which continas the affinity data.
     for _ in temp_s_dict.keys():
         # ## write temp_s_dict[_] to build_df[_]. As temp_s_dict only
         # ## contains solids that actually precipitated, the
         # ## affinity vlaues in build_df[_] can simply be overwritten
-        # build_df[_] = temp_s_dict[_]
-        build_dict[_] = temp_s_dict[_]
 
-    # ## set remaining es table variables
-    # build_df['uuid'] = [dat[0]]
-    # build_df['camp'] = [dat[1]]
-    # build_df['ord'] = [dat[2]]
-    # build_df['file'] = [dat[3]]
-    # build_df['run'] = [date]
-    # build_df['mineral'] = [dat[5]]
+        build_dict[_] = temp_s_dict[_]
 
     build_dict['uuid'] = [dat[0]]
     build_dict['camp'] = [dat[1]]
@@ -476,10 +490,6 @@ def mine_6o(camp, date, elements, ss, file, dat, col_names):
     build_dict['run'] = [date]
     build_dict['mineral'] = [dat[5]]
 
-    # ### if solid solutions are turned off, then NaN is suppplied in their
-    # ### place this is done, instead of removing them altogether, so that
-    # ### difffernet orders in teh same campaign can turn them on and off,
-    # ### without effecting the es table columns
     if not camp.SS:
         for _ in ss:
             build_dict[_] = [-999999]
@@ -496,14 +506,29 @@ def yoeman(camp, keep_running, write_vs_q, write_es_q, num_points):
     """
     Colecting each sailors dict output, and then writing it in
     bulk to sql
+
+    :param camp: loaded campaign
+    :type camp: :class:`Campaign` instance
+
+    :param keep_running: should the yoeman continue to run (ie. is there shit 
+                         left to write to the VS/ES)
+    :type keep_running: multiprocessing.value boolean
+
+    :param write_vs_q: queue of lines waiting to be writen to vs table
+    :type write_vs_q: queue.Queue
+
+    :param write_es_q: queue of dataframes waiting to be writen to vs table
+    :type write_es_q: queue.Queue
+
+    :param num_points: number of vs points in the order
+    :type num_points: int
     """
     conn = establish_database_connection(camp)
 
     vs_n_written = 0
 
     progress = tqdm(total=num_points)
-    while keep_running:
-
+    while keep_running.value:
         # ### check that es has something to write
         try:
             es_df = write_es_q.get_nowait()
@@ -523,29 +548,61 @@ def yoeman(camp, keep_running, write_vs_q, write_es_q, num_points):
             # ### write vs data to sql
             execute_query(conn, vs_sql)
             vs_n_written += 1
+
     return None
 
 def six_o_data_to_sql(conn, table, df):
+    """
+    Commit the 6o dataframe to sql
+
+    :param conn: sql database connnection
+    :type conn: :class: sqlite3.Connection
+
+    :param table: name of sql table
+    :type table: str
+
+    :param df: datafram contain the 6o information to written to the es table
+    :type df: 'pandas.core.frame.DataFrame'
+
+    """
     df.to_sql(table, conn, if_exists='append', index=False)
 
 
 def reset_sailor(order_path, vs_queue, file, uuid, code, delete_local=False):
     """
-    The sailor is finished, for better or worse, with run number 'file'
-    with exid code 'code'
+    The sailor is finished, for better or worse. Close up shop.
 
     (1) Report to vs table 'camp_name' via server connection 'conn' the
         exit 'code' for 'file' with unique vs_table id 'uuid'.
     (2) Step back into order folder 'order_path' for next vs point.
+
+    :param order_path: path to order folder
+    :type order_path: str
+
+    :param vs_queue: a waiting list of lines that need to be written to vs table
+    :type vs_queue: class 'multiprocessing.managers.AutoProxy[Queue]
+
+    :param file: original 3i file name for this vs point 'id_number.3i'
+    :type file: str
+
+    :param uuid: 'Universally Unique IDentifier'
+    :type uuid: str
+
+    :param code: custom exit codes describing eq3/6 errors
+    :type code: int
+
+    :param delete_local: do you want to keep the local folder full of rthe eq3/6 files?
+    :type delete_local: boolean
+
     """
+
+    print('uuid', uuid, type(uuid))
+    print('order_path', order_path, type(order_path))
+    print('vs_queue', vs_queue, type(vs_queue))
+    print('file', file, type(file))
+    sys.exit()
     sql = """UPDATE vs SET code = {} WHERE uuid = '{}';""".format(code, uuid)
-
-    # ### push sql onto yoeman for submission
-    # execute_query(conn, sql)
-
     vs_queue.put(sql)
-
     os.chdir(order_path)
-
     if delete_local:
         shutil.rmtree(file[:-3])

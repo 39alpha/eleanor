@@ -3,7 +3,35 @@
 
 Provide a simple API for running EQ3/6.
 """
+import re
 from subprocess import Popen, PIPE
+
+class Eq36Exception(Exception):
+    """
+    An Exception to represent that an error occured during the running of
+    :func:`eqpt`, :func:`eq3` or func:`eq6`.
+    """
+    pass
+
+
+def error_guard(output):
+    """
+    Parse EQ3/6 standard output content for error messages and raise an
+    :class:`Eq36Exception` if any are found.
+
+    :param output: the content of the EQ3/6 output file
+    :raises Eq36Exception: if an error message is found
+    """
+    matches = re.search('Error - (.|\n)*', str(output))
+    if matches is not None:
+        errors = matches.group(0).split('\\n\\n')
+        for error in errors:
+            first_message = error.split('\\n\\n')[0]
+            trimmed_prefix = first_message.replace('Error - ', '')
+            no_newline = trimmed_prefix.replace('\\n', '')
+            message = re.sub('\s+', ' ', no_newline)
+            if re.match('^\s*$', message) is None:
+                raise Eq36Exception(message)
 
 def run(cmd, *args):
     """
@@ -16,6 +44,9 @@ def run(cmd, *args):
     """
     process = Popen([cmd, *args], stdout=PIPE, stderr=PIPE)
     stdout, stderr = process.communicate()
+
+    error_guard(stdout)
+
     return stdout, stderr
 
 def eqpt(data0):

@@ -1,6 +1,7 @@
-__pycache__
-.DS_Store
-*.xlsx
 *.egg-info
+*.xlsx
+.DS_Store
+.mypy_cache
 CSS0
+__pycache__
 docs/build

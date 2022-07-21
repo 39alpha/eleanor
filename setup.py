@@ -16,6 +16,11 @@ setup(
     license='',
     packages=find_packages(),
     package_data={'eleanor': ['data/*.csv', 'data/*.json']},
+    entry_points={
+        'console_scripts': ['eleanor=eleanor.command_line:combined',
+                            'helmsman=eleanor.command_line:helmsman',
+                            'navigator=eleanor.command_line:navigator'],
+    },
     install_requires=['numpy', 'pandas', 'matplotlib'],
     setup_requires=['green'],
     test_suite='test',

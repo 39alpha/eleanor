@@ -424,7 +424,7 @@ def build_admin_info(camp, df, ord, order_size, date):
 
 def calculate_ele_totals(df, elements, order_size, precision):
     """
-    Calculate element totals, as multiple VS spcies may
+    Calculate element totals, as multiple VS species may
     contain the same element.
 
     :param df: dataframe with all state and basis dimensions
@@ -490,7 +490,6 @@ def orders_to_sql(conn, table, ord, df):
 
     """
     print(f'Writing order # {ord} to table {table}')
-
     df.to_sql(table, con=conn, if_exists='append', index=False)
     conn.commit()
     conn.close()

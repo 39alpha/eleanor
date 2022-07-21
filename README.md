@@ -7,7 +7,21 @@ A package for large scale aqueous geochemical modeling.
 
 Install is as simple as
 
-```pip install elanor```
+```pip install eleanor```
+
+## Command line tools
+
+With `eleanor` install you can use a command line tool to run the standard workflow. Prepare your `Campaign` file and run `data0` files and then simply run eleanor on your machine as
+
+```$ eleanor -c CAMPAIGN_FILE.json -d PATH/TO/DATA0```
+
+where `CAMPAIGN.json` is your campaign json and `PATH/TO/DAT0` is the relative path from your current directory to your data0 files. 
+
+If for some reason you want to run the `Navigator` or `Helmsman` independently, you can do that with a similar structure:
+
+```$ navigator -c CAMPAIGN_FILE.json -d PATH/TO/DATA0```
+
+```$ helsman -c CAMPAIGN_FILE.json -d PATH/TO/DATA0```
 
 ### Environment Variable
 

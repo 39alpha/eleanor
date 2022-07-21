@@ -549,6 +549,8 @@ def yoeman(camp, keep_running, write_vs_q, write_es_q, num_points):
             execute_query(conn, vs_sql)
             vs_n_written += 1
 
+    return None
+
 def six_o_data_to_sql(conn, table, df):
     """
     Commit the 6o dataframe to sql

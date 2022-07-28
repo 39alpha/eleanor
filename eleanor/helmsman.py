@@ -537,10 +537,11 @@ def yoeman(camp, keep_running, write_vs_q, write_es_q, num_points):
         try:
             es_df = write_es_q.get_nowait()
         except queue.Empty:
-            total_es_df = pd.concat(es_df_list, ignore_index=True)
-            total_es_df.to_sql('es', conn, if_exists='append', index=False)
-            es_df_list = []
-            progress.update()
+            if es_df_list != []:
+                total_es_df = pd.concat(es_df_list, ignore_index=True)
+                total_es_df.to_sql('es', conn, if_exists='append', index=False)
+                es_df_list = []
+                progress.update()
 
         else:
             # add the es_df to the list to be written
@@ -551,10 +552,11 @@ def yoeman(camp, keep_running, write_vs_q, write_es_q, num_points):
             vs_sql = write_vs_q.get_nowait()
         except queue.Empty:
             # ### write available vs data to sql
-            for vs_point in vs_list:
-                execute_query(conn, vs_point)
-                vs_n_written += 1
-            vs_list = []
+            if vs_list != []:
+                for vs_point in vs_list:
+                    execute_query(conn, vs_point)
+                    vs_n_written += 1
+                vs_list = []
 
         else:
             vs_list.append(vs_sql)

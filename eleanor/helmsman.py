@@ -4,7 +4,7 @@
 # ### Tucker Ely, Douglas G. Moore, Cole Mathis
 
 import multiprocessing
-import os, sys
+import os
 import re
 import shutil
 import time
@@ -15,11 +15,11 @@ import pandas as pd
 
 from tqdm import tqdm
 
-# ### custom packages
+# ### local imports
 from .hanger.db_comms import execute_query
 from .hanger.db_comms import establish_database_connection, retrieve_records, get_column_names
 from .hanger.eq36 import eq3, eq6
-from .hanger.data0_tools import determine_ele_set, determine_species_set, data0_suffix
+from .hanger.data0_tools import determine_species_set, data0_suffix  # , determine_ele_set
 from .hanger.tool_room import mk_check_del_directory, mine_pickup_lines, grab_float
 from .hanger.tool_room import grab_lines, grab_str, WorkingDirectory
 
@@ -134,15 +134,16 @@ def Helmsman(camp, ord_id=None):
         with keep_running_yoeman.get_lock():
             keep_running_yoeman.value = False
 
+    yoeman_process.join()
+
     print(f'\nOrder {ord_id} complete.')
     print(f'        total time: {round(time.time() - start, 4)}')
     print(f'        time/point: {round((time.time() - start) / len(rec), 4)}')
     print(f'   time/point/core: {round((cores * (time.time() - start)) / len(rec), 4)}\n')
 
-    yoeman_process.join()
 
-
-def sailor(camp, order_path, vs_queue, es_queue, date, dat, elements, ss, vs_col_names, es_col_names, keep_every_n_files=1):
+def sailor(camp, order_path, vs_queue, es_queue, date, dat,
+           elements, ss, vs_col_names, es_col_names, keep_every_n_files=1):
     """
     Each sailor manages the execution of all geochemically model steps associated
     with a single vs point in the Variable Space (VS).
@@ -235,7 +236,8 @@ def sailor(camp, order_path, vs_queue, es_queue, date, dat, elements, ss, vs_col
     # ### build and execute 3i
     camp.local_3i.write(file, state_dict, basis_dict, master_dict['cb'], output_details='n')
     data1_file = os.path.join(camp.data0_dir, "data1." + suffix)
-    out, err = eq3(data1_file, file)  # TODO: update after dougs error handelign is ready. these are not currently used.
+    out, err = eq3(data1_file, file)  # TODO: update after dougs error handelign is ready.
+    # above variables not currently used
 
     if not os.path.isfile(file[:-1] + 'p'):
         # ### check 3p not generated. Then rebuild 3i and rerun as
@@ -608,11 +610,6 @@ def reset_sailor(order_path, vs_queue, file, uuid, code, delete_local=False):
 
     """
 
-    print('uuid', uuid, type(uuid))
-    print('order_path', order_path, type(order_path))
-    print('vs_queue', vs_queue, type(vs_queue))
-    print('file', file, type(file))
-    sys.exit()
     sql = """UPDATE vs SET code = {} WHERE uuid = '{}';""".format(code, uuid)
     vs_queue.put(sql)
     os.chdir(order_path)

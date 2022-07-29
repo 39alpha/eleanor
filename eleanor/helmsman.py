@@ -100,7 +100,7 @@ def Helmsman(camp, ord_id=None):
     cores = 4  # TODO: This doesn't make no damn sense, detect or pass as an argument
 
     with WorkingDirectory(order_path):
-        
+
         # ### build vs/es queues
         queue_manager = multiprocessing.Manager()
         vs_queue = queue_manager.Queue()
@@ -512,7 +512,7 @@ def yoeman(camp, keep_running, write_vs_q, write_es_q, num_points):
     :param camp: loaded campaign
     :type camp: :class:`Campaign` instance
 
-    :param keep_running: should the yoeman continue to run (ie. is there shit 
+    :param keep_running: should the yoeman continue to run (ie. is there shit
                          left to write to the VS/ES)
     :type keep_running: multiprocessing.value boolean
 
@@ -535,6 +535,7 @@ def yoeman(camp, keep_running, write_vs_q, write_es_q, num_points):
     vs_list = []
 
     while keep_running.value:
+
         # ### check that es has something to write
         try:
             es_df = write_es_q.get_nowait()
@@ -544,7 +545,6 @@ def yoeman(camp, keep_running, write_vs_q, write_es_q, num_points):
                 total_es_df.to_sql('es', conn, if_exists='append', index=False)
                 es_df_list = []
                 progress.update()
-
         else:
             # add the es_df to the list to be written
             es_df_list.append(es_df)
@@ -559,9 +559,20 @@ def yoeman(camp, keep_running, write_vs_q, write_es_q, num_points):
                     execute_query(conn, vs_point)
                     vs_n_written += 1
                 vs_list = []
-
         else:
             vs_list.append(vs_sql)
+
+        # Make sure to write at least every 100 points
+        if len(es_df_list) >= 100:
+            total_es_df = pd.concat(es_df_list, ignore_index=True)
+            total_es_df.to_sql('es', conn, if_exists='append', index=False)
+            es_df_list = []
+            progress.update()
+        if len(vs_list) >= 100:
+            for vs_point in vs_list:
+                execute_query(conn, vs_point)
+                vs_n_written += 1
+            vs_list = []
 
     return None
 

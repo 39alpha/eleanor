@@ -484,7 +484,7 @@ def mine_6o(camp, date, elements, ss, file, dat, col_names):
         build_dict[_] = temp_s_dict[_]
 
     build_dict['uuid'] = [dat[0]]
-    build_dict['camp'] = [dat[1]]
+    # build_dict['camp'] = [dat[1]]  # Removing the campaign name from the ES table
     build_dict['ord'] = [dat[2]]
     build_dict['file'] = [dat[3]]
     build_dict['run'] = [date]

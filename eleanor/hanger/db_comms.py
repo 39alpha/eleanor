@@ -110,8 +110,8 @@ def create_es_table(conn, camp, loaded_sp, elements):
     instantiated fof the campaign
     """
 
-    sql_info = "CREATE TABLE IF NOT EXISTS es (uuid VARCHAR(32) PRIMARY KEY, camp \
-        TEXT NOT NULL, ord INTEGER NOT NULL, file INTEGER NOT NULL, run \
+    sql_info = "CREATE TABLE IF NOT EXISTS es (uuid VARCHAR(32) PRIMARY KEY,\
+        ord INTEGER NOT NULL, file INTEGER NOT NULL, run \
         DATE NOT NULL, mineral TEXT NOT NULL,"
 
     sql_run = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in

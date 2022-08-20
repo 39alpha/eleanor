@@ -6,7 +6,6 @@
 # Tucker Ely and then 39Alpha
 # October 6nd 2020 and then Dec 12th 2021
 
-from sqlite3.dbapi2 import Error
 import sys
 import uuid
 import random
@@ -22,8 +21,7 @@ import pandas as pd
 
 from .hanger.eq36 import eq3
 from .hanger import db_comms
-from .hanger.db_comms import get_column_names
-from .hanger.tool_room import mk_check_del_directory, grab_lines
+from .hanger.tool_room import mk_check_del_directory
 from .hanger.data0_tools import determine_ele_set, data0_suffix, determine_loaded_sp, species_info
 from .hanger.data0_tools import SLOP_DF
 

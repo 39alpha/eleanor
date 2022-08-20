@@ -12,7 +12,7 @@ from .hanger.data0_tools import determine_T_P_coverage
 import json
 import shutil
 
-import sys
+import sys, re
 
 class Campaign:
     """
@@ -188,6 +188,26 @@ class Campaign:
         self.data1_dir = join(self.campaign_dir, 'data1', self._data0_hash)
         if not isdir(self.data1_dir):
             data0_tools.convert_to_d1(self.data0_dir, self.data1_dir)
+
+        # move to data1 tools
+        with tool_room.WorkingDirectory(self.data1_dir):
+            data1_files = tool_room.read_inputs('.d1f', '.')
+            data1f_equations = []
+            for f in data1_files:
+                f_lines = tool_room.grab_lines(f)
+                i = data0_tools.data1_TP_grids(f)
+                for line in range(len(f_lines)):
+                    if re.findall('^presg\n', f_lines[line]):
+                        i.grab_P(f_lines[line + 1], f_lines[line + 2])
+
+                    if 'Data file maximum and minimum temperatures (C)' in f_lines[line]:
+                        i.grab_T(f_lines[line + 1], f_lines[line + 3], f_lines[line + 4])
+                        break
+
+                data1f_equations.append(i)
+
+        # TO DOUG: fitting equation intercepts and coeffcients are now stored in 
+        # data1f_equations, which is a list of the class instances (class in data0_tools at bottom.)
 
     def working_directory(self, *args, **kwargs):
         """

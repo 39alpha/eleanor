@@ -469,3 +469,25 @@ mw = {
     'Yb': 173.04000,
     'Zn': 65.39000,
     'Zr': 91.22400}
+
+class data1_TP_grids:
+
+    def __init__(self, f_name):
+        self.name = f_name
+
+    def grab_T(self, line1, line2, line3):
+        self.T_min = float(line1[:9])
+        self.T_mid = float(line2[:9])
+        self.T_max = float(line3[:9])
+
+    def grab_P(self, line1, line2):
+        self.P_int1 = float(line1[:16])
+        self.P_a1 = float(line1[16:32])
+        self.P_b1 = float(line1[32:48])
+        self.P_c1 = float(line1[48:64])
+
+        self.P_int2 = float(line2[:16])
+        self.P_a2 = float(line2[16:32])
+        self.P_b2 = float(line2[32:48])
+        self.P_c2 = float(line2[48:64])
+        self.P_d2 = float(line2[64:])

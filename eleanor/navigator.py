@@ -55,6 +55,7 @@ def Navigator(this_campaign):
 
     # Enter the Campaigns env
     with this_campaign.working_directory():
+        sys.exit()
         print(f'Preparing order for campagin {this_campaign.name}.\n')
 
         conn = db_comms.establish_database_connection(this_campaign)

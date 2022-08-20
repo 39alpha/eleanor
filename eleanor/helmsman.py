@@ -97,7 +97,7 @@ def Helmsman(camp, ord_id=None):
         print(f"Processing all unfullfiled orders ({len(rec)} points)")
     else:
         print(f"Processing Order {ord_id} ({len(rec)} points)")
-    cores = 4  # TODO: This doesn't make no damn sense, detect or pass as an argument
+    cores = 10  # TODO: This doesn't make no damn sense, detect or pass as an argument
 
     with WorkingDirectory(order_path):
 
@@ -111,7 +111,7 @@ def Helmsman(camp, ord_id=None):
                                                  vs_queue, es_queue, len(rec)))
         yoeman_process.start()
 
-        # # ##############   Multiprocessing  ##################
+        # ##############   Multiprocessing  ##################
         with multiprocessing.Pool(processes=cores) as pool:
             _ = pool.starmap(sailor, zip([camp] * len(rec),
                                          [order_path] * len(rec),
@@ -123,18 +123,20 @@ def Helmsman(camp, ord_id=None):
                                          [ss] * len(rec),
                                          [vs_col_names] * len(rec),
                                          [es_col_names] * len(rec)))
-
+        
         # TODO
         # # ### check to see if queues are empty to kill
-        while not vs_queue.empty():
-            time.sleep(1)
-        while not es_queue.empty():
-            time.sleep(1)
+        # while not vs_queue.empty():
+        #     time.sleep(1)
+        # while not es_queue.empty():
+        #     time.sleep(1)
 
         with keep_running_yoeman.get_lock():
             keep_running_yoeman.value = False
 
     yoeman_process.join()
+    # vs_queue.join()
+    # es_queue.join()
 
     print(f'\nOrder {ord_id} complete.')
     print(f'        total time: {round(time.time() - start, 4)}')
@@ -197,13 +199,15 @@ def sailor(camp, order_path, vs_queue, es_queue, date, dat,
     :type keep_every_n_files: int
 
     """
+    # sailor_start_time = time.time()
     run_num = str(dat[3])
     file = '{}.3i'.format(run_num)
-    if int(run_num) in [int(idx) for idx in np.arange(0, 10000000, keep_every_n_files)]:
-        delete_after_running = False
-    else:
-        delete_after_running = True
 
+    if int(run_num) % keep_every_n_files == 1:
+        delete_after_running = True
+    else:
+        delete_after_running = False
+    # delete_after_running = True
     master_dict = {}
     for i, j in zip(vs_col_names, dat):
         master_dict[i] = j
@@ -236,6 +240,7 @@ def sailor(camp, order_path, vs_queue, es_queue, date, dat,
     # ### build and execute 3i
     camp.local_3i.write(file, state_dict, basis_dict, master_dict['cb'], output_details='n')
     data1_file = os.path.join(camp.data0_dir, "data1." + suffix)
+
     out, err = eq3(data1_file, file)  # TODO: update after dougs error handelign is ready.
     # above variables not currently used
 
@@ -261,21 +266,21 @@ def sailor(camp, order_path, vs_queue, es_queue, date, dat,
 
     camp.local_6i.write(file[:-2] + '6i', rnt_dict, pickup, state_dict['T_cel'])
     out, err = eq6(data1_file, file[:-2] + '6i')
-
     if not os.path.isfile(file[:-2] + '6o'):
         reset_sailor(order_path, vs_queue, file, dat[0], 60,
                      delete_local=delete_after_running)
 
         return
-
     run_code, build_df = mine_6o(camp, date, elements, ss, file[:-2] + '6o', dat, es_col_names)
-
     if run_code == 100:
         # ### write to ES
-        es_queue.put(build_df)
+        es_queue.put_nowait(build_df)
 
     reset_sailor(order_path, vs_queue, file, dat[0], run_code,
                  delete_local=delete_after_running)
+    # mark_time = time.time()
+    # print("Time through mark: ", mark_time - sailor_start_time)
+    return
 
 
 def mine_6o(camp, date, elements, ss, file, dat, col_names):
@@ -526,54 +531,89 @@ def yoeman(camp, keep_running, write_vs_q, write_es_q, num_points):
     :type num_points: int
     """
     conn = establish_database_connection(camp)
-
+    WRITE_EVERY_N = 100
     vs_n_written = 0
-
-    progress = tqdm(total=num_points)
 
     es_df_list = []
     vs_list = []
 
+    if num_points <= WRITE_EVERY_N:
+        write_all_at_once = True
+    else:
+        write_all_at_once = False
+        progress = tqdm(total=num_points)
+
     while keep_running.value:
+        # Get the current size
+        current_q_size = write_vs_q.qsize()
 
-        # ### check that es has something to write
-        try:
-            es_df = write_es_q.get_nowait()
-        except queue.Empty:
-            if es_df_list != []:
-                total_es_df = pd.concat(es_df_list, ignore_index=True)
-                total_es_df.to_sql('es', conn, if_exists='append', index=False)
-                es_df_list = []
-                progress.update()
-        else:
-            # add the es_df to the list to be written
-            es_df_list.append(es_df)
+        if current_q_size < WRITE_EVERY_N and not write_all_at_once:
+            time.sleep(0.1)
+            # print("Sleeping Yoeman")
 
-        # ### check that vs has something to write
-        try:
-            vs_sql = write_vs_q.get_nowait()
-        except queue.Empty:
-            # ### write available vs data to sql
-            if vs_list != []:
-                for vs_point in vs_list:
-                    execute_query(conn, vs_point)
-                    vs_n_written += 1
-                vs_list = []
-        else:
-            vs_list.append(vs_sql)
-
-        # Make sure to write at least every 100 points
-        if len(es_df_list) >= 100:
+        elif current_q_size == num_points and write_all_at_once:
+            # Get everything written
+            # Get VS Points
+            while not write_vs_q.empty():
+                vs_line = write_vs_q.get_nowait()
+                vs_list.append(vs_line)
+                write_vs_q.task_done()
+            # Get ES points
+            while not write_es_q.empty():
+                es_df = write_es_q.get_nowait()
+                es_df_list.append(es_df)
+                write_es_q.task_done()
+            # Write ES table
             total_es_df = pd.concat(es_df_list, ignore_index=True)
             total_es_df.to_sql('es', conn, if_exists='append', index=False)
             es_df_list = []
-            progress.update()
-        if len(vs_list) >= 100:
+            # Write VS lines
+            for vs_point in vs_list:
+                execute_query(conn, vs_point)
+                vs_n_written += 1
+
+        elif not write_all_at_once and current_q_size > WRITE_EVERY_N:
+            # Get VS batch
+            while len(vs_list) < WRITE_EVERY_N:
+                vs_line = write_vs_q.get_nowait()
+                vs_list.append(vs_line)
+                write_vs_q.task_done()
+            # Write batch to VS table
             for vs_point in vs_list:
                 execute_query(conn, vs_point)
                 vs_n_written += 1
             vs_list = []
+            # Get ES batch
+            current_es_q_size = write_es_q.qsize()
+            while len(es_df_list) < current_es_q_size:
+                es_df = write_es_q.get_nowait()
+                es_df_list.append(es_df)
+                write_es_q.task_done()
+            # Write batch to ES table
+            total_es_df = pd.concat(es_df_list, ignore_index=True)
+            total_es_df.to_sql('es', conn, if_exists='append', index=False)
+            es_df_list = []
+            progress.update(vs_n_written)
 
+    # Clean up the last batch
+    # Get remaining vs lines
+    while not write_vs_q.empty():
+        vs_line = write_vs_q.get_nowait()
+        vs_list.append(vs_line)
+        write_vs_q.task_done()
+    # Write last batch to VS table
+    for vs_point in vs_list:
+        execute_query(conn, vs_point)
+        vs_n_written += 1
+    while not write_es_q.empty():
+        es_df = write_es_q.get_nowait()
+        es_df_list.append(es_df)
+        write_es_q.task_done()
+    # Write batch to ES table
+    if es_df_list != []:
+        total_es_df = pd.concat(es_df_list, ignore_index=True)
+        total_es_df.to_sql('es', conn, if_exists='append', index=False)
+    progress.update(vs_n_written)
     return None
 
 def six_o_data_to_sql(conn, table, df):
@@ -620,9 +660,9 @@ def reset_sailor(order_path, vs_queue, file, uuid, code, delete_local=False):
     :type delete_local: boolean
 
     """
-
+    # This only takes like 1e-5 seconds even with the put
     sql = """UPDATE vs SET code = {} WHERE uuid = '{}';""".format(code, uuid)
-    vs_queue.put(sql)
+    vs_queue.put_nowait(sql)
     os.chdir(order_path)
     if delete_local:
         shutil.rmtree(file[:-3])

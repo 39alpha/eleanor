@@ -121,6 +121,46 @@ def Radar(camp, x_sp, y_sp, z_sp, description, ord_id=None, limit=1000, where=No
             )
         return pd.DataFrame(cobj.cluster_centers_, columns=df.keys())
 
+    def calc_K_cal_sp():
+        # ### From PyCO2SYS: constants.RGasConstant_DOEv2
+        Tzero = 273.15  # 0 degC in K
+        RGas = 83.1451  # ml bar-1 K-1 mol-1, DOEv2 (always used by default)
+        # ### functions imported from PyCO2SYS for comparison of Ksp
+        def _deltaKappaCalcite_I75(TempC):
+            """Delta and kappa terms for calcite solubility [I75]."""
+            # Note that Millero, GCA 1995 has typos:
+            #   (-.5304, -.3692, and 10^3 for Kappa factor)
+            deltaVKCa = -48.76 + 0.5304 * TempC
+            KappaKCa = (-11.76 + 0.3692 * TempC) / 1000
+            return deltaVKCa, KappaKCa
+
+        def k_calcite_M83(TempK, Sal, Pbar, RGas):
+            """Calcite solubility following M83."""
+
+            logKCa = -171.9065 - 0.077993 * TempK + 2839.319 / TempK
+            logKCa = logKCa + 71.595 * np.log10(TempK)
+            logKCa = logKCa + (-0.77712 + 0.0028426 * TempK + 178.34 / TempK) * np.sqrt(Sal)
+            logKCa = logKCa - 0.07711 * Sal + 0.0041249 * np.sqrt(Sal) * Sal
+            # sd fit = .01 (for Sal part, not part independent of Sal)
+            KCa = 10.0 ** logKCa  # this is in (mol/kg-SW)^2 at zero pressure
+            # Add pressure correction for calcite [I75, M79]
+
+            TempC = TempK - Tzero
+            deltaVKCa, KappaKCa = _deltaKappaCalcite_I75(TempC)
+            lnKCafac = (-deltaVKCa + 0.5 * KappaKCa * Pbar) * Pbar / (RGas * TempK)
+            KCa = KCa * np.exp(lnKCafac)
+            return KCa
+
+        K_cal_sp = []
+        T = list(np.linspace(1, 31, 100))
+        for t in T:
+            K_cal_sp.append(np.log10(k_calcite_M83(Tzero + t, 36.45, 1, RGas)))
+        return T, K_cal_sp
+
+    T_sp, K_cal_sp = calc_K_cal_sp()
+
+
+
     # ### error chekc arguments
     if not ord_id:
         sys.exit('please supply order id, or list of order ids to be plotted')
@@ -190,7 +230,6 @@ def Radar(camp, x_sp, y_sp, z_sp, description, ord_id=None, limit=1000, where=No
         matplotlib.rcParams['savefig.transparent'] = transparent
 
         # calculate_medoids(df, n=5)
-        
 
         # ### process plot
         if z_sp == '':
@@ -213,6 +252,10 @@ def Radar(camp, x_sp, y_sp, z_sp, description, ord_id=None, limit=1000, where=No
                              label=all_sp[2])
             ax1.set_xlabel(all_sp[0])
             ax1.set_ylabel(all_sp[1])
+
+            # cb = ax1.scatter(T_sp, K_cal_sp,
+            #                  facecolors='black', marker='o',
+            #                  alpha=0.7, edgecolor=None, s=4, linewidth=0)
 
             # yrng = ax1.get_ylim()
             # xrng = ax1.get_xlim()

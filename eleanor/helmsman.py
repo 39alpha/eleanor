@@ -386,7 +386,7 @@ def mine_6o(camp, date, elements, ss, file, dat, col_names):
                 if grab_str(lines[_ + x], 0) != 'O2(g)':
                     # ### -1 position is log activity, -3 is log molality
                     build_dict[grab_str(lines[_ + x], 0)] = [grab_float(
-                        lines[_ + x], -1)]
+                        lines[_ + x], -3)]
                     x += 1
                 else:
                     x += 1

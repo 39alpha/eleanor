@@ -92,6 +92,7 @@ def Radar_Grid(camp, vars, color_condition, description, ord_id=None, limit=1000
             )
         return labels, pd.DataFrame(cobj.cluster_centers_, columns=df.keys())
 
+
     # ### error check arguments
     if not ord_id:
         sys.exit('check docstring for arguments')
@@ -249,7 +250,7 @@ def Radar_Grid(camp, vars, color_condition, description, ord_id=None, limit=1000
                             )
 
         # grid.map_upper(sns.kdeplot,  alpha=0.6, levels=10, thresh=0.05, linewidth=0.1)
-        grid.map_lower(plt.scatter, alpha=0.5, edgecolor=None, s=80, linewidth=0)
+        grid.map_lower(plt.scatter, alpha=0.5, edgecolor=None, s=40, linewidth=0)
         grid.map_diag(plt.hist, bins=40)
         # grid.map_diag(sns.kdeplot, fill=False, alpha=0.2, levels=1, thresh=0.05)      # conditions for test 6 and first big Py plot
         grid.map_upper(hide_current_axis)

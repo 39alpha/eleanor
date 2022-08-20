@@ -386,7 +386,7 @@ def build_basis(camp, precision, n):
             df['{}'.format(_)] = vals
         else:
             vals = np.round(camp.vs_basis[_], precision)
-            df['{}'.format(_)] = float(vals)
+            df['{}'.format(_)] = [float(vals) for i in range(n)]
     return df
 
 

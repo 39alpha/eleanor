@@ -7,13 +7,16 @@ The :class:`Campaign` class contains the specification of modeling objectives.
 from .hanger import tool_room
 from os import mkdir, rename
 from os.path import isdir, join, realpath
+from .hanger.data0_tools import determine_T_P_coverage
+
 import json
 import shutil
 
+import sys
 
 class Campaign:
     """
-    The Campaign class is used to specify modeling objectives, before the 
+    The Campaign class is used to specify modeling objectives, before the
     Navigator and Helmsman are run.
 
     A Campaign can be initialized by either providing a dictionary
@@ -79,6 +82,9 @@ class Campaign:
         #
         # self.create_env()
 
+        # self.T_P_grid = determine_T_P_coverage(self.data0_dir)
+        # sys.exit()
+
         self.local_3i = tool_room.Three_i()
         self.local_6i = tool_room.Six_i(suppress_min=self.suppress_min,
                                         iopt4=iopt4,
@@ -88,6 +94,8 @@ class Campaign:
 
         self._hash = None
         self._data0_hash = None
+
+
 
     @property
     def campaign_dir(self):

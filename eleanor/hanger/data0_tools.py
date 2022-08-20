@@ -213,16 +213,50 @@ def determine_loaded_sp(path=''):
 
     return sp_names
 
+def determine_T_P_coverage(data0_dir):
+    """
+    (1) Check if data0 data1 pairs exists for supplied data0/s
+        (1.1) if yes, then hash data1's to make sure they are unchanged
+            (1.1.1) if hashes dont match, re-run eqpt on data0's to rebuild data1/data1f
+            (1.1.2) if hashes match, calculate T/P region of all supplied files
+    (2) If no data1's exists, run eqpt on data0.
+        (2.1) Calculate T/P region of all supplied files
 
-# def basis_to_ele_dict(slopfile):
-#     """
-#         Determine species-element relationships via a WORM slop.csv file.
-#         :param slop_file: campaign huffer path of test.3o
-#         :return: list of loaded species
-#     """
-#     df = pd.read_csv('/Users/tuckerely/NPP_dev/0_slop_OBIGT_Data0/{}'.format(slopfile),
-#                      index_col=0)
-#     basis_df = df[df['tag'] == 'basis']
+    Check user supplies data0. look for T/P grid
+
+    note:  We simply adopt the user-supplied suffix naming scheme, and
+              notify them if there are overlaps.
+
+    """
+
+    print('w')
+    return []
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+###############   old piecies to be removed  ####################
 
 
 def data0_suffix(T, P):

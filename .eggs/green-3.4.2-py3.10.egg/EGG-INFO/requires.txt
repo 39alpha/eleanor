@@ -1,0 +1,4 @@
+colorama
+coverage
+unidecode
+lxml

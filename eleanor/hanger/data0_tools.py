@@ -4,14 +4,17 @@
  April 8th 2020
 """
 import math
-import re
+import os
+import os.path
 import pandas as pd
+import re
+import shutil
 
+from os.path import abspath, dirname, join, realpath
 import matplotlib.pyplot as plt
 
-from os.path import dirname, abspath, realpath, join
-
-from .tool_room import grab_str, read_inputs
+from .tool_room import grab_str, read_inputs, WorkingDirectory
+from .eq36 import eqpt
 
 
 DATA_PATH = join(abspath(join(dirname(realpath(__file__)), '..')), 'data')
@@ -282,7 +285,7 @@ def data0_suffix(T, P):
     dualchar = []
     for i in char:
         for j in char:
-            dualchar.append(''.join([i, j]))
+            dualchar.append(''.os.path.join([i, j]))
     # ## by using 'floor' below. the correct file is returned for T near the file cutoffs
     # ## for example, T = 7.99 (P=1), does in fact call the data0.002 file. The data0 files
     # ## themselves overlap in their lowest and highest values for consecutive files.
@@ -309,7 +312,7 @@ def data0_TP(suffix):
     dualchar = []
     for i in char:
         for j in char:
-            dualchar.append(''.join([i, j]))
+            dualchar.append(''.os.path.join([i, j]))
 
     p_pos = dualchar.index(p)
     p_val = p_pos * data0_system_P_interval
@@ -339,6 +342,46 @@ def check_data0s_loaded():
     plt.title('data0 family coverage\n(∆P = descrete 0.5 bars)\n∆T = 7C contineuous')
 
     plt.show()
+
+def convert_to_d1(src, dst):
+    def run_eqpt(data0):
+        data0copy = os.path.basename(canonical_d0_name(data0))
+        shutil.copyfile(data0, data0copy)
+        eqpt(data0copy)
+        os.remove(data0copy)
+
+    src = os.path.os.path.realpath(src)
+    dst = os.path.os.path.realpath(dst)
+
+    if os.path.exists(dst) and not os.path.isdir(dst):
+        raise ValueError('destination must be a directory')
+    elif not os.path.exists(dst):
+        os.makedirs(dst)
+
+    with WorkingDirectory(dst):
+        if os.path.isdir(src):
+            for root, dirs, files in os.walk(src):
+                os.makedirs(os.path.relpath(root, src), exist_ok=True)
+                with WorkingDirectory(os.path.join(dst, os.path.relpath(root, src))):
+                    for data0 in files:
+                        run_eqpt(os.path.join(root, data0))
+        elif os.path.isfile(src):
+            run_eqpt(src)
+        else:
+            raise ValueError('source argument must be a file or directory')
+
+def canonical_d0_name(data0):
+    stem, ext = os.path.splitext(os.path.basename(data0))
+    if ext == '.d0':
+        return data0
+    elif ext == '' or ext == '.':
+        ext = ''
+    elif ext[0] == '.':
+        ext = '_' + ext[1:]
+    else:
+        ext = '_' + ext
+
+    return os.path.join(os.path.dirname(data0), stem + ext + '.d0')
 
 
 mw = {

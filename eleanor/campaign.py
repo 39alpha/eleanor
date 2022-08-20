@@ -4,8 +4,8 @@
 
 The :class:`Campaign` class contains the specification of modeling objectives.
 """
-from .hanger import tool_room
-from os import mkdir, rename
+from .hanger import data0_tools, tool_room
+from os import mkdir
 from os.path import isdir, join, realpath
 from .hanger.data0_tools import determine_T_P_coverage
 
@@ -94,6 +94,7 @@ class Campaign:
 
         self._hash = None
         self._data0_hash = None
+        self.data1_dir = None
 
 
 
@@ -141,6 +142,8 @@ class Campaign:
            +-- fig
            |
            +-- orders
+           |
+           +-- data1
 
         where :code:`{dir}` is the root directory, :code:`{name}` is the campaign name,
         and :code:`huffer`, :code:`fig` and :code:`orders` are directories.
@@ -174,7 +177,7 @@ class Campaign:
             mkdir(order_dir)
 
         # Write campaign spec to file (as a hard copy)
-        order_json = join(order_dir, 'campaign.json');
+        order_json = join(order_dir, 'campaign.json')
         with open(order_json, mode='w', encoding='utf-8') as handle:
             json.dump(self._raw, handle, indent=True)
 
@@ -182,6 +185,9 @@ class Campaign:
         shutil.copyfile(order_json, self.order_file)
 
         self._data0_hash = tool_room.hash_dir(self.data0_dir)
+        self.data1_dir = join(self.campaign_dir, 'data1', self._data0_hash)
+        if not isdir(self.data1_dir):
+            data0_tools.convert_to_d1(self.data0_dir, self.data1_dir)
 
     def working_directory(self, *args, **kwargs):
         """

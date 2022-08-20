@@ -17,7 +17,7 @@ from tqdm import tqdm
 # from test_script import PROFILER
 
 # ### local imports
-from .hanger.db_comms import execute_query
+from .hanger.db_comms import execute_query, execute_vs_exit_updates
 from .hanger.db_comms import establish_database_connection, retrieve_records, get_column_names
 from .hanger.eq36 import eq3, eq6
 from .hanger.data0_tools import determine_species_set, data0_suffix  # , determine_ele_set
@@ -106,43 +106,42 @@ def Helmsman(camp, ord_id=None, num_cores=os.cpu_count()):
         vs_queue = queue_manager.Queue()
         es_queue = queue_manager.Queue()
 
-        keep_running_yoeman = multiprocessing.Value('b', True)
-        yoeman_process = multiprocessing.Process(target=yoeman, args=(camp, keep_running_yoeman,
-                                                 vs_queue, es_queue, len(rec)))
-        yoeman_process.start()
+        if num_cores == 1:
+            for r in rec:
+                sailor(camp, order_path, vs_queue, es_queue,
+                       date, r, elements, ss, vs_col_names, es_col_names)
+            keep_running_yoeman = multiprocessing.Value('b', False)
+            yoeman(camp, keep_running_yoeman, vs_queue, es_queue, len(rec))
+            # yoeman_process.start()
 
-        # # ##############   Multiprocessing  ##################
-        with multiprocessing.Pool(processes=num_cores) as pool:
+        elif num_cores > 1:
+            keep_running_yoeman = multiprocessing.Value('b', True)
+            yoeman_process = multiprocessing.Process(target=yoeman, args=(camp, keep_running_yoeman,
+                                                    vs_queue, es_queue, len(rec)))
+            yoeman_process.start()
+            # # ##############   Multiprocessing  ##################
+            with multiprocessing.Pool(processes=num_cores) as pool:
 
-            _ = pool.starmap(sailor, zip([camp] * len(rec),
-                                         [order_path] * len(rec),
-                                         [vs_queue] * len(rec),
-                                         [es_queue] * len(rec),
-                                         [date] * len(rec),
-                                         rec,
-                                         [elements] * len(rec),
-                                         [ss] * len(rec),
-                                         [vs_col_names] * len(rec),
-                                         [es_col_names] * len(rec)))
+                _ = pool.starmap(sailor, zip([camp] * len(rec),
+                                            [order_path] * len(rec),
+                                            [vs_queue] * len(rec),
+                                            [es_queue] * len(rec),
+                                            [date] * len(rec),
+                                            rec,
+                                            [elements] * len(rec),
+                                            [ss] * len(rec),
+                                            [vs_col_names] * len(rec),
+                                            [es_col_names] * len(rec)))
 
-        # TODO
-        # # ### check to see if queues are empty to kill
-        # while not vs_queue.empty():
-        #     time.sleep(1)
-        # while not es_queue.empty():
-        #     time.sleep(1)
+            with keep_running_yoeman.get_lock():
+                keep_running_yoeman.value = False
 
-        with keep_running_yoeman.get_lock():
-            keep_running_yoeman.value = False
-
-    yoeman_process.join()
-    # vs_queue.join()
-    # es_queue.join()
+            yoeman_process.join()
 
     print(f'\nOrder {ord_id} complete.')
-    print(f'        total time: {round(time.time() - start, 4)}')
-    print(f'        time/point: {round((time.time() - start) / len(rec), 4)}')
-    print(f'   time/point/core: {round((num_cores * (time.time() - start)) / len(rec), 4)}\n')
+    print(f'        total time: {round(time.time() - start, num_cores)}')
+    print(f'        time/point: {round((time.time() - start) / len(rec), num_cores)}')
+    print(f'   time/point/core: {round((num_cores * (time.time() - start)) / len(rec), num_cores)}\n')
 
 def sailor(camp, order_path, vs_queue, es_queue, date, dat,
            elements, ss, vs_col_names, es_col_names, keep_every_n_files=1):
@@ -569,9 +568,10 @@ def yoeman(camp, keep_running, write_vs_q, write_es_q, num_points):
             total_es_df.to_sql('es', conn, if_exists='append', index=False)
             es_df_list = []
             # Write VS lines
-            for vs_point in vs_list:
-                execute_query(conn, vs_point)
-                vs_n_written += 1
+            execute_vs_exit_updates(conn, vs_list)
+            # for vs_point in vs_list:
+            #     execute_query(conn, vs_point)
+            #     vs_n_written += 1
 
         elif not write_all_at_once and current_q_size > WRITE_EVERY_N:
             # Get VS batch
@@ -580,9 +580,10 @@ def yoeman(camp, keep_running, write_vs_q, write_es_q, num_points):
                 vs_list.append(vs_line)
                 write_vs_q.task_done()
             # Write batch to VS table
-            for vs_point in vs_list:
-                execute_query(conn, vs_point)
-                vs_n_written += 1
+            execute_vs_exit_updates(conn, vs_list)
+            # for vs_point in vs_list:
+            #     execute_query(conn, vs_point)
+            #     vs_n_written += 1
             vs_list = []
             # Get ES batch
             current_es_q_size = write_es_q.qsize()
@@ -603,9 +604,10 @@ def yoeman(camp, keep_running, write_vs_q, write_es_q, num_points):
         vs_list.append(vs_line)
         write_vs_q.task_done()
     # Write last batch to VS table
-    for vs_point in vs_list:
-        execute_query(conn, vs_point)
-        vs_n_written += 1
+    # for vs_point in vs_list:
+    #     execute_query(conn, vs_point)
+    #     vs_n_written += 1
+    execute_vs_exit_updates(conn, vs_list)
     while not write_es_q.empty():
         es_df = write_es_q.get_nowait()
         es_df_list.append(es_df)
@@ -662,8 +664,8 @@ def reset_sailor(order_path, vs_queue, file, uuid, code, delete_local=False):
 
     """
     # This only takes like 1e-5 seconds even with the put
-    sql = """UPDATE vs SET code = {} WHERE uuid = '{}';""".format(code, uuid)
-    vs_queue.put_nowait(sql)
+    this_point = (code, uuid)  # = """UPDATE vs SET code = {} WHERE uuid = '{}';""".format(code, uuid)
+    vs_queue.put_nowait(this_point)
     os.chdir(order_path)
     if delete_local:
         shutil.rmtree(file[:-3])

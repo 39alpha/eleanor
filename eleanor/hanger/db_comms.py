@@ -276,3 +276,8 @@ def retrieve_combined_records(conn, vs_cols, es_cols, limit=None, ord_id=None, w
             sys.stderr.write(f"warning: cannot write records; unrecognized format '{ext}'\n")
 
     return df
+
+def execute_vs_exit_updates(conn, vs_points):
+    cur = conn.cursor()
+    cur.executemany("UPDATE vs SET code = ? WHERE uuid = '?';", vs_points)
+    conn.commit()

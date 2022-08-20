@@ -239,8 +239,7 @@ def sailor(camp, order_path, vs_queue, es_queue, date, dat,
 
     try:
         eq3(data1_file, file)
-    except Exception as e:
-        print('{}\n  {}\n'.format(file, e))
+    except Exception:
         reset_sailor(order_path, vs_queue, file, dat[0], 30,
                      delete_local=delete_after_running)
         return

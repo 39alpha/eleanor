@@ -1,7 +1,0 @@
-[console_scripts]
-green = green.cmdline:main
-green3 = green.cmdline:main
-green3.10 = green.cmdline:main
-
-[distutils.commands]
-green = green.command:green

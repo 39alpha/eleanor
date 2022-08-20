@@ -141,12 +141,6 @@ def huffer(conn, camp):
     data1_file = os.path.join(camp.data0_dir, "data1." + suffix)
     out, err = eq3(data1_file, 'test.3i')
 
-    try:
-        # if 3o is generated
-        _ = grab_lines('test.3o')
-    except FileNotFoundError:
-        raise Error("The huffer failed. Figure your shit out.")
-
     elements = determine_ele_set()
 
     # New VS table based on vs_state and vs_basis

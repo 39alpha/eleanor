@@ -25,7 +25,7 @@ from .hanger.tool_room import mk_check_del_directory, mine_pickup_lines, grab_fl
 from .hanger.tool_room import grab_lines, grab_str, WorkingDirectory
 
 
-def Helmsman(camp, ord_id=None):
+def Helmsman(camp, ord_id=None, num_cores=os.cpu_count()):
     """
     Keeping with the naval terminaology:
         The Navigator charts where to go.
@@ -98,7 +98,6 @@ def Helmsman(camp, ord_id=None):
         print(f"Processing all unfullfiled orders ({len(rec)} points)")
     else:
         print(f"Processing Order {ord_id} ({len(rec)} points)")
-    cores = 10  # TODO: This doesn't make no damn sense, detect or pass as an argument
 
     with WorkingDirectory(order_path):
 
@@ -112,8 +111,9 @@ def Helmsman(camp, ord_id=None):
                                                  vs_queue, es_queue, len(rec)))
         yoeman_process.start()
 
-        # ##############   Multiprocessing  ##################
-        with multiprocessing.Pool(processes=cores) as pool:
+        # # ##############   Multiprocessing  ##################
+        with multiprocessing.Pool(processes=num_cores) as pool:
+
             _ = pool.starmap(sailor, zip([camp] * len(rec),
                                          [order_path] * len(rec),
                                          [vs_queue] * len(rec),
@@ -142,7 +142,7 @@ def Helmsman(camp, ord_id=None):
     print(f'\nOrder {ord_id} complete.')
     print(f'        total time: {round(time.time() - start, 4)}')
     print(f'        time/point: {round((time.time() - start) / len(rec), 4)}')
-    print(f'   time/point/core: {round((cores * (time.time() - start)) / len(rec), 4)}\n')
+    print(f'   time/point/core: {round((num_cores * (time.time() - start)) / len(rec), 4)}\n')
 
 def sailor(camp, order_path, vs_queue, es_queue, date, dat,
            elements, ss, vs_col_names, es_col_names, keep_every_n_files=1):

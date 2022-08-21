@@ -258,10 +258,13 @@ def sailor(camp, order_path, vs_queue, es_queue, date, dat,
         camp.local_6i.write(file[:-2] + '6i', rnt_dict, pickup, state_dict['T_cel'])
         eq6(data1_file, file[:-2] + '6i')
     except Exception:
-        if not os.path.isfile(file[:-2] + '6o'):
-            reset_sailor(order_path, vs_queue, file, dat[0], 60,
-                         delete_local=delete_after_running)
+        reset_sailor(order_path, vs_queue, file, dat[0], 60,
+                     delete_local=delete_after_running)
+            return
 
+    if not os.path.isfile(file[:-2] + '6o'):
+        reset_sailor(order_path, vs_queue, file, dat[0], 61,
+                     delete_local=delete_after_running)
             return
 
     run_code, build_df = mine_6o(camp, date, elements, ss, file[:-2] + '6o', dat, es_col_names)

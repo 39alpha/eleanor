@@ -34,7 +34,7 @@ With those dependencies install Eleanor can be installed by cloning
     $ pip install .
 
 Using Eleanor
-=============
+-------------
 
 A warning
 ^^^^^^^^^
@@ -49,7 +49,7 @@ All of this is to say - we hope this project helps you do science faster. But fa
 correct.
 
 Setting up a problem
---------------------
+^^^^^^^^^^^^^^^^^^^^
 
 ``data0``
 ^^^^^^^^^
@@ -62,7 +62,7 @@ Details of setting up a Campaign JSON
 
 
 Command line tools
-------------------
+^^^^^^^^^^^^^^^^^^
 
 With ``eleanor`` installed you can use a command line tool to run the standard workflow. 
 Prepare your ``Campaign`` file and run ``data0`` files and then simply run ``eleanor`` anywhere 
@@ -83,11 +83,7 @@ you can do that with a similar structure::
     $ navigator -c CAMPAIGN_FILE.json -d PATH/TO/DATA0
     $ helsman -c CAMPAIGN_FILE.json -d PATH/TO/DATA0
 
-These command line tools have more functionality which is detailed in the document.
-
-Scripting with the ``eleanor`` package
---------------------------------------
-
+These command line tools have more functionality which is detailed in the documentation.
 
 
 Documentation
@@ -108,3 +104,11 @@ theme <https://ryan-roemer.github.io/sphinx-bootstrap-theme/README.html>`_::
 Once that's done, you can make the docs. Just run the following if you are on Linux of macOS::
 
     $ make -C docs html
+
+
+Contributing to ``eleanor``
+---------------------------
+If you run into an issue we hope you can diagnose the problem using the documentation.
+If you've found a bug, please submit an issue on our `github repository <https://github.com/39alpha/eleanor>_`, and 
+if you have a proposed resolution to the bug please submit a pull request. We aim to write `PEP8 <https://pep8.org/>`_ 
+complaint code, but if you've fixed a bug for us we'll handle the linting in code review.

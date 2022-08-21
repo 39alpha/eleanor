@@ -236,15 +236,10 @@ def sailor(camp, order_path, vs_queue, es_queue, date, dat,
     # ### build and execute 3i
     camp.local_3i.write(file, state_dict, basis_dict, master_dict['cb'], output_details='n')
     data1_file = os.path.join(camp.data0_dir, "data1." + suffix)
-    out, err = eq3(data1_file, file)  # TODO: update after dougs error handelign is ready.
-    # above variables not currently used
 
-    if not os.path.isfile(file[:-1] + 'p'):
-        # ### check 3p not generated. Then rebuild 3i and rerun as
-        # ### 'v = verbose' to generate diagnostics. This will of
-        # ### course not help converge the file, but will provide the
-        # ### infomration needed to map evidence of the failure for
-        # ### future code to assess.
+    try:
+        eq3(data1_file, file)
+    except Exception:
         reset_sailor(order_path, vs_queue, file, dat[0], 30,
                      delete_local=delete_after_running)
         return
@@ -259,17 +254,20 @@ def sailor(camp, order_path, vs_queue, es_queue, date, dat,
                      delete_local=delete_after_running)
         return
 
-    camp.local_6i.write(file[:-2] + '6i', rnt_dict, pickup, state_dict['T_cel'])
-    out, err = eq6(data1_file, file[:-2] + '6i')
-
-    if not os.path.isfile(file[:-2] + '6o'):
+    try:
+        camp.local_6i.write(file[:-2] + '6i', rnt_dict, pickup, state_dict['T_cel'])
+        eq6(data1_file, file[:-2] + '6i')
+    except Exception:
         reset_sailor(order_path, vs_queue, file, dat[0], 60,
                      delete_local=delete_after_running)
+            return
 
-        return
+    if not os.path.isfile(file[:-2] + '6o'):
+        reset_sailor(order_path, vs_queue, file, dat[0], 61,
+                     delete_local=delete_after_running)
+            return
 
     run_code, build_df = mine_6o(camp, date, elements, ss, file[:-2] + '6o', dat, es_col_names)
-
     if run_code == 100:
         # ### write to ES
         es_queue.put(build_df)

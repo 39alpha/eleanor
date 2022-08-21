@@ -6,7 +6,6 @@
 # Tucker Ely and then 39Alpha
 # October 6nd 2020 and then Dec 12th 2021
 
-from sqlite3.dbapi2 import Error
 import sys
 import uuid
 import random
@@ -22,8 +21,7 @@ import pandas as pd
 
 from .hanger.eq36 import eq3
 from .hanger import db_comms
-from .hanger.db_comms import get_column_names
-from .hanger.tool_room import mk_check_del_directory, grab_lines
+from .hanger.tool_room import mk_check_del_directory
 from .hanger.data0_tools import determine_ele_set, data0_suffix, determine_loaded_sp, species_info
 from .hanger.data0_tools import SLOP_DF
 
@@ -140,12 +138,6 @@ def huffer(conn, camp):
         'test.3i', state_dict, basis_dict, 'H+', output_details='v')
     data1_file = os.path.join(camp.data0_dir, "data1." + suffix)
     out, err = eq3(data1_file, 'test.3i')
-
-    try:
-        # if 3o is generated
-        _ = grab_lines('test.3o')
-    except FileNotFoundError:
-        raise Error("The huffer failed. Figure your shit out.")
 
     elements = determine_ele_set()
 

@@ -13,7 +13,7 @@ import shutil
 from os.path import abspath, dirname, join, realpath
 import matplotlib.pyplot as plt
 
-from .tool_room import grab_str, read_inputs, WorkingDirectory
+from .tool_room import grab_lines, grab_str, read_inputs, WorkingDirectory
 from .eq36 import eqpt
 
 
@@ -235,32 +235,7 @@ def determine_T_P_coverage(data0_dir):
     print('w')
     return []
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 ###############   old piecies to be removed  ####################
-
 
 def data0_suffix(T, P):
     """
@@ -470,24 +445,39 @@ mw = {
     'Zn': 65.39000,
     'Zr': 91.22400}
 
-class data1_TP_grids:
-
+class TPInterpolation:
     def __init__(self, f_name):
         self.name = f_name
+        self.P = {}
+        self.T = {}
 
-    def grab_T(self, line1, line2, line3):
-        self.T_min = float(line1[:9])
-        self.T_mid = float(line2[:9])
-        self.T_max = float(line3[:9])
+        lines = grab_lines(self.name)
+        for i, line in enumerate(lines):
+            if re.findall('^presg\n', line):
+                self.P = {
+                    'int1': float(line[i + 1][:16]),
+                    'a1': float(line[i + 1][16:32]),
+                    'b1': float(line[i + 1][32:48]),
+                    'c1': float(line[i + 1][48:64]),
 
-    def grab_P(self, line1, line2):
-        self.P_int1 = float(line1[:16])
-        self.P_a1 = float(line1[16:32])
-        self.P_b1 = float(line1[32:48])
-        self.P_c1 = float(line1[48:64])
+                    'int2': float(line[i + 2][:16]),
+                    'a2': float(line[i + 2][16:32]),
+                    'b2': float(line[i + 2][32:48]),
+                    'c2': float(line[i + 2][48:64]),
+                    'd2': float(line[i + 2][64:]),
+                }
 
-        self.P_int2 = float(line2[:16])
-        self.P_a2 = float(line2[16:32])
-        self.P_b2 = float(line2[32:48])
-        self.P_c2 = float(line2[48:64])
-        self.P_d2 = float(line2[64:])
+            if 'Data file maximum and minimum temperatures (C)' in line:
+                self.T = {
+                    'min': float(line[i + 1][:9]),
+                    'mid': float(line[i + 2][:9]),
+                    'max': float(line[i + 3][:9]),
+                }
+                break
+
+        if len(self.P) == 0:
+            msg = f'interpolation coefficients for pressure not found in {self.name}'
+            raise RuntimeError(msg)
+        elif len(self.T) == 0:
+            msg = f'interpolation coefficients for termperature not found in {self.name}'
+            raise RuntimeError(msg)

@@ -1,4 +1,3 @@
-# pylint: disable=too-few-public-methods
 """
 .. currentmodule:: eleanor.campaign
 
@@ -7,12 +6,10 @@ The :class:`Campaign` class contains the specification of modeling objectives.
 from .hanger import data0_tools, tool_room
 from os import mkdir
 from os.path import isdir, join, realpath
-from .hanger.data0_tools import determine_T_P_coverage
+from .hanger.data0_tools import TPInterpolation
 
 import json
 import shutil
-
-import sys, re
 
 class Campaign:
     """
@@ -76,15 +73,6 @@ class Campaign:
         else:
             iopt4 = '0'
 
-        # It's best not to create the directory structure at intialization time. Doing so makes
-        # testing more difficult, and means we have to be careful when and where Campaign objects
-        # are created.
-        #
-        # self.create_env()
-
-        # self.T_P_grid = determine_T_P_coverage(self.data0_dir)
-        # sys.exit()
-
         self.local_3i = tool_room.Three_i()
         self.local_6i = tool_room.Six_i(suppress_min=self.suppress_min,
                                         iopt4=iopt4,
@@ -95,8 +83,7 @@ class Campaign:
         self._hash = None
         self._data0_hash = None
         self.data1_dir = None
-
-
+        self.tp_interpolation = None
 
     @property
     def campaign_dir(self):
@@ -191,22 +178,10 @@ class Campaign:
 
         # move to data1 tools
         with tool_room.WorkingDirectory(self.data1_dir):
-            data1_files = tool_room.read_inputs('.d1f', '.')
-            data1f_equations = []
-            for f in data1_files:
-                f_lines = tool_room.grab_lines(f)
-                i = data0_tools.data1_TP_grids(f)
-                for line in range(len(f_lines)):
-                    if re.findall('^presg\n', f_lines[line]):
-                        i.grab_P(f_lines[line + 1], f_lines[line + 2])
+            self.tp_interpolations = [TPInterpolation(data1_file) for
+                                      data1_file in tool_room.read_inputs('.d1f', '.')]
 
-                    if 'Data file maximum and minimum temperatures (C)' in f_lines[line]:
-                        i.grab_T(f_lines[line + 1], f_lines[line + 3], f_lines[line + 4])
-                        break
-
-                data1f_equations.append(i)
-
-        # TO DOUG: fitting equation intercepts and coeffcients are now stored in 
+        # TO DOUG: fitting equation intercepts and coeffcients are now stored in
         # data1f_equations, which is a list of the class instances (class in data0_tools at bottom.)
 
     def working_directory(self, *args, **kwargs):

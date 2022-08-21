@@ -1,7 +1,4 @@
-# ###
-# ### Radar
-# ### Controls the visualization fo the orders run by the helmsman
-# ### Tucker Ely, Douglas G. Moore, Cole Mathis
+"""Simple Visualization Tool for Eleanor Outputs"""
 
 import matplotlib
 import re
@@ -9,29 +6,17 @@ import sys
 import time
 import numpy as np
 import pandas as pd
-import seaborn as sns
 import matplotlib.pyplot as plt
-from sklearn_extra.cluster import KMedoids
 
 # ### custom packages
-
 from .hanger.db_comms import establish_database_connection, retrieve_combined_records
-from .hanger.db_comms import get_column_names
 from .hanger import radar_tools
-from .hanger.data0_tools import determine_species_set
 from .hanger.radar_tools import get_continuous_cmap
-# from .hanger.tool_room import WorkingDirectory
 
-# import eleanor.campaign as campaign
-
-# ### make Radar a class, then add methods for
-#    def to_mpl
-#    def to_vega
-
-def Radar(camp, x_sp, y_sp, z_sp, description, ord_id=None, limit=1000, where=None, 
+def Radar(camp, x_sp, y_sp, z_sp, description, ord_id=None, limit=1000, where=None,
           transparent=True, add_analytics=None):
     """
-    Plots 3 dimenions from vs and es camp databases
+    Plots 3 dimensions from vs and es camp databases
     :param camp: campaign
     :type camp: Class instance
     :param x_sp: x variable,
@@ -42,17 +27,17 @@ def Radar(camp, x_sp, y_sp, z_sp, description, ord_id=None, limit=1000, where=No
     :type z_sp: str
     :param description: notes on data to show beneath image
     :type description: str
-    :param ord_id: order numebr of interest
+    :param ord_id: order number of interest
     :type ord_id: can by one order (as int) or list of orders.
-    :param limit: UNBUILT numebr of sample points to limit plotting to
+    :param limit: NOT WORKING number of sample points to limit plotting to
         order calls can be very large. Set limit to -1 for all.
     :type limit: int
     :param where: end statement for sql call to limit parameter space search
         region
     :type where: str
-    :param transparent: make backgroun on figure transparent?
+    :param transparent: make background on figure transparent?
     :type transparent: boolean
-    :param add_analytics: UNBUILT add mean line and sd's to plot
+    :param add_analytics: NOT WORKING add mean line and standard deviations's to plot
     :type add_analytics: str
     """
 
@@ -63,11 +48,11 @@ def Radar(camp, x_sp, y_sp, z_sp, description, ord_id=None, limit=1000, where=No
             fc=face color, ec=edge color, lw-edge line width)
 
         The subset plotted is the group (groupby), within the column (col_name) on
-            the datafram df.
+            the dataframe df.
 
         z order refers to the plotting layer relative to other groups which may
-            be plotted ont the same ax, which is exstablished outside this
-            function prioir to its first calling.
+            be plotted ont the same ax, which is established outside this
+            function prior to its first calling.
         """
         ax.scatter(x,
                    y,
@@ -81,57 +66,14 @@ def Radar(camp, x_sp, y_sp, z_sp, description, ord_id=None, limit=1000, where=No
                    # zorder=zorder
                    )
 
-    def calculate_medoids(df, n=5, ax=None, x_sp=None, y_sp=None):
-        if x_sp:
-            x_idx = list(df.keys()).index(x_sp)
-        if y_sp:
-            y_idx = list(df.keys()).index(y_sp)
-
-        X = np.array(df)
-        cobj = KMedoids(n_clusters=5).fit(X)
-        print(cobj.inertia_)
-        sys.exit()
-
-        if ax:
-            # seeking plot
-            labels = cobj.labels_
-            unique_labels = set(labels)
-            colors = [
-                plt.cm.Spectral(each) for each in np.linspace(0, 1, len(unique_labels))
-            ]
-
-            for k, col in zip(unique_labels, colors):
-                class_member_mask = labels == k
-                xy = X[class_member_mask]
-                ax.plot(
-                    xy[:, x_idx],
-                    xy[:, y_idx],
-                    "o",
-                    markerfacecolor=tuple(col),
-                    markeredgecolor=None,
-                    markersize=1,
-                )
-            ax.plot(
-                cobj.cluster_centers_[:, x_idx],
-                cobj.cluster_centers_[:, y_idx],
-                "o",
-                markerfacecolor="black",
-                markeredgecolor=None,
-                markersize=6,
-            )
-        return pd.DataFrame(cobj.cluster_centers_, columns=df.keys())
-
-    # ### error chekc arguments
+    # error check arguments
     if not ord_id:
         sys.exit('please supply order id, or list of order ids to be plotted')
     if type(ord_id) == int:
-        # ### convert to list of 1, if a single order number is supplied
+        # convert to list of 1, if a single order number is supplied
         ord_id = [ord_id]
 
-
-
-
-    # ### extract species {} from x_sp, y_sp, and z_sp strings
+    # extract species {} from x_sp, y_sp, and z_sp strings
     all_sp = [x_sp, y_sp, z_sp]
     full_call = ' '.join(all_sp)
     es_sp = [_[:-2] for _ in set(re.findall('\{([^ ]*_e)\}', full_call))]
@@ -141,17 +83,17 @@ def Radar(camp, x_sp, y_sp, z_sp, description, ord_id=None, limit=1000, where=No
         vs_sp = ['T_cel']
 
     with camp.working_directory():
-        # ### compile usefull plotting information specific to the loaded campaign
-        # ### species assciated with this campaign, as per the huffer 3o.
+        # compile useful plotting information specific to the loaded campaign
+        # species associated with this campaign, as per the huffer 3o.
         # elements, aqueous_sp, solids, solid_solutions, gases = determine_species_set(path='huffer/')
 
-        # ### columns contained int eh vs and es table for loaded campaign
+        #  columns contained in the vs and es table for loaded campaign
         conn = establish_database_connection(camp)
         # vs_col_names = get_column_names(conn, 'vs')
         # es_col_names = get_column_names(conn, 'es')
 
-        # ### grab orders, concatinating the dataframe, 1 record retrieved per
-        # ### ord_id.
+        # grab orders, concatenating the dataframe, 1 record retrieved per
+        # ord_id.
         df_list = []
         for order in ord_id:
 
@@ -163,7 +105,7 @@ def Radar(camp, x_sp, y_sp, z_sp, description, ord_id=None, limit=1000, where=No
 
         df = pd.concat(df_list)
 
-        # ### process x, y and z, adding new df columns where math is detected
+        # process x, y and z, adding new df columns where math is detected
         for s in range(len(all_sp)):
             if '=' in all_sp[s]:
                 # ### equation detected, new math column desired
@@ -175,7 +117,7 @@ def Radar(camp, x_sp, y_sp, z_sp, description, ord_id=None, limit=1000, where=No
             else:
                 all_sp[s] = all_sp[s].replace('{', '').replace('}', '')
 
-        # ###  ploting
+        # ploting
         font = {'family': 'andale mono', 'size': 8}
         matplotlib.rc('font', **font)
         matplotlib.rcParams['axes.edgecolor'] = '#000000'
@@ -188,9 +130,6 @@ def Radar(camp, x_sp, y_sp, z_sp, description, ord_id=None, limit=1000, where=No
         matplotlib.rcParams['axes.labelcolor'] = '#000000'
         matplotlib.rcParams['legend.frameon'] = False
         matplotlib.rcParams['savefig.transparent'] = transparent
-
-        # calculate_medoids(df, n=5)
-        
 
         # ### process plot
         if z_sp == '':

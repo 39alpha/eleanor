@@ -26,8 +26,11 @@ it requires ``gfortran`` to build.
 * ``gfortran`` (v9.3.0 or later)
 * `EQ3/6 <https://github.com/39alpha/eq3_6>`_ 
 
-With those dependencies install Eleanor can be installed by cloning 
-`the repository <https://github.com/39alpha/eleanor>_`, and installing via pip::
+
+Install
+^^^^^^^
+With those dependencies installed Eleanor can be installed by cloning 
+`the repository <https://github.com/39alpha/eleanor>`_, and installing via pip::
 
     $ git clone https://github.com/39alpha/eleanor
     $ cd eleanor

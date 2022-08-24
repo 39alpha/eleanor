@@ -124,21 +124,32 @@ class Campaign:
 
            {dir}/{name}
            |
-           +-- huffer
+           +-- data1
+           |   |
+           |   + <data0 hash>
            |
            +-- fig
            |
-           +-- orders
+           +-- huffer
            |
-           +-- data1
+           +-- orders
 
-        where :code:`{dir}` is the root directory, :code:`{name}` is the campaign name,
-        and :code:`huffer`, :code:`fig` and :code:`orders` are directories.
+        where :code:`{dir}` is the root directory, :code:`{name}` is the campaign name, and
+        :code:`data1`, :code:`fig`, :code:`huffer` :code:`orders` are directories.
+
+        The contents of the campaign's data0 directory will be recursively hashed, and a directory
+        in :code:`data1` will be created containing the output from running EQPT on each of the
+        data0 files, if it doesn't already exist. The data1f files will subsequently be read and
+        :class:`data0.TPCurve` instances will be created for each. If none of the curves intersect
+        the temperature-pressure ranges in the campaign specification, then an exception will be
+        raised.
 
         :param dir: The root directory in which to create the campaing directory
         :type dir: str
         :param verbose: Generate verbose terminal output
         :type verbose: bool
+        :raises Exception: if the curves in the data1f files do not intersect the temperature and
+                           pressure ranges specified in the campaign specification
         """
         # Top level directory
         if dir is None and self._campaign_dir is None:
@@ -178,11 +189,28 @@ class Campaign:
 
         # move to data1 tools
         with tool_room.WorkingDirectory(self.data1_dir):
-            self.tp_interpolations = [TPInterpolation(data1_file) for
-                                      data1_file in tool_room.read_inputs('.d1f', '.')]
+            tp_curves = [TPCurve.from_json(data1_file) for
+                         data1_file in tool_room.read_inputs('.d1f', '.')]
 
-        # TO DOUG: fitting equation intercepts and coeffcients are now stored in
-        # data1f_equations, which is a list of the class instances (class in data0_tools at bottom.)
+		self.tp_curves = []
+		for curve in tp_curves:
+			Trange = self.vs_state['T_cel']
+			if instance(Trange, (int, float)):
+				Trange = [Trange, Trange]
+				
+			Prange = self.vs_state['P_bar']
+			if instance(Prange, (int, float)):
+				Prange = [Prange, Prange]
+			
+			if curve.set_domain(Trange, Prange):
+				self.tp_curves.append(curve)
+
+		if len(self.tp_curves) == 0:
+			raise Exception('''
+				The temperature and pressure ranges provided in the campaign file do
+				not overlap with any of the pressure vs. temperature curves specified
+				in the provided data0 files.
+			''')
 
     def working_directory(self, *args, **kwargs):
         """

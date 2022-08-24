@@ -7,6 +7,7 @@ import math
 import os
 import os.path
 import pandas as pd
+import numpy as np
 import re
 import shutil
 
@@ -446,38 +447,146 @@ mw = {
     'Zr': 91.22400}
 
 class TPInterpolation:
-    def __init__(self, f_name):
-        self.name = f_name
-        self.P = {}
-        self.T = {}
+    def __init__(self, T, P):
+        if not ('min' in T and 'mid' in T and 'max' in T):
+            raise ValueError('temperature dictionary must have min, mid and max keys')
 
-        lines = grab_lines(self.name)
-        for i, line in enumerate(lines):
-            if re.findall('^presg\n', line):
-                self.P = {
-                    'int1': float(line[i + 1][:16]),
-                    'a1': float(line[i + 1][16:32]),
-                    'b1': float(line[i + 1][32:48]),
-                    'c1': float(line[i + 1][48:64]),
+        if len(P) != 2:
+            raise ValueError('expected exactly two polynomials')
+        elif any(len(coeffs) == 0 for coeffs in P):
+            raise ValueError('polynomial has no coefficients')
 
-                    'int2': float(line[i + 2][:16]),
-                    'a2': float(line[i + 2][16:32]),
-                    'b2': float(line[i + 2][32:48]),
-                    'c2': float(line[i + 2][48:64]),
-                    'd2': float(line[i + 2][64:]),
-                }
-
-            if 'Data file maximum and minimum temperatures (C)' in line:
-                self.T = {
-                    'min': float(line[i + 1][:9]),
-                    'mid': float(line[i + 2][:9]),
-                    'max': float(line[i + 3][:9]),
-                }
-                break
+        self.P = P
+        self.T = T
+        self.domain = []
 
         if len(self.P) == 0:
-            msg = f'interpolation coefficients for pressure not found in {self.name}'
-            raise RuntimeError(msg)
+            raise RuntimeError('interpolation coefficients for pressure not found')
         elif len(self.T) == 0:
-            msg = f'interpolation coefficients for termperature not found in {self.name}'
-            raise RuntimeError(msg)
+            raise RuntimeError('interpolation coefficients for termperature not found')
+
+        self.reset_domain()
+
+        [coeff_left, coeff_right] = self.P
+        left = np.dot(coeff_left, self.T['mid'] ** np.arange(len(coeff_left)))
+        right = np.dot(coeff_right, self.T['mid'] ** np.arange(len(coeff_right)))
+
+        if not np.isclose(left, right):
+            raise ValueError('provided polynomials differ at the common temperature')
+
+    def reset_domain(self):
+        self.domain = [[self.T['min'], self.T['max']]]
+        return self
+
+    def temperature_in_domain(self, T):
+        for subdomain in self.domain:
+            if subdomain[0] <= T and T <= subdomain[1]:
+                return True
+        return False
+
+    def __call__(self, T):
+        if not self.temperature_in_domain(T):
+            msg = f'the provided temperature ({T}) is not in the restricted domain {self.domain}'
+            raise ValueError(msg)
+
+        coefficients = self.P[0] if T <= self.T['mid'] else self.P[1]
+        return np.dot(coefficients, T ** np.arange(len(coefficients)))
+
+    def set_domain(self, temperature_range, pressure_range):
+        Tmin, Tmax = temperature_range
+        Pmin, Pmax = pressure_range
+
+        intersections = self.find_boundary_intersections(temperature_range, pressure_range)
+
+        domain = []
+        notEmpty = True
+        if len(intersections) == 0:
+            endpoints = 0
+            for T in [self.T['min'], self.T['max']]:
+                P = self(T)
+                if Tmin <= T and T <= Tmax and Pmin <= P and P <= Pmax:
+                    endpoints += 1
+
+            if endpoints == 0:
+                notEmpty = False
+            elif endpoints == 1:
+                raise Exception('expected to find intersections or both points inside/outside region')
+            else:
+                domain = [[self.T['min'], self.T['max']]]
+        elif len(intersections) == 1:
+            (Tint, _), = intersections
+            is_single_point = True
+            for T in [self.T['min'], self.T['mid'], self.T['max']]:
+                if T == Tint or Tmax < T or T < Tmin:
+                    continue
+
+                P = self(T)
+                if Pmin <= P and P <= Pmax:
+                    domain.append([min(T, Tint), max(T, Tint)])
+                    is_single_point = False
+
+            if is_single_point:
+                domain.append([Tint, Tint])
+        else:
+            for i in range(len(intersections) - 1):
+                T1, _ = intersections[i]
+                T2, _ = intersections[i + 1]
+                P = self((T1 + T2) / 2)
+                if Pmin <= P and P <= Pmax:
+                    domain.append([T1, T2])
+
+        self.domain = domain
+
+        return notEmpty
+
+    def find_boundary_intersections(self, temperature_range, pressure_range):
+        Tmin, Tmax = temperature_range
+        Pmin, Pmax = pressure_range
+
+        intersections = []
+        for T in temperature_range:
+            if not self.temperature_in_domain(T):
+                continue
+
+            P = self(T)
+            if Pmin <= P and P <= Pmax:
+                intersections.append((T, P))
+
+        for P in pressure_range:
+            for i, coefficients in enumerate(self.P):
+                coefficients = np.copy(coefficients)
+                coefficients[0] -= P
+                roots = np.roots(coefficients[::-1])
+                roots = np.real(roots[np.isreal(roots)])
+                points = [(T, self(T)) for T in roots
+                          if Tmin <= T and T <= Tmax
+                          and (i == 0 and self.T['min'] <= T and T <= self.T['mid'])
+                          or (i == 1 and self.T['mid'] <= T and T <= self.T['max'])]
+                intersections.extend(points)
+
+        return sorted(set(intersections))
+
+    @classmethod
+    def from_data0(cls, filename):
+        def read_coefficients(line, chars=16):
+            line = line.rstrip()
+            if len(line) % chars == 0:
+                raise Exception('the precision is not what was expected')
+            return np.asarray([float(line[i:i + chars]) for i in range(0, len(line), chars)])
+
+        P, T = [], {}
+
+        lines = grab_lines(filename)
+        for i, line in enumerate(lines):
+            if re.findall('^presg\n', line):
+                P = [read_coefficients(lines[j]) for j in range(i + 1, i + 3)]
+                continue
+
+            if 'Data file maximum and minimum temperatures (C)' in line:
+                T = {
+                    'min': float(lines[i + 1][:10]),
+                    'mid': float(lines[i + 3][:10]),
+                    'max': float(lines[i + 4][:10]),
+                }
+
+        return cls(T, P)

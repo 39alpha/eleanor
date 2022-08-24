@@ -6,7 +6,7 @@ The :class:`Campaign` class contains the specification of modeling objectives.
 from .hanger import data0_tools, tool_room
 from os import mkdir
 from os.path import isdir, join, realpath
-from .hanger.data0_tools import TPInterpolation
+from .hanger.data0_tools import TPCurve
 
 import json
 import shutil

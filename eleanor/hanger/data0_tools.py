@@ -446,7 +446,7 @@ mw = {
     'Zn': 65.39000,
     'Zr': 91.22400}
 
-class TPInterpolation:
+class TPCurve(object):
     def __init__(self, T, P):
         if not ('min' in T and 'mid' in T and 'max' in T):
             raise ValueError('temperature dictionary must have min, mid and max keys')

@@ -2,9 +2,9 @@ from ...common import TestCase
 import eleanor.hanger.data0_tools as data0
 import numpy as np
 
-class TestTPInterpolation(TestCase):
+class TestTPCurve(TestCase):
     """
-    Tests of the TPInterpolation class
+    Tests of the TPCurve class
     """
 
     def assertDomainsAlmostEqual(self, first, second):
@@ -34,20 +34,20 @@ class TestTPInterpolation(TestCase):
 
     def test_initialization(self):
         """
-        Test that TPInterpolation can be initialized
+        Test that TPCurve can be initialized
         """
         with self.assertRaises(ValueError):
-            data0.TPInterpolation({'min': 5, 'max': 10}, [[1, 0, 0, 0]])
+            data0.TPCurve({'min': 5, 'max': 10}, [[1, 0, 0, 0]])
         with self.assertRaises(ValueError):
-            data0.TPInterpolation({'min': 5, 'mid': 8, 'max': 10}, [])
+            data0.TPCurve({'min': 5, 'mid': 8, 'max': 10}, [])
         with self.assertRaises(ValueError):
-            data0.TPInterpolation({'min': 5, 'mid': 8, 'max': 10}, [[1, 0, 0, 0], []])
+            data0.TPCurve({'min': 5, 'mid': 8, 'max': 10}, [[1, 0, 0, 0], []])
 
         with self.assertRaises(ValueError):
-            data0.TPInterpolation({'min': 5, 'mid': 8, 'max': 10}, [[1, 0, 0, 0], [2, 0, 0, 0, 0]])
+            data0.TPCurve({'min': 5, 'mid': 8, 'max': 10}, [[1, 0, 0, 0], [2, 0, 0, 0, 0]])
 
-        curve = data0.TPInterpolation({'min': 5, 'mid': 8, 'max': 10},
-                                      [[1, 0, 0, 0], [-7, 1, 0, 0, 0]])
+        curve = data0.TPCurve({'min': 5, 'mid': 8, 'max': 10},
+                              [[1, 0, 0, 0], [-7, 1, 0, 0, 0]])
         self.assertEquals(curve.T, {'min': 5, 'mid': 8, 'max': 10})
         self.assertEquals(curve.P, [[1, 0, 0, 0], [-7, 1, 0, 0, 0]])
         self.assertEquals(curve.domain, [[5, 10]])
@@ -56,8 +56,8 @@ class TestTPInterpolation(TestCase):
         """
         Test that we can reset the temperature domain to the default
         """
-        curve = data0.TPInterpolation({'min': 5, 'mid': 8, 'max': 10},
-                                      [[1, 0, 0, 0], [-7, 1, 0, 0, 0]])
+        curve = data0.TPCurve({'min': 5, 'mid': 8, 'max': 10},
+                              [[1, 0, 0, 0], [-7, 1, 0, 0, 0]])
         curve.domain = [[5, 7], [8, 10]]
         self.assertEquals(curve.domain, [[5, 7], [8, 10]])
 
@@ -68,7 +68,7 @@ class TestTPInterpolation(TestCase):
         """
         Test that we can determine if a temperature is in the interpolation's domain
         """
-        curve = data0.TPInterpolation({'min': 5, 'mid': 8, 'max': 10}, [[1, 0, 0, 0], [-7, 1, 0]])
+        curve = data0.TPCurve({'min': 5, 'mid': 8, 'max': 10}, [[1, 0, 0, 0], [-7, 1, 0]])
 
         for T in [5, 5.1, 7.9, 8, 8.1, 9.9, 10]:
             self.assertTrue(curve.temperature_in_domain(T))
@@ -88,7 +88,7 @@ class TestTPInterpolation(TestCase):
         """
         Test that we can evaluate the polynomial at a given temperature in it's domain
         """
-        curve = data0.TPInterpolation({'min': 5, 'mid': 8, 'max': 10}, [[1, 0, 0], [-7, 1, 0]])
+        curve = data0.TPCurve({'min': 5, 'mid': 8, 'max': 10}, [[1, 0, 0], [-7, 1, 0]])
 
         for T in [4, 4.9999, 10.0001, 11]:
             with self.assertRaises(ValueError):
@@ -197,7 +197,7 @@ class TestTPInterpolation(TestCase):
         }]
 
         for row in table:
-            curve = data0.TPInterpolation(row['T'], row['P'])
+            curve = data0.TPCurve(row['T'], row['P'])
             intersections = curve.find_boundary_intersections(row['Trange'], row['Prange'])
             self.assertIntersectionsAlmostEqual(intersections, row['intersections'])
 
@@ -297,7 +297,7 @@ class TestTPInterpolation(TestCase):
         }]
 
         for row in table:
-            curve = data0.TPInterpolation(row['T'], row['P'])
+            curve = data0.TPCurve(row['T'], row['P'])
             notEmpty = curve.set_domain(row['Trange'], row['Prange'])
             self.assertDomainsAlmostEqual(curve.domain, row['domain'])
             self.assertEquals(notEmpty, row['notEmpty'])

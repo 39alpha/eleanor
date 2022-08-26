@@ -270,95 +270,12 @@ def brute_force_order(camp, date, ord, elements, precision=6):
     :type precision: int
 
     """
-
-    print('Generating order # {} via brute_force_order().'.format(ord))
-
-    # determine BF_var dimensions that are set as a range
-    BF_vars = {}  # brute force variables
-    for _ in camp.target_rnt.keys():
-        # morr, mols of reactant avaialbe for titration
-        if isinstance(camp.target_rnt[_][1], (list)):
-            BF_vars['{}_morr'.format(_)] = camp.target_rnt[_][1]
-        # rkb1 (rate in xi at which reactant is titrated)
-        if isinstance(camp.target_rnt[_][2], (list)):
-            BF_vars['{}_rkb1'.format(_)] = camp.target_rnt[_][2]
-    for _ in camp.vs_state.keys():
-        if isinstance(camp.vs_state[_], (list)):
-            BF_vars[_] = camp.vs_state[_]
-
-    for _ in camp.vs_basis.keys():
-        if isinstance(camp.vs_basis[_], list):
-            BF_vars[_] = camp.vs_basis[_]
-
-    order_size = camp.reso**len(BF_vars)
-    # warn user of dataframe size to be built
-    if order_size > 100000:
-        answer = input(f'\n\n The brute force method will generate {order_size}\n\
-                        VS samples. Thats pretty fucking big.\n\
-                        Are you sure you want to proceed? (Y E S/N)\n')
-        if answer == 'Y E S':
-            pass
-        else:
-            sys.exit("ABORT !")
-
-    # calculate brute force dimensions and populate initial dataframe
-    df = process_BF_vars(BF_vars, camp.reso)
-
-    df = build_admin_info(camp, df, ord, order_size, date)
-
-    # add vs_rnt dimensions to orders for fixed dimensions
-    for _ in camp.target_rnt.keys():
-        # morr, mols of reactant avaialbe for titration
-        if not isinstance(camp.target_rnt[_][1], (list)):
-            df['{}_morr'.format(_)] = float(np.round(camp.target_rnt[_][1],
-                                                     precision))
-        # rkb1 (rate in xi at which reactant is titrated)
-        if not isinstance(camp.target_rnt[_][2], (list)):
-            df['{}_rkb1'.format(_)] = float(np.round(camp.target_rnt[_][2],
-                                                     precision))
-
-    # add fixed vs_state dimensions to orders
-    for _ in camp.vs_state.keys():
-        if isinstance(camp.vs_state[_], (list)):
-            pass
-        else:
-            df['{}'.format(_)] = float(np.round(camp.vs_state[_], precision))
-
-    # add fixed vs_basis dimensions to orders
-    for _ in camp.vs_basis.keys():
-        if not isinstance(camp.vs_basis[_], list):
-            vals = np.round(camp.vs_basis[_], precision)
-            df['{}'.format(_)] = float(vals)
-
-    df = calculate_ele_totals(df, elements, order_size, precision)
-
-    print('  Order # {} established (n = {})\n'.format(ord, order_size))
-
-    return df
-
-
-def process_BF_vars(BF_vars, reso):
-    """
-    Evenly spaces all vs points across all brute force dimensions
-
-    :param BF_vars: varible names (keys) and their range limts (values)
-    :type BF_vars: dict
-
-    :param reso: number of evenily spaced divisions on each BF dimension
-    :type reso: int
-
-    :return: dataframe with all BF dimenions for all vs points
-    :rtype: :class:'pandas.core.frame.DataFrame'
-    """
-    all_ranges = []
-    for this_var in BF_vars:
-        min_val = BF_vars[this_var][0]
-        max_val = BF_vars[this_var][1]
-        this_range = np.linspace(min_val, max_val, num=reso)
-        all_ranges.append(this_range)
-    grid = np.array([np.array(i) for i in itertools.product(*all_ranges)])
-    return pd.DataFrame(grid, columns=list(BF_vars.keys()))
-
+    raise NotImplementedError(
+        '''
+        With the move to general data0/data1 handling, we aren't sure how we want
+        to implement evenly-spaced VS points in the T-S subspace.
+        '''
+    )
 
 def build_basis(camp, precision, n):
     """

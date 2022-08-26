@@ -567,11 +567,11 @@ class TPCurve(object):
         return sorted(set(intersections))
 
     @classmethod
-    def from_data0(cls, filename):
+    def from_data1f(cls, filename):
         def read_coefficients(line, chars=16):
             line = line.rstrip()
-            if len(line) % chars == 0:
-                raise Exception('the precision is not what was expected')
+            if len(line) % chars != 0:
+                raise Exception(f'the precision is not what was expected\n  len({line})=={len(line)}')
             return np.asarray([float(line[i:i + chars]) for i in range(0, len(line), chars)])
 
         P, T = [], {}

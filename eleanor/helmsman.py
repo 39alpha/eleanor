@@ -26,37 +26,32 @@ from .hanger.tool_room import grab_lines, grab_str, WorkingDirectory
 
 def Helmsman(camp, ord_id=None):
     """
-    Keeping with the naval terminology:
-        The Navigator charts where to go.
+    Keeping with the naval terminology: The Navigator charts where to go.
+    Then the helmsman guides the ship there, using sailors to do the necessary work.
 
-        Then the helmsman guides the ship there, using sailors to do the necessary work.
+    Navigator decides the region of parameter space to be explored, by issuing orders that are
+    written in the `vs` (variable space) table. Each order contains a collections of discrete
+    `vs` points distributed about the parameter space. The dimension of the parameter space
+    thermodynamic (temperature, pressure, total C, total Fe, `etc`.). Each point in this parameter
+    space contains variables (dimensions) sufficient to describes a closed thermodynamic system.
 
-    Thus:
-        Navigator decides the region of parameter space to be explored, by issuing orders that are
-        written in the `vs` (variable space) table. Each order contains a collections of discrete
-        `vs` points distributed about the parameter space. The dimension of the parameter space
-        thermodynamic (temperature, pressure, total C, total Fe, etc.). Each point in this parameter
-        space contains variables (dimensions) sufficient to describes a closed thermodynamic system.
+    The goal of the helmsman is to solve for the equilibrium behavior of each of these points
+    distributed about the variable space (`vs`).
 
-        The goal of the helmsman is to solve for the equilibrium behavior of each of these points
-        distributed about the variable space (vs).
+    The Helmsman does this by spawning a small number of sailors (with number of sailors
+    determined by system capabilities), assigning each a `vs` point that they will thermodynamic
+    'solve' in succession until all points have been solved.
 
-        The Helmsman does this by spawning a small number of sailors (with number of sailors
-        determined by system capabilities), assigning each a vs point that they will thermodynamic
-        'solve' in succession until all points have been solved.
-
-        Each vs point assigned to a sailor, contains enough information to define a closed
-        thermodynamic system. The sailor employs EQ3/6 to determine the equilibrium
-        characteristic of the system defined by the vs point, thus generating an associated point
-        in the equilibrium space (`es`) table.
+    Each vs point assigned to a sailor, contains enough information to define a closed
+    thermodynamic system. The sailor employs EQ3/6 to determine the equilibrium
+    characteristic of the system defined by the `vs` point, thus generating an associated point
+    in the equilibrium space (`es`) table.
 
     :param camp: loaded campaign
     :type camp: :class:`Campaign` instance
 
     :param ord_id: order number
     :type ord_id: int
-
-
     """
 
     with camp.working_directory():
@@ -142,14 +137,14 @@ def sailor(camp, order_path, vs_queue, es_queue, date, dat,
            elements, ss, vs_col_names, es_col_names, keep_every_n_files=1):
     """
     Each sailor manages the execution of all geochemically model steps associated
-    with a single vs point in the Variable Space (VS).
+    with a single vs point in the Variable Space (`vs`).
     These steps included:
 
-        (1) build 3i
-        (2) run 3i
-        (3) build 6i
-        (4) run 6i
-        (5) mine 6o
+    (1) build 3i
+    (2) run 3i
+    (3) build 6i
+    (4) run 6i
+    (5) mine 6o
 
     :param camp: loaded campaign
     :type camp: :class:`Campaign` instance

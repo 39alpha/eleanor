@@ -163,8 +163,8 @@ def get_order_number(conn, camp, insert=True):
 
     if insert:
         execute_query(conn,
-            f"INSERT INTO `orders` (`campaign_hash`, `data0_hash`, `name`) \
-            VALUES ('{camp.hash}', '{camp.data0_hash}', '{camp.name}')").fetchall()
+                      f"INSERT INTO `orders` (`campaign_hash`, `data0_hash`, `name`) \
+                      VALUES ('{camp.hash}', '{camp.data0_hash}', '{camp.name}')").fetchall()
         return get_order_number(conn, camp, insert=False)
     else:
         raise RuntimeError('failed to insert order')

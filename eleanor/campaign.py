@@ -83,7 +83,7 @@ class Campaign:
         self._hash = None
         self._data0_hash = None
         self.data1_dir = None
-        self.tp_interpolation = None
+        self.tp_curves = None
 
     @property
     def campaign_dir(self):
@@ -192,25 +192,25 @@ class Campaign:
             tp_curves = [TPCurve.from_json(data1_file) for
                          data1_file in tool_room.read_inputs('.d1f', '.')]
 
-		self.tp_curves = []
-		for curve in tp_curves:
-			Trange = self.vs_state['T_cel']
-			if instance(Trange, (int, float)):
-				Trange = [Trange, Trange]
-				
-			Prange = self.vs_state['P_bar']
-			if instance(Prange, (int, float)):
-				Prange = [Prange, Prange]
-			
-			if curve.set_domain(Trange, Prange):
-				self.tp_curves.append(curve)
+        self.tp_curves = []
+        for curve in tp_curves:
+            Trange = self.vs_state['T_cel']
+            if isinstance(Trange, (int, float)):
+                Trange = [Trange, Trange]
 
-		if len(self.tp_curves) == 0:
-			raise Exception('''
-				The temperature and pressure ranges provided in the campaign file do
-				not overlap with any of the pressure vs. temperature curves specified
-				in the provided data0 files.
-			''')
+            Prange = self.vs_state['P_bar']
+            if isinstance(Prange, (int, float)):
+                Prange = [Prange, Prange]
+
+            if curve.set_domain(Trange, Prange):
+                self.tp_curves.append(curve)
+
+        if len(self.tp_curves) == 0:
+            raise Exception('''
+                The temperature and pressure ranges provided in the campaign file do
+                not overlap with any of the pressure vs. temperature curves specified
+                in the provided data0 files.
+            ''')
 
     def working_directory(self, *args, **kwargs):
         """

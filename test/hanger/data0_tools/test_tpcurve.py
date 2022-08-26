@@ -301,3 +301,44 @@ class TestTPCurve(TestCase):
             notEmpty = curve.set_domain(row['Trange'], row['Prange'])
             self.assertDomainsAlmostEqual(curve.domain, row['domain'])
             self.assertEquals(notEmpty, row['notEmpty'])
+
+    def test_union_domains(self):
+        """
+        Test that we can compute the union of the domains of a collection of curves.
+        """
+        P = [[1, 0, 0, 0], [1, 0, 0, 0, 0]]
+        Q = [[-4, 11, -6, 1], [-4, 11, -6, 1]]
+        table = [{
+            'curves': [data0.TPCurve({'min': 0, 'mid': 2, 'max': 10}, P)],
+            'domain': [[0, 10]],
+        }, {
+            'curves': [data0.TPCurve({'min': 0, 'mid': 2, 'max': 10}, P),
+                       data0.TPCurve({'min': 10, 'mid': 12, 'max': 15}, P)],
+            'domain': [[0, 15]],
+        }, {
+            'curves': [data0.TPCurve({'min': 0, 'mid': 2, 'max': 10}, P),
+                       data0.TPCurve({'min': 8, 'mid': 10, 'max': 15}, P)],
+            'domain': [[0, 15]],
+        }, {
+            'curves': [data0.TPCurve({'min': 0, 'mid': 2, 'max': 4}, P),
+                       data0.TPCurve({'min': 6, 'mid': 2, 'max': 8}, P)],
+            'domain': [[0, 4], [6, 8]],
+        }, {
+            'curves': [data0.TPCurve({'min': 0, 'mid': 2, 'max': 4}, Q)],
+            'Trange': [0.5, 3.0],
+            'Prange': [0.0, 2.0],
+            'domain': [[0.5, 1.0], [2.0, 3.0]],
+        }, {
+            'curves': [data0.TPCurve({'min': 0, 'mid': 2, 'max': 4}, Q),
+                       data0.TPCurve({'min': 0, 'mid': 2, 'max': 4}, P)],
+            'Trange': [0.5, 3.0],
+            'Prange': [0.0, 2.0],
+            'domain': [[0.5, 3.0]],
+        }]
+
+        for row in table:
+            if 'Trange' in row and 'Prange' in row:
+                for curve in row['curves']:
+                    curve.set_domain(row['Trange'], row['Prange'])
+            domain = data0.TPCurve.union_domains(row['curves'])
+            self.assertDomainsAlmostEqual(domain, row['domain'])

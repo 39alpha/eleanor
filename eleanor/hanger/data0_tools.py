@@ -590,3 +590,28 @@ class TPCurve(object):
                 }
 
         return cls(T, P)
+
+    @staticmethod
+    def union_domains(curves):
+        subdomains = []
+        for curve in curves:
+            for subdomain in curve.domain:
+                subdomains.append(tuple(subdomain))
+        subdomains = sorted(set(subdomains))
+
+        if len(subdomains) == 0:
+            return []
+
+        domain = []
+        (start, stop), *rest = subdomains
+        for i in range(1, len(subdomains)):
+            (a, b) = subdomains[i]
+            if a <= stop and stop < b:
+                stop = b
+            elif stop < b:
+                domain.append([start, stop])
+                start, stop = a, b
+
+        domain.append([start, stop])
+
+        return domain

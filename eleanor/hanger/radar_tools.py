@@ -1,6 +1,6 @@
 """
  radar tools
- functions used for viasualizing vs and ss data
+ functions used for visualizing vs and ss data
  This file is loaded as a package by the radar family of
  codes.
 
@@ -204,6 +204,32 @@ def solid_groups(conn, pwd, camp_name, ord_id, out = 'assemblages'):
 def plt_grid(df, ):
 
     grid = sns.PairGrid(data=df, color='blue', height=4, layout_pad=1.5)
+
+
+def check_data0s_loaded():
+    """
+    what data1 files are currently active in eq3_68.0a/db
+    """
+    file_name, file_list = read_inputs('data1', 'EQ3_6v8.0a/db', str_loc='prefix')
+
+    suf_list = [_[-3:] for _ in file_list if _.startswith('EQ3_6v8.0a/db/data1')]
+
+    # for _ in suf_list
+
+    plt.figure()
+    plt.subplot(111)
+
+    for _ in suf_list:
+        t_rng, p_val = data0_TP(_)
+        plt.plot(t_rng, [p_val, p_val], color='black', linewidth=0.1)
+
+    plt.xlabel('T (˚C)')
+    plt.ylabel('P (bars)')
+
+    plt.title('data0 family coverage\n(∆P = descrete 0.5 bars)\n∆T = 7C contineuous')
+
+    plt.show()
+
 
 
 ###################################################################################

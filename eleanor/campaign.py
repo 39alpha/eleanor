@@ -189,8 +189,8 @@ class Campaign:
 
         # move to data1 tools
         with tool_room.WorkingDirectory(self.data1_dir):
-            tp_curves = [TPCurve.from_json(data1_file) for
-                         data1_file in tool_room.read_inputs('.d1f', '.')]
+            _, data1f_files, *_ = tool_room.read_inputs('.d1f', '.')
+            tp_curves = [TPCurve.from_data1f(data1f_file) for data1f_file in data1f_files]
 
         self.tp_curves = []
         for curve in tp_curves:

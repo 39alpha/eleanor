@@ -350,7 +350,7 @@ class TestTPCurve(TestCase):
         curves = [
             data0.TPCurve({'min': 0, 'mid': 2, 'max': 4}, [[1, 0, 0, 0], [1, 0, 0, 0, 0]]),
         ]
-        Ts, Ps = data0.TPCurve.sample(curves, 1000, 16)
+        Ts, Ps = data0.TPCurve.sample(curves, 1000)
         Ts, Ps = np.asarray(Ts), np.asarray(Ps)
 
         self.assertEquals(len(Ts), 1000)
@@ -363,7 +363,7 @@ class TestTPCurve(TestCase):
             data0.TPCurve({'min': 6, 'mid': 8, 'max': 10}, [[1, 0, 0, 0], [1, 0, 0, 0, 0]]),
         ]
 
-        Ts, Ps = data0.TPCurve.sample(curves, 1000, 16)
+        Ts, Ps = data0.TPCurve.sample(curves, 1000)
         Ts, Ps = np.asarray(Ts), np.asarray(Ps)
         self.assertTrue(np.all((0 <= Ts) & (Ts <= 10) & ((Ts <= 4) | (Ts >= 6))))
         self.assertTrue(np.all(Ps == 1))
@@ -372,7 +372,7 @@ class TestTPCurve(TestCase):
             data0.TPCurve({'min': 0, 'mid': 2, 'max': 4}, [[1, 0, 0, 0], [1, 0, 0, 0, 0]]),
             data0.TPCurve({'min': 0, 'mid': 2, 'max': 4}, [[2, 0, 0, 0], [2, 0, 0, 0, 0]]),
         ]
-        Ts, Ps = data0.TPCurve.sample(curves, 1000, 16)
+        Ts, Ps = data0.TPCurve.sample(curves, 1000)
         Ts, Ps = np.asarray(Ts), np.asarray(Ps)
 
         self.assertEquals(len(Ts), 1000)
@@ -387,7 +387,7 @@ class TestTPCurve(TestCase):
         for curve in curves:
             curve.set_domain([0.8, 3.0], [0.0, 2.0])
 
-        Ts, Ps = data0.TPCurve.sample(curves, 1000, 16)
+        Ts, Ps = data0.TPCurve.sample(curves, 1000)
         Ts, Ps = np.asarray(Ts), np.asarray(Ps)
 
         self.assertEquals(len(Ts), 1000)

@@ -342,3 +342,59 @@ class TestTPCurve(TestCase):
                     curve.set_domain(row['Trange'], row['Prange'])
             domain = data0.TPCurve.union_domains(row['curves'])
             self.assertDomainsAlmostEqual(domain, row['domain'])
+
+    def test_sample(self):
+        """
+        Test that we can randomly sample temperatures and pressures from the data1s
+        """
+        curves = [
+            data0.TPCurve({'min': 0, 'mid': 2, 'max': 4}, [[1, 0, 0, 0], [1, 0, 0, 0, 0]]),
+        ]
+        Ts, Ps = data0.TPCurve.sample(curves, 1000, 16)
+        Ts, Ps = np.asarray(Ts), np.asarray(Ps)
+
+        self.assertEquals(len(Ts), 1000)
+        self.assertEquals(len(Ps), 1000)
+        self.assertTrue(np.all((0 <= Ts) & (Ts <= 4)))
+        self.assertTrue(np.all(Ps == 1))
+
+        curves = [
+            data0.TPCurve({'min': 0, 'mid': 2, 'max': 4}, [[1, 0, 0, 0], [1, 0, 0, 0, 0]]),
+            data0.TPCurve({'min': 6, 'mid': 8, 'max': 10}, [[1, 0, 0, 0], [1, 0, 0, 0, 0]]),
+        ]
+
+        Ts, Ps = data0.TPCurve.sample(curves, 1000, 16)
+        Ts, Ps = np.asarray(Ts), np.asarray(Ps)
+        self.assertTrue(np.all((0 <= Ts) & (Ts <= 10) & ((Ts <= 4) | (Ts >= 6))))
+        self.assertTrue(np.all(Ps == 1))
+
+        curves = [
+            data0.TPCurve({'min': 0, 'mid': 2, 'max': 4}, [[1, 0, 0, 0], [1, 0, 0, 0, 0]]),
+            data0.TPCurve({'min': 0, 'mid': 2, 'max': 4}, [[2, 0, 0, 0], [2, 0, 0, 0, 0]]),
+        ]
+        Ts, Ps = data0.TPCurve.sample(curves, 1000, 16)
+        Ts, Ps = np.asarray(Ts), np.asarray(Ps)
+
+        self.assertEquals(len(Ts), 1000)
+        self.assertEquals(len(Ps), 1000)
+        self.assertTrue(np.all((0 <= Ts) & (Ts <= 4)))
+        self.assertTrue(not np.all(Ps == 1))
+
+        curves = [
+            data0.TPCurve({'min': 0, 'mid': 2, 'max': 4}, [[-4, 11, -6, 1], [-4, 11, -6, 1]]),
+            data0.TPCurve({'min': 0, 'mid': 2, 'max': 4}, [[1, 0, 0, 0], [1, 0, 0, 0, 0]]),
+        ]
+        for curve in curves:
+            curve.set_domain([0.8, 3.0], [0.0, 2.0])
+
+        Ts, Ps = data0.TPCurve.sample(curves, 1000, 16)
+        Ts, Ps = np.asarray(Ts), np.asarray(Ps)
+
+        self.assertEquals(len(Ts), 1000)
+        self.assertEquals(len(Ps), 1000)
+        self.assertTrue(np.all((0 <= Ts) & (Ts <= 4)))
+        self.assertTrue(not np.all(Ps == 1))
+        self.assertTrue(np.all(Ps[Ps != 1] > 1))
+
+        topTs = Ts[Ps != 1]
+        self.assertTrue(np.all(((2 <= topTs) & (topTs <= 3) | (0.8 <= topTs) & (topTs <= 1))))

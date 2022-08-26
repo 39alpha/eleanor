@@ -615,3 +615,29 @@ class TPCurve(object):
         domain.append([start, stop])
 
         return domain
+
+    @classmethod
+    def sample(cls, curves, num_samples, precision):
+        domain = cls.union_domains(curves)
+        domain_size = sum(map(lambda s: s[1] - s[0], domain))
+        steps = [domain[i + 1][0] - domain[i][1] for i in range(len(domain) - 1)]
+
+        Ts = np.random.uniform(0, domain_size, num_samples) + domain[0][0]
+        Ps = []
+        for i, T in enumerate(Ts):
+            for j, subdomain in enumerate(domain):
+                if subdomain[1] >= T:
+                    break
+                else:
+                    T += steps[j]
+
+            Ts[i] = T = float(np.round(T, precision))
+
+            curves_above = [curve for curve in curves if curve.temperature_in_domain(T)]
+            selected_index = np.random.randint(0, len(curves_above))
+            selected_curve = curves_above[selected_index]
+
+            P = float(np.round(selected_curve(T), precision))
+            Ps.append(P)
+
+        return Ts, Ps

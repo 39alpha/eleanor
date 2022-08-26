@@ -19,7 +19,7 @@ from tqdm import tqdm
 from .hanger.db_comms import execute_query
 from .hanger.db_comms import establish_database_connection, retrieve_records, get_column_names
 from .hanger.eq36 import eq3, eq6
-from .hanger.data0_tools import determine_species_set, data0_suffix  # , determine_ele_set
+from .hanger.data0_tools import determine_species_set, data0_suffix
 from .hanger.tool_room import mk_check_del_directory, mine_pickup_lines, grab_float
 from .hanger.tool_room import grab_lines, grab_str, WorkingDirectory
 
@@ -65,10 +65,8 @@ def Helmsman(camp, ord_id=None):
         elements, aq_sp, solids, ss, gasses = determine_species_set(path='huffer/')
 
         # retrieve issued order 'ord_id'
-        order_query = '''
-            SELECT * FROM `vs`
-            WHERE `code` = 0 AND `uuid` NOT IN (SELECT `uuid` FROM `es`)
-        '''
+        order_query = ('SELECT * FROM `vs` WHERE `code` = 0',
+                       'AND `uuid` NOT IN (SELECT `uuid` FROM `es`)')
         if ord_id is not None:
             order_query += f' AND `ord` = {ord_id}'
         rec = retrieve_records(conn, order_query)
@@ -86,7 +84,7 @@ def Helmsman(camp, ord_id=None):
 
     date = time.strftime("%Y-%m-%d", time.gmtime())
 
-    # ### build order-specific local working directory
+    # build order-specific local working directory
     order_path = os.path.join(camp.campaign_dir, 'order_{}'.format(ord_id))
     mk_check_del_directory(order_path)
     os.chdir(order_path)
@@ -100,7 +98,7 @@ def Helmsman(camp, ord_id=None):
 
     with WorkingDirectory(order_path):
 
-        # ### build vs/es queues
+        # build vs/es queues
         queue_manager = multiprocessing.Manager()
         vs_queue = queue_manager.Queue()
         es_queue = queue_manager.Queue()
@@ -110,7 +108,7 @@ def Helmsman(camp, ord_id=None):
                                                  vs_queue, es_queue, len(rec)))
         yoeman_process.start()
 
-        # # ##############   Multiprocessing  ##################
+        # ##############   Multiprocessing  ##################
         with multiprocessing.Pool(processes=cores) as pool:
             _ = pool.starmap(sailor, zip([camp] * len(rec),
                                          [order_path] * len(rec),
@@ -123,8 +121,7 @@ def Helmsman(camp, ord_id=None):
                                          [vs_col_names] * len(rec),
                                          [es_col_names] * len(rec)))
 
-        # TODO
-        # # ### check to see if queues are empty to kill
+        #  check to see if queues are empty to kill
         while not vs_queue.empty():
             time.sleep(1)
         while not es_queue.empty():
@@ -424,7 +421,7 @@ def mine_6o(camp, date, elements, ss, file, dat, col_names):
             while not re.findall('^\n', lines[i + x]):
                 if re.findall(r'\*{4}$', lines[i + x]):
                     # ## '******'' fills in the value region for numbers
-                    # ## lower than -999.9999. Replace with boundry condition
+                    # ## lower than -999.9999. Replace with boundary condition
 
                     # ## affinity (kcal)
                     build_dict[lines[i + x][:30].strip()] = [float(-999.9999)]

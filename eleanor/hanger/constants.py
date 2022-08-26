@@ -1,20 +1,20 @@
-##################################################################
-############################## EQ3/6 #############################
-##################################################################
+# #################################################################
+# ############################# EQ3/6 #############################
+# #################################################################
 
 
-### dictionary containing custom eq3/6 exit codes that hint at the casue of the failure.
-### by assigning a number, I can track errors in a lightweight fashion, and
-### make it easy to color output points based on the type of error they generate.
-run_codes = {0   : 'not run',
-    100 : 'normal termination',
-    30  : 'no 3p generated',
-    31  : 'pickup present but contains errors',
-    60  : 'no 6o generated',
-    61  : 'unrecognized 6o error (6o present neitehr normal nor early)',
-    62  : 'mine 6o function fail',
-    70  : 'early 6i termination'
-            }
+# dictionary containing custom eq3/6 exit codes that hint at the cause of the failure.
+# by assigning a number, I can track errors in a lightweight fashion, and
+# make it easy to color output points based on the type of error they generate.
+run_codes = {0: 'not run',
+             100: 'normal termination',
+             30: 'no 3p file generated',
+             31: '3p file present but contains errors',
+             60: 'no 6o file generated',
+             61: 'unrecognized 6o file error',
+             62: 'mine 6o function fail',
+             70: 'early 6i termination'
+             }
 
 
 ##################################################################

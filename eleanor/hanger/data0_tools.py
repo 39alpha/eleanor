@@ -7,11 +7,9 @@ import math
 import re
 import pandas as pd
 
-import matplotlib.pyplot as plt
-
 from os.path import dirname, abspath, realpath, join
 
-from .tool_room import grab_str, read_inputs
+from .tool_room import grab_str
 
 
 DATA_PATH = join(abspath(join(dirname(realpath(__file__)), '..')), 'data')
@@ -66,6 +64,7 @@ def determine_species_set(path=''):
     Use the verbose test.3o file run by the huffer to determine the loaded species
         separated into their groups (elements, aqueous, solids, solid solutions, and gases)
         :param path: campaign huffer path to test.3o file
+
         :return:
             list of elements,
             list of aqueous species,
@@ -85,23 +84,23 @@ def determine_species_set(path=''):
     with open('{}test.3o'.format(path), 'r') as f:
         lines = f.readlines()
 
-        # ### gather suppress info from near the top of the
+        # gather suppress info from near the top of the
         for i in range(len(lines)):
             if ' * Alter/suppress options' in lines[i]:
-                # ### numebr of suppresion options
+                # number of suppression options
                 supp_n = int(lines[i + 1].split()[-1])
                 # print(supp_n)
                 for j in range(1, supp_n + 1):
                     suppress.append(lines[i + 2 * j][12:].strip())
                 break
 
-        # ### search for all other info from teh bottom of the file
+        # search for all other info from teh bottom of the file
         for i in range(len(lines) - 1, 0, -1):
-            # ### find the beginning of the print section for the final system compostion.
+            # find the beginning of the print section for the final system composition.
             if ' Done. Hybrid Newton-Raphson iteration converged in ' in lines[i]:
                 break
 
-        # ### now count forward in lines against to read the system compostion
+        # now count forward in lines against to read the system composition
         while i < len(lines):
 
             if re.findall('^\n', lines[i]):
@@ -128,7 +127,7 @@ def determine_species_set(path=''):
                     aqueous_sp.append(lines[i][:26].strip())
                     i += 1
 
-                # ### this fictive aq speices shows up in the aqueous block
+                # this fictive aq species shows up in the aqueous block
                 aqueous_sp.remove('O2(g)')
 
             elif '           --- Saturation States of Pure Solids ---' in lines[i]:
@@ -154,7 +153,7 @@ def determine_species_set(path=''):
             else:
                 i += 1
 
-    # ### without knowing which lists contain the supressions, they all must be searched
+    # without knowing which lists contain the suppressions, they all must be searched
     elements = [_ for _ in elements if _ not in suppress]
     aqueous_sp = [_ for _ in aqueous_sp if _ not in suppress]
     solids = [_ for _ in solids if _ not in suppress]
@@ -188,9 +187,9 @@ def determine_loaded_sp(path=''):
                 # ## which is also caught with the above string.
                 if '1.000' in lines[_ + 2]:
                     # ## exclude basis species
-                    # ## grab full string (with spaces) after the stochiometry
-                    # ## this correctly differentiates solid solution endmemebrs
-                    # ## fromt their stand alone counterparts ie: 'CA-SAPONITE'
+                    # ## grab full string (with spaces) after the stoichiometry
+                    # ## this correctly differentiates solid solution end-members
+                    # ## from their stand alone counterparts ie: 'CA-SAPONITE'
                     # ## vs 'CA-SAPONITE (SAPONITE)'
                     loaded_sp.append(lines[_ + 2].split('1.000  ')[-1].strip())
                 elif 'is a strict' in lines[_ + 2]:
@@ -203,7 +202,7 @@ def determine_loaded_sp(path=''):
         # ## regardless is separately tracked via the aH2O variable.
         loaded_sp = [_ for _ in loaded_sp if _ != 'H2O' and _ != 'O2(g)']
 
-        # ## alter loaded_sp to reflect correct search names required for 6o
+        # alter loaded_sp to reflect correct search names required for 6o
         aq_and_s = [_ for _ in loaded_sp if ' (' not in _]
         ss_and_gas = [_ for _ in loaded_sp if ' (' in _]
         gas = [_.split(' (')[0] for _ in ss_and_gas if '(Gas)' in _]
@@ -228,9 +227,9 @@ def determine_loaded_sp(path=''):
 def data0_suffix(T, P):
     """
     organizes the construction of multiple data0 files, each with a small t range, at constant
-    pressure. The family of data0s this function refers to, are built one at a time by graysons
+    pressure. The family of data0s this function refers to, are built one at a time by Grayson's
     worm code, and then stored appropriately in the the db folder. They are intended for spot
-    calculations, and not sutiable for 6i runs which explore dT, as each only covers a small T
+    calculations, and not suitable for 6i runs which explore dT, as each only covers a small T
     range.
 
     T, P = 3i/6i file T and P
@@ -260,7 +259,7 @@ def data0_suffix(T, P):
 
 def data0_TP(suffix):
     """
-    reutrn T/P rangte of a data0 file given its suffix
+    reutrn T/P range of a data0 file given its suffix
     """
     t = suffix[0]
     p = suffix[1:]
@@ -281,114 +280,3 @@ def data0_TP(suffix):
     p_val = p_pos * data0_system_P_interval
 
     return t_rng, p_val
-
-def check_data0s_loaded():
-    """
-    what data1 files are currently active in eq3_68.0a/db
-    """
-    file_name, file_list = read_inputs('data1', 'EQ3_6v8.0a/db', str_loc='prefix')
-
-    suf_list = [_[-3:] for _ in file_list if _.startswith('EQ3_6v8.0a/db/data1')]
-
-    # for _ in suf_list
-
-    plt.figure()
-    plt.subplot(111)
-
-    for _ in suf_list:
-        t_rng, p_val = data0_TP(_)
-        plt.plot(t_rng, [p_val, p_val], color='black', linewidth=0.1)
-
-    plt.xlabel('T (˚C)')
-    plt.ylabel('P (bars)')
-
-    plt.title('data0 family coverage\n(∆P = descrete 0.5 bars)\n∆T = 7C contineuous')
-
-    plt.show()
-
-
-mw = {
-    'O': 15.99940,
-    'Ag': 107.86820,
-    'Al': 26.98154,
-    'Am': 243.00000,
-    'Ar': 39.94800,
-    'Au': 196.96654,
-    'B': 10.81100,
-    'Ba': 137.32700,
-    'Be': 9.01218,
-    'Bi': 208.98000,
-    'Br': 79.90400,
-    'Ca': 40.07800,
-    'Cd': 112.41100,
-    'Ce': 140.11500,
-    'Cl': 35.45270,
-    'Co': 58.93320,
-    'Cr': 51.99610,
-    'Cs': 132.90543,
-    'Cu': 63.54600,
-    'Dy': 162.50000,
-    'Er': 167.26000,
-    'Eu': 151.96500,
-    'F': 18.99840,
-    'Fe': 55.84700,
-    'Fr': 223.00000,
-    'Ga': 69.72300,
-    'Gd': 157.25000,
-    'H': 1.00794,
-    'As': 74.92159,
-    'C': 12.01100,
-    'P': 30.97362,
-    'He': 4.00206,
-    'Hf': 178.49000,
-    'Hg': 200.59000,
-    'Ho': 164.93032,
-    'I': 126.90447,
-    'In': 114.82000,
-    'K': 39.09830,
-    'Kr': 83.80000,
-    'La': 138.90550,
-    'Li': 6.94100,
-    'Lu': 174.96700,
-    'Mg': 24.30500,
-    'Mn': 54.93085,
-    'Mo': 95.94000,
-    'N': 14.00674,
-    'Na': 22.98977,
-    'Nb': 92.90600,
-    'Nd': 144.24000,
-    'Ne': 20.17970,
-    'Ni': 58.69000,
-    'Pb': 207.20000,
-    'Pd': 106.42000,
-    'Pm': 145.00000,
-    'Pr': 140.90765,
-    'Pt': 195.08000,
-    'Ra': 226.02500,
-    'Rb': 85.46780,
-    'Re': 186.20700,
-    'Rh': 102.90600,
-    'Rn': 222.00000,
-    'Ru': 101.07000,
-    'S': 32.06600,
-    'Sb': 127.76000,
-    'Sc': 44.95591,
-    'Se': 78.96000,
-    'Si': 28.08550,
-    'Sm': 150.36000,
-    'Sn': 118.71000,
-    'Sr': 87.62000,
-    'Tb': 158.92534,
-    'Tc': 98.00000,
-    'Th': 232.03800,
-    'Ti': 47.88000,
-    'Tl': 204.38330,
-    'Tm': 168.93421,
-    'U': 238.02890,
-    'V': 50.94150,
-    'W': 183.85000,
-    'Xe': 131.29000,
-    'Y': 88.90585,
-    'Yb': 173.04000,
-    'Zn': 65.39000,
-    'Zr': 91.22400}

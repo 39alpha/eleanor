@@ -202,11 +202,8 @@ def sailor(camp, order_path, vs_queue, es_queue, date, dat,
     run_num = str(dat[3])
     file = '{}.3i'.format(run_num)
 
-    if int(run_num) % keep_every_n_files == 1:
-        delete_after_running = True
-    else:
-        delete_after_running = False
-    # delete_after_running = True
+    delete_after_running = int(run_num) % keep_every_n_files != 0
+
     master_dict = {}
     for i, j in zip(vs_col_names, dat):
         master_dict[i] = j

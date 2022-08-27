@@ -57,8 +57,6 @@ def Helmsman(camp, ord_id=None, num_cores=os.cpu_count()):
 
     :param ord_id: order number
     :type ord_id: int
-
-
     """
 
     with camp.working_directory():
@@ -573,6 +571,7 @@ def yoeman(camp, keep_running, write_vs_q, write_es_q, num_points):
                 write_vs_q.task_done()
             # Write batch to VS table
             execute_vs_exit_updates(conn, vs_list)
+            vs_n_written = len(vs_list)
 
             vs_list = []
             # Get ES batch
@@ -596,6 +595,8 @@ def yoeman(camp, keep_running, write_vs_q, write_es_q, num_points):
         write_vs_q.task_done()
     # Write last batch to VS table
     execute_vs_exit_updates(conn, vs_list)
+    vs_n_written = len(vs_list)
+
     while not write_es_q.empty():
         es_df = write_es_q.get_nowait()
         es_df_list.append(es_df)
@@ -604,7 +605,10 @@ def yoeman(camp, keep_running, write_vs_q, write_es_q, num_points):
     if es_df_list != []:
         total_es_df = pd.concat(es_df_list, ignore_index=True)
         total_es_df.to_sql('es', conn, if_exists='append', index=False)
-    progress.update(vs_n_written)
+
+    if not write_all_at_once:
+        progress.update(vs_n_written)
+
     return None
 
 def six_o_data_to_sql(conn, table, df):

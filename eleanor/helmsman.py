@@ -274,9 +274,7 @@ def sailor(camp, order_path, vs_queue, es_queue, date, dat,
 
     reset_sailor(order_path, vs_queue, file, dat[0], run_code,
                  delete_local=delete_after_running)
-    # mark_time = time.time()
-    # print("Time through mark: ", mark_time - sailor_start_time)
-    # PROFILER.disable()
+
     return None
 
 
@@ -566,9 +564,6 @@ def yoeman(camp, keep_running, write_vs_q, write_es_q, num_points):
             es_df_list = []
             # Write VS lines
             execute_vs_exit_updates(conn, vs_list)
-            # for vs_point in vs_list:
-            #     execute_query(conn, vs_point)
-            #     vs_n_written += 1
 
         elif not write_all_at_once and current_q_size > WRITE_EVERY_N:
             # Get VS batch
@@ -578,9 +573,7 @@ def yoeman(camp, keep_running, write_vs_q, write_es_q, num_points):
                 write_vs_q.task_done()
             # Write batch to VS table
             execute_vs_exit_updates(conn, vs_list)
-            # for vs_point in vs_list:
-            #     execute_query(conn, vs_point)
-            #     vs_n_written += 1
+
             vs_list = []
             # Get ES batch
             current_es_q_size = write_es_q.qsize()
@@ -588,6 +581,7 @@ def yoeman(camp, keep_running, write_vs_q, write_es_q, num_points):
                 es_df = write_es_q.get_nowait()
                 es_df_list.append(es_df)
                 write_es_q.task_done()
+
             # Write batch to ES table
             total_es_df = pd.concat(es_df_list, ignore_index=True)
             total_es_df.to_sql('es', conn, if_exists='append', index=False)
@@ -601,9 +595,6 @@ def yoeman(camp, keep_running, write_vs_q, write_es_q, num_points):
         vs_list.append(vs_line)
         write_vs_q.task_done()
     # Write last batch to VS table
-    # for vs_point in vs_list:
-    #     execute_query(conn, vs_point)
-    #     vs_n_written += 1
     execute_vs_exit_updates(conn, vs_list)
     while not write_es_q.empty():
         es_df = write_es_q.get_nowait()
@@ -661,7 +652,7 @@ def reset_sailor(order_path, vs_queue, file, uuid, code, delete_local=False):
 
     """
     # This only takes like 1e-5 seconds even with the put
-    this_point = (code, uuid)  # = """UPDATE vs SET code = {} WHERE uuid = '{}';""".format(code, uuid)
+    this_point = (code, uuid)
     vs_queue.put_nowait(this_point)
     os.chdir(order_path)
     if delete_local:

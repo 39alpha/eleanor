@@ -276,3 +276,20 @@ def retrieve_combined_records(conn, vs_cols, es_cols, limit=None, ord_id=None, w
             sys.stderr.write(f"warning: cannot write records; unrecognized format '{ext}'\n")
 
     return df
+
+def execute_vs_exit_updates(conn, vs_points):
+    """
+    Execute the SQLite3 command to update the VS points based on exit codes.
+
+    :param conn: the database connection
+    :type conn: sqlite3.Connection
+    :param vs_points: list of tuples where each tuple has two values (exit_code, uuid)
+    :type vs_points: list
+
+    :return: None
+    :rtype: None
+    """
+    cur = conn.cursor()
+    cur.executemany("UPDATE vs SET code = ? WHERE uuid = ?;", vs_points)
+    conn.commit()
+    return None

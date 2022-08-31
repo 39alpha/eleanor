@@ -25,7 +25,7 @@ from .hanger.tool_room import mk_check_del_directory, mine_pickup_lines, grab_fl
 from .hanger.tool_room import grab_lines, grab_str, WorkingDirectory
 
 
-def Helmsman(camp, ord_id=None, num_cores=os.cpu_count(), keep_every_n_files=1):
+def Helmsman(camp, ord_id=None, num_cores=os.cpu_count(), keep_every_n_files=1, quiet=False):
     """
     Keeping with the naval terminaology:
         The Navigator charts where to go.
@@ -87,10 +87,11 @@ def Helmsman(camp, ord_id=None, num_cores=os.cpu_count(), keep_every_n_files=1):
     date = time.strftime("%Y-%m-%d", time.gmtime())
 
     start = time.time()  # for diagnostic times
-    if ord_id is None:
-        print(f"Processing all unfullfiled orders ({len(rec)} points)")
-    else:
-        print(f"Processing Order {ord_id} ({len(rec)} points)")
+    if not quiet:
+        if ord_id is None:
+            print(f"Processing all unfullfiled orders ({len(rec)} points)")
+        else:
+            print(f"Processing Order {ord_id} ({len(rec)} points)")
 
     scratch_path = os.path.join(camp.campaign_dir, 'scratch')
 
@@ -129,11 +130,12 @@ def Helmsman(camp, ord_id=None, num_cores=os.cpu_count(), keep_every_n_files=1):
 
         yoeman_process.join()
 
-    print(f'\nOrder {ord_id} complete.')
-    print(f'        total time: {round(time.time() - start, num_cores)}')
-    print(f'        time/point: {round((time.time() - start) / len(rec), num_cores)}')
-    print(f'   time/point/core: {round((num_cores * (time.time() - start)) / len(rec), num_cores)}')
-    print()
+    if not quiet:
+        print(f'\nOrder {ord_id} complete.')
+        print(f'        total time: {round(time.time() - start, num_cores)}')
+        print(f'        time/point: {round((time.time() - start) / len(rec), num_cores)}')
+        print(f'   time/point/core: {round((num_cores * (time.time() - start)) / len(rec), num_cores)}')
+        print()
 
 
 class SailorPaths(object):
@@ -616,7 +618,6 @@ def yoeman(camp, keep_running, write_vs_q, write_es_q, num_points):
 
         if current_q_size < WRITE_EVERY_N and not write_all_at_once:
             time.sleep(0.1)
-            # print("Sleeping Yoeman")
 
         elif current_q_size == num_points and write_all_at_once:
             # Get everything written

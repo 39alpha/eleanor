@@ -25,7 +25,7 @@ from .hanger.data0_tools import determine_ele_set, determine_loaded_sp, species_
 from .hanger.data0_tools import SLOP_DF, TPCurve
 
 
-def Navigator(this_campaign):
+def Navigator(this_campaign, quiet=False):
     """
     The Navigator decides where to go (see what we did there), given the
     praticulars of the loaded Campaign. The Navigator drafts an order,
@@ -52,7 +52,8 @@ def Navigator(this_campaign):
 
     # Enter the Campaigns env
     with this_campaign.working_directory():
-        print(f'Preparing order for campagin {this_campaign.name}.\n')
+        if not quiet:
+            print(f'Preparing order for campagin {this_campaign.name}.\n')
 
         conn = db_comms.establish_database_connection(this_campaign)
 
@@ -66,7 +67,7 @@ def Navigator(this_campaign):
         # run huffer to initiate VS/ES if no tables exist
         if order_number == 1:
             # new campaign
-            huffer(conn, this_campaign)
+            huffer(conn, this_campaign, quiet=quiet)
 
         # Grab non O/H elements and species data from the verbose huffer test.3o files
         elements = determine_ele_set(path="huffer/")
@@ -78,23 +79,25 @@ def Navigator(this_campaign):
         # Generate orders
         if this_campaign.distro == 'random':
             orders = random_uniform_order(this_campaign, date, order_number, file_number,
-                                          this_campaign.reso, elements)
+                                          this_campaign.reso, elements, quiet=quiet)
 
         elif this_campaign.distro == 'BF':
-            orders = brute_force_order(this_campaign, date, order_number, file_number, elements)
+            orders = brute_force_order(this_campaign, date, order_number, file_number, elements,
+                                       quiet=quiet)
 
         # Send dataframe containing new orders to postgres database
-        orders_to_sql(conn, 'vs', order_number, orders)
+        orders_to_sql(conn, 'vs', order_number, orders, quiet=quiet)
 
         conn.close()
 
-        print('The Navigator has completed her task.')
-        print('   While she detected no "obvious" faults,')
-        print('   she notes that you may have fucked up')
-        print('   repeatedly in ways she couldnt anticipate.\n')
+        if not quiet:
+            print('The Navigator has completed her task.')
+            print('   While she detected no "obvious" faults,')
+            print('   she notes that you may have fucked up')
+            print('   repeatedly in ways she couldnt anticipate.\n')
 
 
-def huffer(conn, camp):
+def huffer(conn, camp, quiet=False):
     """
     The huffer runs test 3i files to determine the loaded elements and species
     for said campaign, and to check for obvious user erros given system
@@ -112,7 +115,8 @@ def huffer(conn, camp):
     :type camp: :class:`Campaign` instance
 
     """
-    print('Running the Huffer.')
+    if not quiet:
+        print('Running the Huffer.')
 
     mk_check_del_directory("huffer")
     with WorkingDirectory('huffer'):
@@ -149,10 +153,12 @@ def huffer(conn, camp):
         # New ES table based on loaded species.
         db_comms.create_es_table(conn, camp, sp_names, elements)
 
-    print('   Huffer complete.\n')
+    if not quiet:
+        print('   Huffer complete.\n')
 
 
-def random_uniform_order(camp, date, ord, file_number, order_size, elements, precision=6):
+def random_uniform_order(camp, date, ord, file_number, order_size, elements, precision=6,
+                         quiet=False):
     """
     Generate randomily spaced points in VS
 
@@ -181,8 +187,8 @@ def random_uniform_order(camp, date, ord, file_number, order_size, elements, pre
     :rtype: :class:'pandas.core.frame.DataFrame'
 
     """
-
-    print('Generating order # {} via random_uniform.'.format(ord))
+    if not quiet:
+        print('Generating order #{} via random_uniform.'.format(ord))
 
     df = pd.DataFrame()
     df = build_admin_info(camp, df, ord, file_number, order_size, date)
@@ -226,7 +232,7 @@ def random_uniform_order(camp, date, ord, file_number, order_size, elements, pre
     return df
 
 
-def brute_force_order(camp, date, ord, file_number, elements, precision=6):
+def brute_force_order(camp, date, ord, file_number, elements, precision=6, quiet=False):
     """
     Generate evenily spaced points in VS
 
@@ -371,7 +377,7 @@ def calculate_ele_totals(df, elements, order_size, precision):
     return df
 
 
-def orders_to_sql(conn, table, ord, df):
+def orders_to_sql(conn, table, ord, df, quiet=False):
     """
     Write dataframe 'df' to sql 'table' for order number 'ord' on
     connection 'conn'
@@ -389,9 +395,12 @@ def orders_to_sql(conn, table, ord, df):
     :type df: :class: pandas.core.frame.DataFrame
 
     """
-    print(f'Writing order # {ord} to table {table}')
+    if not quiet:
+        print(f'Writing order #{ord} to table {table}')
+
     df.to_sql(table, con=conn, if_exists='append', index=False)
     conn.commit()
     conn.close()
 
-    print("  Orders writen.\n")
+    if not quiet:
+        print("  Orders written.\n")

@@ -23,9 +23,9 @@ import pandas as pd
 from .hanger.eq36 import eq3
 from .hanger import db_comms
 from .hanger.db_comms import get_column_names
-from .hanger.tool_room import mk_check_del_directory, grab_lines
+from .hanger.tool_room import mk_check_del_directory, grab_lines, WorkingDirectory
 from .hanger.data0_tools import determine_ele_set, data0_suffix, determine_loaded_sp, species_info
-from .hanger.data0_tools import SLOP_DF
+from .hanger.data0_tools import SLOP_DF, TPCurve
 
 
 def Navigator(this_campaign):
@@ -55,7 +55,6 @@ def Navigator(this_campaign):
 
     # Enter the Campaigns env
     with this_campaign.working_directory():
-        sys.exit()
         print(f'Preparing order for campagin {this_campaign.name}.\n')
 
         conn = db_comms.establish_database_connection(this_campaign)
@@ -117,50 +116,40 @@ def huffer(conn, camp):
     """
     print('Running the Huffer.')
 
-    # Build huffer directory and step in
-    mk_check_del_directory("huffer")  # build test directory
-    mk_check_del_directory("fig")  # build figure directory
+    mk_check_del_directory("huffer")
+    with WorkingDirectory('huffer'):
+        [T], [P], [curve] = TPCurve.sample(camp.tp_curves, 1)
 
-    os.chdir("huffer")
+        state_dict = {}
+        for _ in camp.vs_state.keys():
+            state_dict[_] = np.mean(camp.vs_state[_])
+        state_dict['T_cel'] = T
+        state_dict['T_bar'] = P
 
-    # Build test.3i file from mean vlaues for each variable that is
-    # set to a range in the new campaign.
-    state_dict = {}
-    for _ in camp.vs_state.keys():
-        state_dict[_] = np.mean(camp.vs_state[_])
+        basis_dict = {}
+        for _ in camp.vs_basis.keys():
+            basis_dict[_] = np.mean(camp.vs_basis[_])
 
-    basis_dict = {}
-    for _ in camp.vs_basis.keys():
-        basis_dict[_] = np.mean(camp.vs_basis[_])
+        camp.local_3i.write('test.3i', state_dict, basis_dict, 'H+', output_details='v')
+        data1_file = os.path.realpath(os.path.join(camp.data1_dir, curve.data1file))
+        out, err = eq3(data1_file, 'test.3i')
 
-    # select proper data0
-    suffix = data0_suffix(state_dict['T_cel'], state_dict['P_bar'])
+        try:
+            _ = grab_lines('test.3o')
+        except FileNotFoundError:
+            raise Error("The huffer failed. Figure your shit out.")
 
-    # build 'verbose' 3i, with solid solutions on. cb defaults to H+
-    camp.local_3i.write(
-        'test.3i', state_dict, basis_dict, 'H+', output_details='v')
-    data1_file = os.path.join(camp.data0_dir, "data1." + suffix)
-    out, err = eq3(data1_file, 'test.3i')
+        elements = determine_ele_set()
 
-    try:
-        # if 3o is generated
-        _ = grab_lines('test.3o')
-    except FileNotFoundError:
-        raise Error("The huffer failed. Figure your shit out.")
+        # New VS table based on vs_state and vs_basis
+        db_comms.create_vs_table(conn, camp, elements)
 
-    elements = determine_ele_set()
+        # Determine column names fof ES table
+        # List of loaded aq, solid, and gas species to be appended
+        sp_names = determine_loaded_sp()
 
-    # New VS table based on vs_state and vs_basis
-    db_comms.create_vs_table(conn, camp, elements)
-
-    # Determine column names fof ES table
-    # List of loaded aq, solid, and gas species to be appended
-    sp_names = determine_loaded_sp()
-
-    # New ES table based on loaded species.
-    db_comms.create_es_table(conn, camp, sp_names, elements)
-
-    os.chdir('..')  # back it up!
+        # New ES table based on loaded species.
+        db_comms.create_es_table(conn, camp, sp_names, elements)
 
     print('   Huffer complete.\n')
 

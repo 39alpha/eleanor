@@ -18,6 +18,8 @@ def helmsman():
                             help="Number of processes used for parallel processing")
     arg_parser.add_argument("-q", "--quiet", required=False, action="store_true",
                             help="Suppress console messages")
+    arg_parser.add_argument("--no-progress", required=False, action="store_true",
+                            help="Disable progress bars")
     cli_args = vars(arg_parser.parse_args())
 
     my_camp = eleanor.Campaign.from_json(cli_args["campaign"], cli_args["data0files"])
@@ -25,7 +27,8 @@ def helmsman():
                      ord_id=cli_args["order"],
                      num_cores=cli_args["procs"],
                      keep_every_n_files=cli_args["keep"],
-                     quiet=cli_args["quiet"])
+                     quiet=cli_args["quiet"],
+                     no_progress=cli_args["no_progress"])
 
 def navigator():
     # Set up the argument parser
@@ -58,6 +61,8 @@ def combined():
                             help="Number of processes used for parallel processing")
     arg_parser.add_argument("-q", "--quiet", required=False, action="store_true",
                             help="Suppress console messages")
+    arg_parser.add_argument("--no-progress", required=False, action="store_true",
+                            help="Disable progress bars")
     cli_args = vars(arg_parser.parse_args())
 
     my_camp = eleanor.Campaign.from_json(cli_args["campaign"], cli_args["data0files"])
@@ -67,4 +72,5 @@ def combined():
                      ord_id=cli_args["order"],
                      num_cores=cli_args["procs"],
                      keep_every_n_files=cli_args["keep"],
-                     quiet=cli_args["quiet"])
+                     quiet=cli_args["quiet"],
+                     no_progress=cli_args["no_progress"])

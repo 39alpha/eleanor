@@ -25,7 +25,8 @@ from .hanger.tool_room import mk_check_del_directory, mine_pickup_lines, grab_fl
 from .hanger.tool_room import grab_lines, grab_str, WorkingDirectory
 
 
-def Helmsman(camp, ord_id=None, num_cores=os.cpu_count(), keep_every_n_files=1, quiet=False):
+def Helmsman(camp, ord_id=None, num_cores=os.cpu_count(), keep_every_n_files=1, quiet=False,
+             no_progress=False):
     """
     Keeping with the naval terminaology:
         The Navigator charts where to go.
@@ -104,12 +105,12 @@ def Helmsman(camp, ord_id=None, num_cores=os.cpu_count(), keep_every_n_files=1, 
             sailor(camp, scratch_path, vs_queue, es_queue, date, r, elements, ss, vs_col_names,
                    es_col_names, keep_every_n_files)
         keep_running_yoeman = multiprocessing.Value('b', False)
-        yoeman(camp, keep_running_yoeman, vs_queue, es_queue, len(rec))
+        yoeman(camp, keep_running_yoeman, vs_queue, es_queue, len(rec), no_progress)
 
     elif num_cores > 1:
         keep_running_yoeman = multiprocessing.Value('b', True)
         yoeman_process = multiprocessing.Process(target=yoeman, args=(camp, keep_running_yoeman,
-                                                 vs_queue, es_queue, len(rec)))
+                                                 vs_queue, es_queue, len(rec), no_progress))
         yoeman_process.start()
         with multiprocessing.Pool(processes=num_cores) as pool:
 
@@ -578,7 +579,7 @@ def mine_6o(camp, date, elements, ss, file, dat, col_names):
     return run_code, build_df
 
 
-def yoeman(camp, keep_running, write_vs_q, write_es_q, num_points):
+def yoeman(camp, keep_running, write_vs_q, write_es_q, num_points, no_progress=False):
     """
     Colecting each sailors dict output, and then writing it in
     bulk to sql
@@ -610,6 +611,8 @@ def yoeman(camp, keep_running, write_vs_q, write_es_q, num_points):
         write_all_at_once = True
     else:
         write_all_at_once = False
+
+    if not write_all_at_once and not no_progress:
         progress = tqdm(total=num_points)
 
     while keep_running.value:
@@ -660,7 +663,8 @@ def yoeman(camp, keep_running, write_vs_q, write_es_q, num_points):
             total_es_df = pd.concat(es_df_list, ignore_index=True)
             total_es_df.to_sql('es', conn, if_exists='append', index=False)
             es_df_list = []
-            progress.update(vs_n_written)
+            if not no_progress:
+                progress.update(vs_n_written)
 
     # Clean up the last batch
     # Get remaining vs lines
@@ -681,7 +685,7 @@ def yoeman(camp, keep_running, write_vs_q, write_es_q, num_points):
         total_es_df = pd.concat(es_df_list, ignore_index=True)
         total_es_df.to_sql('es', conn, if_exists='append', index=False)
 
-    if not write_all_at_once:
+    if not write_all_at_once and not no_progress:
         progress.update(vs_n_written)
 
     return None

@@ -80,8 +80,8 @@ class TestCampaign(TestCase):
         self.assertEqual(camp.reso, self.config['resolution'])
         self.assertEqual(camp.SS, self.config['solid solutions'])
 
-        self.assertIsInstance(camp.local_3i, Three_i)
-        self.assertEqual(camp.local_3i.cb, 'Cl-')
+        #  self.assertIsInstance(camp.local_3i, Three_i)
+        #  self.assertEqual(camp.local_3i.cb, 'Cl-')
 
         self.assertIsInstance(camp.local_6i, Six_i)
         self.assertEqual(camp.local_6i.iopt4, ' 1')
@@ -112,8 +112,8 @@ class TestCampaign(TestCase):
         self.assertEqual(camp.reso, self.config['resolution'])
         self.assertEqual(camp.SS, self.config['solid solutions'])
 
-        self.assertIsInstance(camp.local_3i, Three_i)
-        self.assertEqual(camp.local_3i.cb, 'Cl-')
+        #  self.assertIsInstance(camp.local_3i, Three_i)
+        #  self.assertEqual(camp.local_3i.cb, 'Cl-')
 
         self.assertIsInstance(camp.local_6i, Six_i)
         self.assertEqual(camp.local_6i.iopt4, ' 0')
@@ -145,8 +145,8 @@ class TestCampaign(TestCase):
         self.assertEqual(camp.reso, self.config['resolution'])
         self.assertEqual(camp.SS, self.config['solid solutions'])
 
-        self.assertIsInstance(camp.local_3i, Three_i)
-        self.assertEqual(camp.local_3i.cb, 'Cl-')
+        #  self.assertIsInstance(camp.local_3i, Three_i)
+        #  self.assertEqual(camp.local_3i.cb, 'Cl-')
 
         self.assertIsInstance(camp.local_6i, Six_i)
         self.assertEqual(camp.local_6i.iopt4, ' 1')

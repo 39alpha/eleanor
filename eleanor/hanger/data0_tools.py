@@ -236,8 +236,6 @@ def determine_T_P_coverage(data0_dir):
     print('w')
     return []
 
-###############   old piecies to be removed  ####################
-
 def data0_suffix(T, P):
     """
     organizes the construction of multiple data0 files, each with a small t range, at constant
@@ -261,7 +259,7 @@ def data0_suffix(T, P):
     dualchar = []
     for i in char:
         for j in char:
-            dualchar.append(''.os.path.join([i, j]))
+            dualchar.append(''.join([i, j]))
     # ## by using 'floor' below. the correct file is returned for T near the file cutoffs
     # ## for example, T = 7.99 (P=1), does in fact call the data0.002 file. The data0 files
     # ## themselves overlap in their lowest and highest values for consecutive files.
@@ -288,7 +286,7 @@ def data0_TP(suffix):
     dualchar = []
     for i in char:
         for j in char:
-            dualchar.append(''.os.path.join([i, j]))
+            dualchar.append(''.join([i, j]))
 
     p_pos = dualchar.index(p)
     p_val = p_pos * data0_system_P_interval
@@ -326,8 +324,8 @@ def convert_to_d1(src, dst):
         eqpt(data0copy)
         os.remove(data0copy)
 
-    src = os.path.os.path.realpath(src)
-    dst = os.path.os.path.realpath(dst)
+    src = os.path.realpath(src)
+    dst = os.path.realpath(dst)
 
     if os.path.exists(dst) and not os.path.isdir(dst):
         raise ValueError('destination must be a directory')
@@ -447,7 +445,7 @@ mw = {
     'Zr': 91.22400}
 
 class TPCurve(object):
-    def __init__(self, T, P):
+    def __init__(self, fname, T, P):
         if not ('min' in T and 'mid' in T and 'max' in T):
             raise ValueError('temperature dictionary must have min, mid and max keys')
 
@@ -456,6 +454,7 @@ class TPCurve(object):
         elif any(len(coeffs) == 0 for coeffs in P):
             raise ValueError('polynomial has no coefficients')
 
+        self.fname = fname
         self.P = P
         self.T = T
         self.domain = []
@@ -510,7 +509,8 @@ class TPCurve(object):
             if endpoints == 0:
                 notEmpty = False
             elif endpoints == 1:
-                raise Exception('expected to find intersections or both points inside/outside region')
+                msg = 'expected to find intersections or both points inside/outside region'
+                raise Exception(msg)
             else:
                 domain = [[self.T['min'], self.T['max']]]
         elif len(intersections) == 1:
@@ -571,7 +571,8 @@ class TPCurve(object):
         def read_coefficients(line, chars=16):
             line = line.rstrip()
             if len(line) % chars != 0:
-                raise Exception(f'the precision is not what was expected\n  len({line})=={len(line)}')
+                msg = f'the precision is not what was expected\n  len({line})=={len(line)}'
+                raise Exception(msg)
             return np.asarray([float(line[i:i + chars]) for i in range(0, len(line), chars)])
 
         P, T = [], {}
@@ -589,7 +590,7 @@ class TPCurve(object):
                     'max': float(lines[i + 4][:10]),
                 }
 
-        return cls(T, P)
+        return cls(filename, T, P)
 
     @staticmethod
     def union_domains(curves):
@@ -624,6 +625,7 @@ class TPCurve(object):
 
         Ts = np.random.uniform(0, domain_size, num_samples) + domain[0][0]
         Ps = []
+        selected_curves = []
         for i, T in enumerate(Ts):
             for j, subdomain in enumerate(domain):
                 if subdomain[1] >= T:
@@ -640,4 +642,6 @@ class TPCurve(object):
             P = float(selected_curve(T))
             Ps.append(P)
 
-        return Ts, Ps
+            selected_curves.append(selected_curve)
+
+        return Ts, Ps, selected_curves

@@ -2,6 +2,7 @@ from ...common import TestCase
 import eleanor.hanger.data0_tools as data0
 import numpy as np
 
+
 class TestTPCurve(TestCase):
     """
     Tests of the TPCurve class
@@ -37,16 +38,19 @@ class TestTPCurve(TestCase):
         Test that TPCurve can be initialized
         """
         with self.assertRaises(ValueError):
-            data0.TPCurve({'min': 5, 'max': 10}, [[1, 0, 0, 0]])
+            data0.TPCurve('file.d0', {'min': 5, 'max': 10}, [[1, 0, 0, 0]])
         with self.assertRaises(ValueError):
-            data0.TPCurve({'min': 5, 'mid': 8, 'max': 10}, [])
+            data0.TPCurve('file.d0', {'min': 5, 'mid': 8, 'max': 10}, [])
         with self.assertRaises(ValueError):
-            data0.TPCurve({'min': 5, 'mid': 8, 'max': 10}, [[1, 0, 0, 0], []])
+            data0.TPCurve('file.d0', {'min': 5, 'mid': 8, 'max': 10}, [[1, 0, 0, 0], []])
 
         with self.assertRaises(ValueError):
-            data0.TPCurve({'min': 5, 'mid': 8, 'max': 10}, [[1, 0, 0, 0], [2, 0, 0, 0, 0]])
+            data0.TPCurve('file.d0',
+                          {'min': 5, 'mid': 8, 'max': 10},
+                          [[1, 0, 0, 0], [2, 0, 0, 0, 0]])
 
-        curve = data0.TPCurve({'min': 5, 'mid': 8, 'max': 10},
+        curve = data0.TPCurve('file.d0',
+                              {'min': 5, 'mid': 8, 'max': 10},
                               [[1, 0, 0, 0], [-7, 1, 0, 0, 0]])
         self.assertEquals(curve.T, {'min': 5, 'mid': 8, 'max': 10})
         self.assertEquals(curve.P, [[1, 0, 0, 0], [-7, 1, 0, 0, 0]])
@@ -56,7 +60,7 @@ class TestTPCurve(TestCase):
         """
         Test that we can reset the temperature domain to the default
         """
-        curve = data0.TPCurve({'min': 5, 'mid': 8, 'max': 10},
+        curve = data0.TPCurve('file.d0', {'min': 5, 'mid': 8, 'max': 10},
                               [[1, 0, 0, 0], [-7, 1, 0, 0, 0]])
         curve.domain = [[5, 7], [8, 10]]
         self.assertEquals(curve.domain, [[5, 7], [8, 10]])
@@ -68,7 +72,9 @@ class TestTPCurve(TestCase):
         """
         Test that we can determine if a temperature is in the interpolation's domain
         """
-        curve = data0.TPCurve({'min': 5, 'mid': 8, 'max': 10}, [[1, 0, 0, 0], [-7, 1, 0]])
+        curve = data0.TPCurve('file.d0',
+                              {'min': 5, 'mid': 8, 'max': 10},
+                              [[1, 0, 0, 0], [-7, 1, 0]])
 
         for T in [5, 5.1, 7.9, 8, 8.1, 9.9, 10]:
             self.assertTrue(curve.temperature_in_domain(T))
@@ -88,7 +94,7 @@ class TestTPCurve(TestCase):
         """
         Test that we can evaluate the polynomial at a given temperature in it's domain
         """
-        curve = data0.TPCurve({'min': 5, 'mid': 8, 'max': 10}, [[1, 0, 0], [-7, 1, 0]])
+        curve = data0.TPCurve('file.d0', {'min': 5, 'mid': 8, 'max': 10}, [[1, 0, 0], [-7, 1, 0]])
 
         for T in [4, 4.9999, 10.0001, 11]:
             with self.assertRaises(ValueError):
@@ -197,7 +203,7 @@ class TestTPCurve(TestCase):
         }]
 
         for row in table:
-            curve = data0.TPCurve(row['T'], row['P'])
+            curve = data0.TPCurve('file.d0', row['T'], row['P'])
             intersections = curve.find_boundary_intersections(row['Trange'], row['Prange'])
             self.assertIntersectionsAlmostEqual(intersections, row['intersections'])
 
@@ -297,7 +303,7 @@ class TestTPCurve(TestCase):
         }]
 
         for row in table:
-            curve = data0.TPCurve(row['T'], row['P'])
+            curve = data0.TPCurve('file.d0', row['T'], row['P'])
             notEmpty = curve.set_domain(row['Trange'], row['Prange'])
             self.assertDomainsAlmostEqual(curve.domain, row['domain'])
             self.assertEquals(notEmpty, row['notEmpty'])
@@ -309,28 +315,28 @@ class TestTPCurve(TestCase):
         P = [[1, 0, 0, 0], [1, 0, 0, 0, 0]]
         Q = [[-4, 11, -6, 1], [-4, 11, -6, 1]]
         table = [{
-            'curves': [data0.TPCurve({'min': 0, 'mid': 2, 'max': 10}, P)],
+            'curves': [data0.TPCurve('file.d0', {'min': 0, 'mid': 2, 'max': 10}, P)],
             'domain': [[0, 10]],
         }, {
-            'curves': [data0.TPCurve({'min': 0, 'mid': 2, 'max': 10}, P),
-                       data0.TPCurve({'min': 10, 'mid': 12, 'max': 15}, P)],
+            'curves': [data0.TPCurve('file.d0', {'min': 0, 'mid': 2, 'max': 10}, P),
+                       data0.TPCurve('file.d0', {'min': 10, 'mid': 12, 'max': 15}, P)],
             'domain': [[0, 15]],
         }, {
-            'curves': [data0.TPCurve({'min': 0, 'mid': 2, 'max': 10}, P),
-                       data0.TPCurve({'min': 8, 'mid': 10, 'max': 15}, P)],
+            'curves': [data0.TPCurve('file.d0', {'min': 0, 'mid': 2, 'max': 10}, P),
+                       data0.TPCurve('file.d0', {'min': 8, 'mid': 10, 'max': 15}, P)],
             'domain': [[0, 15]],
         }, {
-            'curves': [data0.TPCurve({'min': 0, 'mid': 2, 'max': 4}, P),
-                       data0.TPCurve({'min': 6, 'mid': 2, 'max': 8}, P)],
+            'curves': [data0.TPCurve('file.d0', {'min': 0, 'mid': 2, 'max': 4}, P),
+                       data0.TPCurve('file.d0', {'min': 6, 'mid': 2, 'max': 8}, P)],
             'domain': [[0, 4], [6, 8]],
         }, {
-            'curves': [data0.TPCurve({'min': 0, 'mid': 2, 'max': 4}, Q)],
+            'curves': [data0.TPCurve('file.d0', {'min': 0, 'mid': 2, 'max': 4}, Q)],
             'Trange': [0.5, 3.0],
             'Prange': [0.0, 2.0],
             'domain': [[0.5, 1.0], [2.0, 3.0]],
         }, {
-            'curves': [data0.TPCurve({'min': 0, 'mid': 2, 'max': 4}, Q),
-                       data0.TPCurve({'min': 0, 'mid': 2, 'max': 4}, P)],
+            'curves': [data0.TPCurve('file.d0', {'min': 0, 'mid': 2, 'max': 4}, Q),
+                       data0.TPCurve('file.d0', {'min': 0, 'mid': 2, 'max': 4}, P)],
             'Trange': [0.5, 3.0],
             'Prange': [0.0, 2.0],
             'domain': [[0.5, 3.0]],
@@ -348,9 +354,11 @@ class TestTPCurve(TestCase):
         Test that we can randomly sample temperatures and pressures from the data1s
         """
         curves = [
-            data0.TPCurve({'min': 0, 'mid': 2, 'max': 4}, [[1, 0, 0, 0], [1, 0, 0, 0, 0]]),
+            data0.TPCurve('file.d0',
+                          {'min': 0, 'mid': 2, 'max': 4},
+                          [[1, 0, 0, 0], [1, 0, 0, 0, 0]]),
         ]
-        Ts, Ps = data0.TPCurve.sample(curves, 1000)
+        Ts, Ps, sampled_curves = data0.TPCurve.sample(curves, 1000)
         Ts, Ps = np.asarray(Ts), np.asarray(Ps)
 
         self.assertEquals(len(Ts), 1000)
@@ -359,20 +367,28 @@ class TestTPCurve(TestCase):
         self.assertTrue(np.all(Ps == 1))
 
         curves = [
-            data0.TPCurve({'min': 0, 'mid': 2, 'max': 4}, [[1, 0, 0, 0], [1, 0, 0, 0, 0]]),
-            data0.TPCurve({'min': 6, 'mid': 8, 'max': 10}, [[1, 0, 0, 0], [1, 0, 0, 0, 0]]),
+            data0.TPCurve('file.d0',
+                          {'min': 0, 'mid': 2, 'max': 4},
+                          [[1, 0, 0, 0], [1, 0, 0, 0, 0]]),
+            data0.TPCurve('file.d0',
+                          {'min': 6, 'mid': 8, 'max': 10},
+                          [[1, 0, 0, 0], [1, 0, 0, 0, 0]]),
         ]
 
-        Ts, Ps = data0.TPCurve.sample(curves, 1000)
+        Ts, Ps, sampled_curves = data0.TPCurve.sample(curves, 1000)
         Ts, Ps = np.asarray(Ts), np.asarray(Ps)
         self.assertTrue(np.all((0 <= Ts) & (Ts <= 10) & ((Ts <= 4) | (Ts >= 6))))
         self.assertTrue(np.all(Ps == 1))
 
         curves = [
-            data0.TPCurve({'min': 0, 'mid': 2, 'max': 4}, [[1, 0, 0, 0], [1, 0, 0, 0, 0]]),
-            data0.TPCurve({'min': 0, 'mid': 2, 'max': 4}, [[2, 0, 0, 0], [2, 0, 0, 0, 0]]),
+            data0.TPCurve('file.d0',
+                          {'min': 0, 'mid': 2, 'max': 4},
+                          [[1, 0, 0, 0], [1, 0, 0, 0, 0]]),
+            data0.TPCurve('file.d0',
+                          {'min': 0, 'mid': 2, 'max': 4},
+                          [[2, 0, 0, 0], [2, 0, 0, 0, 0]]),
         ]
-        Ts, Ps = data0.TPCurve.sample(curves, 1000)
+        Ts, Ps, sampled_curves = data0.TPCurve.sample(curves, 1000)
         Ts, Ps = np.asarray(Ts), np.asarray(Ps)
 
         self.assertEquals(len(Ts), 1000)
@@ -381,13 +397,17 @@ class TestTPCurve(TestCase):
         self.assertTrue(not np.all(Ps == 1))
 
         curves = [
-            data0.TPCurve({'min': 0, 'mid': 2, 'max': 4}, [[-4, 11, -6, 1], [-4, 11, -6, 1]]),
-            data0.TPCurve({'min': 0, 'mid': 2, 'max': 4}, [[1, 0, 0, 0], [1, 0, 0, 0, 0]]),
+            data0.TPCurve('file.d0',
+                          {'min': 0, 'mid': 2, 'max': 4},
+                          [[-4, 11, -6, 1], [-4, 11, -6, 1]]),
+            data0.TPCurve('file.d0',
+                          {'min': 0, 'mid': 2, 'max': 4},
+                          [[1, 0, 0, 0], [1, 0, 0, 0, 0]]),
         ]
         for curve in curves:
             curve.set_domain([0.8, 3.0], [0.0, 2.0])
 
-        Ts, Ps = data0.TPCurve.sample(curves, 1000)
+        Ts, Ps, sampled_curves = data0.TPCurve.sample(curves, 1000)
         Ts, Ps = np.asarray(Ts), np.asarray(Ps)
 
         self.assertEquals(len(Ts), 1000)

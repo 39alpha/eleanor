@@ -1,8 +1,11 @@
 import eleanor
+# import cProfile
+# import pstats
 demo_camp_file = "demo/CSS0.json"
 
+# PROFILER = cProfile.Profile()
+
 def test():
-    from os import environ
     data0dir = "test/data/db"
     my_camp = eleanor.Campaign.from_json(demo_camp_file, data0dir)
     my_camp.create_env(verbose=False)
@@ -12,3 +15,5 @@ def test():
 
 if __name__ == '__main__':
     test()
+    # stats = pstats.Stats(PROFILER).sort_stats('ncalls')
+    # stats.print_stats()

@@ -169,6 +169,31 @@ def get_order_number(conn, camp, insert=True):
     else:
         raise RuntimeError('failed to insert order')
 
+def get_file_number(conn, camp, order_number):
+    """
+    Get the next file number, starting from 0, for a given campaign and order.
+
+    :param conn: connection to the database
+    :type conn: sqlite3.Connection
+    :param camp: the campaign
+    :type camp: eleanor.campaign.Campaign
+    :param order_number: the order number
+    :type order_number: int
+
+    :return: the next file number
+    :rtype: int
+    """
+    try:
+        file = execute_query(conn, f"SELECT MAX(`file`) from `vs` where `camp` = '{camp.name}' \
+            AND `ord` = '{order_number}'").fetchall()
+
+        if len(file) >= 1:
+            return file[0][0] + 1
+    except Exception:
+        pass
+
+    return 0
+
 def retrieve_records(conn, query, *args, **kwargs):
     """
     Execute an SQL query on a connection and return the resulting record.
@@ -276,3 +301,20 @@ def retrieve_combined_records(conn, vs_cols, es_cols, limit=None, ord_id=None, w
             sys.stderr.write(f"warning: cannot write records; unrecognized format '{ext}'\n")
 
     return df
+
+def execute_vs_exit_updates(conn, vs_points):
+    """
+    Execute the SQLite3 command to update the VS points based on exit codes.
+
+    :param conn: the database connection
+    :type conn: sqlite3.Connection
+    :param vs_points: list of tuples where each tuple has two values (exit_code, uuid)
+    :type vs_points: list
+
+    :return: None
+    :rtype: None
+    """
+    cur = conn.cursor()
+    cur.executemany("UPDATE vs SET code = ? WHERE uuid = ?;", vs_points)
+    conn.commit()
+    return None

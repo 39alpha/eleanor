@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import argparse
 import eleanor
+import os
 
 def helmsman():
     # Set up the argument parser
@@ -11,12 +12,12 @@ def helmsman():
                             help="Path from current directory to the location of the data0 files")
     arg_parser.add_argument("-o", "--order", required=False, type=int,
                             help="The order number for this dataset")
+    arg_parser.add_argument("-p", "--procs", required=False, type=int, default=os.cpu_count(),
+                            help="Number of processes used for parallel processing")
     cli_args = vars(arg_parser.parse_args())
-    if not cli_args.get("order", None):
-        order = 1
-        # TODO: Come up with a function to grab the highest un-run order
+
     my_camp = eleanor.Campaign.from_json(cli_args["campaign"], cli_args["data0files"])
-    eleanor.Helmsman(my_camp, order)
+    eleanor.Helmsman(my_camp, cli_args["order"], cli_args["procs"])
 
 def navigator():
     # Set up the argument parser
@@ -25,8 +26,7 @@ def navigator():
                             help=".JSON file with the campaign specifications")
     arg_parser.add_argument("-d", "--data0files", required=True, type=str,
                             help="Path from current directory to the location of the data0 files")
-    # arg_parser.add_argument("-o", "--order", required=False, type=int,
-    #                         help="The order number for this dataset")
+
     cli_args = vars(arg_parser.parse_args())
     my_camp = eleanor.Campaign.from_json(cli_args["campaign"], cli_args["data0files"])
     my_camp.create_env(verbose=False)
@@ -42,13 +42,11 @@ def combined():
                             help="Path from current directory to the location of the data0 files")
     arg_parser.add_argument("-o", "--order", required=False, type=int,
                             help="The order number for this dataset")
+    arg_parser.add_argument("-p", "--procs", required=False, type=int, default=os.cpu_count(),
+                            help="Number of processes used for parallel processing")
     cli_args = vars(arg_parser.parse_args())
-
-    if not cli_args.get("order", None):
-        order = 1
-        # TODO: Come up with a function to grab the highest un-run order
 
     my_camp = eleanor.Campaign.from_json(cli_args["campaign"], cli_args["data0files"])
     my_camp.create_env(verbose=False)
     eleanor.Navigator(my_camp)
-    eleanor.Helmsman(my_camp, order)
+    eleanor.Helmsman(my_camp, cli_args["order"], cli_args["procs"])

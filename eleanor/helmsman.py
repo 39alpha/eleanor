@@ -14,6 +14,7 @@ import numpy as np
 import pandas as pd
 
 from tqdm import tqdm
+from os.path import join, realpath
 
 # ### local imports
 from .hanger.db_comms import execute_query
@@ -88,7 +89,7 @@ def Helmsman(camp, ord_id=None):
     date = time.strftime("%Y-%m-%d", time.gmtime())
 
     # ### build order-specific local working directory
-    order_path = os.path.join(camp.campaign_dir, 'order_{}'.format(ord_id))
+    order_path = join(camp.campaign_dir, 'order_{}'.format(ord_id))
     mk_check_del_directory(order_path)
     os.chdir(order_path)
 
@@ -230,14 +231,10 @@ def sailor(camp, order_path, vs_queue, es_queue, date, dat,
     mk_check_del_directory(run_num)
     os.chdir(run_num)
 
-    # ### select proper data0
-    suffix = data0_suffix(state_dict['T_cel'], state_dict['P_bar'])
-
     # ### build and execute 3i
     camp.local_3i.write(file, state_dict, basis_dict, master_dict['cb'], output_details='n')
-    data1_file = os.path.join(camp.data0_dir, "data1." + suffix)
-    out, err = eq3(data1_file, file)  # TODO: update after dougs error handelign is ready.
-    # above variables not currently used
+    data1_file = realpath(join(camp.data1_dir, dat[5]))
+    out, err = eq3(data1_file, file)
 
     if not os.path.isfile(file[:-1] + 'p'):
         # ### check 3p not generated. Then rebuild 3i and rerun as

@@ -45,7 +45,7 @@ def create_vs_table(conn, camp, elements):
 
     sql_info = "CREATE TABLE IF NOT EXISTS vs (uuid VARCHAR(32) PRIMARY KEY, camp \
         TEXT NOT NULL, ord INTEGER NOT NULL, file INTEGER NOT NULL, birth \
-        DATE NOT NULL, code SMALLINT NOT NULL, cb TEXT NOT NULL,"
+        DATE NOT NULL, data1 TEXT NOT NULL, code SMALLINT NOT NULL, cb TEXT NOT NULL,"
 
     if len(camp.target_rnt) > 0:
         sql_rnt_morr = ",".join([f'"{_}_morr" DOUBLE PRECISION NOT NULL'

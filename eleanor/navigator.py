@@ -7,10 +7,8 @@
 # October 6nd 2020 and then Dec 12th 2021
 
 from sqlite3.dbapi2 import Error
-import sys
 import uuid
 import random
-import itertools
 import os
 import time
 
@@ -22,9 +20,8 @@ import pandas as pd
 
 from .hanger.eq36 import eq3
 from .hanger import db_comms
-from .hanger.db_comms import get_column_names
 from .hanger.tool_room import mk_check_del_directory, grab_lines, WorkingDirectory
-from .hanger.data0_tools import determine_ele_set, data0_suffix, determine_loaded_sp, species_info
+from .hanger.data0_tools import determine_ele_set, determine_loaded_sp, species_info
 from .hanger.data0_tools import SLOP_DF, TPCurve
 
 
@@ -186,47 +183,33 @@ def random_uniform_order(camp, date, ord, order_size, elements, precision=6):
     df = pd.DataFrame()
     df = build_admin_info(camp, df, ord, order_size, date)
 
-    # add vs_rnt dimensions to orders
-    for _ in camp.target_rnt.keys():
+    for reactant, [rtype, morr, rkb1] in camp.target_rnt.items():
         # morr, mols of reactant avaialbe for titration
-        if isinstance(camp.target_rnt[_][1], (list)):
-            vals = [float(np.round(random.uniform(camp.target_rnt[_][1][0],
-                                                  camp.target_rnt[_][1][1]),
-                                   precision)) for i in
-                    range(order_size)]
-            df['{}_morr'.format(_)] = vals
+        if isinstance(morr, list):
+            df[f'{reactant}_morr'] = [float(np.round(random.uniform(*morr), precision))
+                                      for i in range(order_size)]
         else:
-            df['{}_morr'.format(_)] = float(np.round(camp.target_rnt[_][1], precision))
+            df[f'{reactant}_morr'] = float(np.round(morr, precision))
 
-        # rkb1 (rate in xi at which reactant is titrated)
-        if isinstance(camp.target_rnt[_][2], (list)):
-            vals = [float(np.round(random.uniform(camp.target_rnt[_][2][0],
-                    camp.target_rnt[_][2][1]), precision)) for i in
-                    range(order_size)]
-            df['{}_rkb1'.format(_)] = vals
-
+        if isinstance(rkb1, list):
+            df[f'{reactant}_rkb1'] = [float(np.round(random.uniform(*rkb1), precision))
+                                      for i in range(order_size)]
         else:
-            df['{}_rkb1'.format(_)] = float(np.round(camp.target_rnt[_][2],
-                                            precision))
+            df[f'{reactant}_rkb1'] = float(np.round(rkb1, precision))
 
     # add vs_state dimensions to orders
-    for _ in camp.vs_state.keys():
-        if isinstance(camp.vs_state[_], (list)):
-            if _ == "P_bar":
-                # P is limited to data0 step size (currently 0.5 bars)
-                P_options = [_ / 2 for _ in list(range(int(2 * camp.vs_state[_][0]),
-                                                       int(2 * camp.vs_state[_][1])))]
+    for key, value in camp.vs_state.items():
+        if key == 'P_bar':
+            continue
 
-                vals = [random.choice(P_options) for i in range(order_size)]
-            else:
-                vals = [float(np.round(random.uniform(camp.vs_state[_][0],
-                                                      camp.vs_state[_][1]),
-                                       precision))
-                        for i in range(order_size)]
-            df['{}'.format(_)] = vals
-
+        if key == 'T_cel':
+            df['T_cel'], df['P_bar'], curves = TPCurve.sample(camp.tp_curves, order_size)
+            df['data1'] = [curve.data1file for curve in curves]
+        elif isinstance(value, list):
+            df[key] = [float(np.round(random.uniform(*value), precision))
+                       for i in range(order_size)]
         else:
-            df['{}'.format(_)] = float(np.round(camp.vs_state[_], precision))
+            df[key] = float(np.round(value, precision))
 
     # add vs_basis dimensions to orders.
     dbasis = build_basis(camp, precision, order_size)

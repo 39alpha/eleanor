@@ -215,7 +215,7 @@ class TestDBComms(TestCase):
             dbc.create_vs_table(conn, self.campaign, ['X'])
 
             result = dbc.execute_query(conn, 'pragma table_info(vs)').fetchall()
-            self.assertEqual(len(result), 25)
+            self.assertEqual(len(result), 26)
             columns = list(map(lambda x: x[1], result))
             self.assertEqual(columns[-1], 'X')
 

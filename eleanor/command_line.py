@@ -12,12 +12,14 @@ def helmsman():
                             help="Path from current directory to the location of the data0 files")
     arg_parser.add_argument("-o", "--order", required=False, type=int,
                             help="The order number for this dataset")
+    arg_parser.add_argument("-k", "--keep", required=False, type=int, default=100,
+                            help="Keep every nth file")
     arg_parser.add_argument("-p", "--procs", required=False, type=int, default=os.cpu_count(),
                             help="Number of processes used for parallel processing")
     cli_args = vars(arg_parser.parse_args())
 
     my_camp = eleanor.Campaign.from_json(cli_args["campaign"], cli_args["data0files"])
-    eleanor.Helmsman(my_camp, cli_args["order"], cli_args["procs"])
+    eleanor.Helmsman(my_camp, cli_args["order"], cli_args["procs"], cli_args["keep"])
 
 def navigator():
     # Set up the argument parser
@@ -42,6 +44,8 @@ def combined():
                             help="Path from current directory to the location of the data0 files")
     arg_parser.add_argument("-o", "--order", required=False, type=int,
                             help="The order number for this dataset")
+    arg_parser.add_argument("-k", "--keep", required=False, type=int, default=100,
+                            help="Keep every nth file")
     arg_parser.add_argument("-p", "--procs", required=False, type=int, default=os.cpu_count(),
                             help="Number of processes used for parallel processing")
     cli_args = vars(arg_parser.parse_args())
@@ -49,4 +53,4 @@ def combined():
     my_camp = eleanor.Campaign.from_json(cli_args["campaign"], cli_args["data0files"])
     my_camp.create_env(verbose=False)
     eleanor.Navigator(my_camp)
-    eleanor.Helmsman(my_camp, cli_args["order"], cli_args["procs"])
+    eleanor.Helmsman(my_camp, cli_args["order"], cli_args["procs"], cli_args["keep"])

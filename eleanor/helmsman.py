@@ -7,7 +7,6 @@ import os
 import re
 import shutil
 import time
-import queue
 
 import numpy as np
 import pandas as pd
@@ -17,7 +16,7 @@ from tqdm import tqdm
 # from test_script import PROFILER
 
 # ### local imports
-from .hanger.db_comms import execute_query, execute_vs_exit_updates
+from .hanger.db_comms import execute_vs_exit_updates
 from .hanger.db_comms import establish_database_connection, retrieve_records, get_column_names
 from .hanger.eq36 import eq3, eq6
 from .hanger.data0_tools import determine_species_set, data0_suffix  # , determine_ele_set
@@ -25,7 +24,7 @@ from .hanger.tool_room import mk_check_del_directory, mine_pickup_lines, grab_fl
 from .hanger.tool_room import grab_lines, grab_str, WorkingDirectory
 
 
-def Helmsman(camp, ord_id=None, num_cores=os.cpu_count()):
+def Helmsman(camp, ord_id=None, num_cores=os.cpu_count(), keep_every_n_files=10):
     """
     Keeping with the naval terminaology:
         The Navigator charts where to go.
@@ -86,18 +85,17 @@ def Helmsman(camp, ord_id=None, num_cores=os.cpu_count()):
 
     date = time.strftime("%Y-%m-%d", time.gmtime())
 
-    # ### build order-specific local working directory
-    order_path = os.path.join(camp.campaign_dir, 'order_{}'.format(ord_id))
-    mk_check_del_directory(order_path)
-    os.chdir(order_path)
-
     start = time.time()  # for diagnostic times
     if ord_id is None:
         print(f"Processing all unfullfiled orders ({len(rec)} points)")
+        scratch_path = os.path.join(camp.campaign_dir, 'scratch')
     else:
         print(f"Processing Order {ord_id} ({len(rec)} points)")
+        scratch_path = os.path.join(camp.campaign_dir, f'scratch_{ord_id}')
 
-    with WorkingDirectory(order_path):
+    mk_check_del_directory(scratch_path)
+
+    with WorkingDirectory(scratch_path):
 
         # ### build vs/es queues
         queue_manager = multiprocessing.Manager()
@@ -106,30 +104,30 @@ def Helmsman(camp, ord_id=None, num_cores=os.cpu_count()):
 
         if num_cores == 1:
             for r in rec:
-                sailor(camp, order_path, vs_queue, es_queue,
-                       date, r, elements, ss, vs_col_names, es_col_names)
+                sailor(camp, scratch_path, vs_queue, es_queue, date, r, elements, ss, vs_col_names,
+                       es_col_names, keep_every_n_files)
             keep_running_yoeman = multiprocessing.Value('b', False)
             yoeman(camp, keep_running_yoeman, vs_queue, es_queue, len(rec))
-            # yoeman_process.start()
 
         elif num_cores > 1:
             keep_running_yoeman = multiprocessing.Value('b', True)
             yoeman_process = multiprocessing.Process(target=yoeman, args=(camp, keep_running_yoeman,
-                                                    vs_queue, es_queue, len(rec)))
+                                                     vs_queue, es_queue, len(rec)))
             yoeman_process.start()
             # # ##############   Multiprocessing  ##################
             with multiprocessing.Pool(processes=num_cores) as pool:
 
                 _ = pool.starmap(sailor, zip([camp] * len(rec),
-                                            [order_path] * len(rec),
-                                            [vs_queue] * len(rec),
-                                            [es_queue] * len(rec),
-                                            [date] * len(rec),
-                                            rec,
-                                            [elements] * len(rec),
-                                            [ss] * len(rec),
-                                            [vs_col_names] * len(rec),
-                                            [es_col_names] * len(rec)))
+                                             [scratch_path] * len(rec),
+                                             [vs_queue] * len(rec),
+                                             [es_queue] * len(rec),
+                                             [date] * len(rec),
+                                             rec,
+                                             [elements] * len(rec),
+                                             [ss] * len(rec),
+                                             [vs_col_names] * len(rec),
+                                             [es_col_names] * len(rec),
+                                             [keep_every_n_files] * len(rec)))
 
             with keep_running_yoeman.get_lock():
                 keep_running_yoeman.value = False
@@ -139,7 +137,8 @@ def Helmsman(camp, ord_id=None, num_cores=os.cpu_count()):
     print(f'\nOrder {ord_id} complete.')
     print(f'        total time: {round(time.time() - start, num_cores)}')
     print(f'        time/point: {round((time.time() - start) / len(rec), num_cores)}')
-    print(f'   time/point/core: {round((num_cores * (time.time() - start)) / len(rec), num_cores)}\n')
+    print(f'   time/point/core: {round((num_cores * (time.time() - start)) / len(rec), num_cores)}')
+    print()
 
 def sailor(camp, order_path, vs_queue, es_queue, date, dat,
            elements, ss, vs_col_names, es_col_names, keep_every_n_files=1):
@@ -190,16 +189,17 @@ def sailor(camp, order_path, vs_queue, es_queue, date, dat,
     :param keep_every_n_files: keep every n (multiple) files. All run files get deleted after being
                                processed into the VS/ES sql database, as they are collectively very
                                large. A subset of files can be kept here for later manual
-                               This arguemnt allows you to keep the raw data eq3/6 for a subset of
-                               runs so that you can evaluate the output directly. the sql codes grab
-                               alot of the eq3.6 run ionformaiton, but not all of it.
+                               inspection. This argument allows you to keep the raw data eq3/6 for a
+                               subset of runs so that you can evaluate the output directly. the sql
+                               codes grab alot of the eq3.6 run information, but not all of it. If
+                               this argument is less than 1, then no files are kept.
     :type keep_every_n_files: int
 
     """
     run_num = str(dat[3])
     file = '{}.3i'.format(run_num)
 
-    delete_after_running = int(run_num) % keep_every_n_files != 0
+    delete_after_running = keep_every_n_files > 0 and int(run_num) % keep_every_n_files != 0
 
     master_dict = {}
     for i, j in zip(vs_col_names, dat):

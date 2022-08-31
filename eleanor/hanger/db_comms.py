@@ -169,6 +169,33 @@ def get_order_number(conn, camp, insert=True):
     else:
         raise RuntimeError('failed to insert order')
 
+def get_file_number(conn, camp, order_number):
+    """
+    Get the next file number, starting from 0, for a given campaign and order.
+
+    :param conn: connection to the database
+    :type conn: sqlite3.Connection
+    :param camp: the campaign
+    :type camp: eleanor.campaign.Campaign
+    :param order_number: the order number
+    :type order_number: int
+
+    :return: the next file number
+    :rtype: int
+    """
+    try:
+        file = execute_query(conn, f"SELECT MAX(`file`) from `vs` where `camp` = '{camp.name}' \
+            AND `ord` = '{order_number}'").fetchall()
+
+        print(file[0][0])
+
+        if len(file) >= 1:
+            return file[0][0] + 1
+    except Exception:
+        pass
+
+    return 0
+
 def retrieve_records(conn, query, *args, **kwargs):
     """
     Execute an SQL query on a connection and return the resulting record.

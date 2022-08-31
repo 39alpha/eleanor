@@ -24,7 +24,7 @@ from .hanger.tool_room import mk_check_del_directory, mine_pickup_lines, grab_fl
 from .hanger.tool_room import grab_lines, grab_str, WorkingDirectory
 
 
-def Helmsman(camp, ord_id=None, num_cores=os.cpu_count(), keep_every_n_files=10):
+def Helmsman(camp, ord_id=None, num_cores=os.cpu_count(), keep_every_n_files=1):
     """
     Keeping with the naval terminaology:
         The Navigator charts where to go.
@@ -88,51 +88,45 @@ def Helmsman(camp, ord_id=None, num_cores=os.cpu_count(), keep_every_n_files=10)
     start = time.time()  # for diagnostic times
     if ord_id is None:
         print(f"Processing all unfullfiled orders ({len(rec)} points)")
-        scratch_path = os.path.join(camp.campaign_dir, 'scratch')
     else:
         print(f"Processing Order {ord_id} ({len(rec)} points)")
-        scratch_path = os.path.join(camp.campaign_dir, f'scratch_{ord_id}')
 
-    mk_check_del_directory(scratch_path)
+    scratch_path = os.path.join(camp.campaign_dir, 'scratch')
 
-    with WorkingDirectory(scratch_path):
+    queue_manager = multiprocessing.Manager()
+    vs_queue = queue_manager.Queue()
+    es_queue = queue_manager.Queue()
 
-        # ### build vs/es queues
-        queue_manager = multiprocessing.Manager()
-        vs_queue = queue_manager.Queue()
-        es_queue = queue_manager.Queue()
+    if num_cores == 1:
+        for r in rec:
+            sailor(camp, scratch_path, vs_queue, es_queue, date, r, elements, ss, vs_col_names,
+                   es_col_names, keep_every_n_files)
+        keep_running_yoeman = multiprocessing.Value('b', False)
+        yoeman(camp, keep_running_yoeman, vs_queue, es_queue, len(rec))
 
-        if num_cores == 1:
-            for r in rec:
-                sailor(camp, scratch_path, vs_queue, es_queue, date, r, elements, ss, vs_col_names,
-                       es_col_names, keep_every_n_files)
-            keep_running_yoeman = multiprocessing.Value('b', False)
-            yoeman(camp, keep_running_yoeman, vs_queue, es_queue, len(rec))
+    elif num_cores > 1:
+        keep_running_yoeman = multiprocessing.Value('b', True)
+        yoeman_process = multiprocessing.Process(target=yoeman, args=(camp, keep_running_yoeman,
+                                                 vs_queue, es_queue, len(rec)))
+        yoeman_process.start()
+        with multiprocessing.Pool(processes=num_cores) as pool:
 
-        elif num_cores > 1:
-            keep_running_yoeman = multiprocessing.Value('b', True)
-            yoeman_process = multiprocessing.Process(target=yoeman, args=(camp, keep_running_yoeman,
-                                                     vs_queue, es_queue, len(rec)))
-            yoeman_process.start()
-            # # ##############   Multiprocessing  ##################
-            with multiprocessing.Pool(processes=num_cores) as pool:
+            _ = pool.starmap(sailor, zip([camp] * len(rec),
+                                         [scratch_path] * len(rec),
+                                         [vs_queue] * len(rec),
+                                         [es_queue] * len(rec),
+                                         [date] * len(rec),
+                                         rec,
+                                         [elements] * len(rec),
+                                         [ss] * len(rec),
+                                         [vs_col_names] * len(rec),
+                                         [es_col_names] * len(rec),
+                                         [keep_every_n_files] * len(rec)))
 
-                _ = pool.starmap(sailor, zip([camp] * len(rec),
-                                             [scratch_path] * len(rec),
-                                             [vs_queue] * len(rec),
-                                             [es_queue] * len(rec),
-                                             [date] * len(rec),
-                                             rec,
-                                             [elements] * len(rec),
-                                             [ss] * len(rec),
-                                             [vs_col_names] * len(rec),
-                                             [es_col_names] * len(rec),
-                                             [keep_every_n_files] * len(rec)))
+        with keep_running_yoeman.get_lock():
+            keep_running_yoeman.value = False
 
-            with keep_running_yoeman.get_lock():
-                keep_running_yoeman.value = False
-
-            yoeman_process.join()
+        yoeman_process.join()
 
     print(f'\nOrder {ord_id} complete.')
     print(f'        total time: {round(time.time() - start, num_cores)}')
@@ -140,8 +134,107 @@ def Helmsman(camp, ord_id=None, num_cores=os.cpu_count(), keep_every_n_files=10)
     print(f'   time/point/core: {round((num_cores * (time.time() - start)) / len(rec), num_cores)}')
     print()
 
-def sailor(camp, order_path, vs_queue, es_queue, date, dat,
-           elements, ss, vs_col_names, es_col_names, keep_every_n_files=1):
+
+class SailorPaths(object):
+    """
+    A simple class for managing a sailor's various file paths
+
+    :param scratch_dir: the scratch directory in which to create order directories
+    :type scratch_dir: str
+    :param order: the order number the sailor will process
+    :type order: int
+    :param file: the file number the sailor will process
+    :type file: int
+    :param keep_every_n_files: keep every n (multiple) files. This is used internally to determine
+                               whether or not the sailor's files will be kept after the sailor
+                               completes its work
+    :type keep_every_n_files: bool
+    """
+    def __init__(self, scratch_dir, order, file, keep_every_n_files):
+        self.scratch_dir = scratch_dir
+        self.order = order
+        self.file = file
+        self.keep_every_n_files = keep_every_n_files
+
+    @property
+    def name(self):
+        """
+        The sailor's file number as a string
+
+        :rtype: str
+        """
+        return '{}'.format(self.file)
+
+    @property
+    def directory(self):
+        """
+        The sailor's working directory as a string
+
+        :rtype: str
+        """
+        order = 'order_{}'.format(self.order)
+        return os.path.join(self.scratch_dir, order, self.name)
+
+    @property
+    def keep(self):
+        """
+        Whether or not the sailor's files should be kept after it finishes its work.
+
+        :rtype: bool
+        """
+        return self.keep_every_n_files > 0 and self.file % self.keep_every_n_files == 0
+
+    @property
+    def threei(self):
+        """
+        The name of the sailor's 3i file.
+
+        :rtype: str
+        """
+        return self.name + '.3i'
+
+    @property
+    def threeo(self):
+        """
+        The name of the sailor's 3o file.
+
+        :rtype: str
+        """
+        return self.name + '.3o'
+
+    @property
+    def threep(self):
+        """
+        The name of the sailor's 3p file.
+
+        :rtype: str
+        """
+        return self.name + '.3p'
+
+    @property
+    def sixi(self):
+        """
+        The name of the sailor's 6i file.
+
+        :rtype: str
+        """
+        return self.name + '.6i'
+
+    @property
+    def sixo(self):
+        """
+        The name of the sailor's 6o file.
+
+        :rtype: str
+        """
+        return self.name + '.6o'
+
+    def create_directory(self):
+        mk_check_del_directory(self.directory)
+
+
+def sailor(camp, scratch_path, vs_queue, es_queue, date, dat, elements, ss, vs_col_names,
+           es_col_names, keep_every_n_files=1):
     """
     Each sailor manages the execution of all geochemically model steps associated
     with a single vs point in the Variable Space (VS).
@@ -156,8 +249,8 @@ def sailor(camp, order_path, vs_queue, es_queue, date, dat,
     :param camp: loaded campaign
     :type camp: :class:`Campaign` instance
 
-    :param order_path: local directory path for the current order
-    :type order_path: str
+    :param scratch_path: local directory path for the current order
+    :type scratch_path: str
 
     :param vs_queue: a waiting list of lines that need to be written to vs table
     :type vs_queue: class 'multiprocessing.managers.AutoProxy[Queue]
@@ -194,13 +287,7 @@ def sailor(camp, order_path, vs_queue, es_queue, date, dat,
                                codes grab alot of the eq3.6 run information, but not all of it. If
                                this argument is less than 1, then no files are kept.
     :type keep_every_n_files: int
-
     """
-    run_num = str(dat[3])
-    file = '{}.3i'.format(run_num)
-
-    delete_after_running = keep_every_n_files > 0 and int(run_num) % keep_every_n_files != 0
-
     master_dict = {}
     for i, j in zip(vs_col_names, dat):
         master_dict[i] = j
@@ -223,51 +310,45 @@ def sailor(camp, order_path, vs_queue, es_queue, date, dat,
         rkb1 = master_dict['{}_rkb1'.format(name)]
         rnt_dict[name] = [rnt_type, morr, rkb1]
 
-    mk_check_del_directory(run_num)
-    os.chdir(run_num)
+    paths = SailorPaths(scratch_path, dat[2], dat[3], keep_every_n_files)
 
-    suffix = data0_suffix(state_dict['T_cel'], state_dict['P_bar'])
+    paths.create_directory()
+    with WorkingDirectory(paths.directory):
+        suffix = data0_suffix(state_dict['T_cel'], state_dict['P_bar'])
 
-    camp.local_3i.write(file, state_dict, basis_dict, master_dict['cb'], output_details='n')
-    data1_file = os.path.join(camp.data0_dir, "data1." + suffix)
+        camp.local_3i.write(paths.threei,
+                            state_dict,
+                            basis_dict,
+                            master_dict['cb'],
+                            output_details='n')
+        data1_file = os.path.join(camp.data0_dir, "data1." + suffix)
 
-    try:
-        eq3(data1_file, file)
-    except Exception:
-        reset_sailor(order_path, vs_queue, file, dat[0], 30,
-                     delete_local=delete_after_running)
-        return
+        try:
+            eq3(data1_file, paths.threei)
+        except Exception:
+            return reset_sailor(paths, vs_queue, dat[0], 30)
 
-    try:
-        pickup = mine_pickup_lines('.', file[:-1] + 'p', 's')
-    except Exception as e:
-        print('{}\n  {}\n'.format(file, e))
-        reset_sailor(order_path, vs_queue, file, dat[0], 31,
-                     delete_local=delete_after_running)
-        return
+        try:
+            pickup = mine_pickup_lines('.', paths.threep, 's')
+        except Exception as e:
+            print('{}\n  {}\n'.format(paths.threei, e))
+            return reset_sailor(paths, vs_queue, dat[0], 31)
 
-    try:
-        camp.local_6i.write(file[:-2] + '6i', rnt_dict, pickup, state_dict['T_cel'])
-        eq6(data1_file, file[:-2] + '6i')
-    except Exception as e:
-        print('{}\n  {}\n'.format(file, e))
-        reset_sailor(order_path, vs_queue, file, dat[0], 60,
-                     delete_local=delete_after_running)
-        return
+        try:
+            camp.local_6i.write(paths.sixi, rnt_dict, pickup, state_dict['T_cel'])
+            eq6(data1_file, paths.sixi)
+        except Exception as e:
+            print('{}\n  {}\n'.format(paths.sixi, e))
+            return reset_sailor(paths, vs_queue, dat[0], 60)
 
-    if not os.path.isfile(file[:-2] + '6o'):
-        reset_sailor(order_path, vs_queue, file, dat[0], 61,
-                     delete_local=delete_after_running)
-        return
+        if not os.path.isfile(paths.sixo):
+            return reset_sailor(paths, vs_queue, dat[0], 61)
 
-    run_code, build_df = mine_6o(camp, date, elements, ss, file[:-2] + '6o', dat, es_col_names)
-    if run_code == 100:
-        es_queue.put_nowait(build_df)
+        run_code, build_df = mine_6o(camp, date, elements, ss, paths.sixo, dat, es_col_names)
+        if run_code == 100:
+            es_queue.put_nowait(build_df)
 
-    reset_sailor(order_path, vs_queue, file, dat[0], run_code,
-                 delete_local=delete_after_running)
-
-    return None
+        return reset_sailor(paths, vs_queue, dat[0], run_code)
 
 
 def mine_6o(camp, date, elements, ss, file, dat, col_names):
@@ -622,7 +703,7 @@ def six_o_data_to_sql(conn, table, df):
     df.to_sql(table, conn, if_exists='append', index=False)
 
 
-def reset_sailor(order_path, vs_queue, file, uuid, code, delete_local=False):
+def reset_sailor(paths, vs_queue, uuid, code):
     """
     The sailor is finished, for better or worse. Close up shop.
 
@@ -630,14 +711,11 @@ def reset_sailor(order_path, vs_queue, file, uuid, code, delete_local=False):
         exit 'code' for 'file' with unique vs_table id 'uuid'.
     (2) Step back into order folder 'order_path' for next vs point.
 
-    :param order_path: path to order folder
-    :type order_path: str
+    :param paths: path to order folder
+    :type paths: SailorPaths
 
     :param vs_queue: a waiting list of lines that need to be written to vs table
     :type vs_queue: class 'multiprocessing.managers.AutoProxy[Queue]
-
-    :param file: original 3i file name for this vs point 'id_number.3i'
-    :type file: str
 
     :param uuid: 'Universally Unique IDentifier'
     :type uuid: str
@@ -652,6 +730,5 @@ def reset_sailor(order_path, vs_queue, file, uuid, code, delete_local=False):
     # This only takes like 1e-5 seconds even with the put
     this_point = (code, uuid)
     vs_queue.put_nowait(this_point)
-    os.chdir(order_path)
-    if delete_local:
-        shutil.rmtree(file[:-3])
+    if not paths.keep:
+        shutil.rmtree(paths.directory)

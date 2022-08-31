@@ -62,6 +62,7 @@ def Navigator(this_campaign):
         # just determine the next new order number.
         # If no tables exists for the campaign, then set order number to 1.
         order_number = db_comms.get_order_number(conn, this_campaign)
+        file_number = db_comms.get_file_number(conn, this_campaign, order_number)
 
         # run huffer to initiate VS/ES if no tables exist
         if order_number == 1:
@@ -77,11 +78,11 @@ def Navigator(this_campaign):
 
         # Generate orders
         if this_campaign.distro == 'random':
-            orders = random_uniform_order(this_campaign, date, order_number,
+            orders = random_uniform_order(this_campaign, date, order_number, file_number,
                                           this_campaign.reso, elements)
 
         elif this_campaign.distro == 'BF':
-            orders = brute_force_order(this_campaign, date, order_number, elements)
+            orders = brute_force_order(this_campaign, date, order_number, file_number, elements)
 
         # Send dataframe containing new orders to postgres database
         orders_to_sql(conn, 'vs', order_number, orders)
@@ -156,7 +157,7 @@ def huffer(conn, camp):
     print('   Huffer complete.\n')
 
 
-def random_uniform_order(camp, date, ord, order_size, elements, precision=6):
+def random_uniform_order(camp, date, ord, file_number, order_size, elements, precision=6):
     """
     Generate randomily spaced points in VS
 
@@ -168,6 +169,9 @@ def random_uniform_order(camp, date, ord, order_size, elements, precision=6):
 
     :param ord: the order id, relative to other orders issued for the loaded campagin
     :type ord: int
+
+    :param file_number: the file number to start from
+    :type file_number: int
 
     :param order_size: number of vs points in current order
     :type order_size: int
@@ -186,7 +190,7 @@ def random_uniform_order(camp, date, ord, order_size, elements, precision=6):
     print('Generating order # {} via random_uniform.'.format(ord))
 
     df = pd.DataFrame()
-    df = build_admin_info(camp, df, ord, order_size, date)
+    df = build_admin_info(camp, df, ord, file_number, order_size, date)
 
     # add vs_rnt dimensions to orders
     for _ in camp.target_rnt.keys():
@@ -241,7 +245,7 @@ def random_uniform_order(camp, date, ord, order_size, elements, precision=6):
     return df
 
 
-def brute_force_order(camp, date, ord, elements, precision=6):
+def brute_force_order(camp, date, ord, file_number, elements, precision=6):
     """
     Generate evenily spaced points in VS
 
@@ -253,6 +257,9 @@ def brute_force_order(camp, date, ord, elements, precision=6):
 
     :param ord: the order id, relative to other orders issued for the loaded campagin
     :type ord: int
+
+    :param file_number: the file number to start from
+    :type file_number: int
 
     :param elements: list of loaded element, excepting O and H
     :type elements: list
@@ -295,7 +302,7 @@ def brute_force_order(camp, date, ord, elements, precision=6):
     # calculate brute force dimensions and populate initial dataframe
     df = process_BF_vars(BF_vars, camp.reso)
 
-    df = build_admin_info(camp, df, ord, order_size, date)
+    df = build_admin_info(camp, df, ord, file_number, order_size, date)
 
     # add vs_rnt dimensions to orders for fixed dimensions
     for _ in camp.target_rnt.keys():
@@ -382,7 +389,7 @@ def build_basis(camp, precision, n):
     return df
 
 
-def build_admin_info(camp, df, ord, order_size, date):
+def build_admin_info(camp, df, ord, file_number, order_size, date):
     """
     Construct the 'admin_info' into dataframe
 
@@ -391,6 +398,9 @@ def build_admin_info(camp, df, ord, order_size, date):
 
     :param df: dataframe, either empty, or with some columns apready in place
     :type df: :class:'pandas.core.frame.DataFrame'
+
+    :param file_number: the file number to start from
+    :type file_number: int
 
     :param order_size: number of vs points in current order
     :type order_size: int
@@ -405,7 +415,7 @@ def build_admin_info(camp, df, ord, order_size, date):
 
     df['uuid'] = [uuid.uuid4().hex for _ in range(order_size)]
     df['camp'] = camp.name
-    df['file'] = list(range(order_size))  # file name numbers
+    df['file'] = list(range(file_number, file_number + order_size))
     df['ord'] = ord
     df['birth'] = date
     df['cb'] = camp.cb

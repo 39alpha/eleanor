@@ -473,6 +473,11 @@ class TPCurve(object):
         if not np.isclose(left, right):
             raise ValueError('provided polynomials differ at the common temperature')
 
+    @property
+    def data1file(self):
+        stem, _ = os.path.splitext(self.fname)
+        return stem + '.d1'
+
     def reset_domain(self):
         self.domain = [[self.T['min'], self.T['max']]]
         return self

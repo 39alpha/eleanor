@@ -19,14 +19,8 @@ from .db_comms import establish_database_connection, retrieve_combined_records
 from .radar_tools import get_continuous_cmap
 
 
-def Radar(camp,
-          x_sp, y_sp, z_sp,
-          description,
-          ord_id=None,
-          limit=1000,
-          where=None,
-          transparent=True,
-          add_analytics=None):
+def Radar(camp, x_sp, y_sp, z_sp, description, ord_id=None, limit=1000, where=None,
+          transparent=True, add_analytics=None):
     """
     Plots 3 dimensions from vs and es camp databases
     :param camp: campaign
@@ -53,6 +47,31 @@ def Radar(camp,
     :type add_analytics: str
     """
 
+    def plt_set(ax, df, x, y, mk, cmap=None, sz=10, fc='white', ec='black',
+                lw=0.5):
+        """
+        plot subset of marhys database with style (mk=marker, sz=marker size,
+            fc=face color, ec=edge color, lw-edge line width)
+
+        The subset plotted is the group (groupby), within the column (col_name) on
+            the dataframe df.
+
+        z order refers to the plotting layer relative to other groups which may
+            be plotted ont the same ax, which is established outside this
+            function prior to its first calling.
+        """
+        ax.scatter(x,
+                   y,
+                   s=sz,
+                   marker=mk,
+                   cmap=cmap,
+                   linewidth=lw,
+                   facecolors=fc,
+                   edgecolors=ec,
+                   data=df
+                   # zorder=zorder
+                   )
+
     # error check arguments
     if not ord_id:
         sys.exit('please supply order id, or list of order ids to be plotted')
@@ -63,19 +82,23 @@ def Radar(camp,
     # extract species {} from x_sp, y_sp, and z_sp strings
     all_sp = [x_sp, y_sp, z_sp]
     full_call = ' '.join(all_sp)
-    es_sp = [e[:-2] for e in set(re.findall('\{([^ ]*_e)\}', full_call))]
-    vs_sp = [v[:-2] for v in set(re.findall('\{([^ ]*_v)\}', full_call))]
+    es_sp = [_[:-2] for _ in set(re.findall('\{([^ ]*_e)\}', full_call))]
+    vs_sp = [_[:-2] for _ in set(re.findall('\{([^ ]*_v)\}', full_call))]
     if len(vs_sp) == 0:
-        # need at least one vs
+        # ### need at least one vs
         vs_sp = ['T_cel']
 
     with camp.working_directory():
         # compile useful plotting information specific to the loaded campaign
+        # species associated with this campaign, as per the huffer 3o.
+        # elements, aqueous_sp, solids, solid_solutions, gases = determine_species_set(path='huffer/')
+
+        #  columns contained in the vs and es table for loaded campaign
         conn = establish_database_connection(camp)
         # vs_col_names = get_column_names(conn, 'vs')
         # es_col_names = get_column_names(conn, 'es')
 
-        # grab orders, concatenating the DataFrame, 1 record retrieved per
+        # grab orders, concatenating the dataframe, 1 record retrieved per
         # ord_id.
         df_list = []
         for order in ord_id:
@@ -164,34 +187,6 @@ def Radar(camp,
         fig_name = 'fig/test.png'
         print(f'wrote {fig_name}')
         plt.savefig(fig_name, dpi=400)
-
-        def plt_set(ax, df, x, y, mk, cmap=None, sz=10, fc='white', ec='black',
-                lw=0.5):
-            """
-            plot subset of marhys database with style (mk=marker, sz=marker size,
-                fc=face color, ec=edge color, lw-edge line width)
-
-            The subset plotted is the group (groupby), within the column (col_name) on
-                the dataframe df.
-
-            z order refers to the plotting layer relative to other groups which may
-                be plotted ont the same ax, which is established outside this
-                function prior to its first calling.
-            """
-            ax.scatter(x,
-                    y,
-                    s=sz,
-                    marker=mk,
-                    cmap=cmap,
-                    linewidth=lw,
-                    facecolors=fc,
-                    edgecolors=ec,
-                    data=df
-                    # zorder=zorder
-                    )
-
-
-
 
 def hide_current_axis(*args, **kwds):
     plt.gca().set_visible(False)

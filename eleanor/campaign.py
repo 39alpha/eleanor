@@ -1,19 +1,19 @@
-# pylint: disable=too-few-public-methods
 """
 .. currentmodule:: eleanor.campaign
 
 The :class:`Campaign` class contains the specification of modeling objectives.
 """
-from .hanger import tool_room
-from os import mkdir, rename
+from .hanger import data0_tools, tool_room
+from os import mkdir
 from os.path import isdir, join, realpath
+from .hanger.data0_tools import TPCurve
+
 import json
 import shutil
 
-
 class Campaign:
     """
-    The Campaign class is used to specify modeling objectives, before the 
+    The Campaign class is used to specify modeling objectives, before the
     Navigator and Helmsman are run.
 
     A Campaign can be initialized by either providing a dictionary
@@ -73,12 +73,6 @@ class Campaign:
         else:
             iopt4 = '0'
 
-        # It's best not to create the directory structure at intialization time. Doing so makes
-        # testing more difficult, and means we have to be careful when and where Campaign objects
-        # are created.
-        #
-        # self.create_env()
-
         self.local_3i = tool_room.Three_i()
         self.local_6i = tool_room.Six_i(suppress_min=self.suppress_min,
                                         iopt4=iopt4,
@@ -88,6 +82,8 @@ class Campaign:
 
         self._hash = None
         self._data0_hash = None
+        self.data1_dir = None
+        self.tp_curves = None
 
     @property
     def campaign_dir(self):
@@ -128,19 +124,32 @@ class Campaign:
 
            {dir}/{name}
            |
-           +-- huffer
+           +-- data1
+           |   |
+           |   + <data0 hash>
            |
            +-- fig
            |
+           +-- huffer
+           |
            +-- orders
 
-        where :code:`{dir}` is the root directory, :code:`{name}` is the campaign name,
-        and :code:`huffer`, :code:`fig` and :code:`orders` are directories.
+        where :code:`{dir}` is the root directory, :code:`{name}` is the campaign name, and
+        :code:`data1`, :code:`fig`, :code:`huffer` :code:`orders` are directories.
+
+        The contents of the campaign's data0 directory will be recursively hashed, and a directory
+        in :code:`data1` will be created containing the output from running EQPT on each of the
+        data0 files, if it doesn't already exist. The data1f files will subsequently be read and
+        :class:`data0.TPCurve` instances will be created for each. If none of the curves intersect
+        the temperature-pressure ranges in the campaign specification, then an exception will be
+        raised.
 
         :param dir: The root directory in which to create the campaing directory
         :type dir: str
         :param verbose: Generate verbose terminal output
         :type verbose: bool
+        :raises Exception: if the curves in the data1f files do not intersect the temperature and
+                           pressure ranges specified in the campaign specification
         """
         # Top level directory
         if dir is None and self._campaign_dir is None:
@@ -166,7 +175,7 @@ class Campaign:
             mkdir(order_dir)
 
         # Write campaign spec to file (as a hard copy)
-        order_json = join(order_dir, 'campaign.json');
+        order_json = join(order_dir, 'campaign.json')
         with open(order_json, mode='w', encoding='utf-8') as handle:
             json.dump(self._raw, handle, indent=True)
 
@@ -174,6 +183,34 @@ class Campaign:
         shutil.copyfile(order_json, self.order_file)
 
         self._data0_hash = tool_room.hash_dir(self.data0_dir)
+        self.data1_dir = join(self.campaign_dir, 'data1', self._data0_hash)
+        if not isdir(self.data1_dir):
+            data0_tools.convert_to_d1(self.data0_dir, self.data1_dir)
+
+        # move to data1 tools
+        with tool_room.WorkingDirectory(self.data1_dir):
+            _, data1f_files, *_ = tool_room.read_inputs('.d1f', '.')
+            tp_curves = [TPCurve.from_data1f(data1f_file) for data1f_file in data1f_files]
+
+        self.tp_curves = []
+        for curve in tp_curves:
+            Trange = self.vs_state['T_cel']
+            if isinstance(Trange, (int, float)):
+                Trange = [Trange, Trange]
+
+            Prange = self.vs_state['P_bar']
+            if isinstance(Prange, (int, float)):
+                Prange = [Prange, Prange]
+
+            if curve.set_domain(Trange, Prange):
+                self.tp_curves.append(curve)
+
+        if len(self.tp_curves) == 0:
+            raise Exception('''
+                The temperature and pressure ranges provided in the campaign file do
+                not overlap with any of the pressure vs. temperature curves specified
+                in the provided data0 files.
+            ''')
 
     def working_directory(self, *args, **kwargs):
         """

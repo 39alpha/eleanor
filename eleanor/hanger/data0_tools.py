@@ -4,12 +4,18 @@
  April 8th 2020
 """
 import math
-import re
+import os
+import os.path
 import pandas as pd
+import numpy as np
+import re
+import shutil
 
-from os.path import dirname, abspath, realpath, join
+from os.path import abspath, dirname, join, realpath
+import matplotlib.pyplot as plt
 
-from .tool_room import grab_str
+from .tool_room import grab_lines, grab_str, read_inputs, WorkingDirectory
+from .eq36 import eqpt
 
 
 DATA_PATH = join(abspath(join(dirname(realpath(__file__)), '..')), 'data')
@@ -212,17 +218,24 @@ def determine_loaded_sp(path=''):
 
     return sp_names
 
+def determine_T_P_coverage(data0_dir):
+    """
+    (1) Check if data0 data1 pairs exists for supplied data0/s
+        (1.1) if yes, then hash data1's to make sure they are unchanged
+            (1.1.1) if hashes dont match, re-run eqpt on data0's to rebuild data1/data1f
+            (1.1.2) if hashes match, calculate T/P region of all supplied files
+    (2) If no data1's exists, run eqpt on data0.
+        (2.1) Calculate T/P region of all supplied files
 
-# def basis_to_ele_dict(slopfile):
-#     """
-#         Determine species-element relationships via a WORM slop.csv file.
-#         :param slop_file: campaign huffer path of test.3o
-#         :return: list of loaded species
-#     """
-#     df = pd.read_csv('/Users/tuckerely/NPP_dev/0_slop_OBIGT_Data0/{}'.format(slopfile),
-#                      index_col=0)
-#     basis_df = df[df['tag'] == 'basis']
+    Check user supplies data0. look for T/P grid
 
+    note:  We simply adopt the user-supplied suffix naming scheme, and
+              notify them if there are overlaps.
+
+    """
+
+    print('w')
+    return []
 
 def data0_suffix(T, P):
     """
@@ -280,3 +293,275 @@ def data0_TP(suffix):
     p_val = p_pos * data0_system_P_interval
 
     return t_rng, p_val
+
+def check_data0s_loaded():
+    """
+    what data1 files are currently active in eq3_68.0a/db
+    """
+    file_name, file_list = read_inputs('data1', 'EQ3_6v8.0a/db', str_loc='prefix')
+
+    suf_list = [_[-3:] for _ in file_list if _.startswith('EQ3_6v8.0a/db/data1')]
+
+    # for _ in suf_list
+
+    plt.figure()
+    plt.subplot(111)
+
+    for _ in suf_list:
+        t_rng, p_val = data0_TP(_)
+        plt.plot(t_rng, [p_val, p_val], color='black', linewidth=0.1)
+
+    plt.xlabel('T (˚C)')
+    plt.ylabel('P (bars)')
+
+    plt.title('data0 family coverage\n(∆P = descrete 0.5 bars)\n∆T = 7C contineuous')
+
+    plt.show()
+
+def convert_to_d1(src, dst):
+    def run_eqpt(data0):
+        data0copy = os.path.basename(canonical_d0_name(data0))
+        shutil.copyfile(data0, data0copy)
+        eqpt(data0copy)
+        os.remove(data0copy)
+
+    src = os.path.realpath(src)
+    dst = os.path.realpath(dst)
+
+    if os.path.exists(dst) and not os.path.isdir(dst):
+        raise ValueError('destination must be a directory')
+    elif not os.path.exists(dst):
+        os.makedirs(dst)
+
+    with WorkingDirectory(dst):
+        if os.path.isdir(src):
+            for root, dirs, files in os.walk(src):
+                os.makedirs(os.path.relpath(root, src), exist_ok=True)
+                with WorkingDirectory(os.path.join(dst, os.path.relpath(root, src))):
+                    for data0 in files:
+                        run_eqpt(os.path.join(root, data0))
+        elif os.path.isfile(src):
+            run_eqpt(src)
+        else:
+            raise ValueError('source argument must be a file or directory')
+
+def canonical_d0_name(data0):
+    stem, ext = os.path.splitext(os.path.basename(data0))
+    if ext == '.d0':
+        return data0
+    elif ext == '' or ext == '.':
+        ext = ''
+    elif ext[0] == '.':
+        ext = '_' + ext[1:]
+    else:
+        ext = '_' + ext
+
+    return os.path.join(os.path.dirname(data0), stem + ext + '.d0')
+
+class TPCurve(object):
+    def __init__(self, fname, T, P):
+        if not ('min' in T and 'mid' in T and 'max' in T):
+            raise ValueError('temperature dictionary must have min, mid and max keys')
+
+        if len(P) != 2:
+            raise ValueError('expected exactly two polynomials')
+        elif any(len(coeffs) == 0 for coeffs in P):
+            raise ValueError('polynomial has no coefficients')
+
+        self.fname = fname
+        self.P = P
+        self.T = T
+        self.domain = []
+
+        if len(self.P) == 0:
+            raise RuntimeError('interpolation coefficients for pressure not found')
+        elif len(self.T) == 0:
+            raise RuntimeError('interpolation coefficients for termperature not found')
+
+        self.reset_domain()
+
+        [coeff_left, coeff_right] = self.P
+        left = np.dot(coeff_left, self.T['mid'] ** np.arange(len(coeff_left)))
+        right = np.dot(coeff_right, self.T['mid'] ** np.arange(len(coeff_right)))
+
+        if not np.isclose(left, right):
+            raise ValueError('provided polynomials differ at the common temperature')
+
+    @property
+    def data1file(self):
+        stem, _ = os.path.splitext(self.fname)
+        return stem + '.d1'
+
+    def reset_domain(self):
+        self.domain = [[self.T['min'], self.T['max']]]
+        return self
+
+    def temperature_in_domain(self, T):
+        for subdomain in self.domain:
+            if subdomain[0] <= T and T <= subdomain[1]:
+                return True
+        return False
+
+    def __call__(self, T):
+        if not self.temperature_in_domain(T):
+            msg = f'the provided temperature ({T}) is not in the restricted domain {self.domain}'
+            raise ValueError(msg)
+
+        coefficients = self.P[0] if T <= self.T['mid'] else self.P[1]
+        return np.dot(coefficients, T ** np.arange(len(coefficients)))
+
+    def set_domain(self, temperature_range, pressure_range):
+        Tmin, Tmax = temperature_range
+        Pmin, Pmax = pressure_range
+
+        intersections = self.find_boundary_intersections(temperature_range, pressure_range)
+
+        domain = []
+        notEmpty = True
+        if len(intersections) == 0:
+            endpoints = 0
+            for T in [self.T['min'], self.T['max']]:
+                P = self(T)
+                if Tmin <= T and T <= Tmax and Pmin <= P and P <= Pmax:
+                    endpoints += 1
+
+            if endpoints == 0:
+                notEmpty = False
+            elif endpoints == 1:
+                msg = 'expected to find intersections or both points inside/outside region'
+                raise Exception(msg)
+            else:
+                domain = [[self.T['min'], self.T['max']]]
+        elif len(intersections) == 1:
+            (Tint, _), = intersections
+            is_single_point = True
+            for T in [self.T['min'], self.T['mid'], self.T['max']]:
+                if T == Tint or Tmax < T or T < Tmin:
+                    continue
+
+                P = self(T)
+                if Pmin <= P and P <= Pmax:
+                    domain.append([min(T, Tint), max(T, Tint)])
+                    is_single_point = False
+
+            if is_single_point:
+                domain.append([Tint, Tint])
+        else:
+            for i in range(len(intersections) - 1):
+                T1, _ = intersections[i]
+                T2, _ = intersections[i + 1]
+                P = self((T1 + T2) / 2)
+                if Pmin <= P and P <= Pmax:
+                    domain.append([T1, T2])
+
+        self.domain = domain
+
+        return notEmpty
+
+    def find_boundary_intersections(self, temperature_range, pressure_range):
+        Tmin, Tmax = temperature_range
+        Pmin, Pmax = pressure_range
+
+        intersections = []
+        for T in temperature_range:
+            if not self.temperature_in_domain(T):
+                continue
+
+            P = self(T)
+            if Pmin <= P and P <= Pmax:
+                intersections.append((T, P))
+
+        for P in pressure_range:
+            for i, coefficients in enumerate(self.P):
+                coefficients = np.copy(coefficients)
+                coefficients[0] -= P
+                roots = np.roots(coefficients[::-1])
+                roots = np.real(roots[np.isreal(roots)])
+                points = [(T, self(T)) for T in roots
+                          if Tmin <= T and T <= Tmax
+                          and (i == 0 and self.T['min'] <= T and T <= self.T['mid'])
+                          or (i == 1 and self.T['mid'] <= T and T <= self.T['max'])]
+                intersections.extend(points)
+
+        return sorted(set(intersections))
+
+    @classmethod
+    def from_data1f(cls, filename):
+        def read_coefficients(line, chars=16):
+            line = line.rstrip()
+            if len(line) % chars != 0:
+                msg = f'the precision is not what was expected\n  len({line})=={len(line)}'
+                raise Exception(msg)
+            return np.asarray([float(line[i:i + chars]) for i in range(0, len(line), chars)])
+
+        P, T = [], {}
+
+        lines = grab_lines(filename)
+        for i, line in enumerate(lines):
+            if re.findall('^presg\n', line):
+                P = [read_coefficients(lines[j]) for j in range(i + 1, i + 3)]
+                continue
+
+            if 'Data file maximum and minimum temperatures (C)' in line:
+                T = {
+                    'min': float(lines[i + 1][:10]),
+                    'mid': float(lines[i + 3][:10]),
+                    'max': float(lines[i + 4][:10]),
+                }
+
+        return cls(filename, T, P)
+
+    @staticmethod
+    def union_domains(curves):
+        subdomains = []
+        for curve in curves:
+            for subdomain in curve.domain:
+                subdomains.append(tuple(subdomain))
+        subdomains = sorted(set(subdomains))
+
+        if len(subdomains) == 0:
+            return []
+
+        domain = []
+        (start, stop), *rest = subdomains
+        for i in range(1, len(subdomains)):
+            (a, b) = subdomains[i]
+            if a <= stop and stop < b:
+                stop = b
+            elif stop < b:
+                domain.append([start, stop])
+                start, stop = a, b
+
+        domain.append([start, stop])
+
+        return domain
+
+    @classmethod
+    def sample(cls, curves, num_samples):
+        domain = cls.union_domains(curves)
+        domain_size = sum(map(lambda s: s[1] - s[0], domain))
+        steps = [domain[i + 1][0] - domain[i][1] for i in range(len(domain) - 1)]
+
+        Ts = np.random.uniform(0, domain_size, num_samples) + domain[0][0]
+        Ps = []
+        selected_curves = []
+        for i, T in enumerate(Ts):
+            for j, subdomain in enumerate(domain):
+                if subdomain[1] >= T:
+                    break
+                else:
+                    T += steps[j]
+
+            Ts[i] = T = float(T)
+
+            curves_above = [curve for curve in curves if curve.temperature_in_domain(T)]
+            selected_index = np.random.randint(0, len(curves_above))
+            selected_curve = curves_above[selected_index]
+
+            P = float(selected_curve(T))
+            Ps.append(P)
+
+            selected_curves.append(selected_curve)
+
+        return Ts, Ps, selected_curves
+

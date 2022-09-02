@@ -7,10 +7,8 @@
 # October 6nd 2020 and then Dec 12th 2021
 
 from sqlite3.dbapi2 import Error
-import sys
 import uuid
 import random
-import itertools
 import os
 import time
 
@@ -22,13 +20,12 @@ import pandas as pd
 
 from .hanger.eq36 import eq3
 from .hanger import db_comms
-from .hanger.db_comms import get_column_names
-from .hanger.tool_room import mk_check_del_directory, grab_lines
-from .hanger.data0_tools import determine_ele_set, data0_suffix, determine_loaded_sp, species_info
-from .hanger.data0_tools import SLOP_DF
+from .hanger.tool_room import mk_check_del_directory, grab_lines, WorkingDirectory
+from .hanger.data0_tools import determine_ele_set, determine_loaded_sp, species_info
+from .hanger.data0_tools import SLOP_DF, TPCurve
 
 
-def Navigator(this_campaign):
+def Navigator(this_campaign, quiet=False):
     """
     The Navigator decides where to go (see what we did there), given the
     praticulars of the loaded Campaign. The Navigator drafts an order,
@@ -55,7 +52,8 @@ def Navigator(this_campaign):
 
     # Enter the Campaigns env
     with this_campaign.working_directory():
-        print(f'Preparing order for campagin {this_campaign.name}.\n')
+        if not quiet:
+            print(f'Preparing order for campagin {this_campaign.name}.\n')
 
         conn = db_comms.establish_database_connection(this_campaign)
 
@@ -64,11 +62,12 @@ def Navigator(this_campaign):
         # just determine the next new order number.
         # If no tables exists for the campaign, then set order number to 1.
         order_number = db_comms.get_order_number(conn, this_campaign)
+        file_number = db_comms.get_file_number(conn, this_campaign, order_number)
 
         # run huffer to initiate VS/ES if no tables exist
         if order_number == 1:
             # new campaign
-            huffer(conn, this_campaign)
+            huffer(conn, this_campaign, quiet=quiet)
 
         # Grab non O/H elements and species data from the verbose huffer test.3o files
         elements = determine_ele_set(path="huffer/")
@@ -79,24 +78,26 @@ def Navigator(this_campaign):
 
         # Generate orders
         if this_campaign.distro == 'random':
-            orders = random_uniform_order(this_campaign, date, order_number,
-                                          this_campaign.reso, elements)
+            orders = random_uniform_order(this_campaign, date, order_number, file_number,
+                                          this_campaign.reso, elements, quiet=quiet)
 
         elif this_campaign.distro == 'BF':
-            orders = brute_force_order(this_campaign, date, order_number, elements)
+            orders = brute_force_order(this_campaign, date, order_number, file_number, elements,
+                                       quiet=quiet)
 
         # Send dataframe containing new orders to postgres database
-        orders_to_sql(conn, 'vs', order_number, orders)
+        orders_to_sql(conn, 'vs', order_number, orders, quiet=quiet)
 
         conn.close()
 
-        print('The Navigator has completed her task.')
-        print('   While she detected no "obvious" faults,')
-        print('   she notes that you may have fucked up')
-        print('   repeatedly in ways she couldnt anticipate.\n')
+        if not quiet:
+            print('The Navigator has completed her task.')
+            print('   While she detected no "obvious" faults,')
+            print('   she notes that you may have fucked up')
+            print('   repeatedly in ways she couldnt anticipate.\n')
 
 
-def huffer(conn, camp):
+def huffer(conn, camp, quiet=False):
     """
     The huffer runs test 3i files to determine the loaded elements and species
     for said campaign, and to check for obvious user erros given system
@@ -114,57 +115,50 @@ def huffer(conn, camp):
     :type camp: :class:`Campaign` instance
 
     """
-    print('Running the Huffer.')
+    if not quiet:
+        print('Running the Huffer.')
 
-    # Build huffer directory and step in
-    mk_check_del_directory("huffer")  # build test directory
-    mk_check_del_directory("fig")  # build figure directory
+    mk_check_del_directory("huffer")
+    with WorkingDirectory('huffer'):
+        [T], [P], [curve] = TPCurve.sample(camp.tp_curves, 1)
 
-    os.chdir("huffer")
+        state_dict = {}
+        for _ in camp.vs_state.keys():
+            state_dict[_] = np.mean(camp.vs_state[_])
+        state_dict['T_cel'] = T
+        state_dict['T_bar'] = P
 
-    # Build test.3i file from mean vlaues for each variable that is
-    # set to a range in the new campaign.
-    state_dict = {}
-    for _ in camp.vs_state.keys():
-        state_dict[_] = np.mean(camp.vs_state[_])
+        basis_dict = {}
+        for _ in camp.vs_basis.keys():
+            basis_dict[_] = np.mean(camp.vs_basis[_])
 
-    basis_dict = {}
-    for _ in camp.vs_basis.keys():
-        basis_dict[_] = np.mean(camp.vs_basis[_])
+        camp.local_3i.write('test.3i', state_dict, basis_dict, 'H+', output_details='v')
+        data1_file = os.path.realpath(os.path.join(camp.data1_dir, curve.data1file))
+        out, err = eq3(data1_file, 'test.3i')
 
-    # select proper data0
-    suffix = data0_suffix(state_dict['T_cel'], state_dict['P_bar'])
+        try:
+            _ = grab_lines('test.3o')
+        except FileNotFoundError:
+            raise Error("The huffer failed. Figure your shit out.")
 
-    # build 'verbose' 3i, with solid solutions on. cb defaults to H+
-    camp.local_3i.write(
-        'test.3i', state_dict, basis_dict, 'H+', output_details='v')
-    data1_file = os.path.join(camp.data0_dir, "data1." + suffix)
-    out, err = eq3(data1_file, 'test.3i')
+        elements = determine_ele_set()
 
-    try:
-        # if 3o is generated
-        _ = grab_lines('test.3o')
-    except FileNotFoundError:
-        raise Error("The huffer failed. Figure your shit out.")
+        # New VS table based on vs_state and vs_basis
+        db_comms.create_vs_table(conn, camp, elements)
 
-    elements = determine_ele_set()
+        # Determine column names fof ES table
+        # List of loaded aq, solid, and gas species to be appended
+        sp_names = determine_loaded_sp()
 
-    # New VS table based on vs_state and vs_basis
-    db_comms.create_vs_table(conn, camp, elements)
+        # New ES table based on loaded species.
+        db_comms.create_es_table(conn, camp, sp_names, elements)
 
-    # Determine column names fof ES table
-    # List of loaded aq, solid, and gas species to be appended
-    sp_names = determine_loaded_sp()
-
-    # New ES table based on loaded species.
-    db_comms.create_es_table(conn, camp, sp_names, elements)
-
-    os.chdir('..')  # back it up!
-
-    print('   Huffer complete.\n')
+    if not quiet:
+        print('   Huffer complete.\n')
 
 
-def random_uniform_order(camp, date, ord, order_size, elements, precision=6):
+def random_uniform_order(camp, date, ord, file_number, order_size, elements, precision=6,
+                         quiet=False):
     """
     Generate randomily spaced points in VS
 
@@ -176,6 +170,9 @@ def random_uniform_order(camp, date, ord, order_size, elements, precision=6):
 
     :param ord: the order id, relative to other orders issued for the loaded campagin
     :type ord: int
+
+    :param file_number: the file number to start from
+    :type file_number: int
 
     :param order_size: number of vs points in current order
     :type order_size: int
@@ -190,53 +187,39 @@ def random_uniform_order(camp, date, ord, order_size, elements, precision=6):
     :rtype: :class:'pandas.core.frame.DataFrame'
 
     """
-
-    print('Generating order # {} via random_uniform.'.format(ord))
+    if not quiet:
+        print('Generating order #{} via random_uniform.'.format(ord))
 
     df = pd.DataFrame()
-    df = build_admin_info(camp, df, ord, order_size, date)
+    df = build_admin_info(camp, df, ord, file_number, order_size, date)
 
-    # add vs_rnt dimensions to orders
-    for _ in camp.target_rnt.keys():
+    for reactant, [rtype, morr, rkb1] in camp.target_rnt.items():
         # morr, mols of reactant avaialbe for titration
-        if isinstance(camp.target_rnt[_][1], (list)):
-            vals = [float(np.round(random.uniform(camp.target_rnt[_][1][0],
-                                                  camp.target_rnt[_][1][1]),
-                                   precision)) for i in
-                    range(order_size)]
-            df['{}_morr'.format(_)] = vals
+        if isinstance(morr, list):
+            df[f'{reactant}_morr'] = [float(np.round(random.uniform(*morr), precision))
+                                      for i in range(order_size)]
         else:
-            df['{}_morr'.format(_)] = float(np.round(camp.target_rnt[_][1], precision))
+            df[f'{reactant}_morr'] = float(np.round(morr, precision))
 
-        # rkb1 (rate in xi at which reactant is titrated)
-        if isinstance(camp.target_rnt[_][2], (list)):
-            vals = [float(np.round(random.uniform(camp.target_rnt[_][2][0],
-                    camp.target_rnt[_][2][1]), precision)) for i in
-                    range(order_size)]
-            df['{}_rkb1'.format(_)] = vals
-
+        if isinstance(rkb1, list):
+            df[f'{reactant}_rkb1'] = [float(np.round(random.uniform(*rkb1), precision))
+                                      for i in range(order_size)]
         else:
-            df['{}_rkb1'.format(_)] = float(np.round(camp.target_rnt[_][2],
-                                            precision))
+            df[f'{reactant}_rkb1'] = float(np.round(rkb1, precision))
 
     # add vs_state dimensions to orders
-    for _ in camp.vs_state.keys():
-        if isinstance(camp.vs_state[_], (list)):
-            if _ == "P_bar":
-                # P is limited to data0 step size (currently 0.5 bars)
-                P_options = [_ / 2 for _ in list(range(int(2 * camp.vs_state[_][0]),
-                                                       int(2 * camp.vs_state[_][1])))]
+    for key, value in camp.vs_state.items():
+        if key == 'P_bar':
+            continue
 
-                vals = [random.choice(P_options) for i in range(order_size)]
-            else:
-                vals = [float(np.round(random.uniform(camp.vs_state[_][0],
-                                                      camp.vs_state[_][1]),
-                                       precision))
-                        for i in range(order_size)]
-            df['{}'.format(_)] = vals
-
+        if key == 'T_cel':
+            df['T_cel'], df['P_bar'], curves = TPCurve.sample(camp.tp_curves, order_size)
+            df['data1'] = [curve.data1file for curve in curves]
+        elif isinstance(value, list):
+            df[key] = [float(np.round(random.uniform(*value), precision))
+                       for i in range(order_size)]
         else:
-            df['{}'.format(_)] = float(np.round(camp.vs_state[_], precision))
+            df[key] = float(np.round(value, precision))
 
     # add vs_basis dimensions to orders.
     dbasis = build_basis(camp, precision, order_size)
@@ -249,7 +232,7 @@ def random_uniform_order(camp, date, ord, order_size, elements, precision=6):
     return df
 
 
-def brute_force_order(camp, date, ord, elements, precision=6):
+def brute_force_order(camp, date, ord, file_number, elements, precision=6, quiet=False):
     """
     Generate evenily spaced points in VS
 
@@ -262,6 +245,9 @@ def brute_force_order(camp, date, ord, elements, precision=6):
     :param ord: the order id, relative to other orders issued for the loaded campagin
     :type ord: int
 
+    :param file_number: the file number to start from
+    :type file_number: int
+
     :param elements: list of loaded element, excepting O and H
     :type elements: list
 
@@ -269,95 +255,12 @@ def brute_force_order(camp, date, ord, elements, precision=6):
     :type precision: int
 
     """
-
-    print('Generating order # {} via brute_force_order().'.format(ord))
-
-    # determine BF_var dimensions that are set as a range
-    BF_vars = {}  # brute force variables
-    for _ in camp.target_rnt.keys():
-        # morr, mols of reactant avaialbe for titration
-        if isinstance(camp.target_rnt[_][1], (list)):
-            BF_vars['{}_morr'.format(_)] = camp.target_rnt[_][1]
-        # rkb1 (rate in xi at which reactant is titrated)
-        if isinstance(camp.target_rnt[_][2], (list)):
-            BF_vars['{}_rkb1'.format(_)] = camp.target_rnt[_][2]
-    for _ in camp.vs_state.keys():
-        if isinstance(camp.vs_state[_], (list)):
-            BF_vars[_] = camp.vs_state[_]
-
-    for _ in camp.vs_basis.keys():
-        if isinstance(camp.vs_basis[_], list):
-            BF_vars[_] = camp.vs_basis[_]
-
-    order_size = camp.reso**len(BF_vars)
-    # warn user of dataframe size to be built
-    if order_size > 100000:
-        answer = input(f'\n\n The brute force method will generate {order_size}\n\
-                        VS samples. Thats pretty fucking big.\n\
-                        Are you sure you want to proceed? (Y E S/N)\n')
-        if answer == 'Y E S':
-            pass
-        else:
-            sys.exit("ABORT !")
-
-    # calculate brute force dimensions and populate initial dataframe
-    df = process_BF_vars(BF_vars, camp.reso)
-
-    df = build_admin_info(camp, df, ord, order_size, date)
-
-    # add vs_rnt dimensions to orders for fixed dimensions
-    for _ in camp.target_rnt.keys():
-        # morr, mols of reactant avaialbe for titration
-        if not isinstance(camp.target_rnt[_][1], (list)):
-            df['{}_morr'.format(_)] = float(np.round(camp.target_rnt[_][1],
-                                                     precision))
-        # rkb1 (rate in xi at which reactant is titrated)
-        if not isinstance(camp.target_rnt[_][2], (list)):
-            df['{}_rkb1'.format(_)] = float(np.round(camp.target_rnt[_][2],
-                                                     precision))
-
-    # add fixed vs_state dimensions to orders
-    for _ in camp.vs_state.keys():
-        if isinstance(camp.vs_state[_], (list)):
-            pass
-        else:
-            df['{}'.format(_)] = float(np.round(camp.vs_state[_], precision))
-
-    # add fixed vs_basis dimensions to orders
-    for _ in camp.vs_basis.keys():
-        if not isinstance(camp.vs_basis[_], list):
-            vals = np.round(camp.vs_basis[_], precision)
-            df['{}'.format(_)] = float(vals)
-
-    df = calculate_ele_totals(df, elements, order_size, precision)
-
-    print('  Order # {} established (n = {})\n'.format(ord, order_size))
-
-    return df
-
-
-def process_BF_vars(BF_vars, reso):
-    """
-    Evenly spaces all vs points across all brute force dimensions
-
-    :param BF_vars: varible names (keys) and their range limts (values)
-    :type BF_vars: dict
-
-    :param reso: number of evenily spaced divisions on each BF dimension
-    :type reso: int
-
-    :return: dataframe with all BF dimenions for all vs points
-    :rtype: :class:'pandas.core.frame.DataFrame'
-    """
-    all_ranges = []
-    for this_var in BF_vars:
-        min_val = BF_vars[this_var][0]
-        max_val = BF_vars[this_var][1]
-        this_range = np.linspace(min_val, max_val, num=reso)
-        all_ranges.append(this_range)
-    grid = np.array([np.array(i) for i in itertools.product(*all_ranges)])
-    return pd.DataFrame(grid, columns=list(BF_vars.keys()))
-
+    raise NotImplementedError(
+        '''
+        With the move to general data0/data1 handling, we aren't sure how we want
+        to implement evenly-spaced VS points in the T-S subspace.
+        '''
+    )
 
 def build_basis(camp, precision, n):
     """
@@ -386,11 +289,11 @@ def build_basis(camp, precision, n):
             df['{}'.format(_)] = vals
         else:
             vals = np.round(camp.vs_basis[_], precision)
-            df['{}'.format(_)] = float(vals)
+            df['{}'.format(_)] = [float(vals) for i in range(n)]
     return df
 
 
-def build_admin_info(camp, df, ord, order_size, date):
+def build_admin_info(camp, df, ord, file_number, order_size, date):
     """
     Construct the 'admin_info' into dataframe
 
@@ -399,6 +302,9 @@ def build_admin_info(camp, df, ord, order_size, date):
 
     :param df: dataframe, either empty, or with some columns apready in place
     :type df: :class:'pandas.core.frame.DataFrame'
+
+    :param file_number: the file number to start from
+    :type file_number: int
 
     :param order_size: number of vs points in current order
     :type order_size: int
@@ -413,7 +319,7 @@ def build_admin_info(camp, df, ord, order_size, date):
 
     df['uuid'] = [uuid.uuid4().hex for _ in range(order_size)]
     df['camp'] = camp.name
-    df['file'] = list(range(order_size))  # file name numbers
+    df['file'] = list(range(file_number, file_number + order_size))
     df['ord'] = ord
     df['birth'] = date
     df['cb'] = camp.cb
@@ -471,7 +377,7 @@ def calculate_ele_totals(df, elements, order_size, precision):
     return df
 
 
-def orders_to_sql(conn, table, ord, df):
+def orders_to_sql(conn, table, ord, df, quiet=False):
     """
     Write dataframe 'df' to sql 'table' for order number 'ord' on
     connection 'conn'
@@ -489,9 +395,12 @@ def orders_to_sql(conn, table, ord, df):
     :type df: :class: pandas.core.frame.DataFrame
 
     """
-    print(f'Writing order # {ord} to table {table}')
+    if not quiet:
+        print(f'Writing order #{ord} to table {table}')
+
     df.to_sql(table, con=conn, if_exists='append', index=False)
     conn.commit()
     conn.close()
 
-    print("  Orders writen.\n")
+    if not quiet:
+        print("  Orders written.\n")

@@ -1,47 +1,192 @@
-"""
- radar tools
- functions used for viasualizing vs and ss data
- This file is loaded as a package by the radar family of
- codes.
-
- Tucker Ely
- January 2021
-"""
+""" radar tools functions used for visualizing vs and es data"""
 
 import os
+import re
+import sys
+import time
+import numpy as np
+import pandas as pd
 
 import matplotlib
 import matplotlib.pyplot as plt
-from matplotlib.lines import Line2D
 from mpl_toolkits.axes_grid1 import make_axes_locatable
-from matplotlib.colors import ListedColormap, LinearSegmentedColormap
+from matplotlib.colors import LinearSegmentedColormap
 
 # custom packages
 from .db_comms import *
 from .tool_room import *
-
-PWD = os.getcwd()
-
-BIG_PALETTE1 = ['#7CEA9C', '#F433AB', '#2E5EAA', '#593959', '#F0C808', '#DD1C1A', '#F05365',
-                '#FF9B42', '#B2945B', '#000000', '#FF0000', '#FFA500', '#FFFF00', '#008000',
-                '#0000FF', '#4B0082']
-
-BIG_PALETTE2 = ['#ff0000', '#4F8BEB']
-
-BLU_GREN = ['#7CEA9C', '#00B2CA']
-BLU_PNK = ['#F433AB', '#00B2CA']
-
-RAINBOW_BLK = LinearSegmentedColormap.from_list("mycmap", ["#020004", "#75228f", "#3e53d2",
-                                                           "#4eb01f", "#ffd805", "#fd9108",
-                                                           "#dd2823"])
-RAINBOW = LinearSegmentedColormap.from_list("mycmap", ["#75228f", "#3e53d2", "#4eb01f",
-                                                       "#ffd805", "#fd9108", "#dd2823"])
+from .db_comms import establish_database_connection, retrieve_combined_records
+from .radar_tools import get_continuous_cmap
 
 
+def Radar(camp, x_sp, y_sp, z_sp, description, ord_id=None, limit=1000, where=None,
+          transparent=True, add_analytics=None):
+    """
+    Plots 3 dimensions from vs and es camp databases
+    :param camp: campaign
+    :type camp: Class instance
+    :param x_sp: x variable,
+    :type x_sp: str
+    :param y_sp: y variable,
+    :type y_sp: str
+    :param z_sp: z variable,
+    :type z_sp: str
+    :param description: notes on data to show beneath image
+    :type description: str
+    :param ord_id: order number of interest
+    :type ord_id: can by one order (as int) or list of orders.
+    :param limit: NOT WORKING number of sample points to limit plotting to
+        order calls can be very large. Set limit to -1 for all.
+    :type limit: int
+    :param where: end statement for sql call to limit parameter space search
+        region
+    :type where: str
+    :param transparent: make background on figure transparent?
+    :type transparent: boolean
+    :param add_analytics: NOT WORKING add mean line and standard deviations's to plot
+    :type add_analytics: str
+    """
 
-blu_to_orng = ["#47eaff", "#2bbae0", "#2f8fd1", "#3363c2", "#3a0ca3",
-                 "#9d2a52", "#ff4800", "#ff7900", "#ffa224", "#ffcb47"]
+    def plt_set(ax, df, x, y, mk, cmap=None, sz=10, fc='white', ec='black',
+                lw=0.5):
+        """
+        plot subset of marhys database with style (mk=marker, sz=marker size,
+            fc=face color, ec=edge color, lw-edge line width)
 
+        The subset plotted is the group (groupby), within the column (col_name) on
+            the dataframe df.
+
+        z order refers to the plotting layer relative to other groups which may
+            be plotted ont the same ax, which is established outside this
+            function prior to its first calling.
+        """
+        ax.scatter(x,
+                   y,
+                   s=sz,
+                   marker=mk,
+                   cmap=cmap,
+                   linewidth=lw,
+                   facecolors=fc,
+                   edgecolors=ec,
+                   data=df
+                   # zorder=zorder
+                   )
+
+    # error check arguments
+    if not ord_id:
+        sys.exit('please supply order id, or list of order ids to be plotted')
+    if type(ord_id) == int:
+        # convert to list of 1, if a single order number is supplied
+        ord_id = [ord_id]
+
+    # extract species {} from x_sp, y_sp, and z_sp strings
+    all_sp = [x_sp, y_sp, z_sp]
+    full_call = ' '.join(all_sp)
+    es_sp = [_[:-2] for _ in set(re.findall('\{([^ ]*_e)\}', full_call))]
+    vs_sp = [_[:-2] for _ in set(re.findall('\{([^ ]*_v)\}', full_call))]
+    if len(vs_sp) == 0:
+        # ### need at least one vs
+        vs_sp = ['T_cel']
+
+    with camp.working_directory():
+        # compile useful plotting information specific to the loaded campaign
+        # species associated with this campaign, as per the huffer 3o.
+        # elements, aqueous_sp, solids, solid_solutions, gases = determine_species_set(path='huffer/')
+
+        #  columns contained in the vs and es table for loaded campaign
+        conn = establish_database_connection(camp)
+        # vs_col_names = get_column_names(conn, 'vs')
+        # es_col_names = get_column_names(conn, 'es')
+
+        # grab orders, concatenating the dataframe, 1 record retrieved per
+        # ord_id.
+        df_list = []
+        for order in ord_id:
+
+            df = retrieve_combined_records(conn, vs_sp, es_sp, limit=None, ord_id=order,
+                                           where=where)
+            df_list.append(df)
+
+        conn.close()
+
+        df = pd.concat(df_list)
+
+        # process x, y and z, adding new df columns where math is detected
+        for s in range(len(all_sp)):
+            if '=' in all_sp[s]:
+                # ### equation detected, new math column desired
+                new_var = all_sp[s].split('=')[0].strip()
+                the_math = all_sp[s].split('=')[1].strip()
+                all_sp[s] = new_var.replace('{', '').replace('}', '')
+                the_math = the_math.replace('{', 'df["').replace('}', '"]')
+                df[new_var] = eval(the_math)
+            else:
+                all_sp[s] = all_sp[s].replace('{', '').replace('}', '')
+
+        # ploting
+        font = {'family': 'andale mono', 'size': 8}
+        matplotlib.rc('font', **font)
+        matplotlib.rcParams['axes.edgecolor'] = '#000000'
+        matplotlib.rcParams['axes.linewidth'] = 0.5
+        matplotlib.rcParams['axes.labelsize'] = 8
+        matplotlib.rcParams['axes.titlesize'] = 8
+        matplotlib.rcParams['figure.titlesize'] = 8
+        matplotlib.rcParams['xtick.color'] = '#000000'
+        matplotlib.rcParams['ytick.color'] = '#000000'
+        matplotlib.rcParams['axes.labelcolor'] = '#000000'
+        matplotlib.rcParams['legend.frameon'] = False
+        matplotlib.rcParams['savefig.transparent'] = transparent
+
+        # ### process plot
+        if z_sp == '':
+            fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(5, 9), tight_layout=True)
+            ax1.scatter(all_sp[0], all_sp[1], data=df, facecolors='black', marker='o',
+                        alpha=0.7, edgecolor=None, s=4, linewidth=0)
+            ax1.xlabel(all_sp[0])
+            ax1.ylabel(all_sp[1])
+
+        else:
+            # ### with z_sp as color
+            fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(5.5, 9), tight_layout=True)
+
+            hex_list = radar_tools.blu_to_orng
+            cmap = get_continuous_cmap(hex_list)
+            df = df.sort_values(by=all_sp[2], ascending=False, na_position='first')
+            cb = ax1.scatter(all_sp[0], all_sp[1], c=all_sp[2],
+                             data=df, cmap=cmap, facecolors='black', marker='o',
+                             alpha=0.7, edgecolor=None, s=4, linewidth=0,
+                             label=all_sp[2])
+            ax1.set_xlabel(all_sp[0])
+            ax1.set_ylabel(all_sp[1])
+
+            # yrng = ax1.get_ylim()
+            # xrng = ax1.get_xlim()
+            # ax1.set_ylim([-10, -4])
+            # ax1.set_xlim([-10., -4])
+
+            # ax1.plot([-10000, 10000], [-10000, 10000], color='#fa70ec', linewidth=0.4)
+
+        ###  HOTS field data:
+        # dg = pd.read_csv('/Users/tuckerely/39A/CarbonState-Space-Reduction/HOTS/Complete_HOTS_all_stations_2022-02-26.csv')
+        # dg.drop(dg[dg['DIC_umol'] == -9].index, inplace=True)
+        # dg.drop(dg[dg['pH'] == -9].index, inplace=True)
+        # plt_set(ax1, dg, 'pH', 'DIC_umol', 'o', cmap=cmap, fc='None', ec='black', lw=0.2, sz=8)
+
+        fig.colorbar(cb, ax=ax1)
+
+        # ### lower ax is for notes and data
+        ax2.axis('off')
+        date = time.strftime("%Y-%m-%d", time.gmtime())
+        add_text = '\n'.join([f"campaign: {camp.name}", f"order/s: {ord_id}",
+                              f"data: {date}", f"n = {len(df)}", f"x = {x_sp}",
+                              f"y = {y_sp}", f"z = {z_sp}", 
+                              f"sql 'where' claus: {where}",
+                              f"notes: {description}"])
+        ax2.text(0.0, .9, add_text, ha="left", va='top', fontsize=8)
+
+        fig_name = 'fig/test.png'
+        print(f'wrote {fig_name}')
+        plt.savefig(fig_name, dpi=400)
 
 def hide_current_axis(*args, **kwds):
     plt.gca().set_visible(False)
@@ -206,33 +351,43 @@ def plt_grid(df, ):
     grid = sns.PairGrid(data=df, color='blue', height=4, layout_pad=1.5)
 
 
-###################################################################################
-################################  ES/VS searching  ################################
+def check_data0s_loaded():
+    """
+    what data1 files are currently active in eq3_68.0a/db
+    """
+    file_name, file_list = read_inputs('data1', 'EQ3_6v8.0a/db', str_loc='prefix')
 
+    suf_list = [_[-3:] for _ in file_list if _.startswith('EQ3_6v8.0a/db/data1')]
 
+    # for _ in suf_list
 
+    plt.figure()
+    plt.subplot(111)
 
-###################################################################################
-################################  Color Fucntions  ################################
-color_dict = {
-        '1': ['#E76F51', '#264653', '#2A9D8F', '#F4A261', '#E9C46A', '#100B00', '#A5CBC3', '#3B341f', '#2F004F'],
-        '2': ['#ff0000', '#ffa500', '#ffff00', '#008000', '#0000ff', '#4b0082', '#000000'],
-        '3': ['#7CEA9C','#F433AB','#2E5EAA','#593959','#F0C808','#DD1C1A','#F05365','#FF9B42','#B2945B','#000000','#FF0000', '#FFA500', '#FFFF00', '#008000', '#0000FF', '#4B0082'],
-        '4': ['#79baf7', '#ff0000', '#000000']
-        }
+    for _ in suf_list:
+        t_rng, p_val = data0_TP(_)
+        plt.plot(t_rng, [p_val, p_val], color='black', linewidth=0.1)
+
+    plt.xlabel('T (˚C)')
+    plt.ylabel('P (bars)')
+
+    plt.title('data0 family coverage\n(∆P = descrete 0.5 bars)\n∆T = 7C contineuous')
+
+    plt.show()
 
 
 def get_continuous_cmap(hex_list, float_list=None):
-    ### https://towardsdatascience.com/beautiful-custom-colormaps-with-matplotlib-5bab3d1f0e72
+    # https://towardsdatascience.com/beautiful-custom-colormaps-with-matplotlib-5bab3d1f0e72
     """
     Create and return a color map that can be used in heatmap figures. If :code:`float_list` is
-    not provided, then the color map graduates linearly betwean each color in :code:`hex_list`.
+    not provided, then the color map graduates linearly between each color in :code:`hex_list`.
     If :code:`float_list` is provided, then each each color in :code:`hex_list` is mapped to the
     respective location in :code:`float_list`.
 
     :param hex_list: hex-code strings
     :type hex_list: list
-    :param float_list: Floating-point values between 0 and 1 with the same length as :code:`hex_list`. Must start with 0 and end with 1.
+    :param float_list: Floating-point values between 0 and 1 with the same length as
+                        :code:`hex_list`. Must start with 0 and end with 1.
     :type float_list: list
 
     :return: A color map
@@ -241,9 +396,8 @@ def get_continuous_cmap(hex_list, float_list=None):
 
     rgb_list = [rgb_to_dec(hex_to_rgb(i)) for i in hex_list]
     if type(float_list) != list:
-        float_list = list(np.linspace(0,1,len(rgb_list)))
-        
-        
+        float_list = list(np.linspace(0, 1, len(rgb_list)))
+
     cdict = dict()
     for num, col in enumerate(['red', 'green', 'blue']):
         col_list = [[float_list[i], rgb_list[i][num], rgb_list[i][num]] for i in range(len(float_list))]
@@ -256,7 +410,7 @@ def hex_to_rgb(value):
     Converts hex to rgb colours
     value: string of 6 characters representing a hex colour.
     Returns: list length 3 of RGB values'''
-    value = value.strip("#") # removes hash symbol if present
+    value = value.strip("#")  # removes hash symbol if present
     lv = len(value)
     return tuple(int(value[i:i + lv // 3], 16) for i in range(0, lv, lv // 3))
 
@@ -265,101 +419,33 @@ def rgb_to_dec(value):
     Converts rgb to decimal colours (i.e. divides each value by 256)
     value: list (length 3) of RGB values
     Returns: list (length 3) of decimal values'''
-    return [v/256 for v in value]
+    return [v / 256 for v in value]
 
 
-Fe_O_S_palette = {
-    '':"#000000",'PYRITE':"#02d625",
-    'MAGNETITE_PYRITE':"#f7e14f", 'MAGNETITE_PYRRHOTITE':"#ff8c00", 'MAGNETITE':"#e6c785", # hot tones  (light to dark)
-    'HEMATITE':"#3ad4f2", 'HEMATITE_MAGNETITE':"#146ee3", 'HEMATITE_PYRITE':"#0211b5",  # cold tones (light to dark)
-    'HEMATITE_MAGNETITE_PYRITE':"#ff05b0", "MAGNETITE_PYRITE_PYRRHOTITE":"#ff0000"
-    }
 
+# ###############################  Color ################################
+color_dict = {'1': ['#E76F51', '#264653', '#2A9D8F', '#F4A261', '#E9C46A', '#100B00', '#A5CBC3',
+                    '#3B341f', '#2F004F'],
+              '2': ['#ff0000', '#ffa500', '#ffff00', '#008000', '#0000ff', '#4b0082', '#000000'],
+              '3': ['#7CEA9C', '#F433AB', '#2E5EAA', '#593959', '#F0C808', '#DD1C1A', '#F05365',
+                    '#FF9B42', '#B2945B', '#000000', '#FF0000', '#FFA500', '#FFFF00', '#008000',
+                    '#0000FF', '#4B0082'],
+              '4': ['#79baf7', '#ff0000', '#000000']
+              }
 
-# Fe_O_S_palette = {
-#     '':"#000000",'PYRITE':"#e60000",
-#     'MAGNETITE_PYRITE':"#f7e14f", 'MAGNETITE_PYRRHOTITE':"#ff8c00", 'MAGNETITE':"#02d625", # hot tones  (light to dark)
-#     'HEMATITE':"#c2c0c0", 'HEMATITE_MAGNETITE':"#5e5d5d", 'HEMATITE_PYRITE':"#1c0069",  # cold tones (light to dark)
-#     'HEMATITE_MAGNETITE_PYRITE':"#3ad4f2", "MAGNETITE_PYRITE_PYRRHOTITE":"#146ee3"
-#     }
+BIG_PALETTE1 = ['#7CEA9C', '#F433AB', '#2E5EAA', '#593959', '#F0C808', '#DD1C1A', '#F05365',
+                '#FF9B42', '#B2945B', '#000000', '#FF0000', '#FFA500', '#FFFF00', '#008000',
+                '#0000FF', '#4B0082']
 
-Fe_O_S_rainbow = {
-    '':"#757575",
-    'PYRITE':"#E9110C",
-    'MAGNETITE_PYRITE':"#E9640C",
-    'MAGNETITE_PYRRHOTITE':"#E9C70C",
-    'MAGNETITE':"#21C9A1",
-    'HEMATITE':"#00AF1D",
-    'HEMATITE_MAGNETITE':"#1C7EFB", 
-    'HEMATITE_PYRITE':"#3508CA",
-    'HEMATITE_MAGNETITE_PYRITE':"#F33BEE", 
-    "MAGNETITE_PYRITE_PYRRHOTITE":"#000000"
-    }
+BIG_PALETTE2 = ['#ff0000', '#4F8BEB']
 
-CaMgSiH2O_pal_original = {
-    "AHM"     : "#E9110C",
-    "AIM"     : "#3508CA",
-    "mtc-brc-ctl" :"#FF2EE1",
-    "mtc-di-ctl"  :"#F52B1D",
-    "di-ctl-tr"   :"#000000",
-    "ctl-tlc-tr"  :"#3508CA",
-    "mtc-brc" : "#E9C70C",
-    "ctl-brc" : "#21C9A1",
-    "mtc-ctl" : "#00AF1D",
-    "mtc-di"  : "#1C7EFB",
-    "di-ctl"  : "#FF842E",
-    "di-tr"   : "#F6D71E",
-    "ctl-tr"  : "#A3F61E",
-    "ctl-tlc" : "#6FDBF9",
-    "tlc-tr"  : "#f7e14f",
-    "mtc_only": "#ff8c00",
-    "brc_only": "#e6c785",
-    "ctl_only": "#FF9CF1",
-    "di_only" : "#0211b5",
-    "tr_only" : "#00AA07",
-    "tlc_only": "#3508CA",
-    'none'    : "#C3C3C3",
-    }
+BLU_GREN = ['#7CEA9C', '#00B2CA']
+BLU_PNK = ['#F433AB', '#00B2CA']
 
-CaMgSiH2O_pal_2 = {
-    "AHM"     : "#E9110C",
-    "AIM"     : "#3508CA",
-    "mtc-brc-ctl" :"#e0d4a3",
-    "mtc-di-ctl"  :"#F52B1D",
-    "di-ctl-tr"   :"#21C9A1",
-    "ctl-tlc-tr"  :"#3508CA",
-    "mtc-brc" : "#E9C70C",
-    "ctl-brc" : "#000000",
-    "mtc-ctl" : "#00AF1D",
-    "mtc-di"  : "#1C7EFB",
-    "di-ctl"  : "#FF842E",
-    "di-tr"   : "#F6D71E",
-    "ctl-tr"  : "#A3F61E",
-    "ctl-tlc" : "#6FDBF9",
-    "tlc-tr"  : "#f7e14f",
-    "mtc_only": "#ff8c00",
-    "brc_only": "#e6c785",
-    "ctl_only": "#FF9CF1",
-    "di_only" : "#0211b5",
-    "tr_only" : "#00AA07",
-    "tlc_only": "#3508CA",
-    'none'    : "#C3C3C3",
-    'cpxN'    : "#3508CA",
-    }
-
-
-### bright pink "#ff05b0"
-### light pink "#F46EF2"
-### candy apple green "#00AA07"
-### light lime green #A3F61E
-### light grey.   "#C3C3C3"
-### pink black blues "#146ee3" , "#0211b5" , "#ff05b0" , "#000000" 
-### light blue.  "#146ee3"
-### light blue    #6FDBF9
-### sand #e6c785
-### yellow   #F6D71E
-### organe   #FF842E
-### dark red  #9D0303 
-###      red #ff0000
-###      pink  #FF2EE1
-### light pink #FF9CF1
+RAINBOW_BLK = LinearSegmentedColormap.from_list("mycmap", ["#020004", "#75228f", "#3e53d2",
+                                                           "#4eb01f", "#ffd805", "#fd9108",
+                                                           "#dd2823"])
+RAINBOW = LinearSegmentedColormap.from_list("mycmap", ["#75228f", "#3e53d2", "#4eb01f",
+                                                       "#ffd805", "#fd9108", "#dd2823"])
+blu_to_orng = ["#47eaff", "#2bbae0", "#2f8fd1", "#3363c2", "#3a0ca3",
+                 "#9d2a52", "#ff4800", "#ff7900", "#ffa224", "#ffcb47"]

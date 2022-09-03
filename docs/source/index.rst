@@ -3,16 +3,18 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Welcome to Eleanor
-==================
+.. include:: readme.rst 
 
-Eleanor is a python package for systematic, large-scale aqueous geochemical modeling.
+
+Table of contents
+-----------------
 
 .. toctree::
    :maxdepth: 2
 
+   intro
    api
-
+   meta-docs
 
 
 Indices and tables

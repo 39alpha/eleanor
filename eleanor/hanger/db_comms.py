@@ -163,8 +163,8 @@ def get_order_number(conn, camp, insert=True):
 
     if insert:
         execute_query(conn,
-            f"INSERT INTO `orders` (`campaign_hash`, `data0_hash`, `name`) \
-            VALUES ('{camp.hash}', '{camp.data0_hash}', '{camp.name}')").fetchall()
+                      f"INSERT INTO `orders` (`campaign_hash`, `data0_hash`, `name`) \
+                      VALUES ('{camp.hash}', '{camp.data0_hash}', '{camp.name}')").fetchall()
         return get_order_number(conn, camp, insert=False)
     else:
         raise RuntimeError('failed to insert order')
@@ -241,23 +241,26 @@ def get_column_names(conn, table):
     with closing(conn.execute(f"PRAGMA table_info(`{table}`)")) as cursor:
         return [row[1] for row in cursor.fetchall()]
 
-def retrieve_combined_records(conn, vs_cols, es_cols, limit=None, ord_id=None, where=None,
+def retrieve_combined_records(conn, vs_cols, es_cols,
+                              limit=None,
+                              ord_id=None,
+                              where=None,
                               fname=None):
     """
-    Retrieve columns from the VS and ES tables, joined on the :code:`uuid` column. The results are
-    returned as a Pandas :code:`DataFrame`.
+    Retrieve columns from the `vs` and `es` tables, joined on the :code:`uuid` column. The results
+    are returned as a Pandas :code:`DataFrame`.
 
-    Since not all of the systems ordered by the navigator will converge in eq3/6, the VS table may
-    contain orders for systems that do not exist in the ES table.
+    Since not all of the systems ordered by the Navigator will converge in EQ3/6, the `vs` table may
+    contain orders for systems that do not exist in the `es` table.
 
-    If the :code:`fname` is provided and has either a JSON or CSV file extension, the dataframe
-    will be written to that file.
+    If the :code:`fname` is provided and has either a `.pickle`, `.json` or `.csv` file extension,
+    the DataFrame will be written to that file.
 
     :param conn: the database connection
     :type conn: sqlite3.Connection
-    :param vs_cols: the columns to be selected from the VS table
+    :param vs_cols: the columns to be selected from the `vs` table
     :type vs_cols: list
-    :param es_cols: the columns to be selected from the ES table
+    :param es_cols: the columns to be selected from the `es` table
     :type es_cols: list
     :param limit: limit the number of records retrieved 'limit'
     :type limit: int
@@ -266,10 +269,10 @@ def retrieve_combined_records(conn, vs_cols, es_cols, limit=None, ord_id=None, w
     :param fname: path of an output file
     :type fname: str or None
     :param where_constrain: limit sql query with 'where statement',
-        for exmaple, where '"CO2" > -3'
+        for example, where '"CO2" > -3'
     :type where_constrain: str
 
-    :return: A dataframe with the selected columns and rows
+    :return: A DataFrame with the selected columns and rows
     :rtype: pandas.DataFrame
     """
     query = f"SELECT `vs`.`{'`, `vs`.`'.join(vs_cols)}`, \
@@ -297,6 +300,8 @@ def retrieve_combined_records(conn, vs_cols, es_cols, limit=None, ord_id=None, w
             df.to_json(fname, orient='records')
         elif ext == '.csv':
             df.to_csv(fname, index=False)
+        elif ext == '.pickle':
+            df.to_pickle(fname)
         else:
             sys.stderr.write(f"warning: cannot write records; unrecognized format '{ext}'\n")
 

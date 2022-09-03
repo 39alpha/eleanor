@@ -8,13 +8,13 @@ from subprocess import Popen, PIPE
 
 class Eq36Exception(Exception):
     """
-    An Exception to represent that an error occured during the running of
+    An Exception to represent that an error occurred during the running of
     :func:`eqpt`, :func:`eq3` or func:`eq6`.
     """
     pass
 
 
-def error_guard(output):
+def error_guard(output, cmd):
     """
     Parse EQ3/6 standard output content for error messages and raise an
     :class:`Eq36Exception` if any are found.
@@ -27,7 +27,7 @@ def error_guard(output):
         errors = matches.group(0).split('\\n\\n')
         for error in errors:
             first_message = error.split('\\n\\n')[0]
-            trimmed_prefix = first_message.replace('Error - ', '')
+            trimmed_prefix = first_message.replace('Error - ', str(cmd))
             no_newline = trimmed_prefix.replace('\\n', '')
             message = re.sub('\s+', ' ', no_newline)
             if re.match('^\s*$', message) is None:
@@ -44,8 +44,7 @@ def run(cmd, *args):
     """
     process = Popen([cmd, *args], stdout=PIPE, stderr=PIPE)
     stdout, stderr = process.communicate()
-
-    error_guard(stdout)
+    error_guard(stdout, cmd)
 
     return stdout, stderr
 

@@ -1,20 +1,20 @@
-##################################################################
-############################## EQ3/6 #############################
-##################################################################
+# #################################################################
+# ############################# EQ3/6 #############################
+# #################################################################
 
 
-### dictionary containing custom eq3/6 exit codes that hint at the casue of the failure.
-### by assigning a number, I can track errors in a lightweight fashion, and
-### make it easy to color output points based on the type of error they generate.
-run_codes = {0   : 'not run',
-    100 : 'normal termination',
-    30  : 'no 3p generated',
-    31  : 'pickup present but contains errors',
-    60  : 'no 6o generated',
-    61  : 'unrecognized 6o error (6o present neitehr normal nor early)',
-    62  : 'mine 6o function fail',
-    70  : 'early 6i termination'
-            }
+# dictionary containing custom eq3/6 exit codes that hint at the cause of the failure.
+# by assigning a number, I can track errors in a lightweight fashion, and
+# make it easy to color output points based on the type of error they generate.
+run_codes = {0: 'not run',
+             100: 'normal termination',
+             30: 'no 3p file generated',
+             31: '3p file present but contains errors',
+             60: 'no 6o file generated',
+             61: 'unrecognized 6o file error',
+             62: 'mine 6o function fail',
+             70: 'early 6i termination'
+             }
 
 
 ##################################################################
@@ -1102,5 +1102,93 @@ sr_dict = {"FeCl2": [["Fe", "Cl"], [1, 2]]
     
 
         }
+
+
+
+mw = {
+    'O': 15.99940,
+    'Ag': 107.86820,
+    'Al': 26.98154,
+    'Am': 243.00000,
+    'Ar': 39.94800,
+    'Au': 196.96654,
+    'B': 10.81100,
+    'Ba': 137.32700,
+    'Be': 9.01218,
+    'Bi': 208.98000,
+    'Br': 79.90400,
+    'Ca': 40.07800,
+    'Cd': 112.41100,
+    'Ce': 140.11500,
+    'Cl': 35.45270,
+    'Co': 58.93320,
+    'Cr': 51.99610,
+    'Cs': 132.90543,
+    'Cu': 63.54600,
+    'Dy': 162.50000,
+    'Er': 167.26000,
+    'Eu': 151.96500,
+    'F': 18.99840,
+    'Fe': 55.84700,
+    'Fr': 223.00000,
+    'Ga': 69.72300,
+    'Gd': 157.25000,
+    'H': 1.00794,
+    'As': 74.92159,
+    'C': 12.01100,
+    'P': 30.97362,
+    'He': 4.00206,
+    'Hf': 178.49000,
+    'Hg': 200.59000,
+    'Ho': 164.93032,
+    'I': 126.90447,
+    'In': 114.82000,
+    'K': 39.09830,
+    'Kr': 83.80000,
+    'La': 138.90550,
+    'Li': 6.94100,
+    'Lu': 174.96700,
+    'Mg': 24.30500,
+    'Mn': 54.93085,
+    'Mo': 95.94000,
+    'N': 14.00674,
+    'Na': 22.98977,
+    'Nb': 92.90600,
+    'Nd': 144.24000,
+    'Ne': 20.17970,
+    'Ni': 58.69000,
+    'Pb': 207.20000,
+    'Pd': 106.42000,
+    'Pm': 145.00000,
+    'Pr': 140.90765,
+    'Pt': 195.08000,
+    'Ra': 226.02500,
+    'Rb': 85.46780,
+    'Re': 186.20700,
+    'Rh': 102.90600,
+    'Rn': 222.00000,
+    'Ru': 101.07000,
+    'S': 32.06600,
+    'Sb': 127.76000,
+    'Sc': 44.95591,
+    'Se': 78.96000,
+    'Si': 28.08550,
+    'Sm': 150.36000,
+    'Sn': 118.71000,
+    'Sr': 87.62000,
+    'Tb': 158.92534,
+    'Tc': 98.00000,
+    'Th': 232.03800,
+    'Ti': 47.88000,
+    'Tl': 204.38330,
+    'Tm': 168.93421,
+    'U': 238.02890,
+    'V': 50.94150,
+    'W': 183.85000,
+    'Xe': 131.29000,
+    'Y': 88.90585,
+    'Yb': 173.04000,
+    'Zn': 65.39000,
+    'Zr': 91.22400}
 
 

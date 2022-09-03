@@ -62,7 +62,7 @@ def Helmsman(camp, ord_id=None, num_cores=os.cpu_count(), keep_every_n_files=1, 
         elements, aq_sp, solids, ss, gasses = determine_species_set(path='huffer/')
 
         # retrieve issued order 'ord_id'
-        order_query = ('SELECT * FROM `vs` WHERE `code` = 0',
+        order_query = ('SELECT * FROM `vs` WHERE `code` = 0 '
                        'AND `uuid` NOT IN (SELECT `uuid` FROM `es`)')
         if ord_id is not None:
             order_query += f' AND `ord` = {ord_id}'

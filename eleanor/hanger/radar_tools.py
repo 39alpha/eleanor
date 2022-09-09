@@ -1,26 +1,21 @@
 """ radar tools functions used for visualizing vs and es data"""
-
 import os
 import re
-import sys
 import time
 import numpy as np
 import pandas as pd
 
 import matplotlib
 import matplotlib.pyplot as plt
-from mpl_toolkits.axes_grid1 import make_axes_locatable
 from matplotlib.colors import LinearSegmentedColormap
 
 # custom packages
-from .db_comms import *
-from .tool_room import *
-from .db_comms import establish_database_connection, retrieve_combined_records
-from .radar_tools import get_continuous_cmap
+from .db_comms import establish_database_connection, retrieve_combined_records, retrieve_records
 
-
-def Radar(camp, x_sp, y_sp, z_sp, description, ord_id=None, limit=1000, where=None,
-          transparent=True, add_analytics=None):
+def Radar(camp, x_sp, y_sp, z_sp,
+          savename=None,notes="",
+          ord_id=None, limit=1000,
+          where=None, transparent=True):
     """
     Plots 3 dimensions from vs and es camp databases
     :param camp: campaign
@@ -31,7 +26,7 @@ def Radar(camp, x_sp, y_sp, z_sp, description, ord_id=None, limit=1000, where=No
     :type y_sp: str
     :param z_sp: z variable,
     :type z_sp: str
-    :param description: notes on data to show beneath image
+    :param notes: notes on data to show beneath image
     :type description: str
     :param ord_id: order number of interest
     :type ord_id: can by one order (as int) or list of orders.
@@ -46,38 +41,27 @@ def Radar(camp, x_sp, y_sp, z_sp, description, ord_id=None, limit=1000, where=No
     :param add_analytics: NOT WORKING add mean line and standard deviations's to plot
     :type add_analytics: str
     """
+    # plotting Parameters
+    font = {'size': 11}
+    matplotlib.rc('font', **font)
+    matplotlib.rcParams['axes.edgecolor'] = '#000000'
+    matplotlib.rcParams['axes.linewidth'] = 0.5
+    matplotlib.rcParams['axes.labelsize'] = 10
+    matplotlib.rcParams['axes.titlesize'] = 10
+    matplotlib.rcParams['figure.titlesize'] = 10
+    matplotlib.rcParams['xtick.color'] = '#000000'
+    matplotlib.rcParams['ytick.color'] = '#000000'
+    matplotlib.rcParams['axes.labelcolor'] = '#000000'
+    matplotlib.rcParams['legend.frameon'] = False
+    matplotlib.rcParams['savefig.transparent'] = transparent
 
-    def plt_set(ax, df, x, y, mk, cmap=None, sz=10, fc='white', ec='black',
-                lw=0.5):
-        """
-        plot subset of marhys database with style (mk=marker, sz=marker size,
-            fc=face color, ec=edge color, lw-edge line width)
-
-        The subset plotted is the group (groupby), within the column (col_name) on
-            the dataframe df.
-
-        z order refers to the plotting layer relative to other groups which may
-            be plotted ont the same ax, which is established outside this
-            function prior to its first calling.
-        """
-        ax.scatter(x,
-                   y,
-                   s=sz,
-                   marker=mk,
-                   cmap=cmap,
-                   linewidth=lw,
-                   facecolors=fc,
-                   edgecolors=ec,
-                   data=df
-                   # zorder=zorder
-                   )
-
-    # error check arguments
-    if not ord_id:
-        sys.exit('please supply order id, or list of order ids to be plotted')
+    # Handle optional arguments
+    all_orders=False
     if type(ord_id) == int:
         # convert to list of 1, if a single order number is supplied
         ord_id = [ord_id]
+    if ord_id is None:
+        all_orders = True
 
     # extract species {} from x_sp, y_sp, and z_sp strings
     all_sp = [x_sp, y_sp, z_sp]
@@ -85,25 +69,24 @@ def Radar(camp, x_sp, y_sp, z_sp, description, ord_id=None, limit=1000, where=No
     es_sp = [_[:-2] for _ in set(re.findall('\{([^ ]*_e)\}', full_call))]
     vs_sp = [_[:-2] for _ in set(re.findall('\{([^ ]*_v)\}', full_call))]
     if len(vs_sp) == 0:
-        # ### need at least one vs
+        # need at least one vs
         vs_sp = ['T_cel']
 
     with camp.working_directory():
-        # compile useful plotting information specific to the loaded campaign
-        # species associated with this campaign, as per the huffer 3o.
-        # elements, aqueous_sp, solids, solid_solutions, gases = determine_species_set(path='huffer/')
-
-        #  columns contained in the vs and es table for loaded campaign
+        # columns contained in the vs and es table for loaded campaign
         conn = establish_database_connection(camp)
-        # vs_col_names = get_column_names(conn, 'vs')
-        # es_col_names = get_column_names(conn, 'es')
-
-        # grab orders, concatenating the dataframe, 1 record retrieved per
-        # ord_id.
+        # if we're getting all orders get the list of unique order IDs
+        if all_orders:
+            ord_ids = retrieve_records(conn, "SELECT id FROM orders")[0]
+            ord_id = [o for o in ord_ids]
+        # grab orders, concatenating the DataFrame, 1 record retrieved per
+        # order
         df_list = []
         for order in ord_id:
-
-            df = retrieve_combined_records(conn, vs_sp, es_sp, limit=None, ord_id=order,
+            print(vs_sp, es_sp)
+            df = retrieve_combined_records(conn, vs_sp, es_sp, 
+                                           limit=limit, 
+                                           ord_id=order,
                                            where=where)
             df_list.append(df)
 
@@ -114,7 +97,7 @@ def Radar(camp, x_sp, y_sp, z_sp, description, ord_id=None, limit=1000, where=No
         # process x, y and z, adding new df columns where math is detected
         for s in range(len(all_sp)):
             if '=' in all_sp[s]:
-                # ### equation detected, new math column desired
+                # equation detected, new math column desired
                 new_var = all_sp[s].split('=')[0].strip()
                 the_math = all_sp[s].split('=')[1].strip()
                 all_sp[s] = new_var.replace('{', '').replace('}', '')
@@ -123,233 +106,70 @@ def Radar(camp, x_sp, y_sp, z_sp, description, ord_id=None, limit=1000, where=No
             else:
                 all_sp[s] = all_sp[s].replace('{', '').replace('}', '')
 
-        # ploting
-        font = {'family': 'andale mono', 'size': 8}
-        matplotlib.rc('font', **font)
-        matplotlib.rcParams['axes.edgecolor'] = '#000000'
-        matplotlib.rcParams['axes.linewidth'] = 0.5
-        matplotlib.rcParams['axes.labelsize'] = 8
-        matplotlib.rcParams['axes.titlesize'] = 8
-        matplotlib.rcParams['figure.titlesize'] = 8
-        matplotlib.rcParams['xtick.color'] = '#000000'
-        matplotlib.rcParams['ytick.color'] = '#000000'
-        matplotlib.rcParams['axes.labelcolor'] = '#000000'
-        matplotlib.rcParams['legend.frameon'] = False
-        matplotlib.rcParams['savefig.transparent'] = transparent
-
-        # ### process plot
+        # process plot
         if z_sp == '':
-            fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(5, 9), tight_layout=True)
-            ax1.scatter(all_sp[0], all_sp[1], data=df, facecolors='black', marker='o',
-                        alpha=0.7, edgecolor=None, s=4, linewidth=0)
+            fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(3.5, 5), tight_layout=True)
+            ax1.scatter(all_sp[0],
+                        all_sp[1],
+                        data=df,
+                        facecolors='black',
+                        marker='o',
+                        alpha=0.7,
+                        edgecolor=None,
+                        s=4,
+                        linewidth=0)
             ax1.xlabel(all_sp[0])
             ax1.ylabel(all_sp[1])
 
         else:
-            # ### with z_sp as color
-            fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(5.5, 9), tight_layout=True)
-
-            hex_list = radar_tools.blu_to_orng
+            # with z_sp as color
+            fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(3.5, 5), tight_layout=True)
+            hex_list = BLU_TO_ORG
             cmap = get_continuous_cmap(hex_list)
             df = df.sort_values(by=all_sp[2], ascending=False, na_position='first')
-            cb = ax1.scatter(all_sp[0], all_sp[1], c=all_sp[2],
-                             data=df, cmap=cmap, facecolors='black', marker='o',
-                             alpha=0.7, edgecolor=None, s=4, linewidth=0,
+            cb = ax1.scatter(all_sp[0],
+                             all_sp[1],
+                             c=all_sp[2],
+                             data=df,
+                             cmap=cmap,
+                             facecolors='black',
+                             marker='o',
+                             alpha=0.7,
+                             edgecolor=None,
+                             s=4,
+                             linewidth=0,
                              label=all_sp[2])
+            print(all_sp[0])
             ax1.set_xlabel(all_sp[0])
             ax1.set_ylabel(all_sp[1])
 
-            # yrng = ax1.get_ylim()
-            # xrng = ax1.get_xlim()
-            # ax1.set_ylim([-10, -4])
-            # ax1.set_xlim([-10., -4])
-
-            # ax1.plot([-10000, 10000], [-10000, 10000], color='#fa70ec', linewidth=0.4)
-
-        ###  HOTS field data:
-        # dg = pd.read_csv('/Users/tuckerely/39A/CarbonState-Space-Reduction/HOTS/Complete_HOTS_all_stations_2022-02-26.csv')
-        # dg.drop(dg[dg['DIC_umol'] == -9].index, inplace=True)
-        # dg.drop(dg[dg['pH'] == -9].index, inplace=True)
-        # plt_set(ax1, dg, 'pH', 'DIC_umol', 'o', cmap=cmap, fc='None', ec='black', lw=0.2, sz=8)
-
         fig.colorbar(cb, ax=ax1)
 
-        # ### lower ax is for notes and data
+        # lower ax is for notes and data
         ax2.axis('off')
         date = time.strftime("%Y-%m-%d", time.gmtime())
-        add_text = '\n'.join([f"campaign: {camp.name}", f"order/s: {ord_id}",
-                              f"data: {date}", f"n = {len(df)}", f"x = {x_sp}",
-                              f"y = {y_sp}", f"z = {z_sp}", 
-                              f"sql 'where' claus: {where}",
-                              f"notes: {description}"])
-        ax2.text(0.0, .9, add_text, ha="left", va='top', fontsize=8)
+        order_string = " ".join([str(o) for o in ord_id])
+        all_text = [f"campaign: {camp.name}",
+                    f"order(s): {order_string}",
+                    f"date: {date}",
+                    f"n = {len(df)}",
+                    f"x: {x_sp}",
+                    f"y: {y_sp}",
+                    f"color: {z_sp}"]
+        if where:
+            all_text.append(f"sql 'where' clause: {where}")
+        all_text.append(f"notes: {notes}")
+        add_text = '\n'.join(all_text)
 
-        fig_name = 'fig/test.png'
-        print(f'wrote {fig_name}')
+        ax2.text(0.0, 0.9, add_text, ha="left", va='top', fontsize=10)
+        if not savename:
+            savename = "plot.svg"
+        fig_name = os.path.join('fig', savename)
+        # print(f'wrote {fig_name}')
         plt.savefig(fig_name, dpi=400)
 
 def hide_current_axis(*args, **kwds):
     plt.gca().set_visible(False)
-
-
-def group_by_solids(conn, camp_name, ord_id):
-    """
-    Determine each unique combination of precipitates in a order (ord_id)
-    """
-    lines = grab_lines(os.path.join(PWD, '{}_huffer'.format(camp_name), 'test.3o'))
-    solids =[]
-    solid_solutions = []
-
-    for _ in range(len(lines)):
-        if re.findall('^\n', lines[_]):
-            pass
-        
-        elif '           --- Saturation States of Pure Solids ---' in lines[_]:
-            x = 4
-            while not re.findall('^\n', lines[_ + x]):     #    signals the end of the solid solutions block    
-                if 'None' not in lines[_ + x]:
-                    solids.append(lines[_ + x][:30].strip())
-                    x += 1
-                else:
-                    x += 1
-            del x
-        
-        elif '           --- Saturation States of Solid Solutions ---' in lines[_]:
-            x = 4
-            while not re.findall('^\n', lines[_ + x]):     #    signals the end of the solid solutions block    
-                if 'None' not in lines[_ + x]:
-                    solids.append(lines[_ + x][:30].strip())
-                    x += 1
-                else:
-                    x += 1
-            del x
-
-    all_precip = [_ for _ in solids + solid_solutions]# if _ != camp.tm]         #    lsit of all possible precipaiutes, excluing the target mineral, which is in all files.
-
-
-    ### retrieve record of all_precip columns from postgres table 'camp.name', for order # 'ord_id'
-    solids_sql   = ",".join([f'"{_}"' for _ in all_precip])
-    all_rec = retrieve_postgres_record(conn, 'select {} from {}_es where ord = {}'.format(solids_sql, camp_name, ord_id))
-    
-
-    ### find unique co-precipitation combinations 
-    solid_combinations = []     #    build list for precipitation combinations
-
-
-    for _ in all_rec:
-        ind = []
-        for x in range(len(_)):
-            if _[x] > 0:
-                ind.append(x)
-
-        ### grab index of values over 0,
-        solid_combinations.append([all_precip[i] for i in ind])
-    
-
-    ### unique mineral co-precipiation occrrances in  order # ord_id
-    unique_combinations = [ list(x) for x in set(tuple(x) for x in solid_combinations) if list(x) !=[]] + ['']
-
-    ### dictionary of unique mineral combinations, with an int index to reference color
-    ### this random association between the names and the color, once established here, presists.
-    combo_dict = {}
-    for _ in range(len(unique_combinations)):
-        ### z_dict['miner_set_name'] = index
-        combo_dict['_'.join(unique_combinations[_])] = _
-
-    return combo_dict
-
-
-def solid_groups(conn, pwd, camp_name, ord_id, out = 'assemblages'):
-    
-    """
-    color plot points based on the solids present, with
-    each unique combination of precipiotates getting its own color
-    and/or its own unique marker.
-    ord_id = order #
-    """
-
-
-    ### determine list of all solids in ss columns
-    lines = grab_lines(os.path.join(pwd, '{}_huffer'.format(camp_name), 'test.3o'))
-    solids          = []
-    solid_solutions = []
-
-
-
-    for _ in range(len(lines)):
-        if re.findall('^\n', lines[_]):
-            pass
-        elif '           --- Saturation States of Pure Solids ---' in lines[_]:
-            x = 4
-            while not re.findall('^\n', lines[_ + x]):  #   signals the end of the solid solutions block    
-                if 'None' not in lines[_ + x]:
-                    solids.append(lines[_ + x][:30].strip())
-                    x += 1
-                else:
-                    x += 1
-            del x
-        elif '           --- Saturation States of Solid Solutions ---' in lines[_]:
-            x = 4
-            while not re.findall('^\n', lines[_ + x]):  #   signals the end of the solid solutions block    
-                if 'None' not in lines[_ + x]:
-                    solids.append(lines[_ + x][:30].strip())
-                    x += 1
-                else:
-                    x += 1
-            del x
-
-    all_precip = [_ for _ in solids + solid_solutions]
-
-    if out == 'phases':
-        ### only the list of solids is wanted
-        return all_precip
-
-
-    if out == 'assemblages':
-        ### assemblage names are wanted in conjunction with a specifc 
-        ### ord_id in camp_name
-
-
-        ### retrieve ss postgres record 
-        solids_sql   = ",".join([f'"{_}"' for _ in all_precip])
-        all_rec = retrieve_postgres_record(conn, 'select {} from {}_es where ord = {}'.format(solids_sql, camp_name, ord_id))
-        
-        ### find unique co-precipitation combinations 
-        ### build list for precipitation combinations
-        solid_combinations = []     
-        for _ in all_rec:
-            ind = []
-            for x in range(len(_)):
-                if _[x] >= 0:
-                    ### if affinity >= 0 ie precipitation either happend or 
-                    ### would have if precip was turned on.
-                    ind.append(x)                    
-            ### grab index of values over 0,
-            solid_combinations.append([all_precip[i] for i in ind])
-        ### unique mineral co-precipiation occrrances in  order # ord_id
-        unique_combinations = [ list(x) for x in set(
-            tuple(x) for x in solid_combinations) if list(x) !=[]] + ['']
-
-
-        ### dictionary of unique mineral combinations, with an int index 
-        ### to reference color. This random association between the names 
-        ### and the color, once established here, presists.
-        combo_dict = {}
-        for _ in range(len(unique_combinations)):
-            ### z_dict['miner_set_name'] = index
-            combo_dict['_'.join(unique_combinations[_])] = _
-
-
-        ### generate color index as the combintion of minerals names precipiated
-        z_ind = ['_'.join(_) for _ in solid_combinations]
-        
-        return combo_dict
-
-
-def plt_grid(df, ):
-
-    grid = sns.PairGrid(data=df, color='blue', height=4, layout_pad=1.5)
-
 
 def check_data0s_loaded():
     """
@@ -447,5 +267,5 @@ RAINBOW_BLK = LinearSegmentedColormap.from_list("mycmap", ["#020004", "#75228f",
                                                            "#dd2823"])
 RAINBOW = LinearSegmentedColormap.from_list("mycmap", ["#75228f", "#3e53d2", "#4eb01f",
                                                        "#ffd805", "#fd9108", "#dd2823"])
-blu_to_orng = ["#47eaff", "#2bbae0", "#2f8fd1", "#3363c2", "#3a0ca3",
+BLU_TO_ORG = ["#47eaff", "#2bbae0", "#2f8fd1", "#3363c2", "#3a0ca3",
                  "#9d2a52", "#ff4800", "#ff7900", "#ffa224", "#ffcb47"]

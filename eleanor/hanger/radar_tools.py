@@ -27,19 +27,20 @@ def Radar(camp, x_sp, y_sp, z_sp,
     :param z_sp: z variable,
     :type z_sp: str
     :param notes: notes on data to show beneath image
-    :type description: str
-    :param ord_id: order number of interest
+    :type notes: str
+    :param ord_id: order number(s) of interest
     :type ord_id: can by one order (as int) or list of orders.
-    :param limit: NOT WORKING number of sample points to limit plotting to
-        order calls can be very large. Set limit to -1 for all.
+    :param limit: number of sample points per order to limit plotting to
+        order calls can be very large.
     :type limit: int
     :param where: end statement for sql call to limit parameter space search
         region
     :type where: str
     :param transparent: make background on figure transparent?
     :type transparent: boolean
-    :param add_analytics: NOT WORKING add mean line and standard deviations's to plot
-    :type add_analytics: str
+    :param savename: Name of file for saving (stays in the campaign/fig/) directory.
+                    (.jpeg, .png, .svg supported)
+    :type savename: str
     """
     # plotting Parameters
     font = {'size': 11}

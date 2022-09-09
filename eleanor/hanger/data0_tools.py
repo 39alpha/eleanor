@@ -14,8 +14,9 @@ import shutil
 from os.path import abspath, dirname, join, realpath
 import matplotlib.pyplot as plt
 
-from .tool_room import grab_lines, grab_str, read_inputs, WorkingDirectory
 from .eq36 import eqpt
+from .tool_room import grab_lines, grab_str, hash_dir, read_inputs, WorkingDirectory
+from tempfile import TemporaryDirectory
 
 
 DATA_PATH = join(abspath(join(dirname(realpath(__file__)), '..')), 'data')
@@ -339,7 +340,9 @@ def convert_to_d1(src, dst):
                 os.makedirs(os.path.relpath(root, src), exist_ok=True)
                 with WorkingDirectory(os.path.join(dst, os.path.relpath(root, src))):
                     for data0 in files:
-                        run_eqpt(os.path.join(root, data0))
+                        data0 = os.path.join(root, data0)
+                        if is_data0_file(data0):
+                            run_eqpt(data0)
         elif os.path.isfile(src):
             run_eqpt(src)
         else:
@@ -357,6 +360,45 @@ def canonical_d0_name(data0):
         ext = '_' + ext
 
     return os.path.join(os.path.dirname(data0), stem + ext + '.d0')
+
+def hash_data0s(data0dir):
+    """
+    Recursively generate a hash of all data0 files in a directory. If a file is identified as not
+    a data0 file (see :func:`is_data0_file`), then it is not hashed and is added to a list of
+    unhashed files. Both the hash and the list of unhashed files are returned.
+
+    :param data0dir: path to the directory of data0 files to hash
+    :type data0dir: str
+    :return: a hash of all data0 files and a list of unhashed files
+    :rtype: (str, hash) """
+    unhashed = []
+    with TemporaryDirectory() as tmpdir:
+        for root, dirs, files in os.walk(data0dir):
+            tmp = os.path.join(tmpdir, os.path.relpath(root, data0dir))
+            os.makedirs(tmp, exist_ok=True)
+            for data0 in files:
+                src = os.path.join(root, data0)
+                if is_data0_file(src):
+                    dst = os.path.join(tmp, canonical_d0_name(data0))
+                    shutil.copyfile(src, dst)
+                else:
+                    unhashed.append(src)
+                    continue
+
+        return hash_dir(tmpdir), unhashed
+
+def is_data0_file(data0):
+    """
+    Determine whether a file is a data0 file by inspecting the first 5 characters of the file.
+    Those characters must exist and must be :code:`data0` after converting to lower case.
+
+    :param data0: path to a data0 file
+    :type data0: str
+    :return: whether or not we think the file is in fact a data0 file
+    :rtype: str
+    """
+    with open(data0, 'r') as handle:
+        return handle.read(5).lower() == 'data0'
 
 class TPCurve(object):
     def __init__(self, fname, T, P):
@@ -564,4 +606,3 @@ class TPCurve(object):
             selected_curves.append(selected_curve)
 
         return Ts, Ps, selected_curves
-

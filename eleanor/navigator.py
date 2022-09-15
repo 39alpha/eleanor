@@ -132,7 +132,7 @@ def huffer(conn, camp, quiet=False):
         for _ in camp.vs_basis.keys():
             basis_dict[_] = np.mean(camp.vs_basis[_])
 
-        camp.local_3i.write('test.3i', state_dict, basis_dict, 'H+', output_details='v')
+        camp.local_3i.write('test.3i', state_dict, basis_dict, camp.cb, output_details='v')
         data1_file = os.path.realpath(os.path.join(camp.data1_dir, curve.data1file))
         out, err = eq3(data1_file, 'test.3i')
 
@@ -349,6 +349,7 @@ def calculate_ele_totals(df, elements, order_size, precision):
     :rtype: :class:'pandas.core.frame.DataFrame'
     """
     ele_totals = {}
+
     for _ in elements:
         ele_totals[_] = [0] * order_size
 

@@ -458,7 +458,6 @@ def mine_6o(camp, date, elements, ss, file, dat, col_names):
                     x += 1
                 else:
                     x += 1
-            del x
 
         elif '--- Summary of Solid Phases (ES) ---' in lines[i]:
             # ### Solids data is stored in a temp_s_dict, to be
@@ -472,8 +471,16 @@ def mine_6o(camp, date, elements, ss, file, dat, col_names):
             temp_s_dict = {}
 
             x = 4
-            while not re.findall('^\n', lines[i + x]):
-                if 'None' not in lines[i + x]:
+            while True:
+                if re.findall('^\n', lines[i + x]) and re.findall('^\n', lines[i + x + 1]):
+                    # ### two blank lines signifies end of block
+                    break
+
+                elif re.findall('^\n', lines[i + x]):
+                    # ### single blank lines separate solids from solid slutions reporting
+                    x += 1
+
+                elif 'None' not in lines[i + x]:
                     # ## solids value grab_float()'s must reach from the
                     # ## end of the line (-1, -2, etc.)
                     # ## because some solid names contain spaces.
@@ -484,9 +491,9 @@ def mine_6o(camp, date, elements, ss, file, dat, col_names):
                     # ### mols
                     temp_s_dict[lines[i + x][:25].strip()] = [grab_float(lines[i + x], -3)]
                     x += 1
+
                 else:
                     x += 1
-            del x
 
         elif '--- Saturation States of Pure Solids ---' in lines[i]:
             x = 4
@@ -504,7 +511,6 @@ def mine_6o(camp, date, elements, ss, file, dat, col_names):
                     x += 1
                 else:
                     x += 1
-            del x
 
         elif camp.SS and ' --- Saturation States of Solid Solutions ---' in lines[i]:
             x = 4
@@ -523,7 +529,6 @@ def mine_6o(camp, date, elements, ss, file, dat, col_names):
                     x += 1
                 else:
                     x += 1
-            del x
 
         elif '    --- Fugacities ---' in lines[i]:
             x = 4
@@ -543,14 +548,12 @@ def mine_6o(camp, date, elements, ss, file, dat, col_names):
                         x += 1
                 else:
                     x += 1
-            del x
             break
 
     for i in temp_s_dict.keys():
         # ## write temp_s_dict[i] to build_df[i]. As temp_s_dict only
         # ## contains solids that actually precipitated, the
         # ## affinity values in build_df[i] can simply be overwritten
-
         build_dict[i] = temp_s_dict[i]
 
     build_dict['uuid'] = [dat[0]]

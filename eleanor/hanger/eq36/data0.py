@@ -19,6 +19,7 @@ class Data0(object):
         self.liquids = None
         self.gases = None
         self.solid_solutions = None
+        self.references = None
 
 class Params(object):
     def __init__(self):

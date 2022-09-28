@@ -32,6 +32,7 @@ class Data0Builder(Data0Listener):
         ctx.data.liquids = ctx.liquidsSection().data
         ctx.data.gases = ctx.gasesSection().data
         ctx.data.solid_solutions = ctx.solidSolutionsSection().data
+        ctx.data.references = ctx.referenceSection().data
 
         self.data = ctx.data
 
@@ -226,10 +227,10 @@ class Data0Builder(Data0Listener):
         pass
 
     def exitReferenceSection(self, ctx: Data0Parser.ReferenceSectionContext):
-        pass
+        ctx.data = ctx.references().data
 
     def exitReferences(self, ctx: Data0Parser.ReferencesContext):
-        pass
+        ctx.data = ctx.getText()
 
     def exitBasisSpecies(self, ctx: Data0Parser.BasisSpeciesContext):
         ctx.data = BasisSpecies()

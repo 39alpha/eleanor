@@ -21,7 +21,7 @@ setup(
                             'helmsman=eleanor.command_line:helmsman',
                             'navigator=eleanor.command_line:navigator'],
     },
-    install_requires=['numpy', 'pandas', 'matplotlib'],
+    install_requires=['matplotlib', 'numpy', 'pandas', 'antlr4-python3-runtime'],
     setup_requires=['green'],
     test_suite='test',
     include_package_data=True,

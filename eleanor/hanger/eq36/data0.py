@@ -58,14 +58,26 @@ class Species(object):
         self.composition = composition
 
 class BasicSpecies(Species):
-    def __init__(self, charge: Integer, volume: Volume | None = None, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self,
+                 name: str,
+                 composition: dict[str, Integer],
+                 charge: Integer,
+                 volume: Volume | None = None):
+
+        super().__init__(name, composition)
         self.charge = charge
         self.volume = volume
 
 class ComplexSpecies(BasicSpecies):
-    def __init__(self, dissociation: Dissociation, logk: np.ndarray, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self,
+                 name: str,
+                 composition: dict[str, Integer],
+                 dissociation: Dissociation,
+                 logk: np.ndarray,
+                 charge: Integer,
+                 volume: Volume | None = None):
+
+        super().__init__(name, composition, charge, volume)
         self.dissociation = dissociation
         self.logk = logk
 
@@ -75,7 +87,7 @@ class BasisSpecies(BasicSpecies):
         charge = f'charge={repr(self.charge)}'
         volume = f'volume={repr(self.volume)}'
         composition = f'composition={repr(self.composition)}'
-        return f'BasisSpecies({name}, {charge}, {volume}, {composition}'
+        return f'BasisSpecies({name}, {composition}, {charge}, {volume})'
 
     def __str__(self) -> str:
         return f'<BasisSpecies {self.name}>'
@@ -88,7 +100,7 @@ class AuxiliaryBasisSpecies(ComplexSpecies):
         composition = f'composition={repr(self.composition)}'
         dissociation = f'dissociation={repr(self.dissociation)}'
         logk = f'logk={repr(self.logk)}'
-        return f'AuxiliaryBasisSpecies({name}, {charge}, {volume}, {composition}, {dissociation}, {logk})'
+        return f'AuxiliaryBasisSpecies({name}, {composition}, {dissociation}, {logk}, {charge}, {volume})'
 
     def __str__(self) -> str:
         return f'<AuxiliaryBasisSpecies {self.name}>'
@@ -101,7 +113,7 @@ class AqueousSpecies(ComplexSpecies):
         composition = f'composition={repr(self.composition)}'
         dissociation = f'dissociation={repr(self.dissociation)}'
         logk = f'logk={repr(self.logk)}'
-        return f'AqueousSpecies({name}, {charge}, {volume}, {composition}, {dissociation}, {logk})'
+        return f'AqueousSpecies({name}, {composition}, {dissociation}, {logk}, {charge}, {volume})'
 
     def __str__(self) -> str:
         return f'<AqueousSpecies {self.name}>'
@@ -114,7 +126,7 @@ class Solid(ComplexSpecies):
         composition = f'composition={repr(self.composition)}'
         dissociation = f'dissociation={repr(self.dissociation)}'
         logk = f'logk={repr(self.logk)}'
-        return f'Solid({name}, {charge}, {volume}, {composition}, {dissociation}, {logk})'
+        return f'Solid({name}, {composition}, {dissociation}, {logk}, {charge}, {volume})'
 
     def __str__(self) -> str:
         return f'<Solid {self.name}>'
@@ -127,7 +139,7 @@ class Liquid(ComplexSpecies):
         composition = f'composition={repr(self.composition)}'
         dissociation = f'dissociation={repr(self.dissociation)}'
         logk = f'logk={repr(self.logk)}'
-        return f'Liquid({name}, {charge}, {volume}, {composition}, {dissociation}, {logk})'
+        return f'Liquid({name}, {composition}, {dissociation}, {logk}, {charge}, {volume})'
 
     def __str__(self) -> str:
         return f'<Liquid {self.name}>'
@@ -140,7 +152,7 @@ class Gas(ComplexSpecies):
         composition = f'composition={repr(self.composition)}'
         dissociation = f'dissociation={repr(self.dissociation)}'
         logk = f'logk={repr(self.logk)}'
-        return f'Gas({name}, {charge}, {volume}, {composition}, {dissociation}, {logk})'
+        return f'Gas({name}, {composition}, {dissociation}, {logk}, {charge}, {volume})'
 
     def __str__(self) -> str:
         return f'<Gas {self.name}>'
@@ -157,8 +169,13 @@ class SolidSolutionModel(object):
         return f'<SolidSolutionModel {self.type} {self.params}>'
 
 class SolidSolution(Species):
-    def __init__(self, model: SolidSolutionModel, site_params: np.ndarray, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self,
+                 name: str,
+                 composition: dict[str, Integer],
+                 model: SolidSolutionModel,
+                 site_params: np.ndarray):
+
+        super().__init__(name, composition)
         self.model = model
         self.site_params = site_params
 

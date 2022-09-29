@@ -33,7 +33,6 @@ class Data0Builder(Data0Listener):
                          solid_solutions=ctx.solidSolutionsSection().data,
                          references=ctx.referenceSection().data)
 
-        ctx.data.reify()
         ctx.data.verify()
 
         self.data = ctx.data

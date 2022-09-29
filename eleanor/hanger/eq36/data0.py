@@ -1,3 +1,4 @@
+import functools
 import numpy as np
 
 Integer = int | np.int64
@@ -56,6 +57,10 @@ class Species(object):
     def __init__(self, name: str, composition: dict[str, Integer]):
         self.name = name
         self.composition = composition
+
+    @property
+    def elements(self) -> set[str]:
+        return set(self.composition.keys())
 
 class BasicSpecies(Species):
     def __init__(self,
@@ -226,17 +231,59 @@ class Data0(object):
         self.gases = gases
         self.solid_solutions = solid_solutions
         self.references = references
-        self.__species = set[str]()
 
-    def reify(self):
-        self.__species = set(self.elements.keys())
-        self.__species.update(self.basis_species.keys())
-        self.__species.update(self.auxiliary_basis_species.keys())
-        self.__species.update(self.aqueous_species.keys())
-        self.__species.update(self.solids.keys())
-        self.__species.update(self.liquids.keys())
-        self.__species.update(self.gases.keys())
-        self.__species.update(self.solid_solutions.keys())
+        self.__species_names: set[str] | None = None
+        self.__used_elements: set[str] | None = None
+
+    def __getitem__(self, species_name):
+        if species_name in self.basis_species:
+            return self.basis_species[species_name]
+        elif species_name in self.auxiliary_basis_species:
+            return self.auxiliary_basis_species[species_name]
+        elif species_name in self.aqueous_species:
+            return self.aqueous_species[species_name]
+        elif species_name in self.solids:
+            return self.solids[species_name]
+        elif species_name in self.liquids:
+            return self.liquids[species_name]
+        elif species_name in self.gases:
+            return self.gases[species_name]
+        elif species_name in self.solid_solutions:
+            return self.solid_solutions[species_name]
+        else:
+            raise KeyError(species_name)
+
+    @property
+    def species_names(self) -> set[str]:
+        if self.__species_names is None:
+            self.__species_names = set(self.elements.keys())
+            self.__species_names.update(self.basis_species.keys())
+            self.__species_names.update(self.auxiliary_basis_species.keys())
+            self.__species_names.update(self.aqueous_species.keys())
+            self.__species_names.update(self.solids.keys())
+            self.__species_names.update(self.liquids.keys())
+            self.__species_names.update(self.gases.keys())
+            self.__species_names.update(self.solid_solutions.keys())
+
+        return self.__species_names
+
+    @property
+    def used_elements(self) -> set[str]:
+        if self.__used_elements is None:
+            def union(acc: set[str], x: Species) -> set[str]:
+                acc.update(x.elements)
+                return acc
+
+            self.__used_elements = set[str]()
+            functools.reduce(union, self.basis_species.values(), self.__used_elements)
+            functools.reduce(union, self.auxiliary_basis_species.values(), self.__used_elements)
+            functools.reduce(union, self.aqueous_species.values(), self.__used_elements)
+            functools.reduce(union, self.solids.values(), self.__used_elements)
+            functools.reduce(union, self.liquids.values(), self.__used_elements)
+            functools.reduce(union, self.gases.values(), self.__used_elements)
+
+        return self.__used_elements
+
 
     def verify(self):
         self.__verify_params()
@@ -271,11 +318,11 @@ class Data0(object):
 
         for s in species.values():
             for substrate in s.dissociation.substrates.keys():
-                if substrate not in self.__species:
+                if substrate not in self.species_names:
                     raise Exception(f'{species} has a substrate ({substrate}) in its dissocation reaction ({species.dissociation}) that does not appear in the elements or any species sections')
 
             for product in s.dissociation.products.keys():
-                if product not in self.__species:
+                if product not in self.species_names:
                     raise Exception(f'{species} has a product ({product}) in its dissocation reaction ({species.dissociation}) that does not appear in the elements or any species sections')
 
             if len(s.logk) != len(self.params.temperatures):

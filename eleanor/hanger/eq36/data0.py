@@ -1,3 +1,5 @@
+from typing import Iterator
+
 class Data0(object):
     @staticmethod
     def from_file(fname, *args, **kwargs):
@@ -5,21 +7,23 @@ class Data0(object):
         data0, _ = parse_data0(fname, *args, **kwargs)
         return data0
 
-    def __init__(self, fname=None):
+    def __init__(self, fname=None, magic=None, header=None, params=None, bdot=None, elements=None,
+                 basis_species=None, auxiliary_basis_species=None, aqueous_species=None,
+                 solids=None, liquids=None, gases=None, solid_solutions=None, references=None):
         self.fname = fname
-        self.magic = None
-        self.header = None
-        self.params = None
-        self.bdot = None
-        self.elements = None
-        self.basis_species = None
-        self.auxiliary_basis_species = None
-        self.aqueous_species = None
-        self.solids = None
-        self.liquids = None
-        self.gases = None
-        self.solid_solutions = None
-        self.references = None
+        self.magic = magic
+        self.header = header
+        self.params = params
+        self.bdot = bdot
+        self.elements = elements
+        self.basis_species = basis_species
+        self.auxiliary_basis_species = auxiliary_basis_species
+        self.aqueous_species = aqueous_species
+        self.solids = solids
+        self.liquids = liquids
+        self.gases = gases
+        self.solid_solutions = solid_solutions
+        self.references = references
 
 class Params(object):
     def __init__(self):
@@ -37,22 +41,18 @@ class BDotSpecies(object):
         self.azer0 = None
         self.neutral_ion_type = None
 
-class Element(object):
-    def __init__(self):
-        self.name = None
-        self.weight = None
+class Dissociation(object):
+    def __init__(self, substrates=None, products=None):
+        self.substrates = substrates if substrates is not None else dict()
+        self.products = products if products is not None else dict()
 
-class Composition(object):
-    def __init__(self):
-        self.terms = None
+    def __repr__(self) -> str:
+        return f'Dissociation(substrats={self.substrates}, products={self.products})'
 
-class Dissociation(Composition):
-    pass
-
-class FormulaTerm(object):
-    def __init__(self):
-        self.count = None
-        self.element = None
+    def __str__(self) -> str:
+        substrates = ' + '.join(f'{count} {name}' for name, count in self.substrates.items())
+        products = ' + '.join(f'{count} {name}' for name, count in self.products.items())
+        return f'{substrates} ⇌ {products}'
 
 class Species(object):
     def __init__(self):

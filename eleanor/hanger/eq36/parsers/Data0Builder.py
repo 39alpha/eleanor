@@ -1,8 +1,7 @@
 from . Data0Listener import Data0Listener
 from . Data0Parser import Data0Parser
 from .. data0 import Data0, AqueousSpecies, AuxiliaryBasisSpecies, BDotSpecies, BasisSpecies, \
-    Composition, Dissociation, Element, FormulaTerm, Gas, Liquid, Params, Solid, SolidSolution, \
-    SolidSolutionModel, Volume
+    Dissociation, Gas, Liquid, Params, Solid, SolidSolution, SolidSolutionModel, Volume
 import numpy as np
 
 class Data0Builder(Data0Listener):
@@ -19,20 +18,20 @@ class Data0Builder(Data0Listener):
         ctx.data = ctx.getText()
 
     def exitData0(self, ctx: Data0Parser.Data0Context):
-        ctx.data = Data0(self.fname)
-        ctx.data.magic = ctx.magic().data
-        ctx.data.header = ctx.header().data
-        ctx.data.params = ctx.paramsSection().data
-        ctx.data.bdot = ctx.bdotSpeciesSection().data
-        ctx.data.elements = ctx.elementsSection().data
-        ctx.data.basis_species = ctx.basisSpeciesSection().data
-        ctx.data.auxiliary_basis_species = ctx.auxiliaryBasisSpeciesSection().data
-        ctx.data.aqueous_species = ctx.aqueousSpeciesSection().data
-        ctx.data.solids = ctx.solidsSection().data
-        ctx.data.liquids = ctx.liquidsSection().data
-        ctx.data.gases = ctx.gasesSection().data
-        ctx.data.solid_solutions = ctx.solidSolutionsSection().data
-        ctx.data.references = ctx.referenceSection().data
+        ctx.data = Data0(fname=self.fname,
+                         magic=ctx.magic().data,
+                         header=ctx.header().data,
+                         params=ctx.paramsSection().data,
+                         bdot=ctx.bdotSpeciesSection().data,
+                         elements=ctx.elementsSection().data,
+                         basis_species=ctx.basisSpeciesSection().data,
+                         auxiliary_basis_species=ctx.auxiliaryBasisSpeciesSection().data,
+                         aqueous_species=ctx.aqueousSpeciesSection().data,
+                         solids=ctx.solidsSection().data,
+                         liquids=ctx.liquidsSection().data,
+                         gases=ctx.gasesSection().data,
+                         solid_solutions=ctx.solidSolutionsSection().data,
+                         references=ctx.referenceSection().data)
 
         self.data = ctx.data
 
@@ -95,12 +94,12 @@ class Data0Builder(Data0Listener):
         ctx.data.neutral_ion_type = np.int64(neutral_ion_type.getText())
 
     def exitElementsSection(self, ctx: Data0Parser.ElementsSectionContext):
-        ctx.data = [element.data for element in ctx.element()]
+        ctx.data = {name: weight for name, weight in map(lambda c: c.data, ctx.element())}
 
     def exitElement(self, ctx: Data0Parser.ElementContext):
-        ctx.data = Element()
-        ctx.data.name = ctx.WORD().getText()
-        ctx.data.weight = np.float64(ctx.NUMBER().getText())
+        name = ctx.WORD().getText()
+        weight = np.float64(ctx.NUMBER().getText())
+        ctx.data = (name, weight)
 
     def exitBasisSpeciesSection(self, ctx: Data0Parser.BasisSpeciesSectionContext):
         ctx.data = [species.data for species in ctx.basisSpecies()]
@@ -109,40 +108,47 @@ class Data0Builder(Data0Listener):
         ctx.data = np.float64(ctx.NUMBER().getText())
 
     def exitComposition(self, ctx: Data0Parser.CompositionContext):
-        ctx.data = Composition()
-        ctx.data.terms = []
+        ctx.data = dict()
 
         num_elements = np.int64(ctx.NUMBER().getText())
         for line in ctx.formulaLine():
-            ctx.data.terms.extend(line.data)
+            for name, count in line.data:
+                ctx.data[name] = count
 
-        if len(ctx.data.terms) != num_elements:
-            msg = f'expected {num_elements} terms in composition, got {len(ctx.data.terms)}'
+        if len(ctx.data) != num_elements:
+            msg = f'expected {num_elements} terms in composition, got {len(ctx.data)}'
             raise Exception(msg)
 
     def exitFormulaLine(self, ctx: Data0Parser.FormulaLineContext):
         ctx.data = [term.data for term in ctx.formulaTerm()]
 
     def exitFormulaTerm(self, ctx: Data0Parser.FormulaTermContext):
-        ctx.data = FormulaTerm()
-        ctx.data.count = np.int64(np.float64(ctx.NUMBER().getText()))
-        ctx.data.element = ctx.WORD().getText()
+        element = ctx.WORD().getText()
+        count = np.int64(np.float64(ctx.NUMBER().getText()))
+        ctx.data = (element, count)
 
     def exitAuxiliaryBasisSpeciesSection(self,
                                          ctx: Data0Parser.AuxiliaryBasisSpeciesSectionContext):
         ctx.data = [species.data for species in ctx.auxiliaryBasisSpecies()]
 
     def exitDissociation(self, ctx: Data0Parser.DissociationContext):
-        ctx.data = Dissociation()
-        ctx.data.terms = []
+        substrates = dict()
+        products = dict()
 
         num_elements = np.int64(ctx.NUMBER().getText())
         for line in ctx.formulaLine():
-            ctx.data.terms.extend(line.data)
+            for name, count in line.data:
+                if count < 0:
+                    substrates[name] = -count
+                else:
+                    products[name] = count
 
-        if len(ctx.data.terms) != num_elements:
-            msg = f'expected {num_elements} terms in composition, got {len(ctx.data.terms)}'
+        n = len(substrates) + len(products)
+        if n != num_elements:
+            msg = f'expected {num_elements} terms in dissociation reaction, got {n}'
             raise Exception(msg)
+
+        ctx.data = Dissociation(substrates, products)
 
     def exitPossiblyEmptyNumberGrid(self, ctx: Data0Parser.PossiblyEmptyNumberGridContext):
         grid = []
@@ -180,15 +186,15 @@ class Data0Builder(Data0Listener):
         ctx.data = [solid_solution.data for solid_solution in ctx.solidSolution()]
 
     def exitComponents(self, ctx: Data0Parser.ComponentsContext):
-        ctx.data = Composition()
-        ctx.data.terms = []
+        ctx.data = dict()
 
         num_elements = np.int64(ctx.NUMBER().getText())
         for line in ctx.formulaLine():
-            ctx.data.terms.extend(line.data)
+            for name, count in line.data:
+                ctx.data[name] = count
 
-        if len(ctx.data.terms) != num_elements:
-            msg = f'expected {num_elements} terms in composition, got {len(ctx.data.terms)}'
+        if len(ctx.data) != num_elements:
+            msg = f'expected {num_elements} solid solution components, got {len(ctx.data)}'
             raise Exception(msg)
 
     def exitModelSpec(self, ctx: Data0Parser.ModelSpecContext):

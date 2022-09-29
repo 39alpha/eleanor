@@ -210,13 +210,13 @@ class Data0Builder(Data0Listener):
         num_params = np.int64(ctx.NUMBER().getText())
         ctx.data = ctx.possiblyEmptyNumberGrid().data
         if not self.permissive and num_params != len(ctx.data):
-            raise Exception(f'expected {num_params} model parameters, got ${len(ctx.data)}')
+            raise Exception(f'expected {num_params} model parameters, got {len(ctx.data)}')
 
     def exitSiteParams(self, ctx: Data0Parser.SiteParamsContext):
         num_params = np.int64(ctx.NUMBER().getText())
         ctx.data = ctx.numberLine().data
         if not self.permissive and num_params != len(ctx.data):
-            raise Exception(f'expected {num_params} site parameters, got ${len(ctx.data)}')
+            raise Exception(f'expected {num_params} site parameters, got {len(ctx.data)}')
 
     def exitDateLastRevised(self, ctx: Data0Parser.DateLastRevisedContext):
         pass

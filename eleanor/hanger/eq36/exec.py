@@ -14,12 +14,14 @@ class Eq36Exception(Exception):
     pass
 
 
-def error_guard(output, cmd):
+def error_guard(output, cmd, fname=None):
     """
     Parse EQ3/6 standard output content for error messages and raise an
     :class:`Eq36Exception` if any are found.
 
     :param output: the content of the EQ3/6 output file
+    :param cmd: the command that was run
+    :param fname: an optional filename to add to the error message
     :raises Eq36Exception: if an error message is found
     """
     matches = re.search('Error - (.|\n)*', str(output))
@@ -31,20 +33,24 @@ def error_guard(output, cmd):
             no_newline = trimmed_prefix.replace('\\n', '')
             message = re.sub('\s+', ' ', no_newline)
             if re.match('^\s*$', message) is None:
-                raise Eq36Exception(message)
+                if fname is None:
+                    raise Eq36Exception(message)
+                else:
+                    raise Eq36Exception(f'{message} in file "{fname}"')
 
-def run(cmd, *args):
+def run(cmd, *args, **kwargs):
     """
     Create and run a subprocess with command :code:`cmd` with arguments
     :code:`args`, capture the standard input and output, and return them.
 
     :param cmd: the command to run, e.g. `ls`
     :param \*args: arguments to the command
+    :param \*\*kwargs: optional keyword arguments to pass to :func:`error_guard`
     :return: the standard output and error
     """
     process = Popen([cmd, *args], stdout=PIPE, stderr=PIPE)
     stdout, stderr = process.communicate()
-    error_guard(stdout, cmd)
+    error_guard(stdout, cmd, **kwargs)
 
     return stdout, stderr
 
@@ -65,7 +71,7 @@ def eqpt(data0):
     :return: the standard output and error that results from eq3nr on the data1
              and 3i files.
     """
-    return run('eqpt', data0)
+    return run('eqpt', data0, fname=data0)
 
 
 def eq3(data1, threei):
@@ -84,7 +90,7 @@ def eq3(data1, threei):
     :return: the standard output and error that results from eq3nr on the data1
              and 3i files.
     """
-    return run('eq3nr', data1, threei)
+    return run('eq3nr', data1, threei, fname=threei)
 
 
 def eq6(data1, sixi):
@@ -106,4 +112,4 @@ def eq6(data1, sixi):
     :return: the standard output and error that results from eq6 on the data1
              and 6i files.
     """
-    return run('eq6', data1, sixi)
+    return run('eq6', data1, sixi, fname=sixi)

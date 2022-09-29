@@ -5,7 +5,7 @@ The :class:`Campaign` class contains the specification of modeling objectives.
 """
 from .hanger import data0_tools, tool_room
 from os import mkdir
-from os.path import isdir, join, realpath
+from os.path import isdir, join, realpath, relpath
 from .hanger.data0_tools import TPCurve
 
 import json
@@ -182,7 +182,12 @@ class Campaign:
         self._hash = tool_room.hash_file(order_json)
         shutil.copyfile(order_json, self.order_file)
 
-        self._data0_hash = tool_room.hash_dir(self.data0_dir)
+        self._data0_hash, unhashed = data0_tools.hash_data0s(self.data0_dir)
+        if verbose and len(unhashed) != 0:
+            print(f'WARNING: The following files in the data0 directory ({self.data0_dir}) do not appear to be valid data0 files:')
+            for file in unhashed:
+                print(f'  {relpath(file, self.data0_dir)}')
+            print()
         self.data1_dir = join(self.campaign_dir, 'data1', self._data0_hash)
         if not isdir(self.data1_dir):
             data0_tools.convert_to_d1(self.data0_dir, self.data1_dir)

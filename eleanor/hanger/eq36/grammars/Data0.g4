@@ -1,33 +1,19 @@
 grammar Data0;
 
 NL        : [\r\n];
-MAGIC     : ('data0');
-SEPERATOR : ('+--------------------------------------------------------------------');
-OPAREN    : '(';
-CPAREN    : ')';
-OBRACK    : '[';
-CBRACK    : ']';
-SEMICOLON : ';';
-COLON     : ':';
-HYPHEN    : '-';
-COMMA     : ',';
-SLASH     : '/';
-DQUOTE    : '"';
-SQUOTE    : '\'';
-CARET     : '^';
-WORD      : ('a'..'z'|'A'..'Z'|'(')('a'..'z'|'A'..'Z'|'0'..'9'|'('..')'|'+'|'-'|'*'|','|'_'|':')*;
-WS        : [ \t]+ -> skip;
+MAGIC     : ('data0'|'Data0'|'DATA0');
+SEPERATOR : '+' '-'+;
+WORD      : ~[\-.0-9 \t\r\n]~[. \t\r\n]*;
+WS        : [ \t]+;
 NUMBER    : SIGN? INTEGER | SIGN? FLOAT;
 COMMENT   : [\r\n] '*' ~[\r\n]* -> skip;
-ANY       : .;
 
-fragment WORDISH : ;
 fragment SIGN : '+' | '-';
 fragment INTEGER : '0'..'9'+;
 fragment FLOAT   : '0'..'9'+ '.' '0'..'9'+;
 
 data0
-    : magic
+    : magicLine
       header
       paramsSection
       bdotSpeciesSection
@@ -42,13 +28,15 @@ data0
       referenceSection
       EOF;
 
-magic
-    : MAGIC '.' restOfLine NL+
+magicLine
+    : MAGIC '.' restOfLine
     | MAGIC NL+;
 
-restOfLine : ~NL*;
+restOfLine : ~NL* NL+;
 
-header : ~SEPERATOR* NL SEPERATOR NL;
+header : ~SEPERATOR* NL seperator;
+
+seperator : SEPERATOR WS* NL;
 
 paramsSection
     : (MAGIC | 'Miscellaneous')
@@ -60,172 +48,190 @@ paramsSection
       bdot
       cco2
       eHLogK
-      SEPERATOR
-      NL;
+      seperator;
 
-sectionHeader : restOfLine NL SEPERATOR NL;
+sectionHeader : restOfLine seperator;
 
 temperatures
-    : 'Temperature limits'
-      restOfLine NL
-      numberLine
-      'temperatures'
-      restOfLine NL
+    : 'Temperature limits' restOfLine
+      temperatureRange
+      'temperatures' restOfLine
       numberGrid;
 
-pressures : 'pressures' restOfLine NL numberGrid;
-
-debyeHuckelA : 'debye huckel a' restOfLine NL numberGrid;
-
-debyeHuckelB : 'debye huckel b' restOfLine NL numberGrid;
-
-bdot : 'bdot' restOfLine NL numberGrid;
-
-cco2 : 'cco2' restOfLine NL numberGrid;
-
-eHLogK : 'log k for eh reaction' restOfLine NL numberGrid;
-
-bdotSpeciesSection : 'bdot' sectionHeader bdotSpecies+ SEPERATOR NL;
-
-bdotSpecies : WORD NUMBER NUMBER NL;
-
-elementsSection : 'elements' sectionHeader element+ SEPERATOR NL;
-
-element : WORD NUMBER NL;
-
-basisSpeciesSection : sectionHeader basisSpecies+;
-
-chargeLine : 'charge' '=' NUMBER NL;
-
-composition : NUMBER 'element(s):' NL formulaLine+;
-
-formulaLine : formulaTerm+ NL;
-
-formulaTerm : NUMBER WORD;
-
-auxiliaryBasisSpeciesSection : 'auxiliary' sectionHeader auxiliaryBasisSpecies+;
-
-dissociation : NUMBER 'species' restOfLine NL formulaLine+;
-
-possiblyEmptyNumberGrid : numberLine*;
+temperatureRange : number number NL;
 
 numberGrid : numberLine+;
 
-numberLine : NUMBER+ NL;
+numberLine : number+ WS* NL;
 
-aqueousSpeciesSection : 'aqueous' sectionHeader aqueousSpecies+;
+number : WS* NUMBER;
+
+pressures : 'pressures' restOfLine numberGrid;
+
+debyeHuckelA : 'debye huckel a' restOfLine numberGrid;
+
+debyeHuckelB : 'debye huckel b' restOfLine numberGrid;
+
+bdot : 'bdot' restOfLine numberGrid;
+
+cco2 : 'cco2' restOfLine numberGrid;
+
+eHLogK : 'log k for eh reaction' restOfLine numberGrid;
+
+bdotSpeciesSection : 'bdot parameters' sectionHeader bdotSpecies+ seperator;
+
+bdotSpecies : bdotSpeciesName number number NL;
+
+// It would be great if we could specify the length of the word to be 32
+bdotSpeciesName : WORD;
+
+elementsSection : 'elements' sectionHeader element+ seperator;
+
+element : elementName number NL;
+
+// It would be great if we could specify the length of the word to be 32
+elementName : WORD;
+
+basisSpeciesSection
+    : 'basis species'
+      sectionHeader
+      basisSpecies+;
+
+basisSpecies
+    : speciesName
+      speciesNote
+      (dateRevised|speciesType|keys)+
+      (chargeLine|volumeLine)+
+      composition
+      seperator;
+
+// It would be great if we could specify the length of the word to be 32
+speciesName : WORD;
+
+speciesNote : ~NL* NL;
+
+dateRevised :
+    WS
+    dateRevisedKey
+    WS*
+    '='
+    WS*
+    date;
+
+dateRevisedKey : ('date last revised' | 'revised');
+
+date
+    : NUMBER ('-' | '.') restOfLine
+    | restOfLine;
+
+speciesType : WS 'sp.type' WS '=' WS restOfLine;
+
+keys : WS 'keys' WS '=' WS restOfLine;
+
+chargeLine : WS 'charge' WS '=' WS number WS* NL;
+
+composition : number WS 'element(s):' restOfLine formulaGrid;
+
+formulaGrid : formulaLine+;
+
+formulaLine : formulaTerm+ WS* NL;
+
+formulaTerm : number WS componentName;
+
+componentName : WORD;
+
+// Flesh out how to parse the unit?
+volumeLine : WS 'V0PrTr' WS '=' WS volume restOfLine;
+
+volume : number;
+
+auxiliaryBasisSpeciesSection : 'auxiliary basis species' sectionHeader auxiliaryBasisSpecies+;
+
+auxiliaryBasisSpecies
+    : speciesName
+      speciesNote
+      (dateRevised|speciesType|keys)+
+      (chargeLine|volumeLine)+
+      composition
+      dissociation
+      logKGrid
+      seperator;
+
+dissociation : WS number WS 'species' restOfLine formulaGrid;
+
+logKGrid : numberGrid;
+
+aqueousSpeciesSection : 'aqueous species' sectionHeader aqueousSpecies+;
+
+aqueousSpecies
+    : speciesName
+      speciesNote
+      (dateRevised|speciesType|keys)+
+      (chargeLine|volumeLine)+
+      composition
+      dissociation
+      logKGrid
+      seperator;
 
 solidsSection : 'solids' sectionHeader solid+;
 
+solid
+    : speciesName
+      speciesNote
+      (dateRevised|speciesType|keys)+
+      (chargeLine|volumeLine)+
+      composition
+      dissociation
+      logKGrid
+      seperator;
+
 liquidsSection : 'liquids' sectionHeader liquid+;
+
+liquid
+    : speciesName
+      speciesNote
+      (dateRevised|speciesType|keys)+
+      (chargeLine|volumeLine)+
+      composition
+      dissociation
+      logKGrid
+      seperator;
 
 gasesSection : 'gases' sectionHeader gas+;
 
-volumeLine : 'V0PrTr' '=' NUMBER restOfLine NL;
+gas
+    : speciesName
+      speciesNote
+      (dateRevised|speciesType|keys)+
+      (chargeLine|volumeLine)+
+      composition
+      dissociation
+      logKGrid
+      seperator;
 
 solidSolutionsSection : 'solid solutions' sectionHeader solidSolution+;
 
-components : NUMBER ('components'|'end members') NL formulaLine+;
-
-modelSpec : modelType modelParams;
-
-modelType : 'type' '=' NUMBER NL;
-
-modelParams : NUMBER 'model parameters' NL possiblyEmptyNumberGrid;
-
-siteParams : NUMBER 'site parameters' NL numberLine;
-
-dateLastRevised : 'date last revised' '=' restOfLine NL;
-
-keys : 'keys' '=' restOfLine NL;
-
-speciesType : 'sp.type' '=' restOfLine NL;
-
-brackets : OBRACK CBRACK NL;
-
-speciesJunk : (dateLastRevised|keys|speciesType|brackets)*;
-
-referenceSection : 'references' sectionHeader references 'stop.' NL+;
-
-references : ~'stop.'*;
-
-basisSpecies
-    : WORD
-      restOfLine
-      NL
-      speciesJunk
-      (chargeLine|volumeLine)+
-      composition
-      SEPERATOR
-      NL;
-
-auxiliaryBasisSpecies
-    : WORD
-      restOfLine
-      NL
-      speciesJunk
-      (chargeLine|volumeLine)+
-      composition
-      dissociation
-      numberGrid
-      SEPERATOR
-      NL;
-
-aqueousSpecies
-    : WORD
-      restOfLine
-      NL
-      speciesJunk
-      (chargeLine|volumeLine)+
-      composition
-      dissociation
-      numberGrid
-      SEPERATOR
-      NL;
-
-solid
-    : WORD
-      restOfLine
-      NL
-      speciesJunk
-      (chargeLine|volumeLine)+
-      composition
-      dissociation
-      numberGrid
-      SEPERATOR
-      NL;
-
-liquid
-    : WORD
-      restOfLine
-      NL
-      speciesJunk
-      (chargeLine|volumeLine)+
-      composition
-      dissociation
-      numberGrid
-      SEPERATOR
-      NL;
-
-gas
-    : WORD
-      restOfLine
-      NL
-      speciesJunk
-      (chargeLine|volumeLine)+
-      composition
-      dissociation
-      numberGrid
-      SEPERATOR
-      NL;
-
 solidSolution
-    : WORD
-      restOfLine
-      NL
-      speciesJunk
+    : speciesName
+      speciesNote
+      (dateRevised|speciesType|keys)+
       components
       modelSpec
       siteParams
-      SEPERATOR
-      NL;
+      seperator;
+
+components : number WS ('components'|'end members') restOfLine formulaGrid;
+
+modelSpec : modelType modelParams;
+
+modelType : WS 'type' WS '=' WS number WS* NL;
+
+modelParams : number WS 'model parameters' restOfLine possiblyEmptyNumberGrid;
+
+possiblyEmptyNumberGrid : numberLine*;
+
+siteParams : number WS 'site parameters' restOfLine numberLine;
+
+referenceSection : 'references' sectionHeader references 'stop.' (WS|NL)*;
+
+references : ~'stop.'*;

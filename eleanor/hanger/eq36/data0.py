@@ -54,8 +54,18 @@ class Volume(object):
         return f'{self.value}{self.unit}'
 
 class Species(object):
-    def __init__(self, name: str, composition: dict[str, Integer]):
+    def __init__(self,
+                 name: str,
+                 note: str | None,
+                 revised: str | None,
+                 species_type: str | None,
+                 keys: str | None,
+                 composition: dict[str,Integer]):
         self.name = name
+        self.note = note
+        self.revised = revised
+        self.species_type = species_type
+        self.keys = keys
         self.composition = composition
 
     @property
@@ -65,34 +75,46 @@ class Species(object):
 class BasicSpecies(Species):
     def __init__(self,
                  name: str,
+                 note: str | None,
+                 revised: str | None,
+                 species_type: str | None,
+                 keys: str | None,
                  composition: dict[str, Integer],
                  charge: Integer,
                  volume: Volume | None = None):
 
-        super().__init__(name, composition)
+        super().__init__(name, note, revised, species_type, keys, composition)
         self.charge = charge
         self.volume = volume
 
 class ComplexSpecies(BasicSpecies):
     def __init__(self,
                  name: str,
+                 note: str | None,
+                 revised: str | None,
+                 species_type: str | None,
+                 keys: str | None,
                  composition: dict[str, Integer],
                  dissociation: Dissociation,
                  logk: np.ndarray,
                  charge: Integer,
                  volume: Volume | None = None):
 
-        super().__init__(name, composition, charge, volume)
+        super().__init__(name, note, revised, species_type, keys, composition, charge, volume)
         self.dissociation = dissociation
         self.logk = logk
 
 class BasisSpecies(BasicSpecies):
     def __repr__(self) -> str:
         name = f'name={repr(self.name)}'
+        note = f'note={repr(self.note)}'
+        revised = f'revised={repr(self.revised)}'
+        species_type = f'species_type={repr(self.species_type)}'
+        keys = f'keys={repr(self.keys)}'
         charge = f'charge={repr(self.charge)}'
         volume = f'volume={repr(self.volume)}'
         composition = f'composition={repr(self.composition)}'
-        return f'BasisSpecies({name}, {composition}, {charge}, {volume})'
+        return f'BasisSpecies({name}, {note}, {revised}, {species_type}, {keys}, {composition}, {charge}, {volume})'
 
     def __str__(self) -> str:
         return f'<BasisSpecies {self.name}>'
@@ -100,12 +122,16 @@ class BasisSpecies(BasicSpecies):
 class AuxiliaryBasisSpecies(ComplexSpecies):
     def __repr__(self) -> str:
         name = f'name={repr(self.name)}'
+        note = f'note={repr(self.note)}'
+        revised = f'revised={repr(self.revised)}'
+        species_type = f'species_type={repr(self.species_type)}'
+        keys = f'keys={repr(self.keys)}'
         charge = f'charge={repr(self.charge)}'
         volume = f'volume={repr(self.volume)}'
         composition = f'composition={repr(self.composition)}'
         dissociation = f'dissociation={repr(self.dissociation)}'
         logk = f'logk={repr(self.logk)}'
-        return f'AuxiliaryBasisSpecies({name}, {composition}, {dissociation}, {logk}, {charge}, {volume})'
+        return f'AuxiliaryBasisSpecies({name}, {note}, {revised}, {species_type}, {keys}, {composition}, {dissociation}, {logk}, {charge}, {volume})'
 
     def __str__(self) -> str:
         return f'<AuxiliaryBasisSpecies {self.name}>'
@@ -113,12 +139,16 @@ class AuxiliaryBasisSpecies(ComplexSpecies):
 class AqueousSpecies(ComplexSpecies):
     def __repr__(self) -> str:
         name = f'name={repr(self.name)}'
+        note = f'note={repr(self.note)}'
+        revised = f'revised={repr(self.revised)}'
+        species_type = f'species_type={repr(self.species_type)}'
+        keys = f'keys={repr(self.keys)}'
         charge = f'charge={repr(self.charge)}'
         volume = f'volume={repr(self.volume)}'
         composition = f'composition={repr(self.composition)}'
         dissociation = f'dissociation={repr(self.dissociation)}'
         logk = f'logk={repr(self.logk)}'
-        return f'AqueousSpecies({name}, {composition}, {dissociation}, {logk}, {charge}, {volume})'
+        return f'AqueousSpecies({name}, {note}, {revised}, {species_type}, {keys}, {composition}, {dissociation}, {logk}, {charge}, {volume})'
 
     def __str__(self) -> str:
         return f'<AqueousSpecies {self.name}>'
@@ -126,12 +156,16 @@ class AqueousSpecies(ComplexSpecies):
 class Solid(ComplexSpecies):
     def __repr__(self) -> str:
         name = f'name={repr(self.name)}'
+        note = f'note={repr(self.note)}'
+        revised = f'revised={repr(self.revised)}'
+        species_type = f'species_type={repr(self.species_type)}'
+        keys = f'keys={repr(self.keys)}'
         charge = f'charge={repr(self.charge)}'
         volume = f'volume={repr(self.volume)}'
         composition = f'composition={repr(self.composition)}'
         dissociation = f'dissociation={repr(self.dissociation)}'
         logk = f'logk={repr(self.logk)}'
-        return f'Solid({name}, {composition}, {dissociation}, {logk}, {charge}, {volume})'
+        return f'Solid({name}, {note}, {revised}, {species_type}, {keys}, {composition}, {dissociation}, {logk}, {charge}, {volume})'
 
     def __str__(self) -> str:
         return f'<Solid {self.name}>'
@@ -139,12 +173,16 @@ class Solid(ComplexSpecies):
 class Liquid(ComplexSpecies):
     def __repr__(self) -> str:
         name = f'name={repr(self.name)}'
+        note = f'note={repr(self.note)}'
+        revised = f'revised={repr(self.revised)}'
+        species_type = f'species_type={repr(self.species_type)}'
+        keys = f'keys={repr(self.keys)}'
         charge = f'charge={repr(self.charge)}'
         volume = f'volume={repr(self.volume)}'
         composition = f'composition={repr(self.composition)}'
         dissociation = f'dissociation={repr(self.dissociation)}'
         logk = f'logk={repr(self.logk)}'
-        return f'Liquid({name}, {composition}, {dissociation}, {logk}, {charge}, {volume})'
+        return f'Liquid({name}, {note}, {revised}, {species_type}, {keys}, {composition}, {dissociation}, {logk}, {charge}, {volume})'
 
     def __str__(self) -> str:
         return f'<Liquid {self.name}>'
@@ -152,12 +190,16 @@ class Liquid(ComplexSpecies):
 class Gas(ComplexSpecies):
     def __repr__(self) -> str:
         name = f'name={repr(self.name)}'
+        note = f'note={repr(self.note)}'
+        revised = f'revised={repr(self.revised)}'
+        species_type = f'species_type={repr(self.species_type)}'
+        keys = f'keys={repr(self.keys)}'
         charge = f'charge={repr(self.charge)}'
         volume = f'volume={repr(self.volume)}'
         composition = f'composition={repr(self.composition)}'
         dissociation = f'dissociation={repr(self.dissociation)}'
         logk = f'logk={repr(self.logk)}'
-        return f'Gas({name}, {composition}, {dissociation}, {logk}, {charge}, {volume})'
+        return f'Gas({name}, {note}, {revised}, {species_type}, {keys}, {composition}, {dissociation}, {logk}, {charge}, {volume})'
 
     def __str__(self) -> str:
         return f'<Gas {self.name}>'
@@ -176,20 +218,28 @@ class SolidSolutionModel(object):
 class SolidSolution(Species):
     def __init__(self,
                  name: str,
+                 note: str | None,
+                 revised: str | None,
+                 species_type: str | None,
+                 keys: str | None,
                  composition: dict[str, Integer],
                  model: SolidSolutionModel,
                  site_params: np.ndarray):
 
-        super().__init__(name, composition)
+        super().__init__(name, note, revised, species_type, keys, composition)
         self.model = model
         self.site_params = site_params
 
     def __repr__(self) -> str:
         name = f'name={repr(self.name)}'
+        note = f'note={repr(self.note)}'
+        revised = f'revised={repr(self.revised)}'
+        species_type = f'species_type={repr(self.species_type)}'
+        keys = f'keys={repr(self.keys)}'
         composition = f'composition={repr(self.composition)}'
         model = f'model={repr(self.model)}'
         site_params = f'site_params={repr(self.site_params)}'
-        return f'SolidSolutionModel({name}, {composition}, {model}, {site_params})'
+        return f'SolidSolutionModel({name}, {note}, {revised}, {species_type}, {keys}, {composition}, {model}, {site_params})'
 
     def __str__(self) -> str:
         return f'<SolidSolution {self.name}>'

@@ -17,12 +17,12 @@ class Data0Listener(ParseTreeListener):
         pass
 
 
-    # Enter a parse tree produced by Data0Parser#magic.
-    def enterMagic(self, ctx:Data0Parser.MagicContext):
+    # Enter a parse tree produced by Data0Parser#magicLine.
+    def enterMagicLine(self, ctx:Data0Parser.MagicLineContext):
         pass
 
-    # Exit a parse tree produced by Data0Parser#magic.
-    def exitMagic(self, ctx:Data0Parser.MagicContext):
+    # Exit a parse tree produced by Data0Parser#magicLine.
+    def exitMagicLine(self, ctx:Data0Parser.MagicLineContext):
         pass
 
 
@@ -41,6 +41,15 @@ class Data0Listener(ParseTreeListener):
 
     # Exit a parse tree produced by Data0Parser#header.
     def exitHeader(self, ctx:Data0Parser.HeaderContext):
+        pass
+
+
+    # Enter a parse tree produced by Data0Parser#seperator.
+    def enterSeperator(self, ctx:Data0Parser.SeperatorContext):
+        pass
+
+    # Exit a parse tree produced by Data0Parser#seperator.
+    def exitSeperator(self, ctx:Data0Parser.SeperatorContext):
         pass
 
 
@@ -68,6 +77,42 @@ class Data0Listener(ParseTreeListener):
 
     # Exit a parse tree produced by Data0Parser#temperatures.
     def exitTemperatures(self, ctx:Data0Parser.TemperaturesContext):
+        pass
+
+
+    # Enter a parse tree produced by Data0Parser#temperatureRange.
+    def enterTemperatureRange(self, ctx:Data0Parser.TemperatureRangeContext):
+        pass
+
+    # Exit a parse tree produced by Data0Parser#temperatureRange.
+    def exitTemperatureRange(self, ctx:Data0Parser.TemperatureRangeContext):
+        pass
+
+
+    # Enter a parse tree produced by Data0Parser#numberGrid.
+    def enterNumberGrid(self, ctx:Data0Parser.NumberGridContext):
+        pass
+
+    # Exit a parse tree produced by Data0Parser#numberGrid.
+    def exitNumberGrid(self, ctx:Data0Parser.NumberGridContext):
+        pass
+
+
+    # Enter a parse tree produced by Data0Parser#numberLine.
+    def enterNumberLine(self, ctx:Data0Parser.NumberLineContext):
+        pass
+
+    # Exit a parse tree produced by Data0Parser#numberLine.
+    def exitNumberLine(self, ctx:Data0Parser.NumberLineContext):
+        pass
+
+
+    # Enter a parse tree produced by Data0Parser#number.
+    def enterNumber(self, ctx:Data0Parser.NumberContext):
+        pass
+
+    # Exit a parse tree produced by Data0Parser#number.
+    def exitNumber(self, ctx:Data0Parser.NumberContext):
         pass
 
 
@@ -143,6 +188,15 @@ class Data0Listener(ParseTreeListener):
         pass
 
 
+    # Enter a parse tree produced by Data0Parser#bdotSpeciesName.
+    def enterBdotSpeciesName(self, ctx:Data0Parser.BdotSpeciesNameContext):
+        pass
+
+    # Exit a parse tree produced by Data0Parser#bdotSpeciesName.
+    def exitBdotSpeciesName(self, ctx:Data0Parser.BdotSpeciesNameContext):
+        pass
+
+
     # Enter a parse tree produced by Data0Parser#elementsSection.
     def enterElementsSection(self, ctx:Data0Parser.ElementsSectionContext):
         pass
@@ -161,12 +215,93 @@ class Data0Listener(ParseTreeListener):
         pass
 
 
+    # Enter a parse tree produced by Data0Parser#elementName.
+    def enterElementName(self, ctx:Data0Parser.ElementNameContext):
+        pass
+
+    # Exit a parse tree produced by Data0Parser#elementName.
+    def exitElementName(self, ctx:Data0Parser.ElementNameContext):
+        pass
+
+
     # Enter a parse tree produced by Data0Parser#basisSpeciesSection.
     def enterBasisSpeciesSection(self, ctx:Data0Parser.BasisSpeciesSectionContext):
         pass
 
     # Exit a parse tree produced by Data0Parser#basisSpeciesSection.
     def exitBasisSpeciesSection(self, ctx:Data0Parser.BasisSpeciesSectionContext):
+        pass
+
+
+    # Enter a parse tree produced by Data0Parser#basisSpecies.
+    def enterBasisSpecies(self, ctx:Data0Parser.BasisSpeciesContext):
+        pass
+
+    # Exit a parse tree produced by Data0Parser#basisSpecies.
+    def exitBasisSpecies(self, ctx:Data0Parser.BasisSpeciesContext):
+        pass
+
+
+    # Enter a parse tree produced by Data0Parser#speciesName.
+    def enterSpeciesName(self, ctx:Data0Parser.SpeciesNameContext):
+        pass
+
+    # Exit a parse tree produced by Data0Parser#speciesName.
+    def exitSpeciesName(self, ctx:Data0Parser.SpeciesNameContext):
+        pass
+
+
+    # Enter a parse tree produced by Data0Parser#speciesNote.
+    def enterSpeciesNote(self, ctx:Data0Parser.SpeciesNoteContext):
+        pass
+
+    # Exit a parse tree produced by Data0Parser#speciesNote.
+    def exitSpeciesNote(self, ctx:Data0Parser.SpeciesNoteContext):
+        pass
+
+
+    # Enter a parse tree produced by Data0Parser#dateRevised.
+    def enterDateRevised(self, ctx:Data0Parser.DateRevisedContext):
+        pass
+
+    # Exit a parse tree produced by Data0Parser#dateRevised.
+    def exitDateRevised(self, ctx:Data0Parser.DateRevisedContext):
+        pass
+
+
+    # Enter a parse tree produced by Data0Parser#dateRevisedKey.
+    def enterDateRevisedKey(self, ctx:Data0Parser.DateRevisedKeyContext):
+        pass
+
+    # Exit a parse tree produced by Data0Parser#dateRevisedKey.
+    def exitDateRevisedKey(self, ctx:Data0Parser.DateRevisedKeyContext):
+        pass
+
+
+    # Enter a parse tree produced by Data0Parser#date.
+    def enterDate(self, ctx:Data0Parser.DateContext):
+        pass
+
+    # Exit a parse tree produced by Data0Parser#date.
+    def exitDate(self, ctx:Data0Parser.DateContext):
+        pass
+
+
+    # Enter a parse tree produced by Data0Parser#speciesType.
+    def enterSpeciesType(self, ctx:Data0Parser.SpeciesTypeContext):
+        pass
+
+    # Exit a parse tree produced by Data0Parser#speciesType.
+    def exitSpeciesType(self, ctx:Data0Parser.SpeciesTypeContext):
+        pass
+
+
+    # Enter a parse tree produced by Data0Parser#keys.
+    def enterKeys(self, ctx:Data0Parser.KeysContext):
+        pass
+
+    # Exit a parse tree produced by Data0Parser#keys.
+    def exitKeys(self, ctx:Data0Parser.KeysContext):
         pass
 
 
@@ -188,6 +323,15 @@ class Data0Listener(ParseTreeListener):
         pass
 
 
+    # Enter a parse tree produced by Data0Parser#formulaGrid.
+    def enterFormulaGrid(self, ctx:Data0Parser.FormulaGridContext):
+        pass
+
+    # Exit a parse tree produced by Data0Parser#formulaGrid.
+    def exitFormulaGrid(self, ctx:Data0Parser.FormulaGridContext):
+        pass
+
+
     # Enter a parse tree produced by Data0Parser#formulaLine.
     def enterFormulaLine(self, ctx:Data0Parser.FormulaLineContext):
         pass
@@ -206,84 +350,12 @@ class Data0Listener(ParseTreeListener):
         pass
 
 
-    # Enter a parse tree produced by Data0Parser#auxiliaryBasisSpeciesSection.
-    def enterAuxiliaryBasisSpeciesSection(self, ctx:Data0Parser.AuxiliaryBasisSpeciesSectionContext):
+    # Enter a parse tree produced by Data0Parser#componentName.
+    def enterComponentName(self, ctx:Data0Parser.ComponentNameContext):
         pass
 
-    # Exit a parse tree produced by Data0Parser#auxiliaryBasisSpeciesSection.
-    def exitAuxiliaryBasisSpeciesSection(self, ctx:Data0Parser.AuxiliaryBasisSpeciesSectionContext):
-        pass
-
-
-    # Enter a parse tree produced by Data0Parser#dissociation.
-    def enterDissociation(self, ctx:Data0Parser.DissociationContext):
-        pass
-
-    # Exit a parse tree produced by Data0Parser#dissociation.
-    def exitDissociation(self, ctx:Data0Parser.DissociationContext):
-        pass
-
-
-    # Enter a parse tree produced by Data0Parser#possiblyEmptyNumberGrid.
-    def enterPossiblyEmptyNumberGrid(self, ctx:Data0Parser.PossiblyEmptyNumberGridContext):
-        pass
-
-    # Exit a parse tree produced by Data0Parser#possiblyEmptyNumberGrid.
-    def exitPossiblyEmptyNumberGrid(self, ctx:Data0Parser.PossiblyEmptyNumberGridContext):
-        pass
-
-
-    # Enter a parse tree produced by Data0Parser#numberGrid.
-    def enterNumberGrid(self, ctx:Data0Parser.NumberGridContext):
-        pass
-
-    # Exit a parse tree produced by Data0Parser#numberGrid.
-    def exitNumberGrid(self, ctx:Data0Parser.NumberGridContext):
-        pass
-
-
-    # Enter a parse tree produced by Data0Parser#numberLine.
-    def enterNumberLine(self, ctx:Data0Parser.NumberLineContext):
-        pass
-
-    # Exit a parse tree produced by Data0Parser#numberLine.
-    def exitNumberLine(self, ctx:Data0Parser.NumberLineContext):
-        pass
-
-
-    # Enter a parse tree produced by Data0Parser#aqueousSpeciesSection.
-    def enterAqueousSpeciesSection(self, ctx:Data0Parser.AqueousSpeciesSectionContext):
-        pass
-
-    # Exit a parse tree produced by Data0Parser#aqueousSpeciesSection.
-    def exitAqueousSpeciesSection(self, ctx:Data0Parser.AqueousSpeciesSectionContext):
-        pass
-
-
-    # Enter a parse tree produced by Data0Parser#solidsSection.
-    def enterSolidsSection(self, ctx:Data0Parser.SolidsSectionContext):
-        pass
-
-    # Exit a parse tree produced by Data0Parser#solidsSection.
-    def exitSolidsSection(self, ctx:Data0Parser.SolidsSectionContext):
-        pass
-
-
-    # Enter a parse tree produced by Data0Parser#liquidsSection.
-    def enterLiquidsSection(self, ctx:Data0Parser.LiquidsSectionContext):
-        pass
-
-    # Exit a parse tree produced by Data0Parser#liquidsSection.
-    def exitLiquidsSection(self, ctx:Data0Parser.LiquidsSectionContext):
-        pass
-
-
-    # Enter a parse tree produced by Data0Parser#gasesSection.
-    def enterGasesSection(self, ctx:Data0Parser.GasesSectionContext):
-        pass
-
-    # Exit a parse tree produced by Data0Parser#gasesSection.
-    def exitGasesSection(self, ctx:Data0Parser.GasesSectionContext):
+    # Exit a parse tree produced by Data0Parser#componentName.
+    def exitComponentName(self, ctx:Data0Parser.ComponentNameContext):
         pass
 
 
@@ -296,12 +368,138 @@ class Data0Listener(ParseTreeListener):
         pass
 
 
+    # Enter a parse tree produced by Data0Parser#volume.
+    def enterVolume(self, ctx:Data0Parser.VolumeContext):
+        pass
+
+    # Exit a parse tree produced by Data0Parser#volume.
+    def exitVolume(self, ctx:Data0Parser.VolumeContext):
+        pass
+
+
+    # Enter a parse tree produced by Data0Parser#auxiliaryBasisSpeciesSection.
+    def enterAuxiliaryBasisSpeciesSection(self, ctx:Data0Parser.AuxiliaryBasisSpeciesSectionContext):
+        pass
+
+    # Exit a parse tree produced by Data0Parser#auxiliaryBasisSpeciesSection.
+    def exitAuxiliaryBasisSpeciesSection(self, ctx:Data0Parser.AuxiliaryBasisSpeciesSectionContext):
+        pass
+
+
+    # Enter a parse tree produced by Data0Parser#auxiliaryBasisSpecies.
+    def enterAuxiliaryBasisSpecies(self, ctx:Data0Parser.AuxiliaryBasisSpeciesContext):
+        pass
+
+    # Exit a parse tree produced by Data0Parser#auxiliaryBasisSpecies.
+    def exitAuxiliaryBasisSpecies(self, ctx:Data0Parser.AuxiliaryBasisSpeciesContext):
+        pass
+
+
+    # Enter a parse tree produced by Data0Parser#dissociation.
+    def enterDissociation(self, ctx:Data0Parser.DissociationContext):
+        pass
+
+    # Exit a parse tree produced by Data0Parser#dissociation.
+    def exitDissociation(self, ctx:Data0Parser.DissociationContext):
+        pass
+
+
+    # Enter a parse tree produced by Data0Parser#logKGrid.
+    def enterLogKGrid(self, ctx:Data0Parser.LogKGridContext):
+        pass
+
+    # Exit a parse tree produced by Data0Parser#logKGrid.
+    def exitLogKGrid(self, ctx:Data0Parser.LogKGridContext):
+        pass
+
+
+    # Enter a parse tree produced by Data0Parser#aqueousSpeciesSection.
+    def enterAqueousSpeciesSection(self, ctx:Data0Parser.AqueousSpeciesSectionContext):
+        pass
+
+    # Exit a parse tree produced by Data0Parser#aqueousSpeciesSection.
+    def exitAqueousSpeciesSection(self, ctx:Data0Parser.AqueousSpeciesSectionContext):
+        pass
+
+
+    # Enter a parse tree produced by Data0Parser#aqueousSpecies.
+    def enterAqueousSpecies(self, ctx:Data0Parser.AqueousSpeciesContext):
+        pass
+
+    # Exit a parse tree produced by Data0Parser#aqueousSpecies.
+    def exitAqueousSpecies(self, ctx:Data0Parser.AqueousSpeciesContext):
+        pass
+
+
+    # Enter a parse tree produced by Data0Parser#solidsSection.
+    def enterSolidsSection(self, ctx:Data0Parser.SolidsSectionContext):
+        pass
+
+    # Exit a parse tree produced by Data0Parser#solidsSection.
+    def exitSolidsSection(self, ctx:Data0Parser.SolidsSectionContext):
+        pass
+
+
+    # Enter a parse tree produced by Data0Parser#solid.
+    def enterSolid(self, ctx:Data0Parser.SolidContext):
+        pass
+
+    # Exit a parse tree produced by Data0Parser#solid.
+    def exitSolid(self, ctx:Data0Parser.SolidContext):
+        pass
+
+
+    # Enter a parse tree produced by Data0Parser#liquidsSection.
+    def enterLiquidsSection(self, ctx:Data0Parser.LiquidsSectionContext):
+        pass
+
+    # Exit a parse tree produced by Data0Parser#liquidsSection.
+    def exitLiquidsSection(self, ctx:Data0Parser.LiquidsSectionContext):
+        pass
+
+
+    # Enter a parse tree produced by Data0Parser#liquid.
+    def enterLiquid(self, ctx:Data0Parser.LiquidContext):
+        pass
+
+    # Exit a parse tree produced by Data0Parser#liquid.
+    def exitLiquid(self, ctx:Data0Parser.LiquidContext):
+        pass
+
+
+    # Enter a parse tree produced by Data0Parser#gasesSection.
+    def enterGasesSection(self, ctx:Data0Parser.GasesSectionContext):
+        pass
+
+    # Exit a parse tree produced by Data0Parser#gasesSection.
+    def exitGasesSection(self, ctx:Data0Parser.GasesSectionContext):
+        pass
+
+
+    # Enter a parse tree produced by Data0Parser#gas.
+    def enterGas(self, ctx:Data0Parser.GasContext):
+        pass
+
+    # Exit a parse tree produced by Data0Parser#gas.
+    def exitGas(self, ctx:Data0Parser.GasContext):
+        pass
+
+
     # Enter a parse tree produced by Data0Parser#solidSolutionsSection.
     def enterSolidSolutionsSection(self, ctx:Data0Parser.SolidSolutionsSectionContext):
         pass
 
     # Exit a parse tree produced by Data0Parser#solidSolutionsSection.
     def exitSolidSolutionsSection(self, ctx:Data0Parser.SolidSolutionsSectionContext):
+        pass
+
+
+    # Enter a parse tree produced by Data0Parser#solidSolution.
+    def enterSolidSolution(self, ctx:Data0Parser.SolidSolutionContext):
+        pass
+
+    # Exit a parse tree produced by Data0Parser#solidSolution.
+    def exitSolidSolution(self, ctx:Data0Parser.SolidSolutionContext):
         pass
 
 
@@ -341,57 +539,21 @@ class Data0Listener(ParseTreeListener):
         pass
 
 
+    # Enter a parse tree produced by Data0Parser#possiblyEmptyNumberGrid.
+    def enterPossiblyEmptyNumberGrid(self, ctx:Data0Parser.PossiblyEmptyNumberGridContext):
+        pass
+
+    # Exit a parse tree produced by Data0Parser#possiblyEmptyNumberGrid.
+    def exitPossiblyEmptyNumberGrid(self, ctx:Data0Parser.PossiblyEmptyNumberGridContext):
+        pass
+
+
     # Enter a parse tree produced by Data0Parser#siteParams.
     def enterSiteParams(self, ctx:Data0Parser.SiteParamsContext):
         pass
 
     # Exit a parse tree produced by Data0Parser#siteParams.
     def exitSiteParams(self, ctx:Data0Parser.SiteParamsContext):
-        pass
-
-
-    # Enter a parse tree produced by Data0Parser#dateLastRevised.
-    def enterDateLastRevised(self, ctx:Data0Parser.DateLastRevisedContext):
-        pass
-
-    # Exit a parse tree produced by Data0Parser#dateLastRevised.
-    def exitDateLastRevised(self, ctx:Data0Parser.DateLastRevisedContext):
-        pass
-
-
-    # Enter a parse tree produced by Data0Parser#keys.
-    def enterKeys(self, ctx:Data0Parser.KeysContext):
-        pass
-
-    # Exit a parse tree produced by Data0Parser#keys.
-    def exitKeys(self, ctx:Data0Parser.KeysContext):
-        pass
-
-
-    # Enter a parse tree produced by Data0Parser#speciesType.
-    def enterSpeciesType(self, ctx:Data0Parser.SpeciesTypeContext):
-        pass
-
-    # Exit a parse tree produced by Data0Parser#speciesType.
-    def exitSpeciesType(self, ctx:Data0Parser.SpeciesTypeContext):
-        pass
-
-
-    # Enter a parse tree produced by Data0Parser#brackets.
-    def enterBrackets(self, ctx:Data0Parser.BracketsContext):
-        pass
-
-    # Exit a parse tree produced by Data0Parser#brackets.
-    def exitBrackets(self, ctx:Data0Parser.BracketsContext):
-        pass
-
-
-    # Enter a parse tree produced by Data0Parser#speciesJunk.
-    def enterSpeciesJunk(self, ctx:Data0Parser.SpeciesJunkContext):
-        pass
-
-    # Exit a parse tree produced by Data0Parser#speciesJunk.
-    def exitSpeciesJunk(self, ctx:Data0Parser.SpeciesJunkContext):
         pass
 
 
@@ -410,69 +572,6 @@ class Data0Listener(ParseTreeListener):
 
     # Exit a parse tree produced by Data0Parser#references.
     def exitReferences(self, ctx:Data0Parser.ReferencesContext):
-        pass
-
-
-    # Enter a parse tree produced by Data0Parser#basisSpecies.
-    def enterBasisSpecies(self, ctx:Data0Parser.BasisSpeciesContext):
-        pass
-
-    # Exit a parse tree produced by Data0Parser#basisSpecies.
-    def exitBasisSpecies(self, ctx:Data0Parser.BasisSpeciesContext):
-        pass
-
-
-    # Enter a parse tree produced by Data0Parser#auxiliaryBasisSpecies.
-    def enterAuxiliaryBasisSpecies(self, ctx:Data0Parser.AuxiliaryBasisSpeciesContext):
-        pass
-
-    # Exit a parse tree produced by Data0Parser#auxiliaryBasisSpecies.
-    def exitAuxiliaryBasisSpecies(self, ctx:Data0Parser.AuxiliaryBasisSpeciesContext):
-        pass
-
-
-    # Enter a parse tree produced by Data0Parser#aqueousSpecies.
-    def enterAqueousSpecies(self, ctx:Data0Parser.AqueousSpeciesContext):
-        pass
-
-    # Exit a parse tree produced by Data0Parser#aqueousSpecies.
-    def exitAqueousSpecies(self, ctx:Data0Parser.AqueousSpeciesContext):
-        pass
-
-
-    # Enter a parse tree produced by Data0Parser#solid.
-    def enterSolid(self, ctx:Data0Parser.SolidContext):
-        pass
-
-    # Exit a parse tree produced by Data0Parser#solid.
-    def exitSolid(self, ctx:Data0Parser.SolidContext):
-        pass
-
-
-    # Enter a parse tree produced by Data0Parser#liquid.
-    def enterLiquid(self, ctx:Data0Parser.LiquidContext):
-        pass
-
-    # Exit a parse tree produced by Data0Parser#liquid.
-    def exitLiquid(self, ctx:Data0Parser.LiquidContext):
-        pass
-
-
-    # Enter a parse tree produced by Data0Parser#gas.
-    def enterGas(self, ctx:Data0Parser.GasContext):
-        pass
-
-    # Exit a parse tree produced by Data0Parser#gas.
-    def exitGas(self, ctx:Data0Parser.GasContext):
-        pass
-
-
-    # Enter a parse tree produced by Data0Parser#solidSolution.
-    def enterSolidSolution(self, ctx:Data0Parser.SolidSolutionContext):
-        pass
-
-    # Exit a parse tree produced by Data0Parser#solidSolution.
-    def exitSolidSolution(self, ctx:Data0Parser.SolidSolutionContext):
         pass
 
 

@@ -117,8 +117,10 @@ def create_es_table(conn, camp, loaded_sp, elements):
     sql_run = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in
                         ['initial_aff', 'xi_max', 'aH2O', 'ionic', 'tds', 'soln_mass']]) + ','
 
+
+
     sql_state = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in
-                          list(camp.vs_state.keys())]) + ','
+                          list(camp.vs_state.keys()) + ['pH']]) + ','
 
     # convert vs_basis to elements for ES. This will allow teh use of
     # multiple species containing the same element to be used in the

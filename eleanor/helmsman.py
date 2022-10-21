@@ -25,7 +25,8 @@ from .hanger.tool_room import mk_check_del_directory, mine_pickup_lines, grab_fl
 from .hanger.tool_room import grab_lines, grab_str, WorkingDirectory
 
 
-def Helmsman(camp, ord_id=None, num_cores=os.cpu_count(), keep_every_n_files=1, quiet=False,
+def Helmsman(camp, ord_id=None, num_cores=1,#os.cpu_count(),
+             keep_every_n_files=1, quiet=False,
              no_progress=False):
     """
     Keeping with the naval terminology: The Navigator charts where to go.
@@ -231,7 +232,7 @@ class SailorPaths(object):
 
 
 def sailor(camp, scratch_path, vs_queue, es_queue, date, dat, elements, ss, vs_col_names,
-           es_col_names, keep_every_n_files=1):
+           es_col_names, keep_every_n_files=1000):
     """
     Each sailor manages the execution of all geochemically model steps associated
     with a single vs point in the Variable Space (`vs`).
@@ -285,6 +286,7 @@ def sailor(camp, scratch_path, vs_queue, es_queue, date, dat, elements, ss, vs_c
                                this argument is less than 1, then no files are kept.
     :type keep_every_n_files: int
     """
+    print(dat)
     master_dict = {}
     for i, j in zip(vs_col_names, dat):
         master_dict[i] = j
@@ -432,6 +434,9 @@ def mine_6o(camp, date, elements, ss, file, dat, col_names):
                     x += 1
                 else:
                     x += 1
+
+        elif ' NBS pH scale         ' in lines[i]:
+            build_dict['pH'] = [grab_float(lines[i], -4)]
 
         elif '                Log oxygen fugacity=' in lines[i]:
             build_dict['fO2'] = [grab_float(lines[i], -1)]

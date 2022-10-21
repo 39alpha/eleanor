@@ -522,10 +522,8 @@ class Three_i(object):
                                  '* Solid solution compositions' + '\n',
                                  '      nxti=   0' + '\n',
                                  '* Alter/suppress options' + '\n',
-                                 '     nxmod=   2' + '\n',
+                                 '     nxmod=   1' + '\n',
                                  '   species= METHANE' + '\n',
-                                 '    option= -1              xlkmod=  0.00000E+00' + '\n',
-                                 '   species= ETHYLENE(g)' + '\n',
                                  '    option= -1              xlkmod=  0.00000E+00' + '\n',
                                  '* Iopt, iopg, iopr, and iodb options' + '\n',
                                  '*               1    2    3    4    5    6    7    8    9   10' + '\n', # noqa (E501)

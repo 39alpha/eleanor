@@ -97,7 +97,7 @@ def create_orders_table(conn):
         ON `orders` (`campaign_hash`, `data0_hash`)
     ''')
 
-def create_es_table(conn, camp, loaded_sp, elements):
+def create_es_table(conn, camp, loaded_sp, loaded_ss, elements):
     """
     Initiater equilibrium space (mined from 6o) table on connection 'conn'
     for campaign 'camp_name' with state dimensions 'camp_vs_state' and
@@ -106,8 +106,10 @@ def create_es_table(conn, camp, loaded_sp, elements):
     (3i) as the vs table is, but is instead popuilated with the output (6o)
     total abundences.
 
-    loaded_sp = list of aq, solid,a nd gas species loaded in test.3i
-    instantiated fof the campaign
+    :param conn: the database connection
+    :param camp: the campaign
+    :param loaded_sp: loaded aqueous, solid and gas species
+    :param loaded_ss: loaded solid solution species
     """
 
     sql_info = "CREATE TABLE IF NOT EXISTS es (uuid VARCHAR(32) PRIMARY KEY,\
@@ -132,10 +134,12 @@ def create_es_table(conn, camp, loaded_sp, elements):
     sql_sp = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in
                        loaded_sp]) + ','
 
+    sql_ss = ",".join([f'"{_}" DOUBLE PRECISION' for _ in loaded_ss]) + ','
+
     sql_fk = ' FOREIGN KEY(`ord`) REFERENCES `orders`(`id`), \
                FOREIGN KEY(`uuid`) REFERENCES `vs`(`uuid`)'
 
-    parts = [sql_info, sql_run, sql_state, sql_ele, sql_sp, sql_fk]
+    parts = [sql_info, sql_run, sql_state, sql_ele, sql_sp, sql_ss, sql_fk]
     execute_query(conn, ''.join(parts) + ')')
 
 def get_order_number(conn, camp, insert=True):

@@ -71,7 +71,6 @@ def Navigator(this_campaign, quiet=False):
 
         # Grab non O/H elements and species data from the verbose huffer test.3o files
         elements = determine_ele_set(path="huffer/")
-        # sp_names = determine_loaded_sp(path="huffer/")
 
         # Current order birthday
         date = time.strftime("%Y-%m-%d", time.gmtime())
@@ -146,12 +145,11 @@ def huffer(conn, camp, quiet=False):
         # New VS table based on vs_state and vs_basis
         db_comms.create_vs_table(conn, camp, elements)
 
-        # Determine column names fof ES table
-        # List of loaded aq, solid, and gas species to be appended
-        sp_names = determine_loaded_sp()
+        # Determine column names of the ES table
+        sp_names, ss_names = determine_loaded_sp()
 
         # New ES table based on loaded species.
-        db_comms.create_es_table(conn, camp, sp_names, elements)
+        db_comms.create_es_table(conn, camp, sp_names, ss_names, elements)
 
     if not quiet:
         print('   Huffer complete.\n')

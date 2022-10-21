@@ -125,7 +125,10 @@ def Helmsman(camp, ord_id=None, num_cores=os.cpu_count(), keep_every_n_files=1, 
         yoeman_process.join()
 
     if not quiet:
-        print(f'\nOrder {ord_id} complete.')
+        if ord_id is None:
+            print('\nOrder(s) complete.')
+        else:
+            print(f'\nOrder {ord_id} complete.')
         print(f'        total time: {round(time.time() - start, num_cores)}')
         print(f'        time/point: {round((time.time() - start) / len(rec), num_cores)}')
         print(f'   time/point/core: {round((num_cores * (time.time() - start)) / len(rec), num_cores)}')

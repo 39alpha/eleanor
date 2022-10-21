@@ -215,9 +215,10 @@ def determine_loaded_sp(path=''):
         gas = [_.split(' (')[0] for _ in ss_and_gas if '(Gas)' in _]
         ss = [_.split(' (')[1].strip(')(') for _ in ss_and_gas if '(Gas)' not in _]
 
-        sp_names = aq_and_s + gas + list(set(ss))
+        sp_names = aq_and_s + gas
+        ss_names = list(set(ss))
 
-    return sp_names
+    return sp_names, ss_names
 
 def determine_T_P_coverage(data0_dir):
     """

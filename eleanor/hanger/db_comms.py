@@ -114,12 +114,10 @@ def create_es_table(conn, camp, loaded_sp, loaded_ss, elements):
 
     sql_info = "CREATE TABLE IF NOT EXISTS es (uuid VARCHAR(32) PRIMARY KEY,\
         ord INTEGER NOT NULL, file INTEGER NOT NULL, run \
-        DATE NOT NULL, mineral TEXT NOT NULL,"
+        DATE NOT NULL,"
 
     sql_run = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in
                         ['initial_aff', 'xi_max', 'aH2O', 'ionic', 'tds', 'soln_mass']]) + ','
-
-
 
     sql_state = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in
                           list(camp.vs_state.keys()) + ['pH']]) + ','

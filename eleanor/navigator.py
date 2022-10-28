@@ -131,7 +131,9 @@ def huffer(conn, camp, quiet=False):
         for _ in camp.vs_basis.keys():
             basis_dict[_] = np.mean(camp.vs_basis[_])
 
-        camp.local_3i.write('test.3i', state_dict, basis_dict, camp.cb, output_details='v')
+        # ### huffer run on unsuppressed (aq species) file, to get complete es table columns, should
+        # ### different orders of the same campaign use different suppress_aq lists.
+        camp.local_3i.write('test.3i', state_dict, basis_dict, camp.cb, [], output_details='v')
         data1_file = os.path.realpath(os.path.join(camp.data1_dir, curve.data1file))
         out, err = eq3(data1_file, 'test.3i')
 
@@ -191,19 +193,20 @@ def random_uniform_order(camp, date, ord, file_number, order_size, elements, pre
     df = pd.DataFrame()
     df = build_admin_info(camp, df, ord, file_number, order_size, date)
 
-    for reactant, [rtype, morr, rkb1] in camp.target_rnt.items():
-        # morr, mols of reactant avaialbe for titration
-        if isinstance(morr, list):
-            df[f'{reactant}_morr'] = [float(np.round(random.uniform(*morr), precision))
-                                      for i in range(order_size)]
-        else:
-            df[f'{reactant}_morr'] = float(np.round(morr, precision))
+    if camp.target_rnt.items() != {}:
+        for reactant, [rtype, morr, rkb1] in camp.target_rnt.items():
+            # morr, mols of reactant avaialbe for titration
+            if isinstance(morr, list):
+                df[f'{reactant}_morr'] = [float(np.round(random.uniform(*morr), precision))
+                                          for i in range(order_size)]
+            else:
+                df[f'{reactant}_morr'] = float(np.round(morr, precision))
 
-        if isinstance(rkb1, list):
-            df[f'{reactant}_rkb1'] = [float(np.round(random.uniform(*rkb1), precision))
-                                      for i in range(order_size)]
-        else:
-            df[f'{reactant}_rkb1'] = float(np.round(rkb1, precision))
+            if isinstance(rkb1, list):
+                df[f'{reactant}_rkb1'] = [float(np.round(random.uniform(*rkb1), precision))
+                                          for i in range(order_size)]
+            else:
+                df[f'{reactant}_rkb1'] = float(np.round(rkb1, precision))
 
     # add vs_state dimensions to orders
     for key, value in camp.vs_state.items():

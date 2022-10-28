@@ -25,8 +25,8 @@ from .hanger.tool_room import mk_check_del_directory, mine_pickup_lines, grab_fl
 from .hanger.tool_room import grab_lines, grab_str, WorkingDirectory
 
 
-def Helmsman(camp, ord_id=None, num_cores=1,#os.cpu_count(),
-             keep_every_n_files=1, quiet=False,
+def Helmsman(camp, ord_id=None, num_cores=os.cpu_count(),
+             keep_every_n_files=10000, quiet=False,
              no_progress=False):
     """
     Keeping with the naval terminology: The Navigator charts where to go.
@@ -286,7 +286,6 @@ def sailor(camp, scratch_path, vs_queue, es_queue, date, dat, elements, ss, vs_c
                                this argument is less than 1, then no files are kept.
     :type keep_every_n_files: int
     """
-    print(dat)
     master_dict = {}
     for i, j in zip(vs_col_names, dat):
         master_dict[i] = j
@@ -300,16 +299,16 @@ def sailor(camp, scratch_path, vs_queue, es_queue, date, dat, elements, ss, vs_c
         basis_dict[i] = master_dict[i]
 
     rnt_dict = {}
-    rnt_keys = list(camp.target_rnt.keys())
+    if camp.target_rnt != {}:
+        rnt_keys = list(camp.target_rnt.keys())
+        for i in range(len(rnt_keys)):
+            name = rnt_keys[i]
+            rnt_type = camp.target_rnt[name][0]
+            morr = master_dict['{}_morr'.format(name)]
+            rkb1 = master_dict['{}_rkb1'.format(name)]
+            rnt_dict[name] = [rnt_type, morr, rkb1]
 
-    for i in range(len(rnt_keys)):
-        name = rnt_keys[i]
-        rnt_type = camp.target_rnt[name][0]
-        morr = master_dict['{}_morr'.format(name)]
-        rkb1 = master_dict['{}_rkb1'.format(name)]
-        rnt_dict[name] = [rnt_type, morr, rkb1]
-
-    paths = SailorPaths(scratch_path, dat[2], dat[3], keep_every_n_files)
+    paths = SailorPaths(scratch_path, master_dict['ord'], master_dict['file'], keep_every_n_files)
 
     paths.create_directory()
     with WorkingDirectory(paths.directory):
@@ -317,38 +316,40 @@ def sailor(camp, scratch_path, vs_queue, es_queue, date, dat, elements, ss, vs_c
                             state_dict,
                             basis_dict,
                             master_dict['cb'],
+                            camp.suppress_sp,
                             output_details='n')
-        data1_file = realpath(join(camp.data1_dir, dat[5]))
+
+        data1_file = realpath(join(camp.data1_dir, master_dict['data1']))
 
         try:
             eq3(data1_file, paths.threei)
         except Exception:
-            return reset_sailor(paths, vs_queue, dat[0], 30)
+            return reset_sailor(paths, vs_queue, master_dict['uuid'], 30)
 
         try:
             pickup = mine_pickup_lines('.', paths.threep, 's')
         except Exception as e:
             print('{}\n  {}\n'.format(paths.threei, e))
-            return reset_sailor(paths, vs_queue, dat[0], 31)
+            return reset_sailor(paths, vs_queue, master_dict['uuid'], 31)
 
         try:
             camp.local_6i.write(paths.sixi, rnt_dict, pickup, state_dict['T_cel'])
             eq6(data1_file, paths.sixi)
         except Exception as e:
             print('{}\n  {}\n'.format(paths.sixi, e))
-            return reset_sailor(paths, vs_queue, dat[0], 60)
+            return reset_sailor(paths, vs_queue, master_dict['uuid'], 60)
 
         if not os.path.isfile(paths.sixo):
-            return reset_sailor(paths, vs_queue, dat[0], 61)
+            return reset_sailor(paths, vs_queue, master_dict['uuid'], 61)
 
-        run_code, build_df = mine_6o(camp, date, elements, ss, paths.sixo, dat, es_col_names)
+        run_code, build_df = mine_6o(camp, date, elements, ss, paths.sixo, master_dict, es_col_names)
         if run_code == 100:
             es_queue.put_nowait(build_df)
 
-        return reset_sailor(paths, vs_queue, dat[0], run_code)
+        return reset_sailor(paths, vs_queue, master_dict['uuid'], run_code)
 
 
-def mine_6o(camp, date, elements, ss, file, dat, col_names):
+def mine_6o(camp, date, elements, ss, file, master_dict, col_names):
     """
     open and mine the eq6 output file ('file'.6o) for all of the run information
     with associated columns in the ES table.
@@ -368,8 +369,8 @@ def mine_6o(camp, date, elements, ss, file, dat, col_names):
     :param file: 'file'.6o file name
     :type file: str
 
-    :param dat: all vs specific data need by the sailor to complete mission.
-    :type dat: list
+    :param build_dict: all vs specific data needed by the sailor to complete mission.
+    :type build_dict: dictionary
 
     :param col_names: ES table columns
     :type col_names: list of strings
@@ -403,12 +404,15 @@ def mine_6o(camp, date, elements, ss, file, dat, col_names):
         return 61, build_df
 
     # populate ES table
-    for i in range(len(lines)):
-        if '   Affinity of the overall irreversible reaction=' in lines[i]:
-            # the first instance of this line is xi = 0.0
-            # (initial disequilibria with target mineral)
-            build_dict["initial_aff"] = [grab_float(lines[i], -2)]
-            break
+    if camp.target_rnt != {}:
+        for i in range(len(lines)):
+            if '   Affinity of the overall irreversible reaction=' in lines[i]:
+                # the first instance of this line is xi = 0.0
+                # (initial disequilibria with target mineral)
+                build_dict["initial_aff"] = [grab_float(lines[i], -2)]
+                break
+    else:
+        build_dict["initial_aff"] = [0.0]
 
     # search from beginning of last xi step (set in last_xi_step_begins)
     # grab xi_max. since initial index contains log Xi.
@@ -561,11 +565,10 @@ def mine_6o(camp, date, elements, ss, file, dat, col_names):
         # ## affinity values in build_df[i] can simply be overwritten
         build_dict[i] = temp_s_dict[i]
 
-    build_dict['uuid'] = [dat[0]]
-    build_dict['ord'] = [dat[2]]
-    build_dict['file'] = [dat[3]]
+    build_dict['uuid'] = [master_dict['uuid']]
+    build_dict['ord'] = [master_dict['ord']]
+    build_dict['file'] = [master_dict['file']]
     build_dict['run'] = [date]
-    build_dict['mineral'] = [dat[5]]
 
     if not camp.SS:
         for i in ss:

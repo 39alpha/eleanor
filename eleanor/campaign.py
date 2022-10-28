@@ -26,7 +26,8 @@ class Campaign:
     - :code:`'notes'` - any nodes about the campaign (:code:`str`)
     - :code:`'est_date'` - date of the campaign creation (:code:`str`)
     - :code:`'reactant'` - *TODO*
-    - :code:`'suppress min'` - *TODO*
+    - :code:`'suppress sp'` - list of aqueeous and/or gaseous species to suppress `List[str]`
+    - :code:`'suppress min'` - list of minerals to suppress `List[str]`
     - :code:`'suppress min exemptions'` - *TODO*
     - :code:`'initial fluid constraints'` - configuration of fluid constraints (:code:`dict`)
         - :code:`'T_cel'` - temperature in celsius (:code:`float` or :code:`List[float]`)
@@ -56,8 +57,9 @@ class Campaign:
         self.name = self._raw['campaign']
         self.notes = self._raw['notes']
         self.est_date = self._raw['est_date']
-        self.target_rnt = self._raw['reactant']
         # modelling data
+        self.target_rnt = self._raw['reactant']
+        self.suppress_sp = self._raw['suppress sp']
         self.suppress_min = self._raw['suppress min']
         self.min_supp_exemp = self._raw['suppress min exemptions']
         self.cb = self._raw['initial fluid constraints']['cb']
@@ -73,9 +75,15 @@ class Campaign:
         else:
             iopt4 = '0'
 
+        if self.target_rnt == {}:
+            iopt1 = '0'  # closed system, no reactants.
+
+        else:
+            iopt1 = '1'  # default to titration
+
         self.local_3i = tool_room.Three_i()
         self.local_6i = tool_room.Six_i(suppress_min=self.suppress_min,
-                                        iopt4=iopt4,
+                                        iopt1=iopt1, iopt4=iopt4,
                                         min_supp_exemp=self.min_supp_exemp)
 
         self._campaign_dir = None

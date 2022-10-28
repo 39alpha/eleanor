@@ -7,7 +7,7 @@ commonily duplicated between projects. """
 # tool_room
 # Developed by Tucker Ely
 # 2018-
-# general EQ3/6 dependencies
+# General EQ3/6 dependencies
 # Adapted by 39A 2021
 
 import os
@@ -19,17 +19,14 @@ import hashlib
 from .constants import wt_dict, sr_dict
 from .constants import *  # noqa (F403)
 
-# os.environ['EQ36CO']="/Users/tuckerely/NPP_dev/EQ3_6v8.0a/bin"
-# os.environ['PATH']="{}:{}".format(os.environ['PATH'], os.environ['EQ36CO'])
-# os.environ['EQ36DA']="/Users/tuckerely/NPP_dev/EQ3_6v8.0a/db"
-
 HERE = os.path.dirname(os.path.abspath(__file__))
 # #################################################################
 # ########################  small pieces  #########################
 # #################################################################
 
+
 def read_inputs(file_extension, location, str_loc='suffix'):
-    # this function can find all 'file_extension' files in downstream folders, of the 'location'
+    # this function can find all 'file_extension' files in folders downstream from 'location'
     file_name = []  # file names
     file_list = []  # file names with paths
 
@@ -44,6 +41,7 @@ def read_inputs(file_extension, location, str_loc='suffix'):
                     file_name.append(file)
                     file_list.append(os.path.join(root, file))
     return file_name, file_list
+
 
 def mk_check_del_directory(path):
     """
@@ -61,30 +59,35 @@ def mk_check_del_directory(path):
     #     else:
     #         sys.exit("ABORT !")
 
+
 def mk_check_del_file(path):
     #  This code checks for the file being created/moved already exists at the destination.
     #  And if so, delets it.
     if os.path.isfile(path):  # Check if the file is alrady pessent
         os.remove(path)  # Delete file
 
+
 def ck_for_empty_file(f):
     if os.stat(f).st_size == 0:
         print('file: ' + str(f) + ' is empty.')
         sys.exit()
 
+
 def format_e(n, p):
     # n = number, p = precisions
     return "%0.*E" % (p, n)
-    # return b.split('E')[0].rstrip('0').rstrip('.') + 'E' + b.split('E')[1]
+
 
 def format_n(n, p):
     # n = number, p = precisions
     return "%0.*f" % (p, n)
 
+
 def grab_str(line, pos):
     a = str(line)
     b = a.split()
     return b[pos]
+
 
 def grab_lines(file):
     f = open(file, "r")
@@ -92,12 +95,13 @@ def grab_lines(file):
     f.close()
     return lines
 
+
 def grab_float(line, pos):
     # grabs the 'n'th string split component of a 'line' as a float.
     a = str(line)
     b = a.split()
     # designed to catch exponents of 3 digits, which are misprinted in EQ3/6 outputs,
-    # ommiting the 'E'. Such numebr have
+    # ommiting the 'E'.
     if re.findall(r'[0-9][-\+][0-9]', b[pos]):
         return 0.000
     else:
@@ -106,21 +110,22 @@ def grab_float(line, pos):
         c = re.findall(r'[0-9Ee\+\.-]+', b[pos])
         return float(c[0])
 
+
 def mine_pickup_lines(pp, file, position):
     """
     pp = project path
     file = file name
 
-    position = s or d (statis or dynamic)
+    position = s or d (statis or dynamic).
 
-    a pickup file contains two blocks, allowing the described system
+    A pickup file contains two blocks, allowing the described system
     to be employed in two different ways. The top of a 3p or 6p file
-    presents the fluid as a reactant (to be reloaded into the reactant bloack)
-    of another 6i file. This can also be thought of as the dynamic system/fluid,
-    as it is the fluid that is changing during a titration, being added as a
-    function of Xi. The second block, below the reactant pickup lines,
-    contains a traditional pickup file. THis can also be thought of as a static
-    system/fluid, as it is the system that is initiated at a fixed mass during a titration
+    presents the fluid as a reactant to be reloaded into the reactant block
+    of another 6i file. This can also be thought of as the dynamic system/fluid 'd',
+    as it is the fluid that is being titrated as a function of Xi.
+    The second block, below the reactant pickup lines,
+    contains a traditional pickup file. This can also be thought of as a static
+    system/fluid 's', as it is the system that is initiated at a fixed mass during a titration.
     """
 
     p_lines = grab_lines(os.path.join(pp, file))
@@ -154,110 +159,25 @@ def mine_pickup_lines(pp, file, position):
         return p_lines[x:]
 
     else:
-        print('Ya Fucked up!')
+        print('Ya fucked up!')
         print('  Pickup file choice not set correctly.')
         print('  must be either "d" (dynamic), referring')
         print('  to the system entered in the reactant block')
-        print('  or "s" (static), reffereing to fluid in  the ')
+        print('  or "s" (static), reffereing to fluid in the ')
         print('  pickup position which exists at a fixed mass.')
         sys.exit()
+
 
 def log_rng(mid, error_in_frac):
     return [np.log10(mid * _) for _ in [1 - error_in_frac, 1 + error_in_frac]]
 
+
 def norm_list(data):
     return list((data - np.min(data)) / (np.max(data) - np.min(data)))
-
-# ##################################################################
-# ###########################    debug   ###########################
-# ##################################################################
-
-# def track_times():
-#     profile = cProfile.Profile()
-#     profile.enable()
-#     return profile
-
-# def report_times(profile):
-#     profile.disable()
-#     ps = pstats.Stats(profile)
-#     ps.sort_stats('cumtime')
-#     ps.print_stats()
 
 # #####################################################################
 # ###########################  3i/6i  #################################
 # #####################################################################\
-
-# #############    Old function from Gale database work.
-
-def oxide_conversion(dat, oxide, fe3_frac):
-    """
-    WARNING: This function was used purely for Gale alteration work,
-    and requires a specific rock db file column format
-
-    Converts wt% oxides listed in desired database to mols/kg, as required by eq6.
-    This function  uses the information listed in the oxide dictionary 'wt_dict'
-    to handle the correct oxygen mol numbers properly.
-    This function also handles oxygen as it relates to accounting for Fe(III)/Fe(tot).
-    This function DOES NOT normalize to 100 wt%.
-     """
-
-    rock = dat[3:]
-
-    # ## rock = line from database csv file, rock_name in [0], ridge_name in [1], oxides from there.
-    # ## Oxide is a list of just these oxides
-    # ## Fe3_frac is the fraction of fe2 that is to me simulated as fe3
-
-    deci = 5  # number of decimal places for oxide mol numbers printed on 6i file
-
-    print_list = []
-    O_build = 0
-    H_build = 0
-
-    for i in oxide:
-        name = wt_dict[i][0]  # element name
-        amount = float(rock[(oxide.index(i) + 4)]) / 100.0  # pul wt% value from rock csv line
-        val = wt_dict[i][1] * (amount * 1000.0 / float(wt_dict[i][3]))  # element mol value
-
-        # ## Account for Fe+3 fraction of O to be added
-        if i == 'FeO':
-            # ## fe3_frac * r_Fe_mols * 0.5  (0.5 is the number of adidional O, beyond the 1 in FeO,
-            # ## needed to pull an additional e- from Fe2, coverting it to Fe3).
-            # ## The one oxygen in FeO is account for in full below,
-            # ## when Fe goes on to be treated like any other oxide.
-            O_build += 0.5 * fe3_frac * val
-
-        # ## if S-2 is desired, then offset S with 2 mol equivalent H
-        if i == 'S':
-            H_build += 2 * val
-
-        if i == 'H2O':
-            H_build += val
-
-        val = format_e(val, deci)
-        O_val = wt_dict[i][2] * (float(amount) * 1000.0 / float(wt_dict[i][3]))  # o mol value
-        O_build += O_val
-
-        if i != 'H2O':
-            print_list.append('   ' + name + ' ' * (12 - len(name)) + val + '\n')
-
-    O_build = format_e(O_build, deci)
-    name = 'O'
-    print_list.append('   ' + name + ' ' * (12 - len(name)) + O_build + '\n')
-
-    H_build = format_e(H_build, deci)
-    name = 'H'
-    print_list.append('   ' + name + ' ' * (12 - len(name)) + H_build + '\n')
-
-    return print_list
-
-def determine_xi_grab_steps(dlxprn, ximax, starting):
-    """ build list of linear xi print steps to grab output data from """
-    l_ = int(ximax / dlxprn)
-    xi_str_list = [format_e(x * dlxprn, 5) for x in range(1, l_ + 1)]
-    xi_str_list.insert(0, format_e(starting, 5))  # prepend first xi step
-    return xi_str_list
-
-# #############    Reactant Blocks
 
 def build_special_rnt(phase, phase_dat):
     """
@@ -431,7 +351,7 @@ class Three_i(object):
         self.iopr7 = iopr7
         self.iopr9 = iopr9
 
-    def write(self, local_name, v_state, v_basis, cb, output_details='n'):
+    def write(self, local_name, v_state, v_basis, cb, suppress_sp, output_details='n'):
         """
         local_name = actual file name
         v_state = dict['state_parameter_name'] = value
@@ -521,29 +441,36 @@ class Three_i(object):
                                  '      neti=   0' + '\n',
                                  '* Solid solution compositions' + '\n',
                                  '      nxti=   0' + '\n',
-                                 '* Alter/suppress options' + '\n',
-                                 '     nxmod=   1' + '\n',
-                                 '   species= METHANE' + '\n',
-                                 '    option= -1              xlkmod=  0.00000E+00' + '\n',
-                                 '* Iopt, iopg, iopr, and iodb options' + '\n',
-                                 '*               1    2    3    4    5    6    7    8    9   10' + '\n', # noqa (E501)
-                                 '  iopt1-10=     0    0    0   ' + l_iopt4 + '    0    0    0    0    0    0' + '\n', # noqa (E501)
-                                 ' iopt11-20=     ' + self.iopt11 + '    0    0    0    0    0    ' + self.iopt17 + '    0    ' + self.iopt19 + '    0' + '\n', # noqa (E501)
-                                 '  iopg1-10=     0    0    0    0    0    0    0    0    0    0' + '\n', # noqa (E501)
-                                 ' iopg11-20=     0    0    0    0    0    0    0    0    0    0' + '\n', # noqa (E501)
-                                 '  iopr1-10=    ' + l_iopr1 + '   ' + l_iopr2 + '    0   ' + l_iopr4 + '   ' + l_iopr5 + '   ' + l_iopr6 + '   ' + l_iopr7 + '    0   ' + l_iopr9 + '    0' + '\n', # noqa (E501)
-                                 ' iopr11-20=     0    0    0    0    0    0    0    0    0    0' + '\n', # noqa (E501)
-                                 '  iodb1-10=    ' + l_iodb1 + '    0   ' + l_iodb3 + '   ' + l_iodb4 + '    0   ' + l_iodb6 + '    0    0    0    0' + '\n', # noqa (E501)
-                                 ' iodb11-20=     0    0    0    0    0    0    0    0    0    0' + '\n', # noqa (E501)
-                                 '* Numerical parameters' + '\n',
-                                 '     tolbt=  0.00000E+00     toldl=  0.00000E+00' + '\n',
-                                 '    itermx=   0' + '\n',
-                                 '* Ordinary basis switches' + '\n',
-                                 '    nobswt=   0' + '\n',
-                                 '* Saturation flag tolerance' + '\n',
-                                 '    tolspf=  0.00000E+00' + '\n',
-                                 '* Aqueous phase scale factor' + '\n',
-                                 '    scamas=  1.00000E+00')))
+                                 '* Alter/suppress options' + '\n')))
+
+            # Handle species supressions
+            if suppress_sp:
+                build.write(f'     nxmod=   {str(len(suppress_sp))}\n')
+                for sp in suppress_sp:
+                    build.write(f'   species= {sp}\n')
+                    build.write('    option= -1              xlkmod=  0.00000E+00\n')
+            else:
+                build.write('     nxmod=   0\n')
+
+            build.write("\n".join(('* Iopt, iopg, iopr, and iodb options',
+                                   '*               1    2    3    4    5    6    7    8    9   10',
+                                  f'  iopt1-10=     0    0    0   {l_iopt4}    0    0    0    0    0    0',  # noqa (E501)
+                                  f' iopt11-20=     {self.iopt11}    0    0    0    0    0    {self.iopt17}    0    {self.iopt19}    0',  # noqa (E501)
+                                   '  iopg1-10=     0    0    0    0    0    0    0    0    0    0',
+                                   ' iopg11-20=     0    0    0    0    0    0    0    0    0    0',
+                                  f'  iopr1-10=    {l_iopr1}   {l_iopr2}    0   {l_iopr4}   {l_iopr5}   {l_iopr6}   {l_iopr7}    0   {l_iopr9}    0',  # noqa (E501)
+                                   ' iopr11-20=     0    0    0    0    0    0    0    0    0    0',
+                                  f'  iodb1-10=    {l_iodb1}    0   {l_iodb3}   {l_iodb4}    0   {l_iodb6}    0    0    0    0',  # noqa (E501)
+                                   ' iodb11-20=     0    0    0    0    0    0    0    0    0    0',
+                                   '* Numerical parameters',
+                                   '     tolbt=  0.00000E+00     toldl=  0.00000E+00',
+                                   '    itermx=   0',
+                                   '* Ordinary basis switches',
+                                   '    nobswt=   0',
+                                   '* Saturation flag tolerance',
+                                   '    tolspf=  0.00000E+00',
+                                   '* Aqueous phase scale factor',
+                                   '    scamas=  1.00000E+00')))
 
 
 class Six_i(object):
@@ -623,10 +550,6 @@ class Six_i(object):
 
         output_details = 'm' (minimal), 'n' (normal), 'v' (verbose, for debugging chemical space).
             normal = the instantiation defaults (self.)
-
-        additional_sw_rxn = True, triggers the inclusion of seawater as an adidtional reactant.
-            This is used to allow remixing of seawater when i am also seeking continued
-            mineral interaction
         """
         if output_details == 'm':
             # minimal output sought:
@@ -636,9 +559,6 @@ class Six_i(object):
             pass
         # reactant count
         reactant_n = len(reactants.keys())
-
-        if additional_sw_rxn:
-            reactant_n += 1
 
         if jtemp == '0':
             # t constant
@@ -685,7 +605,7 @@ class Six_i(object):
                 '      ptk1=  0.00000E+00      ptk2=  0.00000E+00',
                 '      nrct=  {}\n'.format(str(reactant_n))]))
 
-            if len(reactants) > 0:
+            if reactant_n > 0:
                 for _ in reactants.keys():
                     # This assumes that the reactant info read from the vs table
                     # is passed in the same manner as the table listed in the campaign .py file
@@ -702,58 +622,6 @@ class Six_i(object):
                     elif reactants[_][0] == 'gas':
                         # gas reactant
                         build.write(build_gas_rnt(_, reactants[_][1], reactants[_][2]))
-
-            if additional_sw_rxn:
-                # drop in seawater as an additional reactant, to exhaustion.
-                # this is obviously incomplete, as i should be able to pick which fluid i want to
-                # add as an aditional reaction
-                build.write('\n'.join([
-                            '*-----------------------------------------------------------------------------', # noqa (E501)
-                            '  reactant= Fluid 2',
-                            '     jcode=  2               jreac=  0',
-                            '      morr=  1.00000E+10      modr=  0.00000E+00',
-                            '     vreac=  0.10000E+01',
-                            '* Elemental composition',
-                            '   O           5.562748395365903E+01',
-                            '   Al          2.000000039235638E-08',
-                            '   Br          8.400000000320019E-07',
-                            '   Ca          1.020000004340294E-02',
-                            '   Cl          5.339131409252369E-01',
-                            '   Fe          1.530000029742448E-09',
-                            '   H           1.110191390994818E+02',
-                            '   C           2.300000303802816E-03',
-                            '   K           2.300000001660159E-03',
-                            '   Mg          5.270000005630820E-02',
-                            '   N           3.000010000000001E-07',
-                            '   Na          4.640000001062417E-01',
-                            '   S           2.790000003661272E-02',
-                            '   Si          1.600000002691423E-04',
-                            '   endit.',
-                            '* Reaction',
-                            '   Fluid 2                    -1.000000000000000E+00',
-                            '   H2O                         5.550846244103924E+01',
-                            '   Al+3                        2.000000039235638E-08',
-                            '   Br-                         8.400000000320019E-07',
-                            '   Ca+2                        1.020000004340294E-02',
-                            '   Cl-                         5.339131409252369E-01',
-                            '   Fe+2                        3.000000003396551E-11',
-                            '   H+                         -8.578380445936970E-05',
-                            '   HCO3-                       2.300000003802816E-03',
-                            '   K+                          2.300000001660159E-03',
-                            '   Mg+2                        5.270000005630820E-02',
-                            '   NO3-                        3.000000000000001E-07',
-                            '   Na+                         4.640000001062417E-01',
-                            '   SO4-2                       2.790000003661272E-02',
-                            '   SiO2,AQ                     1.600000002691423E-04',
-                            '   O2(g)                       1.003062307023703E-04',
-                            '   NH4+                        1.000000000021125E-12',
-                            '   Fe+3                        1.500000029708482E-09',
-                            '   METHANE,AQ                  3.000000000000001E-10',
-                            '   endit.',
-                            '       nsk=  0               sfcar=  0.00000E+00    ssfcar=  0.00000E+00', # noqa (E501)
-                            '      fkrc=  0.00000E+00',
-                            '      nrk1=  1                nrk2=  0',
-                            '      rkb1=  1.00000E+00      rkb2=  0.00000E+00      rkb3=  0.00000E+00\n'])) # noqa (E501)
 
             else:
                 # no reactants, closed system

@@ -17,6 +17,7 @@ from os.path import join, realpath
 # from test_script import PROFILER
 
 # ### local imports
+from .exceptions import EleanorException, EleanorFileException, RunCode
 from .hanger.db_comms import execute_vs_exit_updates
 from .hanger.db_comms import establish_database_connection, retrieve_records, get_column_names
 from .hanger.eq36 import eq3, eq6
@@ -126,7 +127,10 @@ def Helmsman(camp, ord_id=None, num_cores=os.cpu_count(),
         yoeman_process.join()
 
     if not quiet:
-        print(f'\nOrder {ord_id} complete.')
+        if ord_id is None:
+            print('\nOrder(s) complete.')
+        else:
+            print(f'\nOrder {ord_id} complete.')
         print(f'        total time: {round(time.time() - start, num_cores)}')
         print(f'        time/point: {round((time.time() - start) / len(rec), num_cores)}')
         print(f'   time/point/core: {round((num_cores * (time.time() - start)) / len(rec), num_cores)}')
@@ -323,30 +327,20 @@ def sailor(camp, scratch_path, vs_queue, es_queue, date, dat, elements, ss, vs_c
 
         try:
             eq3(data1_file, paths.threei)
-        except Exception:
-            return reset_sailor(paths, vs_queue, master_dict['uuid'], 30)
 
-        try:
             pickup = mine_pickup_lines('.', paths.threep, 's')
-        except Exception as e:
-            print('{}\n  {}\n'.format(paths.threei, e))
-            return reset_sailor(paths, vs_queue, master_dict['uuid'], 31)
 
-        try:
             camp.local_6i.write(paths.sixi, rnt_dict, pickup, state_dict['T_cel'])
+
             eq6(data1_file, paths.sixi)
+
+            df = mine_6o(camp, date, elements, ss, paths.sixo, dat, es_col_names)
+            es_queue.put_nowait(df)
+            return reset_sailor(paths, vs_queue, master_dict['uuid'], RunCode.SUCCESS)
+        except EleanorException as e:
+            return reset_sailor(paths, vs_queue, master_dict['uuid'], e.code)
         except Exception as e:
-            print('{}\n  {}\n'.format(paths.sixi, e))
-            return reset_sailor(paths, vs_queue, master_dict['uuid'], 60)
-
-        if not os.path.isfile(paths.sixo):
-            return reset_sailor(paths, vs_queue, master_dict['uuid'], 61)
-
-        run_code, build_df = mine_6o(camp, date, elements, ss, paths.sixo, master_dict, es_col_names)
-        if run_code == 100:
-            es_queue.put_nowait(build_df)
-
-        return reset_sailor(paths, vs_queue, master_dict['uuid'], run_code)
+            return reset_sailor(paths, vs_queue, master_dict['uuid'], RunCode.UNKNOWN)
 
 
 def mine_6o(camp, date, elements, ss, file, master_dict, col_names):
@@ -375,212 +369,210 @@ def mine_6o(camp, date, elements, ss, file, master_dict, col_names):
     :param col_names: ES table columns
     :type col_names: list of strings
     """
-
     build_dict = {k: [] for k in col_names}
 
-    lines = grab_lines(file)  # 6o file
+    try:
+        lines = grab_lines(file)  # 6o file
 
-    run_code = 0  # default to un-run file '0'
-    search_for_xi = False
-    for i in range(len(lines) - 1, 0, -1):
-        # ## search from bottom of file
-        if '---  The reaction path has terminated early ---' in lines[i]:
-            # ## do not process 6o
-            build_df = pd.DataFrame.from_dict(build_dict)
-            return 70, build_df
-        elif '---  The reaction path has terminated normally ---' in lines[i]:
-            run_code = 100
-            # Healthy file. Search for index of the last xi step
-            search_for_xi = True
-        elif search_for_xi and '                Log Xi=' in lines[i]:
-            # The first appearance of this, when searching from the bottom
-            # is the final EQ step of interest for populating ES.
-            last_xi_step_begins = i  # grab index for later.
-            break
-
-    if run_code == 0:
-        # run code has not be altered, therefore unknown error
-        build_df = pd.DataFrame.from_dict(build_dict)
-        return 61, build_df
-
-    # populate ES table
-    if camp.target_rnt != {}:
-        for i in range(len(lines)):
-            if '   Affinity of the overall irreversible reaction=' in lines[i]:
-                # the first instance of this line is xi = 0.0
-                # (initial disequilibria with target mineral)
-                build_dict["initial_aff"] = [grab_float(lines[i], -2)]
+        run_code = RunCode.NOT_RUN
+        search_for_xi = False
+        for i in range(len(lines) - 1, 0, -1):
+            # ## search from bottom of file
+            if '---  The reaction path has terminated early ---' in lines[i]:
+                raise EleanorException("eq6 reaction path terminated early",
+                                       code=RunCode.EQ6_EARLY_TERMINATION)
+            elif '---  The reaction path has terminated normally ---' in lines[i]:
+                run_code = RunCode.SUCCESS
+                # Healthy file. Search for index of the last xi step
+                search_for_xi = True
+            elif search_for_xi and '                Log Xi=' in lines[i]:
+                # The first appearance of this, when searching from the bottom
+                # is the final EQ step of interest for populating ES.
+                last_xi_step_begins = i  # grab index for later.
                 break
-    else:
-        build_dict["initial_aff"] = [0.0]
 
-    # search from beginning of last xi step (set in last_xi_step_begins)
-    # grab xi_max. since initial index contains log Xi.
-    build_dict['xi_max'] = [grab_float(lines[last_xi_step_begins], -1)]
+        if run_code == RunCode.NOT_RUN:
+            raise EleanorException('no reaction path status found', code=RunCode.FILE_ERROR_6O)
 
-    for i in range(last_xi_step_begins, len(lines)):
-        if re.findall('^\n', lines[i]):
-            pass
-
-        elif ' Temperature=' in lines[i]:
-            build_dict['T_cel'] = [grab_float(lines[i], -2)]
-
-        elif ' Pressure=' in lines[i]:
-            build_dict['P_bar'] = [grab_float(lines[i], -2)]
-
-        elif ' --- Elemental Composition' in lines[i]:
-            x = 4
-            while not re.findall('^\n', lines[i + x]):
-                if grab_str(lines[i + x], 0) in elements:
-                    # log molality
-                    this_dat = [np.round(np.log10(grab_float(lines[i + x], -1)), 6)]
-                    build_dict['{}'.format(grab_str(lines[i + x], 0))] = this_dat
-                    x += 1
-                else:
-                    x += 1
-
-        elif ' NBS pH scale         ' in lines[i]:
-            build_dict['pH'] = [grab_float(lines[i], -4)]
-
-        elif '                Log oxygen fugacity=' in lines[i]:
-            build_dict['fO2'] = [grab_float(lines[i], -1)]
-
-        elif '              Log activity of water=' in lines[i]:
-            build_dict['aH2O'] = [grab_float(lines[i], -1)]
-
-        elif '                 Ionic strength (I)=' in lines[i]:
-            build_dict['ionic'] = [grab_float(lines[i], -2)]
-
-        elif '                 Solutes (TDS) mass=' in lines[i]:
-            build_dict['tds'] = [grab_float(lines[i], -2)]
-
-        elif '              Aqueous solution mass=' in lines[i]:
-            build_dict['soln_mass'] = [grab_float(lines[i], -2)]
-
-        elif '--- Distribution of Aqueous Solute Species ---' in lines[i]:
-            x = 4
-            while not re.findall('^\n', lines[i + x]):
-                if grab_str(lines[i + x], 0) != 'O2(g)':
-                    # ### -1 position is log activity, -3 is log molality
-                    build_dict[grab_str(lines[i + x], 0)] = [grab_float(
-                        lines[i + x], -3)]
-                    x += 1
-                else:
-                    x += 1
-
-        elif '--- Summary of Solid Phases (ES) ---' in lines[i]:
-            # ### Solids data is stored in a temp_s_dict, to be
-            # ### added to the build_df after the file is processed.
-            # ### This way 'moles precipitated', if it exists, overwrites
-            # ### the affinity data. See notes at the beginning of
-            # ### this function for explanation. This temporary
-            # ### dictionary is only necessary because the solids
-            # ### precipitation moles is reported ahead of the affinity
-            # ### data in the 6o file.
-            temp_s_dict = {}
-
-            x = 4
-            while True:
-                if re.findall('^\n', lines[i + x]) and re.findall('^\n', lines[i + x + 1]):
-                    # ### two blank lines signifies end of block
+        # populate ES table
+        if camp.target_rnt != {}:
+            for i in range(len(lines)):
+                if '   Affinity of the overall irreversible reaction=' in lines[i]:
+                    # the first instance of this line is xi = 0.0
+                    # (initial disequilibria with target mineral)
+                    build_dict["initial_aff"] = [grab_float(lines[i], -2)]
                     break
+        else:
+            build_dict["initial_aff"] = [0.0]
 
-                elif re.findall('^\n', lines[i + x]):
-                    # ### single blank lines separate solids from solid slutions reporting
-                    x += 1
+        # search from beginning of last xi step (set in last_xi_step_begins)
+        # grab xi_max. since initial index contains log Xi.
+        build_dict['xi_max'] = [grab_float(lines[last_xi_step_begins], -1)]
 
-                elif 'None' not in lines[i + x]:
-                    # ## solids value grab_float()'s must reach from the
-                    # ## end of the line (-1, -2, etc.)
-                    # ## because some solid names contain spaces.
-                    # ## Additionally, solid names are grabbed based
-                    # ## in-line index as opposed to the grab_str()
-                    # ## function, for the same reason.
+        for i in range(last_xi_step_begins, len(lines)):
+            if re.findall('^\n', lines[i]):
+                pass
 
-                    # ### mols
-                    temp_s_dict[lines[i + x][:25].strip()] = [grab_float(lines[i + x], -3)]
-                    x += 1
+            elif ' Temperature=' in lines[i]:
+                build_dict['T_cel'] = [grab_float(lines[i], -2)]
 
-                else:
-                    x += 1
+            elif ' Pressure=' in lines[i]:
+                build_dict['P_bar'] = [grab_float(lines[i], -2)]
 
-        elif '--- Saturation States of Pure Solids ---' in lines[i]:
-            x = 4
-            while not re.findall('^\n', lines[i + x]):
-                if re.findall(r'\*{4}$', lines[i + x]):
-                    # ## '******'' fills in the value region for numbers
-                    # ## lower than -999.9999. Replace with boundary condition
+            elif ' --- Elemental Composition' in lines[i]:
+                x = 4
+                while not re.findall('^\n', lines[i + x]):
+                    if grab_str(lines[i + x], 0) in elements:
+                        # log molality
+                        this_dat = [np.round(np.log10(grab_float(lines[i + x], -1)), 6)]
+                        build_dict['{}'.format(grab_str(lines[i + x], 0))] = this_dat
+                        x += 1
+                    else:
+                        x += 1
 
-                    # ## affinity (kcal)
-                    build_dict[lines[i + x][:30].strip()] = [float(-999.9999)]
-                    x += 1
-                elif 'None' not in lines[i + x]:
-                    build_dict[lines[i + x][:30].strip()] = [
-                        float(lines[i + x][44:55])]
-                    x += 1
-                else:
-                    x += 1
+            elif ' NBS pH scale         ' in lines[i]:
+                build_dict['pH'] = [grab_float(lines[i], -4)]
 
-        elif camp.SS and ' --- Saturation States of Solid Solutions ---' in lines[i]:
-            x = 4
-            while not re.findall('^\n', lines[i + x]):
-                if re.findall(r'\*{4}$', lines[i + x]):
-                    # ## '******'' fills in the value region for numbers
-                    # ## lower than -999.9999. Replace with boundary condition
+            elif '                Log oxygen fugacity=' in lines[i]:
+                build_dict['fO2'] = [grab_float(lines[i], -1)]
 
-                    # ## affinity (kcal)
-                    build_dict[lines[i + x][:30].strip()] = [float(-999.9999)]
-                    x += 1
-                elif 'None' not in lines[i + x]:
-                    # ## affinity (kcal)
-                    build_dict[lines[i + x][:30].strip()] = [
-                        float(lines[i + x][44:55])]
-                    x += 1
-                else:
-                    x += 1
+            elif '              Log activity of water=' in lines[i]:
+                build_dict['aH2O'] = [grab_float(lines[i], -1)]
 
-        elif '    --- Fugacities ---' in lines[i]:
-            x = 4
-            while not re.findall('^\n', lines[i + x]):
+            elif '                 Ionic strength (I)=' in lines[i]:
+                build_dict['ionic'] = [grab_float(lines[i], -2)]
 
-                if 'None' not in lines[i + x]:  # log f
-                    if re.findall(r'\*{4}', lines[i + x]):
+            elif '                 Solutes (TDS) mass=' in lines[i]:
+                build_dict['tds'] = [grab_float(lines[i], -2)]
+
+            elif '              Aqueous solution mass=' in lines[i]:
+                build_dict['soln_mass'] = [grab_float(lines[i], -2)]
+
+            elif '--- Distribution of Aqueous Solute Species ---' in lines[i]:
+                x = 4
+                while not re.findall('^\n', lines[i + x]):
+                    if grab_str(lines[i + x], 0) != 'O2(g)':
+                        # ### -1 position is log activity, -3 is log molality
+                        build_dict[grab_str(lines[i + x], 0)] = [grab_float(
+                            lines[i + x], -3)]
+                        x += 1
+                    else:
+                        x += 1
+
+            elif '--- Summary of Solid Phases (ES) ---' in lines[i]:
+                # ### Solids data is stored in a temp_s_dict, to be
+                # ### added to the build_df after the file is processed.
+                # ### This way 'moles precipitated', if it exists, overwrites
+                # ### the affinity data. See notes at the beginning of
+                # ### this function for explanation. This temporary
+                # ### dictionary is only necessary because the solids
+                # ### precipitation moles is reported ahead of the affinity
+                # ### data in the 6o file.
+                temp_s_dict = {}
+
+                x = 4
+                while True:
+                    if re.findall('^\n', lines[i + x]) and re.findall('^\n', lines[i + x + 1]):
+                        # ### two blank lines signifies end of block
+                        break
+
+                    elif re.findall('^\n', lines[i + x]):
+                        # ### single blank lines separate solids from solid slutions reporting
+                        x += 1
+
+                    elif 'None' not in lines[i + x]:
+                        # ## solids value grab_float()'s must reach from the
+                        # ## end of the line (-1, -2, etc.)
+                        # ## because some solid names contain spaces.
+                        # ## Additionally, solid names are grabbed based
+                        # ## in-line index as opposed to the grab_str()
+                        # ## function, for the same reason.
+
+                        # ### mols
+                        temp_s_dict[lines[i + x][:25].strip()] = [grab_float(lines[i + x], -3)]
+                        x += 1
+
+                    else:
+                        x += 1
+
+            elif '--- Saturation States of Pure Solids ---' in lines[i]:
+                x = 4
+                while not re.findall('^\n', lines[i + x]):
+                    if re.findall(r'\*{4}$', lines[i + x]):
                         # ## '******'' fills in the value region for numbers
                         # ## lower than -999.9999. Replace with boundary condition
 
                         # ## affinity (kcal)
                         build_dict[lines[i + x][:30].strip()] = [float(-999.9999)]
                         x += 1
-                    else:
-                        build_dict[grab_str(lines[i + x], 0)] = [
-                            float(lines[i + x][28:41])]
+                    elif 'None' not in lines[i + x]:
+                        build_dict[lines[i + x][:30].strip()] = [
+                            float(lines[i + x][44:55])]
                         x += 1
-                else:
-                    x += 1
-            break
+                    else:
+                        x += 1
 
-    for i in temp_s_dict.keys():
-        # ## write temp_s_dict[i] to build_df[i]. As temp_s_dict only
-        # ## contains solids that actually precipitated, the
-        # ## affinity values in build_df[i] can simply be overwritten
-        build_dict[i] = temp_s_dict[i]
+            elif camp.SS and ' --- Saturation States of Solid Solutions ---' in lines[i]:
+                x = 4
+                while not re.findall('^\n', lines[i + x]):
+                    if re.findall(r'\*{4}$', lines[i + x]):
+                        # ## '******'' fills in the value region for numbers
+                        # ## lower than -999.9999. Replace with boundary condition
 
-    build_dict['uuid'] = [master_dict['uuid']]
-    build_dict['ord'] = [master_dict['ord']]
-    build_dict['file'] = [master_dict['file']]
-    build_dict['run'] = [date]
+                        # ## affinity (kcal)
+                        build_dict[lines[i + x][:30].strip()] = [float(-999.9999)]
+                        x += 1
+                    elif 'None' not in lines[i + x]:
+                        # ## affinity (kcal)
+                        build_dict[lines[i + x][:30].strip()] = [
+                            float(lines[i + x][44:55])]
+                        x += 1
+                    else:
+                        x += 1
 
-    if not camp.SS:
-        for i in ss:
-            build_dict[i] = [-999999]
+            elif '    --- Fugacities ---' in lines[i]:
+                x = 4
+                while not re.findall('^\n', lines[i + x]):
 
-    # ## reorganize columns to match es table
-    build_df = pd.DataFrame.from_dict(build_dict)
+                    if 'None' not in lines[i + x]:  # log f
+                        if re.findall(r'\*{4}', lines[i + x]):
+                            # ## '******'' fills in the value region for numbers
+                            # ## lower than -999.9999. Replace with boundary condition
 
-    build_df = build_df[col_names]
+                            # ## affinity (kcal)
+                            build_dict[lines[i + x][:30].strip()] = [float(-999.9999)]
+                            x += 1
+                        else:
+                            build_dict[grab_str(lines[i + x], 0)] = [
+                                float(lines[i + x][28:41])]
+                            x += 1
+                    else:
+                        x += 1
+                break
 
-    return run_code, build_df
+        for i in temp_s_dict.keys():
+            # ## write temp_s_dict[i] to build_df[i]. As temp_s_dict only
+            # ## contains solids that actually precipitated, the
+            # ## affinity values in build_df[i] can simply be overwritten
+            build_dict[i] = temp_s_dict[i]
 
+        build_dict['uuid'] = [master_dict['uuid']]
+        build_dict['ord'] = [master_dict['ord']]
+        build_dict['file'] = [master_dict['file']]
+        build_dict['run'] = [date]
+
+        if not camp.SS:
+            for i in ss:
+                build_dict[i] = [-999999]
+
+        # ## reorganize columns to match es table
+        build_df = pd.DataFrame.from_dict(build_dict)
+
+        build_df = build_df[col_names]
+
+        return build_df
+    except FileNotFoundError as e:
+        raise EleanorFileException(e, code=RunCode.FILE_ERROR_6O)
 
 def yoeman(camp, keep_running, write_vs_q, write_es_q, num_points, no_progress=False):
     """
@@ -638,11 +630,12 @@ def yoeman(camp, keep_running, write_vs_q, write_es_q, num_points, no_progress=F
                 es_df_list.append(es_df)
                 write_es_q.task_done()
             # Write ES table
-            total_es_df = pd.concat(es_df_list, ignore_index=True)
-            total_es_df.to_sql('es', conn, if_exists='append', index=False)
-            es_df_list = []
-            # Write VS lines
-            execute_vs_exit_updates(conn, vs_list)
+            if len(es_df_list) != 0:
+                total_es_df = pd.concat(es_df_list, ignore_index=True)
+                total_es_df.to_sql('es', conn, if_exists='append', index=False)
+                es_df_list = []
+                # Write VS lines
+                execute_vs_exit_updates(conn, vs_list)
 
         elif not write_all_at_once and current_q_size > WRITE_EVERY_N:
             # Get VS batch
@@ -663,9 +656,11 @@ def yoeman(camp, keep_running, write_vs_q, write_es_q, num_points, no_progress=F
                 write_es_q.task_done()
 
             # Write batch to ES table
-            total_es_df = pd.concat(es_df_list, ignore_index=True)
-            total_es_df.to_sql('es', conn, if_exists='append', index=False)
-            es_df_list = []
+            if len(es_df_list) != 0:
+                total_es_df = pd.concat(es_df_list, ignore_index=True)
+                total_es_df.to_sql('es', conn, if_exists='append', index=False)
+                es_df_list = []
+
             if not no_progress:
                 progress.update(vs_n_written)
 
@@ -684,7 +679,7 @@ def yoeman(camp, keep_running, write_vs_q, write_es_q, num_points, no_progress=F
         es_df_list.append(es_df)
         write_es_q.task_done()
     # Write batch to ES table
-    if es_df_list != []:
+    if len(es_df_list) != 0:
         total_es_df = pd.concat(es_df_list, ignore_index=True)
         total_es_df.to_sql('es', conn, if_exists='append', index=False)
 
@@ -735,7 +730,7 @@ def reset_sailor(paths, vs_queue, uuid, code):
 
     """
     # This only takes like 1e-5 seconds even with the put
-    this_point = (code, uuid)
+    this_point = (int(code), uuid)
     vs_queue.put_nowait(this_point)
     if not paths.keep:
         shutil.rmtree(paths.directory)

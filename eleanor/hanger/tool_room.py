@@ -19,7 +19,8 @@ import hashlib
 from .constants import wt_dict, sr_dict
 from .constants import *  # noqa (F403)
 
-HERE = os.path.dirname(os.path.abspath(__file__))
+from eleanor.exceptions import RunCode, EleanorFileException
+
 # #################################################################
 # ########################  small pieces  #########################
 # #################################################################
@@ -127,45 +128,46 @@ def mine_pickup_lines(pp, file, position):
     contains a traditional pickup file. This can also be thought of as a static
     system/fluid 's', as it is the system that is initiated at a fixed mass during a titration.
     """
+    try:
+        p_lines = grab_lines(os.path.join(pp, file))
 
-    p_lines = grab_lines(os.path.join(pp, file))
-
-    if position == 'd':
-        # mine the reactant block (dynamic fluid)
-        x = 0
-        while not re.findall(r'^\*------------------', p_lines[x]):
+        if position == 'd':
+            # mine the reactant block (dynamic fluid)
+            x = 0
+            while not re.findall(r'^\*------------------', p_lines[x]):
+                x += 1
             x += 1
-        x += 1
-        start_sw = x
-        while not re.findall(r'^\*------------------', p_lines[x]):
-            # replace morr value to excess, so that it can be continuesly titrated in pickup fluid,
-            # without exhaustion this is a default standin. note that other codes may alter this
-            # later, such as when some limited amount of seawater entrainment is accounted for.
-            if re.findall('^      morr=', p_lines[x]):
-                p_lines[x] = p_lines[x].replace('morr=  1.00000E+00', 'morr=  1.00000E+20')
-                x += 1
-            else:
-                x += 1
-
-        end_sw = x
-        return p_lines[start_sw:end_sw]
-
-    elif position == 's':
-        # mine fluid in the 'pickup' position from the bottom of the 3p file
-        x = len(p_lines) - 1
-        while not re.findall(r'^\*------------------', p_lines[x]):
-            x -= 1
-        x += 1
-        return p_lines[x:]
-
-    else:
-        print('Ya fucked up!')
-        print('  Pickup file choice not set correctly.')
-        print('  must be either "d" (dynamic), referring')
-        print('  to the system entered in the reactant block')
-        print('  or "s" (static), reffereing to fluid in the ')
-        print('  pickup position which exists at a fixed mass.')
-        sys.exit()
+            start_sw = x
+            while not re.findall(r'^\*------------------', p_lines[x]):
+                # replace morr value to excess, so that it can be continuesly titrated in pickup fluid,
+                # without exhaustion this is a default standin. note that other codes may alter this
+                # later, such as when some limited amount of seawater entrainment is accounted for.
+                if re.findall('^      morr=', p_lines[x]):
+                    p_lines[x] = p_lines[x].replace('morr=  1.00000E+00', 'morr=  1.00000E+20')
+                    x += 1
+                else:
+                    x += 1
+    
+            end_sw = x
+            return p_lines[start_sw:end_sw]
+    
+        elif position == 's':
+            # mine fluid in the 'pickup' position from the bottom of the 3p file
+            x = len(p_lines) - 1
+            while not re.findall(r'^\*------------------', p_lines[x]):
+                x -= 1
+            x += 1
+            return p_lines[x:]
+        else:
+            print('Ya fucked up!')
+            print('  Pickup file choice not set correctly.')
+            print('  must be either "d" (dynamic), referring')
+            print('  to the system entered in the reactant block')
+            print('  or "s" (static), reffereing to fluid in the ')
+            print('  pickup position which exists at a fixed mass.')
+            sys.exit()
+    except FileNotFoundError as e:
+        raise EleanorFileException(e, code=RunCode.FILE_ERROR_3P)
 
 
 def log_rng(mid, error_in_frac):

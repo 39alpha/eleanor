@@ -5,16 +5,9 @@ Provide a simple API for running EQ3/6.
 """
 import re
 from subprocess import Popen, PIPE
+from eleanor.exceptions import Eq36Exception, RunCode
 
-class Eq36Exception(Exception):
-    """
-    An Exception to represent that an error occurred during the running of
-    :func:`eqpt`, :func:`eq3` or func:`eq6`.
-    """
-    pass
-
-
-def error_guard(output, cmd, fname=None):
+def error_guard(output, cmd, code, fname=None):
     """
     Parse EQ3/6 standard output content for error messages and raise an
     :class:`Eq36Exception` if any are found.
@@ -34,9 +27,9 @@ def error_guard(output, cmd, fname=None):
             message = re.sub('\s+', ' ', no_newline)
             if re.match('^\s*$', message) is None:
                 if fname is None:
-                    raise Eq36Exception(message)
+                    raise Eq36Exception(message, code=code)
                 else:
-                    raise Eq36Exception(f'{message} in file "{fname}"')
+                    raise Eq36Exception(f'{message} in file "{fname}"', code=code)
 
 def run(cmd, *args, **kwargs):
     """
@@ -71,7 +64,7 @@ def eqpt(data0):
     :return: the standard output and error that results from eq3nr on the data1
              and 3i files.
     """
-    return run('eqpt', data0, fname=data0)
+    return run('eqpt', data0, fname=data0, code=RunCode.EQPT_ERROR)
 
 
 def eq3(data1, threei):
@@ -90,7 +83,7 @@ def eq3(data1, threei):
     :return: the standard output and error that results from eq3nr on the data1
              and 3i files.
     """
-    return run('eq3nr', data1, threei, fname=threei)
+    return run('eq3nr', data1, threei, fname=threei, code=RunCode.EQ3_ERROR)
 
 
 def eq6(data1, sixi):
@@ -112,4 +105,4 @@ def eq6(data1, sixi):
     :return: the standard output and error that results from eq6 on the data1
              and 6i files.
     """
-    return run('eq6', data1, sixi, fname=sixi)
+    return run('eq6', data1, sixi, fname=sixi, code=RunCode.EQ6_ERROR)

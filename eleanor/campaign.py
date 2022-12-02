@@ -71,20 +71,13 @@ class Campaign:
         self.distro = self._raw['vs_distro']
         self.reso = self._raw['resolution']
         self.SS = self._raw['solid solutions']
-        self.salinity = self._raw['salinity']
-        # self.salinity = []
+        self.salinity = self._raw.get('salinity', default=[])
 
         ### patch, limit a run based on the salinity listed in the notes
         # sal_noise = 0.1  # grams
         # target_molinity = grab_float(self.notes, 6)
         # target_molality = target_molinity / ((1000 - target_molinity) / 1000)
         # self.salinity = [target_molality - sal_noise, target_molality + sal_noise]
-
-        if 'charge_imbalance' in self._raw.keys():
-            print('campaign, cb noted')
-            self.cb_imbalance = self._raw['charge_imbalance']
-        else:
-            self.cb_imbalance = False
 
         if self.SS:
             iopt4 = '1'

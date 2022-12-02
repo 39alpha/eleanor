@@ -51,14 +51,6 @@ def mk_check_del_directory(path):
     """
     if not os.path.exists(path):  # Check if the dir is alrady pessent
         os.makedirs(path)  # Build desired output directory
-    # else:
-    #     answer = input('\n Directory {} already exists.\n\
-    #              Are you sure you want to overwrite its contents? (Y E S/N)\n'.format(path))
-    #     if answer == 'Y E S':
-    #         shutil.rmtree(path)  # Remove directory and contents if it is already present.
-    #         os.makedirs(path)
-    #     else:
-    #         sys.exit("ABORT !")
 
 
 def mk_check_del_file(path):
@@ -112,12 +104,25 @@ def grab_float(line, pos):
         return float(c[0])
 
 
+def check_charge_imbalance(camp, pp, file):
+    p_lines = grab_lines(os.path.join(pp, file))
+    for line in p_lines:
+        if 'Electrical imbalance= ' in line:
+            cb_i = grab_float(line, -1)
+            if abs(cb_i) > camp.cb_imbalance:
+                return True  # kill that shit
+            else:
+                return False   # Ok
+
+
 def mine_pickup_lines(pp, file, position):
     """
     pp = project path
     file = file name
 
     position = s or d (statis or dynamic).
+
+    check_electrical_imbalance: false (dont check). val = ± imbalance allowed
 
     A pickup file contains two blocks, allowing the described system
     to be employed in two different ways. The top of a 3p or 6p file
@@ -147,10 +152,10 @@ def mine_pickup_lines(pp, file, position):
                     x += 1
                 else:
                     x += 1
-    
+
             end_sw = x
             return p_lines[start_sw:end_sw]
-    
+
         elif position == 's':
             # mine fluid in the 'pickup' position from the bottom of the 3p file
             x = len(p_lines) - 1
@@ -168,7 +173,6 @@ def mine_pickup_lines(pp, file, position):
             sys.exit()
     except FileNotFoundError as e:
         raise EleanorFileException(e, code=RunCode.FILE_ERROR_3P)
-
 
 def log_rng(mid, error_in_frac):
     return [np.log10(mid * _) for _ in [1 - error_in_frac, 1 + error_in_frac]]
@@ -411,39 +415,51 @@ class Three_i(object):
 
         # ## write template to file, amending values into the variable vars
         with open(local_name, 'w') as build:
-            build.write("".join(('EQ3NR input file name= local' + '\n',
-                                 'endit.' + '\n',
-                                 '* Special basis switches' + '\n',
-                                 '    nsbswt=   0' + '\n',
-                                 '* General' + '\n',
-                                 '     tempc=  ' + format_e(v_state['T_cel'], 5) + '\n',
-                                 '    jpres3=   0' + '\n',
-                                 '     press=  ' + format_e(v_state['P_bar'], 5) + '\n',
-                                 '       rho=  1.00000E+00' + '\n',
-                                 '    itdsf3=   0' + '\n',
-                                 '    tdspkg=  0.00000E+00     tdspl=  0.00000E+00' + '\n',
-                                 '    iebal3=   1' + '\n',
-                                 '     uebal= ' + cb + '\n',
-                                 '    irdxc3=   0' + '\n',
-                                 '    fo2lgi= ' + format_e(v_state['fO2'], 5) + '       ehi=  0.00000E+00' + '\n', # noqa (E501)
-                                 '       pei=  0.00000E+00    uredox= None' + '\n',
-                                 '* Aqueous basis species' + '\n')))
+            build.write("\n".join(
+                ('EQ3NR input file name= local',
+                 'endit.',
+                 '* Special basis switches',
+                 '    nsbswt=   0',
+                 '* General',
+                 f'     tempc=  {format_e(v_state["T_cel"], 5)}',
+                 '    jpres3=   0',
+                 f'     press=  {format_e(v_state["P_bar"], 5)}',
+                 '       rho=  1.00000E+00',
+                 '    itdsf3=   0',
+                 '    tdspkg=  0.00000E+00     tdspl=  0.00000E+00',
+                 '    iebal3=   1',
+                 f'     uebal= {cb}\n')))
+
+            if type(v_state['fO2']) == str:
+                # ### redox set by species
+                build.write("\n".join(
+                    ('    irdxc3=   1',
+                     '    fo2lgi= 0.00000E+00       ehi=  0.00000E+00',
+                     f'       pei=  0.00000E+00    uredox= {v_state["fO2"]}',
+                     '* Aqueous basis species\n')))
+            else:
+                build.write("\n".join(
+                    ('    irdxc3=   0',
+                     f'    fo2lgi= {format_e(v_state["fO2"], 5)}       ehi=  0.00000E+00',
+                     '       pei=  0.00000E+00    uredox= None',
+                     '* Aqueous basis species\n')))
 
             for _ in v_basis.keys():
                 if _ == 'H+':
-                    build.write('species= {}\n   jflgi= 16    covali=  {}\n'.format(_, v_basis[_]))
+                    build.write(f'species= {_}\n   jflgi= 16    covali=  {v_basis[_]}\n')
                 else:
-                    build.write('species= {}\n   jflgi=  0    covali=  {}\n'.format(_, format_e(10**v_basis[_], 5))) # noqa (E501)
+                    build.write(f'species= {_}\n   jflgi=  0    covali=  {format_e(10**v_basis[_], 5)}\n')  # noqa (E501)
 
-            build.write("".join(('endit.' + '\n',
-                                 '* Ion exchangers' + '\n',
-                                 '    qgexsh=        F' + '\n',
-                                 '       net=   0' + '\n',
-                                 '* Ion exchanger compositions' + '\n',
-                                 '      neti=   0' + '\n',
-                                 '* Solid solution compositions' + '\n',
-                                 '      nxti=   0' + '\n',
-                                 '* Alter/suppress options' + '\n')))
+            build.write("\n".join(
+                ('endit.',
+                 '* Ion exchangers',
+                 '    qgexsh=        F',
+                 '       net=   0',
+                 '* Ion exchanger compositions',
+                 '      neti=   0',
+                 '* Solid solution compositions',
+                 '      nxti=   0',
+                 '* Alter/suppress options\n')))
 
             # Handle species supressions
             if suppress_sp:
@@ -561,7 +577,6 @@ class Six_i(object):
             pass
         # reactant count
         reactant_n = len(reactants.keys())
-
         if jtemp == '0':
             # t constant
             tempcb = temp
@@ -608,6 +623,7 @@ class Six_i(object):
                 '      nrct=  {}\n'.format(str(reactant_n))]))
 
             if reactant_n > 0:
+                self.iopt1 = ' 1'
                 for _ in reactants.keys():
                     # This assumes that the reactant info read from the vs table
                     # is passed in the same manner as the table listed in the campaign .py file

@@ -11,6 +11,7 @@ class RunCode(IntEnum):
     EQ6_ERROR = 60
     NO_6O_FILE = 61
     FILE_ERROR_6O = 62
+    OUTSIDE_SALINITY_WINDOW = 63,
     EQ6_EARLY_TERMINATION = 70
 
     def __str__(self):
@@ -24,6 +25,7 @@ class RunCode(IntEnum):
                 RunCode.EQ6_ERROR: 'eq6 failed with an error',
                 RunCode.NO_6O_FILE: 'no 6o file generated',
                 RunCode.FILE_ERROR_6O: 'eq6 ran but eleanor could not mine the 6o file',
+                RunCode.OUTSIDE_SALINITY_WINDOW: 'total disolved solute is outside the desired salinity window',
                 RunCode.EQ6_EARLY_TERMINATION: 'eq6 reaction path terminated early'
                 }.get(self)
 

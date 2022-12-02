@@ -47,7 +47,7 @@ def create_vs_table(conn, camp, elements):
         TEXT NOT NULL, ord INTEGER NOT NULL, file INTEGER NOT NULL, birth \
         DATE NOT NULL, data1 TEXT NOT NULL, code SMALLINT NOT NULL, cb TEXT NOT NULL,"
 
-    if len(camp.target_rnt) > 0:
+    if camp.target_rnt.items() != {}:
         sql_rnt_morr = ",".join([f'"{_}_morr" DOUBLE PRECISION NOT NULL'
                                 for _ in camp.target_rnt.keys()]) + ','
 
@@ -97,7 +97,8 @@ def create_orders_table(conn):
         ON `orders` (`campaign_hash`, `data0_hash`)
     ''')
 
-def create_es_table(conn, camp, loaded_sp, loaded_ss, elements):
+
+def create_es_table(conn, camp, sp, ss, gases, elements):
     """
     Initiater equilibrium space (mined from 6o) table on connection 'conn'
     for campaign 'camp_name' with state dimensions 'camp_vs_state' and
@@ -117,7 +118,7 @@ def create_es_table(conn, camp, loaded_sp, loaded_ss, elements):
         DATE NOT NULL,"
 
     sql_run = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in
-                        ['initial_aff', 'xi_max', 'aH2O', 'ionic', 'tds', 'soln_mass']]) + ','
+                        ['initial_aff', 'xi_max', 'aH2O', 'ionic', 'tds', 'soln_mass', 'extended_alk']]) + ','
 
     sql_state = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in
                           list(camp.vs_state.keys()) + ['pH']]) + ','
@@ -128,16 +129,22 @@ def create_es_table(conn, camp, loaded_sp, loaded_ss, elements):
 
     sql_ele = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in
                         elements]) + ','
+    # molal / moles
+    sql_sp_m = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in
+                        [f'm{_}' for _ in sp]]) + ','
+    # activity / affinity
+    sql_sp_a = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in
+                        [f'a{_}' for _ in sp]]) + ','
 
-    sql_sp = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in
-                       loaded_sp]) + ','
+    sql_gas = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in
+                        gases]) + ','
 
-    sql_ss = ",".join([f'"{_}" DOUBLE PRECISION' for _ in loaded_ss]) + ','
+    sql_ss = ",".join([f'"{_}" DOUBLE PRECISION' for _ in ss]) + ','
 
     sql_fk = ' FOREIGN KEY(`ord`) REFERENCES `orders`(`id`), \
                FOREIGN KEY(`uuid`) REFERENCES `vs`(`uuid`)'
 
-    parts = [sql_info, sql_run, sql_state, sql_ele, sql_sp, sql_ss, sql_fk]
+    parts = [sql_info, sql_run, sql_state, sql_ele, sql_sp_a, sql_sp_m, sql_gas, sql_ss, sql_fk]
     execute_query(conn, ''.join(parts) + ')')
 
 def get_order_number(conn, camp, insert=True):
@@ -285,8 +292,10 @@ def retrieve_combined_records(conn, vs_cols, es_cols,
 
     if ord_id is not None and where is not None:
         query += f" WHERE `es`.`ord` = {ord_id} and {where}"
+
     elif ord_id is not None:
         query += f" WHERE `es`.`ord` = {ord_id}"
+
     elif where is not None:
         query += f" WHERE {where}"
 

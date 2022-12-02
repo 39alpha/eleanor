@@ -16,7 +16,7 @@ from matplotlib.colors import LinearSegmentedColormap
 from .db_comms import *
 from .tool_room import *
 from .db_comms import establish_database_connection, retrieve_combined_records
-from .radar_tools import get_continuous_cmap
+# from .radar_tools import get_continuous_cmap
 
 
 def Radar(camp, x_sp, y_sp, z_sp, description, ord_id=None, limit=1000, where=None,

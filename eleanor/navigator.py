@@ -9,7 +9,7 @@
 from sqlite3.dbapi2 import Error
 import uuid
 import random
-import os
+import os, sys
 import time
 
 import numpy as np
@@ -21,8 +21,42 @@ import pandas as pd
 from .hanger.eq36 import eq3
 from .hanger import db_comms
 from .hanger.tool_room import mk_check_del_directory, grab_lines, WorkingDirectory
+from .hanger.data0_tools import determine_species_set
 from .hanger.data0_tools import determine_ele_set, determine_loaded_sp, species_info
 from .hanger.data0_tools import SLOP_DF, TPCurve
+
+# ### temporary fix.
+mw = {'O': 15.99940,
+      'C': 12.01100,
+      'S': 32.06600,
+      'Ca': 40.07800,
+      'K': 39.09830,
+      'Fe': 55.84700,
+      'Mg': 24.30500,
+      'Na': 22.98977,
+      'Si': 28.08550,
+      'O': 15.99940,
+      'H': 1.00794,
+      'P': 30.97362,
+      'Sr': 87.62000,
+      'Cl': 35.45270,
+      'F': 18.99840,
+      'Br': 79.90400,
+      'B': 10.81000}
+basis_mw = {
+    "HCO3-": 3 * mw['O'] + mw['H'] + mw['C'],
+    "O2": 2 * mw['O'],
+    "Na+": mw['Na'],
+    "Mg+2": mw['Mg'],
+    "Ca+2": mw['Ca'],
+    "K+": mw['K'],
+    "Sr+2": mw['Sr'],
+    "Cl-": mw['Cl'],
+    "SO4-2": mw['S'] + 4 * mw['S'],
+    "Br-": mw['Br'],
+    "F-": mw['F'],
+    "B(OH)3": mw['B'] + 3 * mw['O'] + 3 * mw['H']
+}
 
 
 def Navigator(this_campaign, quiet=False):
@@ -123,7 +157,15 @@ def huffer(conn, camp, quiet=False):
 
         state_dict = {}
         for _ in camp.vs_state.keys():
-            state_dict[_] = np.mean(camp.vs_state[_])
+            if _ == 'fO2':
+                if type(camp.vs_state['fO2']) == str:
+                    # ### sp constraint
+                    state_dict[_] = camp.vs_state[_]
+                else:
+                    state_dict[_] = np.mean(camp.vs_state[_])
+            else:
+                state_dict[_] = np.mean(camp.vs_state[_])
+
         state_dict['T_cel'] = T
         state_dict['T_bar'] = P
 
@@ -142,16 +184,17 @@ def huffer(conn, camp, quiet=False):
         except FileNotFoundError:
             raise Error("The huffer failed. Figure your shit out.")
 
-        elements = determine_ele_set()
+        elements, sp, solids, ss, gasses = determine_species_set()
+        # elements = determine_ele_set()
 
         # New VS table based on vs_state and vs_basis
         db_comms.create_vs_table(conn, camp, elements)
 
         # Determine column names of the ES table
-        sp_names, ss_names = determine_loaded_sp()
+        # sp_names, ss_names = determine_loaded_sp()
 
         # New ES table based on loaded species.
-        db_comms.create_es_table(conn, camp, sp_names, ss_names, elements)
+        db_comms.create_es_table(conn, camp, sp + solids, ss, gasses, elements)
 
     if not quiet:
         print('   Huffer complete.\n')
@@ -212,17 +255,18 @@ def random_uniform_order(camp, date, ord, file_number, order_size, elements, pre
     for key, value in camp.vs_state.items():
         if key == 'P_bar':
             continue
-
         if key == 'T_cel':
             df['T_cel'], df['P_bar'], curves = TPCurve.sample(camp.tp_curves, order_size)
             df['data1'] = [curve.data1file for curve in curves]
+        if key == 'fO2' and type(value) == str:
+            # ### fO2 slaved to species, stand in 0.0
+            df[key] = 0.0
         elif isinstance(value, list):
             df[key] = [float(np.round(random.uniform(*value), precision))
                        for i in range(order_size)]
         else:
             df[key] = float(np.round(value, precision))
 
-    # add vs_basis dimensions to orders.
     dbasis = build_basis(camp, precision, order_size)
 
     # build basis into main df
@@ -231,7 +275,6 @@ def random_uniform_order(camp, date, ord, file_number, order_size, elements, pre
     df = calculate_ele_totals(df, elements, order_size, precision)
 
     return df
-
 
 def brute_force_order(camp, date, ord, file_number, elements, precision=6, quiet=False):
     """
@@ -406,3 +449,4 @@ def orders_to_sql(conn, table, ord, df, quiet=False):
 
     if not quiet:
         print("  Orders written.\n")
+

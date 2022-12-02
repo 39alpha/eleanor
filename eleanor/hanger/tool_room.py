@@ -104,17 +104,6 @@ def grab_float(line, pos):
         return float(c[0])
 
 
-def check_charge_imbalance(camp, pp, file):
-    p_lines = grab_lines(os.path.join(pp, file))
-    for line in p_lines:
-        if 'Electrical imbalance= ' in line:
-            cb_i = grab_float(line, -1)
-            if abs(cb_i) > camp.cb_imbalance:
-                return True  # kill that shit
-            else:
-                return False   # Ok
-
-
 def mine_pickup_lines(pp, file, position):
     """
     pp = project path

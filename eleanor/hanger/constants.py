@@ -10,9 +10,11 @@ run_codes = {0: 'not run',
              100: 'normal termination',
              30: 'no 3p file generated',
              31: '3p file present but contains errors',
+             32: 'charge imbalance violated',
              60: 'no 6o file generated',
              61: 'unrecognized 6o file error',
              62: 'mine 6o function fail',
+             63: 'salinity window violation',
              70: 'early 6i termination'
              }
 
@@ -1099,11 +1101,7 @@ eq3var_d = {'fxi': 'calculated statring value for the ionic strength in pre NR o
 ### Special reactant dictionary. 
 ### sr_dict['name'] = [[ele list], [associated sto list]]
 sr_dict = {"FeCl2": [["Fe", "Cl"], [1, 2]]
-    
-
-        }
-
-
+           }
 
 mw = {
     'O': 15.99940,

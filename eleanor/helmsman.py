@@ -8,6 +8,8 @@ import re
 import shutil
 import time
 
+import sys
+
 import numpy as np
 import pandas as pd
 
@@ -22,11 +24,11 @@ from .hanger.db_comms import establish_database_connection, retrieve_records, ge
 from .hanger.eq36 import eq3, eq6
 from .hanger.data0_tools import determine_species_set
 from .hanger.tool_room import mk_check_del_directory, mine_pickup_lines, grab_float
-from .hanger.tool_room import grab_lines, grab_str, WorkingDirectory
+from .hanger.tool_room import grab_lines, grab_str, WorkingDirectory, check_charge_imbalance
 
 
 def Helmsman(camp, ord_id=None, num_cores=os.cpu_count(),
-             keep_every_n_files=10000, quiet=False,
+             keep_every_n_files=100000, quiet=False,
              no_progress=False):
     """
     Keeping with the naval terminology: The Navigator charts where to go.
@@ -69,6 +71,7 @@ def Helmsman(camp, ord_id=None, num_cores=os.cpu_count(),
             order_query += f' AND `ord` = {ord_id}'
         rec = retrieve_records(conn, order_query)
         vs_col_names = get_column_names(conn, 'vs')
+
         es_col_names = get_column_names(conn, 'es')
 
         conn.close()
@@ -97,7 +100,7 @@ def Helmsman(camp, ord_id=None, num_cores=os.cpu_count(),
 
     if num_cores == 1:
         for r in rec:
-            sailor(camp, scratch_path, vs_queue, es_queue, date, r, elements, ss, vs_col_names,
+            sailor(camp, scratch_path, vs_queue, es_queue, date, r, elements, solids, ss, vs_col_names,
                    es_col_names, keep_every_n_files)
         keep_running_yoeman = multiprocessing.Value('b', False)
         yoeman(camp, keep_running_yoeman, vs_queue, es_queue, len(rec), no_progress)
@@ -115,6 +118,7 @@ def Helmsman(camp, ord_id=None, num_cores=os.cpu_count(),
                                          [date] * len(rec),
                                          rec,
                                          [elements] * len(rec),
+                                         [solids] * len(rec),
                                          [ss] * len(rec),
                                          [vs_col_names] * len(rec),
                                          [es_col_names] * len(rec),
@@ -127,10 +131,16 @@ def Helmsman(camp, ord_id=None, num_cores=os.cpu_count(),
 
     if not quiet:
         print(f'\nOrder {ord_id} complete.')
-        print(f'        total time: {round(time.time() - start, num_cores)}')
-        print(f'        time/point: {round((time.time() - start) / len(rec), num_cores)}')
-        print(f'   time/point/core: {round((num_cores * (time.time() - start)) / len(rec), num_cores)}')
-        print()
+        print(f'        total time: {round(time.time() - start, 3)}')
+        print(f'        time/point: {round((time.time() - start) / len(rec), 3)}')
+
+        conn = establish_database_connection(camp)
+        order_query = ('SELECT code, COUNT(*) FROM vs GROUP BY code'
+                       f'WHERE ord = {ord_id}')
+        rec = retrieve_records(conn, order_query)
+        conn.close()
+        print(rec)
+        print('\n')
 
 
 class SailorPaths(object):
@@ -231,8 +241,8 @@ class SailorPaths(object):
         mk_check_del_directory(self.directory)
 
 
-def sailor(camp, scratch_path, vs_queue, es_queue, date, dat, elements, ss, vs_col_names,
-           es_col_names, keep_every_n_files=1000):
+def sailor(camp, scratch_path, vs_queue, es_queue, date, dat, elements, solids, ss, vs_col_names,
+           es_col_names, keep_every_n_files=10000):
     """
     Each sailor manages the execution of all geochemically model steps associated
     with a single vs point in the Variable Space (`vs`).
@@ -294,6 +304,9 @@ def sailor(camp, scratch_path, vs_queue, es_queue, date, dat, elements, ss, vs_c
     for i in camp.vs_state:
         state_dict[i] = master_dict[i]
 
+    if type(camp.vs_state['fO2']) == str:
+        state_dict['fO2'] = camp.vs_state['fO2']
+
     basis_dict = {}
     for i in camp.vs_basis:
         basis_dict[i] = master_dict[i]
@@ -332,6 +345,11 @@ def sailor(camp, scratch_path, vs_queue, es_queue, date, dat, elements, ss, vs_c
             print('{}\n  {}\n'.format(paths.threei, e))
             return reset_sailor(paths, vs_queue, master_dict['uuid'], 31)
 
+        if camp.cb_imbalance:
+            kill = check_charge_imbalance(camp, '.', paths.threep)
+            if kill:
+                return reset_sailor(paths, vs_queue, master_dict['uuid'], 32)
+
         try:
             camp.local_6i.write(paths.sixi, rnt_dict, pickup, state_dict['T_cel'])
             eq6(data1_file, paths.sixi)
@@ -342,14 +360,15 @@ def sailor(camp, scratch_path, vs_queue, es_queue, date, dat, elements, ss, vs_c
         if not os.path.isfile(paths.sixo):
             return reset_sailor(paths, vs_queue, master_dict['uuid'], 61)
 
-        run_code, build_df = mine_6o(camp, date, elements, ss, paths.sixo, master_dict, es_col_names)
+        run_code, build_df = mine_6o(camp, date, elements, solids, ss, paths.sixo, master_dict, es_col_names)
+
         if run_code == 100:
             es_queue.put_nowait(build_df)
 
         return reset_sailor(paths, vs_queue, master_dict['uuid'], run_code)
 
 
-def mine_6o(camp, date, elements, ss, file, master_dict, col_names):
+def mine_6o(camp, date, elements, solids, ss, file, master_dict, col_names):
     """
     open and mine the eq6 output file ('file'.6o) for all of the run information
     with associated columns in the ES table.
@@ -377,6 +396,10 @@ def mine_6o(camp, date, elements, ss, file, master_dict, col_names):
     """
 
     build_dict = {k: [] for k in col_names}
+    build_dict['extended_alk'] = [np.nan]  # undefined for systems over 50 in EQ36 output
+
+    for _ in solids:
+        build_dict[f'm{_}'] = [0.0]  # mols precip must be preset, as its field is not inculsive
 
     lines = grab_lines(file)  # 6o file
 
@@ -400,8 +423,8 @@ def mine_6o(camp, date, elements, ss, file, master_dict, col_names):
 
     if run_code == 0:
         # run code has not be altered, therefore unknown error
-        build_df = pd.DataFrame.from_dict(build_dict)
-        return 61, build_df
+        # build_df = pd.DataFrame.from_dict(build_dict)
+        return 61, []
 
     # populate ES table
     if camp.target_rnt != {}:
@@ -452,33 +475,36 @@ def mine_6o(camp, date, elements, ss, file, master_dict, col_names):
             build_dict['ionic'] = [grab_float(lines[i], -2)]
 
         elif '                 Solutes (TDS) mass=' in lines[i]:
-            build_dict['tds'] = [grab_float(lines[i], -2)]
+            tds = grab_float(lines[i], -2)
+            if len(camp.salinity) > 0:
+                # ### limited salinity sought
+                if tds > max(camp.salinity) or tds < min(camp.salinity):
+                    return 63, []
+                else:
+                    build_dict['tds'] = [tds]
+            else:
+                build_dict['tds'] = [tds]
 
         elif '              Aqueous solution mass=' in lines[i]:
             build_dict['soln_mass'] = [grab_float(lines[i], -2)]
+
+        elif '           --- Extended Total Alkalinity ---' in lines[i]:
+            build_dict['extended_alk'] = [grab_float(lines[i + 2], 0)]
 
         elif '--- Distribution of Aqueous Solute Species ---' in lines[i]:
             x = 4
             while not re.findall('^\n', lines[i + x]):
                 if grab_str(lines[i + x], 0) != 'O2(g)':
                     # ### -1 position is log activity, -3 is log molality
-                    build_dict[grab_str(lines[i + x], 0)] = [grab_float(
+                    build_dict[f'm{grab_str(lines[i + x], 0)}'] = [grab_float(
                         lines[i + x], -3)]
+                    build_dict[f'a{grab_str(lines[i + x], 0)}'] = [grab_float(
+                        lines[i + x], -1)]
                     x += 1
                 else:
                     x += 1
 
         elif '--- Summary of Solid Phases (ES) ---' in lines[i]:
-            # ### Solids data is stored in a temp_s_dict, to be
-            # ### added to the build_df after the file is processed.
-            # ### This way 'moles precipitated', if it exists, overwrites
-            # ### the affinity data. See notes at the beginning of
-            # ### this function for explanation. This temporary
-            # ### dictionary is only necessary because the solids
-            # ### precipitation moles is reported ahead of the affinity
-            # ### data in the 6o file.
-            temp_s_dict = {}
-
             x = 4
             while True:
                 if re.findall('^\n', lines[i + x]) and re.findall('^\n', lines[i + x + 1]):
@@ -490,15 +516,8 @@ def mine_6o(camp, date, elements, ss, file, master_dict, col_names):
                     x += 1
 
                 elif 'None' not in lines[i + x]:
-                    # ## solids value grab_float()'s must reach from the
-                    # ## end of the line (-1, -2, etc.)
-                    # ## because some solid names contain spaces.
-                    # ## Additionally, solid names are grabbed based
-                    # ## in-line index as opposed to the grab_str()
-                    # ## function, for the same reason.
-
                     # ### mols
-                    temp_s_dict[lines[i + x][:25].strip()] = [grab_float(lines[i + x], -3)]
+                    build_dict[f'm{lines[i + x][:25].strip()}'] = [grab_float(lines[i + x], -3)]
                     x += 1
 
                 else:
@@ -512,11 +531,11 @@ def mine_6o(camp, date, elements, ss, file, master_dict, col_names):
                     # ## lower than -999.9999. Replace with boundary condition
 
                     # ## affinity (kcal)
-                    build_dict[lines[i + x][:30].strip()] = [float(-999.9999)]
+                    build_dict[f'a{lines[i + x][:30].strip()}'] = [float(-999.9999)]
                     x += 1
                 elif 'None' not in lines[i + x]:
-                    build_dict[lines[i + x][:30].strip()] = [
-                        float(lines[i + x][44:55])]
+                    build_dict[f'a{lines[i + x][:30].strip()}'] = [
+                        float(lines[i + x][31:44])]
                     x += 1
                 else:
                     x += 1
@@ -559,12 +578,6 @@ def mine_6o(camp, date, elements, ss, file, master_dict, col_names):
                     x += 1
             break
 
-    for i in temp_s_dict.keys():
-        # ## write temp_s_dict[i] to build_df[i]. As temp_s_dict only
-        # ## contains solids that actually precipitated, the
-        # ## affinity values in build_df[i] can simply be overwritten
-        build_dict[i] = temp_s_dict[i]
-
     build_dict['uuid'] = [master_dict['uuid']]
     build_dict['ord'] = [master_dict['ord']]
     build_dict['file'] = [master_dict['file']]
@@ -604,7 +617,7 @@ def yoeman(camp, keep_running, write_vs_q, write_es_q, num_points, no_progress=F
     :type num_points: int
     """
     conn = establish_database_connection(camp)
-    WRITE_EVERY_N = 100
+    WRITE_EVERY_N = 500
     vs_n_written = 0
 
     es_df_list = []
@@ -708,7 +721,6 @@ def six_o_data_to_sql(conn, table, df):
 
     """
     df.to_sql(table, conn, if_exists='append', index=False)
-
 
 def reset_sailor(paths, vs_queue, uuid, code):
     """

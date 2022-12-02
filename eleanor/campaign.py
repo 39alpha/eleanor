@@ -7,6 +7,7 @@ from .hanger import data0_tools, tool_room
 from os import mkdir
 from os.path import isdir, join, realpath, relpath
 from .hanger.data0_tools import TPCurve
+from .hanger.tool_room import grab_float
 
 import json
 import shutil
@@ -56,6 +57,7 @@ class Campaign:
         # Metadata
         self.name = self._raw['campaign']
         self.notes = self._raw['notes']
+
         self.est_date = self._raw['est_date']
         # modelling data
         self.target_rnt = self._raw['reactant']
@@ -69,6 +71,20 @@ class Campaign:
         self.distro = self._raw['vs_distro']
         self.reso = self._raw['resolution']
         self.SS = self._raw['solid solutions']
+        self.salinity = self._raw['salinity']
+        # self.salinity = []
+
+        ### patch, limit a run based on the salinity listed in the notes
+        # sal_noise = 0.1  # grams
+        # target_molinity = grab_float(self.notes, 6)
+        # target_molality = target_molinity / ((1000 - target_molinity) / 1000)
+        # self.salinity = [target_molality - sal_noise, target_molality + sal_noise]
+
+        if 'charge_imbalance' in self._raw.keys():
+            print('campaign, cb noted')
+            self.cb_imbalance = self._raw['charge_imbalance']
+        else:
+            self.cb_imbalance = False
 
         if self.SS:
             iopt4 = '1'
@@ -87,7 +103,6 @@ class Campaign:
                                         min_supp_exemp=self.min_supp_exemp)
 
         self._campaign_dir = None
-
         self._hash = None
         self._data0_hash = None
         self.data1_dir = None

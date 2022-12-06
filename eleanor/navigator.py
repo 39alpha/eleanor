@@ -98,8 +98,8 @@ def Navigator(this_campaign, quiet=False):
         order_number = db_comms.get_order_number(conn, this_campaign)
         file_number = db_comms.get_file_number(conn, this_campaign, order_number)
 
-		# Always run the huffer. This is necessary because the huffer is responsible for ensuring that the DB
-		# structure is sound.
+        # Always run the huffer. This is necessary because the huffer is responsible for ensuring that the DB
+        # structure is sound.
         huffer(conn, this_campaign, quiet=quiet)
 
         # Grab non O/H elements and species data from the verbose huffer test.3o files

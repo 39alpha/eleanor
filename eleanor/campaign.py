@@ -71,7 +71,7 @@ class Campaign:
         self.distro = self._raw['vs_distro']
         self.reso = self._raw['resolution']
         self.SS = self._raw['solid solutions']
-        self.salinity = self._raw.get('salinity', default=[])
+        self.salinity = self._raw.get('salinity', [])
 
         ### patch, limit a run based on the salinity listed in the notes
         # sal_noise = 0.1  # grams

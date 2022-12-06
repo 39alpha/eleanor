@@ -98,10 +98,9 @@ def Navigator(this_campaign, quiet=False):
         order_number = db_comms.get_order_number(conn, this_campaign)
         file_number = db_comms.get_file_number(conn, this_campaign, order_number)
 
-        # run huffer to initiate VS/ES if no tables exist
-        if order_number == 1:
-            # new campaign
-            huffer(conn, this_campaign, quiet=quiet)
+        # Always run the huffer. This is necessary because the huffer is responsible for ensuring that the DB
+        # structure is sound.
+        huffer(conn, this_campaign, quiet=quiet)
 
         # Grab non O/H elements and species data from the verbose huffer test.3o files
         elements = determine_ele_set(path="huffer/")
@@ -188,7 +187,7 @@ def huffer(conn, camp, quiet=False):
         # elements = determine_ele_set()
 
         # New VS table based on vs_state and vs_basis
-        db_comms.create_vs_table(conn, camp, elements)
+        db_comms.create_or_expand_vs_table(conn, camp, elements)
 
         # Determine column names of the ES table
         # sp_names, ss_names = determine_loaded_sp()

@@ -27,6 +27,32 @@ def establish_database_connection(camp, verbose=False):
         print("New connection to campaign db")
     return conn
 
+def create_or_expand_vs_table(conn, camp, elements):
+    """
+    Create the VS table if it does not exists, otherwise add any new reactant columns that may be required.
+
+    :param conn: connection to the database
+    :type conn: sqlite3.Connection
+    :param camp: the campaign
+    :type camp: eleanor.campaign.Campaign
+    :param elements: all elements in the system
+    :type element: list
+
+    :return: None
+    """
+    if table_exists(conn, 'vs') and len(camp.target_rnt) > 0:
+        existing_columns = get_column_names(conn, 'vs')
+
+        reaction_columns = [f'{k}_morr' for k in camp.target_rnt.keys()] + \
+            [f'{k}_rkb1' for k in camp.target_rnt.keys()]
+
+        new_columns = sorted(set(reaction_columns) - set(existing_columns))
+
+        for column in new_columns:
+            add_column(conn, 'vs', column, type='DOUBLE PRECISION', default=0.0, not_null=False)
+    else:
+        create_vs_table(conn, camp, elements)
+
 def create_vs_table(conn, camp, elements):
     """
     Initiate variable space table on connection 'conn'
@@ -35,41 +61,44 @@ def create_vs_table(conn, camp, elements):
     concentration for ele.
     """
 
-    # Add total eleent columns, which contain element sums from the
+    # Add total element columns, which contain element sums from the
     # other columns which include it.
     # ie, vs[C] = HCO3- + CH4 + CO2(g)_morr
     # This will allow VS dimensions to be compiled piecewise. I must
     # be carefull to note that some columns in this vs table are
     # composits, requiring addition/partial addition in order to
     # construct the true thermodynamic constraints (VS dimensions).
-
     sql_info = "CREATE TABLE IF NOT EXISTS vs (uuid VARCHAR(32) PRIMARY KEY, camp \
         TEXT NOT NULL, ord INTEGER NOT NULL, file INTEGER NOT NULL, birth \
         DATE NOT NULL, data1 TEXT NOT NULL, code SMALLINT NOT NULL, cb TEXT NOT NULL,"
 
-    if camp.target_rnt.items() != {}:
-        sql_rnt_morr = ",".join([f'"{_}_morr" DOUBLE PRECISION NOT NULL'
-                                for _ in camp.target_rnt.keys()]) + ','
+    sql_state = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in list(camp.vs_state.keys())]) + ','
 
-        sql_rnt_rkb1 = ",".join([f'"{_}_rkb1" DOUBLE PRECISION NOT NULL'
-                                 for _ in camp.target_rnt.keys()]) + ','
-    # Out of if statement
-    sql_state = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in
-                         list(camp.vs_state.keys())]) + ','
+    sql_basis = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in list(camp.vs_basis.keys())]) + ','
 
-    sql_basis = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in
-                         list(camp.vs_basis.keys())]) + ','
+    sql_ele = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in elements]) + ','
 
-    sql_ele = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in
-                        elements]) + ','
-
-    sql_fk = ' FOREIGN KEY(`ord`) REFERENCES `orders`(`id`)'
+    parts = [sql_info, sql_state, sql_basis, sql_ele]
     if len(camp.target_rnt) > 0:
-        parts = [sql_info, sql_rnt_morr, sql_rnt_rkb1, sql_state, sql_basis, sql_ele, sql_fk]
-    else:
-        parts = [sql_info, sql_state, sql_basis, sql_ele, sql_fk]
+        sql_rnt_morr = ",".join([f'"{_}_morr" DOUBLE PRECISION DEFAULT 0.0' for _ in camp.target_rnt.keys()]) + ','
 
-    execute_query(conn, ''.join(parts) + ')')
+        sql_rnt_rkb1 = ",".join([f'"{_}_rkb1" DOUBLE PRECISION DEFAULT 0.0' for _ in camp.target_rnt.keys()]) + ','
+
+        parts.extend([sql_rnt_morr, sql_rnt_rkb1])
+
+    parts.append(' FOREIGN KEY(`ord`) REFERENCES `orders`(`id`)')
+
+    if len(parts) != 0:
+        execute_query(conn, ''.join(parts) + ')')
+
+def add_column(conn, table, column, type='DOUBLE PRECISION', default=None, not_null=False):
+    sql = f"ALTER TABLE `{table}` ADD COLUMN `{column}` {type}"
+    if default is not None:
+        sql += f" DEFAULT {default}"
+    if not_null:
+        sql += " NOT NULL"
+
+    execute_query(conn, sql)
 
 def create_orders_table(conn):
     """
@@ -117,8 +146,8 @@ def create_es_table(conn, camp, sp, ss, gases, elements):
         ord INTEGER NOT NULL, file INTEGER NOT NULL, run \
         DATE NOT NULL,"
 
-    sql_run = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in
-                        ['initial_aff', 'xi_max', 'aH2O', 'ionic', 'tds', 'soln_mass', 'extended_alk']]) + ','
+    run_columns = ['initial_aff', 'xi_max', 'aH2O', 'ionic', 'tds', 'soln_mass', 'extended_alk']
+    sql_run = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in run_columns]) + ','
 
     sql_state = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in
                           list(camp.vs_state.keys()) + ['pH']]) + ','
@@ -236,6 +265,21 @@ def execute_query(conn, query, *args, **kwargs):
     """
     with conn:
         return conn.execute(query, *args, **kwargs)
+
+def table_exists(conn, table):
+    """
+    Determine whether or not a given table exists in the database.
+
+    :param conn: the database connection
+    :type conn: sqlite3.Connection
+    :param table: the table
+    :type table: str
+
+    :return: whether or not the table exists
+    :rtype: bool
+    """
+    with closing(conn.execute(f"PRAGMA table_info(`{table}`)")) as cursor:
+        return cursor.fetchone() is not None
 
 def get_column_names(conn, table):
     """

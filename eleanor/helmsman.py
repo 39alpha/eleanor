@@ -25,7 +25,7 @@ from .hanger.db_comms import establish_database_connection, retrieve_records, ge
 from .hanger.eq36 import eq3, eq6
 from .hanger.data0_tools import determine_species_set
 from .hanger.tool_room import mk_check_del_directory, mine_pickup_lines, grab_float
-from .hanger.tool_room import grab_lines, grab_str, WorkingDirectory, check_charge_imbalance
+from .hanger.tool_room import grab_lines, grab_str, WorkingDirectory
 
 
 def Helmsman(camp, ord_id=None, num_cores=os.cpu_count(),

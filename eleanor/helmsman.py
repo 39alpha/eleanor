@@ -73,7 +73,8 @@ def Helmsman(camp, ord_id=None, num_cores=os.cpu_count(),
         rec = retrieve_records(conn, order_query)
         vs_col_names = get_column_names(conn, 'vs')
 
-        es_col_names = get_column_names(conn, 'es6')
+        es3_col_names = get_column_names(conn, 'es3')
+        es6_col_names = get_column_names(conn, 'es6')
 
         conn.close()
 
@@ -102,7 +103,7 @@ def Helmsman(camp, ord_id=None, num_cores=os.cpu_count(),
     if num_cores == 1:
         for r in rec:
             sailor(camp, scratch_path, vs_queue, es_queue, date, r, elements, solids, ss, vs_col_names,
-                   es_col_names, keep_every_n_files)
+                   es3_col_names, es6_col_names, keep_every_n_files)
         keep_running_yoeman = multiprocessing.Value('b', False)
         yoeman(camp, keep_running_yoeman, vs_queue, es_queue, len(rec), no_progress)
 
@@ -122,7 +123,8 @@ def Helmsman(camp, ord_id=None, num_cores=os.cpu_count(),
                                          [solids] * len(rec),
                                          [ss] * len(rec),
                                          [vs_col_names] * len(rec),
-                                         [es_col_names] * len(rec),
+                                         [es3_col_names] * len(rec),
+                                         [es6_col_names] * len(rec),
                                          [keep_every_n_files] * len(rec)))
 
         with keep_running_yoeman.get_lock():
@@ -250,7 +252,7 @@ class SailorPaths(object):
 
 
 def sailor(camp, scratch_path, vs_queue, es_queue, date, dat, elements, solids, ss, vs_col_names,
-           es_col_names, keep_every_n_files=10000):
+           es3_col_names, es6_col_names, keep_every_n_files=10000):
     """
     Each sailor manages the execution of all geochemically model steps associated
     with a single vs point in the Variable Space (`vs`).
@@ -351,13 +353,12 @@ def sailor(camp, scratch_path, vs_queue, es_queue, date, dat, elements, solids, 
 
             eq6(data1_file, paths.sixi)
 
-            df = mine_6o(camp, date, elements, solids, ss, paths.sixo, master_dict, es_col_names)
-            es_queue.put_nowait(df)
+            sixodf = mine_6o(camp, date, elements, solids, ss, paths.sixo, master_dict, es6_col_names)
+            threeodf = mine_3o(camp, date, elements, solids, ss, paths.threeo, master_dict, es3_col_names)
+            es_queue.put_nowait(sixodf)
             return reset_sailor(paths, vs_queue, master_dict['uuid'], RunCode.SUCCESS)
         except EleanorException as e:
             return reset_sailor(paths, vs_queue, master_dict['uuid'], e.code)
-        except Exception as e:
-           return reset_sailor(paths, vs_queue, master_dict['uuid'], RunCode.UNKNOWN)
 
 
 def mine_6o(camp, date, elements, solids, ss, file, master_dict, col_names):
@@ -588,6 +589,13 @@ def mine_6o(camp, date, elements, solids, ss, file, master_dict, col_names):
         return build_df
     except FileNotFoundError as e:
         raise EleanorFileException(e, code=RunCode.NO_6O_fILE)
+
+def mine_3o(camp, date, elements, solids, ss, file, master_dict, col_names):
+    # TODO: Implement this...
+    #       There is a RunCode.FILE_ERROR_3O exception to be raised if the 3o
+    #       doesn't "look right". See the mine_6o for an analogous FILE_ERROR_6O
+    #       example.
+    pass
 
 def yoeman(camp, keep_running, write_vs_q, write_es_q, num_points, no_progress=False):
     """

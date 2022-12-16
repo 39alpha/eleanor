@@ -193,8 +193,8 @@ def huffer(conn, camp, quiet=False):
         # Determine column names of the ES table
         # sp_names, ss_names = determine_loaded_sp()
 
-        # New ES table based on loaded species.
-        db_comms.create_es_table(conn, camp, sp + solids, ss, gasses, elements)
+        # Build the ES tables (es3 and es6)
+        db_comms.create_es_tables(conn, camp, sp + solids, ss, gasses, elements)
 
     if not quiet:
         print('   Huffer complete.\n')

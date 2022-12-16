@@ -25,7 +25,7 @@ from .hanger.db_comms import establish_database_connection, retrieve_records, ge
 from .hanger.eq36 import eq3, eq6
 from .hanger.data0_tools import determine_species_set
 from .hanger.tool_room import mk_check_del_directory, mine_pickup_lines, grab_float
-from .hanger.tool_room import grab_lines, grab_str, WorkingDirectory, check_charge_imbalance
+from .hanger.tool_room import grab_lines, grab_str, WorkingDirectory
 
 
 def Helmsman(camp, ord_id=None, num_cores=os.cpu_count(),
@@ -51,7 +51,7 @@ def Helmsman(camp, ord_id=None, num_cores=os.cpu_count(),
     Each vs point assigned to a sailor, contains enough information to define a closed
     thermodynamic system. The sailor employs EQ3/6 to determine the equilibrium
     characteristic of the system defined by the `vs` point, thus generating an associated point
-    in the equilibrium space (`es`) table.
+    in the equilibrium space (`es6`) table.
 
     :param camp: loaded campaign
     :type camp: :class:`Campaign` instance
@@ -67,13 +67,13 @@ def Helmsman(camp, ord_id=None, num_cores=os.cpu_count(),
 
         # retrieve issued order 'ord_id'
         order_query = ('SELECT * FROM `vs` WHERE `code` = 0 '
-                       'AND `uuid` NOT IN (SELECT `uuid` FROM `es`)')
+                       'AND `uuid` NOT IN (SELECT `uuid` FROM `es6`)')
         if ord_id is not None:
             order_query += f' AND `ord` = {ord_id}'
         rec = retrieve_records(conn, order_query)
         vs_col_names = get_column_names(conn, 'vs')
 
-        es_col_names = get_column_names(conn, 'es')
+        es_col_names = get_column_names(conn, 'es6')
 
         conn.close()
 
@@ -647,7 +647,7 @@ def yoeman(camp, keep_running, write_vs_q, write_es_q, num_points, no_progress=F
             # Write ES table
             if len(es_df_list) != 0:
                 total_es_df = pd.concat(es_df_list, ignore_index=True)
-                total_es_df.to_sql('es', conn, if_exists='append', index=False)
+                total_es_df.to_sql('es6', conn, if_exists='append', index=False)
                 es_df_list = []
                 # Write VS lines
                 execute_vs_exit_updates(conn, vs_list)
@@ -673,7 +673,7 @@ def yoeman(camp, keep_running, write_vs_q, write_es_q, num_points, no_progress=F
             # Write batch to ES table
             if len(es_df_list) != 0:
                 total_es_df = pd.concat(es_df_list, ignore_index=True)
-                total_es_df.to_sql('es', conn, if_exists='append', index=False)
+                total_es_df.to_sql('es6', conn, if_exists='append', index=False)
                 es_df_list = []
 
             if not no_progress:
@@ -696,7 +696,7 @@ def yoeman(camp, keep_running, write_vs_q, write_es_q, num_points, no_progress=F
     # Write batch to ES table
     if len(es_df_list) != 0:
         total_es_df = pd.concat(es_df_list, ignore_index=True)
-        total_es_df.to_sql('es', conn, if_exists='append', index=False)
+        total_es_df.to_sql('es6', conn, if_exists='append', index=False)
 
     if not write_all_at_once and not no_progress:
         progress.update(vs_n_written)

@@ -81,7 +81,6 @@ def determine_species_set(path=''):
 
     """
     suppress = []
-
     elements = []
     aqueous_sp = []
     solids = []
@@ -161,6 +160,7 @@ def determine_species_set(path=''):
                 i += 1
 
     # without knowing which lists contain the suppressions, they all must be searched
+    print(suppress)
     elements = [_ for _ in elements if _ not in suppress]
     aqueous_sp = [_ for _ in aqueous_sp if _ not in suppress]
     solids = [_ for _ in solids if _ not in suppress]

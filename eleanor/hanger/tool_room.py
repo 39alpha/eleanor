@@ -244,14 +244,15 @@ def build_mineral_rnt(phase, morr, rk1b):
     #     nrk1=  1                nrk2=  0
     #     rkb1=  9.40100E-03      rkb2=  0.00000E+00      rkb3=  0.00000E+00
 
-    return '\n'.join(['*-----------------------------------------------------------------------------', # noqa (E501)
-                      '  reactant= {}'.format(phase),
+    return '\n'.join(['*-----------------------------------------------------------------------------',  # noqa (E501)
+                      f'  reactant= {phase}',
                       '     jcode=  0               jreac=  0',
-                      '      morr=  {}      modr=  0.00000E+00'.format(format_e(float(morr), 5)),
+                      f'      morr=  {format_e(10**morr, 5)}      modr=  0.00000E+00',
                       '       nsk=  0               sfcar=  0.00000E+00    ssfcar=  0.00000E+00',
                       '      fkrc=  0.00000E+00',
                       '      nrk1=  1',
-                      '       rk1=  {}       rk2=  0.00000E+00       rk3=  0.00000E+00\n'.format(format_e(rk1b, 5))]) # noqa (E501)
+                      f'       rk1=  {format_e(rk1b, 5)}       rk2=  0.00000E+00       rk3=  0.00000E+00\n'])  # noqa (E501)
+
 
 
 def build_aqueous_rnt(phase, morr, rk1b):
@@ -297,14 +298,14 @@ def build_gas_rnt(phase, morr, rk1b):
     # nrk1=  1                nrk2=  0
     # rkb1=  1.00000E+00      rkb2=  0.00000E+00      rkb3=  0.00000E+00
 
-    return '\n'.join(['*-----------------------------------------------------------------------------', # noqa (E501)
-                      '  reactant= {}'.format(phase),
+    return '\n'.join(['*-----------------------------------------------------------------------------',  # noqa (E501)
+                      f'  reactant= {phase}',
                       '     jcode=  4               jreac=  0',
-                      '      morr=  {}      modr=  0.00000E+00'.format(format_e(float(10**morr), 5)), # noqa (E501)
+                      f'      morr=  {format_e(10**morr, 5)}      modr=  0.00000E+00',
                       '       nsk=  0               sfcar=  0.00000E+00    ssfcar=  0.00000E+00',
                       '      fkrc=  0.00000E+00',
                       '      nrk1=  1',
-                      '       rk1=  {}       rk2=  0.00000E+00       rk3=  0.00000E+00\n'.format(format_e(rk1b, 5))]) # noqa (E501)
+                      f'       rk1=  {format_e(rk1b, 5)}       rk2=  0.00000E+00       rk3=  0.00000E+00\n'])  # noqa (E501)
 
 # #################################################################
 # ##########################  classes  ############################
@@ -328,7 +329,7 @@ class Three_i(object):
                  iopr4='1',    # incliude all aq species (not just > -100)
                  iopr5='0',    # dont print aq/H+ ratios
                  iopr6='-1',   # dont print 99% table
-                 iopr7='-1',   # dont print SI /affinity table
+                 iopr7='1',    # print all SI /affinity table
                  iopr9='0'
                  ):
         """

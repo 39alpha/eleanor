@@ -175,7 +175,7 @@ def huffer(conn, camp, quiet=False):
 
         # ### huffer run on unsuppressed (aq species) file, to get complete es table columns, should
         # ### different orders of the same campaign use different suppress_aq lists.
-        camp.local_3i.write('test.3i', state_dict, basis_dict, camp.cb, [], output_details='v')
+        camp.local_3i.write('test.3i', state_dict, basis_dict, camp.cb, camp.suppress_sp, output_details='v')
         data1_file = os.path.realpath(os.path.join(camp.data1_dir, curve.data1file))
         out, err = eq3(data1_file, 'test.3i')
 

@@ -592,10 +592,6 @@ def mine_6o(camp, date, elements, solids, ss, file, master_dict, col_names):
         raise EleanorFileException(e, code=RunCode.NO_6O_fILE)
 
 def mine_3o(camp, date, elements, solids, ss, file, master_dict, col_names):
-    # TODO: Implement this...
-    #       There is a RunCode.FILE_ERROR_3O exception to be raised if the 3o
-    #       doesn't "look right". See the mine_6o for an analogous FILE_ERROR_6O
-    #       example.
     """
     open and mine the eqe output file ('file'.3o) for all of the run information
     with associated columns in the es3 table.
@@ -625,119 +621,126 @@ def mine_3o(camp, date, elements, solids, ss, file, master_dict, col_names):
     build_dict = {k: [] for k in col_names}
     build_dict['extended_alk'] = [np.nan]  # undefined for systems over 50 in EQ36 output
 
-    # try:
-    lines = grab_lines(file)  # 6o file
+    try:
+        lines = grab_lines(file)
 
-    run_code = RunCode.NOT_RUN
-    if 'Normal exit' not in lines[-1]:
-        raise EleanorException('eq3 terminated early',
-                               code=RunCode.EQ3_EARLY_TERMINATION)
-    else:
-        run_code = RunCode.SUCCESS
+        run_code = RunCode.NOT_RUN
+        if 'Normal exit' not in lines[-1]:
+            raise EleanorException('eq3 terminated early',
+                                   code=RunCode.EQ3_EARLY_TERMINATION)
+        else:
+            run_code = RunCode.SUCCESS
 
-    for i in range(len(lines)):
-        if re.findall('^\n', lines[i]):
-            pass
+        for i in range(len(lines)):
+            if re.findall('^\n', lines[i]):
+                pass
 
-        elif ' Temperature=' in lines[i]:
-            build_dict['T_cel'] = [grab_float(lines[i], -2)]
+            elif ' Temperature=' in lines[i]:
+                build_dict['T_cel'] = [grab_float(lines[i], -2)]
 
-        elif ' Pressure=' in lines[i]:
-            build_dict['P_bar'] = [grab_float(lines[i], 1)]
+            elif ' Pressure=' in lines[i]:
+                build_dict['P_bar'] = [grab_float(lines[i], 1)]
 
-        elif ' --- Elemental Composition' in lines[i]:
-            x = 4
-            while not re.findall('^\n', lines[i + x]):
-                if grab_str(lines[i + x], 0) in elements:
-                    # log molality
-                    this_dat = [np.round(np.log10(grab_float(lines[i + x], -1)), 6)]
-                    build_dict['{}'.format(grab_str(lines[i + x], 0))] = this_dat
-                    x += 1
-                else:
-                    x += 1
-
-        elif ' NBS pH scale         ' in lines[i]:
-            build_dict['pH'] = [grab_float(lines[i], -4)]
-
-        elif '                Log oxygen fugacity=' in lines[i]:
-            build_dict['fO2'] = [grab_float(lines[i], -1)]
-
-        elif '              Log activity of water=' in lines[i]:
-            build_dict['aH2O'] = [grab_float(lines[i], -1)]
-
-        elif '                 Ionic strength (I)=' in lines[i]:
-            build_dict['ionic'] = [grab_float(lines[i], -2)]
-
-        elif '                 Solutes (TDS) mass=' in lines[i]:
-            build_dict['tds'] = [grab_float(lines[i], -2)]
-
-        elif '              Aqueous solution mass=' in lines[i]:
-            build_dict['soln_mass'] = [grab_float(lines[i], -2)]
-
-        elif '           --- Extended Total Alkalinity ---' in lines[i]:
-            build_dict['extended_alk'] = [grab_float(lines[i + 2], 0)]
-
-        elif '--- Distribution of Aqueous Solute Species ---' in lines[i]:
-            x = 4
-            while not re.findall('^\n', lines[i + x]):
-                if grab_str(lines[i + x], 0) != 'O2(g)':
-                    # ### -1 position is log activity, -3 is log molality
-                    build_dict[f'm{grab_str(lines[i + x], 0)}'] = [grab_float(
-                        lines[i + x], -3)]
-                    build_dict[f'a{grab_str(lines[i + x], 0)}'] = [grab_float(
-                        lines[i + x], -1)]
-                    x += 1
-                else:
-                    x += 1
-
-        elif '--- Saturation States of Pure Solids ---' in lines[i]:
-            x = 4
-            while not re.findall('^\n', lines[i + x]):
-                if re.findall(r'\*{4}$', lines[i + x]):
-                    # ## '******'' fills in the value region for numbers
-                    # ## lower than -999.9999. Replace with boundary condition
-
-                    # ## affinity (kcal)
-                    build_dict[f'a{lines[i + x][:30].strip()}'] = [float(-999.9999)]
-                    x += 1
-                elif 'None' not in lines[i + x]:
-                    build_dict[f'a{lines[i + x][:30].strip()}'] = [
-                        float(lines[i + x][31:44])]
-                    x += 1
-                else:
-                    x += 1
-
-        elif '    --- Fugacities ---' in lines[i]:
-            x = 4
-            while not re.findall('^\n', lines[i + x]):
-                if 'None' not in lines[i + x]:  # log f
-                    if re.findall(r'\*{4}', lines[i + x]):
-                        # ## '******'' fills in the value region for numbers
-                        # ## lower than -999.9999. Replace with boundary condition
-                        build_dict[lines[i + x][:30].strip()] = [float(-999.9999)]
+            elif ' --- Elemental Composition' in lines[i]:
+                x = 4
+                while not re.findall('^\n', lines[i + x]):
+                    if grab_str(lines[i + x], 0) in elements:
+                        # log molality
+                        this_dat = [np.round(np.log10(grab_float(lines[i + x], -1)), 6)]
+                        build_dict['{}'.format(grab_str(lines[i + x], 0))] = this_dat
                         x += 1
                     else:
-                        build_dict[grab_str(lines[i + x], 0)] = [
-                            float(lines[i + x][28:41])]
                         x += 1
-                else:
-                    x += 1
-            break
 
-    build_dict['uuid'] = [master_dict['uuid']]
-    build_dict['ord'] = [master_dict['ord']]
-    build_dict['file'] = [master_dict['file']]
-    build_dict['run'] = [date]
+            elif ' NBS pH scale         ' in lines[i]:
+                build_dict['pH'] = [grab_float(lines[i], -4)]
 
-    # ## reorganize columns to match es table
-    build_df = pd.DataFrame.from_dict(build_dict)
+            elif '                Log oxygen fugacity=' in lines[i]:
+                build_dict['fO2'] = [grab_float(lines[i], -1)]
 
-    build_df = build_df[col_names]
+            elif '              Log activity of water=' in lines[i]:
+                build_dict['aH2O'] = [grab_float(lines[i], -1)]
 
-    return build_df
-    # except FileNotFoundError as e:
-    #     raise EleanorFileException(e, code=RunCode.NO_3O_fILE)
+            elif '                 Ionic strength (I)=' in lines[i]:
+                build_dict['ionic'] = [grab_float(lines[i], -2)]
 
+            elif '                 Solutes (TDS) mass=' in lines[i]:
+                build_dict['tds'] = [grab_float(lines[i], -2)]
+
+            elif '              Aqueous solution mass=' in lines[i]:
+                build_dict['soln_mass'] = [grab_float(lines[i], -2)]
+
+            elif '           --- Extended Total Alkalinity ---' in lines[i]:
+                build_dict['extended_alk'] = [grab_float(lines[i + 2], 0)]
+
+            elif '--- Distribution of Aqueous Solute Species ---' in lines[i]:
+                x = 4
+                while not re.findall('^\n', lines[i + x]):
+                    if grab_str(lines[i + x], 0) != 'O2(g)':
+                        # ### -1 position is log activity, -3 is log molality
+                        build_dict[f'm{grab_str(lines[i + x], 0)}'] = [grab_float(
+                            lines[i + x], -3)]
+                        build_dict[f'a{grab_str(lines[i + x], 0)}'] = [grab_float(
+                            lines[i + x], -1)]
+                        x += 1
+                    else:
+                        x += 1
+
+            elif '--- Saturation States of Pure Solids ---' in lines[i]:
+                x = 4
+                while not re.findall('^\n', lines[i + x]):
+                    if re.findall(r'\*{4}$', lines[i + x]):
+                        # ## '******'' fills in the value region for numbers
+                        # ## lower than -999.9999. Replace with boundary condition
+
+                        # ## affinity (kcal)
+                        build_dict[f'a{lines[i + x][:30].strip()}'] = [float(-999.9999)]
+                        x += 1
+                    elif 'None' not in lines[i + x]:
+                        build_dict[f'a{lines[i + x][:30].strip()}'] = [
+                            float(lines[i + x][31:44])]
+                        x += 1
+                    else:
+                        x += 1
+
+            elif '    --- Fugacities ---' in lines[i]:
+                x = 4
+                while not re.findall('^\n', lines[i + x]):
+                    if 'None' not in lines[i + x]:  # log f
+                        if re.findall(r'\*{4}', lines[i + x]):
+                            # ## '******'' fills in the value region for numbers
+                            # ## lower than -999.9999. Replace with boundary condition
+                            build_dict[lines[i + x][:30].strip()] = [float(-999.9999)]
+                            x += 1
+                        else:
+                            build_dict[grab_str(lines[i + x], 0)] = [
+                                float(lines[i + x][28:41])]
+                            x += 1
+                    else:
+                        x += 1
+                break
+
+        build_dict['uuid'] = [master_dict['uuid']]
+        build_dict['ord'] = [master_dict['ord']]
+        build_dict['file'] = [master_dict['file']]
+        build_dict['run'] = [date]
+
+        # reorganize columns to match es table
+        columns_to_remove = set()
+        for key, value in build_dict.items():
+            if len(value) == 0:
+                columns_to_remove.add(key)
+        kept_columns = []
+        for column in kept_columns:
+            if column not in columns_to_remove:
+                kept_columns.append(column)
+        for key in columns_to_remove:
+            del build_dict[key]
+
+        build_df = pd.DataFrame.from_dict(build_dict)
+        return build_df[kept_columns]
+    except FileNotFoundError as e:
+        raise EleanorFileException(e, code=RunCode.NO_3O_fILE)
 
 def yoeman(camp, keep_running, write_vs_q, write_es_q, num_points, no_progress=False):
     """

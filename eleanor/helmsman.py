@@ -740,7 +740,7 @@ def mine_3o(camp, date, elements, solids, ss, file, master_dict, col_names):
         build_df = pd.DataFrame.from_dict(build_dict)
         return build_df[kept_columns]
     except FileNotFoundError as e:
-        raise EleanorFileException(e, code=RunCode.NO_3O_fILE)
+        raise EleanorFileException(e, code=RunCode.NO_3O_FILE)
 
 def yoeman(camp, keep_running, write_vs_q, write_es_q, num_points, no_progress=False):
     """

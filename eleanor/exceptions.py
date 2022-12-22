@@ -9,6 +9,7 @@ class RunCode(IntEnum):
     NO_3P_FILE = 31
     FILE_ERROR_3P = 32
     FILE_ERROR_3O = 33
+    NO_3O_FILE = 34
     EQ6_ERROR = 60
     NO_6O_FILE = 61
     FILE_ERROR_6O = 62
@@ -24,6 +25,7 @@ class RunCode(IntEnum):
                 RunCode.NO_3P_FILE: 'no 3p file generated',
                 RunCode.FILE_ERROR_3P: 'eq3 ran but the 3p file contains errors',
                 RunCode.FILE_ERROR_3O: 'eq6 ran but eleanor could not mine the 6o file',
+                RunCode.NO_3O_FILE: 'no 3o file generated',
                 RunCode.EQ6_ERROR: 'eq6 failed with an error',
                 RunCode.NO_6O_FILE: 'no 6o file generated',
                 RunCode.FILE_ERROR_6O: 'eq6 ran but eleanor could not mine the 6o file',

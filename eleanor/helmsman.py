@@ -98,25 +98,27 @@ def Helmsman(camp, ord_id=None, num_cores=1, #os.cpu_count(),
 
     queue_manager = multiprocessing.Manager()
     vs_queue = queue_manager.Queue()
-    es_queue = queue_manager.Queue()
+    es3_queue = queue_manager.Queue()
+    es6_queue = queue_manager.Queue()
 
     if num_cores == 1:
         for r in rec:
-            sailor(camp, scratch_path, vs_queue, es_queue, date, r, elements, solids, ss, vs_col_names,
-                   es3_col_names, es6_col_names, keep_every_n_files)
+            sailor(camp, scratch_path, vs_queue, es3_queue, es6_queue, date, r, elements, solids, ss,
+                   vs_col_names, es3_col_names, es6_col_names, keep_every_n_files)
         keep_running_yoeman = multiprocessing.Value('b', False)
-        yoeman(camp, keep_running_yoeman, vs_queue, es_queue, len(rec), no_progress)
+        yoeman(camp, keep_running_yoeman, vs_queue, es3_queue, es6_queue, len(rec), no_progress)
 
     elif num_cores > 1:
         keep_running_yoeman = multiprocessing.Value('b', True)
         yoeman_process = multiprocessing.Process(target=yoeman, args=(camp, keep_running_yoeman,
-                                                 vs_queue, es_queue, len(rec), no_progress))
+                                                 vs_queue, es3_queue, es6_queue, len(rec), no_progress))
         yoeman_process.start()
         with multiprocessing.Pool(processes=num_cores) as pool:
             _ = pool.starmap(sailor, zip([camp] * len(rec),
                                          [scratch_path] * len(rec),
                                          [vs_queue] * len(rec),
-                                         [es_queue] * len(rec),
+                                         [es3_queue] * len(rec),
+                                         [es6_queue] * len(rec),
                                          [date] * len(rec),
                                          rec,
                                          [elements] * len(rec),
@@ -251,8 +253,8 @@ class SailorPaths(object):
         mk_check_del_directory(self.directory)
 
 
-def sailor(camp, scratch_path, vs_queue, es_queue, date, dat, elements, solids, ss, vs_col_names,
-           es3_col_names, es6_col_names, keep_every_n_files=10000):
+def sailor(camp, scratch_path, vs_queue, es3_queue, es6_queue, date, dat, elements, solids, ss,
+           vs_col_names, es3_col_names, es6_col_names, keep_every_n_files=10000):
     """
     Each sailor manages the execution of all geochemically model steps associated
     with a single vs point in the Variable Space (`vs`).
@@ -273,8 +275,11 @@ def sailor(camp, scratch_path, vs_queue, es_queue, date, dat, elements, solids, 
     :param vs_queue: a waiting list of lines that need to be written to vs table
     :type vs_queue: class 'multiprocessing.managers.AutoProxy[Queue]
 
-    :param es_queue: a queue of pandas data frames that need to be written to es table
-    :type es_queue: class 'multiprocessing.managers.AutoProxy[Queue]
+    :param es3_queue: a queue of pandas data frames that need to be written to es3 table
+    :type es3_queue: class 'multiprocessing.managers.AutoProxy[Queue]
+
+    :param es6_queue: a queue of pandas data frames that need to be written to es6 table
+    :type es6_queue: class 'multiprocessing.managers.AutoProxy[Queue]
 
     :param date: birthdate of order
     :type data: str
@@ -356,7 +361,9 @@ def sailor(camp, scratch_path, vs_queue, es_queue, date, dat, elements, solids, 
             sixodf = mine_6o(camp, date, elements, solids, ss, paths.sixo, master_dict, es6_col_names)
             threeodf = mine_3o(camp, date, elements, solids, ss, paths.threeo, master_dict, es3_col_names)
 
-            es_queue.put_nowait(sixodf)
+            es3_queue.put_nowait(threeodf)
+            es6_queue.put_nowait(sixodf)
+
             return reset_sailor(paths, vs_queue, master_dict['uuid'], RunCode.SUCCESS)
         except EleanorException as e:
             return reset_sailor(paths, vs_queue, master_dict['uuid'], e.code)
@@ -731,7 +738,7 @@ def mine_3o(camp, date, elements, solids, ss, file, master_dict, col_names):
             if len(value) == 0:
                 columns_to_remove.add(key)
         kept_columns = []
-        for column in kept_columns:
+        for column in col_names:
             if column not in columns_to_remove:
                 kept_columns.append(column)
         for key in columns_to_remove:
@@ -742,7 +749,7 @@ def mine_3o(camp, date, elements, solids, ss, file, master_dict, col_names):
     except FileNotFoundError as e:
         raise EleanorFileException(e, code=RunCode.NO_3O_FILE)
 
-def yoeman(camp, keep_running, write_vs_q, write_es_q, num_points, no_progress=False):
+def yoeman(camp, keep_running, write_vs_q, write_es3_q, write_es6_q, num_points, no_progress=False):
     """
     Collecting each sailors df output, and then writing it in
     bulk to sql
@@ -757,8 +764,8 @@ def yoeman(camp, keep_running, write_vs_q, write_es_q, num_points, no_progress=F
     :param write_vs_q: queue of lines waiting to be written to vs table
     :type write_vs_q: queue.Queue
 
-    :param write_es_q: queue of DataFrames waiting to be written to vs table
-    :type write_es_q: queue.Queue
+    :param write_es6_q: queue of DataFrames waiting to be written to vs table
+    :type write_es6_q: queue.Queue
 
     :param num_points: number of vs points in the order
     :type num_points: int
@@ -767,7 +774,8 @@ def yoeman(camp, keep_running, write_vs_q, write_es_q, num_points, no_progress=F
     WRITE_EVERY_N = 10
     vs_n_written = 0
 
-    es_df_list = []
+    es3_df_list = []
+    es6_df_list = []
     vs_list = []
 
     if num_points <= WRITE_EVERY_N:
@@ -792,18 +800,29 @@ def yoeman(camp, keep_running, write_vs_q, write_es_q, num_points, no_progress=F
                 vs_line = write_vs_q.get_nowait()
                 vs_list.append(vs_line)
                 write_vs_q.task_done()
-            # Get ES points
-            while not write_es_q.empty():
-                es_df = write_es_q.get_nowait()
-                es_df_list.append(es_df)
-                write_es_q.task_done()
-            # Write ES table
-            if len(es_df_list) != 0:
-                total_es_df = pd.concat(es_df_list, ignore_index=True)
-                total_es_df.to_sql('es6', conn, if_exists='append', index=False)
-                es_df_list = []
+            # Get ES3 points
+            while not write_es3_q.empty():
+                es3_df = write_es3_q.get_nowait()
+                es3_df_list.append(es3_df)
+                write_es3_q.task_done()
+            # Write ES3 table
+            if len(es3_df_list) != 0:
+                total_es3_df = pd.concat(es3_df_list, ignore_index=True)
+                total_es3_df.to_sql('es3', conn, if_exists='append', index=False)
+                es3_df_list = []
+            # Get ES6 points
+            while not write_es6_q.empty():
+                es6_df = write_es6_q.get_nowait()
+                es6_df_list.append(es6_df)
+                write_es6_q.task_done()
+            # Write ES6 table
+            if len(es6_df_list) != 0:
+                total_es6_df = pd.concat(es6_df_list, ignore_index=True)
+                total_es6_df.to_sql('es6', conn, if_exists='append', index=False)
+                es6_df_list = []
                 # Write VS lines
                 execute_vs_exit_updates(conn, vs_list)
+                vs_list = []
 
         elif not write_all_at_once and current_q_size > WRITE_EVERY_N:
             # Get VS batch
@@ -816,18 +835,31 @@ def yoeman(camp, keep_running, write_vs_q, write_es_q, num_points, no_progress=F
             vs_n_written = len(vs_list)
 
             vs_list = []
-            # Get ES batch
-            current_es_q_size = write_es_q.qsize()
-            while len(es_df_list) < current_es_q_size:
-                es_df = write_es_q.get_nowait()
-                es_df_list.append(es_df)
-                write_es_q.task_done()
+            # Get ES6 batch
+            current_es6_q_size = write_es6_q.qsize()
+            while len(es6_df_list) < current_es6_q_size:
+                es6_df = write_es6_q.get_nowait()
+                es6_df_list.append(es6_df)
+                write_es6_q.task_done()
 
-            # Write batch to ES table
-            if len(es_df_list) != 0:
-                total_es_df = pd.concat(es_df_list, ignore_index=True)
-                total_es_df.to_sql('es6', conn, if_exists='append', index=False)
-                es_df_list = []
+            # Write batch to ES3 table
+            if len(es3_df_list) != 0:
+                total_es3_df = pd.concat(es3_df_list, ignore_index=True)
+                total_es3_df.to_sql('es3', conn, if_exists='append', index=False)
+                es3_df_list = []
+
+            # Get ES3 batch
+            current_es3_q_size = write_es3_q.qsize()
+            while len(es3_df_list) < current_es3_q_size:
+                es3_df = write_es3_q.get_nowait()
+                es3_df_list.append(es3_df)
+                write_es3_q.task_done()
+
+            # Write batch to ES6 table
+            if len(es6_df_list) != 0:
+                total_es6_df = pd.concat(es6_df_list, ignore_index=True)
+                total_es6_df.to_sql('es6', conn, if_exists='append', index=False)
+                es6_df_list = []
 
             if not no_progress:
                 progress.update(vs_n_written)
@@ -842,14 +874,23 @@ def yoeman(camp, keep_running, write_vs_q, write_es_q, num_points, no_progress=F
     execute_vs_exit_updates(conn, vs_list)
     vs_n_written = len(vs_list)
 
-    while not write_es_q.empty():
-        es_df = write_es_q.get_nowait()
-        es_df_list.append(es_df)
-        write_es_q.task_done()
+    while not write_es3_q.empty():
+        es3_df = write_es3_q.get_nowait()
+        es3_df_list.append(es3_df)
+        write_es3_q.task_done()
     # Write batch to ES table
-    if len(es_df_list) != 0:
-        total_es_df = pd.concat(es_df_list, ignore_index=True)
-        total_es_df.to_sql('es6', conn, if_exists='append', index=False)
+    if len(es3_df_list) != 0:
+        total_es3_df = pd.concat(es3_df_list, ignore_index=True)
+        total_es3_df.to_sql('es3', conn, if_exists='append', index=False)
+
+    while not write_es6_q.empty():
+        es6_df = write_es6_q.get_nowait()
+        es6_df_list.append(es6_df)
+        write_es6_q.task_done()
+    # Write batch to ES table
+    if len(es6_df_list) != 0:
+        total_es6_df = pd.concat(es6_df_list, ignore_index=True)
+        total_es6_df.to_sql('es6', conn, if_exists='append', index=False)
 
     if not write_all_at_once and not no_progress:
         progress.update(vs_n_written)

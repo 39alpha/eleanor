@@ -129,7 +129,7 @@ def create_es3_table(conn, camp, sp, ss, gases, elements):
         DATE NOT NULL,"
 
     sql_run = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in
-                        ['initial_aff', 'aH2O', 'ionic', 'tds', 'soln_mass', 'extended_alk']]) + ','
+                        ['aH2O', 'ionic', 'tds', 'soln_mass', 'extended_alk']]) + ','
 
     sql_state = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in
                           list(camp.vs_state.keys()) + ['pH']]) + ','

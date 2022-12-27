@@ -96,7 +96,7 @@ def Radar(camp, x_sp, y_sp, z_sp, description, ord_id=None, limit=1000, where=No
         #  columns contained in the vs and es table for loaded campaign
         conn = establish_database_connection(camp)
         # vs_col_names = get_column_names(conn, 'vs')
-        # es_col_names = get_column_names(conn, 'es')
+        # es_col_names = get_column_names(conn, 'es6')
 
         # grab orders, concatenating the dataframe, 1 record retrieved per
         # ord_id.
@@ -179,7 +179,7 @@ def Radar(camp, x_sp, y_sp, z_sp, description, ord_id=None, limit=1000, where=No
         date = time.strftime("%Y-%m-%d", time.gmtime())
         add_text = '\n'.join([f"campaign: {camp.name}", f"order/s: {ord_id}",
                               f"data: {date}", f"n = {len(df)}", f"x = {x_sp}",
-                              f"y = {y_sp}", f"z = {z_sp}", 
+                              f"y = {y_sp}", f"z = {z_sp}",
                               f"sql 'where' claus: {where}",
                               f"notes: {description}"])
         ax2.text(0.0, .9, add_text, ha="left", va='top', fontsize=8)
@@ -203,20 +203,20 @@ def group_by_solids(conn, camp_name, ord_id):
     for _ in range(len(lines)):
         if re.findall('^\n', lines[_]):
             pass
-        
+
         elif '           --- Saturation States of Pure Solids ---' in lines[_]:
             x = 4
-            while not re.findall('^\n', lines[_ + x]):     #    signals the end of the solid solutions block    
+            while not re.findall('^\n', lines[_ + x]):     #    signals the end of the solid solutions block
                 if 'None' not in lines[_ + x]:
                     solids.append(lines[_ + x][:30].strip())
                     x += 1
                 else:
                     x += 1
             del x
-        
+
         elif '           --- Saturation States of Solid Solutions ---' in lines[_]:
             x = 4
-            while not re.findall('^\n', lines[_ + x]):     #    signals the end of the solid solutions block    
+            while not re.findall('^\n', lines[_ + x]):     #    signals the end of the solid solutions block
                 if 'None' not in lines[_ + x]:
                     solids.append(lines[_ + x][:30].strip())
                     x += 1
@@ -230,9 +230,9 @@ def group_by_solids(conn, camp_name, ord_id):
     ### retrieve record of all_precip columns from postgres table 'camp.name', for order # 'ord_id'
     solids_sql   = ",".join([f'"{_}"' for _ in all_precip])
     all_rec = retrieve_postgres_record(conn, 'select {} from {}_es where ord = {}'.format(solids_sql, camp_name, ord_id))
-    
 
-    ### find unique co-precipitation combinations 
+
+    ### find unique co-precipitation combinations
     solid_combinations = []     #    build list for precipitation combinations
 
 
@@ -244,7 +244,7 @@ def group_by_solids(conn, camp_name, ord_id):
 
         ### grab index of values over 0,
         solid_combinations.append([all_precip[i] for i in ind])
-    
+
 
     ### unique mineral co-precipiation occrrances in  order # ord_id
     unique_combinations = [ list(x) for x in set(tuple(x) for x in solid_combinations) if list(x) !=[]] + ['']
@@ -260,7 +260,7 @@ def group_by_solids(conn, camp_name, ord_id):
 
 
 def solid_groups(conn, pwd, camp_name, ord_id, out = 'assemblages'):
-    
+
     """
     color plot points based on the solids present, with
     each unique combination of precipiotates getting its own color
@@ -281,7 +281,7 @@ def solid_groups(conn, pwd, camp_name, ord_id, out = 'assemblages'):
             pass
         elif '           --- Saturation States of Pure Solids ---' in lines[_]:
             x = 4
-            while not re.findall('^\n', lines[_ + x]):  #   signals the end of the solid solutions block    
+            while not re.findall('^\n', lines[_ + x]):  #   signals the end of the solid solutions block
                 if 'None' not in lines[_ + x]:
                     solids.append(lines[_ + x][:30].strip())
                     x += 1
@@ -290,7 +290,7 @@ def solid_groups(conn, pwd, camp_name, ord_id, out = 'assemblages'):
             del x
         elif '           --- Saturation States of Solid Solutions ---' in lines[_]:
             x = 4
-            while not re.findall('^\n', lines[_ + x]):  #   signals the end of the solid solutions block    
+            while not re.findall('^\n', lines[_ + x]):  #   signals the end of the solid solutions block
                 if 'None' not in lines[_ + x]:
                     solids.append(lines[_ + x][:30].strip())
                     x += 1
@@ -306,24 +306,24 @@ def solid_groups(conn, pwd, camp_name, ord_id, out = 'assemblages'):
 
 
     if out == 'assemblages':
-        ### assemblage names are wanted in conjunction with a specifc 
+        ### assemblage names are wanted in conjunction with a specifc
         ### ord_id in camp_name
 
 
-        ### retrieve ss postgres record 
+        ### retrieve ss postgres record
         solids_sql   = ",".join([f'"{_}"' for _ in all_precip])
         all_rec = retrieve_postgres_record(conn, 'select {} from {}_es where ord = {}'.format(solids_sql, camp_name, ord_id))
-        
-        ### find unique co-precipitation combinations 
+
+        ### find unique co-precipitation combinations
         ### build list for precipitation combinations
-        solid_combinations = []     
+        solid_combinations = []
         for _ in all_rec:
             ind = []
             for x in range(len(_)):
                 if _[x] >= 0:
-                    ### if affinity >= 0 ie precipitation either happend or 
+                    ### if affinity >= 0 ie precipitation either happend or
                     ### would have if precip was turned on.
-                    ind.append(x)                    
+                    ind.append(x)
             ### grab index of values over 0,
             solid_combinations.append([all_precip[i] for i in ind])
         ### unique mineral co-precipiation occrrances in  order # ord_id
@@ -331,8 +331,8 @@ def solid_groups(conn, pwd, camp_name, ord_id, out = 'assemblages'):
             tuple(x) for x in solid_combinations) if list(x) !=[]] + ['']
 
 
-        ### dictionary of unique mineral combinations, with an int index 
-        ### to reference color. This random association between the names 
+        ### dictionary of unique mineral combinations, with an int index
+        ### to reference color. This random association between the names
         ### and the color, once established here, presists.
         combo_dict = {}
         for _ in range(len(unique_combinations)):
@@ -342,7 +342,7 @@ def solid_groups(conn, pwd, camp_name, ord_id, out = 'assemblages'):
 
         ### generate color index as the combintion of minerals names precipiated
         z_ind = ['_'.join(_) for _ in solid_combinations]
-        
+
         return combo_dict
 
 

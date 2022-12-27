@@ -28,7 +28,7 @@ from .hanger.tool_room import mk_check_del_directory, mine_pickup_lines, grab_fl
 from .hanger.tool_room import grab_lines, grab_str, WorkingDirectory
 
 
-def Helmsman(camp, ord_id=None, num_cores=os.cpu_count(),
+def Helmsman(camp, ord_id=None, num_cores=1, #os.cpu_count(),
              keep_every_n_files=100000, quiet=False,
              no_progress=False):
     """
@@ -51,7 +51,7 @@ def Helmsman(camp, ord_id=None, num_cores=os.cpu_count(),
     Each vs point assigned to a sailor, contains enough information to define a closed
     thermodynamic system. The sailor employs EQ3/6 to determine the equilibrium
     characteristic of the system defined by the `vs` point, thus generating an associated point
-    in the equilibrium space (`es`) table.
+    in the equilibrium space (`es6`) table.
 
     :param camp: loaded campaign
     :type camp: :class:`Campaign` instance
@@ -67,13 +67,14 @@ def Helmsman(camp, ord_id=None, num_cores=os.cpu_count(),
 
         # retrieve issued order 'ord_id'
         order_query = ('SELECT * FROM `vs` WHERE `code` = 0 '
-                       'AND `uuid` NOT IN (SELECT `uuid` FROM `es`)')
+                       'AND `uuid` NOT IN (SELECT `uuid` FROM `es6`)')
         if ord_id is not None:
             order_query += f' AND `ord` = {ord_id}'
         rec = retrieve_records(conn, order_query)
         vs_col_names = get_column_names(conn, 'vs')
 
-        es_col_names = get_column_names(conn, 'es')
+        es3_col_names = get_column_names(conn, 'es3')
+        es6_col_names = get_column_names(conn, 'es6')
 
         conn.close()
 
@@ -97,32 +98,35 @@ def Helmsman(camp, ord_id=None, num_cores=os.cpu_count(),
 
     queue_manager = multiprocessing.Manager()
     vs_queue = queue_manager.Queue()
-    es_queue = queue_manager.Queue()
+    es3_queue = queue_manager.Queue()
+    es6_queue = queue_manager.Queue()
 
     if num_cores == 1:
         for r in rec:
-            sailor(camp, scratch_path, vs_queue, es_queue, date, r, elements, solids, ss, vs_col_names,
-                   es_col_names, keep_every_n_files)
+            sailor(camp, scratch_path, vs_queue, es3_queue, es6_queue, date, r, elements, solids, ss,
+                   vs_col_names, es3_col_names, es6_col_names, keep_every_n_files)
         keep_running_yoeman = multiprocessing.Value('b', False)
-        yoeman(camp, keep_running_yoeman, vs_queue, es_queue, len(rec), no_progress)
+        yoeman(camp, keep_running_yoeman, vs_queue, es3_queue, es6_queue, len(rec), no_progress)
 
     elif num_cores > 1:
         keep_running_yoeman = multiprocessing.Value('b', True)
         yoeman_process = multiprocessing.Process(target=yoeman, args=(camp, keep_running_yoeman,
-                                                 vs_queue, es_queue, len(rec), no_progress))
+                                                 vs_queue, es3_queue, es6_queue, len(rec), no_progress))
         yoeman_process.start()
         with multiprocessing.Pool(processes=num_cores) as pool:
             _ = pool.starmap(sailor, zip([camp] * len(rec),
                                          [scratch_path] * len(rec),
                                          [vs_queue] * len(rec),
-                                         [es_queue] * len(rec),
+                                         [es3_queue] * len(rec),
+                                         [es6_queue] * len(rec),
                                          [date] * len(rec),
                                          rec,
                                          [elements] * len(rec),
                                          [solids] * len(rec),
                                          [ss] * len(rec),
                                          [vs_col_names] * len(rec),
-                                         [es_col_names] * len(rec),
+                                         [es3_col_names] * len(rec),
+                                         [es6_col_names] * len(rec),
                                          [keep_every_n_files] * len(rec)))
 
         with keep_running_yoeman.get_lock():
@@ -249,8 +253,8 @@ class SailorPaths(object):
         mk_check_del_directory(self.directory)
 
 
-def sailor(camp, scratch_path, vs_queue, es_queue, date, dat, elements, solids, ss, vs_col_names,
-           es_col_names, keep_every_n_files=10000):
+def sailor(camp, scratch_path, vs_queue, es3_queue, es6_queue, date, dat, elements, solids, ss,
+           vs_col_names, es3_col_names, es6_col_names, keep_every_n_files=10000):
     """
     Each sailor manages the execution of all geochemically model steps associated
     with a single vs point in the Variable Space (`vs`).
@@ -271,8 +275,11 @@ def sailor(camp, scratch_path, vs_queue, es_queue, date, dat, elements, solids, 
     :param vs_queue: a waiting list of lines that need to be written to vs table
     :type vs_queue: class 'multiprocessing.managers.AutoProxy[Queue]
 
-    :param es_queue: a queue of pandas data frames that need to be written to es table
-    :type es_queue: class 'multiprocessing.managers.AutoProxy[Queue]
+    :param es3_queue: a queue of pandas data frames that need to be written to es3 table
+    :type es3_queue: class 'multiprocessing.managers.AutoProxy[Queue]
+
+    :param es6_queue: a queue of pandas data frames that need to be written to es6 table
+    :type es6_queue: class 'multiprocessing.managers.AutoProxy[Queue]
 
     :param date: birthdate of order
     :type data: str
@@ -351,13 +358,15 @@ def sailor(camp, scratch_path, vs_queue, es_queue, date, dat, elements, solids, 
 
             eq6(data1_file, paths.sixi)
 
-            df = mine_6o(camp, date, elements, solids, ss, paths.sixo, master_dict, es_col_names)
-            es_queue.put_nowait(df)
+            sixodf = mine_6o(camp, date, elements, solids, ss, paths.sixo, master_dict, es6_col_names)
+            threeodf = mine_3o(camp, date, elements, solids, ss, paths.threeo, master_dict, es3_col_names)
+
+            es3_queue.put_nowait(threeodf)
+            es6_queue.put_nowait(sixodf)
+
             return reset_sailor(paths, vs_queue, master_dict['uuid'], RunCode.SUCCESS)
         except EleanorException as e:
             return reset_sailor(paths, vs_queue, master_dict['uuid'], e.code)
-        except Exception as e:
-           return reset_sailor(paths, vs_queue, master_dict['uuid'], RunCode.UNKNOWN)
 
 
 def mine_6o(camp, date, elements, solids, ss, file, master_dict, col_names):
@@ -589,7 +598,158 @@ def mine_6o(camp, date, elements, solids, ss, file, master_dict, col_names):
     except FileNotFoundError as e:
         raise EleanorFileException(e, code=RunCode.NO_6O_fILE)
 
-def yoeman(camp, keep_running, write_vs_q, write_es_q, num_points, no_progress=False):
+def mine_3o(camp, date, elements, solids, ss, file, master_dict, col_names):
+    """
+    open and mine the eqe output file ('file'.3o) for all of the run information
+    with associated columns in the es3 table.
+
+    :param camp: loaded campaign
+    :type camp: :class:`Campaign` instance
+
+    :param date: birthdate of order
+    :type data: str
+
+    :param elements: list of loaded element, excepting O and H
+    :type elements: list of strings
+
+    :param ss: list of loaded solid solutions
+    :type ss: list of strings
+
+    :param file: 'file'.6o file name
+    :type file: str
+
+    :param build_dict: all vs specific data needed by the sailor to complete mission.
+    :type build_dict: dictionary
+
+    :param col_names: ES table columns
+    :type col_names: list of strings
+    """
+
+    build_dict = {k: [] for k in col_names}
+    build_dict['extended_alk'] = [np.nan]  # undefined for systems over 50 in EQ36 output
+
+    try:
+        lines = grab_lines(file)
+
+        run_code = RunCode.NOT_RUN
+        if 'Normal exit' not in lines[-1]:
+            raise EleanorException('eq3 terminated early',
+                                   code=RunCode.EQ3_EARLY_TERMINATION)
+        else:
+            run_code = RunCode.SUCCESS
+
+        for i in range(len(lines)):
+            if re.findall('^\n', lines[i]):
+                pass
+
+            elif ' Temperature=' in lines[i]:
+                build_dict['T_cel'] = [grab_float(lines[i], -2)]
+
+            elif ' Pressure=' in lines[i]:
+                build_dict['P_bar'] = [grab_float(lines[i], 1)]
+
+            elif ' --- Elemental Composition' in lines[i]:
+                x = 4
+                while not re.findall('^\n', lines[i + x]):
+                    if grab_str(lines[i + x], 0) in elements:
+                        # log molality
+                        this_dat = [np.round(np.log10(grab_float(lines[i + x], -1)), 6)]
+                        build_dict['{}'.format(grab_str(lines[i + x], 0))] = this_dat
+                        x += 1
+                    else:
+                        x += 1
+
+            elif ' NBS pH scale         ' in lines[i]:
+                build_dict['pH'] = [grab_float(lines[i], -4)]
+
+            elif '                Log oxygen fugacity=' in lines[i]:
+                build_dict['fO2'] = [grab_float(lines[i], -1)]
+
+            elif '              Log activity of water=' in lines[i]:
+                build_dict['aH2O'] = [grab_float(lines[i], -1)]
+
+            elif '                 Ionic strength (I)=' in lines[i]:
+                build_dict['ionic'] = [grab_float(lines[i], -2)]
+
+            elif '                 Solutes (TDS) mass=' in lines[i]:
+                build_dict['tds'] = [grab_float(lines[i], -2)]
+
+            elif '              Aqueous solution mass=' in lines[i]:
+                build_dict['soln_mass'] = [grab_float(lines[i], -2)]
+
+            elif '           --- Extended Total Alkalinity ---' in lines[i]:
+                build_dict['extended_alk'] = [grab_float(lines[i + 2], 0)]
+
+            elif '--- Distribution of Aqueous Solute Species ---' in lines[i]:
+                x = 4
+                while not re.findall('^\n', lines[i + x]):
+                    if grab_str(lines[i + x], 0) != 'O2(g)':
+                        # ### -1 position is log activity, -3 is log molality
+                        build_dict[f'm{grab_str(lines[i + x], 0)}'] = [grab_float(
+                            lines[i + x], -3)]
+                        build_dict[f'a{grab_str(lines[i + x], 0)}'] = [grab_float(
+                            lines[i + x], -1)]
+                        x += 1
+                    else:
+                        x += 1
+
+            elif '--- Saturation States of Pure Solids ---' in lines[i]:
+                x = 4
+                while not re.findall('^\n', lines[i + x]):
+                    if re.findall(r'\*{4}$', lines[i + x]):
+                        # ## '******'' fills in the value region for numbers
+                        # ## lower than -999.9999. Replace with boundary condition
+
+                        # ## affinity (kcal)
+                        build_dict[f'a{lines[i + x][:30].strip()}'] = [float(-999.9999)]
+                        x += 1
+                    elif 'None' not in lines[i + x]:
+                        build_dict[f'a{lines[i + x][:30].strip()}'] = [
+                            float(lines[i + x][31:44])]
+                        x += 1
+                    else:
+                        x += 1
+
+            elif '    --- Fugacities ---' in lines[i]:
+                x = 4
+                while not re.findall('^\n', lines[i + x]):
+                    if 'None' not in lines[i + x]:  # log f
+                        if re.findall(r'\*{4}', lines[i + x]):
+                            # ## '******'' fills in the value region for numbers
+                            # ## lower than -999.9999. Replace with boundary condition
+                            build_dict[lines[i + x][:30].strip()] = [float(-999.9999)]
+                            x += 1
+                        else:
+                            build_dict[grab_str(lines[i + x], 0)] = [
+                                float(lines[i + x][28:41])]
+                            x += 1
+                    else:
+                        x += 1
+                break
+
+        build_dict['uuid'] = [master_dict['uuid']]
+        build_dict['ord'] = [master_dict['ord']]
+        build_dict['file'] = [master_dict['file']]
+        build_dict['run'] = [date]
+
+        # reorganize columns to match es table
+        columns_to_remove = set()
+        for key, value in build_dict.items():
+            if len(value) == 0:
+                columns_to_remove.add(key)
+        kept_columns = []
+        for column in col_names:
+            if column not in columns_to_remove:
+                kept_columns.append(column)
+        for key in columns_to_remove:
+            del build_dict[key]
+
+        build_df = pd.DataFrame.from_dict(build_dict)
+        return build_df[kept_columns]
+    except FileNotFoundError as e:
+        raise EleanorFileException(e, code=RunCode.NO_3O_FILE)
+
+def yoeman(camp, keep_running, write_vs_q, write_es3_q, write_es6_q, num_points, no_progress=False):
     """
     Collecting each sailors df output, and then writing it in
     bulk to sql
@@ -604,17 +764,18 @@ def yoeman(camp, keep_running, write_vs_q, write_es_q, num_points, no_progress=F
     :param write_vs_q: queue of lines waiting to be written to vs table
     :type write_vs_q: queue.Queue
 
-    :param write_es_q: queue of DataFrames waiting to be written to vs table
-    :type write_es_q: queue.Queue
+    :param write_es6_q: queue of DataFrames waiting to be written to vs table
+    :type write_es6_q: queue.Queue
 
     :param num_points: number of vs points in the order
     :type num_points: int
     """
     conn = establish_database_connection(camp)
-    WRITE_EVERY_N = 500
+    WRITE_EVERY_N = 10
     vs_n_written = 0
 
-    es_df_list = []
+    es3_df_list = []
+    es6_df_list = []
     vs_list = []
 
     if num_points <= WRITE_EVERY_N:
@@ -639,18 +800,29 @@ def yoeman(camp, keep_running, write_vs_q, write_es_q, num_points, no_progress=F
                 vs_line = write_vs_q.get_nowait()
                 vs_list.append(vs_line)
                 write_vs_q.task_done()
-            # Get ES points
-            while not write_es_q.empty():
-                es_df = write_es_q.get_nowait()
-                es_df_list.append(es_df)
-                write_es_q.task_done()
-            # Write ES table
-            if len(es_df_list) != 0:
-                total_es_df = pd.concat(es_df_list, ignore_index=True)
-                total_es_df.to_sql('es', conn, if_exists='append', index=False)
-                es_df_list = []
+            # Get ES3 points
+            while not write_es3_q.empty():
+                es3_df = write_es3_q.get_nowait()
+                es3_df_list.append(es3_df)
+                write_es3_q.task_done()
+            # Write ES3 table
+            if len(es3_df_list) != 0:
+                total_es3_df = pd.concat(es3_df_list, ignore_index=True)
+                total_es3_df.to_sql('es3', conn, if_exists='append', index=False)
+                es3_df_list = []
+            # Get ES6 points
+            while not write_es6_q.empty():
+                es6_df = write_es6_q.get_nowait()
+                es6_df_list.append(es6_df)
+                write_es6_q.task_done()
+            # Write ES6 table
+            if len(es6_df_list) != 0:
+                total_es6_df = pd.concat(es6_df_list, ignore_index=True)
+                total_es6_df.to_sql('es6', conn, if_exists='append', index=False)
+                es6_df_list = []
                 # Write VS lines
                 execute_vs_exit_updates(conn, vs_list)
+                vs_list = []
 
         elif not write_all_at_once and current_q_size > WRITE_EVERY_N:
             # Get VS batch
@@ -663,18 +835,31 @@ def yoeman(camp, keep_running, write_vs_q, write_es_q, num_points, no_progress=F
             vs_n_written = len(vs_list)
 
             vs_list = []
-            # Get ES batch
-            current_es_q_size = write_es_q.qsize()
-            while len(es_df_list) < current_es_q_size:
-                es_df = write_es_q.get_nowait()
-                es_df_list.append(es_df)
-                write_es_q.task_done()
+            # Get ES6 batch
+            current_es6_q_size = write_es6_q.qsize()
+            while len(es6_df_list) < current_es6_q_size:
+                es6_df = write_es6_q.get_nowait()
+                es6_df_list.append(es6_df)
+                write_es6_q.task_done()
 
-            # Write batch to ES table
-            if len(es_df_list) != 0:
-                total_es_df = pd.concat(es_df_list, ignore_index=True)
-                total_es_df.to_sql('es', conn, if_exists='append', index=False)
-                es_df_list = []
+            # Write batch to ES3 table
+            if len(es3_df_list) != 0:
+                total_es3_df = pd.concat(es3_df_list, ignore_index=True)
+                total_es3_df.to_sql('es3', conn, if_exists='append', index=False)
+                es3_df_list = []
+
+            # Get ES3 batch
+            current_es3_q_size = write_es3_q.qsize()
+            while len(es3_df_list) < current_es3_q_size:
+                es3_df = write_es3_q.get_nowait()
+                es3_df_list.append(es3_df)
+                write_es3_q.task_done()
+
+            # Write batch to ES6 table
+            if len(es6_df_list) != 0:
+                total_es6_df = pd.concat(es6_df_list, ignore_index=True)
+                total_es6_df.to_sql('es6', conn, if_exists='append', index=False)
+                es6_df_list = []
 
             if not no_progress:
                 progress.update(vs_n_written)
@@ -689,14 +874,23 @@ def yoeman(camp, keep_running, write_vs_q, write_es_q, num_points, no_progress=F
     execute_vs_exit_updates(conn, vs_list)
     vs_n_written = len(vs_list)
 
-    while not write_es_q.empty():
-        es_df = write_es_q.get_nowait()
-        es_df_list.append(es_df)
-        write_es_q.task_done()
+    while not write_es3_q.empty():
+        es3_df = write_es3_q.get_nowait()
+        es3_df_list.append(es3_df)
+        write_es3_q.task_done()
     # Write batch to ES table
-    if len(es_df_list) != 0:
-        total_es_df = pd.concat(es_df_list, ignore_index=True)
-        total_es_df.to_sql('es', conn, if_exists='append', index=False)
+    if len(es3_df_list) != 0:
+        total_es3_df = pd.concat(es3_df_list, ignore_index=True)
+        total_es3_df.to_sql('es3', conn, if_exists='append', index=False)
+
+    while not write_es6_q.empty():
+        es6_df = write_es6_q.get_nowait()
+        es6_df_list.append(es6_df)
+        write_es6_q.task_done()
+    # Write batch to ES table
+    if len(es6_df_list) != 0:
+        total_es6_df = pd.concat(es6_df_list, ignore_index=True)
+        total_es6_df.to_sql('es6', conn, if_exists='append', index=False)
 
     if not write_all_at_once and not no_progress:
         progress.update(vs_n_written)

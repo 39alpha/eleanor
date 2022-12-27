@@ -127,22 +127,79 @@ def create_orders_table(conn):
     ''')
 
 
-def create_es_table(conn, camp, sp, ss, gases, elements):
+def create_es_tables(conn, camp, sp, ss, gases, elements):
     """
-    Initiater equilibrium space (mined from 6o) table on connection 'conn'
-    for campaign 'camp_name' with state dimensions 'camp_vs_state' and
-    basis dimensions 'camp_vs_basis'. 'basis' is used here for
-    dimensioning, however it is not populated with the initial conditions
-    (3i) as the vs table is, but is instead popuilated with the output (6o)
-    total abundences.
+    Initialize the EQ3 and EQ6 equilibrium tables, to be filled from the mined 3o and 6o files, respectively.
 
     :param conn: the database connection
     :param camp: the campaign
-    :param loaded_sp: loaded aqueous, solid and gas species
-    :param loaded_ss: loaded solid solution species
+    :param sp: loaded aqueous, solid and gas species
+    :param ss: loaded solid solution species
+    :param gases: loaded gases
+    :param elements: loaded elements
+    """
+    create_es3_table(conn, camp, sp, ss, gases, elements)
+    create_es6_table(conn, camp, sp, ss, gases, elements)
+
+def create_es3_table(conn, camp, sp, ss, gases, elements):
+    """
+    Initialize the EQ3 equilibrium table, to be filled from the mined 3o file.
+
+    :param conn: the database connection
+    :param camp: the campaign
+    :param sp: loaded aqueous, solid and gas species
+    :param ss: loaded solid solution species
+    :param gases: loaded gases
+    :param elements: loaded elements
     """
 
-    sql_info = "CREATE TABLE IF NOT EXISTS es (uuid VARCHAR(32) PRIMARY KEY,\
+    sql_info = "CREATE TABLE IF NOT EXISTS es3 (uuid VARCHAR(32) PRIMARY KEY,\
+        ord INTEGER NOT NULL, file INTEGER NOT NULL, run \
+        DATE NOT NULL,"
+
+    sql_run = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in
+                        ['aH2O', 'ionic', 'tds', 'soln_mass', 'extended_alk']]) + ','
+
+    sql_state = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in
+                          list(camp.vs_state.keys()) + ['pH']]) + ','
+
+    # convert vs_basis to elements for ES. This will allow teh use of
+    # multiple species containing the same element to be used in the
+    # basis, while still tracking total element values in the ES.
+
+    sql_ele = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in
+                        elements]) + ','
+
+    # activity / affinity
+    sql_sp_a = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in
+                        [f'a{_}' for _ in sp]]) + ','
+
+    sql_gas = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in
+                        gases]) + ','
+
+    sql_ss = ",".join([f'"{_}" DOUBLE PRECISION' for _ in ss]) + ','
+
+    sql_fk = ' FOREIGN KEY(`ord`) REFERENCES `orders`(`id`), \
+               FOREIGN KEY(`uuid`) REFERENCES `vs`(`uuid`)'
+
+    parts = [sql_info, sql_run, sql_state, sql_ele, sql_sp_a, sql_gas, sql_ss, sql_fk]
+    execute_query(conn, ''.join(parts) + ')')
+
+
+
+def create_es6_table(conn, camp, sp, ss, gases, elements):
+    """
+    Initialize the EQ6 equilibrium table, to be filled from the mined 6o file.
+
+    :param conn: the database connection
+    :param camp: the campaign
+    :param sp: loaded aqueous, solid and gas species
+    :param ss: loaded solid solution species
+    :param gases: loaded gases
+    :param elements: loaded elements
+    """
+
+    sql_info = "CREATE TABLE IF NOT EXISTS es6 (uuid VARCHAR(32) PRIMARY KEY,\
         ord INTEGER NOT NULL, file INTEGER NOT NULL, run \
         DATE NOT NULL,"
 
@@ -302,11 +359,11 @@ def retrieve_combined_records(conn, vs_cols, es_cols,
                               where=None,
                               fname=None):
     """
-    Retrieve columns from the `vs` and `es` tables, joined on the :code:`uuid` column. The results
+    Retrieve columns from the `vs` and `es6` tables, joined on the :code:`uuid` column. The results
     are returned as a Pandas :code:`DataFrame`.
 
     Since not all of the systems ordered by the Navigator will converge in EQ3/6, the `vs` table may
-    contain orders for systems that do not exist in the `es` table.
+    contain orders for systems that do not exist in the `es6` table.
 
     If the :code:`fname` is provided and has either a `.pickle`, `.json` or `.csv` file extension,
     the DataFrame will be written to that file.
@@ -315,7 +372,7 @@ def retrieve_combined_records(conn, vs_cols, es_cols,
     :type conn: sqlite3.Connection
     :param vs_cols: the columns to be selected from the `vs` table
     :type vs_cols: list
-    :param es_cols: the columns to be selected from the `es` table
+    :param es_cols: the columns to be selected from the `es6` table
     :type es_cols: list
     :param limit: limit the number of records retrieved 'limit'
     :type limit: int
@@ -331,14 +388,14 @@ def retrieve_combined_records(conn, vs_cols, es_cols,
     :rtype: pandas.DataFrame
     """
     query = f"SELECT `vs`.`{'`, `vs`.`'.join(vs_cols)}`, \
-                     `es`.`{'`, `es`.`'.join(es_cols)}` \
-              FROM `vs` INNER JOIN `es` ON `vs`.`uuid` = `es`.`uuid`"
+                     `es6`.`{'`, `es6`.`'.join(es_cols)}` \
+              FROM `vs` INNER JOIN `es6` ON `vs`.`uuid` = `es6`.`uuid`"
 
     if ord_id is not None and where is not None:
-        query += f" WHERE `es`.`ord` = {ord_id} and {where}"
+        query += f" WHERE `es6`.`ord` = {ord_id} and {where}"
 
     elif ord_id is not None:
-        query += f" WHERE `es`.`ord` = {ord_id}"
+        query += f" WHERE `es6`.`ord` = {ord_id}"
 
     elif where is not None:
         query += f" WHERE {where}"

@@ -81,7 +81,6 @@ def determine_species_set(path=''):
 
     """
     suppress = []
-
     elements = []
     aqueous_sp = []
     solids = []

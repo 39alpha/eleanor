@@ -49,7 +49,8 @@ class TestCampaign(TestCase):
             'resolution': 4,
             'suppress min': True,
             'suppress min exemptions': ['calcite'],
-            'solid solutions': True
+            'solid solutions': True,
+            'suppress sp': [],
         }
 
     def test_canary(self):

@@ -28,8 +28,8 @@ from .hanger.tool_room import mk_check_del_directory, mine_pickup_lines, grab_fl
 from .hanger.tool_room import grab_lines, grab_str, WorkingDirectory
 
 
-def Helmsman(camp, ord_id=None, num_cores=1, #os.cpu_count(),
-             keep_every_n_files=100000, quiet=False,
+def Helmsman(camp, ord_id=None, num_cores=os.cpu_count(),
+             keep_every_n_files=10, quiet=False,
              no_progress=False):
     """
     Keeping with the naval terminology: The Navigator charts where to go.

@@ -320,10 +320,11 @@ class Three_i(object):
     """
 
     def __init__(self,
-                 iopt4='0',    # SS    1 (permit), (ignor)
-                 iopt11='0',    # Auto basis switching   0 (turn on), 1 (turn off)
-                 iopt17='0',    # Pickup file:  -1 (dont write), 0 (write)
-                 iopt19='3',    # pickup type:  0 (normal), 3 (fluid1 set up for fluid mixing)
+                 iopt4='0',   # SS    1 (permit), (ignor)
+                 iopt11='0',  # Auto basis switching   0 (turn on), 1 (turn off)
+                 iopt17='0',  # Pickup file:  -1 (dont write), 0 (write)
+                 iopt19='3',  # pickup type:  0 (normal), 3 (fluid1 set up for fluid mixing)
+                 iopg1='0',   # 0 = B-dot, 1 = pitzer
                  iopr1='0',
                  iopr2='0',
                  iopr4='1',    # incliude all aq species (not just > -100)
@@ -339,6 +340,7 @@ class Three_i(object):
         self.iopt11 = iopt11
         self.iopt17 = iopt17
         self.iopt19 = iopt19
+        self.iopg1 = iopg1
         self.iopr1 = iopr1
         self.iopr2 = iopr2
         self.iopr4 = iopr4
@@ -370,6 +372,7 @@ class Three_i(object):
             l_iopr6 = ' 1'
             l_iopr7 = ' 1'
             l_iopr9 = ' 1'
+            l_iopg1 = ' 0'
             l_iodb1 = ' 2'
             l_iodb3 = ' 4'
             l_iodb4 = ' 4'
@@ -383,6 +386,7 @@ class Three_i(object):
 
             # ## adjust leading space for iopr strings, as they may have
             # ## leading negative values
+            l_iopt4 = ' ' * (2 - len(self.iopg1)) + self.iopg1
             l_iopt4 = ' ' * (2 - len(self.iopt4)) + self.iopt4
             l_iopr1 = ' ' * (2 - len(self.iopr1)) + self.iopr1
             l_iopr2 = ' ' * (2 - len(self.iopr2)) + self.iopr2
@@ -391,6 +395,7 @@ class Three_i(object):
             l_iopr6 = ' ' * (2 - len(self.iopr6)) + self.iopr6
             l_iopr7 = ' ' * (2 - len(self.iopr7)) + self.iopr7
             l_iopr9 = ' ' * (2 - len(self.iopr9)) + self.iopr9
+            l_iopg1 = ' ' * (2 - len(self.iopg1)) + self.iopg1
             l_iodb1 = ' 0'
             l_iodb3 = ' 0'
             l_iodb4 = ' 0'
@@ -464,7 +469,7 @@ class Three_i(object):
                                    '*               1    2    3    4    5    6    7    8    9   10',
                                   f'  iopt1-10=     0    0    0   {l_iopt4}    0    0    0    0    0    0',  # noqa (E501)
                                   f' iopt11-20=     {self.iopt11}    0    0    0    0    0    {self.iopt17}    0    {self.iopt19}    0',  # noqa (E501)
-                                   '  iopg1-10=     0    0    0    0    0    0    0    0    0    0',
+                                  f'  iopg1-10=    {l_iopg1}    0    0    0    0    0    0    0    0    0',
                                    ' iopg11-20=     0    0    0    0    0    0    0    0    0    0',
                                   f'  iopr1-10=    {l_iopr1}   {l_iopr2}    0   {l_iopr4}   {l_iopr5}   {l_iopr6}   {l_iopr7}    0   {l_iopr9}    0',  # noqa (E501)
                                    ' iopr11-20=     0    0    0    0    0    0    0    0    0    0',

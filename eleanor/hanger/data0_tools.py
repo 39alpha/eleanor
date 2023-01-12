@@ -20,24 +20,6 @@ from tempfile import TemporaryDirectory
 
 
 DATA_PATH = join(abspath(join(dirname(realpath(__file__)), '..')), 'data')
-SLOP_DF = pd.read_csv(join(DATA_PATH, 'test_worm_data.csv'), index_col=0)
-
-def species_info(sp):
-    """
-    in:
-        species name in worm slop file 'SLOP_DF'
-    out:
-        dict['ele'] = sto containing elements in species
-    """
-    comp_dict = {}
-    formula_ox = SLOP_DF['formula_ox'][sp]
-    for _ in formula_ox.split():
-        front = (re.sub(r'[-+][0-9]{0,2}', '', _))
-        if re.findall('^[A-Za-z]', front):
-            front = '1{}'.format(front)
-        sto, ele = re.findall(r'([0-9+\.]{1,}|[A-Za-z]+)', front)
-        comp_dict[ele] = sto
-    return comp_dict
 
 
 def determine_ele_set(path=''):

@@ -402,7 +402,7 @@ class Data0(object):
     @property
     def species_names(self) -> set[str]:
         if self.__species_names is None:
-            self.__species_names = set(self.elements.keys())
+            self.__species_names = set()
             self.__species_names.update(self.basis_species.keys())
             self.__species_names.update(self.auxiliary_basis_species.keys())
             self.__species_names.update(self.aqueous_species.keys())

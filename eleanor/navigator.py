@@ -22,8 +22,8 @@ from .hanger.eq36 import eq3
 from .hanger import db_comms
 from .hanger.tool_room import mk_check_del_directory, grab_lines, WorkingDirectory
 from .hanger.data0_tools import determine_species_set
-from .hanger.data0_tools import determine_ele_set, determine_loaded_sp, species_info
-from .hanger.data0_tools import SLOP_DF, TPCurve
+from .hanger.data0_tools import determine_ele_set, determine_loaded_sp
+from .hanger.data0_tools import TPCurve
 
 # ### temporary fix.
 mw = {'O': 15.99940,
@@ -232,6 +232,8 @@ def random_uniform_order(camp, date, ord, file_number, order_size, elements, pre
     if not quiet:
         print('Generating order #{} via random_uniform.'.format(ord))
 
+    d0 = camp.representative_data0
+
     df = pd.DataFrame()
     df = build_admin_info(camp, df, ord, file_number, order_size, date)
 
@@ -270,8 +272,7 @@ def random_uniform_order(camp, date, ord, file_number, order_size, elements, pre
 
     # build basis into main df
     df = pd.concat([df, dbasis], axis=1)
-
-    df = calculate_ele_totals(df, elements, order_size, precision)
+    df = calculate_ele_totals(d0, df, elements, order_size, precision)
 
     return df
 
@@ -371,10 +372,13 @@ def build_admin_info(camp, df, ord, file_number, order_size, date):
     return df
 
 
-def calculate_ele_totals(df, elements, order_size, precision):
+def calculate_ele_totals(d0, df, elements, order_size, precision):
     """
     Calculate element totals, as multiple VS species may
     contain the same element.
+
+    :param d0: the campaign's representative Data0 file
+    :type d0: eleanor.hanger.eq36.data0.Data0
 
     :param df: dataframe with all state and basis dimensions
     :type df: :class:'pandas.core.frame.DataFrame'
@@ -399,9 +403,9 @@ def calculate_ele_totals(df, elements, order_size, precision):
     for _ in elements:
         # for a given element present in the campaign
         local_vs_sp = []
-        for b in list(SLOP_DF.index):
+        for b in d0.species_names:
             # for species listed/constrained in vs
-            sp_dict = species_info(b)  # keys = constiuent elements, values= sto
+            sp_dict = d0[b].composition
             if _ in sp_dict.keys():
                 # if element _ in vs species, store in
                 # local_vs_sp as ['vs sp name',

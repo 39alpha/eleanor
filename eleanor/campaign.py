@@ -4,10 +4,11 @@
 The :class:`Campaign` class contains the specification of modeling objectives.
 """
 from .hanger import data0_tools, tool_room
-from os import mkdir
-from os.path import isdir, join, realpath, relpath
+from os import mkdir, listdir
+from os.path import isdir, isfile, join, realpath, relpath
 from .hanger.data0_tools import TPCurve
 from .hanger.tool_room import grab_float
+from .hanger.eq36 import Data0
 
 import json
 import shutil
@@ -98,6 +99,7 @@ class Campaign:
         self._campaign_dir = None
         self._hash = None
         self._data0_hash = None
+        self._representative_data0_fname = None
         self.data1_dir = None
         self.tp_curves = None
 
@@ -130,6 +132,10 @@ class Campaign:
     @property
     def order_file(self):
         return join(self.campaign_dir, 'orders', self.hash + '.json')
+
+    @property
+    def representative_data0(self):
+        return Data0.from_file(self._representative_data0_fname, permissive=True)
 
     def create_env(self, dir=None, verbose=True):
         """
@@ -232,6 +238,16 @@ class Campaign:
                 not overlap with any of the pressure vs. temperature curves specified
                 in the provided data0 files.
             ''')
+
+        # Choose a data0 file as a representative for the campaign. This will be used to extract information such as
+        # element and species compositions.
+        for fname in listdir(self.data0_dir):
+            fname = join(self.data0_dir, fname)
+            if isfile(fname):
+                self._representative_data0_fname = fname
+                break
+        if self._representative_data0_fname is None:
+            raise Exception('Could not choose a representative data0 file. Are there any in the data0 directory?')
 
     def working_directory(self, *args, **kwargs):
         """

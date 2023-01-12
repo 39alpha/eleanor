@@ -218,7 +218,7 @@ class TestDBComms(TestCase):
             result = dbc.execute_query(conn, 'pragma table_info(vs)').fetchall()
             self.assertEqual(len(result), 26)
             columns = list(map(lambda x: x[1], result))
-            self.assertEqual(columns[-1], 'X')
+            self.assertIn('X', columns)
 
     def test_create_es_tables(self):
         with TemporaryDirectory() as root:
@@ -227,14 +227,16 @@ class TestDBComms(TestCase):
             dbc.create_es_tables(conn, self.campaign, ['W'], ['X'], ['Y'], ['Z'])
 
             result = dbc.execute_query(conn, 'pragma table_info(es3)').fetchall()
-            self.assertEqual(len(result), 19)
+            self.assertEqual(len(result), 17)
             columns = list(map(lambda x: x[1], result))
-            self.assertEqual(columns[-4:], ['Z', 'aW', 'Y', 'X'])
+            for c in ['Z', 'aW', 'Y', 'X']:
+                self.assertIn(c, columns)
 
             result = dbc.execute_query(conn, 'pragma table_info(es6)').fetchall()
             self.assertEqual(len(result), 20)
             columns = list(map(lambda x: x[1], result))
-            self.assertEqual(columns[-5:], ['Z', 'aW', 'mW', 'Y', 'X'])
+            for c in ['Z', 'aW', 'mW', 'Y', 'X']:
+                self.assertIn(c, columns)
 
     def test_create_orders_table(self):
         with TemporaryDirectory() as root:

@@ -15,8 +15,18 @@ def parse_stream(stream, lexerCls, parserCls, builderCls, start, *args, **kwargs
 
     return builder.data, tree
 
-def parse_file(fname, *args, encoding='ascii', **kwargs):
-    file_stream = antlr4.FileStream(fname, encoding=encoding)
+def parse_file(fname, *args, encoding=None, **kwargs):
+    if encoding is None:
+        for encoding in ['ascii', 'utf-8', 'latin']:
+            try:
+                file_stream = antlr4.FileStream(fname, encoding=encoding)
+            except UnicodeDecodeError as e:
+                file_stream = None
+    else:
+        file_stream = antlr4.FileStream(fname, encoding=encoding)
+
+    if file_stream is None:
+        raise Exception(f'cannot infer encoding for data0 files "{fname}"; consider passing the encoding explicitly')
     return parse_stream(file_stream, *args, **kwargs)
 
 def parse_data0(fname, *args, **kwargs):

@@ -9,4 +9,4 @@ class TestData0(TestCase):
         d0 = Data0.from_file(join(DATADIR, 'db', 'data0.00a'), permissive=True)
 
     def test_ypf(self):
-        d0 = Data0.from_file(join(DATADIR, 'ypf.d0'), encoding='latin', permissive=True)
+        d0 = Data0.from_file(join(DATADIR, 'ypf.d0'), permissive=True)

@@ -1,7 +1,11 @@
 from . Data0Listener import Data0Listener
 from . Data0Parser import Data0Parser
-from .. data0 import Data0, AqueousSpecies, AuxiliaryBasisSpecies, BDotSpecies, BasisSpecies, \
-    Dissociation, Gas, Liquid, Params, Solid, SolidSolution, SolidSolutionModel, Volume
+from .. data0 import AqueousSpecies, AuxiliaryBasisSpecies, BasisSpecies, BDotSpecies, \
+    Data0, DebyeHuckelModelParams, Dissociation, Gas, Liquid, ModelParams, Params, PitzerABCTerm, \
+    PitzerCombinations, PitzerLambdaMuTerm, PitzerLambdaTerm, PitzerModelParams, PitzerMuTerm, \
+    PitzerPsiTerm, PitzerThetaTerm, PitzerZetaTerm, Solid, SolidSolution, SolidSolutionModel, \
+    Volume
+
 import numpy as np
 import re
 
@@ -19,11 +23,13 @@ class Data0Builder(Data0Listener):
         ctx.data = ctx.getText()
 
     def exitData0(self, ctx: Data0Parser.Data0Context):
+        (bdot, pitzer_combinations) = ctx.modelSection().data
         ctx.data = Data0(fname=self.fname,
                          magic=ctx.magicLine().data,
                          header=ctx.header().data,
                          params=ctx.paramsSection().data,
-                         bdot=ctx.bdotSpeciesSection().data,
+                         bdot=bdot,
+                         pitzer_combinations=pitzer_combinations,
                          elements=ctx.elementsSection().data,
                          basis_species=ctx.basisSpeciesSection().data,
                          auxiliary_basis_species=ctx.auxiliaryBasisSpeciesSection().data,
@@ -45,12 +51,11 @@ class Data0Builder(Data0Listener):
         ctx.data = ctx.restOfLine().getText().strip()
 
     def exitParamsSection(self, ctx: Data0Parser.ParamsSectionContext):
+        (debye_huckel, pitzer) = ctx.modelParams().data
         ctx.data = Params(temperatures=ctx.temperatures().data,
                           pressures=ctx.pressures().data,
-                          debye_huckel_a=ctx.debyeHuckelA().data,
-                          debye_huckel_b=ctx.debyeHuckelB().data,
-                          bdot=ctx.bdot().data,
-                          cco2=ctx.cco2().data,
+                          debye_huckel=debye_huckel,
+                          pitzer=pitzer,
                           ehlogk=ctx.eHLogK().data)
 
     def exitTemperatures(self, ctx: Data0Parser.TemperaturesContext):
@@ -70,6 +75,28 @@ class Data0Builder(Data0Listener):
     def exitPressures(self, ctx: Data0Parser.PressuresContext):
         ctx.data = ctx.numberGrid().data
 
+    def exitModelParams(self, ctx: Data0Parser.ModelParamsContext):
+        if ctx.debyeHuckelModelParams() is None:
+            debye_huckel = None
+        else:
+            debye_huckel = ctx.debyeHuckelModelParams().data
+
+        if ctx.pitzerModelParams() is None:
+            pitzer = None
+        else:
+            pitzer = ctx.pitzerModelParams().data
+
+        ctx.data = (debye_huckel, pitzer)
+
+    def exitDebyeHuckelModelParams(self, ctx: Data0Parser.DebyeHuckelModelParamsContext):
+        ctx.data = DebyeHuckelModelParams(debye_huckel_a=ctx.debyeHuckelA().data,
+                                          debye_huckel_b=ctx.debyeHuckelB().data,
+                                          bdot=ctx.bdot().data,
+                                          cco2=ctx.cco2().data)
+
+    def exitPitzerModelParams(self, ctx: Data0Parser.PitzerModelParamsContext):
+        ctx.data = PitzerModelParams(debye_huckel_a=ctx.debyeHuckelA().data)
+
     def exitDebyeHuckelA(self, ctx: Data0Parser.DebyeHuckelAContext):
         ctx.data = ctx.numberGrid().data
 
@@ -85,6 +112,19 @@ class Data0Builder(Data0Listener):
     def exitEHLogK(self, ctx: Data0Parser.EHLogKContext):
         ctx.data = ctx.numberGrid().data
 
+    def exitModelSection(self, ctx: Data0Parser.ModelSectionContext):
+        if ctx.bdotSpeciesSection() is None:
+            bdot = None
+        else:
+            bdot = ctx.bdotSpeciesSection().data
+
+        if ctx.pitzerCombinations() is None:
+            pitzer = None
+        else:
+            pitzer = ctx.pitzerCombinations().data
+
+        ctx.data = (bdot, pitzer)
+
     def exitBdotSpeciesSection(self, ctx: Data0Parser.BdotSpeciesSectionContext):
         ctx.data = {bdot.data.name: bdot.data for bdot in ctx.bdotSpecies()}
 
@@ -98,6 +138,146 @@ class Data0Builder(Data0Listener):
 
     def exitBdotSpeciesName(self, ctx: Data0Parser.BdotSpeciesNameContext):
         ctx.data = ctx.WORD().getText().strip()
+
+    def exitPitzerCombinations(self, ctx: Data0Parser.PitzerCombinationsContext):
+        ctx.data = PitzerCombinations(ca=ctx.caCombinations().data,
+                                      ccp_aap=ctx.ccPrimeAaPrimeCombinations().data,
+                                      nc_na=ctx.ncNaCombinations().data,
+                                      nn=ctx.nnCombinations().data,
+                                      nnp=ctx.nnPrimeCombinations().data,
+                                      ccpa_aapc=ctx.ccPrimeAAaPrimeCCombinations().data,
+                                      nca=ctx.ncaCombinations().data,
+                                      nnnp=ctx.nnnPrimeCombinations().data)
+
+    def exitCaCombinations(self, ctx: Data0Parser.CaCombinationsContext):
+        ctx.data = dict()
+        for abc in ctx.pitzerAlphaBetaCphiParams():
+            (name, datum) = abc.data
+            ctx.data[name] = datum
+
+    def exitCcPrimeAaPrimeCombinations(self, ctx: Data0Parser.CcPrimeAaPrimeCombinationsContext):
+        ctx.data = dict()
+        for theta in ctx.pitzerThetaParams():
+            (name, datum) = theta.data
+            ctx.data[name] = datum
+
+    def exitNcNaCombinations(self, ctx: Data0Parser.NcNaCombinationsContext):
+        ctx.data = dict()
+        for lam in ctx.pitzerLambdaParams():
+            (name, datum) = lam.data
+            ctx.data[name] = datum
+
+    def exitNnCombinations(self, ctx: Data0Parser.NnCombinationsContext):
+        ctx.data = dict()
+        for lambda_mu in ctx.pitzerLambdaMuParams():
+            (name, datum) = lambda_mu.data
+            ctx.data[name] = datum
+
+    def exitNnPrimeCombinations(self, ctx: Data0Parser.NnPrimeCombinationsContext):
+        ctx.data = dict()
+        for lam in ctx.pitzerLambdaParams():
+            (name, datum) = lam.data
+            ctx.data[name] = datum
+
+    def exitCcPrimeAAaPrimeCCombinations(self, ctx: Data0Parser.CcPrimeAAaPrimeCCombinationsContext):
+        ctx.data = dict()
+        for psi in ctx.pitzerPsiParams():
+            (name, datum) = psi.data
+            ctx.data[name] = datum
+
+    def exitNcaCombinations(self, ctx: Data0Parser.NcaCombinationsContext):
+        ctx.data = dict()
+        for zeta in ctx.pitzerZetaParams():
+            (name, datum) = zeta.data
+            ctx.data[name] = datum
+
+    def exitNnnPrimeCombinations(self, ctx: Data0Parser.NnnPrimeCombinationsContext):
+        ctx.data = dict()
+        for mu in ctx.pitzerMuParams():
+            (name, datum) = mu.data
+            ctx.data[name] = datum
+
+    def exitPitzerAlphaBetaCphiParams(self, ctx: Data0Parser.PitzerAlphaBetaCphiParamsContext):
+        term = PitzerABCTerm(alpha1=ctx.alpha1().data,
+                             alpha2=ctx.alpha2().data,
+                             beta0=ctx.beta0().data,
+                             beta1=ctx.beta1().data,
+                             beta2=ctx.beta2().data,
+                             cphi=ctx.cphi().data)
+        ctx.data = (ctx.pitzerTuple().data, term)
+
+    def exitPitzerThetaParams(self, ctx: Data0Parser.PitzerThetaParamsContext):
+        term = PitzerThetaTerm(theta=ctx.theta().data)
+        ctx.data = (ctx.pitzerTuple().data, term)
+
+    def exitPitzerLambdaParams(self, ctx: Data0Parser.PitzerLambdaParamsContext):
+        term = PitzerLambdaTerm(lam=ctx.lambda_().data)
+        ctx.data = (ctx.pitzerTuple().data, term)
+
+    def exitPitzerLambdaMuParams(self, ctx: Data0Parser.PitzerLambdaMuParamsContext):
+        term = PitzerLambdaMuTerm(lam=ctx.lambda_().data,
+                                  mu=ctx.mu().data)
+        ctx.data = (ctx.pitzerTuple().data, term)
+
+    def exitPitzerPsiParams(self, ctx: Data0Parser.PitzerPsiParamsContext):
+        term = PitzerPsiTerm(psi=ctx.psi().data)
+        ctx.data = (ctx.pitzerTuple().data, term)
+
+    def exitPitzerZetaParams(self, ctx: Data0Parser.PitzerZetaParamsContext):
+        term = PitzerZetaTerm(zeta=ctx.zeta().data)
+        ctx.data = (ctx.pitzerTuple().data, term)
+
+    def exitPitzerMuParams(self, ctx: Data0Parser.PitzerMuParamsContext):
+        term = PitzerMuTerm(mu=ctx.mu().data)
+        ctx.data = (ctx.pitzerTuple().data, term)
+
+    def exitPitzerTuple(self, ctx: Data0Parser.PitzerTupleContext):
+        ctx.data = tuple([species.data for species in ctx.speciesName()])
+
+    def exitAlpha1(self, ctx: Data0Parser.Alpha1Context):
+        ctx.data = ctx.number().data
+
+    def exitAlpha2(self, ctx: Data0Parser.Alpha2Context):
+        ctx.data = ctx.number().data
+
+    def exitBeta0(self, ctx: Data0Parser.Beta0Context):
+        ctx.data = [ctx.a1().data, ctx.a2().data, ctx.a3().data, ctx.a4().data]
+
+    def exitBeta1(self, ctx: Data0Parser.Beta1Context):
+        ctx.data = [ctx.a1().data, ctx.a2().data, ctx.a3().data, ctx.a4().data]
+
+    def exitBeta2(self, ctx: Data0Parser.Beta2Context):
+        ctx.data = [ctx.a1().data, ctx.a2().data, ctx.a3().data, ctx.a4().data]
+
+    def exitCphi(self, ctx: Data0Parser.CphiContext):
+        ctx.data = [ctx.a1().data, ctx.a2().data, ctx.a3().data, ctx.a4().data]
+
+    def exitTheta(self, ctx: Data0Parser.ThetaContext):
+        ctx.data = [ctx.a1().data, ctx.a2().data, ctx.a3().data, ctx.a4().data]
+
+    def exitLambda_(self, ctx: Data0Parser.Lambda_Context):
+        ctx.data = [ctx.a1().data, ctx.a2().data, ctx.a3().data, ctx.a4().data]
+
+    def exitMu(self, ctx: Data0Parser.MuContext):
+        ctx.data = [ctx.a1().data, ctx.a2().data, ctx.a3().data, ctx.a4().data]
+
+    def exitPsi(self, ctx: Data0Parser.PsiContext):
+        ctx.data = [ctx.a1().data, ctx.a2().data, ctx.a3().data, ctx.a4().data]
+
+    def exitZeta(self, ctx: Data0Parser.ZetaContext):
+        ctx.data = [ctx.a1().data, ctx.a2().data, ctx.a3().data, ctx.a4().data]
+
+    def exitA1(self, ctx: Data0Parser.A1Context):
+        ctx.data = ctx.number().data
+
+    def exitA2(self, ctx: Data0Parser.A2Context):
+        ctx.data = ctx.number().data
+
+    def exitA3(self, ctx: Data0Parser.A3Context):
+        ctx.data = ctx.number().data
+
+    def exitA4(self, ctx: Data0Parser.A4Context):
+        ctx.data = ctx.number().data
 
     def exitElementsSection(self, ctx: Data0Parser.ElementsSectionContext):
         ctx.data = {name: weight for name, weight in map(lambda c: c.data, ctx.element())}
@@ -178,7 +358,10 @@ class Data0Builder(Data0Listener):
         ctx.data = np.asarray(grid)
 
     def exitNumber(self, ctx: Data0Parser.NumberContext):
-        ctx.data = np.float64(ctx.NUMBER().getText())
+        if ctx.NUMBER() is not None:
+            ctx.data = np.float64(ctx.NUMBER().getText())
+        else:
+            ctx.data = np.nan
 
     def exitNumberLine(self, ctx: Data0Parser.NumberLineContext):
         ctx.data = np.asarray([n.data for n in ctx.number()])
@@ -218,14 +401,14 @@ class Data0Builder(Data0Listener):
             msg = f'expected {num_elements} solid solution components, got {len(ctx.data)}'
             raise Exception(msg)
 
-    def exitModelSpec(self, ctx: Data0Parser.ModelSpecContext):
-        ctx.data = SolidSolutionModel(type=ctx.modelType().data,
-                                      params=ctx.modelParams().data)
+    def exitSolidSolutionModelSpec(self, ctx: Data0Parser.SolidSolutionModelSpecContext):
+        ctx.data = SolidSolutionModel(type=ctx.solidSolutionModelType().data,
+                                      params=ctx.solidSolutionModelParams().data)
 
-    def exitModelType(self, ctx: Data0Parser.ModelTypeContext):
+    def exitSolidSolutionModelType(self, ctx: Data0Parser.SolidSolutionModelTypeContext):
         ctx.data = np.int64(ctx.number().data)
 
-    def exitModelParams(self, ctx: Data0Parser.ModelParamsContext):
+    def exitSolidSolutionModelParams(self, ctx: Data0Parser.SolidSolutionModelParamsContext):
         num_params = np.int64(ctx.number().data)
         ctx.data = ctx.possiblyEmptyNumberGrid().data
         if not self.permissive and num_params != len(ctx.data):
@@ -500,7 +683,7 @@ class Data0Builder(Data0Listener):
         species_type = ctx.speciesType()[-1].data if len(ctx.speciesType()) > 0 else None
         keys = ctx.keys()[-1].data if len(ctx.keys()) > 0 else None
         composition = ctx.components().data
-        model = ctx.modelSpec().data
+        model = ctx.solidSolutionModelSpec().data
         site_params = ctx.siteParams().data
 
         ctx.data = SolidSolution(name=name,

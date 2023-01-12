@@ -7,16 +7,17 @@ WORD      : ~[\-.0-9 \t\r\n]~[. \t\r\n]*;
 WS        : [ \t]+;
 NUMBER    : SIGN? INTEGER | SIGN? FLOAT;
 COMMENT   : [\r\n] '*' ~[\r\n]* -> skip;
+SQ        : ['];
 
 fragment SIGN : '+' | '-';
 fragment INTEGER : '0'..'9'+;
-fragment FLOAT   : '0'..'9'+ '.' '0'..'9'+;
+fragment FLOAT   : '0'..'9'+ '.' '0'..'9'*;
 
 data0
     : magicLine
       header
       paramsSection
-      bdotSpeciesSection
+      modelSection
       elementsSection
       basisSpeciesSection
       auxiliaryBasisSpeciesSection
@@ -26,6 +27,7 @@ data0
       gasesSection
       solidSolutionsSection
       referenceSection
+      theRest
       EOF;
 
 magicLine
@@ -43,10 +45,7 @@ paramsSection
       sectionHeader
       temperatures
       pressures
-      debyeHuckelA
-      debyeHuckelB
-      bdot
-      cco2
+      modelParams
       eHLogK
       seperator;
 
@@ -64,11 +63,23 @@ numberGrid : numberLine+;
 
 numberLine : number+ WS* NL;
 
-number : WS* NUMBER;
+number
+    : WS* NUMBER
+    | WS* 'No_Data';
 
 pressures : 'pressures' restOfLine numberGrid;
 
-debyeHuckelA : 'debye huckel a' restOfLine numberGrid;
+modelParams : debyeHuckelModelParams | pitzerModelParams;
+
+debyeHuckelModelParams
+    : debyeHuckelA
+      debyeHuckelB
+      bdot
+      cco2;
+
+debyeHuckelA
+    : 'debye huckel a' restOfLine numberGrid
+    | 'debye huckel aphi' restOfLine numberGrid;
 
 debyeHuckelB : 'debye huckel b' restOfLine numberGrid;
 
@@ -76,7 +87,13 @@ bdot : 'bdot' restOfLine numberGrid;
 
 cco2 : 'cco2' restOfLine numberGrid;
 
+pitzerModelParams : debyeHuckelA;
+
+debyeHuckelAphi : 'debye huckel aphi' restOfLine numberGrid;
+
 eHLogK : 'log k for eh reaction' restOfLine numberGrid;
+
+modelSection : bdotSpeciesSection | pitzerCombinations;
 
 bdotSpeciesSection : 'bdot parameters' sectionHeader bdotSpecies+ seperator;
 
@@ -84,6 +101,78 @@ bdotSpecies : bdotSpeciesName number number NL;
 
 // It would be great if we could specify the length of the word to be 32
 bdotSpeciesName : WORD;
+
+pitzerCombinations
+    : caCombinations
+      ccPrimeAaPrimeCombinations
+      ncNaCombinations
+      nnCombinations
+      nnPrimeCombinations
+      ccPrimeAAaPrimeCCombinations
+      ncaCombinations
+      nnnPrimeCombinations;
+
+caCombinations : 'ca combinations:' sectionHeader pitzerAlphaBetaCphiParams+;
+
+ccPrimeAaPrimeCombinations : 'cc\' and aa\' combinations:' sectionHeader pitzerThetaParams+;
+
+ncNaCombinations : 'nc and na combinations:' sectionHeader pitzerLambdaParams+;
+
+nnCombinations : 'nn combinations:' sectionHeader pitzerLambdaMuParams+;
+
+nnPrimeCombinations : 'nn\' combinations:' sectionHeader pitzerLambdaParams+;
+
+ccPrimeAAaPrimeCCombinations : 'cc\'a and aa\'c combinations:' sectionHeader pitzerPsiParams+;
+
+ncaCombinations : 'nca combinations:' sectionHeader pitzerZetaParams+;
+
+nnnPrimeCombinations : 'nnn\' combinations:' sectionHeader pitzerMuParams+;
+
+pitzerAlphaBetaCphiParams : pitzerTuple alpha1 alpha2 beta0 beta1 beta2 cphi seperator;
+
+pitzerLambdaMuParams : pitzerTuple lambda_ mu seperator;
+
+pitzerLambdaParams : pitzerTuple lambda_ seperator;
+
+pitzerMuParams : pitzerTuple mu seperator;
+
+pitzerPsiParams : pitzerTuple psi seperator;
+
+pitzerThetaParams : pitzerTuple theta seperator;
+
+pitzerZetaParams : pitzerTuple zeta seperator;
+
+pitzerTuple : speciesName (WS+ speciesName)* restOfLine;
+
+alpha1 : WS* 'alpha(1)' WS* '=' WS* number restOfLine;
+
+alpha2 : WS* 'alpha(2)' WS* '=' WS* number restOfLine;
+
+beta0 : WS* 'beta(0):' restOfLine a1 a2 a3 a4;
+
+beta1 : WS* 'beta(1):' restOfLine a1 a2 a3 a4;
+
+beta2 : WS* 'beta(2):' restOfLine a1 a2 a3 a4;
+
+cphi : WS* 'Cphi:' restOfLine a1 a2 a3 a4;
+
+theta : WS* 'theta:' restOfLine a1 a2 a3 a4;
+
+lambda_ : WS* 'lambda:' restOfLine a1 a2 a3 a4;
+
+mu : WS* 'mu:' restOfLine a1 a2 a3 a4;
+
+psi : WS* 'psi:' restOfLine a1 a2 a3 a4;
+
+zeta : WS* 'zeta:' restOfLine a1 a2 a3 a4;
+
+a1 : WS* 'a1' WS* '=' WS* number restOfLine;
+
+a2 : WS* 'a2' WS* '=' WS* number restOfLine;
+
+a3 : WS* 'a3' WS* '=' WS* number restOfLine;
+
+a4 : WS* 'a4' WS* '=' WS* number restOfLine;
 
 elementsSection : 'elements' sectionHeader element+ seperator;
 
@@ -99,9 +188,8 @@ basisSpeciesSection
 
 basisSpecies
     : speciesName
-      speciesNote
-      (dateRevised|speciesType|keys)+
-      (chargeLine|volumeLine)+
+      speciesNote?
+      (dateRevised|speciesType|keys|chargeLine|volumeLine|ympQualified)*
       composition
       seperator;
 
@@ -128,7 +216,7 @@ speciesType : WS 'sp.type' WS '=' WS restOfLine;
 
 keys : WS 'keys' WS '=' WS restOfLine;
 
-chargeLine : WS 'charge' WS '=' WS number WS* NL;
+chargeLine : WS* 'charge' WS* '=' WS* number WS* NL;
 
 composition : number WS 'element(s):' restOfLine formulaGrid;
 
@@ -138,20 +226,25 @@ formulaLine : formulaTerm+ WS* NL;
 
 formulaTerm : number WS componentName;
 
-componentName : WORD;
+componentName
+    : WORD
+    | WORD '.' componentName
+    | WORD '.' NUMBER componentName?
+    | WORD WS componentName;
 
 // Flesh out how to parse the unit?
 volumeLine : WS 'V0PrTr' WS '=' WS volume restOfLine;
 
 volume : number;
 
+ympQualified : WS+ 'YMP' ~'='+ '=' WS WORD restOfLine;
+
 auxiliaryBasisSpeciesSection : 'auxiliary basis species' sectionHeader auxiliaryBasisSpecies+;
 
 auxiliaryBasisSpecies
     : speciesName
-      speciesNote
-      (dateRevised|speciesType|keys)+
-      (chargeLine|volumeLine)+
+      speciesNote?
+      (dateRevised|speciesType|keys|chargeLine|volumeLine|ympQualified)+
       composition
       dissociation
       logKGrid
@@ -161,72 +254,68 @@ dissociation : WS number WS 'species' restOfLine formulaGrid;
 
 logKGrid : numberGrid;
 
-aqueousSpeciesSection : 'aqueous species' sectionHeader aqueousSpecies+;
+aqueousSpeciesSection : 'aqueous species' sectionHeader aqueousSpecies*;
 
 aqueousSpecies
     : speciesName
-      speciesNote
-      (dateRevised|speciesType|keys)+
-      (chargeLine|volumeLine)+
+      speciesNote?
+      (dateRevised|speciesType|keys|chargeLine|volumeLine|ympQualified)+
       composition
       dissociation
       logKGrid
       seperator;
 
-solidsSection : 'solids' sectionHeader solid+;
+solidsSection : 'solids' sectionHeader solid*;
 
 solid
     : speciesName
-      speciesNote
-      (dateRevised|speciesType|keys)+
-      (chargeLine|volumeLine)+
+      speciesNote?
+      (dateRevised|speciesType|keys|chargeLine|volumeLine|ympQualified)+
       composition
       dissociation
       logKGrid
       seperator;
 
-liquidsSection : 'liquids' sectionHeader liquid+;
+liquidsSection : 'liquids' sectionHeader liquid*;
 
 liquid
     : speciesName
-      speciesNote
-      (dateRevised|speciesType|keys)+
-      (chargeLine|volumeLine)+
+      speciesNote?
+      (dateRevised|speciesType|keys|chargeLine|volumeLine|ympQualified)+
       composition
       dissociation
       logKGrid
       seperator;
 
-gasesSection : 'gases' sectionHeader gas+;
+gasesSection : 'gases' sectionHeader gas*;
 
 gas
     : speciesName
-      speciesNote
-      (dateRevised|speciesType|keys)+
-      (chargeLine|volumeLine)+
+      speciesNote?
+      (dateRevised|speciesType|keys|chargeLine|volumeLine|ympQualified)+
       composition
       dissociation
       logKGrid
       seperator;
 
-solidSolutionsSection : 'solid solutions' sectionHeader solidSolution+;
+solidSolutionsSection : 'solid solutions' sectionHeader solidSolution*;
 
 solidSolution
     : speciesName
-      speciesNote
-      (dateRevised|speciesType|keys)+
+      speciesNote?
+      (dateRevised|speciesType|keys|ympQualified)+
       components
-      modelSpec
+      solidSolutionModelSpec
       siteParams
       seperator;
 
 components : number WS ('components'|'end members') restOfLine formulaGrid;
 
-modelSpec : modelType modelParams;
+solidSolutionModelSpec : solidSolutionModelType solidSolutionModelParams;
 
-modelType : WS 'type' WS '=' WS number WS* NL;
+solidSolutionModelType : WS 'type' WS '=' WS number WS* NL;
 
-modelParams : number WS 'model parameters' restOfLine possiblyEmptyNumberGrid;
+solidSolutionModelParams : number WS 'model parameters' restOfLine possiblyEmptyNumberGrid;
 
 possiblyEmptyNumberGrid : numberLine*;
 
@@ -235,3 +324,5 @@ siteParams : number WS 'site parameters' restOfLine numberLine;
 referenceSection : 'references' sectionHeader references 'stop.' (WS|NL)*;
 
 references : ~'stop.'*;
+
+theRest : ~EOF+;

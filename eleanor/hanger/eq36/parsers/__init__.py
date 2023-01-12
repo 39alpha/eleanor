@@ -15,8 +15,8 @@ def parse_stream(stream, lexerCls, parserCls, builderCls, start, *args, **kwargs
 
     return builder.data, tree
 
-def parse_file(fname, *args, **kwargs):
-    file_stream = antlr4.FileStream(fname)
+def parse_file(fname, *args, encoding='ascii', **kwargs):
+    file_stream = antlr4.FileStream(fname, encoding=encoding)
     return parse_stream(file_stream, *args, **kwargs)
 
 def parse_data0(fname, *args, **kwargs):

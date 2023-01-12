@@ -5,22 +5,38 @@ Integer = int | np.int64
 Float = float | np.float64
 Number = int | np.int64 | float | np.float64
 
+class ModelParams(object):
+    def __init__(self, debye_huckel_a: np.ndarray):
+        self.debye_huckel_a = debye_huckel_a
+
+class DebyeHuckelModelParams(ModelParams):
+    def __init__(self,
+                 debye_huckel_a: np.ndarray,
+                 debye_huckel_b: np.ndarray,
+                 bdot: np.ndarray,
+                 cco2: np.ndarray,):
+
+        super().__init__(debye_huckel_a)
+        self.debye_huckel_b = debye_huckel_b
+        self.bdot = bdot
+        self.cco2 = cco2
+
+class PitzerModelParams(ModelParams):
+    def __init__(self, debye_huckel_a: np.ndarray):
+        super().__init__(debye_huckel_a)
+
 class Params(object):
     def __init__(self,
                  temperatures: np.ndarray,
                  pressures: np.ndarray,
-                 debye_huckel_a: np.ndarray,
-                 debye_huckel_b: np.ndarray,
-                 bdot: np.ndarray,
-                 cco2: np.ndarray,
+                 debye_huckel: DebyeHuckelModelParams | None,
+                 pitzer: PitzerModelParams | None,
                  ehlogk: np.ndarray):
 
         self.temperatures = temperatures
         self.pressures = pressures
-        self.debye_huckel_a = debye_huckel_a
-        self.debye_huckel_b = debye_huckel_b
-        self.bdot = bdot
-        self.cco2 = cco2
+        self.debye_huckel = debye_huckel
+        self.pitzer = pitzer
         self.ehlogk = ehlogk
 
 class BDotSpecies(object):
@@ -244,6 +260,84 @@ class SolidSolution(Species):
     def __str__(self) -> str:
         return f'<SolidSolution {self.name}>'
 
+class ModelSection(object):
+    pass
+
+class BdotSpeciesSection(ModelSection):
+    def __init__(self, species: dict[str, BDotSpecies]):
+        self.species = species
+
+# pitzerAlphaBetaCphiParams : pitzerTuple alpha1 alpha2 beta0 beta1 beta2 cphi seperator;
+# pitzerLambdaMuParams : pitzerTuple lambda mu seperator;
+# pitzerLambdaParams : pitzerTuple lambda seperator;
+# pitzerMuParams : pitzerTuple mu seperator;
+# pitzerPsiParams : pitzerTuple psi seperator;
+# pitzerThetaParams : pitzerTuple theta seperator;
+# pitzerZetaParams : pitzerTuple zeta seperator;
+
+class PitzerTerm(object):
+    pass
+
+class PitzerABCTerm(PitzerTerm):
+    def __init__(self,
+                 alpha1: float,
+                 alpha2: float,
+                 beta0: np.ndarray,
+                 beta1: np.ndarray,
+                 beta2: np.ndarray,
+                 cphi: np.ndarray):
+        self.alpha1 = alpha1
+        self.alpha2 = alpha2
+        self.beta0 = beta0
+        self.beta1 = beta1
+        self.beta2 = beta2
+        self.cphi = cphi
+
+class PitzerThetaTerm(PitzerTerm):
+    def __init__(self, theta: np.ndarray):
+        self.theta = theta
+
+class PitzerLambdaTerm(PitzerTerm):
+    def __init__(self, lam: np.ndarray):
+        self.lam = lam
+
+class PitzerLambdaMuTerm(PitzerTerm):
+    def __init__(self, lam: np.ndarray, mu: np.ndarray):
+        self.lam = lam
+        self.mu = mu
+
+class PitzerPsiTerm(PitzerTerm):
+    def __init__(self, psi: np.ndarray):
+        self.psi = psi
+
+class PitzerZetaTerm(PitzerTerm):
+    def __init__(self, zeta: np.ndarray):
+        self.zeta = zeta
+
+class PitzerMuTerm(PitzerTerm):
+    def __init__(self, mu: np.ndarray):
+        self.mu = mu
+
+class PitzerCombinations(ModelSection):
+    def __init__(self,
+                 ca: dict[tuple, PitzerABCTerm],
+                 ccp_aap: dict[tuple, PitzerThetaTerm],
+                 nc_na: dict[tuple, PitzerLambdaTerm],
+                 nn: dict[tuple, PitzerLambdaMuTerm],
+                 nnp: dict[tuple, PitzerLambdaTerm],
+                 ccpa_aapc: dict[tuple, PitzerPsiTerm],
+                 nca: dict[tuple, PitzerZetaTerm],
+                 nnnp: dict[tuple, PitzerMuTerm]):
+
+        self.ca = ca
+        self.ccp_aap = ccp_aap
+        self.nc_na = nc_na
+        self.nn = nn
+        self.nnp = nnp
+        self.ccpa_aapc = ccpa_aapc
+        self.nca = nca
+        self.nnnp = nnnp
+
 class Data0(object):
     @staticmethod
     def from_file(fname, *args, **kwargs):
@@ -256,6 +350,7 @@ class Data0(object):
                  header: str,
                  params: Params,
                  bdot: dict[str, BDotSpecies],
+                 pitzer_combinations: PitzerCombinations,
                  elements: dict[str, Float],
                  basis_species: dict[str, BasisSpecies],
                  auxiliary_basis_species: dict[str, AuxiliaryBasisSpecies],
@@ -272,6 +367,7 @@ class Data0(object):
         self.header = header
         self.params = params
         self.bdot = bdot
+        self.pitzer_combinations = pitzer_combinations
         self.elements = elements
         self.basis_species = basis_species
         self.auxiliary_basis_species = auxiliary_basis_species

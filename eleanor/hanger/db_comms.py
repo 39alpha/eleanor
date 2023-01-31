@@ -125,11 +125,11 @@ def create_es3_table(conn, camp, sp, solids, ss, gases, elements):
     """
 
     sql_info = "CREATE TABLE IF NOT EXISTS es3 (uuid VARCHAR(32) PRIMARY KEY,\
-        ord INTEGER NOT NULL, file INTEGER NOT NULL, run \
-        DATE NOT NULL,"
+        ord INTEGER NOT NULL, file INTEGER NOT NULL, run DATE NOT NULL, \
+        extended_alk DOUBLE PRECISION, "
 
     sql_run = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in
-                        ['aH2O', 'ionic', 'tds', 'soln_mass', 'extended_alk']]) + ','
+                        ['aH2O', 'ionic', 'tds', 'soln_mass']]) + ','
 
     sql_state = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in
                           list(camp.vs_state.keys()) + ['pH']]) + ','
@@ -177,10 +177,10 @@ def create_es6_table(conn, camp, sp, solids, ss, gases, elements):
 
     sql_info = "CREATE TABLE IF NOT EXISTS es6 (uuid VARCHAR(32) PRIMARY KEY,\
         ord INTEGER NOT NULL, file INTEGER NOT NULL, run \
-        DATE NOT NULL,"
+        DATE NOT NULL, extended_alk DOUBLE PRECISION, "
 
     sql_run = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in
-                        ['initial_aff', 'xi_max', 'aH2O', 'ionic', 'tds', 'soln_mass', 'extended_alk']]) + ','
+                        ['initial_aff', 'xi_max', 'aH2O', 'ionic', 'tds', 'soln_mass']]) + ','
 
     sql_state = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in
                           list(camp.vs_state.keys()) + ['pH']]) + ','

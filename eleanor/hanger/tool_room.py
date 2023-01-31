@@ -200,8 +200,7 @@ def build_special_rnt(phase, phase_dat):
         # transpose to create [ele, sto] pairs and iterate
         middle = []
         for _ in [list(i) for i in zip(*sr_dat)]:
-            middle.append('   {}{}          {}\n'.format(_[0], ' ' * (2 - len(_[0])),
-                                                         format_e(_[1], 5)))
+            middle.append(f'   {_[0]}{' ' * (2 - len(_[0]))}          {format_e(_[1], 5)}\n')
 
     # special reactant is a lone element
     else:
@@ -211,9 +210,9 @@ def build_special_rnt(phase, phase_dat):
     # as the reactant is titrated as a single unit (rk1b).
     top = '\n'.join([
                     '*-----------------------------------------------------------------------------', # noqa (E501)
-                    '  reactant=  {}'.format(phase),
+                    f'  reactant=  {phase}',
                     '     jcode=  2               jreac=  0',
-                    '      morr=  {}      modr=  0.00000E+00'.format(format_e(10**phase_dat[1], 5)), # noqa (E501)
+                    f'      morr=  {format_e(10**phase_dat[1], 5)}      modr=  0.00000E+00',
                     '     vreac=  0.00000E+00\n'])
 
     bottom = '\n'.join(['   endit.',
@@ -222,7 +221,7 @@ def build_special_rnt(phase, phase_dat):
                         '       nsk=  0               sfcar=  0.00000E+00    ssfcar=  0.00000E+00',
                         '      fkrc=  0.00000E+00',
                         '      nrk1=  1                nrk2=  0',
-                        '      rkb1=  {}      rkb2=  0.00000E+00      rkb3=  0.00000E+00\n'.format(format_e(phase_dat[2], 5)) # noqa (E501)
+                        f'      rkb1=  {format_e(phase_dat[2], 5)}      rkb2=  0.00000E+00      rkb3=  0.00000E+00\n' # noqa (E501)
                         ])
 
     return top + ''.join(middle) + bottom
@@ -252,36 +251,6 @@ def build_mineral_rnt(phase, morr, rk1b):
                       '      fkrc=  0.00000E+00',
                       '      nrk1=  1',
                       f'       rk1=  {format_e(rk1b, 5)}       rk2=  0.00000E+00       rk3=  0.00000E+00\n'])  # noqa (E501)
-
-
-
-def build_aqueous_rnt(phase, morr, rk1b):
-    # TODO: Tucker is this right?
-    # ####### example block #####################
-    # *-----------------------------------------------------------------------------
-    #   reactant= Aqueous H2SO4, 0.1 N
-    #      jcode=  2               jreac=  0
-    #       morr=  1.00000E+00      modr=  0.00000E+00
-    #      vreac=  0.00000E+00
-    # * Elemental composition
-    #    O           5.570895364010290E+01
-    #    H           1.111168701265550E+02
-    #    C           1.059405461284710E-05
-    #    S           5.000000274353950E-02
-    #    endit.
-    # * Reaction
-    #    Aqueous H2SO4, 0.1 N       -1.000000000000000E+00
-    #    HCO3-                       1.059405461284710E-05
-    #    SO4--                       5.000000274353950E-02
-    #    H+                          1.000105995416918E-01
-    #    H2O                         5.550842446647936E+01
-    #    O2(g)                       2.486902427776272E-04
-    #    endit.
-    #        nsk=  0               sfcar=  0.00000E+00    ssfcar=  0.00000E+00
-    #       fkrc=  0.00000E+00
-    #       nrk1=  1                nrk2=  0
-    #       rkb1=  1.00000E+00      rkb2=  0.00000E+00      rkb3=  0.00000E+00
-    pass
 
 def build_gas_rnt(phase, morr, rk1b):
     """
@@ -554,8 +523,8 @@ class Six_i(object):
 
         reactants = dictionary of reactant:value pairs. This dictionary has the same structure
             as the camp.target_rnt dict, except it does not contain ranges, as specific values
-            on those ranges have already been selected by the na vigator function that built
-            the VS postgres table.
+            on those ranges have already been selected by the navigator function that built
+            the VS table.
 
         pickup_lines = local 3p files lines
 
@@ -568,10 +537,12 @@ class Six_i(object):
             # minimal output sought:
             pass
         elif output_details == 'v':
-            # maximal infomration sought from the 6o file for debugging
+            # maximal information sought from the 6o file for debugging
             pass
+
         # reactant count
-        reactant_n = len(reactants.keys())
+        reactant_n = len([_ for _ in reactants.keys() if reactants[_][0] != 'fixed gas'])
+
         if jtemp == '0':
             # t constant
             tempcb = temp
@@ -609,40 +580,35 @@ class Six_i(object):
             build.write('\n'.join([
                 'EQ3NR input file name= local',
                 'endit.',
-                '     jtemp=  {}'.format(jtemp),
-                '    tempcb=  {}'.format(format_e(float(tempcb), 5)),
-                '      ttk1=  {}      ttk2=  {}'.format(ttk1, ttk2),
+                f'     jtemp=  {jtemp}',
+                f'    tempcb=  {format_e(float(tempcb), 5)}',
+                f'      ttk1=  {ttk1}      ttk2=  {ttk2}',
                 '    jpress=  0',
                 '    pressb=  0.00000E+00',
                 '      ptk1=  0.00000E+00      ptk2=  0.00000E+00',
-                '      nrct=  {}\n'.format(str(reactant_n))]))
+                f'      nrct=  {str(reactant_n)}\n']))
 
             if reactant_n > 0:
+                fixed_gases = {}
                 self.iopt1 = ' 1'
                 for _ in reactants.keys():
-                    # This assumes that the reactant info read from the vs table
-                    # is passed in the same manner as the table listed in the campaign .py file
-                    if reactants[_][0] == 'ele' or reactants[_][0] == 'sr':
-                        # element or special reactant
-                        # special reactants must be in sr_dict:
+                    if reactants[_][0] == 'ele':
                         build.write(build_special_rnt(_, reactants[_]))
-                    # elif reactants[_][0] == 'sr':
-                    #     # special reactant
-                        # build.write(build_special_rnt(_, reactants[_][1], reactants[_][2]))
                     elif reactants[_][0] == 'solid':
-                        # mineral reactant
                         build.write(build_mineral_rnt(_, reactants[_][1], reactants[_][2]))
                     elif reactants[_][0] == 'gas':
-                        # gas reactant
                         build.write(build_gas_rnt(_, reactants[_][1], reactants[_][2]))
+                    elif reactants[_][0] == 'fixed gas':
+                        # incorporated below
+                        fixed_gases[_] = reactants[_]
 
             else:
-                # no reactants, closed system
+                # no reactants
                 self.iopt1 = ' 0'
 
             build.write(
-                '\n'.join(['*-----------------------------------------------------------------------------', # noqa (E501)
-                           '    xistti=  0.00000E+00    ximaxi=  {}'.format(format_e(float(xi_max), 5)), # noqa (E501)
+                '\n'.join(['*-----------------------------------------------------------------------------',  # noqa (E501)
+                           f'    xistti=  0.00000E+00    ximaxi=  {format_e(float(xi_max), 5)}',
                            '    tistti=  0.00000E+00    timmxi=  1.00000E+38',
                            '    phmini= -1.00000E+38    phmaxi=  1.00000E+38',
                            '    ehmini= -1.00000E+38    ehmaxi=  1.00000E+38',
@@ -672,28 +638,35 @@ class Six_i(object):
                                                 [self.iopr1, self.iopr2, self.iopr3, self.iopr4,
                                                  self.iopr5, self.iopr6, self.iopr7, self.iopr8,
                                                  self.iopr9, self.iopr10]]) + '\n')
-            build.write('\n'.join([' iopr11-20=     0    0    0    0    0    0   {}    0    0    0'.format(self.iopr17), # noqa (E501)
+            build.write('\n'.join([f' iopr11-20=     0    0    0    0    0    0   {self.iopr17}    0    0    0',  # noqa (E501)
                                    '  iodb1-10=     0    0    0    0    0    0    0    0    0    0',
-                                   ' iodb11-20=     0    0    0    0    0    0    0    0    0    0\n'])) # noqa (E501)
+                                   ' iodb11-20=     0    0    0    0    0    0    0    0    0    0\n']))  # noqa (E501)
 
-            # Handle mineral supression
+            # mineral supression
             if self.suppress_min:
                 build.write('     nxopt=  1\n    option= All    \n')
             else:
                 build.write('     nxopt=  0\n')
 
-            # handle exemptions to suppressions
+            # exemptions to mineral suppressions
             if len(self.min_supp_exemp) != 0:
-                # list specific mineral exeptions to the 'all' suppression statement above
-                build.write('    nxopex=  {}\n'.format(str(int(len(self.min_supp_exemp)))))
+                build.write(f'    nxopex=  {str(int(len(self.min_supp_exemp)))}\n')
                 for _ in self.min_supp_exemp:
-                    build.write('   species= {}\n'.format(_))
+                    build.write(f'   species= {_}\n')
 
             elif len(self.min_supp_exemp) == 0 and self.suppress_min:
                 build.write('    nxopex=  0\n')
 
+            # fixed gases
+            if len(fixed_gases) == 0:
+                build.write('      nffg=  0\n')
+            else:
+                build.write(f'      nffg=  {len(fixed_gases)}\n')
+                for _ in fixed_gases:
+                    build.write(f'   species= {_}\n')
+                    build.write(f'     moffg=  {format_e(float(fixed_gases[_][2]), 5)}    xlkffg= {format_e(float(fixed_gases[_][1]), 5)}\n')
+
             build.write('\n'.join([
-                '      nffg=  0',
                 '    nordmx=   6',
                 '     tolbt=  0.00000E+00     toldl=  0.00000E+00',
                 '    itermx=   0',
@@ -702,9 +675,8 @@ class Six_i(object):
                 '    ntrymx=   0',
                 '    dlxmx0=  0.00000E+00',
                 '    dlxdmp=  0.00000E+00',
-                '*-----------------------------------------------------------------------------\n'])) # noqa (E501)
+                '*-----------------------------------------------------------------------------\n']))  # noqa (E501)
 
-            # load pickup lines
             for _ in pickup_lines:
                 build.write(_)
 

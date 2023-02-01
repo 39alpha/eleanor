@@ -28,8 +28,8 @@ from .hanger.tool_room import mk_check_del_directory, mine_pickup_lines, grab_fl
 from .hanger.tool_room import grab_lines, grab_str, WorkingDirectory
 
 
-def Helmsman(camp, ord_id=None, num_cores=1, #os.cpu_count(),
-             keep_every_n_files=100000, quiet=False,
+def Helmsman(camp, ord_id=None, num_cores=os.cpu_count(),
+             keep_every_n_files=100, quiet=False,
              no_progress=False):
     """
     Keeping with the naval terminology: The Navigator charts where to go.
@@ -771,7 +771,7 @@ def yoeman(camp, keep_running, write_vs_q, write_es3_q, write_es6_q, num_points,
     :type num_points: int
     """
     conn = establish_database_connection(camp)
-    WRITE_EVERY_N = 10
+    WRITE_EVERY_N = 100
     vs_n_written = 0
 
     es3_df_list = []

@@ -127,7 +127,7 @@ def create_orders_table(conn):
     ''')
 
 
-def create_es_tables(conn, camp, sp, ss, gases, elements):
+def create_es_tables(conn, camp, sp, solids, ss, gases, elements):
     """
     Initialize the EQ3 and EQ6 equilibrium tables, to be filled from the mined 3o and 6o files, respectively.
 
@@ -138,10 +138,10 @@ def create_es_tables(conn, camp, sp, ss, gases, elements):
     :param gases: loaded gases
     :param elements: loaded elements
     """
-    create_es3_table(conn, camp, sp, ss, gases, elements)
-    create_es6_table(conn, camp, sp, ss, gases, elements)
+    create_es3_table(conn, camp, sp, solids, ss, gases, elements)
+    create_es6_table(conn, camp, sp, solids, ss, gases, elements)
 
-def create_es3_table(conn, camp, sp, ss, gases, elements):
+def create_es3_table(conn, camp, sp, solids, ss, gases, elements):
     """
     Initialize the EQ3 equilibrium table, to be filled from the mined 3o file.
 
@@ -154,11 +154,11 @@ def create_es3_table(conn, camp, sp, ss, gases, elements):
     """
 
     sql_info = "CREATE TABLE IF NOT EXISTS es3 (uuid VARCHAR(32) PRIMARY KEY,\
-        ord INTEGER NOT NULL, file INTEGER NOT NULL, run \
-        DATE NOT NULL,"
+        ord INTEGER NOT NULL, file INTEGER NOT NULL, run DATE NOT NULL, \
+        extended_alk DOUBLE PRECISION, "
 
     sql_run = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in
-                        ['aH2O', 'ionic', 'tds', 'soln_mass', 'extended_alk']]) + ','
+                        ['aH2O', 'ionic', 'tds', 'soln_mass']]) + ','
 
     sql_state = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in
                           list(camp.vs_state.keys()) + ['pH']]) + ','
@@ -172,22 +172,27 @@ def create_es3_table(conn, camp, sp, ss, gases, elements):
 
     # activity / affinity
     sql_sp_a = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in
-                        [f'a{_}' for _ in sp]]) + ','
+                        [f'a{_}' for _ in sp + solids]]) + ','
+
+    # molal / moles
+    sql_sp_m = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in
+                        [f'm{_}' for _ in sp]]) + ','
+
 
     sql_gas = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in
                         gases]) + ','
 
-    sql_ss = ",".join([f'"{_}" DOUBLE PRECISION' for _ in ss]) + ','
+    # sql_ss = ",".join([f'"{_}" DOUBLE PRECISION' for _ in ss]) + ','
 
     sql_fk = ' FOREIGN KEY(`ord`) REFERENCES `orders`(`id`), \
                FOREIGN KEY(`uuid`) REFERENCES `vs`(`uuid`)'
 
-    parts = [sql_info, sql_run, sql_state, sql_ele, sql_sp_a, sql_gas, sql_ss, sql_fk]
+    parts = [sql_info, sql_run, sql_state, sql_ele, sql_sp_a, sql_sp_m, sql_gas, sql_fk]
     execute_query(conn, ''.join(parts) + ')')
 
 
 
-def create_es6_table(conn, camp, sp, ss, gases, elements):
+def create_es6_table(conn, camp, sp, solids, ss, gases, elements):
     """
     Initialize the EQ6 equilibrium table, to be filled from the mined 6o file.
 
@@ -201,7 +206,7 @@ def create_es6_table(conn, camp, sp, ss, gases, elements):
 
     sql_info = "CREATE TABLE IF NOT EXISTS es6 (uuid VARCHAR(32) PRIMARY KEY,\
         ord INTEGER NOT NULL, file INTEGER NOT NULL, run \
-        DATE NOT NULL,"
+        DATE NOT NULL, "
 
     run_columns = ['initial_aff', 'xi_max', 'aH2O', 'ionic', 'tds', 'soln_mass', 'extended_alk']
     sql_run = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in run_columns]) + ','
@@ -217,10 +222,10 @@ def create_es6_table(conn, camp, sp, ss, gases, elements):
                         elements]) + ','
     # molal / moles
     sql_sp_m = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in
-                        [f'm{_}' for _ in sp]]) + ','
+                        [f'm{_}' for _ in sp + solids]]) + ','
     # activity / affinity
     sql_sp_a = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in
-                        [f'a{_}' for _ in sp]]) + ','
+                        [f'a{_}' for _ in sp + solids]]) + ','
 
     sql_gas = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in
                         gases]) + ','
@@ -353,7 +358,7 @@ def get_column_names(conn, table):
     with closing(conn.execute(f"PRAGMA table_info(`{table}`)")) as cursor:
         return [row[1] for row in cursor.fetchall()]
 
-def retrieve_combined_records(conn, vs_cols, es_cols,
+def retrieve_combined_records(conn, vs_cols, es3_cols, es6_cols,
                               limit=None,
                               ord_id=None,
                               where=None,
@@ -388,14 +393,18 @@ def retrieve_combined_records(conn, vs_cols, es_cols,
     :rtype: pandas.DataFrame
     """
     query = f"SELECT `vs`.`{'`, `vs`.`'.join(vs_cols)}`, \
-                     `es6`.`{'`, `es6`.`'.join(es_cols)}` \
-              FROM `vs` INNER JOIN `es6` ON `vs`.`uuid` = `es6`.`uuid`"
+                     `es3`.`{'`, `es3`.`'.join(es3_cols)}` \
+                     `es6`.`{'`, `es6`.`'.join(es6_cols)}` \
+              FROM `vs` INNER JOIN `es3` ON `vs`.`uuid` = `es3`.`uuid` \
+                        INNER JOIN `es6` ON `vs`.`uuid` = `es6`.`uuid`"
 
     if ord_id is not None and where is not None:
-        query += f" WHERE `es6`.`ord` = {ord_id} and {where}"
+        query += f" WHERE `es6`.`ord` = {ord_id} and \
+                          `es3`.`ord` = {ord_id} and {where}"
 
     elif ord_id is not None:
-        query += f" WHERE `es6`.`ord` = {ord_id}"
+        query += f" WHERE `es6`.`ord` = {ord_id} and \
+                          `es3`.`ord` = {ord_id}"
 
     elif where is not None:
         query += f" WHERE {where}"
@@ -405,7 +414,8 @@ def retrieve_combined_records(conn, vs_cols, es_cols,
 
     records = retrieve_records(conn, query)
 
-    df_columns = [f"{c}_v" for c in vs_cols] + [f"{c}_e" for c in es_cols]
+    df_columns = [f"{c}_v" for c in vs_cols] + [f"{c}_e3" for c in es3_cols] + [f"{c}_e6" for c in es6_cols]
+
     df = pd.DataFrame(records, columns=df_columns)
 
     if fname is not None:

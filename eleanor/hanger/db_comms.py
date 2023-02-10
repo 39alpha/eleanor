@@ -127,7 +127,7 @@ def create_orders_table(conn):
     ''')
 
 
-def create_es_tables(conn, camp, sp, ss, gases, elements):
+def create_es_tables(conn, camp, sp, solids, ss, gases, elements):
     """
     Initialize the EQ3 and EQ6 equilibrium tables, to be filled from the mined 3o and 6o files, respectively.
 
@@ -138,10 +138,14 @@ def create_es_tables(conn, camp, sp, ss, gases, elements):
     :param gases: loaded gases
     :param elements: loaded elements
     """
-    create_es3_table(conn, camp, sp, ss, gases, elements)
-    create_es6_table(conn, camp, sp, ss, gases, elements)
+    # ### temporary fix TODO:
+    solids = [_ for _ in solids if _ != 'None']
+    ss = [_ for _ in ss if _ != 'None']
 
-def create_es3_table(conn, camp, sp, ss, gases, elements):
+    create_es3_table(conn, camp, sp, solids, ss, gases, elements)
+    create_es6_table(conn, camp, sp, solids, ss, gases, elements)
+
+def create_es3_table(conn, camp, sp, solids, ss, gases, elements):
     """
     Initialize the EQ3 equilibrium table, to be filled from the mined 3o file.
 
@@ -158,7 +162,7 @@ def create_es3_table(conn, camp, sp, ss, gases, elements):
         DATE NOT NULL,"
 
     sql_run = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in
-                        ['aH2O', 'ionic', 'tds', 'soln_mass', 'extended_alk']]) + ','
+                        ['a_H2O', 'ionic', 'tds', 'soln_mass', 'extended_alk']]) + ','
 
     sql_state = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in
                           list(camp.vs_state.keys()) + ['pH']]) + ','
@@ -168,26 +172,32 @@ def create_es3_table(conn, camp, sp, ss, gases, elements):
     # basis, while still tracking total element values in the ES.
 
     sql_ele = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in
-                        elements]) + ','
+                        [f'm_{_}' for _ in elements]]) + ','
 
-    # activity / affinity
+    # aq species, log activity (a_...) and log molal (m_...)
     sql_sp_a = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in
-                        [f'a{_}' for _ in sp]]) + ','
+                        [f'a_{_}' for _ in sp]]) + ','
+
+    sql_sp_m = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in
+                        [f'm_{_}' for _ in sp]]) + ','
+
+    # solids, log QoverK
+    sql_sol_qk = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in
+                          [f'qk_{_}' for _ in solids]]) + ','
 
     sql_gas = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in
-                        gases]) + ','
+                        [f'f_{_}' for _ in gases]]) + ','
 
-    sql_ss = ",".join([f'"{_}" DOUBLE PRECISION' for _ in ss]) + ','
+    sql_ss = ",".join([f'"qk_{_}" DOUBLE PRECISION' for _ in ss]) + ','
 
     sql_fk = ' FOREIGN KEY(`ord`) REFERENCES `orders`(`id`), \
                FOREIGN KEY(`uuid`) REFERENCES `vs`(`uuid`)'
 
-    parts = [sql_info, sql_run, sql_state, sql_ele, sql_sp_a, sql_gas, sql_ss, sql_fk]
+    parts = [sql_info, sql_run, sql_state, sql_ele, sql_sp_a, sql_sp_m, sql_sol_qk, sql_gas, sql_ss, sql_fk]
+    parts = [_ for _ in parts if _ != ',']
     execute_query(conn, ''.join(parts) + ')')
 
-
-
-def create_es6_table(conn, camp, sp, ss, gases, elements):
+def create_es6_table(conn, camp, sp, solids, ss, gases, elements):
     """
     Initialize the EQ6 equilibrium table, to be filled from the mined 6o file.
 
@@ -203,7 +213,7 @@ def create_es6_table(conn, camp, sp, ss, gases, elements):
         ord INTEGER NOT NULL, file INTEGER NOT NULL, run \
         DATE NOT NULL,"
 
-    run_columns = ['initial_aff', 'xi_max', 'aH2O', 'ionic', 'tds', 'soln_mass', 'extended_alk']
+    run_columns = ['initial_aff', 'xi_max', 'a_H2O', 'ionic', 'tds', 'soln_mass', 'extended_alk']
     sql_run = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in run_columns]) + ','
 
     sql_state = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in
@@ -214,24 +224,35 @@ def create_es6_table(conn, camp, sp, ss, gases, elements):
     # basis, while still tracking total element values in the ES.
 
     sql_ele = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in
-                        elements]) + ','
-    # molal / moles
-    sql_sp_m = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in
-                        [f'm{_}' for _ in sp]]) + ','
-    # activity / affinity
+                       [f'm_{_}' for _ in elements]]) + ','
+
+    # aq species, log activity (a_...) and log molal (m_...)
     sql_sp_a = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in
-                        [f'a{_}' for _ in sp]]) + ','
+                        [f'a_{_}' for _ in sp]]) + ','
+
+    sql_sp_m = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in
+                        [f'm_{_}' for _ in sp]]) + ','
+
+    # solids, log QoverK
+    sql_sol_qk = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in
+                          [f'qk_{_}' for _ in solids]]) + ','
+
+    # solids, moles
+    sql_sol_m = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in
+                         [f'm_{_}' for _ in solids]]) + ','
 
     sql_gas = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in
-                        gases]) + ','
+                       [f'f_{_}' for _ in gases]]) + ','
 
-    sql_ss = ",".join([f'"{_}" DOUBLE PRECISION' for _ in ss]) + ','
+    sql_ss = ",".join([f'"qk_{_}" DOUBLE PRECISION' for _ in ss]) + ','
 
     sql_fk = ' FOREIGN KEY(`ord`) REFERENCES `orders`(`id`), \
                FOREIGN KEY(`uuid`) REFERENCES `vs`(`uuid`)'
 
-    parts = [sql_info, sql_run, sql_state, sql_ele, sql_sp_a, sql_sp_m, sql_gas, sql_ss, sql_fk]
-    execute_query(conn, ''.join(parts) + ')')
+    parts = [sql_info, sql_run, sql_state, sql_ele, sql_sp_a, sql_sp_m, sql_sol_qk, sql_sol_m, sql_gas, sql_ss, sql_fk]
+    parts = [_ for _ in parts if _ != ',']
+    execute_query(conn, ''.join(parts) + ')')    # execute_query(conn, ''.join(parts) + ')')
+
 
 def get_order_number(conn, camp, insert=True):
     """

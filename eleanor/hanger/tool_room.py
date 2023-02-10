@@ -324,6 +324,7 @@ class Three_i(object):
                  iopt11='0',    # Auto basis switching   0 (turn on), 1 (turn off)
                  iopt17='0',    # Pickup file:  -1 (dont write), 0 (write)
                  iopt19='3',    # pickup type:  0 (normal), 3 (fluid1 set up for fluid mixing)
+                 iopg1='0',     # model choice: 0=DH, 1=pitzer
                  iopr1='0',
                  iopr2='0',
                  iopr4='1',    # incliude all aq species (not just > -100)
@@ -339,6 +340,7 @@ class Three_i(object):
         self.iopt11 = iopt11
         self.iopt17 = iopt17
         self.iopt19 = iopt19
+        self.iopg1 = iopg1
         self.iopr1 = iopr1
         self.iopr2 = iopr2
         self.iopr4 = iopr4
@@ -358,11 +360,14 @@ class Three_i(object):
 
         """
 
+        l_iopg1 = ' ' * (2 - len(self.iopg1)) + self.iopg1
+
         if output_details == 'v':
             # ## maximal infomration sought from the 3o file,
             # ## to added chemiocal space investigations:
             # ## note extra space in front of number value. this is needed.
             l_iopt4 = ' 1'  # turn on SS so that they are listed in 3o loaded sp.
+            l_iopr1 = ' 1'
             l_iopr1 = ' 1'
             l_iopr2 = ' 3'
             l_iopr4 = ' 1'
@@ -409,7 +414,10 @@ class Three_i(object):
                 ('EQ3NR input file name= local',
                  'endit.',
                  '* Special basis switches',
-                 '    nsbswt=   0',
+                 #'    nsbswt=   0',
+                 '    nsbswt=   1',
+                 'species= SO4-2',
+                 '  switch with= HS-',
                  '* General',
                  f'     tempc=  {format_e(v_state["T_cel"], 5)}',
                  '    jpres3=   0',
@@ -464,7 +472,7 @@ class Three_i(object):
                                    '*               1    2    3    4    5    6    7    8    9   10',
                                   f'  iopt1-10=     0    0    0   {l_iopt4}    0    0    0    0    0    0',  # noqa (E501)
                                   f' iopt11-20=     {self.iopt11}    0    0    0    0    0    {self.iopt17}    0    {self.iopt19}    0',  # noqa (E501)
-                                   '  iopg1-10=     0    0    0    0    0    0    0    0    0    0',
+                                  f'  iopg1-10=    {l_iopg1}    0    0    0    0    0    0    0    0    0',
                                    ' iopg11-20=     0    0    0    0    0    0    0    0    0    0',
                                   f'  iopr1-10=    {l_iopr1}   {l_iopr2}    0   {l_iopr4}   {l_iopr5}   {l_iopr6}   {l_iopr7}    0   {l_iopr9}    0',  # noqa (E501)
                                    ' iopr11-20=     0    0    0    0    0    0    0    0    0    0',
@@ -594,6 +602,7 @@ class Six_i(object):
             # T_sys = (T_vfl*ttk1 + Xi*T_sw) / (Xi + ttk1)
             # To get T)sys to taget 'temp' at Xi  = 1:
             #     ttk1 = (T_sw - temp) / (temp - T_vfl)
+
             ttk1 = '1.00000E+00'
             ttk1 = format_e((float(ttk2) - temp) / (temp - float(tempcb)), 5)
 

@@ -58,7 +58,6 @@ class Campaign:
         # Metadata
         self.name = self._raw['campaign']
         self.notes = self._raw['notes']
-
         self.est_date = self._raw['est_date']
         # modelling data
         self.target_rnt = self._raw['reactant']
@@ -77,7 +76,7 @@ class Campaign:
         ### patch, limit a run based on the salinity listed in the notes
         # sal_noise = 0.1  # grams
         # target_molinity = grab_float(self.notes, 6)
-        # target_molality = target_molinity / ((1000 - target_molinity) / 1000)
+        # target_molality = target_molinity / ( - target_molinity) / 1000)
         # self.salinity = [target_molality - sal_noise, target_molality + sal_noise]
 
         if self.SS:
@@ -91,7 +90,14 @@ class Campaign:
         else:
             iopt1 = '1'  # default to titration
 
-        self.local_3i = tool_room.Three_i()
+        if self._raw['model'] in ['pitzer', 'Pitzer', 'ypf']:
+            self.iopg1 = '1'
+        elif self._raw['model'] in ['davies', 'Davies']:
+            self.iopg1 = '-1'
+        else:
+            self.iopg1 = '0'
+
+        self.local_3i = tool_room.Three_i(iopg1=self.iopg1)
         self.local_6i = tool_room.Six_i(suppress_min=self.suppress_min,
                                         iopt1=iopt1, iopt4=iopt4,
                                         min_supp_exemp=self.min_supp_exemp)

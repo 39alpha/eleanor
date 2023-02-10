@@ -289,18 +289,18 @@ class Three_i(object):
     """
 
     def __init__(self,
-                 iopt4='0',   # SS    1 (permit), (ignor)
-                 iopt11='0',  # Auto basis switching   0 (turn on), 1 (turn off)
-                 iopt17='0',  # Pickup file:  -1 (dont write), 0 (write)
-                 iopt19='3',  # pickup type:  0 (normal), 3 (fluid1 set up for fluid mixing)
-                 iopg1='0',   # 0 = B-dot, 1 = pitzer
+                 iopg1='0',    # model choice: 0=DH, 1=pitzer
                  iopr1='0',
                  iopr2='0',
                  iopr4='1',    # incliude all aq species (not just > -100)
                  iopr5='0',    # dont print aq/H+ ratios
                  iopr6='-1',   # dont print 99% table
                  iopr7='1',    # print all SI /affinity table
-                 iopr9='0'
+                 iopr9='0',
+                 iopt11='0',   # Auto basis switching   0 (turn on), 1 (turn off)
+                 iopt17='0',   # Pickup file:  -1 (dont write), 0 (write)
+                 iopt19='3',   # pickup type:  0 (normal), 3 (fluid1 set up for fluid mixing)
+                 iopt4='0'     # SS    1 (permit), (ignor)
                  ):
         """
         instantiates three_i constants
@@ -329,11 +329,14 @@ class Three_i(object):
 
         """
 
+        l_iopg1 = ' ' * (2 - len(self.iopg1)) + self.iopg1
+
         if output_details == 'v':
             # ## maximal infomration sought from the 3o file,
             # ## to added chemiocal space investigations:
             # ## note extra space in front of number value. this is needed.
             l_iopt4 = ' 1'  # turn on SS so that they are listed in 3o loaded sp.
+            l_iopr1 = ' 1'
             l_iopr1 = ' 1'
             l_iopr2 = ' 3'
             l_iopr4 = ' 1'
@@ -383,7 +386,10 @@ class Three_i(object):
                 ('EQ3NR input file name= local',
                  'endit.',
                  '* Special basis switches',
-                 '    nsbswt=   0',
+                 #'    nsbswt=   0',
+                 '    nsbswt=   1',
+                 'species= SO4-2',
+                 '  switch with= HS-',
                  '* General',
                  f'     tempc=  {format_e(v_state["T_cel"], 5)}',
                  '    jpres3=   0',
@@ -570,6 +576,7 @@ class Six_i(object):
             # T_sys = (T_vfl*ttk1 + Xi*T_sw) / (Xi + ttk1)
             # To get T)sys to taget 'temp' at Xi  = 1:
             #     ttk1 = (T_sw - temp) / (temp - T_vfl)
+
             ttk1 = '1.00000E+00'
             ttk1 = format_e((float(ttk2) - temp) / (temp - float(tempcb)), 5)
 

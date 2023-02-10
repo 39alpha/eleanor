@@ -399,7 +399,7 @@ def mine_6o(camp, date, elements, solids, ss, file, master_dict, col_names):
     build_dict['extended_alk'] = [np.nan]  # undefined for systems over 50 in EQ36 output
 
     for _ in solids:
-        build_dict[f'm{_}'] = [0.0]  # mols precip must be preset, as its field is not inculsive
+        build_dict[f'm_{_}'] = [0.0]  # mols precip must be preset, as its field is not inculsive
 
     try:
         lines = grab_lines(file)  # 6o file
@@ -458,7 +458,7 @@ def mine_6o(camp, date, elements, solids, ss, file, master_dict, col_names):
                     if grab_str(lines[i + x], 0) in elements:
                         # log molality
                         this_dat = [np.round(np.log10(grab_float(lines[i + x], -1)), 6)]
-                        build_dict['{}'.format(grab_str(lines[i + x], 0))] = this_dat
+                        build_dict['m_{}'.format(grab_str(lines[i + x], 0))] = this_dat
                         x += 1
                     else:
                         x += 1
@@ -470,7 +470,7 @@ def mine_6o(camp, date, elements, solids, ss, file, master_dict, col_names):
                 build_dict['fO2'] = [grab_float(lines[i], -1)]
 
             elif '              Log activity of water=' in lines[i]:
-                build_dict['aH2O'] = [grab_float(lines[i], -1)]
+                build_dict['a_H2O'] = [grab_float(lines[i], -1)]
 
             elif '                 Ionic strength (I)=' in lines[i]:
                 build_dict['ionic'] = [grab_float(lines[i], -2)]
@@ -498,9 +498,9 @@ def mine_6o(camp, date, elements, solids, ss, file, master_dict, col_names):
                 while not re.findall('^\n', lines[i + x]):
                     if grab_str(lines[i + x], 0) != 'O2(g)':
                         # ### -1 position is log activity, -3 is log molality
-                        build_dict[f'm{grab_str(lines[i + x], 0)}'] = [grab_float(
+                        build_dict[f'm_{grab_str(lines[i + x], 0)}'] = [grab_float(
                             lines[i + x], -3)]
-                        build_dict[f'a{grab_str(lines[i + x], 0)}'] = [grab_float(
+                        build_dict[f'a_{grab_str(lines[i + x], 0)}'] = [grab_float(
                             lines[i + x], -1)]
                         x += 1
                     else:
@@ -519,7 +519,7 @@ def mine_6o(camp, date, elements, solids, ss, file, master_dict, col_names):
 
                     elif 'None' not in lines[i + x]:
                         # ### mols
-                        build_dict[f'm{lines[i + x][:25].strip()}'] = [grab_float(lines[i + x], -3)]
+                        build_dict[f'm_{lines[i + x][:25].strip()}'] = [grab_float(lines[i + x], -3)]
                         x += 1
 
                     else:
@@ -528,15 +528,14 @@ def mine_6o(camp, date, elements, solids, ss, file, master_dict, col_names):
             elif '--- Saturation States of Pure Solids ---' in lines[i]:
                 x = 4
                 while not re.findall('^\n', lines[i + x]):
+                    # ## log Q/K
                     if re.findall(r'\*{4}$', lines[i + x]):
                         # ## '******'' fills in the value region for numbers
                         # ## lower than -999.9999. Replace with boundary condition
-
-                        # ## affinity (kcal)
-                        build_dict[f'a{lines[i + x][:30].strip()}'] = [float(-999.9999)]
+                        build_dict[f'qk_{lines[i + x][:30].strip()}'] = [float(-999.9999)]
                         x += 1
                     elif 'None' not in lines[i + x]:
-                        build_dict[f'a{lines[i + x][:30].strip()}'] = [
+                        build_dict[f'qk_{lines[i + x][:30].strip()}'] = [
                             float(lines[i + x][31:44])]
                         x += 1
                     else:
@@ -545,16 +544,14 @@ def mine_6o(camp, date, elements, solids, ss, file, master_dict, col_names):
             elif camp.SS and ' --- Saturation States of Solid Solutions ---' in lines[i]:
                 x = 4
                 while not re.findall('^\n', lines[i + x]):
+                    # ## log Q/K
                     if re.findall(r'\*{4}$', lines[i + x]):
-                        # ## '******'' fills in the value region for numbers
+                        # ## '******' fills in the value region for numbers
                         # ## lower than -999.9999. Replace with boundary condition
-
-                        # ## affinity (kcal)
-                        build_dict[lines[i + x][:30].strip()] = [float(-999.9999)]
+                        build_dict[f'qk_{lines[i + x][:30].strip()}'] = [float(-999.9999)]
                         x += 1
                     elif 'None' not in lines[i + x]:
-                        # ## affinity (kcal)
-                        build_dict[lines[i + x][:30].strip()] = [
+                        build_dict[f'qk_{lines[i + x][:30].strip()}'] = [
                             float(lines[i + x][44:55])]
                         x += 1
                     else:
@@ -568,12 +565,10 @@ def mine_6o(camp, date, elements, solids, ss, file, master_dict, col_names):
                         if re.findall(r'\*{4}', lines[i + x]):
                             # ## '******'' fills in the value region for numbers
                             # ## lower than -999.9999. Replace with boundary condition
-
-                            # ## affinity (kcal)
-                            build_dict[lines[i + x][:30].strip()] = [float(-999.9999)]
+                            build_dict[f'f_{lines[i + x][:30].strip()}'] = [float(-999.9999)]
                             x += 1
                         else:
-                            build_dict[grab_str(lines[i + x], 0)] = [
+                            build_dict[f'f_{grab_str(lines[i + x], 0)}'] = [
                                 float(lines[i + x][28:41])]
                             x += 1
                     else:
@@ -584,10 +579,6 @@ def mine_6o(camp, date, elements, solids, ss, file, master_dict, col_names):
         build_dict['ord'] = [master_dict['ord']]
         build_dict['file'] = [master_dict['file']]
         build_dict['run'] = [date]
-
-        if not camp.SS:
-            for i in ss:
-                build_dict[i] = [-999999]
 
         # ## reorganize columns to match es table
         build_df = pd.DataFrame.from_dict(build_dict)
@@ -654,7 +645,7 @@ def mine_3o(camp, date, elements, solids, ss, file, master_dict, col_names):
                     if grab_str(lines[i + x], 0) in elements:
                         # log molality
                         this_dat = [np.round(np.log10(grab_float(lines[i + x], -1)), 6)]
-                        build_dict['{}'.format(grab_str(lines[i + x], 0))] = this_dat
+                        build_dict['m_{}'.format(grab_str(lines[i + x], 0))] = this_dat
                         x += 1
                     else:
                         x += 1
@@ -666,7 +657,7 @@ def mine_3o(camp, date, elements, solids, ss, file, master_dict, col_names):
                 build_dict['fO2'] = [grab_float(lines[i], -1)]
 
             elif '              Log activity of water=' in lines[i]:
-                build_dict['aH2O'] = [grab_float(lines[i], -1)]
+                build_dict['a_H2O'] = [grab_float(lines[i], -1)]
 
             elif '                 Ionic strength (I)=' in lines[i]:
                 build_dict['ionic'] = [grab_float(lines[i], -2)]
@@ -685,9 +676,9 @@ def mine_3o(camp, date, elements, solids, ss, file, master_dict, col_names):
                 while not re.findall('^\n', lines[i + x]):
                     if grab_str(lines[i + x], 0) != 'O2(g)':
                         # ### -1 position is log activity, -3 is log molality
-                        build_dict[f'm{grab_str(lines[i + x], 0)}'] = [grab_float(
+                        build_dict[f'm_{grab_str(lines[i + x], 0)}'] = [grab_float(
                             lines[i + x], -3)]
-                        build_dict[f'a{grab_str(lines[i + x], 0)}'] = [grab_float(
+                        build_dict[f'a_{grab_str(lines[i + x], 0)}'] = [grab_float(
                             lines[i + x], -1)]
                         x += 1
                     else:
@@ -699,12 +690,11 @@ def mine_3o(camp, date, elements, solids, ss, file, master_dict, col_names):
                     if re.findall(r'\*{4}$', lines[i + x]):
                         # ## '******'' fills in the value region for numbers
                         # ## lower than -999.9999. Replace with boundary condition
-
-                        # ## affinity (kcal)
-                        build_dict[f'a{lines[i + x][:30].strip()}'] = [float(-999.9999)]
+                        # ## log Q/K
+                        build_dict[f'qk_{lines[i + x][:30].strip()}'] = [float(-999.9999)]
                         x += 1
                     elif 'None' not in lines[i + x]:
-                        build_dict[f'a{lines[i + x][:30].strip()}'] = [
+                        build_dict[f'qk_{lines[i + x][:30].strip()}'] = [
                             float(lines[i + x][31:44])]
                         x += 1
                     else:
@@ -717,10 +707,10 @@ def mine_3o(camp, date, elements, solids, ss, file, master_dict, col_names):
                         if re.findall(r'\*{4}', lines[i + x]):
                             # ## '******'' fills in the value region for numbers
                             # ## lower than -999.9999. Replace with boundary condition
-                            build_dict[lines[i + x][:30].strip()] = [float(-999.9999)]
+                            build_dict[f'f_{lines[i + x][:30].strip()}'] = [float(-999.9999)]
                             x += 1
                         else:
-                            build_dict[grab_str(lines[i + x], 0)] = [
+                            build_dict[f'f_{grab_str(lines[i + x], 0)}'] = [
                                 float(lines[i + x][28:41])]
                             x += 1
                     else:

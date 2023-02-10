@@ -193,6 +193,8 @@ def huffer(conn, camp, quiet=False):
         # sp_names, ss_names = determine_loaded_sp()
 
         # Build the ES tables (es3 and es6)
+        if not camp.SS:
+            ss = []
         db_comms.create_es_tables(conn, camp, sp, solids, ss, gasses, elements)
 
     if not quiet:

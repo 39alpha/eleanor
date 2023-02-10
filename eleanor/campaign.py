@@ -3,12 +3,14 @@
 
 The :class:`Campaign` class contains the specification of modeling objectives.
 """
+from .exceptions import EleanorException
+from .hanger.constants import EQ36_MODEL_SUFFIXES
+from .hanger.data0_tools import TPCurve
+from .hanger.eq36 import Data0
 from .hanger import data0_tools, tool_room
+from .hanger.tool_room import grab_float
 from os import mkdir, listdir
 from os.path import isdir, isfile, join, realpath, relpath
-from .hanger.data0_tools import TPCurve
-from .hanger.tool_room import grab_float
-from .hanger.eq36 import Data0
 
 import json
 import shutil
@@ -72,12 +74,10 @@ class Campaign:
         self.reso = self._raw['resolution']
         self.SS = self._raw['solid solutions']
         self.salinity = self._raw.get('salinity', [])
+        self.model = self._raw.get('model', 'dh').lower()
 
-        ### patch, limit a run based on the salinity listed in the notes
-        # sal_noise = 0.1  # grams
-        # target_molinity = grab_float(self.notes, 6)
-        # target_molality = target_molinity / ( - target_molinity) / 1000)
-        # self.salinity = [target_molality - sal_noise, target_molality + sal_noise]
+        if self.model in EQ36_MODEL_SUFFIXES:
+            self.model = EQ36_MODEL_SUFFIXES[self.model]
 
         if self.SS:
             iopt4 = '1'
@@ -86,16 +86,17 @@ class Campaign:
 
         if self.target_rnt == {}:
             iopt1 = '0'  # closed system, no reactants.
-
         else:
             iopt1 = '1'  # default to titration
 
-        if self._raw['model'] in ['pitzer', 'Pitzer', 'ypf']:
+        if self.model == 'pitzer':
             self.iopg1 = '1'
-        elif self._raw['model'] in ['davies', 'Davies']:
+        elif self.model == 'davies':
             self.iopg1 = '-1'
-        else:
+        elif self.model == 'dh':
             self.iopg1 = '0'
+        else:
+            raise EleanorException(f'the model "{self._raw["model"]}" specified in the campaign file is not recognized: must be "pitzer", "davies", "dh" or a standard EQ36 file suffix (see Campaign class docs)')
 
         self.local_3i = tool_room.Three_i(iopg1=self.iopg1)
         self.local_6i = tool_room.Six_i(suppress_min=self.suppress_min,

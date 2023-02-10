@@ -1189,4 +1189,9 @@ mw = {
     'Zn': 65.39000,
     'Zr': 91.22400}
 
-
+"""
+A map between "standard" EQ36 suffixes and models.
+"""
+EQ36_MODEL_SUFFIXES = {
+    "ypf": "pitzer",
+}

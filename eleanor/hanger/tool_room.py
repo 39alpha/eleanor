@@ -740,7 +740,6 @@ class Three_i(object):
         self.switches = three_i_switches
         self.switch_grid = switch_grid_3(three_i_switches)
 
-
     def write(self, local_name, v_state, v_basis, cb, suppress_sp, output_details='n'):
         """
         local_name = actual file name
@@ -778,10 +777,10 @@ class Three_i(object):
                 ('EQ3NR input file name= local',
                  'endit.',
                  '* Special basis switches',
-                 #'    nsbswt=   0',
-                 '    nsbswt=   1',
-                 'species= SO4-2',
-                 '  switch with= HS-',
+                 '    nsbswt=   0',
+                 # '    nsbswt=   1',
+                 # 'species= SO4-2',
+                 # '  switch with= HS-',
                  '* General',
                  f'     tempc=  {format_e(v_state["T_cel"], 5)}',
                  '    jpres3=   0',

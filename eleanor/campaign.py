@@ -83,16 +83,15 @@ class Campaign:
         self.salinity = self._raw.get('salinity', [])
         self.ThreeI_config = self._raw.get('3i settings', {})
         self.SixI_config = self._raw.get('6i settings', {})
-
         self.model = self._raw.get('model', 'b-dot').lower()
 
         if self.model in EQ36_MODEL_SUFFIXES:
             self.model = EQ36_MODEL_SUFFIXES[self.model]
 
         if self.model == 'pitzer':
-            ThreeI_config['iopg_1'] = 1
+            self.ThreeI_config['iopg_1'] = 1
         elif self.model == 'davies':
-            ThreeI_config['iopg_1'] = -1
+            self.ThreeI_config['iopg_1'] = -1
         elif self.model == 'b-dot':
             pass
         else:
@@ -100,11 +99,11 @@ class Campaign:
 
 
         if self.SS:
-            SixI_config['iopt_4'] = 1
-            ThreeI_config['iopt_4'] = 1
+            self.SixI_config['iopt_4'] = 1
+            self.ThreeI_config['iopt_4'] = 1
 
         if self.target_rnt != {}:
-            SixI_config['iopt_1'] = 1  # default to titration
+            self.SixI_config['iopt_1'] = 1  # default to titration
 
         self.three_i_switches = set_3i_switches(self.ThreeI_config)
         self.six_i_switches = set_6i_switches(self.SixI_config)

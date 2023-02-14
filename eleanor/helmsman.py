@@ -29,7 +29,7 @@ from .hanger.tool_room import grab_lines, grab_str, WorkingDirectory
 
 
 def Helmsman(camp, ord_id=None, num_cores=os.cpu_count(),
-             keep_every_n_files=1, quiet=False,
+             keep_every_n_files=1000, quiet=False,
              no_progress=False):
     """
     Keeping with the naval terminology: The Navigator charts where to go.
@@ -37,9 +37,9 @@ def Helmsman(camp, ord_id=None, num_cores=os.cpu_count(),
 
     Navigator decides the region of parameter space to be explored, by issuing orders that are
     written in the `vs` (variable space) table. Each order contains a collections of discrete
-    `vs` points distributed about the parameter space. The dimension of the parameter space
-    thermodynamic (temperature, pressure, total C, total Fe, `etc`.). Each point in this parameter
-    space contains variables (dimensions) sufficient to describes a closed thermodynamic system.
+    `vs` points distributed about the parameter space. The dimensions of the parameter space
+    are (temperature, pressure, total C, total Fe, `etc`., depending on the constraints issued
+    in the campaign json).
 
     The goal of the helmsman is to solve for the equilibrium behavior of each of these points
     distributed about the variable space (`vs`).

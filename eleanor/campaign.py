@@ -2,18 +2,24 @@
 .. currentmodule:: eleanor.campaign
 
 The :class:`Campaign` class contains the specification of modeling objectives.
+
+Version =1 is currently designed to solve a specific type of problem.
+The eq3/6 family of codes can solve a much larger bredth of problem
+types that are not designed to be included here
+
 """
 from .exceptions import EleanorException
 from .hanger.constants import EQ36_MODEL_SUFFIXES
 from .hanger.data0_tools import TPCurve
 from .hanger.eq36 import Data0
 from .hanger import data0_tools, tool_room
-from .hanger.tool_room import grab_float
+from .hanger.tool_room import grab_float, set_3i_switches, set_6i_switches
 from os import mkdir, listdir
 from os.path import isdir, isfile, join, realpath, relpath
-
+import sys
 import json
 import shutil
+
 
 class Campaign:
     """
@@ -61,6 +67,7 @@ class Campaign:
         self.name = self._raw['campaign']
         self.notes = self._raw['notes']
         self.est_date = self._raw['est_date']
+
         # modelling data
         self.target_rnt = self._raw['reactant']
         self.suppress_sp = self._raw['suppress sp']
@@ -74,33 +81,37 @@ class Campaign:
         self.reso = self._raw['resolution']
         self.SS = self._raw['solid solutions']
         self.salinity = self._raw.get('salinity', [])
-        self.model = self._raw.get('model', 'dh').lower()
+        self.ThreeI_config = self._raw.get('3i settings', {})
+        self.SixI_config = self._raw.get('6i settings', {})
+
+        self.model = self._raw.get('model', 'b-dot').lower()
 
         if self.model in EQ36_MODEL_SUFFIXES:
             self.model = EQ36_MODEL_SUFFIXES[self.model]
 
-        if self.SS:
-            iopt4 = '1'
-        else:
-            iopt4 = '0'
-
-        if self.target_rnt == {}:
-            iopt1 = '0'  # closed system, no reactants.
-        else:
-            iopt1 = '1'  # default to titration
-
         if self.model == 'pitzer':
-            self.iopg1 = '1'
+            ThreeI_config['iopg_1'] = 1
         elif self.model == 'davies':
-            self.iopg1 = '-1'
-        elif self.model == 'dh':
-            self.iopg1 = '0'
+            ThreeI_config['iopg_1'] = -1
+        elif self.model == 'b-dot':
+            pass
         else:
-            raise EleanorException(f'the model "{self._raw["model"]}" specified in the campaign file is not recognized: must be "pitzer", "davies", "dh" or a standard EQ36 file suffix (see Campaign class docs)')
+            raise EleanorException(f'the model "{self._raw["model"]}" specified in the campaign file is not recognized: must be "pitzer", "davies", "b-dot" or a standard EQ36 file suffix (see Campaign class docs)')
 
-        self.local_3i = tool_room.Three_i(iopg1=self.iopg1)
-        self.local_6i = tool_room.Six_i(suppress_min=self.suppress_min,
-                                        iopt1=iopt1, iopt4=iopt4,
+
+        if self.SS:
+            SixI_config['iopt_4'] = 1
+            ThreeI_config['iopt_4'] = 1
+
+        if self.target_rnt != {}:
+            SixI_config['iopt_1'] = 1  # default to titration
+
+        self.three_i_switches = set_3i_switches(self.ThreeI_config)
+        self.six_i_switches = set_6i_switches(self.SixI_config)
+        self.local_3i = tool_room.Three_i(self.three_i_switches)
+
+        self.local_6i = tool_room.Six_i(self.six_i_switches,
+                                        suppress_min=self.suppress_min,
                                         min_supp_exemp=self.min_supp_exemp)
 
         self._campaign_dir = None

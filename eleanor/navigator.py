@@ -18,9 +18,9 @@ import pandas as pd
 # loaded campagin
 # import eleanor.campaign as campaign
 
-from .hanger.eq36 import eq3
+from .hanger.eq36 import eq3, eq6
 from .hanger import db_comms
-from .hanger.tool_room import mk_check_del_directory, grab_lines, WorkingDirectory
+from .hanger.tool_room import mk_check_del_directory, grab_lines, WorkingDirectory, mine_pickup_lines
 from .hanger.data0_tools import determine_species_set
 from .hanger.data0_tools import determine_ele_set, determine_loaded_sp
 from .hanger.data0_tools import TPCurve
@@ -43,6 +43,7 @@ mw = {'O': 15.99940,
       'F': 18.99840,
       'Br': 79.90400,
       'B': 10.81000}
+
 basis_mw = {
     "HCO3-": 3 * mw['O'] + mw['H'] + mw['C'],
     "O2": 2 * mw['O'],
@@ -172,11 +173,23 @@ def huffer(conn, camp, quiet=False):
         for _ in camp.vs_basis.keys():
             basis_dict[_] = np.mean(camp.vs_basis[_])
 
-        # ### huffer run on unsuppressed (aq species) file, to get complete es table columns, should
-        # ### different orders of the same campaign use different suppress_aq lists.
         camp.local_3i.write('test.3i', state_dict, basis_dict, camp.cb, camp.suppress_sp, output_details='v')
         data1_file = os.path.realpath(os.path.join(camp.data1_dir, curve.data1file))
         out, err = eq3(data1_file, 'test.3i')
+
+        # ### add 6i test to huffer
+        # pickup = mine_pickup_lines('.', 'test.3p', 's')
+        # rnt_dict = {}
+        # if camp.target_rnt != {}:
+        #     rnt_keys = list(camp.target_rnt.keys())
+        #     for i in range(len(rnt_keys)):
+        #         name = rnt_keys[i]
+        #         rnt_type = camp.target_rnt[name][0]
+        #         morr = np.mean(camp.target_rnt[name][1])
+        #         rkb1 = np.mean(camp.target_rnt[name][2])
+        #         rnt_dict[name] = [rnt_type, morr, rkb1]
+        # camp.local_6i.write('test.6i', rnt_dict, pickup, state_dict['T_cel'])
+        # out, err = eq6(data1_file, 'test.6i')
 
         try:
             _ = grab_lines('test.3o')
@@ -188,9 +201,6 @@ def huffer(conn, camp, quiet=False):
 
         # New VS table based on vs_state and vs_basis
         db_comms.create_or_expand_vs_table(conn, camp, elements)
-
-        # Determine column names of the ES table
-        # sp_names, ss_names = determine_loaded_sp()
 
         # Build the ES tables (es3 and es6)
         if not camp.SS:
@@ -362,7 +372,6 @@ def build_admin_info(camp, df, ord, file_number, order_size, date):
     :rtype: :class:'pandas.core.frame.DataFrame'
 
     """
-
     df['uuid'] = [uuid.uuid4().hex for _ in range(order_size)]
     df['camp'] = camp.name
     df['file'] = list(range(file_number, file_number + order_size))

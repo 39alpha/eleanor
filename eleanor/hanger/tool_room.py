@@ -16,7 +16,8 @@ import re
 import numpy as np
 import hashlib
 
-from .constants import wt_dict, sr_dict
+from enum import IntEnum
+
 from .constants import *  # noqa (F403)
 
 from eleanor.exceptions import RunCode, EleanorFileException
@@ -174,57 +175,499 @@ def norm_list(data):
 # ###########################  3i/6i  #################################
 # #####################################################################\
 
-def build_special_rnt(phase, phase_dat):
+
+class IOPT_1(IntEnum):
     """
-    The function returns a 6i reactant block for special reactant 'phase' of type jcode = 2.
-    pahse_dat is the data in the reactant dictionary build for a specific VS by a sailor.
-    THis dictionary has the same structure as the camp.target_rnt dictionary in the loaded campaign
-    file, but without any ranges, as values have already been selected by the navigator function
-    which built the campaigns VS table and generated the local set of orders.
-
-    This function accepts lone elements 'ele' or custom species 'sr' existing in the special
-    reactant dictionary (sr_dict) The reactants which may be passed are interations within
-    the camp.target_rnt dictionary defined in th eloaded campaign file.
+    Physical System Model Selection:
     """
+    CLOSED_SYS = 0  # Closed system
+    TITRATION_SYS = 1  # Titration system
+    FLOW_THROUGH_SYS = 2  # Fluid-centered flow-through open system
 
-    # special reactant is specified and it is not a lone element
-    if phase_dat[0] == 'sr':
-        # does special reactnat exists in sr_dict
-        try:
-            sr_dat = sr_dict[phase]  # in constants
 
-        except Exception as e:
-            print('Special reactant not installed:')
-            sys.exit(e)
+class IOPT_2(IntEnum):
+    """
+    Kinetic Mode Selection:
+    """
+    ARBITRARY_KINETICS = 0  # Reaction progress mode (arbitrary kinetics)
+    TRUE_KINETICS = 1  # Reaction progress/time mode (true kinetics)
 
-        # transpose to create [ele, sto] pairs and iterate
-        middle = []
-        for _ in [list(i) for i in zip(*sr_dat)]:
-            middle.append(f'   {_[0]}{" " * (2 - len(_[0]))}          {format_e(_[1], 5)}\n')
 
-    # special reactant is a lone element
-    else:
-        middle = '   {}{}          1.00000E+00\n'.format(phase, ' ' * (2 - len(phase))),
+class IOPT_3(IntEnum):
+    """
+    Phase Boundary Searches:
+    """
+    STEP_SIZE_BY_PHASE_BOUNDARIES = 0  # Search for phase boundaries and constrain the step size to match
+    SEARCH_PHASE_BOUNDARIES = 1  # Search for phase boundaries and print their locations
+    DONT_SEARCH_PHASE_BOUNDARIES = 2  # Don't search for phase boundaries
 
-    # the top and bottom of the reactant block is the same for ele and sr,
-    # as the reactant is titrated as a single unit (rk1b).
-    top = '\n'.join([
-                    '*-----------------------------------------------------------------------------', # noqa (E501)
-                    f'  reactant=  {phase}',
-                    '     jcode=  2               jreac=  0',
-                    f'      morr=  {format_e(10**phase_dat[1], 5)}      modr=  0.00000E+00',
-                    '     vreac=  0.00000E+00\n'])
 
-    bottom = '\n'.join(['   endit.',
-                        '* Reaction',
-                        '   endit.',
-                        '       nsk=  0               sfcar=  0.00000E+00    ssfcar=  0.00000E+00',
-                        '      fkrc=  0.00000E+00',
-                        '      nrk1=  1                nrk2=  0',
-                        f'      rkb1=  {format_e(phase_dat[2], 5)}      rkb2=  0.00000E+00      rkb3=  0.00000E+00\n' # noqa (E501)
-                        ])
+class IOPT_4(IntEnum):
+    """
+    Solid Solutions
+    """
+    IGNORE_SS = 0
+    PERMIT_SS = 1
 
-    return top + ''.join(middle) + bottom
+
+class IOPT_5(IntEnum):
+    """
+    Clear the ES Solids Read from the INPUT File:
+    """
+    DONT_CLEAR_SOLIDS = 0
+    CLEAR_SOLIDS = 1
+
+
+class IOPT_6(IntEnum):
+    """
+    Clear the ES Solids at the Initial Value of Reaction Progress:
+    """
+    DONT_CLEAR_SOLIDS_AT_INITIAL = 0
+    CLEAR_SOLIDS_AT_INITIAL = 1
+
+
+class IOPT_7(IntEnum):
+    """
+    Clear the ES Solids at the End of the Run:
+    """
+    DONT_CLEAR_SOLIDS_AT_END = 0
+    CLEAR_SOLIDS_AT_END = 1
+
+
+class IOPT_9(IntEnum):
+    """
+    Clear the PRS Solids Read from the INPUT file:
+    """
+    DONT_CLEAR_PRS_SOLIDS_FROM_INPUT = 0
+    CLEAR_PRS_SOLIDS_FROM_INPUT = 1
+
+
+class IOPT_10(IntEnum):
+    """
+    Clear the PRS Solids at the End of the Run:
+    """
+    DONT_CLEAR_PRS_SOLIDS_AT_END = 0
+    CLEAR_PRS_SOLIDS_AT_END = 1  # Do it, unless numerical problems cause early termination
+
+
+class IOPT_11(IntEnum):
+    """
+    Auto Basis Switching in pre-N-R Optimization
+    """
+    DONT_PRE_NR_AUTO_BASIS_SWITCH = 0
+    PRE_NR_BASIS_SWITCH = 1
+
+
+class IOPT_12(IntEnum):
+    """
+    Auto Basis Switching after Newton-Raphson Iteration
+    """
+    DONT_POST_NR_AUTO_BASIS_SWITCH = 0
+    POST_NR_BASIS_SWITCH = 1
+
+
+class IOPT_13(IntEnum):
+    """
+    Calculational Mode Selection
+    """
+    PATH_TRACE = 0  # Normal path tracing
+    ECONOMY = 1  # Economy mode (if permissible)
+    SUPER_ECONOMY = 2  # Super economy mode (if permissible)
+
+
+class IOPT_14(IntEnum):
+    """
+    ODE Integrator Corrector Mode Selection
+    """
+    STIFF_SIMPLE_CORRECTORS = 0  # Allow Stiff and Simple Correctors
+    SIMPLE_CORRECTORS = 1  # Allow Only the Simple Corrector
+    STIFF_CORRECTORS = 2  # Allow Only the Stiff Corrector
+    NO_CORRECTORS = 3  # Allow No Correctors
+
+
+class IOPT_15(IntEnum):
+    """
+    Force the Suppression of All Redox Reactions (NOT IN USE)
+    """
+    DONT_SUPPRESS_REDOX = 0
+    SUPPRESS_REDOX = 1
+
+
+class IOPT_16(IntEnum):
+    """
+    BACKUP File Options
+    """
+    NO_BACKUP_FILE = -1
+    WRITE_BACKUP_FILE = 0
+    WRITE_SEQUENTIAL_BACKUP_FILE = 1
+
+
+class IOPT_17(IntEnum):
+    """
+    PICKUP File Options
+    """
+    DONT_WRITE_PICKUP = -1
+    WRITE_PICKUP = 0
+
+
+class IOPT_18(IntEnum):
+    """
+    TAB File Options
+    """
+    DONT_WRITE_TAB = -1
+    WRITE_TAB = 0
+    PREPEND_TAB = 1  # Write a TAB file, prepending TABX file data from a previous run
+
+
+class IOPT_19(IntEnum):
+    """
+    Advanced EQ3NR PICKUP File Options
+    """
+    NORMAL_PICKUP = 0
+    QZ_DISSOLVE_PICKUP = 1  # Write an EQ6 INPUT file with Quartz dissolving, relative rate law
+    ALBITE_DISSOLVE_PICKUP = 2  # Write an EQ6 INPUT file with Albite dissolving, TST rate law
+    SIXI_FLUID_1_AS_FLUID_MIX = 3  # default for eleanor
+
+
+class IOPT_20(IntEnum):
+    """
+    Advanced EQ6 PICKUP File Options:
+    """
+    NORMAL_PICKUP = 0
+    FLUID_MIXING_PICKUP = 1  # Write an EQ6 INPUT file with Fluid 1 set up for fluid mixing
+
+
+class IOPG_1(IntEnum):
+    """
+    Aqueous Species Activity Coefficient Model
+    """
+    DAVIES = -1
+    B_DOT = 0
+    PITZER = 1
+    HC_DH = 2
+
+
+class IOPG_2(IntEnum):
+    """
+    Choice of pH Scale (Rescales Activity Coefficients)
+    """
+    INTERNAL_PH = -1  # no rescaling
+    NBS_PH = 0  # uses the Bates-Guggenheim equation
+    MESMER_PH = 1  # numerically, pH = -log m(H+)
+
+
+class IOPR_1(IntEnum):
+    """
+    Print All Species Read from the Data File
+    """
+    DONT_PRINT_DATA_FILE_SP = 0
+    PRINT_DATA_FILE_SP = 1
+
+
+class IOPR_2(IntEnum):
+    """
+     - Print All Reactions:
+    """
+    DONT_PRINT_RXNS = 0  # Don't print
+    PRINT_ALL_RXNS = 1  # Print the reactions
+    PRINT_RXNS_LOGK = 2  # Print the reactions and log K values
+    PRINT_RXNS_LOGK_DATA = 3  # Print the reactions, log K values, and associated data
+
+
+class IOPR_3(IntEnum):
+    """
+    Print the Aqueous Species Hard Core Diameters
+    """
+    DONT_PRINT_HARD_DIAMETERS = 0
+    PRINT_HARD_DIAMETERS = 1
+
+
+class IOPR_4(IntEnum):
+    """
+    Print a Table of Aqueous Species Concentrations, Activities, etc.
+    """
+    CUT_NEG8 = -3  # Omit species with molalities < 1.e-8
+    CUT_NEG12 = -2  # Omit species with molalities < 1.e-12
+    CUT_NEG20 = -1  # Omit species with molalities < 1.e-20
+    CUT_NEG100 = 0  # Omit species with molalities < 1.e-100
+    INCLUDE_ALL_AQ = 1
+
+
+class IOPR_5(IntEnum):
+    """
+    Print a Table of Aqueous Species/H+ Activity Ratios
+    """
+    DONT_PRINT_AQ_OVER_H = 0
+    PRINT_CAT_RATIOS = 1  # Print cation/H+ activity ratios only
+    PRINT_CAT_AN_RATIOS = 2  # Print cation/H+ and anion/H+ activity ratios
+    PRINT_CAT_AN_NU_RATIOS = 3  # Print ion/H+ activity ratios and neutral species activities
+
+
+class IOPR_6(IntEnum):
+    """
+    Print a Table of Aqueous Mass Balance Percentages
+    """
+    DONT_PRINT_AQ_MASS_BAL = -1
+    NINTY_NINE_AQ_MASS_BAL = 0  # Print species comprising 99% of mass balance
+    PRINT_ALL_SP_MASS_BAL = 1
+
+
+class IOPR_7(IntEnum):
+    """
+    Print Tables of Saturation Indices and Affinities
+    """
+    DONT_PRINT_AFFINITIES = -1
+    RID_UNDER_10KCAL_AFFINITIES = 0  # omit phases undersaturated by more than 10 kcal
+    PRINT_ALL_AFFINITIES = 1
+
+
+class IOPR_8(IntEnum):
+    """
+    Print a Table of Fugacities:
+    """
+    DONT_PRINT_FUGACITIES = -1
+    PRINT_FUGACITIES = 0
+
+
+class IOPR_9(IntEnum):
+    """
+    Print a Table of Mean Molal Activity Coefficients
+    """
+    DONT_PRINT_MEAN_ACTIVITY_COE = 0
+    PRINT_MEAN_ACTIVITY_COE = 1
+
+
+class IOPR_10(IntEnum):
+    """
+    Print a Tabulation of the Pitzer Interaction Coefficients
+    """
+    DONT_PRINT_PITZER_INTERACT_COE = 0
+    SUMMARY_PITZER_INTERACT_COE = 1
+    DETAILED_PITZER_INTERACT_COE = 2
+
+
+class IOPR_17(IntEnum):
+    """
+    PICKUP file format ("W" or "D")
+    """
+    PICKUP_IS_INPUT_FORMAT = 0
+    W_FORMAT = 1
+    D_FORMAT = 2
+
+
+class IODB_1(IntEnum):
+    """
+    Print General Diagnostic Messages:
+    """
+    DONT_PRINT_DIAG = 0
+    PRINT_LEVEL_1_DIAG = 1  # Print Level 1 diagnostic messages
+    PRINT_LEVEL_1_2_DIAG = 2  # Print Level 1 and Level 2 diagnostic messages
+
+
+class IODB_2(IntEnum):
+    """
+    Kinetics Related Diagnostic Messages:
+    """
+    DONT_PRINT_KINETIC_DIAG = 0
+    PRINT_LEVEL_1_KINETIC_DIAG = 1  # Print Level 1 kinetics diagnostic messages
+    PRINT_LEVEL_1_2_KINETIC_DIAG = 2  # Print Level 1 and Level 2 kinetics diagnostic messages
+
+
+class IODB_3(IntEnum):
+    """
+    Print Pre-Newton-Raphson Optimization Information:
+    """
+    DONT_PRINT_PRE_NR_DIAG = 0
+    SUMMARY_PRE_NR_DIAG = 1  # Print summary information
+    DETAILED_PRE_NR_DIAG = 2  # Print detailed information (including the beta and del vectors)
+    MORE_DETAILED_PRE_NR_DIAG = 3  # Print more detailed information (including matrix equations)
+    MOST_DETAILED_PRE_NR_DIAG = 4  # Print most detailed information (including activity coefficients)
+
+
+class IODB_4(IntEnum):
+    """
+    Print Newton-Raphson Iteration Information:
+    """
+    DONT_PRINT_NR_INFO = 0
+    SUMMARY_NR_INFO = 1  # Print summary information
+    DETAILED_NR_INFO = 2  # Print detailed information (including the beta and del vectors)
+    MORE_DETAILED_NR_INFO = 3  # Print more detailed information (including the Jacobian)
+    MOST_DETAILED_NR_INFO = 4  # Print most detailed information (including activity coefficients)
+
+
+class IODB_5(IntEnum):
+    """
+    Print Step-Size and Order Selection:
+    """
+    DONT_PRINT_STEP_SELECT_INFO = 0  # Don't print
+    SUMMARY_STEP_SELECT_INFO = 1  # Print summary information
+    DETAILED_STEP_SELECT_INFO = 2  # Print detailed information
+
+
+class IODB_6(IntEnum):
+    """
+    Print Details of Hypothetical Affinity Calculations:
+    """
+    DONT_PRINT_AFFINITY_CALC = 0  # Don't print
+    SUMMARY_AFFINITY_CALC = 1  # Print summary information
+    DETAILED_AFFINITY_CALC = 2  # Print detailed information
+
+
+class IODB_7(IntEnum):
+    """
+    Print General Search (e.g., for a phase boundary) Information:
+    """
+    DONT_PRINT_PHASE_BOUNDRY_INFO = 0
+    SUMMARY_PHASE_BOUNDRY_INFO = 1  # Print summary information
+
+
+class IODB_8(IntEnum):
+    """
+    Print ODE Corrector Iteration Information:
+    """
+    DONT_PRINT_ODE_CORRECTOR = 0
+    SUMMARY_ODE_CORRECTOR = 1  # Print summary information
+    DETAILED_ODE_CORRECTOR = 2  # Print detailed information (including the betar and delvcr vectors)|
+
+
+def set_3i_switches(config):
+    """
+    Set eq3 switches, including:
+    iopt model option switches,
+    iopg activity coefficient option switches
+    iopr print option switches
+
+    :param config: non-default switch values for 3i file
+    :type config: dict
+
+    """
+    d = {}
+    d['iopt_4'] = IOPT_4(config.get('iopt_4', 0))
+    d['iopt_11'] = IOPT_11(config.get('iopt_11', 0))
+    d['iopt_17'] = IOPT_17(config.get('iopt_17', 0))
+    d['iopt_19'] = IOPT_19(config.get('iopt_19', 3))
+
+    if config.get('iopt_19', 3) != 3:
+        print('please remove iopt_19 constraint on campaign json')
+        print(' "3i settings". iopt_19 = 3 is a default requirement for eleanor.')
+        sys.exit()
+
+    d['iopg_1'] = IOPG_1(config.get('iopg_1', 0))
+    d['iopg_2'] = IOPG_2(config.get('iopg_2', 0))
+    d['iopr_1'] = IOPR_1(config.get('iopr_1', 0))
+    d['iopr_2'] = IOPR_2(config.get('iopr_2', 0))
+    d['iopr_3'] = IOPR_3(config.get('iopr_3', 0))
+    d['iopr_4'] = IOPR_4(config.get('iopr_4', 1))
+    d['iopr_5'] = IOPR_5(config.get('iopr_5', 0))
+    d['iopr_6'] = IOPR_6(config.get('iopr_6', -1))
+    d['iopr_7'] = IOPR_7(config.get('iopr_7', 1))
+    d['iopr_8'] = IOPR_8(config.get('iopr_8', 0))
+    d['iopr_9'] = IOPR_9(config.get('iopr_9', 0))
+    d['iopr_10'] = IOPR_10(config.get('iopr_10', 0))
+    d['iopr_17'] = IOPR_17(config.get('iopr_17', 0))
+    d['iodb_1'] = IODB_1(config.get('iodb_1', 0))
+    d['iodb_3'] = IODB_3(config.get('iodb_3', 0))
+    d['iodb_4'] = IODB_4(config.get('iodb_4', 0))
+    d['iodb_6'] = IODB_6(config.get('iodb_6', 0))
+    return d
+
+
+def set_6i_switches(config):
+    """
+    Set eq6 switches, including:
+    iopt model option switches,
+    iopg activity coefficient option switches
+    iopr print option switches
+
+    :param config: non-default switch values for 6i file
+    :type config: dict
+
+    """
+    d = {}
+    d['iopt_1'] = IOPT_1(config.get('iopt_1', 0))
+    d['iopt_2'] = IOPT_2(config.get('iopt_2', 0))
+    d['iopt_3'] = IOPT_3(config.get('iopt_3', 0))
+    d['iopt_4'] = IOPT_4(config.get('iopt_4', 0))
+    d['iopt_5'] = IOPT_5(config.get('iopt_5', 0))
+    d['iopt_6'] = IOPT_6(config.get('iopt_6', 0))
+    d['iopt_7'] = IOPT_7(config.get('iopt_7', 0))
+    d['iopt_9'] = IOPT_9(config.get('iopt_9', 0))
+    d['iopt_10'] = IOPT_10(config.get('iopt_10', 0))
+    d['iopt_11'] = IOPT_11(config.get('iopt_11', 0))
+    d['iopt_12'] = IOPT_12(config.get('iopt_12', 0))
+    d['iopt_13'] = IOPT_13(config.get('iopt_13', 0))
+    d['iopt_14'] = IOPT_14(config.get('iopt_14', 0))
+    d['iopt_15'] = IOPT_15(config.get('iopt_15', 0))
+    d['iopt_16'] = IOPT_16(config.get('iopt_16', -1))
+    d['iopt_17'] = IOPT_17(config.get('iopt_17', 0))
+    d['iopt_18'] = IOPT_18(config.get('iopt_18', -1))
+    d['iopt_20'] = IOPT_20(config.get('iopt_20', 0))
+    d['iopr_1'] = IOPR_1(config.get('iopr_1', 0))
+    d['iopr_2'] = IOPR_2(config.get('iopr_2', 0))
+    d['iopr_3'] = IOPR_3(config.get('iopr_3', 0))
+    d['iopr_4'] = IOPR_4(config.get('iopr_4', 1))
+    d['iopr_5'] = IOPR_5(config.get('iopr_5', 0))
+    d['iopr_6'] = IOPR_6(config.get('iopr_6', -1))
+    d['iopr_7'] = IOPR_7(config.get('iopr_7', 1))
+    d['iopr_8'] = IOPR_8(config.get('iopr_8', 0))
+    d['iopr_9'] = IOPR_9(config.get('iopr_9', 0))
+    d['iopr_10'] = IOPR_10(config.get('iopr_10', 0))
+    d['iopr_17'] = IOPR_17(config.get('iopr_17', 1))
+    d['iodb_1'] = IODB_1(config.get('iodb_1', 0))
+    d['iodb_2'] = IODB_2(config.get('iodb_2', 0))
+    d['iodb_3'] = IODB_3(config.get('iodb_3', 0))
+    d['iodb_4'] = IODB_4(config.get('iodb_4', 0))
+    d['iodb_5'] = IODB_5(config.get('iodb_5', 0))
+    d['iodb_6'] = IODB_6(config.get('iodb_6', 0))
+    d['iodb_7'] = IODB_7(config.get('iodb_7', 0))
+    d['iodb_8'] = IODB_8(config.get('iodb_8', 0))
+    return d
+
+
+def switch_grid_3(three_i_switches):
+    """
+    build the lines containing switch information for each 3i file
+    :param three_i_switches: switch values for 6i file
+    :type three_i_switches: dict
+    """
+    pr = {}
+
+    for _ in three_i_switches:
+        # ### add_gap
+        pr[_] = ' ' * (2 - len(str(int(three_i_switches[_])))) + str(int(three_i_switches[_]))
+
+    switches = "\n".join(('*               1    2    3    4    5    6    7    8    9   10',
+                         f'  iopt1-10=     0    0    0   {pr["iopt_4"]}    0    0    0    0    0    0',
+                         f' iopt11-20=    {pr["iopt_11"]}    0    0    0    0    0   {pr["iopt_17"]}    0   {pr["iopt_19"]}    0',
+                         f'  iopg1-10=    {pr["iopg_1"]}   {pr["iopg_2"]}    0    0    0    0    0    0    0    0',
+                          ' iopg11-20=     0    0    0    0    0    0    0    0    0    0',
+                         f' iopr11-20=    {pr["iopr_1"]}   {pr["iopr_2"]}   {pr["iopr_3"]}   {pr["iopr_4"]}   {pr["iopr_5"]}   {pr["iopr_6"]}   {pr["iopr_7"]}   {pr["iopr_8"]}   {pr["iopr_9"]}   {pr["iopr_10"]}',
+                         f' iopr11-20=     0    0    0    0    0    0   {pr["iopr_17"]}    0    0    0',
+                         f'  iodb1-10=    {pr["iodb_1"]}    0   {pr["iodb_3"]}   {pr["iodb_4"]}    0   {pr["iodb_6"]}    0    0    0    0',
+                          ' iodb11-20=     0    0    0    0    0    0    0    0    0    0')) + "\n"
+    return switches
+
+
+def switch_grid_6(six_i_switches):
+    """
+    build the lines containing switch information for each 3i file
+    :param six_i_switches: switch values for 6i file
+    :type six_i_switches: dict
+    """
+    pr = {}
+
+    for _ in six_i_switches:
+        # ### add_gap
+        pr[_] = ' ' * (2 - len(str(int(six_i_switches[_])))) + str(int(six_i_switches[_]))
+
+    switches = "\n".join(('*               1    2    3    4    5    6    7    8    9   10',
+                         f'  iopt1-10=    {pr["iopt_1"]}   {pr["iopt_2"]}   {pr["iopt_3"]}   {pr["iopt_4"]}   {pr["iopt_5"]}   {pr["iopt_6"]}   {pr["iopt_7"]}    0   {pr["iopt_9"]}   {pr["iopt_10"]}',
+                         f' iopt11-20=    {pr["iopt_11"]}   {pr["iopt_12"]}   {pr["iopt_13"]}   {pr["iopt_14"]}   {pr["iopt_15"]}   {pr["iopt_16"]}   {pr["iopt_17"]}   {pr["iopt_18"]}    0   {pr["iopt_20"]}',
+                         f'  iopr1-10=    {pr["iopr_1"]}   {pr["iopr_2"]}   {pr["iopr_3"]}   {pr["iopr_4"]}   {pr["iopr_5"]}   {pr["iopr_6"]}   {pr["iopr_7"]}   {pr["iopr_8"]}   {pr["iopr_9"]}   {pr["iopr_10"]}',
+                         f' iopr11-20=     0    0    0    0    0    0   {pr["iopr_17"]}    0    0    0',
+                         f'  iodb1-10=    {pr["iodb_1"]}   {pr["iodb_2"]}   {pr["iodb_3"]}   {pr["iodb_4"]}   {pr["iodb_5"]}   {pr["iodb_6"]}   {pr["iodb_7"]}   {pr["iodb_8"]}    0    0',
+                          ' iodb11-20=     0    0    0    0    0    0    0    0    0    0')) + "\n"
+    return switches
 
 
 def build_mineral_rnt(phase, morr, rk1b):
@@ -251,6 +694,7 @@ def build_mineral_rnt(phase, morr, rk1b):
                       '      fkrc=  0.00000E+00',
                       '      nrk1=  1',
                       f'       rk1=  {format_e(rk1b, 5)}       rk2=  0.00000E+00       rk3=  0.00000E+00\n'])  # noqa (E501)
+
 
 def build_gas_rnt(phase, morr, rk1b):
     """
@@ -280,6 +724,7 @@ def build_gas_rnt(phase, morr, rk1b):
 # ##########################  classes  ############################
 # #################################################################
 
+
 class Three_i(object):
     """
         Instantiates 3i document template that contains the correct
@@ -288,35 +733,13 @@ class Three_i(object):
         to be made amdendable between campaigns.
     """
 
-    def __init__(self,
-                 iopg1='0',    # model choice: 0=DH, 1=pitzer
-                 iopr1='0',
-                 iopr2='0',
-                 iopr4='1',    # incliude all aq species (not just > -100)
-                 iopr5='0',    # dont print aq/H+ ratios
-                 iopr6='-1',   # dont print 99% table
-                 iopr7='1',    # print all SI /affinity table
-                 iopr9='0',
-                 iopt11='0',   # Auto basis switching   0 (turn on), 1 (turn off)
-                 iopt17='0',   # Pickup file:  -1 (dont write), 0 (write)
-                 iopt19='3',   # pickup type:  0 (normal), 3 (fluid1 set up for fluid mixing)
-                 iopt4='0'     # SS    1 (permit), (ignor)
-                 ):
+    def __init__(self, three_i_switches):
         """
         instantiates three_i constants
         """
-        self.iopt4 = iopt4
-        self.iopt11 = iopt11
-        self.iopt17 = iopt17
-        self.iopt19 = iopt19
-        self.iopg1 = iopg1
-        self.iopr1 = iopr1
-        self.iopr2 = iopr2
-        self.iopr4 = iopr4
-        self.iopr5 = iopr5
-        self.iopr6 = iopr6
-        self.iopr7 = iopr7
-        self.iopr9 = iopr9
+        self.switches = three_i_switches
+        self.switch_grid = switch_grid_3(three_i_switches)
+
 
     def write(self, local_name, v_state, v_basis, cb, suppress_sp, output_details='n'):
         """
@@ -324,63 +747,32 @@ class Three_i(object):
         v_state = dict['state_parameter_name'] = value
         v_basis = dict['basis_species_name']   = value
 
-        output_details = 'n' (normal), 'v' (verbose, for debugging chemical space).
-            normal = the instantiation defaults (self.)
+        output_details = 'n' (normal), 'v' (verbose, for debugging).
+            normal = set in campaign via the campaign json
 
         """
 
-        l_iopg1 = ' ' * (2 - len(self.iopg1)) + self.iopg1
-
         if output_details == 'v':
-            # ## maximal infomration sought from the 3o file,
-            # ## to added chemiocal space investigations:
-            # ## note extra space in front of number value. this is needed.
-            l_iopt4 = ' 1'  # turn on SS so that they are listed in 3o loaded sp.
-            l_iopr1 = ' 1'
-            l_iopr1 = ' 1'
-            l_iopr2 = ' 3'
-            l_iopr4 = ' 1'
-            l_iopr5 = ' 3'
-            l_iopr6 = ' 1'
-            l_iopr7 = ' 1'
-            l_iopr9 = ' 1'
-            l_iopg1 = ' 0'
-            l_iodb1 = ' 2'
-            l_iodb3 = ' 4'
-            l_iodb4 = ' 4'
-            l_iodb6 = ' 2'
+            # ### maximal infomration sought from the 3o file (used in huffer)
+            self.switches['iopt_4'] = IOPT_4(1)
+            self.switches['iopr_1'] = IOPR_1(1)
+            self.switches['iopr_2'] = IOPR_2(3)
+            self.switches['iopr_4'] = IOPR_4(1)
+            self.switches['iopr_5'] = IOPR_5(3)
+            self.switches['iopr_6'] = IOPR_6(1)
+            self.switches['iopr_7'] = IOPR_7(1)
+            self.switches['iopr_9'] = IOPR_9(1)
+            self.switches['iodb_1'] = IODB_1(2)
+            self.switches['iodb_3'] = IODB_3(4)
+            self.switches['iodb_4'] = IODB_4(4)
+            self.switches['iodb_6'] = IODB_6(2)
 
-        elif output_details == 'n':
-            # ## normal olutput sought = instantiation defaults (self.)
-
-            # ## no string leading space addition is needed for iopt,
-            # ## becuas ei am not intersted in - values there.
-
-            # ## adjust leading space for iopr strings, as they may have
-            # ## leading negative values
-            l_iopt4 = ' ' * (2 - len(self.iopg1)) + self.iopg1
-            l_iopt4 = ' ' * (2 - len(self.iopt4)) + self.iopt4
-            l_iopr1 = ' ' * (2 - len(self.iopr1)) + self.iopr1
-            l_iopr2 = ' ' * (2 - len(self.iopr2)) + self.iopr2
-            l_iopr4 = ' ' * (2 - len(self.iopr4)) + self.iopr4
-            l_iopr5 = ' ' * (2 - len(self.iopr5)) + self.iopr5
-            l_iopr6 = ' ' * (2 - len(self.iopr6)) + self.iopr6
-            l_iopr7 = ' ' * (2 - len(self.iopr7)) + self.iopr7
-            l_iopr9 = ' ' * (2 - len(self.iopr9)) + self.iopr9
-            l_iopg1 = ' ' * (2 - len(self.iopg1)) + self.iopg1
-            l_iodb1 = ' 0'
-            l_iodb3 = ' 0'
-            l_iodb4 = ' 0'
-            l_iodb6 = ' 0'
+            # ### rebuild local switch_grid
+            switch_grid = switch_grid_3(self.switches)
 
         else:
-            # ## output_details set improperly
-            print('Error: {} is not recognized'.format(output_details))
-            print('  as a valid output_details value. Must be "n" = ')
-            print('  normal or "v" = verbose (for debugging)')
-            sys.exit()
+            switch_grid = self.switch_grid
 
-        # ## write template to file, amending values into the variable vars
         with open(local_name, 'w') as build:
             build.write("\n".join(
                 ('EQ3NR input file name= local',
@@ -439,18 +831,8 @@ class Three_i(object):
                     build.write('    option= -1              xlkmod=  0.00000E+00\n')
             else:
                 build.write('     nxmod=   0\n')
-
-            build.write("\n".join(('* Iopt, iopg, iopr, and iodb options',
-                                   '*               1    2    3    4    5    6    7    8    9   10',
-                                  f'  iopt1-10=     0    0    0   {l_iopt4}    0    0    0    0    0    0',  # noqa (E501)
-                                  f' iopt11-20=     {self.iopt11}    0    0    0    0    0    {self.iopt17}    0    {self.iopt19}    0',  # noqa (E501)
-                                  f'  iopg1-10=    {l_iopg1}    0    0    0    0    0    0    0    0    0',
-                                   ' iopg11-20=     0    0    0    0    0    0    0    0    0    0',
-                                  f'  iopr1-10=    {l_iopr1}   {l_iopr2}    0   {l_iopr4}   {l_iopr5}   {l_iopr6}   {l_iopr7}    0   {l_iopr9}    0',  # noqa (E501)
-                                   ' iopr11-20=     0    0    0    0    0    0    0    0    0    0',
-                                  f'  iodb1-10=    {l_iodb1}    0   {l_iodb3}   {l_iodb4}    0   {l_iodb6}    0    0    0    0',  # noqa (E501)
-                                   ' iodb11-20=     0    0    0    0    0    0    0    0    0    0',
-                                   '* Numerical parameters',
+            build.write(switch_grid)
+            build.write("\n".join(('* Numerical parameters',
                                    '     tolbt=  0.00000E+00     toldl=  0.00000E+00',
                                    '    itermx=   0',
                                    '* Ordinary basis switches',
@@ -463,66 +845,26 @@ class Three_i(object):
 
 class Six_i(object):
     """
-        Instantiates 6i document template that contains the correct
-        format (all run setings).
+        file.6i template containing all run settings.
         Any feature of 6i files can be added to the __init__ function,
         to be made amdendable between campaigns
     """
 
     def __init__(self,
+                 six_i_switches,
                  suppress_min=False,  # mineral suppression
                  min_supp_exemp=[],  # exemptions ot mineral suppression
-                 iopt1='1',  # 0 = closed, 1 = titration, 2 = fluid-centered flow through
-                 iopt2='0',
-                 iopt3='0',
-                 iopt4='1',
-                 iopt5='0',
-                 iopt6='0',  # clear solids @ 1st step in rxn progress. When on (1) this can fail.
-                 iopt7='0',
-                 iopt8='0',
-                 iopt9='0',
-                 iopt10='0',
-                 iopr1='0',
-                 iopr2='0',
-                 iopr3='0',
-                 iopr4='1',
-                 iopr5='0',
-                 iopr6='-1',
-                 iopr7='1',
-                 iopr8='0',
-                 iopr9='0',
-                 iopr10='0',
-                 iopr17='1'
                  ):
         """
         instantiates six_i constants
         """
+        self.switches = six_i_switches
+        self.switch_grid = switch_grid_6(six_i_switches)
         self.suppress_min = suppress_min
         self.min_supp_exemp = min_supp_exemp
-        self.iopt1 = ' ' * (2 - len(iopt1)) + iopt1
-        self.iopt2 = ' ' * (2 - len(iopt2)) + iopt2
-        self.iopt3 = ' ' * (2 - len(iopt3)) + iopt3
-        self.iopt4 = ' ' * (2 - len(iopt4)) + iopt4
-        self.iopt5 = ' ' * (2 - len(iopt5)) + iopt5
-        self.iopt6 = ' ' * (2 - len(iopt6)) + iopt6
-        self.iopt7 = ' ' * (2 - len(iopt7)) + iopt7
-        self.iopt8 = ' ' * (2 - len(iopt8)) + iopt8
-        self.iopt9 = ' ' * (2 - len(iopt9)) + iopt9
-        self.iopt10 = ' ' * (2 - len(iopt10)) + iopt10
-        self.iopr1 = ' ' * (2 - len(iopr1)) + iopr1
-        self.iopr2 = ' ' * (2 - len(iopr2)) + iopr2
-        self.iopr3 = ' ' * (2 - len(iopr3)) + iopr3
-        self.iopr4 = ' ' * (2 - len(iopr4)) + iopr4
-        self.iopr5 = ' ' * (2 - len(iopr5)) + iopr5
-        self.iopr6 = ' ' * (2 - len(iopr6)) + iopr6
-        self.iopr7 = ' ' * (2 - len(iopr7)) + iopr7
-        self.iopr8 = ' ' * (2 - len(iopr8)) + iopr8
-        self.iopr9 = ' ' * (2 - len(iopr9)) + iopr9
-        self.iopr10 = ' ' * (2 - len(iopr10)) + iopr10
-        self.iopr17 = ' ' * (2 - len(iopr10)) + iopr17
 
-    def write(self, local_name, reactants, pickup_lines, temp,
-              output_details='m', xi_max=100, morr=100,
+
+    def write(self, local_name, reactants, pickup_lines, temp, xi_max=100, morr=100,
               mix_dlxprn=1, mix_dlxprl=1, jtemp='0', additional_sw_rxn=False):
         """
         Constructs a 6i file 'local_name' with instantiated constants
@@ -539,12 +881,6 @@ class Six_i(object):
         output_details = 'm' (minimal), 'n' (normal), 'v' (verbose, for debugging chemical space).
             normal = the instantiation defaults (self.)
         """
-        if output_details == 'm':
-            # minimal output sought:
-            pass
-        elif output_details == 'v':
-            # maximal information sought from the 6o file for debugging
-            pass
 
         # reactant count
         reactant_n = len([_ for _ in reactants.keys() if reactants[_][0] != 'fixed gas'])
@@ -595,9 +931,8 @@ class Six_i(object):
                 '      ptk1=  0.00000E+00      ptk2=  0.00000E+00',
                 f'      nrct=  {str(reactant_n)}\n']))
 
+            fixed_gases = {}
             if reactant_n > 0:
-                fixed_gases = {}
-                self.iopt1 = ' 1'
                 for _ in reactants.keys():
                     if reactants[_][0] == 'ele':
                         build.write(build_special_rnt(_, reactants[_]))
@@ -631,23 +966,9 @@ class Six_i(object):
                            '    dltplo=  1.00000E+38    dltpll=  1.00000E+38',
                            '    dlhplo=  1.00000E+38    dleplo=  1.00000E+38',
                            '    dloplo=  1.00000E+38    dlaplo=  1.00000E+38',
-                           '    ksplmx=        10000',
-                           '*               1    2    3    4    5    6    7    8    9   10\n']))
+                           '    ksplmx=        10000\n']))
 
-            build.write(
-                '  iopt1-10=    ' + '   '.join([_ for _ in
-                                                [self.iopt1, self.iopt2, self.iopt3, self.iopt4,
-                                                 self.iopt5, self.iopt6, self.iopt7, self.iopt8,
-                                                 self.iopt9, self.iopt10]]) + '\n')
-            build.write(' iopt11-20=     0    0    0    0    0   -1    0   -1    0    0\n')
-            build.write(
-                '  iopr1-10=    ' + '   '.join([_ for _ in
-                                                [self.iopr1, self.iopr2, self.iopr3, self.iopr4,
-                                                 self.iopr5, self.iopr6, self.iopr7, self.iopr8,
-                                                 self.iopr9, self.iopr10]]) + '\n')
-            build.write('\n'.join([f' iopr11-20=     0    0    0    0    0    0   {self.iopr17}    0    0    0',  # noqa (E501)
-                                   '  iodb1-10=     0    0    0    0    0    0    0    0    0    0',
-                                   ' iodb11-20=     0    0    0    0    0    0    0    0    0    0\n']))  # noqa (E501)
+            build.write(self.switch_grid)
 
             # mineral supression
             if self.suppress_min:
@@ -719,6 +1040,9 @@ class WorkingDirectory(object):
 
 
 def hash_file(filename, hasher=None):
+    """
+    TODO, @Doug
+    """
     if hasher is None:
         hasher = hashlib.sha256()
     with open(filename, 'rb') as handle:

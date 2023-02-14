@@ -69,6 +69,7 @@ class Campaign:
         self.est_date = self._raw['est_date']
 
         # modelling data
+        self.special_basis_switch = self._raw.get("special basis switch", {})
         self.target_rnt = self._raw['reactant']
         self.suppress_sp = self._raw['suppress sp']
         self.suppress_min = self._raw['suppress min']
@@ -97,7 +98,6 @@ class Campaign:
         else:
             raise EleanorException(f'the model "{self._raw["model"]}" specified in the campaign file is not recognized: must be "pitzer", "davies", "b-dot" or a standard EQ36 file suffix (see Campaign class docs)')
 
-
         if self.SS:
             self.SixI_config['iopt_4'] = 1
             self.ThreeI_config['iopt_4'] = 1
@@ -107,9 +107,8 @@ class Campaign:
 
         self.three_i_switches = set_3i_switches(self.ThreeI_config)
         self.six_i_switches = set_6i_switches(self.SixI_config)
-        self.local_3i = tool_room.Three_i(self.three_i_switches)
-
-        self.local_6i = tool_room.Six_i(self.six_i_switches,
+        self.local_3i = tool_room.Three_i(self.special_basis_switch, self.three_i_switches, self.suppress_sp)
+        self.local_6i = tool_room.Six_i(self.target_rnt, self.six_i_switches,
                                         suppress_min=self.suppress_min,
                                         min_supp_exemp=self.min_supp_exemp)
 

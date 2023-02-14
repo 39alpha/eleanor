@@ -176,6 +176,16 @@ def norm_list(data):
 # #####################################################################\
 
 
+class JTEMP(IntEnum):
+    """
+    Temperature option (jtemp). This feature in eq3/6 can take on one of 4 settings,
+    which correspond to 4 different treatments of temperature. 
+    For Eleanor version  1, we only use jtemp = 0 (constant Temperature)
+    We plan to add jtemp = 3 (fluid mixing, for Eleanor version 1.1)
+    """
+    CONSTANT_T = 0
+
+
 class IOPT_1(IntEnum):
     """
     Physical System Model Selection:
@@ -670,6 +680,80 @@ def switch_grid_6(six_i_switches):
     return switches
 
 
+def format_suppress_options(suppress_sp):
+    """
+    Format the species suppress options for the 3i file template
+
+    :param suppress_sp: data0 speices to be suppressed
+    :type suppress_sp: list of strings
+    :return: formated text for the 3i files, species suppress section
+    :rtype: str
+
+    """
+    build = ''
+    if suppress_sp:
+        build = build + f'     nxmod=   {str(len(suppress_sp))}\n'
+        for sp in suppress_sp:
+            build = build + f'   species= {sp}\n'
+            build = build + '    option= -1              xlkmod=  0.00000E+00\n'
+    else:
+        build = build + '     nxmod=   0\n'
+    return build
+
+
+def format_special_basis_switch(special_basis_switch):
+    """
+    Format the special basis switching section for the 3i file template
+
+    :param special_basis_switch: dict. key=initial basis species, val = new basis species
+    :type special_basis_switch: dictionary
+    :return: formated text for the 3i files, special basis switching section
+    :rtype: str
+
+    """
+    build = ''
+    if special_basis_switch == {}:
+        build = build + '    nsbswt=   0\n'
+    else:
+        build = build + f'    nsbswt=   {len(special_basis_switch)}\n'
+        for _ in special_basis_switch:
+            build = build + f'species= {_}\n'
+            build = build + f'  switch with= {special_basis_switch[_]}\n'
+    return build
+
+
+def format_limits(xi_max):
+    """
+    Format the limits section for the 6i file template. for Eleanor version 1, only xi_max
+    is set in this block, with all other variables fixed
+
+    :param xi_max: maximum xi valve for 6i reaction path.
+    :type xi_max: int or float
+    :return: formated text for the 6i files, limits section
+    :rtype: str
+
+    """
+    return'\n'.join(
+        ['*-----------------------------------------------------------------------------',  # noqa (E501)
+         f'    xistti=  0.00000E+00    ximaxi=  {format_e(float(xi_max), 5)}',
+         '    tistti=  0.00000E+00    timmxi=  1.00000E+38',
+         '    phmini= -1.00000E+38    phmaxi=  1.00000E+38',
+         '    ehmini= -1.00000E+38    ehmaxi=  1.00000E+38',
+         '    o2mini= -1.00000E+38    o2maxi=  1.00000E+38',
+         '    awmini= -1.00000E+38    awmaxi=  1.00000E+38',
+         '    kstpmx=        10000',
+         '    dlxprn=  1.00000E+38    dlxprl=  1.00000E+38',
+         '    dltprn=  1.00000E+38    dltprl=  1.00000E+38',
+         '    dlhprn=  1.00000E+38    dleprn=  1.00000E+38',
+         '    dloprn=  1.00000E+38    dlaprn=  1.00000E+38',
+         '    ksppmx=          999',
+         '    dlxplo=  1.00000E+38    dlxpll=  1.00000E+38',
+         '    dltplo=  1.00000E+38    dltpll=  1.00000E+38',
+         '    dlhplo=  1.00000E+38    dleplo=  1.00000E+38',
+         '    dloplo=  1.00000E+38    dlaplo=  1.00000E+38',
+         '    ksplmx=        10000\n'])
+
+
 def build_mineral_rnt(phase, morr, rk1b):
     """
     The function builds a 6i reactant block for mineral 'phase' of type jcode = 0.
@@ -720,6 +804,7 @@ def build_gas_rnt(phase, morr, rk1b):
                       '      nrk1=  1',
                       f'       rk1=  {format_e(rk1b, 5)}       rk2=  0.00000E+00       rk3=  0.00000E+00\n'])  # noqa (E501)
 
+
 # #################################################################
 # ##########################  classes  ############################
 # #################################################################
@@ -727,28 +812,61 @@ def build_gas_rnt(phase, morr, rk1b):
 
 class Three_i(object):
     """
-        Instantiates 3i document template that contains the correct
-        format (all run setings).
-        Any feature of 6i files can be added to the __init__ function,
-        to be made amdendable between campaigns.
+    3i files class.
     """
 
-    def __init__(self, three_i_switches):
+    def __init__(self, special_basis_switch, three_i_switches, suppress_sp):
         """
-        instantiates three_i constants
+        file.3i template.
         """
+        self.top_piece = "\n".join(
+            ('EQ3NR input file name= local',
+             'endit.',
+             '* Special basis switches\n'))
+        self.basis_switch = format_special_basis_switch(special_basis_switch)
+        self.middle_piece = "\n".join(
+            ('endit.',
+             '* Ion exchangers',
+             '    qgexsh=        F',
+             '       net=   0',
+             '* Ion exchanger compositions',
+             '      neti=   0',
+             '* Solid solution compositions',
+             '      nxti=   0',
+             '* Alter/suppress options\n')
+            )
+        self.supp = format_suppress_options(suppress_sp)
         self.switches = three_i_switches
         self.switch_grid = switch_grid_3(three_i_switches)
+        self.end_piece = "\n".join(
+            ('* Numerical parameters',
+             '     tolbt=  0.00000E+00     toldl=  0.00000E+00',
+             '    itermx=   0',
+             '* Ordinary basis switches',
+             '    nobswt=   0',
+             '* Saturation flag tolerance',
+             '    tolspf=  0.00000E+00',
+             '* Aqueous phase scale factor',
+             '    scamas=  1.00000E+00')
+            )
 
     def write(self, local_name, v_state, v_basis, cb, suppress_sp, output_details='n'):
         """
-        local_name = actual file name
-        v_state = dict['state_parameter_name'] = value
-        v_basis = dict['basis_species_name']   = value
 
-        output_details = 'n' (normal), 'v' (verbose, for debugging).
-            normal = set in campaign via the campaign json
+        Write a 3i file 'local_name' to disk.
 
+        :param local_name: file names
+        :type local_name: str
+        :param v_state: dict['state_parameter_name'] = value
+        :type v_state: dict
+        :param v_basis: dict['basis_species_name'] = value
+        :type v_basis: dict
+        :param cb: basis species to charge balance on. can also be None
+        :type cb: str
+        :param suppress_sp: data0 species to suppress
+        :type suppress_sp: list of str
+        :param output_details: how verbose do you want the 3o file? 'n' (normal) 'v' (verbose)
+        :type output_details: str (n, or v)
         """
 
         if output_details == 'v':
@@ -773,15 +891,10 @@ class Three_i(object):
             switch_grid = self.switch_grid
 
         with open(local_name, 'w') as build:
+            build.write(self.top_piece)
+            build.write(self.basis_switch)
             build.write("\n".join(
-                ('EQ3NR input file name= local',
-                 'endit.',
-                 '* Special basis switches',
-                 '    nsbswt=   0',
-                 # '    nsbswt=   1',
-                 # 'species= SO4-2',
-                 # '  switch with= HS-',
-                 '* General',
+                ('* General',
                  f'     tempc=  {format_e(v_state["T_cel"], 5)}',
                  '    jpres3=   0',
                  f'     press=  {format_e(v_state["P_bar"], 5)}',
@@ -810,125 +923,88 @@ class Three_i(object):
                     build.write(f'species= {_}\n   jflgi= 16    covali=  {v_basis[_]}\n')
                 else:
                     build.write(f'species= {_}\n   jflgi=  0    covali=  {format_e(10**v_basis[_], 5)}\n')  # noqa (E501)
-
-            build.write("\n".join(
-                ('endit.',
-                 '* Ion exchangers',
-                 '    qgexsh=        F',
-                 '       net=   0',
-                 '* Ion exchanger compositions',
-                 '      neti=   0',
-                 '* Solid solution compositions',
-                 '      nxti=   0',
-                 '* Alter/suppress options\n')))
-
-            # Handle species supressions
-            if suppress_sp:
-                build.write(f'     nxmod=   {str(len(suppress_sp))}\n')
-                for sp in suppress_sp:
-                    build.write(f'   species= {sp}\n')
-                    build.write('    option= -1              xlkmod=  0.00000E+00\n')
-            else:
-                build.write('     nxmod=   0\n')
+            build.write(self.middle_piece)
+            build.write(self.supp)
             build.write(switch_grid)
-            build.write("\n".join(('* Numerical parameters',
-                                   '     tolbt=  0.00000E+00     toldl=  0.00000E+00',
-                                   '    itermx=   0',
-                                   '* Ordinary basis switches',
-                                   '    nobswt=   0',
-                                   '* Saturation flag tolerance',
-                                   '    tolspf=  0.00000E+00',
-                                   '* Aqueous phase scale factor',
-                                   '    scamas=  1.00000E+00')))
+            build.write(self.end_piece)
 
 
 class Six_i(object):
     """
-        file.6i template containing all run settings.
-        Any feature of 6i files can be added to the __init__ function,
-        to be made amdendable between campaigns
+    6i files class
     """
 
     def __init__(self,
+                 reactants,
                  six_i_switches,
-                 suppress_min=False,  # mineral suppression
-                 min_supp_exemp=[],  # exemptions ot mineral suppression
+                 xi_max=100,
+                 suppress_min=False,
+                 min_supp_exemp=[],
                  ):
         """
-        instantiates six_i constants
-        """
-        self.switches = six_i_switches
-        self.switch_grid = switch_grid_6(six_i_switches)
-        self.suppress_min = suppress_min
-        self.min_supp_exemp = min_supp_exemp
+        file.6i template.
 
-
-    def write(self, local_name, reactants, pickup_lines, temp, xi_max=100, morr=100,
-              mix_dlxprn=1, mix_dlxprl=1, jtemp='0', additional_sw_rxn=False):
-        """
-        Constructs a 6i file 'local_name' with instantiated constants
-
-        reactants = dictionary of reactant:value pairs. This dictionary has the same structure
+        :param reactants: dictionary of reactant:value pairs. This dictionary has the same structure
             as the camp.target_rnt dict, except it does not contain ranges, as specific values
             on those ranges have already been selected by the navigator function that built
             the VS table.
-
-        pickup_lines = local 3p files lines
-
-        temp = temperature
-
-        output_details = 'm' (minimal), 'n' (normal), 'v' (verbose, for debugging chemical space).
-            normal = the instantiation defaults (self.)
+        :type reactants: dict
+        :param six_i_switches: none default 3i setup switches  (iopt, iopg, iopr, and iodb)
+        :type six_i_switches: dict['switch_name'] = int
+        :param xi_max: the maximum path extent (in units of reaction progress)
+        :type xi_max: int or float
+        :param suppress_min: do you wish to suppress mineral precipitation?
+        :type suppress_min: Boolean
+        :param min_supp_exemp: exemptions to mass suppress option above
+        :type min_supp_exemp: list of stirngs (mineral names)
         """
+        self.reactant_n = len([_ for _ in reactants.keys() if reactants[_][0] != 'fixed gas'])
+        self.switches = six_i_switches
+        self.switch_grid = switch_grid_6(six_i_switches)
+        self.xi_max = xi_max
+        self.suppress_min = suppress_min
+        self.min_supp_exemp = min_supp_exemp
+        self.jtemp = JTEMP(0)
+        self.limits = format_limits(xi_max)
+        self.end_piece = '\n'.join([
+            '    nordmx=   6',
+            '     tolbt=  0.00000E+00     toldl=  0.00000E+00',
+            '    itermx=   0',
+            '    tolxsf=  0.00000E+00',
+            '    tolsat=  0.00000E+00',
+            '    ntrymx=   0',
+            '    dlxmx0=  0.00000E+00',
+            '    dlxdmp=  0.00000E+00',
+            '*-----------------------------------------------------------------------------\n'])
 
-        # reactant count
-        reactant_n = len([_ for _ in reactants.keys() if reactants[_][0] != 'fixed gas'])
+    def write(self, local_name, reactants, pickup_lines, temp):
+        """
+        Write a 6i file 'local_name' to disk.
 
-        if jtemp == '0':
-            # t constant
-            tempcb = temp
-            ttk1 = '0.00000E+00'
-            ttk2 = '0.00000E+00'
-
-        elif jtemp == '3':
-            # fluid mixing desired.
-            # this renders temp (target end temp of the reaction) something to be solved for
-            # via xi. must check that it is possible (cant reach 25 C of the two fluids being mixed
-            # are above that.)
-
-            # tempcb = high T fluid temp. this is listed in the pickup lines about
-            # to be attched to the bottom.
-
-            for _ in pickup_lines:
-                if '    tempci=  ' in _:
-                    tempcb = grab_str(_, -1)
-
-            # temp of fluid 2 (reactant block seawater)
-            ttk2 = '2.00000E+00'
-            format_e(float(temp), 5)
-
-            # mass ratio fluid 1 to fluid 2 at xi = 1. THis is solved for the desired T_sys = temp
-            # T_sys = (T_vfl*ttk1 + Xi*T_sw) / (Xi + ttk1)
-            # To get T)sys to taget 'temp' at Xi  = 1:
-            #     ttk1 = (T_sw - temp) / (temp - T_vfl)
-
-            ttk1 = '1.00000E+00'
-            ttk1 = format_e((float(ttk2) - temp) / (temp - float(tempcb)), 5)
-
-            # reset ximax so the xi_max = 1 lands on correct system temp, given ttk1
-            xi_max = 1
+        :param local_name:
+        :type local_name:
+        :param reactants: dictionary of reactant:value pairs. This dictionary has the same structure
+            as the camp.target_rnt dict, except it does not contain ranges, as specific values
+            on those ranges have already been selected by the navigator function that built
+            the VS table.
+        :type reactants: dict
+        :param pickup_lines: local 3p files lines
+        :type pickup_lines: list of strings (1 per row)
+        :param temp: systems tempeautre (celcius)
+        :type temp: float
+        """
 
         with open(local_name, 'w') as build:
             build.write('\n'.join([
                 'EQ3NR input file name= local',
                 'endit.',
-                f'     jtemp=  {jtemp}',
+                f'     jtemp=  {int(self.jtemp)}',
                 f'    tempcb=  {format_e(float(tempcb), 5)}',
-                f'      ttk1=  {ttk1}      ttk2=  {ttk2}',
+                '      ttk1=  0.00000E+00      ttk2=  0.00000E+00',
                 '    jpress=  0',
                 '    pressb=  0.00000E+00',
                 '      ptk1=  0.00000E+00      ptk2=  0.00000E+00',
-                f'      nrct=  {str(reactant_n)}\n']))
+                f'      nrct=  {str(self.reactant_n)}\n']))
 
             fixed_gases = {}
             if reactant_n > 0:
@@ -943,30 +1019,7 @@ class Six_i(object):
                         # incorporated below
                         fixed_gases[_] = reactants[_]
 
-            else:
-                # no reactants
-                self.iopt1 = ' 0'
-
-            build.write(
-                '\n'.join(['*-----------------------------------------------------------------------------',  # noqa (E501)
-                           f'    xistti=  0.00000E+00    ximaxi=  {format_e(float(xi_max), 5)}',
-                           '    tistti=  0.00000E+00    timmxi=  1.00000E+38',
-                           '    phmini= -1.00000E+38    phmaxi=  1.00000E+38',
-                           '    ehmini= -1.00000E+38    ehmaxi=  1.00000E+38',
-                           '    o2mini= -1.00000E+38    o2maxi=  1.00000E+38',
-                           '    awmini= -1.00000E+38    awmaxi=  1.00000E+38',
-                           '    kstpmx=        10000',
-                           '    dlxprn=  1.00000E+38    dlxprl=  1.00000E+38',
-                           '    dltprn=  1.00000E+38    dltprl=  1.00000E+38',
-                           '    dlhprn=  1.00000E+38    dleprn=  1.00000E+38',
-                           '    dloprn=  1.00000E+38    dlaprn=  1.00000E+38',
-                           '    ksppmx=          999',
-                           '    dlxplo=  1.00000E+38    dlxpll=  1.00000E+38',
-                           '    dltplo=  1.00000E+38    dltpll=  1.00000E+38',
-                           '    dlhplo=  1.00000E+38    dleplo=  1.00000E+38',
-                           '    dloplo=  1.00000E+38    dlaplo=  1.00000E+38',
-                           '    ksplmx=        10000\n']))
-
+            build.write(self.limits)
             build.write(self.switch_grid)
 
             # mineral supression
@@ -993,19 +1046,8 @@ class Six_i(object):
                     build.write(f'   species= {_}\n')
                     build.write(f'     moffg=  {format_e(float(fixed_gases[_][2]), 5)}    xlkffg= {format_e(float(fixed_gases[_][1]), 5)}\n')
 
-            build.write('\n'.join([
-                '    nordmx=   6',
-                '     tolbt=  0.00000E+00     toldl=  0.00000E+00',
-                '    itermx=   0',
-                '    tolxsf=  0.00000E+00',
-                '    tolsat=  0.00000E+00',
-                '    ntrymx=   0',
-                '    dlxmx0=  0.00000E+00',
-                '    dlxdmp=  0.00000E+00',
-                '*-----------------------------------------------------------------------------\n']))  # noqa (E501)
-
-            for _ in pickup_lines:
-                build.write(_)
+            build.write(self.end_piece)
+            build.write(pickup_lines)
 
 
 class WorkingDirectory(object):

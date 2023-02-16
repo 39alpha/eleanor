@@ -14,6 +14,7 @@ import time
 
 import numpy as np
 import pandas as pd
+from enum import IntEnum
 
 # loaded campagin
 # import eleanor.campaign as campaign
@@ -158,8 +159,10 @@ def huffer(conn, camp, quiet=False):
         state_dict = {}
         for _ in camp.vs_state.keys():
             if _ == 'fO2':
-                if type(camp.vs_state['fO2']) == str:
+                if type(camp.vs_state[_] == str):
+                    # if isinstance(camp.vs_state['fO2'], IntEnum):
                     # ### sp constraint
+                    # state_dict[_] = int(camp.vs_state['fO2'])
                     state_dict[_] = camp.vs_state[_]
                 else:
                     state_dict[_] = np.mean(camp.vs_state[_])
@@ -168,7 +171,7 @@ def huffer(conn, camp, quiet=False):
 
         state_dict['T_cel'] = T
         state_dict['T_bar'] = P
-
+        
         basis_dict = {}
         for _ in camp.vs_basis.keys():
             basis_dict[_] = np.mean(camp.vs_basis[_])
@@ -271,9 +274,9 @@ def random_uniform_order(camp, date, ord, file_number, order_size, elements, pre
         if key == 'T_cel':
             df['T_cel'], df['P_bar'], curves = TPCurve.sample(camp.tp_curves, order_size)
             df['data1'] = [curve.data1file for curve in curves]
-        if key == 'fO2' and type(value) == str:
-            # ### fO2 slaved to species, stand in 0.0
-            df[key] = 0.0
+        if key == 'fO2' and type(camp.vs_state['fO2']) == str:
+            df[key] = camp.vs_state['fO2']
+
         elif isinstance(value, list):
             df[key] = [float(np.round(random.uniform(*value), precision))
                        for i in range(order_size)]
@@ -287,6 +290,7 @@ def random_uniform_order(camp, date, ord, file_number, order_size, elements, pre
     df = calculate_ele_totals(d0, df, elements, order_size, precision)
 
     return df
+
 
 def brute_force_order(camp, date, ord, file_number, elements, precision=6, quiet=False):
     """
@@ -317,6 +321,7 @@ def brute_force_order(camp, date, ord, file_number, elements, precision=6, quiet
         to implement evenly-spaced VS points in the T-S subspace.
         '''
     )
+
 
 def build_basis(camp, precision, n):
     """
@@ -427,12 +432,12 @@ def calculate_ele_totals(d0, df, elements, order_size, precision):
         for b in local_vs_sp:
             # for each species b in loaded data0 that contins target element _,
             # identify the ones that are loaded in vs (list(df.columns)).
-            if '{}'.format(b[0]) in list(df.columns):
+            if f'{b[0]}' in list(df.columns):
                 # basis is present in campaign, so add its molalities
                 # to element total
                 ele_totals[_] = ele_totals[_] + float(b[1]) * (10 ** df['{}'.format(b[0])])
 
-        df['{}'.format(_)] = np.round(np.log10(ele_totals[_]), precision)
+        df[f'm_{_}'] = np.round(np.log10(ele_totals[_]), precision)
     return df
 
 

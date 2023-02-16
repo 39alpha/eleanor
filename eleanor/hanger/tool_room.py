@@ -1,8 +1,7 @@
-""" The tool room module contains functions and variables
-related to running and manipulating EQ3/6.
-This file is my attempt to stremaline the development
-process, as the functions contained herein are
-commonily duplicated between projects. """
+"""
+The tool_room contains functions and classes primarily related to
+construction of EQ3/6 input files.
+"""
 
 # tool_room
 # Developed by Tucker Ely
@@ -15,75 +14,126 @@ import sys
 import re
 import numpy as np
 import hashlib
-
 from enum import IntEnum
-
 from .constants import *  # noqa (F403)
-
 from eleanor.exceptions import RunCode, EleanorFileException
+
 
 # #################################################################
 # ########################  small pieces  #########################
 # #################################################################
 
 
-def read_inputs(file_extension, location, str_loc='suffix'):
-    # this function can find all 'file_extension' files in folders downstream from 'location'
-    file_name = []  # file names
-    file_list = []  # file names with paths
-
+def read_inputs(match, location, str_loc='suffix'):
+    """
+    Find all files in folders downstream from 'location', with extension 'file_extension'
+    :param match: characters to match in file names.
+    :type match: str
+    :param location: outermost parent directory beign searched.
+    :type location: str
+    :param str_loc: are the match characters at the beginning or end of the file?
+    :type str_loc:  str ('prefix' or 'suffix')
+    :return: list containing file names, list containing file paths
+    :rtype: list, list
+    """
+    file_names = []
+    file_paths = []
     for root, dirs, files in os.walk(location):
         for file in files:
             if str_loc == 'suffix':
-                if file.endswith(file_extension):
-                    file_name.append(file)
-                    file_list.append(os.path.join(root, file))
+                if file.endswith(match):
+                    file_names.append(file)
+                    file_paths.append(os.path.join(root, file))
             if str_loc == 'prefix':
-                if file.startswith(file_extension):
-                    file_name.append(file)
-                    file_list.append(os.path.join(root, file))
-    return file_name, file_list
+                if file.startswith(match):
+                    file_names.append(file)
+                    file_paths.append(os.path.join(root, file))
+    return file_names, file_paths
 
 
 def mk_check_del_directory(path):
     """
     This code checks for the dir being created, and if it is already
-    present, deletes it (with warning), before recreating it
+    present, deletes it (with warning), before recreating it.
+    :param path: directory path to be created
+    :type path: str
     """
-    if not os.path.exists(path):  # Check if the dir is alrady pessent
-        os.makedirs(path)  # Build desired output directory
+    if not os.path.exists(path):
+        os.makedirs(path)
 
 
 def mk_check_del_file(path):
-    #  This code checks for the file being created/moved already exists at the destination.
-    #  And if so, delets it.
+    """
+    Check if the file being created/moved already exists at the destination.
+    """
     if os.path.isfile(path):  # Check if the file is alrady pessent
         os.remove(path)  # Delete file
 
 
 def ck_for_empty_file(f):
+    """
+    Check if file is empty.
+
+    :param file: file path
+    :type file: str
+    """
     if os.stat(f).st_size == 0:
         print('file: ' + str(f) + ' is empty.')
         sys.exit()
 
 
 def format_e(n, p):
-    # n = number, p = precisions
+    """
+    Conver number to a string with scienctific notation format
+
+    :param n: number
+    :type n: numeric
+    :param p: precision
+    "type n: int
+    :return: scientific float as string with precision p
+    :rtype: str
+    """
     return "%0.*E" % (p, n)
 
 
 def format_n(n, p):
-    # n = number, p = precisions
+    """
+    Conver number to string
+
+    :param n: number
+    :type n: numeric
+    :param p: precision
+    "type n: int
+    :return: float as string with precision p
+    :rtype: str
+    """
     return "%0.*f" % (p, n)
 
 
 def grab_str(line, pos):
+    """
+    retrieve a substring from a larger string split on spaces
+    :param line: srting. typically a 'line' from an eq36 output file
+    :type line: str
+    :param pos: position of substring in line
+    :type pos: int
+    :return: substring at position pos in line
+    :rtype: str
+    """
     a = str(line)
     b = a.split()
     return b[pos]
 
 
 def grab_lines(file):
+    """
+    Read the lines from a text file
+
+    :param file: path the file
+    :type file: str
+    :return: list of strings, 1 per line in file
+    :rtype: list of str
+    """
     f = open(file, "r")
     lines = f.readlines()
     f.close()
@@ -91,7 +141,17 @@ def grab_lines(file):
 
 
 def grab_float(line, pos):
-    # grabs the 'n'th string split component of a 'line' as a float.
+    """
+    grab a number from a line of text.
+
+
+    :param line: line from a text file (or other string)
+    :type line: str
+    :param pos: position of number in line
+    :type pos: int
+    :return: number of interest
+    :rtype: float
+    """
     a = str(line)
     b = a.split()
     # designed to catch exponents of 3 digits, which are misprinted in EQ3/6 outputs,
@@ -107,21 +167,23 @@ def grab_float(line, pos):
 
 def mine_pickup_lines(pp, file, position):
     """
-    pp = project path
-    file = file name
+    Grab the necessary ines from an eq3 pickup file, for use in an eq6 reaction path calculation
 
-    position = s or d (statis or dynamic).
-
-    check_electrical_imbalance: false (dont check). val = ± imbalance allowed
-
-    A pickup file contains two blocks, allowing the described system
-    to be employed in two different ways. The top of a 3p or 6p file
-    presents the fluid as a reactant to be reloaded into the reactant block
-    of another 6i file. This can also be thought of as the dynamic system/fluid 'd',
-    as it is the fluid that is being titrated as a function of Xi.
-    The second block, below the reactant pickup lines,
-    contains a traditional pickup file. This can also be thought of as a static
-    system/fluid 's', as it is the system that is initiated at a fixed mass during a titration.
+    :param pp: project path
+    :type pp: str
+    :param file: pickup file name
+    :type file: str
+    :param position: 's' or 'd', signifies the position of the pickup lines sought in the larger
+        pickup file. Eleanor uses iopt_20 = 1, which generates a pickup file containing two blocks,
+        allowing the described system to be employed in two different ways. The top of a 3p or 6p
+        file presents the fluid as a reactant to be reloaded into the reactant block of another 6i
+        file. This can also be thought of as the dynamic system/fluid 'd', as it is the fluid that
+        is being titrated as a function of Xi. The second block, below the reactant pickup lines,
+        contains a traditional pickup file. This can also be thought of as a static system/fluid 
+        's', as it is the system that is initiated at a fixed mass during a titration.
+    :type position: str
+    :return: lines within the pickup file, given 's' or 'd' above.
+    :rtype: list of strings
     """
     try:
         p_lines = grab_lines(os.path.join(pp, file))
@@ -134,9 +196,9 @@ def mine_pickup_lines(pp, file, position):
             x += 1
             start_sw = x
             while not re.findall(r'^\*------------------', p_lines[x]):
-                # replace morr value to excess, so that it can be continuesly titrated in pickup fluid,
-                # without exhaustion this is a default standin. note that other codes may alter this
-                # later, such as when some limited amount of seawater entrainment is accounted for.
+                # Replace morr value to excess, so that it can be continuesly titrated in pickup
+                # fluid, without exhaustion. Note that other codes may alter this later, if fluid
+                # mixes to exact ratios are sought.
                 if re.findall('^      morr=', p_lines[x]):
                     p_lines[x] = p_lines[x].replace('morr=  1.00000E+00', 'morr=  1.00000E+20')
                     x += 1
@@ -165,21 +227,52 @@ def mine_pickup_lines(pp, file, position):
         raise EleanorFileException(e, code=RunCode.FILE_ERROR_3P)
 
 def log_rng(mid, error_in_frac):
+    """
+    TODO, @Doug
+    """
     return [np.log10(mid * _) for _ in [1 - error_in_frac, 1 + error_in_frac]]
 
 
 def norm_list(data):
+    """
+    TODO, @Doug
+    """
     return list((data - np.min(data)) / (np.max(data) - np.min(data)))
+
+
+def determine_ss_kids(camp, ss, solids):
+    """
+    determine which solid solution (ss) endmember (kids) will be present in the system
+
+    :param camp: campaign instance
+    :type camp: class 'eleanor.campaign.Campaign'
+
+    :param ss: solid solution sloaded given data0 and system setup
+    :type ss: list of strings
+
+    :param solids: solids loaded given data0 and system setup
+    :type solids: list of strings
+
+    :return: solid solution endmemebers
+    :rtype: list of strings
+    """
+    ss_kids = []
+    for _ in ss:
+        all_kids = camp.representative_data0[_].composition.keys()
+        kids_we_care_about = [_ for _ in all_kids if _ in solids]
+        ss_kids = ss_kids + [f'{i}_{_}' for i in kids_we_care_about]
+    return ss_kids
+
 
 # #####################################################################
 # ###########################  3i/6i  #################################
-# #####################################################################\
+# #####################################################################
 
 
 class JTEMP(IntEnum):
     """
     Temperature option (jtemp). This feature in eq3/6 can take on one of 4 settings,
-    which correspond to 4 different treatments of temperature. 
+    which correspond to 4 different treatments of temperature.
     For Eleanor version  1, we only use jtemp = 0 (constant Temperature)
     We plan to add jtemp = 3 (fluid mixing, for Eleanor version 1.1)
     """
@@ -549,7 +642,9 @@ def set_3i_switches(config):
 
     :param config: non-default switch values for 3i file
     :type config: dict
-
+    TODO Doug Check
+    :return: dictionary of switch settings
+    :rtype: dictionary of IntEnum class instances
     """
     d = {}
     d['iopt_4'] = IOPT_4(config.get('iopt_4', 0))
@@ -558,8 +653,9 @@ def set_3i_switches(config):
     d['iopt_19'] = IOPT_19(config.get('iopt_19', 3))
 
     if config.get('iopt_19', 3) != 3:
-        print('please remove iopt_19 constraint on campaign json')
-        print(' "3i settings". iopt_19 = 3 is a default requirement for eleanor.')
+        print('Please remove iopt_19 constraint on campaign json')
+        print(' "3i settings" as iopt_19 = 3 is a default requirement')
+        print(' for Eleanor.')
         sys.exit()
 
     d['iopg_1'] = IOPG_1(config.get('iopg_1', 0))
@@ -592,6 +688,8 @@ def set_6i_switches(config):
     :param config: non-default switch values for 6i file
     :type config: dict
 
+    :return: dictionary of switch settings
+    :rtype: dictionary of IntEnum class instances
     """
     d = {}
     d['iopt_1'] = IOPT_1(config.get('iopt_1', 0))
@@ -639,6 +737,8 @@ def switch_grid_3(three_i_switches):
     build the lines containing switch information for each 3i file
     :param three_i_switches: switch values for 6i file
     :type three_i_switches: dict
+    :return: switch grid bloack for eq3 input file
+    :rtype: str
     """
     pr = {}
 
@@ -646,15 +746,17 @@ def switch_grid_3(three_i_switches):
         # ### add_gap
         pr[_] = ' ' * (2 - len(str(int(three_i_switches[_])))) + str(int(three_i_switches[_]))
 
-    switches = "\n".join(('*               1    2    3    4    5    6    7    8    9   10',
-                         f'  iopt1-10=     0    0    0   {pr["iopt_4"]}    0    0    0    0    0    0',
-                         f' iopt11-20=    {pr["iopt_11"]}    0    0    0    0    0   {pr["iopt_17"]}    0   {pr["iopt_19"]}    0',
-                         f'  iopg1-10=    {pr["iopg_1"]}   {pr["iopg_2"]}    0    0    0    0    0    0    0    0',
-                          ' iopg11-20=     0    0    0    0    0    0    0    0    0    0',
-                         f' iopr11-20=    {pr["iopr_1"]}   {pr["iopr_2"]}   {pr["iopr_3"]}   {pr["iopr_4"]}   {pr["iopr_5"]}   {pr["iopr_6"]}   {pr["iopr_7"]}   {pr["iopr_8"]}   {pr["iopr_9"]}   {pr["iopr_10"]}',
-                         f' iopr11-20=     0    0    0    0    0    0   {pr["iopr_17"]}    0    0    0',
-                         f'  iodb1-10=    {pr["iodb_1"]}    0   {pr["iodb_3"]}   {pr["iodb_4"]}    0   {pr["iodb_6"]}    0    0    0    0',
-                          ' iodb11-20=     0    0    0    0    0    0    0    0    0    0')) + "\n"
+    switches = "\n".join(
+        ('*               1    2    3    4    5    6    7    8    9   10',
+         f'  iopt1-10=     0    0    0   {pr["iopt_4"]}    0    0    0    0    0    0',
+         f' iopt11-20=    {pr["iopt_11"]}    0    0    0    0    0   {pr["iopt_17"]}    0   {pr["iopt_19"]}    0',
+         f'  iopg1-10=    {pr["iopg_1"]}   {pr["iopg_2"]}    0    0    0    0    0    0    0    0',
+         ' iopg11-20=     0    0    0    0    0    0    0    0    0    0',
+         f' iopr11-20=    {pr["iopr_1"]}   {pr["iopr_2"]}   {pr["iopr_3"]}   {pr["iopr_4"]}   {pr["iopr_5"]}   {pr["iopr_6"]}   {pr["iopr_7"]}   {pr["iopr_8"]}   {pr["iopr_9"]}   {pr["iopr_10"]}',
+         f' iopr11-20=     0    0    0    0    0    0   {pr["iopr_17"]}    0    0    0',
+         f'  iodb1-10=    {pr["iodb_1"]}    0   {pr["iodb_3"]}   {pr["iodb_4"]}    0   {pr["iodb_6"]}    0    0    0    0',
+         ' iodb11-20=     0    0    0    0    0    0    0    0    0    0')
+        ) + "\n"
     return switches
 
 
@@ -663,6 +765,8 @@ def switch_grid_6(six_i_switches):
     build the lines containing switch information for each 3i file
     :param six_i_switches: switch values for 6i file
     :type six_i_switches: dict
+    :return: switch grid bloack for eq6 input file
+    :rtype: str
     """
     pr = {}
 
@@ -670,13 +774,15 @@ def switch_grid_6(six_i_switches):
         # ### add_gap
         pr[_] = ' ' * (2 - len(str(int(six_i_switches[_])))) + str(int(six_i_switches[_]))
 
-    switches = "\n".join(('*               1    2    3    4    5    6    7    8    9   10',
-                         f'  iopt1-10=    {pr["iopt_1"]}   {pr["iopt_2"]}   {pr["iopt_3"]}   {pr["iopt_4"]}   {pr["iopt_5"]}   {pr["iopt_6"]}   {pr["iopt_7"]}    0   {pr["iopt_9"]}   {pr["iopt_10"]}',
-                         f' iopt11-20=    {pr["iopt_11"]}   {pr["iopt_12"]}   {pr["iopt_13"]}   {pr["iopt_14"]}   {pr["iopt_15"]}   {pr["iopt_16"]}   {pr["iopt_17"]}   {pr["iopt_18"]}    0   {pr["iopt_20"]}',
-                         f'  iopr1-10=    {pr["iopr_1"]}   {pr["iopr_2"]}   {pr["iopr_3"]}   {pr["iopr_4"]}   {pr["iopr_5"]}   {pr["iopr_6"]}   {pr["iopr_7"]}   {pr["iopr_8"]}   {pr["iopr_9"]}   {pr["iopr_10"]}',
-                         f' iopr11-20=     0    0    0    0    0    0   {pr["iopr_17"]}    0    0    0',
-                         f'  iodb1-10=    {pr["iodb_1"]}   {pr["iodb_2"]}   {pr["iodb_3"]}   {pr["iodb_4"]}   {pr["iodb_5"]}   {pr["iodb_6"]}   {pr["iodb_7"]}   {pr["iodb_8"]}    0    0',
-                          ' iodb11-20=     0    0    0    0    0    0    0    0    0    0')) + "\n"
+    switches = "\n".join(
+        ('*               1    2    3    4    5    6    7    8    9   10',
+         f'  iopt1-10=    {pr["iopt_1"]}   {pr["iopt_2"]}   {pr["iopt_3"]}   {pr["iopt_4"]}   {pr["iopt_5"]}   {pr["iopt_6"]}   {pr["iopt_7"]}    0   {pr["iopt_9"]}   {pr["iopt_10"]}',
+         f' iopt11-20=    {pr["iopt_11"]}   {pr["iopt_12"]}   {pr["iopt_13"]}   {pr["iopt_14"]}   {pr["iopt_15"]}   {pr["iopt_16"]}   {pr["iopt_17"]}   {pr["iopt_18"]}    0   {pr["iopt_20"]}',
+         f'  iopr1-10=    {pr["iopr_1"]}   {pr["iopr_2"]}   {pr["iopr_3"]}   {pr["iopr_4"]}   {pr["iopr_5"]}   {pr["iopr_6"]}   {pr["iopr_7"]}   {pr["iopr_8"]}   {pr["iopr_9"]}   {pr["iopr_10"]}',
+         f' iopr11-20=     0    0    0    0    0    0   {pr["iopr_17"]}    0    0    0',
+         f'  iodb1-10=    {pr["iodb_1"]}   {pr["iodb_2"]}   {pr["iodb_3"]}   {pr["iodb_4"]}   {pr["iodb_5"]}   {pr["iodb_6"]}   {pr["iodb_7"]}   {pr["iodb_8"]}    0    0',
+         ' iodb11-20=     0    0    0    0    0    0    0    0    0    0')
+        ) + "\n"
     return switches
 
 
@@ -688,7 +794,6 @@ def format_suppress_options(suppress_sp):
     :type suppress_sp: list of strings
     :return: formated text for the 3i files, species suppress section
     :rtype: str
-
     """
     build = ''
     if suppress_sp:
@@ -731,7 +836,6 @@ def format_limits(xi_max):
     :type xi_max: int or float
     :return: formated text for the 6i files, limits section
     :rtype: str
-
     """
     return'\n'.join(
         ['*-----------------------------------------------------------------------------',  # noqa (E501)
@@ -754,24 +858,22 @@ def format_limits(xi_max):
          '    ksplmx=        10000\n'])
 
 
-def build_mineral_rnt(phase, morr, rk1b):
+def build_mineral_rnt(mineral, morr, rk1b):
     """
-    The function builds a 6i reactant block for mineral 'phase' of type jcode = 0.
+    Constructs a 6i reactant block for mineral 'mineral' of type jcode = 0.
+
+    :param mineral: mineral name, much match a solid in the loaded data0 file
+    :param type: str
+    :param morr: moles of reactant available for titration
+    :type morr: numeric
+    :param rk1b: rate dmorr/dXi for reactant titration
+    :type rk1b: numeric
     of moles  = morr, and a titration rate relative to xi=1 of rk1b
+    :return: formated text for 6i reactant block
+    :rtype: str
     """
-
-    # ########### example block ##############
-    #   *-----------------------------------------------------------------------------
-    # reactant= Quartz
-    #    jcode=  0               jreac=  0
-    #     morr=  9.40100E+01      modr=  0.00000E+00
-    #      nsk=  0               sfcar=  0.00000E+00    ssfcar=  0.00000E+00
-    #     fkrc=  0.00000E+00
-    #     nrk1=  1                nrk2=  0
-    #     rkb1=  9.40100E-03      rkb2=  0.00000E+00      rkb3=  0.00000E+00
-
     return '\n'.join(['*-----------------------------------------------------------------------------',  # noqa (E501)
-                      f'  reactant= {phase}',
+                      f'  reactant= {mineral}',
                       '     jcode=  0               jreac=  0',
                       f'      morr=  {format_e(10**morr, 5)}      modr=  0.00000E+00',
                       '       nsk=  0               sfcar=  0.00000E+00    ssfcar=  0.00000E+00',
@@ -780,29 +882,29 @@ def build_mineral_rnt(phase, morr, rk1b):
                       f'       rk1=  {format_e(rk1b, 5)}       rk2=  0.00000E+00       rk3=  0.00000E+00\n'])  # noqa (E501)
 
 
-def build_gas_rnt(phase, morr, rk1b):
+def build_gas_rnt(gas_sp, morr, rk1b):
     """
-    build gas reactant block
+    Build reactant block for gas (jcode = 4)
+
+    :param gas_sp: name of gas reactant. This must come from the gaes loaded from the employed data0
+    :type gas_sp: str
+    :param morr: moles of reactant available for titration
+    :type morr: numeric
+    :param rk1b: rate dmorr/dXi for reactant titration
+    :type rk1b: numeric
+    :return: formated text for 6i reactant block
+    :rtype: str
     """
-
-    # ############ example block ###############
-    # *-----------------------------------------------------------------------------
-    # reactant= CH4(g)
-    # jcode=  4               jreac=  0
-    # morr=  1.50000E-03      modr=  0.00000E+00
-    # nsk=  0               sfcar=  0.00000E+00    ssfcar=  0.00000E+00
-    # fkrc=  0.00000E+00
-    # nrk1=  1                nrk2=  0
-    # rkb1=  1.00000E+00      rkb2=  0.00000E+00      rkb3=  0.00000E+00
-
-    return '\n'.join(['*-----------------------------------------------------------------------------',  # noqa (E501)
-                      f'  reactant= {phase}',
-                      '     jcode=  4               jreac=  0',
-                      f'      morr=  {format_e(10**morr, 5)}      modr=  0.00000E+00',
-                      '       nsk=  0               sfcar=  0.00000E+00    ssfcar=  0.00000E+00',
-                      '      fkrc=  0.00000E+00',
-                      '      nrk1=  1',
-                      f'       rk1=  {format_e(rk1b, 5)}       rk2=  0.00000E+00       rk3=  0.00000E+00\n'])  # noqa (E501)
+    return '\n'.join(
+        ('*-----------------------------------------------------------------------------',
+         f'  reactant= {gas_sp}',
+         '     jcode=  4               jreac=  0',
+         f'      morr=  {format_e(10**morr, 5)}      modr=  0.00000E+00',
+         '       nsk=  0               sfcar=  0.00000E+00    ssfcar=  0.00000E+00',
+         '      fkrc=  0.00000E+00',
+         '      nrk1=  1',
+         f'       rk1=  {format_e(rk1b, 5)}       rk2=  0.00000E+00       rk3=  0.00000E+00\n')
+        )
 
 
 # #################################################################
@@ -817,7 +919,16 @@ class Three_i(object):
 
     def __init__(self, special_basis_switch, three_i_switches, suppress_sp):
         """
-        file.3i template.
+        File.3i template
+
+        :param special_basis_switch: dictionary of old_basis:new_basis pairs. The old basis must be
+            in the basis block of the employed data0 file, and the new_basis species must be in the 
+            auxillary basis block. This swithc occures before the system is evaluated.
+        :type special_basis_switch: dict
+        :param three_i_switches: swtich setings for the all 3i files not set to verbose (huffer)
+        :type three_i_switches: dict
+        :param suppress_sp: otehrwise loaded data0 species to exclude from calculations
+        :type suppress_sp: list of strings
         """
         self.top_piece = "\n".join(
             ('EQ3NR input file name= local',
@@ -852,7 +963,6 @@ class Three_i(object):
 
     def write(self, local_name, v_state, v_basis, cb, suppress_sp, output_details='n'):
         """
-
         Write a 3i file 'local_name' to disk.
 
         :param local_name: file names
@@ -934,15 +1044,9 @@ class Six_i(object):
     6i files class
     """
 
-    def __init__(self,
-                 reactants,
-                 six_i_switches,
-                 xi_max=100,
-                 suppress_min=False,
-                 min_supp_exemp=[],
-                 ):
+    def __init__(self, reactants, six_i_switches, xi_max=100, suppress_min=False, min_supp_exemp=[]):
         """
-        file.6i template.
+        File.6i template.
 
         :param reactants: dictionary of reactant:value pairs. This dictionary has the same structure
             as the camp.target_rnt dict, except it does not contain ranges, as specific values
@@ -999,7 +1103,7 @@ class Six_i(object):
                 'EQ3NR input file name= local',
                 'endit.',
                 f'     jtemp=  {int(self.jtemp)}',
-                f'    tempcb=  {format_e(float(tempcb), 5)}',
+                f'    tempcb=  {format_e(float(temp), 5)}',
                 '      ttk1=  0.00000E+00      ttk2=  0.00000E+00',
                 '    jpress=  0',
                 '    pressb=  0.00000E+00',
@@ -1007,7 +1111,7 @@ class Six_i(object):
                 f'      nrct=  {str(self.reactant_n)}\n']))
 
             fixed_gases = {}
-            if reactant_n > 0:
+            if self.reactant_n > 0:
                 for _ in reactants.keys():
                     if reactants[_][0] == 'ele':
                         build.write(build_special_rnt(_, reactants[_]))
@@ -1047,7 +1151,7 @@ class Six_i(object):
                     build.write(f'     moffg=  {format_e(float(fixed_gases[_][2]), 5)}    xlkffg= {format_e(float(fixed_gases[_][1]), 5)}\n')
 
             build.write(self.end_piece)
-            build.write(pickup_lines)
+            build.write(''.join(pickup_lines))
 
 
 class WorkingDirectory(object):

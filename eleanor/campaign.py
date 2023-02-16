@@ -61,6 +61,7 @@ class Campaign:
     """
     def __init__(self, config, data0_dir):
         self.data0_dir = realpath(data0_dir)
+        print(self.data0_dir)
         # In case we need anything else just store it in _raw
         self._raw = config
         # Metadata
@@ -88,7 +89,6 @@ class Campaign:
 
         if self.model in EQ36_MODEL_SUFFIXES:
             self.model = EQ36_MODEL_SUFFIXES[self.model]
-
         if self.model == 'pitzer':
             self.ThreeI_config['iopg_1'] = 1
         elif self.model == 'davies':

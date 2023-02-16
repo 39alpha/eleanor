@@ -11,6 +11,8 @@ from os.path import splitext
 import pandas as pd
 import sqlite3
 import sys
+from eleanor.hanger.tool_room import determine_ss_kids
+
 
 def establish_database_connection(camp, verbose=False):
     """
@@ -76,7 +78,7 @@ def create_vs_table(conn, camp, elements):
 
     sql_basis = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in list(camp.vs_basis.keys())]) + ','
 
-    sql_ele = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in elements]) + ','
+    sql_ele = ",".join([f'"m_{_}" DOUBLE PRECISION NOT NULL' for _ in elements]) + ','
 
     parts = [sql_info, sql_state, sql_basis, sql_ele]
     if len(camp.target_rnt) > 0:
@@ -143,11 +145,14 @@ def create_es_tables(conn, camp, sp, solids, ss, gases, elements):
     solids = [_ for _ in solids if _ != 'None']
     ss = [_ for _ in ss if _ != 'None']
 
-    create_es3_table(conn, camp, sp, solids, ss, gases, elements)
-    create_es6_table(conn, camp, sp, solids, ss, gases, elements)
+    if len(ss) > 0:
+        ss_kids = determine_ss_kids(camp, ss, solids)
+
+    create_es3_table(conn, camp, sp, solids, ss, ss_kids, gases, elements)
+    create_es6_table(conn, camp, sp, solids, ss, ss_kids, gases, elements)
 
 
-def create_es3_table(conn, camp, sp, solids, ss, gases, elements):
+def create_es3_table(conn, camp, sp, solids, ss, ss_kids, gases, elements):
     """
     Initialize the EQ3 equilibrium table, to be filled from the mined 3o file.
 
@@ -195,12 +200,13 @@ def create_es3_table(conn, camp, sp, solids, ss, gases, elements):
     sql_fk = ' FOREIGN KEY(`ord`) REFERENCES `orders`(`id`), \
                FOREIGN KEY(`uuid`) REFERENCES `vs`(`uuid`)'
 
-    parts = [sql_info, sql_run, sql_state, sql_ele, sql_sp_a, sql_sp_m, sql_sol_qk, sql_gas, sql_ss, sql_fk]
+    parts = [sql_info, sql_run, sql_state, sql_ele, sql_sp_a, sql_sp_m, sql_sol_qk, sql_gas,
+             sql_ss, sql_fk]
     parts = [_ for _ in parts if _ != ',']
     execute_query(conn, ''.join(parts) + ')')
 
 
-def create_es6_table(conn, camp, sp, solids, ss, gases, elements):
+def create_es6_table(conn, camp, sp, solids, ss, ss_kids, gases, elements):
     """
     Initialize the EQ6 equilibrium table, to be filled from the mined 6o file.
 
@@ -247,14 +253,19 @@ def create_es6_table(conn, camp, sp, solids, ss, gases, elements):
     sql_gas = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in
                        [f'f_{_}' for _ in gases]]) + ','
 
-    sql_ss = ",".join([f'"qk_{_}" DOUBLE PRECISION' for _ in ss]) + ','
+    sql_ss_qk = ",".join([f'"qk_{_}" DOUBLE PRECISION' for _ in ss]) + ','
+
+    sql_ss_m = ",".join([f'"m_{_}" DOUBLE PRECISION' for _ in ss]) + ','
+
+    sql_ss_kids_m = ",".join([f'"m_{_}" DOUBLE PRECISION' for _ in ss_kids]) + ','
 
     sql_fk = ' FOREIGN KEY(`ord`) REFERENCES `orders`(`id`), \
                FOREIGN KEY(`uuid`) REFERENCES `vs`(`uuid`)'
 
-    parts = [sql_info, sql_run, sql_state, sql_ele, sql_sp_a, sql_sp_m, sql_sol_qk, sql_sol_m, sql_gas, sql_ss, sql_fk]
+    parts = [sql_info, sql_run, sql_state, sql_ele, sql_sp_a, sql_sp_m, sql_sol_qk, sql_sol_m,
+             sql_gas, sql_ss_qk, sql_ss_m, sql_ss_kids_m, sql_fk]
     parts = [_ for _ in parts if _ != ',']
-    execute_query(conn, ''.join(parts) + ')')    # execute_query(conn, ''.join(parts) + ')')
+    execute_query(conn, ''.join(parts) + ')')
 
 
 def get_order_number(conn, camp, insert=True):

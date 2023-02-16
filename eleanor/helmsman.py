@@ -12,6 +12,7 @@ import sys
 
 import numpy as np
 import pandas as pd
+from enum import IntEnum
 
 from tqdm import tqdm
 from os.path import join, realpath
@@ -25,11 +26,11 @@ from .hanger.db_comms import establish_database_connection, retrieve_records, ge
 from .hanger.eq36 import eq3, eq6
 from .hanger.data0_tools import determine_species_set
 from .hanger.tool_room import mk_check_del_directory, mine_pickup_lines, grab_float
-from .hanger.tool_room import grab_lines, grab_str, WorkingDirectory
+from .hanger.tool_room import grab_lines, grab_str, determine_ss_kids, WorkingDirectory
 
 
 def Helmsman(camp, ord_id=None, num_cores=os.cpu_count(),
-             keep_every_n_files=1000, quiet=False,
+             keep_every_n_files=100, quiet=False,
              no_progress=False):
     """
     Keeping with the naval terminology: The Navigator charts where to go.
@@ -64,6 +65,9 @@ def Helmsman(camp, ord_id=None, num_cores=os.cpu_count(),
         conn = establish_database_connection(camp)
 
         elements, aq_sp, solids, ss, gasses = determine_species_set(path='huffer/')
+
+        if len(ss) > 0:
+            ss_kids = determine_ss_kids(camp, ss, solids)
 
         # retrieve issued order 'ord_id'
         order_query = ('SELECT * FROM `vs` WHERE `code` = 0 '
@@ -103,15 +107,16 @@ def Helmsman(camp, ord_id=None, num_cores=os.cpu_count(),
 
     if num_cores == 1:
         for r in rec:
-            sailor(camp, scratch_path, vs_queue, es3_queue, es6_queue, date, r, elements, solids, ss,
-                   vs_col_names, es3_col_names, es6_col_names, keep_every_n_files)
+            sailor(camp, scratch_path, vs_queue, es3_queue, es6_queue, date, r, elements, solids,
+                   ss, ss_kids, vs_col_names, es3_col_names, es6_col_names, keep_every_n_files)
         keep_running_yoeman = multiprocessing.Value('b', False)
         yoeman(camp, keep_running_yoeman, vs_queue, es3_queue, es6_queue, len(rec), no_progress)
 
     elif num_cores > 1:
         keep_running_yoeman = multiprocessing.Value('b', True)
         yoeman_process = multiprocessing.Process(target=yoeman, args=(camp, keep_running_yoeman,
-                                                 vs_queue, es3_queue, es6_queue, len(rec), no_progress))
+                                                 vs_queue, es3_queue, es6_queue, len(rec),
+                                                 no_progress))
         yoeman_process.start()
         with multiprocessing.Pool(processes=num_cores) as pool:
             _ = pool.starmap(sailor, zip([camp] * len(rec),
@@ -124,6 +129,7 @@ def Helmsman(camp, ord_id=None, num_cores=os.cpu_count(),
                                          [elements] * len(rec),
                                          [solids] * len(rec),
                                          [ss] * len(rec),
+                                         [ss_kids] * len(rec),
                                          [vs_col_names] * len(rec),
                                          [es3_col_names] * len(rec),
                                          [es6_col_names] * len(rec),
@@ -254,7 +260,7 @@ class SailorPaths(object):
 
 
 def sailor(camp, scratch_path, vs_queue, es3_queue, es6_queue, date, dat, elements, solids, ss,
-           vs_col_names, es3_col_names, es6_col_names, keep_every_n_files=10000):
+           ss_kids, vs_col_names, es3_col_names, es6_col_names, keep_every_n_files=10000):
     """
     Each sailor manages the execution of all geochemically model steps associated
     with a single vs point in the Variable Space (`vs`).
@@ -293,6 +299,9 @@ def sailor(camp, scratch_path, vs_queue, es3_queue, es6_queue, date, dat, elemen
     :param ss: list of loaded solid solutions
     :type ss: list of strings
 
+    :param ss_kids: the endmemebr phase names associated with loaded solid solutions
+    :type ss_kids: list of strings
+
     :param vs_col_names: column headers in vs table. If a value in the eq3/6 run files is not in
                          the column names, then it is not captured.
     :type vs_col_names: list of strings
@@ -311,6 +320,7 @@ def sailor(camp, scratch_path, vs_queue, es3_queue, es6_queue, date, dat, elemen
                                this argument is less than 1, then no files are kept.
     :type keep_every_n_files: int
     """
+
     master_dict = {}
     for i, j in zip(vs_col_names, dat):
         master_dict[i] = j
@@ -358,8 +368,8 @@ def sailor(camp, scratch_path, vs_queue, es3_queue, es6_queue, date, dat, elemen
 
             eq6(data1_file, paths.sixi)
 
-            sixodf = mine_6o(camp, date, elements, solids, ss, paths.sixo, master_dict, es6_col_names)
-            threeodf = mine_3o(camp, date, elements, solids, ss, paths.threeo, master_dict, es3_col_names)
+            threeodf = mine_3o(camp, date, elements, solids, ss, ss_kids, paths.threeo, master_dict, es3_col_names)
+            sixodf = mine_6o(camp, date, elements, solids, ss, ss_kids, paths.sixo, master_dict, es6_col_names)
 
             es3_queue.put_nowait(threeodf)
             es6_queue.put_nowait(sixodf)
@@ -369,227 +379,7 @@ def sailor(camp, scratch_path, vs_queue, es3_queue, es6_queue, date, dat, elemen
             return reset_sailor(paths, vs_queue, master_dict['uuid'], e.code)
 
 
-def mine_6o(camp, date, elements, solids, ss, file, master_dict, col_names):
-    """
-    open and mine the eq6 output file ('file'.6o) for all of the run information
-    with associated columns in the ES table.
-
-    :param camp: loaded campaign
-    :type camp: :class:`Campaign` instance
-
-    :param date: birthdate of order
-    :type data: str
-
-    :param elements: list of loaded element, excepting O and H
-    :type elements: list of strings
-
-    :param ss: list of loaded solid solutions
-    :type ss: list of strings
-
-    :param file: 'file'.6o file name
-    :type file: str
-
-    :param build_dict: all vs specific data needed by the sailor to complete mission.
-    :type build_dict: dictionary
-
-    :param col_names: ES table columns
-    :type col_names: list of strings
-    """
-    build_dict = {k: [] for k in col_names}
-    build_dict['extended_alk'] = [np.nan]  # undefined for systems over 50 in EQ36 output
-
-    for _ in solids:
-        build_dict[f'm_{_}'] = [0.0]  # mols precip must be preset, as its field is not inculsive
-
-    try:
-        lines = grab_lines(file)  # 6o file
-
-        run_code = RunCode.NOT_RUN
-        search_for_xi = False
-        for i in range(len(lines) - 1, 0, -1):
-            # ## search from bottom of file
-            if '---  The reaction path has terminated early ---' in lines[i]:
-                raise EleanorException('eq6 reaction path terminated early',
-                                       code=RunCode.EQ6_EARLY_TERMINATION)
-            elif '---  The reaction path has terminated normally ---' in lines[i]:
-                run_code = RunCode.SUCCESS
-                # Healthy file. Search for index of the last xi step
-                search_for_xi = True
-            elif search_for_xi and '                Log Xi=' in lines[i]:
-                # The first appearance of this, when searching from the bottom
-                # is the final EQ step of interest for populating ES.
-                last_xi_step_begins = i  # grab index for later.
-                break
-
-        if run_code == RunCode.NOT_RUN:
-            # run code has not be altered, therefore unknown error
-            # build_df = pd.DataFrame.from_dict(build_dict)
-            raise EleanorException('no reaction path termination status found',
-                                   code=RunCode.FILE_ERROR_6O)
-
-        # populate ES table
-        if camp.target_rnt != {}:
-            for i in range(len(lines)):
-                if '   Affinity of the overall irreversible reaction=' in lines[i]:
-                    # the first instance of this line is xi = 0.0
-                    # (initial disequilibria with target mineral)
-                    build_dict["initial_aff"] = [grab_float(lines[i], -2)]
-                    break
-        else:
-            build_dict["initial_aff"] = [0.0]
-
-        # search from beginning of last xi step (set in last_xi_step_begins)
-        # grab xi_max. since initial index contains log Xi.
-        build_dict['xi_max'] = [grab_float(lines[last_xi_step_begins], -1)]
-
-        for i in range(last_xi_step_begins, len(lines)):
-            if re.findall('^\n', lines[i]):
-                pass
-
-            elif ' Temperature=' in lines[i]:
-                build_dict['T_cel'] = [grab_float(lines[i], -2)]
-
-            elif ' Pressure=' in lines[i]:
-                build_dict['P_bar'] = [grab_float(lines[i], -2)]
-
-            elif ' --- Elemental Composition' in lines[i]:
-                x = 4
-                while not re.findall('^\n', lines[i + x]):
-                    if grab_str(lines[i + x], 0) in elements:
-                        # log molality
-                        this_dat = [np.round(np.log10(grab_float(lines[i + x], -1)), 6)]
-                        build_dict['m_{}'.format(grab_str(lines[i + x], 0))] = this_dat
-                        x += 1
-                    else:
-                        x += 1
-
-            elif ' NBS pH scale         ' in lines[i]:
-                build_dict['pH'] = [grab_float(lines[i], -4)]
-
-            elif '                Log oxygen fugacity=' in lines[i]:
-                build_dict['fO2'] = [grab_float(lines[i], -1)]
-
-            elif '              Log activity of water=' in lines[i]:
-                build_dict['a_H2O'] = [grab_float(lines[i], -1)]
-
-            elif '                 Ionic strength (I)=' in lines[i]:
-                build_dict['ionic'] = [grab_float(lines[i], -2)]
-
-            elif '                 Solutes (TDS) mass=' in lines[i]:
-                tds = grab_float(lines[i], -2)
-                if len(camp.salinity) > 0:
-                    # ### limited salinity sought
-                    if tds > max(camp.salinity) or tds < min(camp.salinity):
-                        raise EleanorException('total disolved solute is outside salinity window',
-                                               code=RunCode.OUTSIDE_SALINITY_WINDOW)
-                    else:
-                        build_dict['tds'] = [tds]
-                else:
-                    build_dict['tds'] = [tds]
-
-            elif '              Aqueous solution mass=' in lines[i]:
-                build_dict['soln_mass'] = [grab_float(lines[i], -2)]
-
-            elif '           --- Extended Total Alkalinity ---' in lines[i]:
-                build_dict['extended_alk'] = [grab_float(lines[i + 2], 0)]
-
-            elif '--- Distribution of Aqueous Solute Species ---' in lines[i]:
-                x = 4
-                while not re.findall('^\n', lines[i + x]):
-                    if grab_str(lines[i + x], 0) != 'O2(g)':
-                        # ### -1 position is log activity, -3 is log molality
-                        build_dict[f'm_{grab_str(lines[i + x], 0)}'] = [grab_float(
-                            lines[i + x], -3)]
-                        build_dict[f'a_{grab_str(lines[i + x], 0)}'] = [grab_float(
-                            lines[i + x], -1)]
-                        x += 1
-                    else:
-                        x += 1
-
-            elif '--- Summary of Solid Phases (ES) ---' in lines[i]:
-                x = 4
-                while True:
-                    if re.findall('^\n', lines[i + x]) and re.findall('^\n', lines[i + x + 1]):
-                        # ### two blank lines signifies end of block
-                        break
-
-                    elif re.findall('^\n', lines[i + x]):
-                        # ### single blank lines separate solids from solid slutions reporting
-                        x += 1
-
-                    elif 'None' not in lines[i + x]:
-                        # ### mols
-                        build_dict[f'm_{lines[i + x][:25].strip()}'] = [grab_float(lines[i + x], -3)]
-                        x += 1
-
-                    else:
-                        x += 1
-
-            elif '--- Saturation States of Pure Solids ---' in lines[i]:
-                x = 4
-                while not re.findall('^\n', lines[i + x]):
-                    # ## log Q/K
-                    if re.findall(r'\*{4}$', lines[i + x]):
-                        # ## '******'' fills in the value region for numbers
-                        # ## lower than -999.9999. Replace with boundary condition
-                        build_dict[f'qk_{lines[i + x][:30].strip()}'] = [float(-999.9999)]
-                        x += 1
-                    elif 'None' not in lines[i + x]:
-                        build_dict[f'qk_{lines[i + x][:30].strip()}'] = [
-                            float(lines[i + x][31:44])]
-                        x += 1
-                    else:
-                        x += 1
-
-            elif camp.SS and ' --- Saturation States of Solid Solutions ---' in lines[i]:
-                x = 4
-                while not re.findall('^\n', lines[i + x]):
-                    # ## log Q/K
-                    if re.findall(r'\*{4}$', lines[i + x]):
-                        # ## '******' fills in the value region for numbers
-                        # ## lower than -999.9999. Replace with boundary condition
-                        build_dict[f'qk_{lines[i + x][:30].strip()}'] = [float(-999.9999)]
-                        x += 1
-                    elif 'None' not in lines[i + x]:
-                        build_dict[f'qk_{lines[i + x][:30].strip()}'] = [
-                            float(lines[i + x][44:55])]
-                        x += 1
-                    else:
-                        x += 1
-
-            elif '    --- Fugacities ---' in lines[i]:
-                x = 4
-                while not re.findall('^\n', lines[i + x]):
-
-                    if 'None' not in lines[i + x]:  # log f
-                        if re.findall(r'\*{4}', lines[i + x]):
-                            # ## '******'' fills in the value region for numbers
-                            # ## lower than -999.9999. Replace with boundary condition
-                            build_dict[f'f_{lines[i + x][:30].strip()}'] = [float(-999.9999)]
-                            x += 1
-                        else:
-                            build_dict[f'f_{grab_str(lines[i + x], 0)}'] = [
-                                float(lines[i + x][28:41])]
-                            x += 1
-                    else:
-                        x += 1
-                break
-
-        build_dict['uuid'] = [master_dict['uuid']]
-        build_dict['ord'] = [master_dict['ord']]
-        build_dict['file'] = [master_dict['file']]
-        build_dict['run'] = [date]
-
-        # ## reorganize columns to match es table
-        build_df = pd.DataFrame.from_dict(build_dict)
-
-        build_df = build_df[col_names]
-
-        return build_df
-    except FileNotFoundError as e:
-        raise EleanorFileException(e, code=RunCode.NO_6O_fILE)
-
-def mine_3o(camp, date, elements, solids, ss, file, master_dict, col_names):
+def mine_3o(camp, date, elements, solids, ss, ss_kids, file, master_dict, col_names):
     """
     open and mine the eqe output file ('file'.3o) for all of the run information
     with associated columns in the es3 table.
@@ -700,6 +490,22 @@ def mine_3o(camp, date, elements, solids, ss, file, master_dict, col_names):
                     else:
                         x += 1
 
+            elif camp.SS and ' --- Saturation States of Solid Solutions ---' in lines[i]:
+                x = 4
+                while not re.findall('^\n', lines[i + x]):
+                    # ## log Q/K
+                    if re.findall(r'\*{4}$', lines[i + x]):
+                        # ## '******' fills in the value region for numbers
+                        # ## lower than -999.9999. Replace with boundary condition
+                        build_dict[f'qk_{lines[i + x][:30].strip()}'] = [float(-999.9999)]
+                        x += 1
+                    elif 'None' not in lines[i + x]:
+                        build_dict[f'qk_{lines[i + x][:30].strip()}'] = [
+                            float(lines[i + x][44:55])]
+                        x += 1
+                    else:
+                        x += 1
+
             elif '    --- Fugacities ---' in lines[i]:
                 x = 4
                 while not re.findall('^\n', lines[i + x]):
@@ -738,6 +544,240 @@ def mine_3o(camp, date, elements, solids, ss, file, master_dict, col_names):
         return build_df[kept_columns]
     except FileNotFoundError as e:
         raise EleanorFileException(e, code=RunCode.NO_3O_FILE)
+
+
+def mine_6o(camp, date, elements, solids, ss, ss_kids, file, master_dict, col_names):
+    """
+    open and mine the eq6 output file ('file'.6o) for all of the run information
+    with associated columns in the ES table.
+
+    :param camp: loaded campaign
+    :type camp: :class:`Campaign` instance
+
+    :param date: birthdate of order
+    :type data: str
+
+    :param elements: list of loaded element, excepting O and H
+    :type elements: list of strings
+
+    :param ss: list of loaded solid solutions
+    :type ss: list of strings
+
+    :param file: 'file'.6o file name
+    :type file: str
+
+    :param build_dict: all vs specific data needed by the sailor to complete mission.
+    :type build_dict: dictionary
+
+    :param col_names: ES table columns
+    :type col_names: list of strings
+    """
+    build_dict = {k: [] for k in col_names}
+    build_dict['extended_alk'] = [np.nan]  # undefined for systems over 50 in EQ36 output
+
+    for _ in solids + ss + ss_kids:
+        build_dict[f'm_{_}'] = [0.0]  # mols precip must be preset, as its field is not inculsive
+
+    try:
+        lines = grab_lines(file)  # 6o file
+
+        run_code = RunCode.NOT_RUN
+        search_for_xi = False
+        for i in range(len(lines) - 1, 0, -1):
+            # ## search from bottom of file
+            if '---  The reaction path has terminated early ---' in lines[i]:
+                raise EleanorException('eq6 reaction path terminated early',
+                                       code=RunCode.EQ6_EARLY_TERMINATION)
+            elif '---  The reaction path has terminated normally ---' in lines[i]:
+                run_code = RunCode.SUCCESS
+                # Healthy file. Search for index of the last xi step
+                search_for_xi = True
+            elif search_for_xi and '                Log Xi=' in lines[i]:
+                # The first appearance of this, when searching from the bottom
+                # is the final EQ step of interest for populating ES.
+                last_xi_step_begins = i  # grab index for later.
+                break
+
+        if run_code == RunCode.NOT_RUN:
+            # run code has not be altered, therefore unknown error
+            # build_df = pd.DataFrame.from_dict(build_dict)
+            raise EleanorException('no reaction path termination status found',
+                                   code=RunCode.FILE_ERROR_6O)
+
+        # populate ES table
+        if camp.target_rnt != {}:
+            for i in range(len(lines)):
+                if '   Affinity of the overall irreversible reaction=' in lines[i]:
+                    # the first instance of this line is xi = 0.0
+                    # (initial disequilibria with target mineral)
+                    build_dict["initial_aff"] = [grab_float(lines[i], -2)]
+                    break
+        else:
+            build_dict["initial_aff"] = [0.0]
+
+        # search from beginning of last xi step (set in last_xi_step_begins)
+        # grab xi_max. since initial index contains log Xi.
+        build_dict['xi_max'] = [grab_float(lines[last_xi_step_begins], -1)]
+
+        for i in range(last_xi_step_begins, len(lines)):
+            if re.findall('^\n', lines[i]):
+                pass
+
+            elif ' Temperature=' in lines[i]:
+                build_dict['T_cel'] = [grab_float(lines[i], -2)]
+
+            elif ' Pressure=' in lines[i]:
+                build_dict['P_bar'] = [grab_float(lines[i], -2)]
+
+            elif ' --- Elemental Composition' in lines[i]:
+                x = 4
+                while not re.findall('^\n', lines[i + x]):
+                    if grab_str(lines[i + x], 0) in elements:
+                        # log molality
+                        this_dat = [np.round(np.log10(grab_float(lines[i + x], -1)), 6)]
+                        build_dict['m_{}'.format(grab_str(lines[i + x], 0))] = this_dat
+                        x += 1
+                    else:
+                        x += 1
+
+            elif ' NBS pH scale         ' in lines[i]:
+                build_dict['pH'] = [grab_float(lines[i], -4)]
+
+            elif '                Log oxygen fugacity=' in lines[i]:
+                build_dict['fO2'] = [grab_float(lines[i], -1)]
+
+            elif '              Log activity of water=' in lines[i]:
+                build_dict['a_H2O'] = [grab_float(lines[i], -1)]
+
+            elif '                 Ionic strength (I)=' in lines[i]:
+                build_dict['ionic'] = [grab_float(lines[i], -2)]
+
+            elif '                 Solutes (TDS) mass=' in lines[i]:
+                tds = grab_float(lines[i], -2)
+                if len(camp.salinity) > 0:
+                    # ### limited salinity sought
+                    if tds > max(camp.salinity) or tds < min(camp.salinity):
+                        raise EleanorException('total disolved solute is outside salinity window',
+                                               code=RunCode.OUTSIDE_SALINITY_WINDOW)
+                    else:
+                        build_dict['tds'] = [tds]
+                else:
+                    build_dict['tds'] = [tds]
+
+            elif '              Aqueous solution mass=' in lines[i]:
+                build_dict['soln_mass'] = [grab_float(lines[i], -2)]
+
+            elif '           --- Extended Total Alkalinity ---' in lines[i]:
+                build_dict['extended_alk'] = [grab_float(lines[i + 2], 0)]
+
+            elif '--- Distribution of Aqueous Solute Species ---' in lines[i]:
+                x = 4
+                while not re.findall('^\n', lines[i + x]):
+                    if grab_str(lines[i + x], 0) != 'O2(g)':
+                        # ### -1 position is log activity, -3 is log molality
+                        build_dict[f'm_{grab_str(lines[i + x], 0)}'] = [grab_float(
+                            lines[i + x], -3)]
+                        build_dict[f'a_{grab_str(lines[i + x], 0)}'] = [grab_float(
+                            lines[i + x], -1)]
+                        x += 1
+                    else:
+                        x += 1
+
+            elif '--- Summary of Solid Phases (ES) ---' in lines[i]:
+                x = 4
+                parent = None
+                kid = None
+                if 'None' not in lines[i + x]:
+
+                    while True:
+                        if re.findall('^\n', lines[i + x]) and re.findall('^\n', lines[i + x + 1]):
+                            # ### two blank lines signifies end of block
+                            break
+
+                        elif re.findall('^\n', lines[i + x]):
+                            # ### single blank lines separate solids from solid slutions reporting
+                            parent = None
+                            x += 1
+
+                        elif re.findall('^ [^ ]', lines[i + x]):
+                            # ### pure phases and solid solutions parents
+                            parent = lines[i + x][:25].strip()
+                            build_dict[f'm_{lines[i + x][:25].strip()}'] = [grab_float(lines[i + x], -3)]
+                            x += 1
+
+                        elif re.findall('^   [^ ]', lines[i + x]):
+                            # ### solid solution endmember. Grab with parent association
+                            kid = lines[i + x][:25].strip()
+                            build_dict[f'm_{kid}_{parent}'] = [grab_float(lines[i + x], -3)]
+                            kid = None
+                            x += 1
+
+                        else:
+                            x += 1
+
+            elif '--- Saturation States of Pure Solids ---' in lines[i]:
+                x = 4
+                while not re.findall('^\n', lines[i + x]):
+                    # ## log Q/K
+                    if re.findall(r'\*{4}$', lines[i + x]):
+                        # ## '******'' fills in the value region for numbers
+                        # ## lower than -999.9999. Replace with boundary condition
+                        build_dict[f'qk_{lines[i + x][:30].strip()}'] = [float(-999.9999)]
+                        x += 1
+                    elif 'None' not in lines[i + x]:
+                        build_dict[f'qk_{lines[i + x][:30].strip()}'] = [
+                            float(lines[i + x][31:44])]
+                        x += 1
+                    else:
+                        x += 1
+
+            elif camp.SS and ' --- Saturation States of Solid Solutions ---' in lines[i]:
+                x = 4
+                while not re.findall('^\n', lines[i + x]):
+                    # ## log Q/K
+                    if re.findall(r'\*{4}$', lines[i + x]):
+                        # ## '******' fills in the value region for numbers
+                        # ## lower than -999.9999. Replace with boundary condition
+                        build_dict[f'qk_{lines[i + x][:30].strip()}'] = [float(-999.9999)]
+                        x += 1
+                    elif 'None' not in lines[i + x]:
+                        build_dict[f'qk_{lines[i + x][:30].strip()}'] = [
+                            float(lines[i + x][44:55])]
+                        x += 1
+                    else:
+                        x += 1
+
+            elif '    --- Fugacities ---' in lines[i]:
+                x = 4
+                while not re.findall('^\n', lines[i + x]):
+
+                    if 'None' not in lines[i + x]:  # log f
+                        if re.findall(r'\*{4}', lines[i + x]):
+                            # ## '******'' fills in the value region for numbers
+                            # ## lower than -999.9999. Replace with boundary condition
+                            build_dict[f'f_{lines[i + x][:30].strip()}'] = [float(-999.9999)]
+                            x += 1
+                        else:
+                            build_dict[f'f_{grab_str(lines[i + x], 0)}'] = [
+                                float(lines[i + x][28:41])]
+                            x += 1
+                    else:
+                        x += 1
+                break
+
+        build_dict['uuid'] = [master_dict['uuid']]
+        build_dict['ord'] = [master_dict['ord']]
+        build_dict['file'] = [master_dict['file']]
+        build_dict['run'] = [date]
+
+        build_df = pd.DataFrame.from_dict(build_dict)
+
+        build_df = build_df[col_names]
+
+        return build_df
+    except FileNotFoundError as e:
+        raise EleanorFileException(e, code=RunCode.NO_6O_fILE)
+
 
 def yoeman(camp, keep_running, write_vs_q, write_es3_q, write_es6_q, num_points, no_progress=False):
     """

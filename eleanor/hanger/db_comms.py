@@ -472,7 +472,7 @@ def retrieve_combined_records(camp_path, vs_cols, es3_cols, es6_cols, limit=None
 
     conn = sqlite3.connect(f'{camp_path}/campaign.sql')
 
-    if len(es3_cols) == 0 & len(es6_cols) == 0:
+    if len(es3_cols) == 0 and len(es6_cols) == 0:
         query = f"SELECT `vs`.`{'`, `vs`.`'.join(vs_cols)}` FROM `vs`"
 
     elif len(es3_cols) == 0:

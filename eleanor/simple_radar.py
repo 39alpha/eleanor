@@ -54,7 +54,9 @@ def Radar(camp, x_sp, y_sp, z_sp='#000000', thought_process='', x_rng=None,
     :param transparent: make backgroun on figure transparent?
     :type transparent: boolean
     """
-
+    print(x_sp)
+    print(y_sp)
+    print(z_sp)
     # ###  ploting
     font = {'family': 'andale mono', 'size': 8}
     matplotlib.rc('font', **font)
@@ -172,7 +174,7 @@ def Radar(camp, x_sp, y_sp, z_sp='#000000', thought_process='', x_rng=None,
                 new_var = new_var.replace('{', '').replace('}', '')
                 the_math = the_math.replace('{', 'df["').replace('}', '"]')
                 df[new_var] = eval(the_math)
-
+        print(df)
         # ### process plot
         fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(5, 9), tight_layout=True)
 

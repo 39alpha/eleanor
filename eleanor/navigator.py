@@ -73,12 +73,8 @@ def Navigator(this_campaign, quiet=False):
     and thus contains enough information to execute eq3 and eq6, depending on
     the praticulars of the loaded campaign.
 
-    Currently only two VS point distributions are supported.
-    (1) :param:`'this_campaign.distro'` == 'BF'
-        Brute Force, which calculates evenily spaced points for all non-fixed
-        dimensions.
-
-    (2) :param:`'this_campaign.distro'` == 'random'
+    Currently only one VS point distributions is supported.
+    (1) :param:`'this_campaign.distro'` == 'random'
         Which randomily selects points for the non-fixed dimensions.
 
     :param this_campaign: loaded campaign
@@ -115,9 +111,10 @@ def Navigator(this_campaign, quiet=False):
             orders = random_uniform_order(this_campaign, date, order_number, file_number,
                                           this_campaign.reso, elements, quiet=quiet)
 
-        elif this_campaign.distro == 'BF':
-            orders = brute_force_order(this_campaign, date, order_number, file_number, elements,
-                                       quiet=quiet)
+        else:
+            print(f'vs_distro: {this_campaign.distro} is not')
+            print('supported at this time. Only "random"')
+            sys.exit()
 
         # Send dataframe containing new orders to postgres database
         orders_to_sql(conn, 'vs', order_number, orders, quiet=quiet)
@@ -273,37 +270,6 @@ def random_uniform_order(camp, date, ord, file_number, order_size, elements, pre
     df = calculate_ele_totals(d0, df, elements, order_size, precision)
 
     return df
-
-
-def brute_force_order(camp, date, ord, file_number, elements, precision=6, quiet=False):
-    """
-    Generate evenily spaced points in VS
-
-    :param camp: loaded campaign
-    :type camp: :class:`Campaign` instance
-
-    :param date: birthdate of order
-    :type data: str
-
-    :param ord: the order id, relative to other orders issued for the loaded campagin
-    :type ord: int
-
-    :param file_number: the file number to start from
-    :type file_number: int
-
-    :param elements: list of loaded element, excepting O and H
-    :type elements: list
-
-    :param precision: number of digits recorded in vs table
-    :type precision: int
-
-    """
-    raise NotImplementedError(
-        '''
-        With the move to general data0/data1 handling, we aren't sure how we want
-        to implement evenly-spaced VS points in the T-S subspace.
-        '''
-    )
 
 
 def build_basis(camp, precision, n):

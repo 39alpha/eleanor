@@ -30,7 +30,7 @@ from .hanger.tool_room import grab_lines, grab_str, determine_ss_kids, WorkingDi
 
 
 def Helmsman(camp, ord_id=None, num_cores=os.cpu_count(),
-             keep_every_n_files=100, quiet=False,
+             keep_every_n_files=10000, quiet=False,
              no_progress=False):
     """
     Keeping with the naval terminology: The Navigator charts where to go.
@@ -66,6 +66,7 @@ def Helmsman(camp, ord_id=None, num_cores=os.cpu_count(),
 
         elements, aq_sp, solids, ss, gasses = determine_species_set(path='huffer/')
 
+        ss_kids = []
         if len(ss) > 0:
             ss_kids = determine_ss_kids(camp, ss, solids)
 
@@ -461,6 +462,10 @@ def mine_3o(camp, date, elements, solids, ss, ss_kids, file, master_dict, col_na
             elif '           --- Extended Total Alkalinity ---' in lines[i]:
                 build_dict['extended_alk'] = [grab_float(lines[i + 2], 0)]
 
+            elif '         Charge imbalance=' in lines[i]:
+                # ### eq/kg.H2O
+                build_dict['charge_imbalance_eq'] = [grab_float(lines[i], -1)]
+
             elif '--- Distribution of Aqueous Solute Species ---' in lines[i]:
                 x = 4
                 while not re.findall('^\n', lines[i + x]):
@@ -669,6 +674,10 @@ def mine_6o(camp, date, elements, solids, ss, ss_kids, file, master_dict, col_na
 
             elif '           --- Extended Total Alkalinity ---' in lines[i]:
                 build_dict['extended_alk'] = [grab_float(lines[i + 2], 0)]
+
+            elif '        --- Aqueous Solution Charge Balance ---' in lines[i]:
+                # ### Actual charge imbalance eq/kg.H2O
+                build_dict['charge_imbalance_eq'] = [grab_float(lines[i + 2], -2)]
 
             elif '--- Distribution of Aqueous Solute Species ---' in lines[i]:
                 x = 4

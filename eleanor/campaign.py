@@ -27,7 +27,8 @@ class Campaign:
     Navigator and Helmsman are run.
 
     A Campaign can be initialized by either providing a dictionary
-    configuration or using the :meth:`from_json` method to load
+    configuration or using the :meth:`create_env
+    ` method to load
     from a JSON-formatted file.
 
     The following keys must exist in the dictionary or JSON file:
@@ -71,7 +72,15 @@ class Campaign:
 
         # modelling data
         self.special_basis_switch = self._raw.get("special basis switch", {})
-        self.target_rnt = self._raw['reactant']
+        self.target_rnt = self._raw.get('reactant', {})
+        rnt_types = [self.target_rnt[_][0] for _ in self.target_rnt]
+        for _ in rnt_types:
+            if _ not in ['mineral', 'gas', 'fixed_gas']:
+                print(f'\nReactant type "{_}" not supported.')
+                print('  Reactants must a "mineral", "gas", or "fixed gas"')
+                print('  at this time.')
+                sys.exit()
+
         self.suppress_sp = self._raw['suppress sp']
         self.suppress_min = self._raw['suppress min']
         self.min_supp_exemp = self._raw['suppress min exemptions']

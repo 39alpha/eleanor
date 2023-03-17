@@ -159,10 +159,7 @@ def huffer(conn, camp, quiet=False):
         state_dict = {}
         for _ in camp.vs_state.keys():
             if _ == 'fO2':
-                if type(camp.vs_state[_] == str):
-                    # if isinstance(camp.vs_state['fO2'], IntEnum):
-                    # ### sp constraint
-                    # state_dict[_] = int(camp.vs_state['fO2'])
+                if type(camp.vs_state[_]) == str:
                     state_dict[_] = camp.vs_state[_]
                 else:
                     state_dict[_] = np.mean(camp.vs_state[_])
@@ -171,7 +168,7 @@ def huffer(conn, camp, quiet=False):
 
         state_dict['T_cel'] = T
         state_dict['T_bar'] = P
-        
+
         basis_dict = {}
         for _ in camp.vs_basis.keys():
             basis_dict[_] = np.mean(camp.vs_basis[_])
@@ -179,20 +176,6 @@ def huffer(conn, camp, quiet=False):
         camp.local_3i.write('test.3i', state_dict, basis_dict, camp.cb, camp.suppress_sp, output_details='v')
         data1_file = os.path.realpath(os.path.join(camp.data1_dir, curve.data1file))
         out, err = eq3(data1_file, 'test.3i')
-
-        # ### add 6i test to huffer
-        # pickup = mine_pickup_lines('.', 'test.3p', 's')
-        # rnt_dict = {}
-        # if camp.target_rnt != {}:
-        #     rnt_keys = list(camp.target_rnt.keys())
-        #     for i in range(len(rnt_keys)):
-        #         name = rnt_keys[i]
-        #         rnt_type = camp.target_rnt[name][0]
-        #         morr = np.mean(camp.target_rnt[name][1])
-        #         rkb1 = np.mean(camp.target_rnt[name][2])
-        #         rnt_dict[name] = [rnt_type, morr, rkb1]
-        # camp.local_6i.write('test.6i', rnt_dict, pickup, state_dict['T_cel'])
-        # out, err = eq6(data1_file, 'test.6i')
 
         try:
             _ = grab_lines('test.3o')

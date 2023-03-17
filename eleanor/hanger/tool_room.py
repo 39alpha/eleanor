@@ -1113,9 +1113,7 @@ class Six_i(object):
             fixed_gases = {}
             if self.reactant_n > 0:
                 for _ in reactants.keys():
-                    if reactants[_][0] == 'ele':
-                        build.write(build_special_rnt(_, reactants[_]))
-                    elif reactants[_][0] == 'solid':
+                    if reactants[_][0] == 'mineral':
                         build.write(build_mineral_rnt(_, reactants[_][1], reactants[_][2]))
                     elif reactants[_][0] == 'gas':
                         build.write(build_gas_rnt(_, reactants[_][1], reactants[_][2]))
@@ -1134,7 +1132,7 @@ class Six_i(object):
 
             # exemptions to mineral suppressions
             if len(self.min_supp_exemp) != 0:
-                build.write(f'    nxopex=  {str(int(len(self.min_supp_exemp)))}\n')
+                build.write(f'    nxopex= {str(int(len(self.min_supp_exemp)))}\n')
                 for _ in self.min_supp_exemp:
                     build.write(f'   species= {_}\n')
 

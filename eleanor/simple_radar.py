@@ -58,7 +58,7 @@ def Radar(camp, x_sp, y_sp, z_sp='#000000', thought_process='', x_rng=None,
     print(y_sp)
     print(z_sp)
     # ###  ploting
-    font = {'family': 'andale mono', 'size': 8}
+    font = {'family': 'andale mono', 'size': 10}
     matplotlib.rc('font', **font)
     matplotlib.rcParams['axes.edgecolor'] = '#000000'
     matplotlib.rcParams['axes.linewidth'] = 0.5
@@ -113,6 +113,20 @@ def Radar(camp, x_sp, y_sp, z_sp='#000000', thought_process='', x_rng=None,
         sql_columns = re.findall('\{(.*?)\}', new_sp)
         return sql_columns
 
+    def solve_eq(df, eq):
+        """
+        Processing equations in the called species, adding new species to df.
+        """
+        new_var = s.split('=')[0].strip()
+        the_math = s.split('=')[1].strip()
+        new_var = new_var.replace('{', '').replace('}', '')
+        the_math = the_math.replace('{', 'df["').replace('}', '"]')
+        df[new_var] = eval(the_math)
+        if re.findall('[<>]|[<>]=|==|!=', z_sp):
+            df.loc[df[new_var] == True, new_var] = "#ff0000"
+            df.loc[df[new_var] == False, new_var] = "#79baf7"
+        return df
+
     if type(ord_id) == int:
         # ### convert to list of 1, if a single order number is supplied
         ord_id = [ord_id]
@@ -120,14 +134,14 @@ def Radar(camp, x_sp, y_sp, z_sp='#000000', thought_process='', x_rng=None,
     # ### process species
     add_sp = []
     math_sp = []
-    x_plt = x_sp.split('=')[0].strip()  # plot col name
+    x_plt = x_sp.split('=')[0].strip()
     if '=' in x_sp:
         add_sp = add_sp + process_eq(x_sp)
         math_sp = math_sp + [x_sp]
     else:
         add_sp = add_sp + [x_plt]
 
-    y_plt = y_sp.split('=')[0].strip()  # plot col name
+    y_plt = y_sp.split('=')[0].strip()
     if '=' in y_sp:
         add_sp = add_sp + process_eq(y_sp)
         math_sp = math_sp + [y_sp]
@@ -136,8 +150,9 @@ def Radar(camp, x_sp, y_sp, z_sp='#000000', thought_process='', x_rng=None,
 
     if re.findall('^\#', z_sp):
         fig_name = f'fig/{x_plt}_{y_plt}.png'
+
     else:
-        z_plt = z_sp.split('=')[0].strip()  # plot col name
+        z_plt = z_sp.split('=')[0].strip()
         if '=' in z_sp:
             add_sp = add_sp + process_eq(z_sp)
             math_sp = math_sp + [z_sp]
@@ -159,42 +174,50 @@ def Radar(camp, x_sp, y_sp, z_sp='#000000', thought_process='', x_rng=None,
             df_list = []
             for order in ord_id:
                 df = retrieve_combined_records('.', vs_cols, es3_cols, es6_cols,
-                                               limit=None, ord_id=order)
+                                               limit=limit, where=where, ord_id=order)
                 df_list.append(df)
             df = pd.concat(df_list)
         else:
             df = retrieve_combined_records('.', vs_cols, es3_cols, es6_cols,
-                                           limit=None, where=where)
+                                           limit=limit, where=where)
 
+        print(len(df))
         # ### Add new df columns where math is detected
         for s in math_sp:
-            if '=' in s:
-                new_var = s.split('=')[0].strip()
-                the_math = s.split('=')[1].strip()
-                new_var = new_var.replace('{', '').replace('}', '')
-                the_math = the_math.replace('{', 'df["').replace('}', '"]')
-                df[new_var] = eval(the_math)
-        print(df)
+            df = solve_eq(df, s)
+
         # ### process plot
-        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(5, 9), tight_layout=True)
+        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(5, 9), tight_layout=True)  # figsize=(5, 9)
 
         if re.findall('^#', z_sp):
             ax1.scatter(x_plt, y_plt, data=df, facecolors=z_sp,
-                        marker='o', alpha=1, edgecolor=None, s=10, linewidth=0)
+                        marker='o', alpha=1, edgecolor=None, s=3, linewidth=0)
 
         else:
-            hex_list = radar_tools.blu_to_orng
-            cmap = get_continuous_cmap(hex_list)
-            df = df.sort_values(by=z_plt, ascending=True,
-                                na_position='first'
-                                )
-            cb = ax1.scatter(x_plt, y_plt, c=z_plt,
-                             data=df, cmap=cmap, facecolors='black',
-                             marker='o', alpha=1, edgecolor=None,
-                             s=10, linewidth=0, label=z_plt
-                             )
-            fig.colorbar(cb, ax=ax1)
+            # df = df.sort_values(by=z_plt, ascending=False,
+            #                     na_position='first'
+            #                     )
+            df = df.sample(frac=1)
 
+            if re.findall('[<>]|[<>]=|==|!=', z_sp):
+                cb = ax1.scatter(x_plt, y_plt, c=z_plt,
+                                 data=df, marker='o', alpha=1, edgecolor=None,
+                                 s=2, linewidth=0, label=z_plt
+                                 )
+            else:
+                hex_list = radar_tools.blu_to_orng
+                cmap = get_continuous_cmap(hex_list)
+                cb = ax1.scatter(x_plt, y_plt, c=z_plt,
+                                 data=df, cmap=cmap, facecolors='black',
+                                 marker='o', alpha=1, edgecolor=None,
+                                 s=2, linewidth=0, label=z_plt
+                                 )
+                fig.colorbar(cb, ax=ax1)
+
+        if x_rng:
+            ax1.set_xlim(x_rng)
+        if y_rng:
+            ax1.set_ylim(y_rng)
         ax1.set_xlabel(x_plt)
         ax1.set_ylabel(y_plt)
         ax2.axis('off')
@@ -211,3 +234,5 @@ def Radar(camp, x_sp, y_sp, z_sp='#000000', thought_process='', x_rng=None,
         ax2.text(0.0, .9, add_text, ha="left", va='top', fontsize=6)
         print(f'wrote {fig_name}')
         plt.savefig(fig_name, dpi=600)
+
+

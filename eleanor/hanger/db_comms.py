@@ -144,7 +144,7 @@ def create_es_tables(conn, camp, sp, solids, ss, gases, elements):
     """
     solids = [_ for _ in solids if _ != 'None']
     ss = [_ for _ in ss if _ != 'None']
-
+    ss_kids = []
     if len(ss) > 0:
         ss_kids = determine_ss_kids(camp, ss, solids)
 
@@ -166,7 +166,7 @@ def create_es3_table(conn, camp, sp, solids, ss, ss_kids, gases, elements):
 
     sql_info = "CREATE TABLE IF NOT EXISTS es3 (uuid VARCHAR(32) PRIMARY KEY,\
         ord INTEGER NOT NULL, file INTEGER NOT NULL, run DATE NOT NULL, \
-        extended_alk DOUBLE PRECISION, "
+        extended_alk DOUBLE PRECISION, charge_imbalance_eq DOUBLE PRECISION NOT NULL, "
 
     sql_run = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in
                         ['a_H2O', 'ionic', 'tds', 'soln_mass']]) + ','
@@ -219,10 +219,10 @@ def create_es6_table(conn, camp, sp, solids, ss, ss_kids, gases, elements):
     """
 
     sql_info = "CREATE TABLE IF NOT EXISTS es6 (uuid VARCHAR(32) PRIMARY KEY,\
-        ord INTEGER NOT NULL, file INTEGER NOT NULL, run \
-        DATE NOT NULL, "
+        ord INTEGER NOT NULL, file INTEGER NOT NULL, run DATE NOT NULL, \
+        extended_alk DOUBLE PRECISION, charge_imbalance_eq DOUBLE PRECISION NOT NULL, "
 
-    run_columns = ['initial_aff', 'xi_max', 'a_H2O', 'ionic', 'tds', 'soln_mass', 'extended_alk']
+    run_columns = ['initial_aff', 'xi_max', 'a_H2O', 'ionic', 'tds', 'soln_mass']
     sql_run = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in run_columns]) + ','
 
     sql_state = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in
@@ -492,12 +492,10 @@ def retrieve_combined_records(camp_path, vs_cols, es3_cols, es6_cols, limit=None
                            INNER JOIN `es6` ON `vs`.`uuid` = `es6`.`uuid`"
 
     if ord_id is not None and where is not None:
-        query += f" WHERE `es6`.`ord` = {ord_id} and \
-                          `es3`.`ord` = {ord_id} and {where}"
+        query += f" WHERE `vs`.`ord` = {ord_id} and {where}"
 
     elif ord_id is not None:
-        query += f" WHERE `es6`.`ord` = {ord_id} and \
-                          `es3`.`ord` = {ord_id}"
+        query += f" WHERE `vs`.`ord` = {ord_id}"
 
     elif where is not None:
         query += f" WHERE {where}"

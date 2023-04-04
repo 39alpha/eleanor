@@ -65,7 +65,11 @@ numberLine : number+ WS* NL;
 
 number
     : WS* NUMBER
-    | WS* 'No_Data';
+    | WS* 'No_Data'
+    | WS* 'NAN'
+    | WS* 'nan'
+    | WS* 'NaN'
+    | WS* 'Nan';
 
 pressures : 'pressures' restOfLine numberGrid;
 
@@ -100,7 +104,7 @@ bdotSpeciesSection : 'bdot parameters' sectionHeader bdotSpecies+ seperator;
 bdotSpecies : bdotSpeciesName number number NL;
 
 // It would be great if we could specify the length of the word to be 32
-bdotSpeciesName : WORD;
+bdotSpeciesName : WORD | NUMBER '-' WORD;
 
 pitzerCombinations
     : caCombinations
@@ -194,7 +198,7 @@ basisSpecies
       seperator;
 
 // It would be great if we could specify the length of the word to be 32
-speciesName : WORD;
+speciesName : WORD | NUMBER '-' WORD;
 
 speciesNote : ~NL* NL;
 
@@ -228,6 +232,7 @@ formulaTerm : number WS componentName;
 
 componentName
     : WORD
+    | NUMBER '-' WORD
     | WORD '.' componentName
     | WORD '.' NUMBER componentName?
     | WORD WS componentName;

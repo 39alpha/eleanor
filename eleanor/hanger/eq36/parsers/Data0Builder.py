@@ -137,7 +137,7 @@ class Data0Builder(Data0Listener):
         ctx.data = BDotSpecies(name=name, azer0=azer0, neutral_ion_type=neutral_ion_type)
 
     def exitBdotSpeciesName(self, ctx: Data0Parser.BdotSpeciesNameContext):
-        ctx.data = ctx.WORD().getText().strip()
+        ctx.data = ctx.getText().strip()
 
     def exitPitzerCombinations(self, ctx: Data0Parser.PitzerCombinationsContext):
         ctx.data = PitzerCombinations(ca=ctx.caCombinations().data,
@@ -320,7 +320,7 @@ class Data0Builder(Data0Listener):
         ctx.data = (element, count)
 
     def exitComponentName(self, ctx: Data0Parser.ComponentNameContext):
-        ctx.data = ctx.WORD().getText().strip()
+        ctx.data = ctx.getText().strip()
 
     def exitAuxiliaryBasisSpeciesSection(self,
                                          ctx: Data0Parser.AuxiliaryBasisSpeciesSectionContext):
@@ -467,7 +467,7 @@ class Data0Builder(Data0Listener):
                                 composition=composition)
 
     def exitSpeciesName(self, ctx: Data0Parser.SpeciesNameContext):
-        ctx.data = ctx.WORD().getText().strip()
+        ctx.data = ctx.getText().strip()
 
     def exitSpeciesNote(self, ctx: Data0Parser.SpeciesNoteContext):
         content = ctx.getText().strip()

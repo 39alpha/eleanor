@@ -30,7 +30,7 @@ from .hanger.tool_room import grab_lines, grab_str, determine_ss_kids, WorkingDi
 
 
 def Helmsman(camp, ord_id=None, num_cores=os.cpu_count(),
-             keep_every_n_files=10000, quiet=False,
+             keep_every_n_files=100, quiet=False,
              no_progress=False):
     """
     Keeping with the naval terminology: The Navigator charts where to go.

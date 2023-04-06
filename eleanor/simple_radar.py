@@ -194,10 +194,10 @@ def Radar(camp, x_sp, y_sp, z_sp='#000000', thought_process='', x_rng=None,
                         marker='o', alpha=1, edgecolor=None, s=3, linewidth=0)
 
         else:
-            # df = df.sort_values(by=z_plt, ascending=False,
-            #                     na_position='first'
-            #                     )
-            df = df.sample(frac=1)
+            df = df.sort_values(by=z_plt, ascending=True,
+                                na_position='first'
+                                )
+            # df = df.sample(frac=1)
 
             if re.findall('[<>]|[<>]=|==|!=', z_sp):
                 cb = ax1.scatter(x_plt, y_plt, c=z_plt,
@@ -225,8 +225,8 @@ def Radar(camp, x_sp, y_sp, z_sp='#000000', thought_process='', x_rng=None,
         add_text = '\n'.join([f"campaign: {camp.name}",
                               f"data: {date}", f"n = {len(df)}",
                               f"thouhts: {print_where(thought_process)}",
-                              f"x = {x_sp}",
-                              f"y = {y_sp}",
+                              # f"x = {x_sp}",
+                              # f"y = {y_sp}",
                               f"z = {z_sp}",
                               f"sql 'where' claus: {print_where(where)}",
                               f"sql limit: {limit}"

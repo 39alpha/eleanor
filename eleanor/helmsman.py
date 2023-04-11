@@ -366,7 +366,6 @@ def sailor(camp, scratch_path, vs_queue, es3_queue, es6_queue, date, dat, elemen
             pickup = mine_pickup_lines('.', paths.threep, 's')
 
             camp.local_6i.write(paths.sixi, rnt_dict, pickup, state_dict['T_cel'])
-
             eq6(data1_file, paths.sixi)
 
             threeodf = mine_3o(camp, date, elements, solids, ss, ss_kids, paths.threeo, master_dict, es3_col_names)
@@ -470,11 +469,22 @@ def mine_3o(camp, date, elements, solids, ss, ss_kids, file, master_dict, col_na
                 x = 4
                 while not re.findall('^\n', lines[i + x]):
                     if grab_str(lines[i + x], 0) != 'O2(g)':
-                        # ### -1 position is log activity, -3 is log molality
-                        build_dict[f'm_{grab_str(lines[i + x], 0)}'] = [grab_float(
-                            lines[i + x], -3)]
-                        build_dict[f'a_{grab_str(lines[i + x], 0)}'] = [grab_float(
-                            lines[i + x], -1)]
+                        # ### ****** shows up with species are less than -99999.0
+                        # ### which signifies that it was suppressed.
+
+                        # ### -3 is log molality
+                        if '****' in grab_str(lines[i + x], -3):
+                            build_dict[f'm_{grab_str(lines[i + x], 0)}'] = [-99999.0]
+                        else:
+                            build_dict[f'm_{grab_str(lines[i + x], 0)}'] = [grab_float(
+                                lines[i + x], -3)]
+
+                        # ### -1 position is log activity,
+                        if '****' in grab_str(lines[i + x], -1):
+                            build_dict[f'a_{grab_str(lines[i + x], 0)}'] = [-99999.0]
+                        else:
+                            build_dict[f'a_{grab_str(lines[i + x], 0)}'] = [grab_float(
+                                lines[i + x], -1)]
                         x += 1
                     else:
                         x += 1
@@ -679,18 +689,43 @@ def mine_6o(camp, date, elements, solids, ss, ss_kids, file, master_dict, col_na
                 # ### Actual charge imbalance eq/kg.H2O
                 build_dict['charge_imbalance_eq'] = [grab_float(lines[i + 2], -2)]
 
+            # elif '--- Distribution of Aqueous Solute Species ---' in lines[i]:
+            #     x = 4
+            #     while not re.findall('^\n', lines[i + x]):
+            #         if grab_str(lines[i + x], 0) != 'O2(g)':
+            #             # ### -1 position is log activity, -3 is log molality
+            #             build_dict[f'm_{grab_str(lines[i + x], 0)}'] = [grab_float(
+            #                 lines[i + x], -3)]
+            #             build_dict[f'a_{grab_str(lines[i + x], 0)}'] = [grab_float(
+            #                 lines[i + x], -1)]
+            #             x += 1
+            #         else:
+            #             x += 1
+
             elif '--- Distribution of Aqueous Solute Species ---' in lines[i]:
                 x = 4
                 while not re.findall('^\n', lines[i + x]):
                     if grab_str(lines[i + x], 0) != 'O2(g)':
-                        # ### -1 position is log activity, -3 is log molality
-                        build_dict[f'm_{grab_str(lines[i + x], 0)}'] = [grab_float(
-                            lines[i + x], -3)]
-                        build_dict[f'a_{grab_str(lines[i + x], 0)}'] = [grab_float(
-                            lines[i + x], -1)]
+                        # ### ****** shows up with species are less than -99999.0
+                        # ### which signifies that it was suppressed.
+
+                        # ### -3 is log molality
+                        if '****' in grab_str(lines[i + x], -3):
+                            build_dict[f'm_{grab_str(lines[i + x], 0)}'] = [-99999.0]
+                        else:
+                            build_dict[f'm_{grab_str(lines[i + x], 0)}'] = [grab_float(
+                                lines[i + x], -3)]
+
+                        # ### -1 position is log activity,
+                        if '****' in grab_str(lines[i + x], -1):
+                            build_dict[f'a_{grab_str(lines[i + x], 0)}'] = [-99999.0]
+                        else:
+                            build_dict[f'a_{grab_str(lines[i + x], 0)}'] = [grab_float(
+                                lines[i + x], -1)]
                         x += 1
                     else:
                         x += 1
+
 
             elif '--- Summary of Solid Phases (ES) ---' in lines[i]:
                 x = 4

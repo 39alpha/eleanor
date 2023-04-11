@@ -14,13 +14,14 @@ import time
 
 import numpy as np
 import pandas as pd
+from enum import IntEnum
 
 # loaded campagin
 # import eleanor.campaign as campaign
 
-from .hanger.eq36 import eq3
+from .hanger.eq36 import eq3, eq6
 from .hanger import db_comms
-from .hanger.tool_room import mk_check_del_directory, grab_lines, WorkingDirectory
+from .hanger.tool_room import mk_check_del_directory, grab_lines, WorkingDirectory, mine_pickup_lines
 from .hanger.data0_tools import determine_species_set
 from .hanger.data0_tools import determine_ele_set, determine_loaded_sp
 from .hanger.data0_tools import TPCurve
@@ -43,6 +44,7 @@ mw = {'O': 15.99940,
       'F': 18.99840,
       'Br': 79.90400,
       'B': 10.81000}
+
 basis_mw = {
     "HCO3-": 3 * mw['O'] + mw['H'] + mw['C'],
     "O2": 2 * mw['O'],
@@ -71,12 +73,8 @@ def Navigator(this_campaign, quiet=False):
     and thus contains enough information to execute eq3 and eq6, depending on
     the praticulars of the loaded campaign.
 
-    Currently only two VS point distributions are supported.
-    (1) :param:`'this_campaign.distro'` == 'BF'
-        Brute Force, which calculates evenily spaced points for all non-fixed
-        dimensions.
-
-    (2) :param:`'this_campaign.distro'` == 'random'
+    Currently only one VS point distributions is supported.
+    (1) :param:`'this_campaign.distro'` == 'random'
         Which randomily selects points for the non-fixed dimensions.
 
     :param this_campaign: loaded campaign
@@ -113,9 +111,10 @@ def Navigator(this_campaign, quiet=False):
             orders = random_uniform_order(this_campaign, date, order_number, file_number,
                                           this_campaign.reso, elements, quiet=quiet)
 
-        elif this_campaign.distro == 'BF':
-            orders = brute_force_order(this_campaign, date, order_number, file_number, elements,
-                                       quiet=quiet)
+        else:
+            print(f'vs_distro: {this_campaign.distro} is not')
+            print('supported at this time. Only "random"')
+            sys.exit()
 
         # Send dataframe containing new orders to postgres database
         orders_to_sql(conn, 'vs', order_number, orders, quiet=quiet)
@@ -157,8 +156,7 @@ def huffer(conn, camp, quiet=False):
         state_dict = {}
         for _ in camp.vs_state.keys():
             if _ == 'fO2':
-                if type(camp.vs_state['fO2']) == str:
-                    # ### sp constraint
+                if type(camp.vs_state[_]) == str:
                     state_dict[_] = camp.vs_state[_]
                 else:
                     state_dict[_] = np.mean(camp.vs_state[_])
@@ -172,8 +170,6 @@ def huffer(conn, camp, quiet=False):
         for _ in camp.vs_basis.keys():
             basis_dict[_] = np.mean(camp.vs_basis[_])
 
-        # ### huffer run on unsuppressed (aq species) file, to get complete es table columns, should
-        # ### different orders of the same campaign use different suppress_aq lists.
         camp.local_3i.write('test.3i', state_dict, basis_dict, camp.cb, camp.suppress_sp, output_details='v')
         data1_file = os.path.realpath(os.path.join(camp.data1_dir, curve.data1file))
         out, err = eq3(data1_file, 'test.3i')
@@ -188,9 +184,6 @@ def huffer(conn, camp, quiet=False):
 
         # New VS table based on vs_state and vs_basis
         db_comms.create_or_expand_vs_table(conn, camp, elements)
-
-        # Determine column names of the ES table
-        # sp_names, ss_names = determine_loaded_sp()
 
         # Build the ES tables (es3 and es6)
         if not camp.SS:
@@ -261,9 +254,9 @@ def random_uniform_order(camp, date, ord, file_number, order_size, elements, pre
         if key == 'T_cel':
             df['T_cel'], df['P_bar'], curves = TPCurve.sample(camp.tp_curves, order_size)
             df['data1'] = [curve.data1file for curve in curves]
-        if key == 'fO2' and type(value) == str:
-            # ### fO2 slaved to species, stand in 0.0
-            df[key] = 0.0
+        if key == 'fO2' and type(camp.vs_state['fO2']) == str:
+            df[key] = camp.vs_state['fO2']
+
         elif isinstance(value, list):
             df[key] = [float(np.round(random.uniform(*value), precision))
                        for i in range(order_size)]
@@ -278,35 +271,6 @@ def random_uniform_order(camp, date, ord, file_number, order_size, elements, pre
 
     return df
 
-def brute_force_order(camp, date, ord, file_number, elements, precision=6, quiet=False):
-    """
-    Generate evenily spaced points in VS
-
-    :param camp: loaded campaign
-    :type camp: :class:`Campaign` instance
-
-    :param date: birthdate of order
-    :type data: str
-
-    :param ord: the order id, relative to other orders issued for the loaded campagin
-    :type ord: int
-
-    :param file_number: the file number to start from
-    :type file_number: int
-
-    :param elements: list of loaded element, excepting O and H
-    :type elements: list
-
-    :param precision: number of digits recorded in vs table
-    :type precision: int
-
-    """
-    raise NotImplementedError(
-        '''
-        With the move to general data0/data1 handling, we aren't sure how we want
-        to implement evenly-spaced VS points in the T-S subspace.
-        '''
-    )
 
 def build_basis(camp, precision, n):
     """
@@ -362,7 +326,6 @@ def build_admin_info(camp, df, ord, file_number, order_size, date):
     :rtype: :class:'pandas.core.frame.DataFrame'
 
     """
-
     df['uuid'] = [uuid.uuid4().hex for _ in range(order_size)]
     df['camp'] = camp.name
     df['file'] = list(range(file_number, file_number + order_size))
@@ -418,12 +381,12 @@ def calculate_ele_totals(d0, df, elements, order_size, precision):
         for b in local_vs_sp:
             # for each species b in loaded data0 that contins target element _,
             # identify the ones that are loaded in vs (list(df.columns)).
-            if '{}'.format(b[0]) in list(df.columns):
+            if f'{b[0]}' in list(df.columns):
                 # basis is present in campaign, so add its molalities
                 # to element total
                 ele_totals[_] = ele_totals[_] + float(b[1]) * (10 ** df['{}'.format(b[0])])
 
-        df['{}'.format(_)] = np.round(np.log10(ele_totals[_]), precision)
+        df[f'm_{_}'] = np.round(np.log10(ele_totals[_]), precision)
     return df
 
 

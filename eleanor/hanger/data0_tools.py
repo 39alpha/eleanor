@@ -10,6 +10,7 @@ import pandas as pd
 import numpy as np
 import re
 import shutil
+import sys
 
 from os.path import abspath, dirname, join, realpath
 import matplotlib.pyplot as plt
@@ -121,14 +122,20 @@ def determine_species_set(path=''):
             elif '           --- Saturation States of Pure Solids ---' in lines[i]:
                 i += 4
                 while not re.findall('^\n', lines[i]):
-                    solids.append(lines[i][:26].strip())
-                    i += 1
+                    if 'None' not in lines[i]:
+                        solids.append(lines[i][:26].strip())
+                        i += 1
+                    else:
+                        i += 1
 
             elif '--- Saturation States of Solid Solutions ---' in lines[i]:
                 i += 4
                 while not re.findall('^\n', lines[i]):
-                    solid_solutions.append(lines[i][:26].strip())
-                    i += 1
+                    if 'None' not in lines[i]:
+                        solid_solutions.append(lines[i][:26].strip())
+                        i += 1
+                    else:
+                        i += 1
 
             elif '--- Fugacities ---' in lines[i]:
                 i += 4
@@ -356,6 +363,7 @@ def hash_data0s(data0dir):
     unhashed = []
     with TemporaryDirectory() as tmpdir:
         for root, dirs, files in os.walk(data0dir):
+            files = [_ for _ in files if not _[0] == '.']
             tmp = os.path.join(tmpdir, os.path.relpath(root, data0dir))
             os.makedirs(tmp, exist_ok=True)
             for data0 in files:
@@ -369,6 +377,7 @@ def hash_data0s(data0dir):
 
         return hash_dir(tmpdir), unhashed
 
+
 def is_data0_file(data0):
     """
     Determine whether a file is a data0 file by inspecting the first 5 characters of the file.
@@ -379,8 +388,11 @@ def is_data0_file(data0):
     :return: whether or not we think the file is in fact a data0 file
     :rtype: str
     """
-    with open(data0, 'r') as handle:
-        return handle.read(5).lower() == 'data0'
+    print(data0)
+    if data0.split('/')[-1][0] != '.':
+        with open(data0, 'r') as handle:
+            return handle.read(5).lower() == 'data0'
+
 
 class TPCurve(object):
     def __init__(self, fname, T, P):

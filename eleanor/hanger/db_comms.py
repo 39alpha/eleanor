@@ -11,6 +11,8 @@ from os.path import splitext
 import pandas as pd
 import sqlite3
 import sys
+from eleanor.hanger.tool_room import determine_ss_kids
+
 
 def establish_database_connection(camp, verbose=False):
     """
@@ -76,7 +78,7 @@ def create_vs_table(conn, camp, elements):
 
     sql_basis = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in list(camp.vs_basis.keys())]) + ','
 
-    sql_ele = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in elements]) + ','
+    sql_ele = ",".join([f'"m_{_}" DOUBLE PRECISION NOT NULL' for _ in elements]) + ','
 
     parts = [sql_info, sql_state, sql_basis, sql_ele]
     if len(camp.target_rnt) > 0:
@@ -91,6 +93,7 @@ def create_vs_table(conn, camp, elements):
     if len(parts) != 0:
         execute_query(conn, ''.join(parts) + ')')
 
+
 def add_column(conn, table, column, type='DOUBLE PRECISION', default=None, not_null=False):
     sql = f"ALTER TABLE `{table}` ADD COLUMN `{column}` {type}"
     if default is not None:
@@ -99,6 +102,7 @@ def add_column(conn, table, column, type='DOUBLE PRECISION', default=None, not_n
         sql += " NOT NULL"
 
     execute_query(conn, sql)
+
 
 def create_orders_table(conn):
     """
@@ -140,11 +144,15 @@ def create_es_tables(conn, camp, sp, solids, ss, gases, elements):
     """
     solids = [_ for _ in solids if _ != 'None']
     ss = [_ for _ in ss if _ != 'None']
+    ss_kids = []
+    if len(ss) > 0:
+        ss_kids = determine_ss_kids(camp, ss, solids)
 
-    create_es3_table(conn, camp, sp, solids, ss, gases, elements)
-    create_es6_table(conn, camp, sp, solids, ss, gases, elements)
+    create_es3_table(conn, camp, sp, solids, ss, ss_kids, gases, elements)
+    create_es6_table(conn, camp, sp, solids, ss, ss_kids, gases, elements)
 
-def create_es3_table(conn, camp, sp, solids, ss, gases, elements):
+
+def create_es3_table(conn, camp, sp, solids, ss, ss_kids, gases, elements):
     """
     Initialize the EQ3 equilibrium table, to be filled from the mined 3o file.
 
@@ -158,7 +166,7 @@ def create_es3_table(conn, camp, sp, solids, ss, gases, elements):
 
     sql_info = "CREATE TABLE IF NOT EXISTS es3 (uuid VARCHAR(32) PRIMARY KEY,\
         ord INTEGER NOT NULL, file INTEGER NOT NULL, run DATE NOT NULL, \
-        extended_alk DOUBLE PRECISION, "
+        extended_alk DOUBLE PRECISION, charge_imbalance_eq DOUBLE PRECISION NOT NULL, "
 
     sql_run = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in
                         ['a_H2O', 'ionic', 'tds', 'soln_mass']]) + ','
@@ -192,11 +200,13 @@ def create_es3_table(conn, camp, sp, solids, ss, gases, elements):
     sql_fk = ' FOREIGN KEY(`ord`) REFERENCES `orders`(`id`), \
                FOREIGN KEY(`uuid`) REFERENCES `vs`(`uuid`)'
 
-    parts = [sql_info, sql_run, sql_state, sql_ele, sql_sp_a, sql_sp_m, sql_sol_qk, sql_gas, sql_ss, sql_fk]
+    parts = [sql_info, sql_run, sql_state, sql_ele, sql_sp_a, sql_sp_m, sql_sol_qk, sql_gas,
+             sql_ss, sql_fk]
     parts = [_ for _ in parts if _ != ',']
     execute_query(conn, ''.join(parts) + ')')
 
-def create_es6_table(conn, camp, sp, solids, ss, gases, elements):
+
+def create_es6_table(conn, camp, sp, solids, ss, ss_kids, gases, elements):
     """
     Initialize the EQ6 equilibrium table, to be filled from the mined 6o file.
 
@@ -209,10 +219,10 @@ def create_es6_table(conn, camp, sp, solids, ss, gases, elements):
     """
 
     sql_info = "CREATE TABLE IF NOT EXISTS es6 (uuid VARCHAR(32) PRIMARY KEY,\
-        ord INTEGER NOT NULL, file INTEGER NOT NULL, run \
-        DATE NOT NULL, "
+        ord INTEGER NOT NULL, file INTEGER NOT NULL, run DATE NOT NULL, \
+        extended_alk DOUBLE PRECISION, charge_imbalance_eq DOUBLE PRECISION NOT NULL, "
 
-    run_columns = ['initial_aff', 'xi_max', 'a_H2O', 'ionic', 'tds', 'soln_mass', 'extended_alk']
+    run_columns = ['initial_aff', 'xi_max', 'a_H2O', 'ionic', 'tds', 'soln_mass']
     sql_run = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in run_columns]) + ','
 
     sql_state = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in
@@ -243,14 +253,19 @@ def create_es6_table(conn, camp, sp, solids, ss, gases, elements):
     sql_gas = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in
                        [f'f_{_}' for _ in gases]]) + ','
 
-    sql_ss = ",".join([f'"qk_{_}" DOUBLE PRECISION' for _ in ss]) + ','
+    sql_ss_qk = ",".join([f'"qk_{_}" DOUBLE PRECISION' for _ in ss]) + ','
+
+    sql_ss_m = ",".join([f'"m_{_}" DOUBLE PRECISION' for _ in ss]) + ','
+
+    sql_ss_kids_m = ",".join([f'"m_{_}" DOUBLE PRECISION' for _ in ss_kids]) + ','
 
     sql_fk = ' FOREIGN KEY(`ord`) REFERENCES `orders`(`id`), \
                FOREIGN KEY(`uuid`) REFERENCES `vs`(`uuid`)'
 
-    parts = [sql_info, sql_run, sql_state, sql_ele, sql_sp_a, sql_sp_m, sql_sol_qk, sql_sol_m, sql_gas, sql_ss, sql_fk]
+    parts = [sql_info, sql_run, sql_state, sql_ele, sql_sp_a, sql_sp_m, sql_sol_qk, sql_sol_m,
+             sql_gas, sql_ss_qk, sql_ss_m, sql_ss_kids_m, sql_fk]
     parts = [_ for _ in parts if _ != ',']
-    execute_query(conn, ''.join(parts) + ')')    # execute_query(conn, ''.join(parts) + ')')
+    execute_query(conn, ''.join(parts) + ')')
 
 
 def get_order_number(conn, camp, insert=True):
@@ -286,6 +301,7 @@ def get_order_number(conn, camp, insert=True):
     else:
         raise RuntimeError('failed to insert order')
 
+
 def get_file_number(conn, camp, order_number):
     """
     Get the next file number, starting from 0, for a given campaign and order.
@@ -311,6 +327,7 @@ def get_file_number(conn, camp, order_number):
 
     return 0
 
+
 def retrieve_records(conn, query, *args, **kwargs):
     """
     Execute an SQL query on a connection and return the resulting record.
@@ -331,6 +348,7 @@ def retrieve_records(conn, query, *args, **kwargs):
     finally:
         cursor.close()
 
+
 def execute_query(conn, query, *args, **kwargs):
     """
     Execute an SQL query on a connection, discarding the results.
@@ -342,6 +360,7 @@ def execute_query(conn, query, *args, **kwargs):
     """
     with conn:
         return conn.execute(query, *args, **kwargs)
+
 
 def table_exists(conn, table):
     """
@@ -358,6 +377,7 @@ def table_exists(conn, table):
     with closing(conn.execute(f"PRAGMA table_info(`{table}`)")) as cursor:
         return cursor.fetchone() is not None
 
+
 def get_column_names(conn, table):
     """
     Get the column names of a given database table.
@@ -373,53 +393,109 @@ def get_column_names(conn, table):
     with closing(conn.execute(f"PRAGMA table_info(`{table}`)")) as cursor:
         return [row[1] for row in cursor.fetchall()]
 
-def retrieve_combined_records(conn, vs_cols, es3_cols, es6_cols,
-                              limit=None,
-                              ord_id=None,
-                              where=None,
-                              fname=None):
-    """
-    Retrieve columns from the `vs` and `es6` tables, joined on the :code:`uuid` column. The results
-    are returned as a Pandas :code:`DataFrame`.
 
-    Since not all of the systems ordered by the Navigator will converge in EQ3/6, the `vs` table may
-    contain orders for systems that do not exist in the `es6` table.
+# def retrieve_combined_records(conn, vs_cols, es3_cols, es6_cols,
+#                               limit=None,
+#                               ord_id=None,
+#                               where=None,
+#                               fname=None):
+#     """
+#     Retrieve columns from the `vs` and `es6` tables, joined on the :code:`uuid` column. The results
+#     are returned as a Pandas :code:`DataFrame`.
 
-    If the :code:`fname` is provided and has either a `.pickle`, `.json` or `.csv` file extension,
-    the DataFrame will be written to that file.
+#     Since not all of the systems ordered by the Navigator will converge in EQ3/6, the `vs` table may
+#     contain orders for systems that do not exist in the `es6` table.
 
-    :param conn: the database connection
-    :type conn: sqlite3.Connection
-    :param vs_cols: the columns to be selected from the `vs` table
-    :type vs_cols: list
-    :param es_cols: the columns to be selected from the `es6` table
-    :type es_cols: list
-    :param limit: limit the number of records retrieved 'limit'
-    :type limit: int
-    :param ord_id: select only rows with this order ID.
-    :type order_id: int
-    :param fname: path of an output file
-    :type fname: str or None
-    :param where_constrain: limit sql query with 'where statement',
-        for example, where '"CO2" > -3'
-    :type where_constrain: str
+#     If the :code:`fname` is provided and has either a `.pickle`, `.json` or `.csv` file extension,
+#     the DataFrame will be written to that file.
 
-    :return: A DataFrame with the selected columns and rows
-    :rtype: pandas.DataFrame
-    """
-    query = f"SELECT `vs`.`{'`, `vs`.`'.join(vs_cols)}`, \
-                     `es3`.`{'`, `es3`.`'.join(es3_cols)}` \
+#     :param conn: the database connection
+#     :type conn: sqlite3.Connection
+#     :param vs_cols: the columns to be selected from the `vs` table
+#     :type vs_cols: list
+#     :param es_cols: the columns to be selected from the `es6` table
+#     :type es_cols: list
+#     :param limit: limit the number of records retrieved 'limit'
+#     :type limit: int
+#     :param ord_id: select only rows with this order ID.
+#     :type order_id: int
+#     :param fname: path of an output file
+#     :type fname: str or None
+#     :param where_constrain: limit sql query with 'where statement',
+#         for example, where '"CO2" > -3'
+#     :type where_constrain: str
+
+#     :return: A DataFrame with the selected columns and rows
+#     :rtype: pandas.DataFrame
+#     """
+#     query = f"SELECT `vs`.`{'`, `vs`.`'.join(vs_cols)}`, \
+#                      `es3`.`{'`, `es3`.`'.join(es3_cols)}` \
+#                      `es6`.`{'`, `es6`.`'.join(es6_cols)}` \
+#               FROM `vs` INNER JOIN `es3` ON `vs`.`uuid` = `es3`.`uuid` \
+#                         INNER JOIN `es6` ON `vs`.`uuid` = `es6`.`uuid`"
+
+#     if ord_id is not None and where is not None:
+#         query += f" WHERE `es6`.`ord` = {ord_id} and \
+#                           `es3`.`ord` = {ord_id} and {where}"
+
+#     elif ord_id is not None:
+#         query += f" WHERE `es6`.`ord` = {ord_id} and \
+#                           `es3`.`ord` = {ord_id}"
+
+#     elif where is not None:
+#         query += f" WHERE {where}"
+
+#     if limit is not None:
+#         query += f" LIMIT {limit}"
+
+#     records = retrieve_records(conn, query)
+
+#     df_columns = [f"{c}_v" for c in vs_cols] + [f"{c}_e3" for c in es3_cols] + [f"{c}_e6" for c in es6_cols]
+
+#     df = pd.DataFrame(records, columns=df_columns)
+
+#     if fname is not None:
+#         _, ext = splitext(fname)
+#         if ext == '.json':
+#             df.to_json(fname, orient='records')
+#         elif ext == '.csv':
+#             df.to_csv(fname, index=False)
+#         elif ext == '.pickle':
+#             df.to_pickle(fname)
+#         else:
+#             sys.stderr.write(f"warning: cannot write records; unrecognized format '{ext}'\n")
+
+#     return df
+
+
+def retrieve_combined_records(camp_path, vs_cols, es3_cols, es6_cols, limit=None, ord_id=None, where=None, fname=None):
+
+    conn = sqlite3.connect(f'{camp_path}/campaign.sql')
+
+    if len(es3_cols) == 0 and len(es6_cols) == 0:
+        query = f"SELECT `vs`.`{'`, `vs`.`'.join(vs_cols)}` FROM `vs`"
+
+    elif len(es3_cols) == 0:
+        query = f"SELECT `vs`.`{'`, `vs`.`'.join(vs_cols)}`, \
+                    `es6`.`{'`, `es6`.`'.join(es6_cols)}` \
+                 FROM `vs` INNER JOIN `es6` ON `vs`.`uuid` = `es6`.`uuid`"
+
+    elif len(es6_cols) == 0:
+        query = f"SELECT `vs`.`{'`, `vs`.`'.join(vs_cols)}`, \
+                    `es3`.`{'`, `es3`.`'.join(es3_cols)}` \
+                 FROM `vs` INNER JOIN `es3` ON `vs`.`uuid` = `es3`.`uuid`"
+    else:
+        query = f"SELECT `vs`.`{'`, `vs`.`'.join(vs_cols)}`, \
+                     `es3`.`{'`, `es3`.`'.join(es3_cols)}`, \
                      `es6`.`{'`, `es6`.`'.join(es6_cols)}` \
-              FROM `vs` INNER JOIN `es3` ON `vs`.`uuid` = `es3`.`uuid` \
-                        INNER JOIN `es6` ON `vs`.`uuid` = `es6`.`uuid`"
+                 FROM `vs` INNER JOIN `es3` ON `vs`.`uuid` = `es3`.`uuid` \
+                           INNER JOIN `es6` ON `vs`.`uuid` = `es6`.`uuid`"
 
     if ord_id is not None and where is not None:
-        query += f" WHERE `es6`.`ord` = {ord_id} and \
-                          `es3`.`ord` = {ord_id} and {where}"
+        query += f" WHERE `vs`.`ord` = {ord_id} and {where}"
 
     elif ord_id is not None:
-        query += f" WHERE `es6`.`ord` = {ord_id} and \
-                          `es3`.`ord` = {ord_id}"
+        query += f" WHERE `vs`.`ord` = {ord_id}"
 
     elif where is not None:
         query += f" WHERE {where}"
@@ -445,6 +521,7 @@ def retrieve_combined_records(conn, vs_cols, es3_cols, es6_cols,
             sys.stderr.write(f"warning: cannot write records; unrecognized format '{ext}'\n")
 
     return df
+
 
 def execute_vs_exit_updates(conn, vs_points):
     """

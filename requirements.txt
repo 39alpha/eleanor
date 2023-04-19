@@ -3,4 +3,4 @@ numpy>=1.19.4
 pandas>=1.2.0
 matplotlib>=3.3.3
 tqdm>=4.62.3
-antlr4-python3-runtime>=4.11.1
+antlr4-python3-runtime>=4.12

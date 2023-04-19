@@ -906,6 +906,59 @@ def build_gas_rnt(gas_sp, morr, rk1b):
          f'       rk1=  {format_e(rk1b, 5)}       rk2=  0.00000E+00       rk3=  0.00000E+00\n')
         )
 
+def build_sr_rnt(sp, dat):
+    """
+    The function returns a 6i reactant block for special reactant 'phase' of type jcode = 2.
+    pahse_dat is the data in the reactant dictionary build for a specific VS by a sailor.
+    THis dictionary has the same structure as the camp.target_rnt dictionary in the loaded campaign
+    file, but without any ranges, as values have already been selected by the navigator function which
+    built the campaigns VS table and generated the local set of orders.
+    This function accepts lone elements 'ele' or custom species 'sr' existing in the special reactant dictionary (sr_dict)
+    The reactants which may be passed are interations within the camp.target_rnt dictionary
+    defined in th eloaded campaign file.
+    """
+    # ### Special reactant dictionary.
+    # ### sr_dict['name'] = [[ele list], [associated sto list]]
+    sr_dict = {"FeCl2": [["Fe", "Cl", "O"], [1, 2, 1]]}
+
+    # ### special reactant is specified and it is not a lone element
+    if dat[0] == 'sr':
+        # ### does special reactnat exists in sr_dict
+        try:
+            sr_dat = sr_dict[sp]
+        except Exception as e:
+            print('Special reactant not installed:')
+            sys.exit(e)
+
+        # ### transpose to create [ele, sto] pairs and iterate
+        middle = []
+        for _ in [list(i) for i in zip(*sr_dat)]:
+            middle.append(f"   {_[0]}{' '*(2-len(_[0]))}          {format_e(_[1], 5)}\n")
+
+    # ### special reactant is a lone element
+    else:
+        middle = f"   {sp}{' '*(2-len(sp))}          1.00000E+00\n"
+
+    # ### the top and bottom of the reactant block is the same for ele and sr,
+    # ### as the reactant is titrated as a single unit (rk1b).
+    top = '\n'.join(
+        ['*-----------------------------------------------------------------------------',
+         '  reactant=  {}'.format(sp),
+         '     jcode=  2               jreac=  0',
+         f'      morr=  {format_e(10**dat[1], 5)}      modr=  0.00000E+00',
+         '     vreac=  0.00000E+00\n'])
+
+    bottom = '\n'.join(
+        ['   endit.',
+         '* Reaction',
+         '   endit.',
+         '       nsk=  0               sfcar=  0.00000E+00    ssfcar=  0.00000E+00',
+         '      fkrc=  0.00000E+00',
+         '      nrk1=  1                nrk2=  0',
+         f'      rkb1=  {format_e(dat[2], 5)}      rkb2=  0.00000E+00      rkb3=  0.00000E+00\n'
+         ])
+
+    return top + ''.join(middle) + bottom
 
 # #################################################################
 # ##########################  classes  ############################
@@ -1120,7 +1173,8 @@ class Six_i(object):
                     elif reactants[_][0] == 'fixed gas':
                         # incorporated below
                         fixed_gases[_] = reactants[_]
-
+                    elif reactants[_][0] in ['sr', 'ele']:
+                        build.write(build_sr_rnt(_, reactants[_]))
             build.write(self.limits)
             build.write(self.switch_grid)
 

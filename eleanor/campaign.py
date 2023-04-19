@@ -75,7 +75,7 @@ class Campaign:
         self.target_rnt = self._raw.get('reactant', {})
         rnt_types = [self.target_rnt[_][0] for _ in self.target_rnt]
         for _ in rnt_types:
-            if _ not in ['mineral', 'gas', 'fixed_gas']:
+            if _ not in ['mineral', 'gas', 'fixed_gas', 'sr']:
                 print(f'\nReactant type "{_}" not supported.')
                 print('  Reactants must a "mineral", "gas", or "fixed gas"')
                 print('  at this time.')

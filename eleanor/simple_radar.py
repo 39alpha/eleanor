@@ -202,7 +202,7 @@ def Radar(camp, x_sp, y_sp, z_sp='#000000', thought_process='', x_rng=None,
             if re.findall('[<>]|[<>]=|==|!=', z_sp):
                 cb = ax1.scatter(x_plt, y_plt, c=z_plt,
                                  data=df, marker='o', alpha=1, edgecolor=None,
-                                 s=2, linewidth=0, label=z_plt
+                                 s=4, linewidth=0, label=z_plt
                                  )
             else:
                 hex_list = radar_tools.blu_to_orng
@@ -210,7 +210,7 @@ def Radar(camp, x_sp, y_sp, z_sp='#000000', thought_process='', x_rng=None,
                 cb = ax1.scatter(x_plt, y_plt, c=z_plt,
                                  data=df, cmap=cmap, facecolors='black',
                                  marker='o', alpha=1, edgecolor=None,
-                                 s=2, linewidth=0, label=z_plt
+                                 s=4, linewidth=0, label=z_plt
                                  )
                 fig.colorbar(cb, ax=ax1)
 

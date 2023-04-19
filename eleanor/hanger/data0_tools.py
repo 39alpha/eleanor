@@ -388,7 +388,6 @@ def is_data0_file(data0):
     :return: whether or not we think the file is in fact a data0 file
     :rtype: str
     """
-    print(data0)
     if data0.split('/')[-1][0] != '.':
         with open(data0, 'r') as handle:
             return handle.read(5).lower() == 'data0'

@@ -23,22 +23,6 @@ from .hanger.data0_tools import determine_species_set
 from .hanger.data0_tools import determine_ele_set
 from .hanger.data0_tools import TPCurve
 
-basis_mw = {
-    "HCO3-": 3 * MW['O'] + MW['H'] + MW['C'],
-    "O2": 2 * MW['O'],
-    "Na+": MW['Na'],
-    "Mg+2": MW['Mg'],
-    "Ca+2": MW['Ca'],
-    "K+": MW['K'],
-    "Sr+2": MW['Sr'],
-    "Cl-": MW['Cl'],
-    "SO4-2": MW['S'] + 4 * MW['S'],
-    "Br-": MW['Br'],
-    "F-": MW['F'],
-    "B(OH)3": MW['B'] + 3 * MW['O'] + 3 * MW['H']
-}
-
-
 def Navigator(this_campaign, quiet=False):
     """
     The Navigator decides where to go (see what we did there), given the

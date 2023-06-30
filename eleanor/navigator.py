@@ -7,57 +7,35 @@
 # October 6nd 2020 and then Dec 12th 2021
 
 from sqlite3.dbapi2 import Error
+import os
 import uuid
 import random
-import os, sys
 import time
 
 import numpy as np
 import pandas as pd
-from enum import IntEnum
 
-# loaded campagin
-# import eleanor.campaign as campaign
-
-from .hanger.eq36 import eq3, eq6
 from .hanger import db_comms
-from .hanger.tool_room import mk_check_del_directory, grab_lines, WorkingDirectory, mine_pickup_lines
+from .hanger.eq36 import eq3
+from .hanger.constants import MW
+from .hanger.tool_room import mk_check_directory, grab_lines, WorkingDirectory
 from .hanger.data0_tools import determine_species_set
-from .hanger.data0_tools import determine_ele_set, determine_loaded_sp
+from .hanger.data0_tools import determine_ele_set
 from .hanger.data0_tools import TPCurve
 
-# ### temporary fix.
-mw = {'O': 15.99940,
-      'C': 12.01100,
-      'S': 32.06600,
-      'Ca': 40.07800,
-      'K': 39.09830,
-      'Fe': 55.84700,
-      'Mg': 24.30500,
-      'Na': 22.98977,
-      'Si': 28.08550,
-      'O': 15.99940,
-      'H': 1.00794,
-      'P': 30.97362,
-      'Sr': 87.62000,
-      'Cl': 35.45270,
-      'F': 18.99840,
-      'Br': 79.90400,
-      'B': 10.81000}
-
 basis_mw = {
-    "HCO3-": 3 * mw['O'] + mw['H'] + mw['C'],
-    "O2": 2 * mw['O'],
-    "Na+": mw['Na'],
-    "Mg+2": mw['Mg'],
-    "Ca+2": mw['Ca'],
-    "K+": mw['K'],
-    "Sr+2": mw['Sr'],
-    "Cl-": mw['Cl'],
-    "SO4-2": mw['S'] + 4 * mw['S'],
-    "Br-": mw['Br'],
-    "F-": mw['F'],
-    "B(OH)3": mw['B'] + 3 * mw['O'] + 3 * mw['H']
+    "HCO3-": 3 * MW['O'] + MW['H'] + MW['C'],
+    "O2": 2 * MW['O'],
+    "Na+": MW['Na'],
+    "Mg+2": MW['Mg'],
+    "Ca+2": MW['Ca'],
+    "K+": MW['K'],
+    "Sr+2": MW['Sr'],
+    "Cl-": MW['Cl'],
+    "SO4-2": MW['S'] + 4 * MW['S'],
+    "Br-": MW['Br'],
+    "F-": MW['F'],
+    "B(OH)3": MW['B'] + 3 * MW['O'] + 3 * MW['H']
 }
 
 
@@ -108,13 +86,14 @@ def Navigator(this_campaign, quiet=False):
 
         # Generate orders
         if this_campaign.distro == 'random':
-            orders = random_uniform_order(this_campaign, date, order_number, file_number,
-                                          this_campaign.reso, elements, quiet=quiet)
+            orders = random_uniform_order(this_campaign, date, order_number,
+                                          this_campaign.reso, file_number, 
+                                          elements, quiet=quiet)
 
         else:
-            print(f'vs_distro: {this_campaign.distro} is not')
-            print('supported at this time. Only "random"')
-            sys.exit()
+            err_message = (f'vs_distro: {this_campaign.distro} is not',
+                           'supported at this time. Only "random"')
+            raise Error(err_message)
 
         # Send dataframe containing new orders to postgres database
         orders_to_sql(conn, 'vs', order_number, orders, quiet=quiet)
@@ -122,10 +101,11 @@ def Navigator(this_campaign, quiet=False):
         conn.close()
 
         if not quiet:
-            print('The Navigator has completed her task.')
-            print('   While she detected no "obvious" faults,')
-            print('   she notes that you may have fucked up')
-            print('   repeatedly in ways she couldnt anticipate.\n')
+            nav_success_message = ('The Navigator has completed her task.\n',
+                                   'It detected no "obvious" faults.\n',
+                                   'Note that you may have fucked up\n',
+                                   'repeatedly in myriad and unimaginable ways.\n')
+            print(nav_success_message)
 
 
 def huffer(conn, camp, quiet=False):
@@ -149,7 +129,7 @@ def huffer(conn, camp, quiet=False):
     if not quiet:
         print('Running the Huffer.')
 
-    mk_check_del_directory("huffer")
+    mk_check_directory("huffer")
     with WorkingDirectory('huffer'):
         [T], [P], [curve] = TPCurve.sample(camp.tp_curves, 1)
 
@@ -172,7 +152,7 @@ def huffer(conn, camp, quiet=False):
 
         camp.local_3i.write('test.3i', state_dict, basis_dict, camp.cb, camp.suppress_sp, output_details='v')
         data1_file = os.path.realpath(os.path.join(camp.data1_dir, curve.data1file))
-        out, err = eq3(data1_file, 'test.3i')
+        _, __ = eq3(data1_file, 'test.3i')
 
         try:
             _ = grab_lines('test.3o')
@@ -290,16 +270,16 @@ def build_basis(camp, precision, n):
 
     """
     df = pd.DataFrame()
-    for _ in camp.vs_basis.keys():
-        if isinstance(camp.vs_basis[_], list):
-            vals = [float(np.round(random.uniform(camp.vs_basis[_][0],
-                                                  camp.vs_basis[_][1]),
+    for k in camp.vs_basis.keys():
+        if isinstance(camp.vs_basis[k], list):
+            vals = [float(np.round(random.uniform(camp.vs_basis[k][0],
+                                                  camp.vs_basis[k][1]),
                                    precision))
                     for i in range(n)]
-            df['{}'.format(_)] = vals
+            df['{}'.format(k)] = vals
         else:
-            vals = np.round(camp.vs_basis[_], precision)
-            df['{}'.format(_)] = [float(vals) for i in range(n)]
+            vals = np.round(camp.vs_basis[k], precision)
+            df['{}'.format(k)] = [float(vals) for i in range(n)]
     return df
 
 
@@ -362,20 +342,20 @@ def calculate_ele_totals(d0, df, elements, order_size, precision):
     """
     ele_totals = {}
 
-    for _ in elements:
-        ele_totals[_] = [0] * order_size
+    for e in elements:
+        ele_totals[e] = [0] * order_size
 
-    for _ in elements:
+    for e in elements:
         # for a given element present in the campaign
         local_vs_sp = []
         for b in d0.species_names:
             # for species listed/constrained in vs
             sp_dict = d0[b].composition
-            if _ in sp_dict.keys():
+            if e in sp_dict.keys():
                 # if element _ in vs species, store in
                 # local_vs_sp as ['vs sp name',
                 # sto_of_element_in_sp]
-                local_vs_sp.append([b, sp_dict[_]])
+                local_vs_sp.append([b, sp_dict[e]])
 
         # build total element molality column into VS df
         for b in local_vs_sp:
@@ -384,9 +364,9 @@ def calculate_ele_totals(d0, df, elements, order_size, precision):
             if f'{b[0]}' in list(df.columns):
                 # basis is present in campaign, so add its molalities
                 # to element total
-                ele_totals[_] = ele_totals[_] + float(b[1]) * (10 ** df['{}'.format(b[0])])
+                ele_totals[e] = ele_totals[e] + float(b[1]) * (10 ** df['{}'.format(b[0])])
 
-        df[f'm_{_}'] = np.round(np.log10(ele_totals[_]), precision)
+        df[f'm_{e}'] = np.round(np.log10(ele_totals[e]), precision)
     return df
 
 

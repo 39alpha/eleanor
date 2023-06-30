@@ -17,7 +17,6 @@ import pandas as pd
 
 from .hanger import db_comms
 from .hanger.eq36 import eq3
-from .hanger.constants import MW
 from .hanger.tool_room import mk_check_directory, grab_lines, WorkingDirectory
 from .hanger.data0_tools import determine_species_set
 from .hanger.data0_tools import determine_ele_set
@@ -30,16 +29,16 @@ def Navigator(this_campaign, quiet=False):
     which contain a collection of modeling sample points, and stores them in
     the VS (Variable Space) table of the loaded campaign's SQL database.
 
-    Each line in the VS table (which is a vs point in n dimensiopns) contains
+    Each line in the VS table (which is a vs point in n dimensions) contains
     enough information to define a closed chemical system in those n dimensions
     and thus contains enough information to execute eq3 and eq6, depending on
     the praticulars of the loaded campaign.
 
     Currently only one VS point distributions is supported.
-    (1) :param:`'this_campaign.distro'` == 'random'
-        Which randomily selects points for the non-fixed dimensions.
+    :param: `'this_campaign.distro'` == 'random'
+    Which randomly selects points for the non-fixed dimensions.
 
-    :param this_campaign: loaded campaign
+    :param: this_campaign: loaded campaign
     :type this_campaign: :class:`Campaign` instance
 
     """
@@ -71,7 +70,7 @@ def Navigator(this_campaign, quiet=False):
         # Generate orders
         if this_campaign.distro == 'random':
             orders = random_uniform_order(this_campaign, date, order_number,
-                                          this_campaign.reso, file_number, 
+                                          this_campaign.reso, file_number,
                                           elements, quiet=quiet)
 
         else:
@@ -381,4 +380,3 @@ def orders_to_sql(conn, table, ord, df, quiet=False):
 
     if not quiet:
         print("  Orders written.\n")
-

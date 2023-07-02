@@ -288,7 +288,7 @@ class Campaign:
         """
         Create a :class:`Campaign` from the contents of a JSON file.
 
-        :param fname: path to the campain JSON file
+        :param fname: path to the campaign JSON file
         :type fname: str
 
         :return: a :class:`Campaign`

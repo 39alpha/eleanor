@@ -55,6 +55,7 @@ def create_or_expand_vs_table(conn, camp, elements):
     else:
         create_vs_table(conn, camp, elements)
 
+
 def create_vs_table(conn, camp, elements):
     """
     Initiate variable space table on connection 'conn'
@@ -394,93 +395,16 @@ def get_column_names(conn, table):
         return [row[1] for row in cursor.fetchall()]
 
 
-# def retrieve_combined_records(conn, vs_cols, es3_cols, es6_cols,
-#                               limit=None,
-#                               ord_id=None,
-#                               where=None,
-#                               fname=None):
-#     """
-#     Retrieve columns from the `vs` and `es6` tables, joined on the :code:`uuid` column. The results
-#     are returned as a Pandas :code:`DataFrame`.
-
-#     Since not all of the systems ordered by the Navigator will converge in EQ3/6, the `vs` table may
-#     contain orders for systems that do not exist in the `es6` table.
-
-#     If the :code:`fname` is provided and has either a `.pickle`, `.json` or `.csv` file extension,
-#     the DataFrame will be written to that file.
-
-#     :param conn: the database connection
-#     :type conn: sqlite3.Connection
-#     :param vs_cols: the columns to be selected from the `vs` table
-#     :type vs_cols: list
-#     :param es_cols: the columns to be selected from the `es6` table
-#     :type es_cols: list
-#     :param limit: limit the number of records retrieved 'limit'
-#     :type limit: int
-#     :param ord_id: select only rows with this order ID.
-#     :type order_id: int
-#     :param fname: path of an output file
-#     :type fname: str or None
-#     :param where_constrain: limit sql query with 'where statement',
-#         for example, where '"CO2" > -3'
-#     :type where_constrain: str
-
-#     :return: A DataFrame with the selected columns and rows
-#     :rtype: pandas.DataFrame
-#     """
-#     query = f"SELECT `vs`.`{'`, `vs`.`'.join(vs_cols)}`, \
-#                      `es3`.`{'`, `es3`.`'.join(es3_cols)}` \
-#                      `es6`.`{'`, `es6`.`'.join(es6_cols)}` \
-#               FROM `vs` INNER JOIN `es3` ON `vs`.`uuid` = `es3`.`uuid` \
-#                         INNER JOIN `es6` ON `vs`.`uuid` = `es6`.`uuid`"
-
-#     if ord_id is not None and where is not None:
-#         query += f" WHERE `es6`.`ord` = {ord_id} and \
-#                           `es3`.`ord` = {ord_id} and {where}"
-
-#     elif ord_id is not None:
-#         query += f" WHERE `es6`.`ord` = {ord_id} and \
-#                           `es3`.`ord` = {ord_id}"
-
-#     elif where is not None:
-#         query += f" WHERE {where}"
-
-#     if limit is not None:
-#         query += f" LIMIT {limit}"
-
-#     records = retrieve_records(conn, query)
-
-#     df_columns = [f"{c}_v" for c in vs_cols] + [f"{c}_e3" for c in es3_cols] + [f"{c}_e6" for c in es6_cols]
-
-#     df = pd.DataFrame(records, columns=df_columns)
-
-#     if fname is not None:
-#         _, ext = splitext(fname)
-#         if ext == '.json':
-#             df.to_json(fname, orient='records')
-#         elif ext == '.csv':
-#             df.to_csv(fname, index=False)
-#         elif ext == '.pickle':
-#             df.to_pickle(fname)
-#         else:
-#             sys.stderr.write(f"warning: cannot write records; unrecognized format '{ext}'\n")
-
-#     return df
-
-
-def retrieve_combined_records(camp_path, vs_cols, es3_cols, es6_cols, limit=None, ord_id=None, where=None, fname=None):
-
-    conn = sqlite3.connect(f'{camp_path}/campaign.sql')
-
-    if len(es3_cols) == 0 and len(es6_cols) == 0:
+def retrieve_combined_records(conn, vs_cols=None, es3_cols=None, es6_cols=None, limit=None, ord_id=None, where=None, fname=None):
+    if (es3_cols is None or len(es3_cols) == 0) and (es6_cols is None or len(es6_cols) == 0):
         query = f"SELECT `vs`.`{'`, `vs`.`'.join(vs_cols)}` FROM `vs`"
 
-    elif len(es3_cols) == 0:
+    elif (es3_cols is None or len(es3_cols) == 0):
         query = f"SELECT `vs`.`{'`, `vs`.`'.join(vs_cols)}`, \
                     `es6`.`{'`, `es6`.`'.join(es6_cols)}` \
                  FROM `vs` INNER JOIN `es6` ON `vs`.`uuid` = `es6`.`uuid`"
 
-    elif len(es6_cols) == 0:
+    elif (es6_cols is None or len(es6_cols) == 0):
         query = f"SELECT `vs`.`{'`, `vs`.`'.join(vs_cols)}`, \
                     `es3`.`{'`, `es3`.`'.join(es3_cols)}` \
                  FROM `vs` INNER JOIN `es3` ON `vs`.`uuid` = `es3`.`uuid`"
@@ -505,7 +429,13 @@ def retrieve_combined_records(camp_path, vs_cols, es3_cols, es6_cols, limit=None
 
     records = retrieve_records(conn, query)
 
-    df_columns = [f"{c}_v" for c in vs_cols] + [f"{c}_e3" for c in es3_cols] + [f"{c}_e6" for c in es6_cols]
+    df_columns = []
+    if vs_cols is not None:
+        df_columns.extend([f"{c}_v" for c in vs_cols])
+    if es3_cols is not None:
+        df_columns.extend([f"{c}_e3" for c in es3_cols])
+    if es6_cols is not None:
+        df_columns.extend([f"{c}_e6" for c in es6_cols])
 
     df = pd.DataFrame(records, columns=df_columns)
 

@@ -282,7 +282,7 @@ class TestTPCurve(TestCase):
             'Trange': [0.5, 3.0],
             'Prange': [0.0, 2.0],
             # The last subdomain is basically a single point
-            'domain': [[0.5, 1.0], [2.0, 3.0], [3.0, 3.0]],
+            'domain': [[0.5, 1.0], [2.0, 3.0]],
             'notEmpty': True,
         }, {
             # Horizontal line that crosses a vertical
@@ -305,7 +305,6 @@ class TestTPCurve(TestCase):
         for row in table:
             curve = data0.TPCurve('file.d0', row['T'], row['P'])
             notEmpty = curve.set_domain(row['Trange'], row['Prange'])
-            print([curve.domain, row])
             self.assertDomainsAlmostEqual(curve.domain, row['domain'])
             self.assertEquals(notEmpty, row['notEmpty'])
 

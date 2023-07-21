@@ -752,7 +752,7 @@ def switch_grid_3(three_i_switches):
          f' iopt11-20=    {pr["iopt_11"]}    0    0    0    0    0   {pr["iopt_17"]}    0   {pr["iopt_19"]}    0',
          f'  iopg1-10=    {pr["iopg_1"]}   {pr["iopg_2"]}    0    0    0    0    0    0    0    0',
          ' iopg11-20=     0    0    0    0    0    0    0    0    0    0',
-         f' iopr11-20=    {pr["iopr_1"]}   {pr["iopr_2"]}   {pr["iopr_3"]}   {pr["iopr_4"]}   {pr["iopr_5"]}   {pr["iopr_6"]}   {pr["iopr_7"]}   {pr["iopr_8"]}   {pr["iopr_9"]}   {pr["iopr_10"]}',
+         f'  iopr1-10=    {pr["iopr_1"]}   {pr["iopr_2"]}   {pr["iopr_3"]}   {pr["iopr_4"]}   {pr["iopr_5"]}   {pr["iopr_6"]}   {pr["iopr_7"]}   {pr["iopr_8"]}   {pr["iopr_9"]}   {pr["iopr_10"]}',
          f' iopr11-20=     0    0    0    0    0    0   {pr["iopr_17"]}    0    0    0',
          f'  iodb1-10=    {pr["iodb_1"]}    0   {pr["iodb_3"]}   {pr["iodb_4"]}    0   {pr["iodb_6"]}    0    0    0    0',
          ' iodb11-20=     0    0    0    0    0    0    0    0    0    0')
@@ -919,7 +919,28 @@ def build_sr_rnt(sp, dat):
     """
     # ### Special reactant dictionary.
     # ### sr_dict['name'] = [[ele list], [associated sto list]]
-    sr_dict = {"FeCl2": [["Fe", "Cl", "O"], [1, 2, 1]]}
+    sr_dict = {
+        "FeCl2": [["Fe", "Cl", "O"], [1, 2, 1]],
+        "NaHCO3": [["Na", "H", "C", "O"], [1, 1, 1, 3]],
+        "CaCl2*2H2O": [["Ca", "Cl"], [1, 2]],
+        "MgCl2*6H2O": [["Mg", "Cl"], [1, 2]],
+        "NaOH": [["Na", "O", "H"], [1, 1, 1]],
+        "KCl": [["K", "Cl"], [1, 1]],
+        "NH4Cl": [["N", "H", "Cl"], [1, 4, 1]],
+        "NaCl": [["Na", "Cl"], [1, 1]],
+        "Fe(NH4)2(SO4)2": [["Fe", "N", "H", "S", "O"], [1, 2, 8, 2, 8]],
+        "FeSO4": [["Fe", "S", "O"], [1, 1, 4]],
+        "ZnSO4": [["Zn", "S", "O"], [1, 1, 4]],
+        "CuSO4": [["Cu", "S", "O"], [1, 1, 4]],
+        "KAl(SO4)2": [["K", "Al", "S", "O"],[1, 1, 2, 8]],
+        "H3BO3": [["B", "H", "O"], [1, 3, 3]],
+        "Na2MoO4": [["Na", "Mo", "O"], [2, 1, 4]],
+        "NiCl2": [["Ni", "Cl"], [1, 2]],
+        "Na2SeO3": [["Na", "Se", "O"], [2, 1, 3]],
+        "Na2WO4": [["Na", "W", "O"], [2, 1, 4]],
+        "Na2S": [["Na", "S"], [2, 1]],
+        "Na2HPO4": [["Na", "H", "P", "O"], [2, 1, 1, 4]]
+        }
 
     # ### special reactant is specified and it is not a lone element
     if dat[0] == 'sr':
@@ -1031,7 +1052,6 @@ class Three_i(object):
         :param output_details: how verbose do you want the 3o file? 'n' (normal) 'v' (verbose)
         :type output_details: str (n, or v)
         """
-
         if output_details == 'v':
             # ### maximal infomration sought from the 3o file (used in huffer)
             self.switches['iopt_4'] = IOPT_4(1)
@@ -1161,7 +1181,7 @@ class Six_i(object):
                 '    jpress=  0',
                 '    pressb=  0.00000E+00',
                 '      ptk1=  0.00000E+00      ptk2=  0.00000E+00',
-                f'      nrct=  {str(self.reactant_n)}\n']))
+                f'      nrct= {str(self.reactant_n)}\n']))
 
             fixed_gases = {}
             if self.reactant_n > 0:

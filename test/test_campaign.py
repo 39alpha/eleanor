@@ -1,7 +1,7 @@
 from eleanor.campaign import Campaign
-from eleanor.hanger.tool_room import Three_i, Six_i
+from eleanor.hanger.tool_room import Six_i, IOPT_4
 from tempfile import NamedTemporaryFile, TemporaryDirectory
-from os.path import dirname, isdir, isfile, join, realpath
+from os.path import isdir, isfile, join, realpath
 import json
 import os
 from .common import TestCase
@@ -81,11 +81,8 @@ class TestCampaign(TestCase):
         self.assertEqual(camp.reso, self.config['resolution'])
         self.assertEqual(camp.SS, self.config['solid solutions'])
 
-        #  self.assertIsInstance(camp.local_3i, Three_i)
-        #  self.assertEqual(camp.local_3i.cb, 'Cl-')
-
         self.assertIsInstance(camp.local_6i, Six_i)
-        self.assertEqual(camp.local_6i.iopt4, ' 1')
+        self.assertEqual(camp.local_6i.switches['iopt_4'], IOPT_4.PERMIT_SS)
         self.assertEqual(camp.local_6i.suppress_min, self.config['suppress min'])
         self.assertEqual(camp.local_6i.min_supp_exemp, self.config['suppress min exemptions'])
 
@@ -113,11 +110,8 @@ class TestCampaign(TestCase):
         self.assertEqual(camp.reso, self.config['resolution'])
         self.assertEqual(camp.SS, self.config['solid solutions'])
 
-        #  self.assertIsInstance(camp.local_3i, Three_i)
-        #  self.assertEqual(camp.local_3i.cb, 'Cl-')
-
         self.assertIsInstance(camp.local_6i, Six_i)
-        self.assertEqual(camp.local_6i.iopt4, ' 0')
+        self.assertEqual(camp.local_6i.switches['iopt_4'], IOPT_4.IGNORE_SS)
         self.assertEqual(camp.local_6i.suppress_min, self.config['suppress min'])
         self.assertEqual(camp.local_6i.min_supp_exemp, self.config['suppress min exemptions'])
 
@@ -150,7 +144,7 @@ class TestCampaign(TestCase):
         #  self.assertEqual(camp.local_3i.cb, 'Cl-')
 
         self.assertIsInstance(camp.local_6i, Six_i)
-        self.assertEqual(camp.local_6i.iopt4, ' 1')
+        self.assertEqual(camp.local_6i.switches['iopt_4'], IOPT_4.PERMIT_SS)
         self.assertEqual(camp.local_6i.suppress_min, self.config['suppress min'])
         self.assertEqual(camp.local_6i.min_supp_exemp, self.config['suppress min exemptions'])
 

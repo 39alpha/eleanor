@@ -57,6 +57,9 @@ class Campaign:
     """
     def __init__(self, config, data0_dir):
         self.data0_dir = realpath(data0_dir)
+        # In case we need anything else just store it in _raw
+        self._raw = config
+
         # Metadata
         self.name = self._raw['campaign']
         self.notes = self._raw['notes']
@@ -291,7 +294,7 @@ class Campaign:
         """
         Create a :class:`Campaign` from the contents of a JSON file.
 
-        :param fname: path to the campain JSON file
+        :param fname: path to the campaign JSON file
         :type fname: str
 
         :return: a :class:`Campaign`

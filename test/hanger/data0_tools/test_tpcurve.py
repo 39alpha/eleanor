@@ -268,7 +268,7 @@ class TestTPCurve(TestCase):
             'domain': [(10, 10)],
             'notEmpty': True,
         }, {
-            # Intersect the top horizonal twice
+            # Intersect the top horizontal twice
             'T': {'min': 5, 'mid': 8, 'max': 10},
             'P': [[9, -1, 0, 0], [-7, 1, 0, 0, 0]],
             'Trange': [5, 11],
@@ -276,7 +276,7 @@ class TestTPCurve(TestCase):
             'domain': [[6, 10]],
             'notEmpty': True,
         }, {
-            # Intersect verticals and the top mutiple times
+            # Intersect verticals and the top multiple times
             'T': {'min': 0, 'mid': 2, 'max': 4},
             'P': [[-4, 11, -6, 1], [-4, 11, -6, 1]],
             'Trange': [0.5, 3.0],
@@ -305,6 +305,7 @@ class TestTPCurve(TestCase):
         for row in table:
             curve = data0.TPCurve('file.d0', row['T'], row['P'])
             notEmpty = curve.set_domain(row['Trange'], row['Prange'])
+            print([curve.domain, row])
             self.assertDomainsAlmostEqual(curve.domain, row['domain'])
             self.assertEquals(notEmpty, row['notEmpty'])
 

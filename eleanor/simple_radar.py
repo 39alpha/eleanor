@@ -170,16 +170,15 @@ def Radar(camp, x_sp, y_sp, z_sp='#000000', thought_process='', x_rng=None,
     with camp.working_directory():
         # ### grab orders, concatinating the dataframe, 1 record retrieved per
         # ### ord_id.
+        conn = establish_database_connection(camp)
         if ord_id:
             df_list = []
             for order in ord_id:
-                df = retrieve_combined_records('.', vs_cols, es3_cols, es6_cols,
-                                               limit=limit, where=where, ord_id=order)
+                df = retrieve_combined_records(conn, vs_cols, es3_cols, es6_cols, limit=limit, where=where, ord_id=order)
                 df_list.append(df)
             df = pd.concat(df_list)
         else:
-            df = retrieve_combined_records('.', vs_cols, es3_cols, es6_cols,
-                                           limit=limit, where=where)
+            df = retrieve_combined_records(conn, vs_cols, es3_cols, es6_cols, limit=limit, where=where)
 
         print(len(df))
         # ### Add new df columns where math is detected

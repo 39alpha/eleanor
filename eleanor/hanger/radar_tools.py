@@ -102,9 +102,7 @@ def Radar(camp, x_sp, y_sp, z_sp, description, ord_id=None, limit=1000, where=No
         # ord_id.
         df_list = []
         for order in ord_id:
-
-            df = retrieve_combined_records(conn, vs_sp, es_sp, limit=None, ord_id=order,
-                                           where=where)
+            df = retrieve_combined_records(conn, vs_sp, es_sp, limit=None, ord_id=order, where=where)
             df_list.append(df)
 
         conn.close()

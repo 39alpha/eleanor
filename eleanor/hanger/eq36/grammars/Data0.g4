@@ -4,7 +4,7 @@ NL        : [\r\n];
 MAGIC     : ('data0'|'Data0'|'DATA0');
 SEPERATOR : '+' '-'+;
 WORD      : ~[\-.0-9 \t\r\n]~[. \t\r\n]*;
-WS        : [ \t]+;
+WS        : [ \t];
 NUMBER    : SIGN? INTEGER | SIGN? FLOAT;
 COMMENT   : [\r\n] '*' ~[\r\n]* -> skip;
 SQ        : ['];
@@ -197,18 +197,17 @@ basisSpecies
       composition
       seperator;
 
-// It would be great if we could specify the length of the word to be 32
-speciesName : WORD | NUMBER '-' WORD;
+speciesName
+    : WORD
+    | NUMBER '-' WORD
+    | WORD '.' speciesName
+    | WORD '.' NUMBER speciesName?
+    | WORD WS NUMBER speciesName?
+    | WORD WS speciesName;
 
-speciesNote : ~NL* NL;
+speciesNote : (WS WS+ ~NL+)? NL;
 
-dateRevised :
-    WS
-    dateRevisedKey
-    WS*
-    '='
-    WS*
-    date;
+dateRevised : WS+ dateRevisedKey WS* '=' WS* date;
 
 dateRevisedKey : ('date last revised' | 'revised');
 
@@ -216,33 +215,26 @@ date
     : NUMBER ('-' | '.') restOfLine
     | restOfLine;
 
-speciesType : WS 'sp.type' WS '=' WS restOfLine;
+speciesType : WS+ 'sp.type' WS+ '=' WS+ restOfLine;
 
-keys : WS 'keys' WS '=' WS restOfLine;
+keys : WS+ 'keys' WS+ '=' WS+ restOfLine;
 
 chargeLine : WS* 'charge' WS* '=' WS* number WS* NL;
 
-composition : number WS 'element(s):' restOfLine formulaGrid;
+composition : number WS+ 'element(s):' restOfLine formulaGrid;
 
 formulaGrid : formulaLine+;
 
 formulaLine : formulaTerm+ WS* NL;
 
-formulaTerm : number WS componentName;
-
-componentName
-    : WORD
-    | NUMBER '-' WORD
-    | WORD '.' componentName
-    | WORD '.' NUMBER componentName?
-    | WORD WS componentName;
+formulaTerm : number WS+ speciesName;
 
 // Flesh out how to parse the unit?
-volumeLine : WS 'V0PrTr' WS '=' WS volume restOfLine;
+volumeLine : WS+ 'V0PrTr' WS+ '=' WS+ volume restOfLine;
 
 volume : number;
 
-ympQualified : WS+ 'YMP' ~'='+ '=' WS WORD restOfLine;
+ympQualified : WS+ 'YMP' ~'='+ '=' WS+ WORD restOfLine;
 
 auxiliaryBasisSpeciesSection : 'auxiliary basis species' sectionHeader auxiliaryBasisSpecies+;
 
@@ -255,7 +247,7 @@ auxiliaryBasisSpecies
       logKGrid
       seperator;
 
-dissociation : WS number WS 'species' restOfLine formulaGrid;
+dissociation : WS+ number WS+ 'species' restOfLine formulaGrid;
 
 logKGrid : numberGrid;
 
@@ -314,17 +306,17 @@ solidSolution
       siteParams
       seperator;
 
-components : number WS ('components'|'end members') restOfLine formulaGrid;
+components : number WS+ ('components'|'end members') restOfLine formulaGrid;
 
 solidSolutionModelSpec : solidSolutionModelType solidSolutionModelParams;
 
-solidSolutionModelType : WS 'type' WS '=' WS number WS* NL;
+solidSolutionModelType : WS+ 'type' WS+ '=' WS+ number WS* NL;
 
-solidSolutionModelParams : number WS 'model parameters' restOfLine possiblyEmptyNumberGrid;
+solidSolutionModelParams : number WS+ 'model parameters' restOfLine possiblyEmptyNumberGrid;
 
 possiblyEmptyNumberGrid : numberLine*;
 
-siteParams : number WS 'site parameters' restOfLine numberLine;
+siteParams : number WS+ 'site parameters' restOfLine numberLine;
 
 referenceSection : 'references' sectionHeader references 'stop.' (WS|NL)*;
 

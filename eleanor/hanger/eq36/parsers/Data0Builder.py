@@ -315,12 +315,9 @@ class Data0Builder(Data0Listener):
         ctx.data = [term.data for term in ctx.formulaTerm()]
 
     def exitFormulaTerm(self, ctx: Data0Parser.FormulaTermContext):
-        element = ctx.componentName().data
+        element = ctx.speciesName().data
         count = np.int64(ctx.number().data)
         ctx.data = (element, count)
-
-    def exitComponentName(self, ctx: Data0Parser.ComponentNameContext):
-        ctx.data = ctx.getText().strip()
 
     def exitAuxiliaryBasisSpeciesSection(self,
                                          ctx: Data0Parser.AuxiliaryBasisSpeciesSectionContext):

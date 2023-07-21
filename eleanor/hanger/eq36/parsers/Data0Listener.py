@@ -683,15 +683,6 @@ class Data0Listener(ParseTreeListener):
         pass
 
 
-    # Enter a parse tree produced by Data0Parser#componentName.
-    def enterComponentName(self, ctx:Data0Parser.ComponentNameContext):
-        pass
-
-    # Exit a parse tree produced by Data0Parser#componentName.
-    def exitComponentName(self, ctx:Data0Parser.ComponentNameContext):
-        pass
-
-
     # Enter a parse tree produced by Data0Parser#volumeLine.
     def enterVolumeLine(self, ctx:Data0Parser.VolumeLineContext):
         pass

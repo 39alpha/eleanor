@@ -18,12 +18,6 @@ from enum import IntEnum
 from .constants import *  # noqa (F403)
 from eleanor.exceptions import RunCode, EleanorFileException
 
-
-# #################################################################
-# ########################  small pieces  #########################
-# #################################################################
-
-
 def read_inputs(match, location, str_loc='suffix'):
     """
     Find all files in folders downstream from 'location', with extension 'file_extension'
@@ -51,10 +45,9 @@ def read_inputs(match, location, str_loc='suffix'):
     return file_names, file_paths
 
 
-def mk_check_del_directory(path):
+def mk_check_directory(path):
     """
-    This code checks for the dir being created, and if it is already
-    present, deletes it (with warning), before recreating it.
+    This code checks for the dir being created. It will make the directory if it doesn't exist.
     :param path: directory path to be created
     :type path: str
     """
@@ -179,7 +172,7 @@ def mine_pickup_lines(pp, file, position):
         file presents the fluid as a reactant to be reloaded into the reactant block of another 6i
         file. This can also be thought of as the dynamic system/fluid 'd', as it is the fluid that
         is being titrated as a function of Xi. The second block, below the reactant pickup lines,
-        contains a traditional pickup file. This can also be thought of as a static system/fluid 
+        contains a traditional pickup file. This can also be thought of as a static system/fluid
         's', as it is the system that is initiated at a fixed mass during a titration.
     :type position: str
     :return: lines within the pickup file, given 's' or 'd' above.
@@ -263,11 +256,7 @@ def determine_ss_kids(camp, ss, solids):
         ss_kids = ss_kids + [f'{i}_{_}' for i in kids_we_care_about]
     return ss_kids
 
-
-# #####################################################################
 # ###########################  3i/6i  #################################
-# #####################################################################
-
 
 class JTEMP(IntEnum):
     """
@@ -642,7 +631,7 @@ def set_3i_switches(config):
 
     :param config: non-default switch values for 3i file
     :type config: dict
-    TODO Doug Check
+
     :return: dictionary of switch settings
     :rtype: dictionary of IntEnum class instances
     """
@@ -752,11 +741,11 @@ def switch_grid_3(three_i_switches):
          f' iopt11-20=    {pr["iopt_11"]}    0    0    0    0    0   {pr["iopt_17"]}    0   {pr["iopt_19"]}    0',
          f'  iopg1-10=    {pr["iopg_1"]}   {pr["iopg_2"]}    0    0    0    0    0    0    0    0',
          ' iopg11-20=     0    0    0    0    0    0    0    0    0    0',
-         f' iopr11-20=    {pr["iopr_1"]}   {pr["iopr_2"]}   {pr["iopr_3"]}   {pr["iopr_4"]}   {pr["iopr_5"]}   {pr["iopr_6"]}   {pr["iopr_7"]}   {pr["iopr_8"]}   {pr["iopr_9"]}   {pr["iopr_10"]}',
+         f' iopr1-10=    {pr["iopr_1"]}   {pr["iopr_2"]}   {pr["iopr_3"]}   {pr["iopr_4"]}   {pr["iopr_5"]}   {pr["iopr_6"]}   {pr["iopr_7"]}   {pr["iopr_8"]}   {pr["iopr_9"]}   {pr["iopr_10"]}',  # noqa: E501
          f' iopr11-20=     0    0    0    0    0    0   {pr["iopr_17"]}    0    0    0',
-         f'  iodb1-10=    {pr["iodb_1"]}    0   {pr["iodb_3"]}   {pr["iodb_4"]}    0   {pr["iodb_6"]}    0    0    0    0',
+         f'  iodb1-10=    {pr["iodb_1"]}    0   {pr["iodb_3"]}   {pr["iodb_4"]}    0   {pr["iodb_6"]}    0    0    0    0',  # noqa: E501
          ' iodb11-20=     0    0    0    0    0    0    0    0    0    0')
-        ) + "\n"
+    ) + "\n"
     return switches
 
 
@@ -770,19 +759,19 @@ def switch_grid_6(six_i_switches):
     """
     pr = {}
 
-    for _ in six_i_switches:
-        # ### add_gap
-        pr[_] = ' ' * (2 - len(str(int(six_i_switches[_])))) + str(int(six_i_switches[_]))
+    for sis in six_i_switches:
+        #  add_gap
+        pr[sis] = ' ' * (2 - len(str(int(six_i_switches[sis])))) + str(int(six_i_switches[sis]))
 
     switches = "\n".join(
         ('*               1    2    3    4    5    6    7    8    9   10',
-         f'  iopt1-10=    {pr["iopt_1"]}   {pr["iopt_2"]}   {pr["iopt_3"]}   {pr["iopt_4"]}   {pr["iopt_5"]}   {pr["iopt_6"]}   {pr["iopt_7"]}    0   {pr["iopt_9"]}   {pr["iopt_10"]}',
-         f' iopt11-20=    {pr["iopt_11"]}   {pr["iopt_12"]}   {pr["iopt_13"]}   {pr["iopt_14"]}   {pr["iopt_15"]}   {pr["iopt_16"]}   {pr["iopt_17"]}   {pr["iopt_18"]}    0   {pr["iopt_20"]}',
-         f'  iopr1-10=    {pr["iopr_1"]}   {pr["iopr_2"]}   {pr["iopr_3"]}   {pr["iopr_4"]}   {pr["iopr_5"]}   {pr["iopr_6"]}   {pr["iopr_7"]}   {pr["iopr_8"]}   {pr["iopr_9"]}   {pr["iopr_10"]}',
+         f'  iopt1-10=    {pr["iopt_1"]}   {pr["iopt_2"]}   {pr["iopt_3"]}   {pr["iopt_4"]}   {pr["iopt_5"]}   {pr["iopt_6"]}   {pr["iopt_7"]}    0   {pr["iopt_9"]}   {pr["iopt_10"]}',  # noqa: E501
+         f' iopt11-20=    {pr["iopt_11"]}   {pr["iopt_12"]}   {pr["iopt_13"]}   {pr["iopt_14"]}   {pr["iopt_15"]}   {pr["iopt_16"]}   {pr["iopt_17"]}   {pr["iopt_18"]}    0   {pr["iopt_20"]}',  # noqa: E501
+         f'  iopr1-10=    {pr["iopr_1"]}   {pr["iopr_2"]}   {pr["iopr_3"]}   {pr["iopr_4"]}   {pr["iopr_5"]}   {pr["iopr_6"]}   {pr["iopr_7"]}   {pr["iopr_8"]}   {pr["iopr_9"]}   {pr["iopr_10"]}',  # noqa: E501
          f' iopr11-20=     0    0    0    0    0    0   {pr["iopr_17"]}    0    0    0',
-         f'  iodb1-10=    {pr["iodb_1"]}   {pr["iodb_2"]}   {pr["iodb_3"]}   {pr["iodb_4"]}   {pr["iodb_5"]}   {pr["iodb_6"]}   {pr["iodb_7"]}   {pr["iodb_8"]}    0    0',
+         f'  iodb1-10=    {pr["iodb_1"]}   {pr["iodb_2"]}   {pr["iodb_3"]}   {pr["iodb_4"]}   {pr["iodb_5"]}   {pr["iodb_6"]}   {pr["iodb_7"]}   {pr["iodb_8"]}    0    0',  # noqa: E501
          ' iodb11-20=     0    0    0    0    0    0    0    0    0    0')
-        ) + "\n"
+    ) + "\n"
     return switches
 
 
@@ -821,9 +810,9 @@ def format_special_basis_switch(special_basis_switch):
         build = build + '    nsbswt=   0\n'
     else:
         build = build + f'    nsbswt=   {len(special_basis_switch)}\n'
-        for _ in special_basis_switch:
-            build = build + f'species= {_}\n'
-            build = build + f'  switch with= {special_basis_switch[_]}\n'
+        for sbs in special_basis_switch:
+            build = build + f'species= {sbs}\n'
+            build = build + f'  switch with= {special_basis_switch[sbs]}\n'
     return build
 
 
@@ -904,7 +893,7 @@ def build_gas_rnt(gas_sp, morr, rk1b):
          '      fkrc=  0.00000E+00',
          '      nrk1=  1',
          f'       rk1=  {format_e(rk1b, 5)}       rk2=  0.00000E+00       rk3=  0.00000E+00\n')
-        )
+    )
 
 def build_sr_rnt(sp, dat):
     """
@@ -913,13 +902,35 @@ def build_sr_rnt(sp, dat):
     THis dictionary has the same structure as the camp.target_rnt dictionary in the loaded campaign
     file, but without any ranges, as values have already been selected by the navigator function which
     built the campaigns VS table and generated the local set of orders.
-    This function accepts lone elements 'ele' or custom species 'sr' existing in the special reactant dictionary (sr_dict)
+    This function accepts lone elements 'ele' or custom species 'sr' existing
+    in the special reactant dictionary (sr_dict)
     The reactants which may be passed are interations within the camp.target_rnt dictionary
     defined in th eloaded campaign file.
     """
     # ### Special reactant dictionary.
     # ### sr_dict['name'] = [[ele list], [associated sto list]]
-    sr_dict = {"FeCl2": [["Fe", "Cl", "O"], [1, 2, 1]]}
+    sr_dict = {
+        "FeCl2": [["Fe", "Cl", "O"], [1, 2, 1]],
+        "NaHCO3": [["Na", "H", "C", "O"], [1, 1, 1, 3]],
+        "CaCl2*2H2O": [["Ca", "Cl"], [1, 2]],
+        "MgCl2*6H2O": [["Mg", "Cl"], [1, 2]],
+        "NaOH": [["Na", "O", "H"], [1, 1, 1]],
+        "KCl": [["K", "Cl"], [1, 1]],
+        "NH4Cl": [["N", "H", "Cl"], [1, 4, 1]],
+        "NaCl": [["Na", "Cl"], [1, 1]],
+        "Fe(NH4)2(SO4)2": [["Fe", "N", "H", "S", "O"], [1, 2, 8, 2, 8]],
+        "FeSO4": [["Fe", "S", "O"], [1, 1, 4]],
+        "ZnSO4": [["Zn", "S", "O"], [1, 1, 4]],
+        "CuSO4": [["Cu", "S", "O"], [1, 1, 4]],
+        "KAl(SO4)2": [["K", "Al", "S", "O"],[1, 1, 2, 8]],
+        "H3BO3": [["B", "H", "O"], [1, 3, 3]],
+        "Na2MoO4": [["Na", "Mo", "O"], [2, 1, 4]],
+        "NiCl2": [["Ni", "Cl"], [1, 2]],
+        "Na2SeO3": [["Na", "Se", "O"], [2, 1, 3]],
+        "Na2WO4": [["Na", "W", "O"], [2, 1, 4]],
+        "Na2S": [["Na", "S"], [2, 1]],
+        "Na2HPO4": [["Na", "H", "P", "O"], [2, 1, 1, 4]]
+        }
 
     # ### special reactant is specified and it is not a lone element
     if dat[0] == 'sr':
@@ -927,20 +938,19 @@ def build_sr_rnt(sp, dat):
         try:
             sr_dat = sr_dict[sp]
         except Exception as e:
-            print('Special reactant not installed:')
-            sys.exit(e)
+            raise ValueError('Special reactant not installed:', e)
 
-        # ### transpose to create [ele, sto] pairs and iterate
+        # transpose to create [ele, sto] pairs and iterate
         middle = []
-        for _ in [list(i) for i in zip(*sr_dat)]:
-            middle.append(f"   {_[0]}{' '*(2-len(_[0]))}          {format_e(_[1], 5)}\n")
-
-    # ### special reactant is a lone element
+        for l_idx in [list(i) for i in zip(*sr_dat)]:
+            mid = f"   {l_idx[0]}{' '*(2-len(l_idx[0]))}          {format_e(l_idx[1], 5)}\n"
+            middle.append(mid)
+    # special reactant is a lone element
     else:
         middle = f"   {sp}{' '*(2-len(sp))}          1.00000E+00\n"
 
-    # ### the top and bottom of the reactant block is the same for ele and sr,
-    # ### as the reactant is titrated as a single unit (rk1b).
+    #  the top and bottom of the reactant block is the same for ele and sr,
+    #  as the reactant is titrated as a single unit (rk1b).
     top = '\n'.join(
         ['*-----------------------------------------------------------------------------',
          '  reactant=  {}'.format(sp),
@@ -960,10 +970,7 @@ def build_sr_rnt(sp, dat):
 
     return top + ''.join(middle) + bottom
 
-# #################################################################
 # ##########################  classes  ############################
-# #################################################################
-
 
 class Three_i(object):
     """
@@ -975,7 +982,7 @@ class Three_i(object):
         File.3i template
 
         :param special_basis_switch: dictionary of old_basis:new_basis pairs. The old basis must be
-            in the basis block of the employed data0 file, and the new_basis species must be in the 
+            in the basis block of the employed data0 file, and the new_basis species must be in the
             auxillary basis block. This swithc occures before the system is evaluated.
         :type special_basis_switch: dict
         :param three_i_switches: swtich setings for the all 3i files not set to verbose (huffer)
@@ -998,21 +1005,21 @@ class Three_i(object):
              '* Solid solution compositions',
              '      nxti=   0',
              '* Alter/suppress options\n')
-            )
+        )
         self.supp = format_suppress_options(suppress_sp)
         self.switches = three_i_switches
         self.switch_grid = switch_grid_3(three_i_switches)
         self.end_piece = "\n".join(
-            ('* Numerical parameters',
-             '     tolbt=  0.00000E+00     toldl=  0.00000E+00',
-             '    itermx=   0',
-             '* Ordinary basis switches',
-             '    nobswt=   0',
-             '* Saturation flag tolerance',
-             '    tolspf=  0.00000E+00',
-             '* Aqueous phase scale factor',
-             '    scamas=  1.00000E+00')
-            )
+                         ('* Numerical parameters',
+                          '     tolbt=  0.00000E+00     toldl=  0.00000E+00',
+                          '    itermx=   0',
+                          '* Ordinary basis switches',
+                          '    nobswt=   0',
+                          '* Saturation flag tolerance',
+                          '    tolspf=  0.00000E+00',
+                          '* Aqueous phase scale factor',
+                          '    scamas=  1.00000E+00')
+        )
 
     def write(self, local_name, v_state, v_basis, cb, suppress_sp, output_details='n'):
         """
@@ -1031,7 +1038,6 @@ class Three_i(object):
         :param output_details: how verbose do you want the 3o file? 'n' (normal) 'v' (verbose)
         :type output_details: str (n, or v)
         """
-
         if output_details == 'v':
             # ### maximal infomration sought from the 3o file (used in huffer)
             self.switches['iopt_4'] = IOPT_4(1)
@@ -1068,7 +1074,7 @@ class Three_i(object):
                  f'     uebal= {cb}\n')))
 
             if type(v_state['fO2']) == str:
-                # ### redox set by species
+                # redox set by species
                 build.write("\n".join(
                     ('    irdxc3=   1',
                      '    fo2lgi= 0.00000E+00       ehi=  0.00000E+00',
@@ -1081,11 +1087,12 @@ class Three_i(object):
                      '       pei=  0.00000E+00    uredox= None',
                      '* Aqueous basis species\n')))
 
-            for _ in v_basis.keys():
-                if _ == 'H+':
-                    build.write(f'species= {_}\n   jflgi= 16    covali=  {v_basis[_]}\n')
+            for k in v_basis.keys():
+                if k == 'H+':
+                    build.write(f'species= {k}\n   jflgi= 16    covali=  {v_basis[k]}\n')
                 else:
-                    build.write(f'species= {_}\n   jflgi=  0    covali=  {format_e(10**v_basis[_], 5)}\n')  # noqa (E501)
+                    wr = f'species= {k}\n   jflgi=  0    covali=  {format_e(10**v_basis[k], 5)}\n'
+                    build.write(wr)
             build.write(self.middle_piece)
             build.write(self.supp)
             build.write(switch_grid)
@@ -1115,7 +1122,7 @@ class Six_i(object):
         :param min_supp_exemp: exemptions to mass suppress option above
         :type min_supp_exemp: list of stirngs (mineral names)
         """
-        self.reactant_n = len([_ for _ in reactants.keys() if reactants[_][0] != 'fixed gas'])
+        self.reactant_n = len([k for k in reactants.keys() if reactants[k][0] != 'fixed gas'])
         self.switches = six_i_switches
         self.switch_grid = switch_grid_6(six_i_switches)
         self.xi_max = xi_max
@@ -1161,20 +1168,20 @@ class Six_i(object):
                 '    jpress=  0',
                 '    pressb=  0.00000E+00',
                 '      ptk1=  0.00000E+00      ptk2=  0.00000E+00',
-                f'      nrct=  {str(self.reactant_n)}\n']))
+                f'      nrct= {str(self.reactant_n)}\n']))
 
             fixed_gases = {}
             if self.reactant_n > 0:
-                for _ in reactants.keys():
-                    if reactants[_][0] == 'mineral':
-                        build.write(build_mineral_rnt(_, reactants[_][1], reactants[_][2]))
-                    elif reactants[_][0] == 'gas':
-                        build.write(build_gas_rnt(_, reactants[_][1], reactants[_][2]))
-                    elif reactants[_][0] == 'fixed gas':
+                for rk in reactants.keys():
+                    if reactants[rk][0] == 'mineral':
+                        build.write(build_mineral_rnt(rk, reactants[rk][1], reactants[rk][2]))
+                    elif reactants[rk][0] == 'gas':
+                        build.write(build_gas_rnt(rk, reactants[rk][1], reactants[rk][2]))
+                    elif reactants[rk][0] == 'fixed gas':
                         # incorporated below
-                        fixed_gases[_] = reactants[_]
-                    elif reactants[_][0] in ['sr', 'ele']:
-                        build.write(build_sr_rnt(_, reactants[_]))
+                        fixed_gases[rk] = reactants[rk]
+                    elif reactants[rk][0] in ['sr', 'ele']:
+                        build.write(build_sr_rnt(rk, reactants[rk]))
             build.write(self.limits)
             build.write(self.switch_grid)
 
@@ -1187,8 +1194,8 @@ class Six_i(object):
             # exemptions to mineral suppressions
             if len(self.min_supp_exemp) != 0:
                 build.write(f'    nxopex= {str(int(len(self.min_supp_exemp)))}\n')
-                for _ in self.min_supp_exemp:
-                    build.write(f'   species= {_}\n')
+                for mse in self.min_supp_exemp:
+                    build.write(f'   species= {mse}\n')
 
             elif len(self.min_supp_exemp) == 0 and self.suppress_min:
                 build.write('    nxopex=  0\n')
@@ -1198,9 +1205,11 @@ class Six_i(object):
                 build.write('      nffg=  0\n')
             else:
                 build.write(f'      nffg=  {len(fixed_gases)}\n')
-                for _ in fixed_gases:
-                    build.write(f'   species= {_}\n')
-                    build.write(f'     moffg=  {format_e(float(fixed_gases[_][2]), 5)}    xlkffg= {format_e(float(fixed_gases[_][1]), 5)}\n')
+                for fg in fixed_gases:
+                    build.write(f'   species= {fg}\n')
+                    to_write = f'     moffg=  {format_e(float(fixed_gases[fg][2]), 5)}'
+                    to_write += f'    xlkffg= {format_e(float(fixed_gases[fg][1]), 5)}\n'
+                    build.write(to_write)
 
             build.write(self.end_piece)
             build.write(''.join(pickup_lines))

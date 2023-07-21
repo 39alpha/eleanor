@@ -104,7 +104,6 @@ class Campaign:
                            'file suffix (see Campaign class docs)')
             raise EleanorException(err_message)
 
-        print()
 
         if self.SS:
             self.SixI_config['iopt_4'] = 1

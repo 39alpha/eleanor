@@ -25,7 +25,7 @@ from .hanger.db_comms import execute_vs_exit_updates
 from .hanger.db_comms import establish_database_connection, retrieve_records, get_column_names
 from .hanger.eq36 import eq3, eq6
 from .hanger.data0_tools import determine_species_set
-from .hanger.tool_room import mk_check_del_directory, mine_pickup_lines, grab_float
+from .hanger.tool_room import mk_check_directory, mine_pickup_lines, grab_float
 from .hanger.tool_room import grab_lines, grab_str, determine_ss_kids, WorkingDirectory
 
 
@@ -257,7 +257,7 @@ class SailorPaths(object):
         return self.name + '.6o'
 
     def create_directory(self):
-        mk_check_del_directory(self.directory)
+        mk_check_directory(self.directory)
 
 
 def sailor(camp, scratch_path, vs_queue, es3_queue, es6_queue, date, dat, elements, solids, ss,

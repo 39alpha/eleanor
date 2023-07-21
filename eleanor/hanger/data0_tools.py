@@ -170,43 +170,44 @@ def determine_loaded_sp(path=''):
     with open('{}test.3o'.format(path), 'r') as f:
         lines = f.readlines()
         grab_loaded_sp = False
-        for _ in range(len(lines)):
+        for l in range(len(lines)):
             # ## search for loaded species.
             # These only appear if verbose 'v' is set with local_3i.write() above
-            if ' --- Listing of Species and Reactions ---' in lines[_]:
+            if ' --- Listing of Species and Reactions ---' in lines[l]:
                 grab_loaded_sp = True
-            elif ' - - BEGIN ITERATIVE CALCULATIONS  - - - ' in lines[_]:
+            elif ' - - BEGIN ITERATIVE CALCULATIONS  - - - ' in lines[l]:
                 break
-            elif grab_loaded_sp and '------------------' in lines[_]:
+            elif grab_loaded_sp and '------------------' in lines[l]:
                 # ## the two options below avoid the 'BEGIN ITERATIVE . .'
                 # ## which is also caught with the above string.
-                if '1.000' in lines[_ + 2]:
+                if '1.000' in lines[l + 2]:
                     # ## exclude basis species
                     # ## grab full string (with spaces) after the stoichiometry
                     # ## this correctly differentiates solid solution end-members
                     # ## from their stand alone counterparts ie: 'CA-SAPONITE'
                     # ## vs 'CA-SAPONITE (SAPONITE)'
-                    loaded_sp.append(lines[_ + 2].split('1.000  ')[-1].strip())
-                elif 'is a strict' in lines[_ + 2]:
+                    loaded_sp.append(lines[l + 2].split('1.000  ')[-1].strip())
+                elif 'is a strict' in lines[l + 2]:
                     # ## grabs basis species
                     loaded_sp.append(
-                        lines[_ + 2].split(' is a strict ')[0].strip())
+                        lines[l + 2].split(' is a strict ')[0].strip())
 
-        # ## O2(g) shows up as a strict basis species, and again with the gasses
-        # ## so its basis form is removed here. Also, H2O shows up 2 times, and
-        # ## regardless is separately tracked via the aH2O variable.
-        loaded_sp = [_ for _ in loaded_sp if _ != 'H2O' and _ != 'O2(g)']
+        # O2(g) shows up as a strict basis species, and again with the gasses
+        # so its basis form is removed here. Also, H2O shows up 2 times, and
+        # regardless is separately tracked via the aH2O variable.
+        loaded_sp = [ls for ls in loaded_sp if ls != 'H2O' and ls != 'O2(g)']
 
         # alter loaded_sp to reflect correct search names required for 6o
-        aq_and_s = [_ for _ in loaded_sp if ' (' not in _]
-        ss_and_gas = [_ for _ in loaded_sp if ' (' in _]
-        gas = [_.split(' (')[0] for _ in ss_and_gas if '(Gas)' in _]
-        ss = [_.split(' (')[1].strip(')(') for _ in ss_and_gas if '(Gas)' not in _]
+        aq_and_s = [ls for ls in loaded_sp if ' (' not in ls]
+        ss_and_gas = [ls for ls in loaded_sp if ' (' in ls]
+        gas = [ssg.split(' (')[0] for ssg in ss_and_gas if '(Gas)' in ssg]
+        ss = [ssg.split(' (')[1].strip(')(') for ssg in ss_and_gas if '(Gas)' not in ssg]
 
         sp_names = aq_and_s + gas
         ss_names = list(set(ss))
 
     return sp_names, ss_names
+
 
 def determine_T_P_coverage(data0_dir):
     """
@@ -226,6 +227,7 @@ def determine_T_P_coverage(data0_dir):
 
     print('w')
     return []
+
 
 def data0_suffix(T, P):
     """
@@ -308,6 +310,7 @@ def check_data0s_loaded():
 
     plt.show()
 
+
 def convert_to_d1(src, dst):
     def run_eqpt(data0):
         data0copy = os.path.basename(canonical_d0_name(data0))
@@ -337,6 +340,7 @@ def convert_to_d1(src, dst):
         else:
             raise ValueError('source argument must be a file or directory')
 
+
 def canonical_d0_name(data0):
     stem, ext = os.path.splitext(os.path.basename(data0))
     if ext == '.d0':
@@ -349,6 +353,7 @@ def canonical_d0_name(data0):
         ext = '_' + ext
 
     return os.path.join(os.path.dirname(data0), stem + ext + '.d0')
+
 
 def hash_data0s(data0dir):
     """

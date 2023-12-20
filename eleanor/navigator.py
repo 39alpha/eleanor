@@ -84,9 +84,9 @@ def Navigator(this_campaign, quiet=False):
         conn.close()
 
         if not quiet:
-            nav_success_message = ('The Navigator has completed her task.\n',
-                                   'It detected no "obvious" faults.\n',
-                                   'Note that you may have fucked up\n',
+            nav_success_message = ('The Navigator has completed her task.\n'
+                                   'It detected no "obvious" faults.\n'
+                                   'Note that you may have fucked up\n'
                                    'repeatedly in myriad and unimaginable ways.\n')
             print(nav_success_message)
 

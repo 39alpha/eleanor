@@ -8,6 +8,7 @@
 
 from sqlite3.dbapi2 import Error
 import os
+import sys
 import uuid
 import random
 import time
@@ -70,7 +71,7 @@ def Navigator(this_campaign, quiet=False):
         # Generate orders
         if this_campaign.distro == 'random':
             orders = random_uniform_order(this_campaign, date, order_number,
-                                          this_campaign.reso, file_number,
+                                          file_number, this_campaign.reso,
                                           elements, quiet=quiet)
 
         else:
@@ -289,6 +290,7 @@ def build_admin_info(camp, df, ord, file_number, order_size, date):
     :rtype: :class:'pandas.core.frame.DataFrame'
 
     """
+    print(order_size)
     df['uuid'] = [uuid.uuid4().hex for _ in range(order_size)]
     df['camp'] = camp.name
     df['file'] = list(range(file_number, file_number + order_size))
@@ -296,6 +298,7 @@ def build_admin_info(camp, df, ord, file_number, order_size, date):
     df['birth'] = date
     df['cb'] = camp.cb
     df['code'] = 0  # custom exit codes
+    print(df)
 
     return df
 
@@ -371,9 +374,13 @@ def orders_to_sql(conn, table, ord, df, quiet=False):
     :type df: :class: pandas.core.frame.DataFrame
 
     """
+
+    if len(df) == 0:
+        # ### TODO: @ Doug, not sure if this is the officnally correct way
+        # ###       to exit the code. Its just the one I know.
+        sys.exit(' Orders dataframe is empty. WTF?')
     if not quiet:
         print(f'Writing order #{ord} to table {table}')
-
     df.to_sql(table, con=conn, if_exists='append', index=False)
     conn.commit()
     conn.close()

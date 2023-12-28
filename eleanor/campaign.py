@@ -64,8 +64,6 @@ class Campaign:
         self.name = self._raw['campaign']
         self.notes = self._raw['notes']
         self.est_date = self._raw['est_date']
-        # In case we need anything else just store it in _raw
-        self._raw = config
 
         # modelling data
         self.special_basis_switch = self._raw.get("special basis switch", {})

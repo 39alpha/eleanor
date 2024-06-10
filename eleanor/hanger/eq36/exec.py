@@ -7,6 +7,7 @@ import re
 from subprocess import Popen, PIPE
 from eleanor.exceptions import Eq36Exception, RunCode
 
+
 def error_guard(output, cmd, code, fname=None):
     """
     Parse EQ3/6 standard output content for error messages and raise an
@@ -24,12 +25,13 @@ def error_guard(output, cmd, code, fname=None):
             first_message = error.split('\\n\\n')[0]
             trimmed_prefix = first_message.replace('Error - ', str(cmd))
             no_newline = trimmed_prefix.replace('\\n', '')
-            message = re.sub('\s+', ' ', no_newline)
-            if re.match('^\s*$', message) is None:
+            message = re.sub('\\s+', ' ', no_newline)
+            if re.match('^\\s*$', message) is None:
                 if fname is None:
                     raise Eq36Exception(message, code=code)
                 else:
                     raise Eq36Exception(f'{message} in file "{fname}"', code=code)
+
 
 def run(cmd, *args, **kwargs):
     """
@@ -37,8 +39,8 @@ def run(cmd, *args, **kwargs):
     :code:`args`, capture the standard input and output, and return them.
 
     :param cmd: the command to run, e.g. `ls`
-    :param \*args: arguments to the command
-    :param \*\*kwargs: optional keyword arguments to pass to :func:`error_guard`
+    :param \\*args: arguments to the command
+    :param \\*\\*kwargs: optional keyword arguments to pass to :func:`error_guard`
     :return: the standard output and error
     """
     process = Popen([cmd, *args], stdout=PIPE, stderr=PIPE)
@@ -46,6 +48,7 @@ def run(cmd, *args, **kwargs):
     error_guard(stdout, cmd, **kwargs)
 
     return stdout, stderr
+
 
 def eqpt(data0):
     """

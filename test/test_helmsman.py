@@ -1,6 +1,7 @@
 from . common import TestCase
 import eleanor.helmsman as helmsman
 
+
 class TestHelmsman(TestCase):
     """
     Tests of the eleanor.helmsman module

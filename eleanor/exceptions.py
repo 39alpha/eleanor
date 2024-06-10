@@ -1,5 +1,6 @@
 from enum import IntEnum
 
+
 class RunCode(IntEnum):
     NOT_RUN = 0
     UNKNOWN = 1
@@ -45,8 +46,10 @@ class EleanorException(Exception):
     def __str__(self):
         return f"(code: {int(self.code)}) {super().__str__()}"
 
+
 class Eq36Exception(EleanorException):
     pass
+
 
 class EleanorFileException(EleanorException):
     def __init__(self, error, *args, **kwargs):

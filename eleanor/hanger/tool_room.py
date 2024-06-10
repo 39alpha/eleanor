@@ -2,13 +2,6 @@
 The tool_room contains functions and classes primarily related to
 construction of EQ3/6 input files.
 """
-
-# tool_room
-# Developed by Tucker Ely
-# 2018-
-# General EQ3/6 dependencies
-# Adapted by 39A 2021
-
 import os
 import sys
 import re
@@ -17,6 +10,7 @@ import hashlib
 from enum import IntEnum
 from .constants import *  # noqa (F403)
 from eleanor.exceptions import RunCode, EleanorFileException
+
 
 def read_inputs(match, location, str_loc='suffix'):
     """
@@ -219,6 +213,7 @@ def mine_pickup_lines(pp, file, position):
     except FileNotFoundError as e:
         raise EleanorFileException(e, code=RunCode.FILE_ERROR_3P)
 
+
 def log_rng(mid, error_in_frac):
     """
     TODO, @Doug
@@ -256,7 +251,6 @@ def determine_ss_kids(camp, ss, solids):
         ss_kids = ss_kids + [f'{i}_{_}' for i in kids_we_care_about]
     return ss_kids
 
-# ###########################  3i/6i  #################################
 
 class JTEMP(IntEnum):
     """
@@ -826,7 +820,7 @@ def format_limits(xi_max):
     :return: formated text for the 6i files, limits section
     :rtype: str
     """
-    return'\n'.join(
+    return '\n'.join(
         ['*-----------------------------------------------------------------------------',  # noqa (E501)
          f'    xistti=  0.00000E+00    ximaxi=  {format_e(float(xi_max), 5)}',
          '    tistti=  0.00000E+00    timmxi=  1.00000E+38',
@@ -895,6 +889,7 @@ def build_gas_rnt(gas_sp, morr, rk1b):
          f'       rk1=  {format_e(rk1b, 5)}       rk2=  0.00000E+00       rk3=  0.00000E+00\n')
     )
 
+
 def build_sr_rnt(sp, dat):
     """
     The function returns a 6i reactant block for special reactant 'phase' of type jcode = 2.
@@ -949,7 +944,6 @@ def build_sr_rnt(sp, dat):
 
     return top + ''.join(middle) + bottom
 
-# ##########################  classes  ############################
 
 class Three_i(object):
     """
@@ -1053,7 +1047,7 @@ class Three_i(object):
                  '    iebal3=   1',
                  f'     uebal= {cb}\n')))
 
-            if type(v_state['fO2']) == str:
+            if isinstance(v_state['fO2'], str):
                 # redox set by species
                 build.write("\n".join(
                     ('    irdxc3=   1',
@@ -1202,6 +1196,7 @@ class WorkingDirectory(object):
     :param path: The path of the new current working directory
     :type path: str
     """
+
     def __init__(self, path):
         self.path = os.path.realpath(path)
         self.cwd = os.getcwd()

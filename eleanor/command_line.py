@@ -3,6 +3,7 @@ import argparse
 import eleanor
 import os
 
+
 def helmsman():
     # Set up the argument parser
     arg_parser = argparse.ArgumentParser()
@@ -30,6 +31,7 @@ def helmsman():
                      quiet=cli_args["quiet"],
                      no_progress=cli_args["no_progress"])
 
+
 def navigator():
     # Set up the argument parser
     arg_parser = argparse.ArgumentParser()
@@ -44,6 +46,7 @@ def navigator():
     my_camp = eleanor.Campaign.from_json(cli_args["campaign"], cli_args["data0files"])
     my_camp.create_env(verbose=False)
     eleanor.Navigator(my_camp, quiet=cli_args["quiet"])
+
 
 def combined():
 

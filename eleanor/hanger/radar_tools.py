@@ -75,15 +75,16 @@ def Radar(camp, x_sp, y_sp, z_sp, description, ord_id=None, limit=1000, where=No
     # error check arguments
     if not ord_id:
         sys.exit('please supply order id, or list of order ids to be plotted')
-    if type(ord_id) == int:
+
+    if isinstance(ord_id, int):
         # convert to list of 1, if a single order number is supplied
         ord_id = [ord_id]
 
     # extract species {} from x_sp, y_sp, and z_sp strings
     all_sp = [x_sp, y_sp, z_sp]
     full_call = ' '.join(all_sp)
-    es_sp = [_[:-2] for _ in set(re.findall('\{([^ ]*_e)\}', full_call))]
-    vs_sp = [_[:-2] for _ in set(re.findall('\{([^ ]*_v)\}', full_call))]
+    es_sp = [_[:-2] for _ in set(re.findall('\\{([^ ]*_e)\\}', full_call))]
+    vs_sp = [_[:-2] for _ in set(re.findall('\\{([^ ]*_v)\\}', full_call))]
     if len(vs_sp) == 0:
         # ### need at least one vs
         vs_sp = ['T_cel']
@@ -166,12 +167,6 @@ def Radar(camp, x_sp, y_sp, z_sp, description, ord_id=None, limit=1000, where=No
 
             # ax1.plot([-10000, 10000], [-10000, 10000], color='#fa70ec', linewidth=0.4)
 
-        ###  HOTS field data:
-        # dg = pd.read_csv('/Users/tuckerely/39A/CarbonState-Space-Reduction/HOTS/Complete_HOTS_all_stations_2022-02-26.csv')
-        # dg.drop(dg[dg['DIC_umol'] == -9].index, inplace=True)
-        # dg.drop(dg[dg['pH'] == -9].index, inplace=True)
-        # plt_set(ax1, dg, 'pH', 'DIC_umol', 'o', cmap=cmap, fc='None', ec='black', lw=0.2, sz=8)
-
         fig.colorbar(cb, ax=ax1)
 
         # ### lower ax is for notes and data
@@ -188,6 +183,7 @@ def Radar(camp, x_sp, y_sp, z_sp, description, ord_id=None, limit=1000, where=No
         print(f'wrote {fig_name}')
         plt.savefig(fig_name, dpi=400)
 
+
 def hide_current_axis(*args, **kwds):
     plt.gca().set_visible(False)
 
@@ -197,7 +193,7 @@ def group_by_solids(conn, camp_name, ord_id):
     Determine each unique combination of precipitates in a order (ord_id)
     """
     lines = grab_lines(os.path.join(PWD, '{}_huffer'.format(camp_name), 'test.3o'))
-    solids =[]
+    solids = []
     solid_solutions = []
 
     for _ in range(len(lines)):
@@ -206,7 +202,7 @@ def group_by_solids(conn, camp_name, ord_id):
 
         elif '           --- Saturation States of Pure Solids ---' in lines[_]:
             x = 4
-            while not re.findall('^\n', lines[_ + x]):     #    signals the end of the solid solutions block
+            while not re.findall('^\n', lines[_ + x]):  # signals the end of the solid solutions block
                 if 'None' not in lines[_ + x]:
                     solids.append(lines[_ + x][:30].strip())
                     x += 1
@@ -216,7 +212,7 @@ def group_by_solids(conn, camp_name, ord_id):
 
         elif '           --- Saturation States of Solid Solutions ---' in lines[_]:
             x = 4
-            while not re.findall('^\n', lines[_ + x]):     #    signals the end of the solid solutions block
+            while not re.findall('^\n', lines[_ + x]):  # signals the end of the solid solutions block
                 if 'None' not in lines[_ + x]:
                     solids.append(lines[_ + x][:30].strip())
                     x += 1
@@ -224,17 +220,16 @@ def group_by_solids(conn, camp_name, ord_id):
                     x += 1
             del x
 
-    all_precip = [_ for _ in solids + solid_solutions]# if _ != camp.tm]         #    lsit of all possible precipaiutes, excluing the target mineral, which is in all files.
+    all_precip = [_ for _ in solids + solid_solutions]
+    # if _ != camp.tm]  # list of all possible precipaiutes, excluing the target mineral, which is in all files.
 
+    # retrieve record of all_precip columns from postgres table 'camp.name', for order # 'ord_id'
+    solids_sql = ",".join([f'"{_}"' for _ in all_precip])
+    all_rec = retrieve_postgres_record(conn,
+                                       'select {} from {}_es where ord = {}'.format(solids_sql, camp_name, ord_id))
 
-    ### retrieve record of all_precip columns from postgres table 'camp.name', for order # 'ord_id'
-    solids_sql   = ",".join([f'"{_}"' for _ in all_precip])
-    all_rec = retrieve_postgres_record(conn, 'select {} from {}_es where ord = {}'.format(solids_sql, camp_name, ord_id))
-
-
-    ### find unique co-precipitation combinations
-    solid_combinations = []     #    build list for precipitation combinations
-
+    # find unique co-precipitation combinations
+    solid_combinations = []  # build list for precipitation combinations
 
     for _ in all_rec:
         ind = []
@@ -242,46 +237,40 @@ def group_by_solids(conn, camp_name, ord_id):
             if _[x] > 0:
                 ind.append(x)
 
-        ### grab index of values over 0,
+        # grab index of values over 0,
         solid_combinations.append([all_precip[i] for i in ind])
 
+    # unique mineral co-precipiation occrrances in  order # ord_id
+    unique_combinations = [list(x) for x in set(tuple(x) for x in solid_combinations) if list(x) != []] + ['']
 
-    ### unique mineral co-precipiation occrrances in  order # ord_id
-    unique_combinations = [ list(x) for x in set(tuple(x) for x in solid_combinations) if list(x) !=[]] + ['']
-
-    ### dictionary of unique mineral combinations, with an int index to reference color
-    ### this random association between the names and the color, once established here, presists.
+    # dictionary of unique mineral combinations, with an int index to reference color
+    # this random association between the names and the color, once established here, presists.
     combo_dict = {}
     for _ in range(len(unique_combinations)):
-        ### z_dict['miner_set_name'] = index
+        # z_dict['miner_set_name'] = index
         combo_dict['_'.join(unique_combinations[_])] = _
 
     return combo_dict
 
 
-def solid_groups(conn, pwd, camp_name, ord_id, out = 'assemblages'):
-
+def solid_groups(conn, pwd, camp_name, ord_id, out='assemblages'):
     """
     color plot points based on the solids present, with
     each unique combination of precipiotates getting its own color
     and/or its own unique marker.
     ord_id = order #
     """
-
-
-    ### determine list of all solids in ss columns
+    # determine list of all solids in ss columns
     lines = grab_lines(os.path.join(pwd, '{}_huffer'.format(camp_name), 'test.3o'))
-    solids          = []
+    solids = []
     solid_solutions = []
-
-
 
     for _ in range(len(lines)):
         if re.findall('^\n', lines[_]):
             pass
         elif '           --- Saturation States of Pure Solids ---' in lines[_]:
             x = 4
-            while not re.findall('^\n', lines[_ + x]):  #   signals the end of the solid solutions block
+            while not re.findall('^\n', lines[_ + x]):  # signals the end of the solid solutions block
                 if 'None' not in lines[_ + x]:
                     solids.append(lines[_ + x][:30].strip())
                     x += 1
@@ -290,7 +279,7 @@ def solid_groups(conn, pwd, camp_name, ord_id, out = 'assemblages'):
             del x
         elif '           --- Saturation States of Solid Solutions ---' in lines[_]:
             x = 4
-            while not re.findall('^\n', lines[_ + x]):  #   signals the end of the solid solutions block
+            while not re.findall('^\n', lines[_ + x]):  # signals the end of the solid solutions block
                 if 'None' not in lines[_ + x]:
                     solids.append(lines[_ + x][:30].strip())
                     x += 1
@@ -301,46 +290,41 @@ def solid_groups(conn, pwd, camp_name, ord_id, out = 'assemblages'):
     all_precip = [_ for _ in solids + solid_solutions]
 
     if out == 'phases':
-        ### only the list of solids is wanted
+        # only the list of solids is wanted
         return all_precip
 
-
     if out == 'assemblages':
-        ### assemblage names are wanted in conjunction with a specifc
-        ### ord_id in camp_name
+        # assemblage names are wanted in conjunction with a specifc ord_id in camp_name
 
+        # retrieve ss postgres record
+        solids_sql = ",".join([f'"{_}"' for _ in all_precip])
+        all_rec = retrieve_postgres_record(conn,
+                                           'select {} from {}_es where ord = {}'.format(solids_sql, camp_name, ord_id))
 
-        ### retrieve ss postgres record
-        solids_sql   = ",".join([f'"{_}"' for _ in all_precip])
-        all_rec = retrieve_postgres_record(conn, 'select {} from {}_es where ord = {}'.format(solids_sql, camp_name, ord_id))
-
-        ### find unique co-precipitation combinations
-        ### build list for precipitation combinations
+        # find unique co-precipitation combinations
+        # build list for precipitation combinations
         solid_combinations = []
         for _ in all_rec:
             ind = []
             for x in range(len(_)):
                 if _[x] >= 0:
-                    ### if affinity >= 0 ie precipitation either happend or
-                    ### would have if precip was turned on.
+                    # if affinity >= 0 ie precipitation either happend or
+                    # would have if precip was turned on.
                     ind.append(x)
-            ### grab index of values over 0,
+            # grab index of values over 0,
             solid_combinations.append([all_precip[i] for i in ind])
-        ### unique mineral co-precipiation occrrances in  order # ord_id
-        unique_combinations = [ list(x) for x in set(
-            tuple(x) for x in solid_combinations) if list(x) !=[]] + ['']
+        # unique mineral co-precipiation occrrances in  order # ord_id
+        unique_combinations = [list(x) for x in set(tuple(x) for x in solid_combinations) if list(x) != []] + ['']
 
-
-        ### dictionary of unique mineral combinations, with an int index
-        ### to reference color. This random association between the names
-        ### and the color, once established here, presists.
+        # dictionary of unique mineral combinations, with an int index
+        # to reference color. This random association between the names
+        # and the color, once established here, presists.
         combo_dict = {}
         for _ in range(len(unique_combinations)):
-            ### z_dict['miner_set_name'] = index
+            # z_dict['miner_set_name'] = index
             combo_dict['_'.join(unique_combinations[_])] = _
 
-
-        ### generate color index as the combintion of minerals names precipiated
+        # generate color index as the combintion of minerals names precipiated
         z_ind = ['_'.join(_) for _ in solid_combinations]
 
         return combo_dict
@@ -395,7 +379,7 @@ def get_continuous_cmap(hex_list, float_list=None):
     """
 
     rgb_list = [rgb_to_dec(hex_to_rgb(i)) for i in hex_list]
-    if type(float_list) != list:
+    if isinstance(float_list, list):
         float_list = list(np.linspace(0, 1, len(rgb_list)))
 
     cdict = dict()
@@ -404,6 +388,7 @@ def get_continuous_cmap(hex_list, float_list=None):
         cdict[col] = col_list
     cmp = matplotlib.colors.LinearSegmentedColormap('my_cmp', segmentdata=cdict, N=256)
     return cmp
+
 
 def hex_to_rgb(value):
     '''
@@ -414,6 +399,7 @@ def hex_to_rgb(value):
     lv = len(value)
     return tuple(int(value[i:i + lv // 3], 16) for i in range(0, lv, lv // 3))
 
+
 def rgb_to_dec(value):
     '''
     Converts rgb to decimal colours (i.e. divides each value by 256)
@@ -422,8 +408,6 @@ def rgb_to_dec(value):
     return [v / 256 for v in value]
 
 
-
-# ###############################  Color ################################
 color_dict = {'1': ['#E76F51', '#264653', '#2A9D8F', '#F4A261', '#E9C46A', '#100B00', '#A5CBC3',
                     '#3B341f', '#2F004F'],
               '2': ['#ff0000', '#ffa500', '#ffff00', '#008000', '#0000ff', '#4b0082', '#000000'],
@@ -440,12 +424,15 @@ BIG_PALETTE1 = ['#7CEA9C', '#F433AB', '#2E5EAA', '#593959', '#F0C808', '#DD1C1A'
 BIG_PALETTE2 = ['#ff0000', '#4F8BEB']
 
 BLU_GREN = ['#7CEA9C', '#00B2CA']
+
 BLU_PNK = ['#F433AB', '#00B2CA']
 
 RAINBOW_BLK = LinearSegmentedColormap.from_list("mycmap", ["#020004", "#75228f", "#3e53d2",
                                                            "#4eb01f", "#ffd805", "#fd9108",
                                                            "#dd2823"])
+
 RAINBOW = LinearSegmentedColormap.from_list("mycmap", ["#75228f", "#3e53d2", "#4eb01f",
                                                        "#ffd805", "#fd9108", "#dd2823"])
+
 blu_to_orng = ["#47eaff", "#2bbae0", "#2f8fd1", "#3363c2", "#3a0ca3",
-                 "#9d2a52", "#ff4800", "#ff7900", "#ffa224", "#ffcb47"]
+               "#9d2a52", "#ff4800", "#ff7900", "#ffa224", "#ffcb47"]

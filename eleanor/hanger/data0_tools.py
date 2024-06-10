@@ -1,8 +1,3 @@
-"""
- data0 analysis tools
- Tucker Ely
- April 8th 2020
-"""
 import math
 import os
 import os.path
@@ -208,6 +203,7 @@ def determine_loaded_sp(path=''):
 
     return sp_names, ss_names
 
+
 def determine_T_P_coverage(data0_dir):
     """
     (1) Check if data0 data1 pairs exists for supplied data0/s
@@ -226,6 +222,7 @@ def determine_T_P_coverage(data0_dir):
 
     print('w')
     return []
+
 
 def data0_suffix(T, P):
     """
@@ -251,9 +248,9 @@ def data0_suffix(T, P):
     for i in char:
         for j in char:
             dualchar.append(''.join([i, j]))
-    # ## by using 'floor' below. the correct file is returned for T near the file cutoffs
-    # ## for example, T = 7.99 (P=1), does in fact call the data0.002 file. The data0 files
-    # ## themselves overlap in their lowest and highest values for consecutive files.
+    # by using 'floor' below. the correct file is returned for T near the file cutoffs
+    # for example, T = 7.99 (P=1), does in fact call the data0.002 file. The data0 files
+    # themselves overlap in their lowest and highest values for consecutive files.
     t_char = char[math.floor(T / data0_system_T_interval)]
     tp_char = '{}{}'.format(t_char, dualchar[math.floor(P / data0_system_P_interval)])
 
@@ -284,6 +281,7 @@ def data0_TP(suffix):
 
     return t_rng, p_val
 
+
 def check_data0s_loaded():
     """
     what data1 files are currently active in eq3_68.0a/db
@@ -307,6 +305,7 @@ def check_data0s_loaded():
     plt.title('data0 family coverage\n(∆P = descrete 0.5 bars)\n∆T = 7C contineuous')
 
     plt.show()
+
 
 def convert_to_d1(src, dst):
     def run_eqpt(data0):
@@ -337,6 +336,7 @@ def convert_to_d1(src, dst):
         else:
             raise ValueError('source argument must be a file or directory')
 
+
 def canonical_d0_name(data0):
     stem, ext = os.path.splitext(os.path.basename(data0))
     if ext == '.d0':
@@ -349,6 +349,7 @@ def canonical_d0_name(data0):
         ext = '_' + ext
 
     return os.path.join(os.path.dirname(data0), stem + ext + '.d0')
+
 
 def hash_data0s(data0dir):
     """

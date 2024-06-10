@@ -4,6 +4,7 @@ import os
 from os.path import realpath, join
 from tempfile import TemporaryDirectory
 
+
 class TestToolRoom(TestCase):
     """
     Tests of the eleanor.hanger.tool_room module

@@ -7,6 +7,7 @@ import pandas as pd
 import sqlite3
 from .. common import TestCase
 
+
 class TestDBComms(TestCase):
     """
     Tests of the eleanor.hanger.db_comms module
@@ -179,7 +180,7 @@ class TestDBComms(TestCase):
             self.assertEqual(sorted(df.columns), ['X_v', 'Y_e'])
             self.assertEqual(len(df), 2)
             self.assertEqual([tuple(r) for r in df.to_numpy()],
-                              [(1.1, 3.1), (1.2, 3.2)])
+                             [(1.1, 3.1), (1.2, 3.2)])
 
             conn.executemany('INSERT INTO `es6` VALUES (?, ?, ?, ?)',
                              [('c', 2, 3.3, 4.3)])
@@ -188,13 +189,13 @@ class TestDBComms(TestCase):
             self.assertEqual(sorted(df.columns), ['X_v', 'Y_e'])
             self.assertEqual(len(df), 3)
             self.assertEqual([tuple(r) for r in df.to_numpy()],
-                              [(1.1, 3.1), (1.2, 3.2), (1.3, 3.3)])
+                             [(1.1, 3.1), (1.2, 3.2), (1.3, 3.3)])
 
             df = dbc.retrieve_combined_records(conn, ['X'], ['Y'], ord_id=2)
             self.assertEqual(sorted(df.columns), ['X_v', 'Y_e'])
             self.assertEqual(len(df), 1)
             self.assertEqual([tuple(r) for r in df.to_numpy()],
-                              [(1.3, 3.3)])
+                             [(1.3, 3.3)])
 
             with self.campaign.working_directory() as campdir:
                 expected = dbc.retrieve_combined_records(conn, ['X'], ['Y'], fname='data.json')

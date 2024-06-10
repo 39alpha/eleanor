@@ -1,8 +1,3 @@
-# ###
-# ### Radar
-# ### Simple visualization of the orders run by the helmsman
-# ### 39A Team 0.
-
 import os
 import matplotlib
 import re
@@ -14,8 +9,6 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 from sklearn_extra.cluster import KMedoids
 from scipy.stats import kde
-
-# ### custom packages
 
 from .hanger.db_comms import establish_database_connection, retrieve_combined_records
 from .hanger.db_comms import get_column_names
@@ -71,7 +64,6 @@ def Radar(camp, x_sp, y_sp, z_sp='#000000', thought_process='', x_rng=None,
     matplotlib.rcParams['legend.frameon'] = False
     matplotlib.rcParams['savefig.transparent'] = transparent
 
-
     def print_where(where):
         if where:
             a = where.split(' ')
@@ -110,7 +102,7 @@ def Radar(camp, x_sp, y_sp, z_sp='#000000', thought_process='', x_rng=None,
         Extract species {} from variables that include an 'equation'
         """
         new_sp = equation.split('=')[1].strip()
-        sql_columns = re.findall('\{(.*?)\}', new_sp)
+        sql_columns = re.findall('\\{(.*?)\\}', new_sp)
         return sql_columns
 
     def solve_eq(df, eq):
@@ -123,15 +115,15 @@ def Radar(camp, x_sp, y_sp, z_sp='#000000', thought_process='', x_rng=None,
         the_math = the_math.replace('{', 'df["').replace('}', '"]')
         df[new_var] = eval(the_math)
         if re.findall('[<>]|[<>]=|==|!=', z_sp):
-            df.loc[df[new_var] == True, new_var] = "#ff0000"
-            df.loc[df[new_var] == False, new_var] = "#79baf7"
+            df.loc[df[new_var], new_var] = "#ff0000"
+            df.loc[not df[new_var], new_var] = "#79baf7"
         return df
 
-    if type(ord_id) == int:
-        # ### convert to list of 1, if a single order number is supplied
+    if isinstance(ord_id, int):
+        # convert to list of 1, if a single order number is supplied
         ord_id = [ord_id]
 
-    # ### process species
+    # process species
     add_sp = []
     math_sp = []
     x_plt = x_sp.split('=')[0].strip()
@@ -148,7 +140,7 @@ def Radar(camp, x_sp, y_sp, z_sp='#000000', thought_process='', x_rng=None,
     else:
         add_sp = add_sp + [y_plt]
 
-    if re.findall('^\#', z_sp):
+    if re.findall('^\\#', z_sp):
         fig_name = f'fig/{x_plt}_{y_plt}.png'
 
     else:
@@ -234,5 +226,3 @@ def Radar(camp, x_sp, y_sp, z_sp='#000000', thought_process='', x_rng=None,
         ax2.text(0.0, .9, add_text, ha="left", va='top', fontsize=6)
         print(f'wrote {fig_name}')
         plt.savefig(fig_name, dpi=600)
-
-

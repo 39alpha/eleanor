@@ -29,6 +29,7 @@ def establish_database_connection(camp, verbose=False):
         print("New connection to campaign db")
     return conn
 
+
 def create_or_expand_vs_table(conn, camp, elements):
     """
     Create the VS table if it does not exists, otherwise add any new reactant columns that may be required.
@@ -54,6 +55,7 @@ def create_or_expand_vs_table(conn, camp, elements):
             add_column(conn, 'vs', column, type='DOUBLE PRECISION', default=0.0, not_null=False)
     else:
         create_vs_table(conn, camp, elements)
+
 
 def create_vs_table(conn, camp, elements):
     """
@@ -336,7 +338,7 @@ def retrieve_records(conn, query, *args, **kwargs):
     :type conn: sqlite3.Connection
     :param query: The query (may include placeholders)
     :type query: str
-    :param \*args: Additional arguments to Connection.execute # noqa (EW605)
+    :param \\*args: Additional arguments to Connection.execute # noqa (EW605)
 
     :return: the resulting records
     :rtype: list
@@ -355,7 +357,7 @@ def execute_query(conn, query, *args, **kwargs):
 
     :param conn: the connection
     :type conn: sqlite3.Connection
-    :param \*args: additional arguments to be propagated to Connection.execute # noqa (EW605)
+    :param \\*args: additional arguments to be propagated to Connection.execute # noqa (EW605)
     :return: the results of the query
     """
     with conn:

@@ -23,6 +23,7 @@ from .hanger.data0_tools import determine_species_set
 from .hanger.data0_tools import determine_ele_set
 from .hanger.data0_tools import TPCurve
 
+
 def Navigator(this_campaign, quiet=False):
     """
     The Navigator decides where to go (see what we did there), given the
@@ -120,7 +121,7 @@ def huffer(conn, camp, quiet=False):
         state_dict = {}
         for _ in camp.vs_state.keys():
             if _ == 'fO2':
-                if type(camp.vs_state[_]) == str:
+                if isinstance(camp.vs_state[_], str):
                     state_dict[_] = camp.vs_state[_]
                 else:
                     state_dict[_] = np.mean(camp.vs_state[_])
@@ -218,7 +219,7 @@ def random_uniform_order(camp, date, ord, file_number, order_size, elements, pre
         if key == 'T_cel':
             df['T_cel'], df['P_bar'], curves = TPCurve.sample(camp.tp_curves, order_size)
             df['data1'] = [curve.data1file for curve in curves]
-        if key == 'fO2' and type(camp.vs_state['fO2']) == str:
+        if key == 'fO2' and isinstance(camp.vs_state['fO2'], str):
             df[key] = camp.vs_state['fO2']
 
         elif isinstance(value, list):

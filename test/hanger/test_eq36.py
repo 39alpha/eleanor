@@ -8,10 +8,12 @@ import os
 
 DATADIR = abspath(join(dirname(realpath(__file__)), '..', 'data'))
 
+
 class TestEQ36(TestCase):
     """
     Test the eleanor.hanger.eq36 module
     """
+
     def test_canary(self):
         """
         Ensure that the test suite is running and all that.

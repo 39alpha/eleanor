@@ -1,5 +1,5 @@
 from .. common import TestCase
-# import eleanor.hanger.radar_tools as rd
+
 
 class TestRadarTools(TestCase):
     """

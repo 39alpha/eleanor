@@ -1,6 +1,7 @@
 from . common import TestCase
 import eleanor.navigator as navigator
 
+
 class TestNavigator(TestCase):
     """
     Tests of the eleanor.navigator module

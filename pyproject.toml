@@ -1,0 +1,33 @@
+[project]
+name = "eleanor"
+version = "0.0.0"
+authors = [
+  {name = "39 Alpha Research, Team 0", email = "39alpha@39alpharesearch.org"},
+]
+description = "Large-scale, aqueous geochemical modeling"
+readme = "README.rst"
+license = {file = "LICENSE"}
+dependencies = [
+  'antlr4-python3-runtime',
+  'matplotlib',
+  'numpy',
+  'pandas',
+  'scikit-learn-extra',
+  'seaborn',
+  'tqdm',
+]
+requires-python = ">= 3.12"
+
+[project.urls]
+Repository = "https://github.com/39alpha/eleanor.git"
+Issues = "https://github.com/39alpha/eleanor/issues"
+Changelog = "https://github.com/39alpha/eleanor/blob/master/CHANGELOG.md"
+
+[project.scripts]
+eleanor = "eleanor.command_line:combined"
+helmsman = "eleanor.command_line:helmsman"
+navigator = "eleanor.command_line:navigator"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

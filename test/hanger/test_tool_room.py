@@ -1,4 +1,4 @@
-from .. common import TestCase
+from ..common import TestCase
 import eleanor.hanger.tool_room as tr
 import os
 from os.path import realpath, join

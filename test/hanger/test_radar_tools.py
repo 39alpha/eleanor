@@ -1,4 +1,4 @@
-from .. common import TestCase
+from ..common import TestCase
 
 
 class TestRadarTools(TestCase):

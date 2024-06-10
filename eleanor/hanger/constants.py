@@ -1,24 +1,24 @@
 # dictionary containing custom eq3/6 exit codes that hint at the cause of the failure.
 # by assigning a number, I can track errors in a lightweight fashion, and
 # make it easy to color output points based on the type of error they generate.
-run_codes = {0: 'not run',
-             100: 'normal termination',
-             30: 'no 3p file generated',
-             31: '3p file present but contains errors',
-             32: 'charge imbalance violated',
-             60: 'no 6o file generated',
-             61: 'unrecognized 6o file error',
-             62: 'mine 6o function fail',
-             63: 'salinity window violation',
-             70: 'early 6i termination'
-             }
+run_codes = {
+    0: 'not run',
+    100: 'normal termination',
+    30: 'no 3p file generated',
+    31: '3p file present but contains errors',
+    32: 'charge imbalance violated',
+    60: 'no 6o file generated',
+    61: 'unrecognized 6o file error',
+    62: 'mine 6o function fail',
+    63: 'salinity window violation',
+    70: 'early 6i termination'
+}
 
 # Thermo constants for  A = RTln(K/Q)
 EULER = 2.7182818284
 KELVIN = 273.15
 CAL_CONVERT = 0.23900574
 R_GAS = 8.31446 * CAL_CONVERT
-
 """
 A map between "standard" EQ36 suffixes and models.
 Taken from runeq36 script issued with original
@@ -58,7 +58,7 @@ EQ36_MODEL_SUFFIXES = {
     'smw': 'pitzer',
     'ub0': 'pitzer',
     'ubr': 'pitzer'
-    }
+}
 
 MW = {
     'O': 15.99940,
@@ -144,7 +144,8 @@ MW = {
     'Y': 88.90585,
     'Yb': 173.04000,
     'Zn': 65.39000,
-    'Zr': 91.22400}
+    'Zr': 91.22400
+}
 
 basis_mw = {
     "HCO3-": 3 * MW['O'] + MW['H'] + MW['C'],

@@ -1,4 +1,4 @@
-from . common import TestCase
+from .common import TestCase
 import eleanor.navigator as navigator
 
 

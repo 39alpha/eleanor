@@ -187,7 +187,8 @@ def mine_pickup_lines(pp, file, position):
                 # fluid, without exhaustion. Note that other codes may alter this later, if fluid
                 # mixes to exact ratios are sought.
                 if re.findall('^      morr=', p_lines[x]):
-                    p_lines[x] = p_lines[x].replace('morr=  1.00000E+00', 'morr=  1.00000E+20')
+                    p_lines[x] = p_lines[x].replace('morr=  1.00000E+00',
+                                                    'morr=  1.00000E+20')
                     x += 1
                 else:
                     x += 1
@@ -727,19 +728,20 @@ def switch_grid_3(three_i_switches):
 
     for _ in three_i_switches:
         # ### add_gap
-        pr[_] = ' ' * (2 - len(str(int(three_i_switches[_])))) + str(int(three_i_switches[_]))
+        pr[_] = ' ' * (2 - len(str(int(three_i_switches[_])))) + str(
+            int(three_i_switches[_]))
 
-    switches = "\n".join(
-        ('*               1    2    3    4    5    6    7    8    9   10',
-         f'  iopt1-10=     0    0    0   {pr["iopt_4"]}    0    0    0    0    0    0',
-         f' iopt11-20=    {pr["iopt_11"]}    0    0    0    0    0   {pr["iopt_17"]}    0   {pr["iopt_19"]}    0',
-         f'  iopg1-10=    {pr["iopg_1"]}   {pr["iopg_2"]}    0    0    0    0    0    0    0    0',
-         ' iopg11-20=     0    0    0    0    0    0    0    0    0    0',
-         f' iopr11-20=    {pr["iopr_1"]}   {pr["iopr_2"]}   {pr["iopr_3"]}   {pr["iopr_4"]}   {pr["iopr_5"]}   {pr["iopr_6"]}   {pr["iopr_7"]}   {pr["iopr_8"]}   {pr["iopr_9"]}   {pr["iopr_10"]}',  # noqa: E501
-         f' iopr11-20=     0    0    0    0    0    0   {pr["iopr_17"]}    0    0    0',
-         f'  iodb1-10=    {pr["iodb_1"]}    0   {pr["iodb_3"]}   {pr["iodb_4"]}    0   {pr["iodb_6"]}    0    0    0    0',  # noqa: E501
-         ' iodb11-20=     0    0    0    0    0    0    0    0    0    0')
-    ) + "\n"
+    switches = "\n".join((
+        '*               1    2    3    4    5    6    7    8    9   10',
+        f'  iopt1-10=     0    0    0   {pr["iopt_4"]}    0    0    0    0    0    0',
+        f' iopt11-20=    {pr["iopt_11"]}    0    0    0    0    0   {pr["iopt_17"]}    0   {pr["iopt_19"]}    0',
+        f'  iopg1-10=    {pr["iopg_1"]}   {pr["iopg_2"]}    0    0    0    0    0    0    0    0',
+        ' iopg11-20=     0    0    0    0    0    0    0    0    0    0',
+        f' iopr11-20=    {pr["iopr_1"]}   {pr["iopr_2"]}   {pr["iopr_3"]}   {pr["iopr_4"]}   {pr["iopr_5"]}   {pr["iopr_6"]}   {pr["iopr_7"]}   {pr["iopr_8"]}   {pr["iopr_9"]}   {pr["iopr_10"]}',  # noqa: E501
+        f' iopr11-20=     0    0    0    0    0    0   {pr["iopr_17"]}    0    0    0',
+        f'  iodb1-10=    {pr["iodb_1"]}    0   {pr["iodb_3"]}   {pr["iodb_4"]}    0   {pr["iodb_6"]}    0    0    0    0',  # noqa: E501
+        ' iodb11-20=     0    0    0    0    0    0    0    0    0    0'
+    )) + "\n"
     return switches
 
 
@@ -755,17 +757,18 @@ def switch_grid_6(six_i_switches):
 
     for sis in six_i_switches:
         #  add_gap
-        pr[sis] = ' ' * (2 - len(str(int(six_i_switches[sis])))) + str(int(six_i_switches[sis]))
+        pr[sis] = ' ' * (2 - len(str(int(six_i_switches[sis])))) + str(
+            int(six_i_switches[sis]))
 
-    switches = "\n".join(
-        ('*               1    2    3    4    5    6    7    8    9   10',
-         f'  iopt1-10=    {pr["iopt_1"]}   {pr["iopt_2"]}   {pr["iopt_3"]}   {pr["iopt_4"]}   {pr["iopt_5"]}   {pr["iopt_6"]}   {pr["iopt_7"]}    0   {pr["iopt_9"]}   {pr["iopt_10"]}',  # noqa: E501
-         f' iopt11-20=    {pr["iopt_11"]}   {pr["iopt_12"]}   {pr["iopt_13"]}   {pr["iopt_14"]}   {pr["iopt_15"]}   {pr["iopt_16"]}   {pr["iopt_17"]}   {pr["iopt_18"]}    0   {pr["iopt_20"]}',  # noqa: E501
-         f'  iopr1-10=    {pr["iopr_1"]}   {pr["iopr_2"]}   {pr["iopr_3"]}   {pr["iopr_4"]}   {pr["iopr_5"]}   {pr["iopr_6"]}   {pr["iopr_7"]}   {pr["iopr_8"]}   {pr["iopr_9"]}   {pr["iopr_10"]}',  # noqa: E501
-         f' iopr11-20=     0    0    0    0    0    0   {pr["iopr_17"]}    0    0    0',
-         f'  iodb1-10=    {pr["iodb_1"]}   {pr["iodb_2"]}   {pr["iodb_3"]}   {pr["iodb_4"]}   {pr["iodb_5"]}   {pr["iodb_6"]}   {pr["iodb_7"]}   {pr["iodb_8"]}    0    0',  # noqa: E501
-         ' iodb11-20=     0    0    0    0    0    0    0    0    0    0')
-    ) + "\n"
+    switches = "\n".join((
+        '*               1    2    3    4    5    6    7    8    9   10',
+        f'  iopt1-10=    {pr["iopt_1"]}   {pr["iopt_2"]}   {pr["iopt_3"]}   {pr["iopt_4"]}   {pr["iopt_5"]}   {pr["iopt_6"]}   {pr["iopt_7"]}    0   {pr["iopt_9"]}   {pr["iopt_10"]}',  # noqa: E501
+        f' iopt11-20=    {pr["iopt_11"]}   {pr["iopt_12"]}   {pr["iopt_13"]}   {pr["iopt_14"]}   {pr["iopt_15"]}   {pr["iopt_16"]}   {pr["iopt_17"]}   {pr["iopt_18"]}    0   {pr["iopt_20"]}',  # noqa: E501
+        f'  iopr1-10=    {pr["iopr_1"]}   {pr["iopr_2"]}   {pr["iopr_3"]}   {pr["iopr_4"]}   {pr["iopr_5"]}   {pr["iopr_6"]}   {pr["iopr_7"]}   {pr["iopr_8"]}   {pr["iopr_9"]}   {pr["iopr_10"]}',  # noqa: E501
+        f' iopr11-20=     0    0    0    0    0    0   {pr["iopr_17"]}    0    0    0',
+        f'  iodb1-10=    {pr["iodb_1"]}   {pr["iodb_2"]}   {pr["iodb_3"]}   {pr["iodb_4"]}   {pr["iodb_5"]}   {pr["iodb_6"]}   {pr["iodb_7"]}   {pr["iodb_8"]}    0    0',  # noqa: E501
+        ' iodb11-20=     0    0    0    0    0    0    0    0    0    0'
+    )) + "\n"
     return switches
 
 
@@ -820,25 +823,26 @@ def format_limits(xi_max):
     :return: formated text for the 6i files, limits section
     :rtype: str
     """
-    return '\n'.join(
-        ['*-----------------------------------------------------------------------------',  # noqa (E501)
-         f'    xistti=  0.00000E+00    ximaxi=  {format_e(float(xi_max), 5)}',
-         '    tistti=  0.00000E+00    timmxi=  1.00000E+38',
-         '    phmini= -1.00000E+38    phmaxi=  1.00000E+38',
-         '    ehmini= -1.00000E+38    ehmaxi=  1.00000E+38',
-         '    o2mini= -1.00000E+38    o2maxi=  1.00000E+38',
-         '    awmini= -1.00000E+38    awmaxi=  1.00000E+38',
-         '    kstpmx=        10000',
-         '    dlxprn=  1.00000E+38    dlxprl=  1.00000E+38',
-         '    dltprn=  1.00000E+38    dltprl=  1.00000E+38',
-         '    dlhprn=  1.00000E+38    dleprn=  1.00000E+38',
-         '    dloprn=  1.00000E+38    dlaprn=  1.00000E+38',
-         '    ksppmx=          999',
-         '    dlxplo=  1.00000E+38    dlxpll=  1.00000E+38',
-         '    dltplo=  1.00000E+38    dltpll=  1.00000E+38',
-         '    dlhplo=  1.00000E+38    dleplo=  1.00000E+38',
-         '    dloplo=  1.00000E+38    dlaplo=  1.00000E+38',
-         '    ksplmx=        10000\n'])
+    return '\n'.join([
+        '*-----------------------------------------------------------------------------',  # noqa (E501)
+        f'    xistti=  0.00000E+00    ximaxi=  {format_e(float(xi_max), 5)}',
+        '    tistti=  0.00000E+00    timmxi=  1.00000E+38',
+        '    phmini= -1.00000E+38    phmaxi=  1.00000E+38',
+        '    ehmini= -1.00000E+38    ehmaxi=  1.00000E+38',
+        '    o2mini= -1.00000E+38    o2maxi=  1.00000E+38',
+        '    awmini= -1.00000E+38    awmaxi=  1.00000E+38',
+        '    kstpmx=        10000',
+        '    dlxprn=  1.00000E+38    dlxprl=  1.00000E+38',
+        '    dltprn=  1.00000E+38    dltprl=  1.00000E+38',
+        '    dlhprn=  1.00000E+38    dleprn=  1.00000E+38',
+        '    dloprn=  1.00000E+38    dlaprn=  1.00000E+38',
+        '    ksppmx=          999',
+        '    dlxplo=  1.00000E+38    dlxpll=  1.00000E+38',
+        '    dltplo=  1.00000E+38    dltpll=  1.00000E+38',
+        '    dlhplo=  1.00000E+38    dleplo=  1.00000E+38',
+        '    dloplo=  1.00000E+38    dlaplo=  1.00000E+38',
+        '    ksplmx=        10000\n'
+    ])
 
 
 def build_mineral_rnt(mineral, morr, rk1b):
@@ -855,14 +859,16 @@ def build_mineral_rnt(mineral, morr, rk1b):
     :return: formated text for 6i reactant block
     :rtype: str
     """
-    return '\n'.join(['*-----------------------------------------------------------------------------',  # noqa (E501)
-                      f'  reactant= {mineral}',
-                      '     jcode=  0               jreac=  0',
-                      f'      morr=  {format_e(10**morr, 5)}      modr=  0.00000E+00',
-                      '       nsk=  0               sfcar=  0.00000E+00    ssfcar=  0.00000E+00',
-                      '      fkrc=  0.00000E+00',
-                      '      nrk1=  1',
-                      f'       rk1=  {format_e(rk1b, 5)}       rk2=  0.00000E+00       rk3=  0.00000E+00\n'])  # noqa (E501)
+    return '\n'.join([
+        '*-----------------------------------------------------------------------------',  # noqa (E501)
+        f'  reactant= {mineral}',
+        '     jcode=  0               jreac=  0',
+        f'      morr=  {format_e(10**morr, 5)}      modr=  0.00000E+00',
+        '       nsk=  0               sfcar=  0.00000E+00    ssfcar=  0.00000E+00',
+        '      fkrc=  0.00000E+00',
+        '      nrk1=  1',
+        f'       rk1=  {format_e(rk1b, 5)}       rk2=  0.00000E+00       rk3=  0.00000E+00\n'
+    ])  # noqa (E501)
 
 
 def build_gas_rnt(gas_sp, morr, rk1b):
@@ -878,16 +884,14 @@ def build_gas_rnt(gas_sp, morr, rk1b):
     :return: formated text for 6i reactant block
     :rtype: str
     """
-    return '\n'.join(
-        ('*-----------------------------------------------------------------------------',
-         f'  reactant= {gas_sp}',
-         '     jcode=  4               jreac=  0',
-         f'      morr=  {format_e(10**morr, 5)}      modr=  0.00000E+00',
-         '       nsk=  0               sfcar=  0.00000E+00    ssfcar=  0.00000E+00',
-         '      fkrc=  0.00000E+00',
-         '      nrk1=  1',
-         f'       rk1=  {format_e(rk1b, 5)}       rk2=  0.00000E+00       rk3=  0.00000E+00\n')
-    )
+    return '\n'.join((
+        '*-----------------------------------------------------------------------------',
+        f'  reactant= {gas_sp}', '     jcode=  4               jreac=  0',
+        f'      morr=  {format_e(10**morr, 5)}      modr=  0.00000E+00',
+        '       nsk=  0               sfcar=  0.00000E+00    ssfcar=  0.00000E+00',
+        '      fkrc=  0.00000E+00', '      nrk1=  1',
+        f'       rk1=  {format_e(rk1b, 5)}       rk2=  0.00000E+00       rk3=  0.00000E+00\n'
+    ))
 
 
 def build_sr_rnt(sp, dat):
@@ -925,22 +929,19 @@ def build_sr_rnt(sp, dat):
 
     #  the top and bottom of the reactant block is the same for ele and sr,
     #  as the reactant is titrated as a single unit (rk1b).
-    top = '\n'.join(
-        ['*-----------------------------------------------------------------------------',
-         '  reactant=  {}'.format(sp),
-         '     jcode=  2               jreac=  0',
-         f'      morr=  {format_e(10**dat[1], 5)}      modr=  0.00000E+00',
-         '     vreac=  0.00000E+00\n'])
+    top = '\n'.join([
+        '*-----------------------------------------------------------------------------',
+        '  reactant=  {}'.format(sp), '     jcode=  2               jreac=  0',
+        f'      morr=  {format_e(10**dat[1], 5)}      modr=  0.00000E+00',
+        '     vreac=  0.00000E+00\n'
+    ])
 
-    bottom = '\n'.join(
-        ['   endit.',
-         '* Reaction',
-         '   endit.',
-         '       nsk=  0               sfcar=  0.00000E+00    ssfcar=  0.00000E+00',
-         '      fkrc=  0.00000E+00',
-         '      nrk1=  1                nrk2=  0',
-         f'      rkb1=  {format_e(dat[2], 5)}      rkb2=  0.00000E+00      rkb3=  0.00000E+00\n'
-         ])
+    bottom = '\n'.join([
+        '   endit.', '* Reaction', '   endit.',
+        '       nsk=  0               sfcar=  0.00000E+00    ssfcar=  0.00000E+00',
+        '      fkrc=  0.00000E+00', '      nrk1=  1                nrk2=  0',
+        f'      rkb1=  {format_e(dat[2], 5)}      rkb2=  0.00000E+00      rkb3=  0.00000E+00\n'
+    ])
 
     return top + ''.join(middle) + bottom
 
@@ -963,38 +964,31 @@ class Three_i(object):
         :param suppress_sp: otehrwise loaded data0 species to exclude from calculations
         :type suppress_sp: list of strings
         """
-        self.top_piece = "\n".join(
-            ('EQ3NR input file name= local',
-             'endit.',
-             '* Special basis switches\n'))
+        self.top_piece = "\n".join(('EQ3NR input file name= local', 'endit.',
+                                    '* Special basis switches\n'))
         self.basis_switch = format_special_basis_switch(special_basis_switch)
         self.middle_piece = "\n".join(
-            ('endit.',
-             '* Ion exchangers',
-             '    qgexsh=        F',
-             '       net=   0',
-             '* Ion exchanger compositions',
-             '      neti=   0',
-             '* Solid solution compositions',
-             '      nxti=   0',
-             '* Alter/suppress options\n')
-        )
+            ('endit.', '* Ion exchangers', '    qgexsh=        F',
+             '       net=   0', '* Ion exchanger compositions',
+             '      neti=   0', '* Solid solution compositions',
+             '      nxti=   0', '* Alter/suppress options\n'))
         self.supp = format_suppress_options(suppress_sp)
         self.switches = three_i_switches
         self.switch_grid = switch_grid_3(three_i_switches)
         self.end_piece = "\n".join(
-                         ('* Numerical parameters',
-                          '     tolbt=  0.00000E+00     toldl=  0.00000E+00',
-                          '    itermx=   0',
-                          '* Ordinary basis switches',
-                          '    nobswt=   0',
-                          '* Saturation flag tolerance',
-                          '    tolspf=  0.00000E+00',
-                          '* Aqueous phase scale factor',
-                          '    scamas=  1.00000E+00')
-        )
+            ('* Numerical parameters',
+             '     tolbt=  0.00000E+00     toldl=  0.00000E+00',
+             '    itermx=   0', '* Ordinary basis switches', '    nobswt=   0',
+             '* Saturation flag tolerance', '    tolspf=  0.00000E+00',
+             '* Aqueous phase scale factor', '    scamas=  1.00000E+00'))
 
-    def write(self, local_name, v_state, v_basis, cb, suppress_sp, output_details='n'):
+    def write(self,
+              local_name,
+              v_state,
+              v_basis,
+              cb,
+              suppress_sp,
+              output_details='n'):
         """
         Write a 3i file 'local_name' to disk.
 
@@ -1037,15 +1031,12 @@ class Three_i(object):
             build.write(self.top_piece)
             build.write(self.basis_switch)
             build.write("\n".join(
-                ('* General',
-                 f'     tempc=  {format_e(v_state["T_cel"], 5)}',
+                ('* General', f'     tempc=  {format_e(v_state["T_cel"], 5)}',
                  '    jpres3=   0',
                  f'     press=  {format_e(v_state["P_bar"], 5)}',
-                 '       rho=  1.00000E+00',
-                 '    itdsf3=   0',
+                 '       rho=  1.00000E+00', '    itdsf3=   0',
                  '    tdspkg=  0.00000E+00     tdspl=  0.00000E+00',
-                 '    iebal3=   1',
-                 f'     uebal= {cb}\n')))
+                 '    iebal3=   1', f'     uebal= {cb}\n')))
 
             if isinstance(v_state['fO2'], str):
                 # redox set by species
@@ -1055,15 +1046,17 @@ class Three_i(object):
                      f'       pei=  0.00000E+00    uredox= {v_state["fO2"]}',
                      '* Aqueous basis species\n')))
             else:
-                build.write("\n".join(
-                    ('    irdxc3=   0',
-                     f'    fo2lgi= {format_e(v_state["fO2"], 5)}       ehi=  0.00000E+00',
-                     '       pei=  0.00000E+00    uredox= None',
-                     '* Aqueous basis species\n')))
+                build.write("\n".join((
+                    '    irdxc3=   0',
+                    f'    fo2lgi= {format_e(v_state["fO2"], 5)}       ehi=  0.00000E+00',
+                    '       pei=  0.00000E+00    uredox= None',
+                    '* Aqueous basis species\n')))
 
             for k in v_basis.keys():
                 if k == 'H+':
-                    build.write(f'species= {k}\n   jflgi= 16    covali=  {v_basis[k]}\n')
+                    build.write(
+                        f'species= {k}\n   jflgi= 16    covali=  {v_basis[k]}\n'
+                    )
                 else:
                     wr = f'species= {k}\n   jflgi=  0    covali=  {format_e(10**v_basis[k], 5)}\n'
                     build.write(wr)
@@ -1078,7 +1071,12 @@ class Six_i(object):
     6i files class
     """
 
-    def __init__(self, reactants, six_i_switches, xi_max=100, suppress_min=False, min_supp_exemp=[]):
+    def __init__(self,
+                 reactants,
+                 six_i_switches,
+                 xi_max=100,
+                 suppress_min=False,
+                 min_supp_exemp=[]):
         """
         File.6i template.
 
@@ -1096,7 +1094,8 @@ class Six_i(object):
         :param min_supp_exemp: exemptions to mass suppress option above
         :type min_supp_exemp: list of stirngs (mineral names)
         """
-        self.reactant_n = len([k for k in reactants.keys() if reactants[k][0] != 'fixed gas'])
+        self.reactant_n = len(
+            [k for k in reactants.keys() if reactants[k][0] != 'fixed gas'])
         self.switches = six_i_switches
         self.switch_grid = switch_grid_6(six_i_switches)
         self.xi_max = xi_max
@@ -1107,13 +1106,11 @@ class Six_i(object):
         self.end_piece = '\n'.join([
             '    nordmx=   6',
             '     tolbt=  0.00000E+00     toldl=  0.00000E+00',
-            '    itermx=   0',
-            '    tolxsf=  0.00000E+00',
-            '    tolsat=  0.00000E+00',
-            '    ntrymx=   0',
-            '    dlxmx0=  0.00000E+00',
-            '    dlxdmp=  0.00000E+00',
-            '*-----------------------------------------------------------------------------\n'])
+            '    itermx=   0', '    tolxsf=  0.00000E+00',
+            '    tolsat=  0.00000E+00', '    ntrymx=   0',
+            '    dlxmx0=  0.00000E+00', '    dlxdmp=  0.00000E+00',
+            '*-----------------------------------------------------------------------------\n'
+        ])
 
     def write(self, local_name, reactants, pickup_lines, temp):
         """
@@ -1134,23 +1131,26 @@ class Six_i(object):
 
         with open(local_name, 'w') as build:
             build.write('\n'.join([
-                'EQ3NR input file name= local',
-                'endit.',
+                'EQ3NR input file name= local', 'endit.',
                 f'     jtemp=  {int(self.jtemp)}',
                 f'    tempcb=  {format_e(float(temp), 5)}',
                 '      ttk1=  0.00000E+00      ttk2=  0.00000E+00',
-                '    jpress=  0',
-                '    pressb=  0.00000E+00',
+                '    jpress=  0', '    pressb=  0.00000E+00',
                 '      ptk1=  0.00000E+00      ptk2=  0.00000E+00',
-                f'      nrct=  {str(self.reactant_n)}\n']))
+                f'      nrct=  {str(self.reactant_n)}\n'
+            ]))
 
             fixed_gases = {}
             if self.reactant_n > 0:
                 for rk in reactants.keys():
                     if reactants[rk][0] == 'mineral':
-                        build.write(build_mineral_rnt(rk, reactants[rk][1], reactants[rk][2]))
+                        build.write(
+                            build_mineral_rnt(rk, reactants[rk][1],
+                                              reactants[rk][2]))
                     elif reactants[rk][0] == 'gas':
-                        build.write(build_gas_rnt(rk, reactants[rk][1], reactants[rk][2]))
+                        build.write(
+                            build_gas_rnt(rk, reactants[rk][1],
+                                          reactants[rk][2]))
                     elif reactants[rk][0] == 'fixed gas':
                         # incorporated below
                         fixed_gases[rk] = reactants[rk]
@@ -1167,7 +1167,8 @@ class Six_i(object):
 
             # exemptions to mineral suppressions
             if len(self.min_supp_exemp) != 0:
-                build.write(f'    nxopex= {str(int(len(self.min_supp_exemp)))}\n')
+                build.write(
+                    f'    nxopex= {str(int(len(self.min_supp_exemp)))}\n')
                 for mse in self.min_supp_exemp:
                     build.write(f'   species= {mse}\n')
 
@@ -1247,7 +1248,8 @@ def hash_dir(dirname, hasher=None):
     if hasher is None:
         hasher = hashlib.sha256()
 
-    contents = list(map(lambda f: os.path.join(dirname, f), os.listdir(dirname)))
+    contents = list(
+        map(lambda f: os.path.join(dirname, f), os.listdir(dirname)))
 
     for dir in sorted(filter(os.path.isdir, contents)):
         hash_dir(dir, hasher)

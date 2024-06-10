@@ -1,4 +1,4 @@
-from .. common import TestCase
+from ..common import TestCase
 from eleanor.hanger.eq36 import Eq36Exception, eqpt, eq3, eq6
 from eleanor.hanger.tool_room import WorkingDirectory
 from tempfile import TemporaryDirectory

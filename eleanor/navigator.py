@@ -57,7 +57,8 @@ def Navigator(this_campaign, quiet=False):
         # just determine the next new order number.
         # If no tables exists for the campaign, then set order number to 1.
         order_number = db_comms.get_order_number(conn, this_campaign)
-        file_number = db_comms.get_file_number(conn, this_campaign, order_number)
+        file_number = db_comms.get_file_number(conn, this_campaign,
+                                               order_number)
 
         # Always run the huffer. This is necessary because the huffer is responsible for ensuring that the DB
         # structure is sound.
@@ -71,9 +72,13 @@ def Navigator(this_campaign, quiet=False):
 
         # Generate orders
         if this_campaign.distro == 'random':
-            orders = random_uniform_order(this_campaign, date, order_number,
-                                          file_number, this_campaign.reso,
-                                          elements, quiet=quiet)
+            orders = random_uniform_order(this_campaign,
+                                          date,
+                                          order_number,
+                                          file_number,
+                                          this_campaign.reso,
+                                          elements,
+                                          quiet=quiet)
 
         else:
             err_message = (f'vs_distro: {this_campaign.distro} is not',
@@ -86,10 +91,11 @@ def Navigator(this_campaign, quiet=False):
         conn.close()
 
         if not quiet:
-            nav_success_message = ('The Navigator has completed her task.\n'
-                                   'It detected no "obvious" faults.\n'
-                                   'Note that you may have fucked up\n'
-                                   'repeatedly in myriad and unimaginable ways.\n')
+            nav_success_message = (
+                'The Navigator has completed her task.\n'
+                'It detected no "obvious" faults.\n'
+                'Note that you may have fucked up\n'
+                'repeatedly in myriad and unimaginable ways.\n')
             print(nav_success_message)
 
 
@@ -135,8 +141,14 @@ def huffer(conn, camp, quiet=False):
         for _ in camp.vs_basis.keys():
             basis_dict[_] = np.mean(camp.vs_basis[_])
 
-        camp.local_3i.write('test.3i', state_dict, basis_dict, camp.cb, camp.suppress_sp, output_details='v')
-        data1_file = os.path.realpath(os.path.join(camp.data1_dir, curve.data1file))
+        camp.local_3i.write('test.3i',
+                            state_dict,
+                            basis_dict,
+                            camp.cb,
+                            camp.suppress_sp,
+                            output_details='v')
+        data1_file = os.path.realpath(
+            os.path.join(camp.data1_dir, curve.data1file))
         _, __ = eq3(data1_file, 'test.3i')
 
         try:
@@ -159,7 +171,13 @@ def huffer(conn, camp, quiet=False):
         print('   Huffer complete.\n')
 
 
-def random_uniform_order(camp, date, ord, file_number, order_size, elements, precision=6,
+def random_uniform_order(camp,
+                         date,
+                         ord,
+                         file_number,
+                         order_size,
+                         elements,
+                         precision=6,
                          quiet=False):
     """
     Generate randomily spaced points in VS
@@ -201,14 +219,18 @@ def random_uniform_order(camp, date, ord, file_number, order_size, elements, pre
         for reactant, [rtype, morr, rkb1] in camp.target_rnt.items():
             # morr, mols of reactant avaialbe for titration
             if isinstance(morr, list):
-                df[f'{reactant}_morr'] = [float(np.round(random.uniform(*morr), precision))
-                                          for i in range(order_size)]
+                df[f'{reactant}_morr'] = [
+                    float(np.round(random.uniform(*morr), precision))
+                    for i in range(order_size)
+                ]
             else:
                 df[f'{reactant}_morr'] = float(np.round(morr, precision))
 
             if isinstance(rkb1, list):
-                df[f'{reactant}_rkb1'] = [float(np.round(random.uniform(*rkb1), precision))
-                                          for i in range(order_size)]
+                df[f'{reactant}_rkb1'] = [
+                    float(np.round(random.uniform(*rkb1), precision))
+                    for i in range(order_size)
+                ]
             else:
                 df[f'{reactant}_rkb1'] = float(np.round(rkb1, precision))
 
@@ -217,14 +239,17 @@ def random_uniform_order(camp, date, ord, file_number, order_size, elements, pre
         if key == 'P_bar':
             continue
         if key == 'T_cel':
-            df['T_cel'], df['P_bar'], curves = TPCurve.sample(camp.tp_curves, order_size)
+            df['T_cel'], df['P_bar'], curves = TPCurve.sample(
+                camp.tp_curves, order_size)
             df['data1'] = [curve.data1file for curve in curves]
         if key == 'fO2' and isinstance(camp.vs_state['fO2'], str):
             df[key] = camp.vs_state['fO2']
 
         elif isinstance(value, list):
-            df[key] = [float(np.round(random.uniform(*value), precision))
-                       for i in range(order_size)]
+            df[key] = [
+                float(np.round(random.uniform(*value), precision))
+                for i in range(order_size)
+            ]
         else:
             df[key] = float(np.round(value, precision))
 
@@ -257,10 +282,13 @@ def build_basis(camp, precision, n):
     df = pd.DataFrame()
     for k in camp.vs_basis.keys():
         if isinstance(camp.vs_basis[k], list):
-            vals = [float(np.round(random.uniform(camp.vs_basis[k][0],
-                                                  camp.vs_basis[k][1]),
-                                   precision))
-                    for i in range(n)]
+            vals = [
+                float(
+                    np.round(
+                        random.uniform(camp.vs_basis[k][0],
+                                       camp.vs_basis[k][1]), precision))
+                for i in range(n)
+            ]
             df['{}'.format(k)] = vals
         else:
             vals = np.round(camp.vs_basis[k], precision)
@@ -351,7 +379,8 @@ def calculate_ele_totals(d0, df, elements, order_size, precision):
             if f'{b[0]}' in list(df.columns):
                 # basis is present in campaign, so add its molalities
                 # to element total
-                ele_totals[e] = ele_totals[e] + float(b[1]) * (10 ** df['{}'.format(b[0])])
+                ele_totals[e] = ele_totals[e] + float(
+                    b[1]) * (10**df['{}'.format(b[0])])
 
         df[f'm_{e}'] = np.round(np.log10(ele_totals[e]), precision)
     return df

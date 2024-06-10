@@ -17,8 +17,17 @@ from .hanger.data0_tools import determine_species_set
 from .hanger.radar_tools import get_continuous_cmap
 
 
-def Radar(camp, x_sp, y_sp, z_sp='#000000', thought_process='', x_rng=None,
-          y_rng=None, ord_id=None, limit=None, where=None, transparent=False,
+def Radar(camp,
+          x_sp,
+          y_sp,
+          z_sp='#000000',
+          thought_process='',
+          x_rng=None,
+          y_rng=None,
+          ord_id=None,
+          limit=None,
+          where=None,
+          transparent=False,
           out_path='.'):
     """
     Plots 3 dimenions from vs and es camp databases
@@ -73,7 +82,16 @@ def Radar(camp, x_sp, y_sp, z_sp='#000000', thought_process='', x_rng=None,
         else:
             return where
 
-    def plt_set(ax, df, x, y, mk, cmap=None, sz=10, fc='white', ec='black', lw=0.5):
+    def plt_set(ax,
+                df,
+                x,
+                y,
+                mk,
+                cmap=None,
+                sz=10,
+                fc='white',
+                ec='black',
+                lw=0.5):
         """
         plot subset of marhys database with style (mk=marker, sz=marker size,
             fc=face color, ec=edge color, lw-edge line width)
@@ -165,13 +183,22 @@ def Radar(camp, x_sp, y_sp, z_sp='#000000', thought_process='', x_rng=None,
         if ord_id:
             df_list = []
             for order in ord_id:
-                df = retrieve_combined_records('.', vs_cols, es3_cols, es6_cols,
-                                               limit=limit, where=where, ord_id=order)
+                df = retrieve_combined_records('.',
+                                               vs_cols,
+                                               es3_cols,
+                                               es6_cols,
+                                               limit=limit,
+                                               where=where,
+                                               ord_id=order)
                 df_list.append(df)
             df = pd.concat(df_list)
         else:
-            df = retrieve_combined_records('.', vs_cols, es3_cols, es6_cols,
-                                           limit=limit, where=where)
+            df = retrieve_combined_records('.',
+                                           vs_cols,
+                                           es3_cols,
+                                           es6_cols,
+                                           limit=limit,
+                                           where=where)
 
         print(len(df))
         # ### Add new df columns where math is detected
@@ -179,31 +206,50 @@ def Radar(camp, x_sp, y_sp, z_sp='#000000', thought_process='', x_rng=None,
             df = solve_eq(df, s)
 
         # ### process plot
-        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(5, 9), tight_layout=True)  # figsize=(5, 9)
+        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(5, 9),
+                                       tight_layout=True)  # figsize=(5, 9)
 
         if re.findall('^#', z_sp):
-            ax1.scatter(x_plt, y_plt, data=df, facecolors=z_sp,
-                        marker='o', alpha=1, edgecolor=None, s=3, linewidth=0)
+            ax1.scatter(x_plt,
+                        y_plt,
+                        data=df,
+                        facecolors=z_sp,
+                        marker='o',
+                        alpha=1,
+                        edgecolor=None,
+                        s=3,
+                        linewidth=0)
 
         else:
-            df = df.sort_values(by=z_plt, ascending=True,
-                                na_position='first'
-                                )
+            df = df.sort_values(by=z_plt, ascending=True, na_position='first')
             # df = df.sample(frac=1)
 
             if re.findall('[<>]|[<>]=|==|!=', z_sp):
-                cb = ax1.scatter(x_plt, y_plt, c=z_plt,
-                                 data=df, marker='o', alpha=1, edgecolor=None,
-                                 s=4, linewidth=0, label=z_plt
-                                 )
+                cb = ax1.scatter(x_plt,
+                                 y_plt,
+                                 c=z_plt,
+                                 data=df,
+                                 marker='o',
+                                 alpha=1,
+                                 edgecolor=None,
+                                 s=4,
+                                 linewidth=0,
+                                 label=z_plt)
             else:
                 hex_list = radar_tools.blu_to_orng
                 cmap = get_continuous_cmap(hex_list)
-                cb = ax1.scatter(x_plt, y_plt, c=z_plt,
-                                 data=df, cmap=cmap, facecolors='black',
-                                 marker='o', alpha=1, edgecolor=None,
-                                 s=4, linewidth=0, label=z_plt
-                                 )
+                cb = ax1.scatter(x_plt,
+                                 y_plt,
+                                 c=z_plt,
+                                 data=df,
+                                 cmap=cmap,
+                                 facecolors='black',
+                                 marker='o',
+                                 alpha=1,
+                                 edgecolor=None,
+                                 s=4,
+                                 linewidth=0,
+                                 label=z_plt)
                 fig.colorbar(cb, ax=ax1)
 
         if x_rng:
@@ -214,15 +260,17 @@ def Radar(camp, x_sp, y_sp, z_sp='#000000', thought_process='', x_rng=None,
         ax1.set_ylabel(y_plt)
         ax2.axis('off')
         date = time.strftime("%Y-%m-%d", time.gmtime())
-        add_text = '\n'.join([f"campaign: {camp.name}",
-                              f"data: {date}", f"n = {len(df)}",
-                              f"thouhts: {print_where(thought_process)}",
-                              # f"x = {x_sp}",
-                              # f"y = {y_sp}",
-                              f"z = {z_sp}",
-                              f"sql 'where' claus: {print_where(where)}",
-                              f"sql limit: {limit}"
-                              ])
+        add_text = '\n'.join([
+            f"campaign: {camp.name}",
+            f"data: {date}",
+            f"n = {len(df)}",
+            f"thouhts: {print_where(thought_process)}",
+            # f"x = {x_sp}",
+            # f"y = {y_sp}",
+            f"z = {z_sp}",
+            f"sql 'where' claus: {print_where(where)}",
+            f"sql limit: {limit}"
+        ])
         ax2.text(0.0, .9, add_text, ha="left", va='top', fontsize=6)
         print(f'wrote {fig_name}')
         plt.savefig(fig_name, dpi=600)

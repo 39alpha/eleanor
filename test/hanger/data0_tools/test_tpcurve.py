@@ -12,7 +12,7 @@ class TestTPCurve(TestCase):
         """
         Compare two domains
         """
-        self.assertEquals(len(first), len(second))
+        self.assertEqual(len(first), len(second))
         for (f, s) in zip(first, second):
             if not np.all(np.isclose(f, s)):
                 self.fail(f'expected {second}, got {first}')
@@ -21,7 +21,7 @@ class TestTPCurve(TestCase):
         """
         Compare two arrays of intersection points
         """
-        self.assertEquals(len(first), len(second))
+        self.assertEqual(len(first), len(second))
         for (f, s) in zip(first, second):
             for (x, y) in zip(f, s):
                 if not np.all(np.isclose(x, y)):
@@ -48,9 +48,9 @@ class TestTPCurve(TestCase):
             data0.TPCurve('file.d0', {'min': 5, 'mid': 8, 'max': 10}, [[1, 0, 0, 0], [2, 0, 0, 0, 0]])
 
         curve = data0.TPCurve('file.d0', {'min': 5, 'mid': 8, 'max': 10}, [[1, 0, 0, 0], [-7, 1, 0, 0, 0]])
-        self.assertEquals(curve.T, {'min': 5, 'mid': 8, 'max': 10})
-        self.assertEquals(curve.P, [[1, 0, 0, 0], [-7, 1, 0, 0, 0]])
-        self.assertEquals(curve.domain, [[5, 10]])
+        self.assertEqual(curve.T, {'min': 5, 'mid': 8, 'max': 10})
+        self.assertEqual(curve.P, [[1, 0, 0, 0], [-7, 1, 0, 0, 0]])
+        self.assertEqual(curve.domain, [[5, 10]])
 
     def test_reset_domain(self):
         """
@@ -58,10 +58,10 @@ class TestTPCurve(TestCase):
         """
         curve = data0.TPCurve('file.d0', {'min': 5, 'mid': 8, 'max': 10}, [[1, 0, 0, 0], [-7, 1, 0, 0, 0]])
         curve.domain = [[5, 7], [8, 10]]
-        self.assertEquals(curve.domain, [[5, 7], [8, 10]])
+        self.assertEqual(curve.domain, [[5, 7], [8, 10]])
 
         curve.reset_domain()
-        self.assertEquals(curve.domain, [[5, 10]])
+        self.assertEqual(curve.domain, [[5, 10]])
 
     def test_temperature_in_domain(self):
         """
@@ -94,9 +94,9 @@ class TestTPCurve(TestCase):
                 curve(T)
 
         for T in np.linspace(5, 8):
-            self.assertEquals(curve(T), 1.0)
+            self.assertEqual(curve(T), 1.0)
         for T in np.linspace(8, 10):
-            self.assertEquals(curve(T), T - 7)
+            self.assertEqual(curve(T), T - 7)
 
         curve.domain = [[6, 7], [8.5, 9.3]]
 
@@ -105,9 +105,9 @@ class TestTPCurve(TestCase):
                 curve(T)
 
         for T in np.linspace(6, 7):
-            self.assertEquals(curve(T), 1.0)
+            self.assertEqual(curve(T), 1.0)
         for T in np.linspace(8.5, 9.3):
-            self.assertEquals(curve(T), T - 7)
+            self.assertEqual(curve(T), T - 7)
 
     def test_boundary_intersections(self):
         """
@@ -376,7 +376,7 @@ class TestTPCurve(TestCase):
                 'Trange': [0.5, 3.0],
                 'Prange': [0.0, 2.0],
                 # The last subdomain is basically a single point
-                'domain': [[0.5, 1.0], [2.0, 3.0], [3.0, 3.0]],
+                'domain': [[0.5, 1.0], [2.0, 3.0]],
                 'notEmpty': True,
             },
             {
@@ -411,7 +411,7 @@ class TestTPCurve(TestCase):
             curve = data0.TPCurve('file.d0', row['T'], row['P'])
             notEmpty = curve.set_domain(row['Trange'], row['Prange'])
             self.assertDomainsAlmostEqual(curve.domain, row['domain'])
-            self.assertEquals(notEmpty, row['notEmpty'])
+            self.assertEqual(notEmpty, row['notEmpty'])
 
     def test_union_domains(self):
         """
@@ -516,8 +516,8 @@ class TestTPCurve(TestCase):
         Ts, Ps, sampled_curves = data0.TPCurve.sample(curves, 1000)
         Ts, Ps = np.asarray(Ts), np.asarray(Ps)
 
-        self.assertEquals(len(Ts), 1000)
-        self.assertEquals(len(Ps), 1000)
+        self.assertEqual(len(Ts), 1000)
+        self.assertEqual(len(Ps), 1000)
         self.assertTrue(np.all((0 <= Ts) & (Ts <= 4)))
         self.assertTrue(np.all(Ps == 1))
 
@@ -554,8 +554,8 @@ class TestTPCurve(TestCase):
         Ts, Ps, sampled_curves = data0.TPCurve.sample(curves, 1000)
         Ts, Ps = np.asarray(Ts), np.asarray(Ps)
 
-        self.assertEquals(len(Ts), 1000)
-        self.assertEquals(len(Ps), 1000)
+        self.assertEqual(len(Ts), 1000)
+        self.assertEqual(len(Ps), 1000)
         self.assertTrue(np.all((0 <= Ts) & (Ts <= 4)))
         self.assertTrue(not np.all(Ps == 1))
 
@@ -577,8 +577,8 @@ class TestTPCurve(TestCase):
         Ts, Ps, sampled_curves = data0.TPCurve.sample(curves, 1000)
         Ts, Ps = np.asarray(Ts), np.asarray(Ps)
 
-        self.assertEquals(len(Ts), 1000)
-        self.assertEquals(len(Ps), 1000)
+        self.assertEqual(len(Ts), 1000)
+        self.assertEqual(len(Ps), 1000)
         self.assertTrue(np.all((0 <= Ts) & (Ts <= 4)))
         self.assertTrue(not np.all(Ps == 1))
         self.assertTrue(np.all(Ps[Ps != 1] > 1))

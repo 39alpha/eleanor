@@ -1,5 +1,5 @@
 from eleanor.campaign import Campaign
-from eleanor.hanger.tool_room import Three_i, Six_i
+from eleanor.hanger.tool_room import IOPT_4, Three_i, Six_i
 from tempfile import NamedTemporaryFile, TemporaryDirectory
 from os.path import dirname, isdir, isfile, join, realpath
 import json
@@ -85,7 +85,7 @@ class TestCampaign(TestCase):
         #  self.assertEqual(camp.local_3i.cb, 'Cl-')
 
         self.assertIsInstance(camp.local_6i, Six_i)
-        self.assertEqual(camp.local_6i.iopt4, ' 1')
+        self.assertEqual(camp.local_6i.switches['iopt_4'], IOPT_4.PERMIT_SS)
         self.assertEqual(camp.local_6i.suppress_min, self.config['suppress min'])
         self.assertEqual(camp.local_6i.min_supp_exemp, self.config['suppress min exemptions'])
 
@@ -117,7 +117,7 @@ class TestCampaign(TestCase):
         #  self.assertEqual(camp.local_3i.cb, 'Cl-')
 
         self.assertIsInstance(camp.local_6i, Six_i)
-        self.assertEqual(camp.local_6i.iopt4, ' 0')
+        self.assertEqual(camp.local_6i.switches['iopt_4'], IOPT_4.IGNORE_SS)
         self.assertEqual(camp.local_6i.suppress_min, self.config['suppress min'])
         self.assertEqual(camp.local_6i.min_supp_exemp, self.config['suppress min exemptions'])
 
@@ -150,7 +150,7 @@ class TestCampaign(TestCase):
         #  self.assertEqual(camp.local_3i.cb, 'Cl-')
 
         self.assertIsInstance(camp.local_6i, Six_i)
-        self.assertEqual(camp.local_6i.iopt4, ' 1')
+        self.assertEqual(camp.local_6i.switches['iopt_4'], IOPT_4.PERMIT_SS)
         self.assertEqual(camp.local_6i.suppress_min, self.config['suppress min'])
         self.assertEqual(camp.local_6i.min_supp_exemp, self.config['suppress min exemptions'])
 
@@ -163,7 +163,7 @@ class TestCampaign(TestCase):
         with TemporaryDirectory() as root:
             camp.create_env(dir=root, verbose=False)
 
-            self.assertEquals(camp.campaign_dir, realpath(join(root, camp.name)))
+            self.assertEqual(camp.campaign_dir, realpath(join(root, camp.name)))
 
             campaign_dir = join(root, self.config['campaign'])
             self.assertTrue(isdir(campaign_dir))
@@ -190,7 +190,7 @@ class TestCampaign(TestCase):
         camp = Campaign(self.config, self.data0_dir)
         with TemporaryDirectory() as root:
             camp.create_env(dir=root, verbose=False)
-        self.assertEquals(camp.campaign_dir, realpath(join(root, camp.name)))
+        self.assertEqual(camp.campaign_dir, realpath(join(root, camp.name)))
 
         with TemporaryDirectory() as root:
             camp.create_env(dir=root, verbose=False)
@@ -212,8 +212,8 @@ class TestCampaign(TestCase):
                 dumped = json.load(handle)
                 self.assertEqual(dumped, self.config)
 
-        self.assertEquals(camp.campaign_dir, realpath(join(root, camp.name)))
-        self.assertEquals(camp.order_file, join(camp.campaign_dir, 'orders', camp.hash + '.json'))
+        self.assertEqual(camp.campaign_dir, realpath(join(root, camp.name)))
+        self.assertEqual(camp.order_file, join(camp.campaign_dir, 'orders', camp.hash + '.json'))
 
     def test_working_directory(self):
         """
@@ -224,7 +224,7 @@ class TestCampaign(TestCase):
         with TemporaryDirectory() as root:
             camp.create_env(dir=root, verbose=False)
             with camp.working_directory():
-                self.assertEquals(os.getcwd(), realpath(join(root, self.config['campaign'])))
+                self.assertEqual(os.getcwd(), realpath(join(root, self.config['campaign'])))
 
                 self.assertTrue(isdir('huffer'))
                 self.assertTrue(isdir('fig'))
@@ -239,7 +239,7 @@ class TestCampaign(TestCase):
         camp = Campaign(self.config, self.data0_dir)
         with TemporaryDirectory() as root:
             with camp.working_directory(dir=root, verbose=False):
-                self.assertEquals(os.getcwd(), realpath(join(root, self.config['campaign'])))
+                self.assertEqual(os.getcwd(), realpath(join(root, self.config['campaign'])))
 
                 self.assertTrue(isdir('huffer'))
                 self.assertTrue(isdir('fig'))

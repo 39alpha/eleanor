@@ -495,16 +495,16 @@ class Data0(object):
         for s in species.values():
             for substrate in s.dissociation.substrates.keys():
                 if substrate not in self.species_names:
-                    msg = f'{species} has a substrate ({substrate}) in its dissocation reaction ({species.dissociation}) that does not appear in the elements or any species sections'  # noqa: E501
+                    msg = f'{s} has a substrate ({substrate}) in its dissocation reaction ({s.dissociation}) that does not appear in the elements or any species sections'  # noqa: E501
                     raise Exception(msg)
 
             for product in s.dissociation.products.keys():
                 if product not in self.species_names:
-                    msg = f'{species} has a product ({product}) in its dissocation reaction ({species.dissociation}) that does not appear in the elements or any species sections'  # noqa: E501
+                    msg = f'{s} has a product ({product}) in its dissocation reaction ({s.dissociation}) that does not appear in the elements or any species sections'  # noqa: E501
                     raise Exception(msg)
 
             if len(s.logk) != len(self.params.temperatures):
-                msg = f'{species} has a different number of log(K) values than the number of values in the data0 temperature grid'  # noqa: E501
+                msg = f'{s} has a different number of log(K) values than the number of values in the data0 temperature grid'  # noqa: E501
                 raise Exception(msg)
 
     def __verify_solid_solutions(self, solid_solutions):

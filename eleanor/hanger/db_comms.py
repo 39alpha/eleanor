@@ -52,12 +52,7 @@ def create_or_expand_vs_table(conn, camp, elements):
         new_columns = sorted(set(reaction_columns) - set(existing_columns))
 
         for column in new_columns:
-            add_column(conn,
-                       'vs',
-                       column,
-                       type='DOUBLE PRECISION',
-                       default=0.0,
-                       not_null=False)
+            add_column(conn, 'vs', column, type='DOUBLE PRECISION', default=0.0, not_null=False)
     else:
         create_vs_table(conn, camp, elements)
 
@@ -81,28 +76,17 @@ def create_vs_table(conn, camp, elements):
         TEXT NOT NULL, ord INTEGER NOT NULL, file INTEGER NOT NULL, birth \
         DATE NOT NULL, data1 TEXT NOT NULL, code SMALLINT NOT NULL, cb TEXT NOT NULL,"
 
-    sql_state = ",".join([
-        f'"{_}" DOUBLE PRECISION NOT NULL' for _ in list(camp.vs_state.keys())
-    ]) + ','
+    sql_state = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in list(camp.vs_state.keys())]) + ','
 
-    sql_basis = ",".join([
-        f'"{_}" DOUBLE PRECISION NOT NULL' for _ in list(camp.vs_basis.keys())
-    ]) + ','
+    sql_basis = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in list(camp.vs_basis.keys())]) + ','
 
-    sql_ele = ",".join(
-        [f'"m_{_}" DOUBLE PRECISION NOT NULL' for _ in elements]) + ','
+    sql_ele = ",".join([f'"m_{_}" DOUBLE PRECISION NOT NULL' for _ in elements]) + ','
 
     parts = [sql_info, sql_state, sql_basis, sql_ele]
     if len(camp.target_rnt) > 0:
-        sql_rnt_morr = ",".join([
-            f'"{_}_morr" DOUBLE PRECISION DEFAULT 0.0'
-            for _ in camp.target_rnt.keys()
-        ]) + ','
+        sql_rnt_morr = ",".join([f'"{_}_morr" DOUBLE PRECISION DEFAULT 0.0' for _ in camp.target_rnt.keys()]) + ','
 
-        sql_rnt_rkb1 = ",".join([
-            f'"{_}_rkb1" DOUBLE PRECISION DEFAULT 0.0'
-            for _ in camp.target_rnt.keys()
-        ]) + ','
+        sql_rnt_rkb1 = ",".join([f'"{_}_rkb1" DOUBLE PRECISION DEFAULT 0.0' for _ in camp.target_rnt.keys()]) + ','
 
         parts.extend([sql_rnt_morr, sql_rnt_rkb1])
 
@@ -112,12 +96,7 @@ def create_vs_table(conn, camp, elements):
         execute_query(conn, ''.join(parts) + ')')
 
 
-def add_column(conn,
-               table,
-               column,
-               type='DOUBLE PRECISION',
-               default=None,
-               not_null=False):
+def add_column(conn, table, column, type='DOUBLE PRECISION', default=None, not_null=False):
     sql = f"ALTER TABLE `{table}` ADD COLUMN `{column}` {type}"
     if default is not None:
         sql += f" DEFAULT {default}"
@@ -193,53 +172,32 @@ def create_es3_table(conn, camp, sp, solids, ss, ss_kids, gases, elements):
         ord INTEGER NOT NULL, file INTEGER NOT NULL, run DATE NOT NULL, \
         extended_alk DOUBLE PRECISION, charge_imbalance_eq DOUBLE PRECISION NOT NULL, "
 
-    sql_run = ",".join([
-        f'"{_}" DOUBLE PRECISION NOT NULL'
-        for _ in ['a_H2O', 'ionic', 'tds', 'soln_mass']
-    ]) + ','
+    sql_run = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in ['a_H2O', 'ionic', 'tds', 'soln_mass']]) + ','
 
-    sql_state = ",".join([
-        f'"{_}" DOUBLE PRECISION NOT NULL'
-        for _ in list(camp.vs_state.keys()) + ['pH']
-    ]) + ','
+    sql_state = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in list(camp.vs_state.keys()) + ['pH']]) + ','
 
     # convert vs_basis to elements for ES. This will allow teh use of
     # multiple species containing the same element to be used in the
     # basis, while still tracking total element values in the ES.
 
-    sql_ele = ",".join([
-        f'"{_}" DOUBLE PRECISION NOT NULL'
-        for _ in [f'm_{_}' for _ in elements]
-    ]) + ','
+    sql_ele = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in [f'm_{_}' for _ in elements]]) + ','
 
     # aq species, log activity (a_...) and log molal (m_...)
-    sql_sp_a = ",".join(
-        [f'"{_}" DOUBLE PRECISION NOT NULL'
-         for _ in [f'a_{_}' for _ in sp]]) + ','
+    sql_sp_a = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in [f'a_{_}' for _ in sp]]) + ','
 
-    sql_sp_m = ",".join(
-        [f'"{_}" DOUBLE PRECISION NOT NULL'
-         for _ in [f'm_{_}' for _ in sp]]) + ','
+    sql_sp_m = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in [f'm_{_}' for _ in sp]]) + ','
 
     # solids, log QoverK
-    sql_sol_qk = ",".join([
-        f'"{_}" DOUBLE PRECISION NOT NULL'
-        for _ in [f'qk_{_}' for _ in solids]
-    ]) + ','
+    sql_sol_qk = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in [f'qk_{_}' for _ in solids]]) + ','
 
-    sql_gas = ",".join([
-        f'"{_}" DOUBLE PRECISION NOT NULL' for _ in [f'f_{_}' for _ in gases]
-    ]) + ','
+    sql_gas = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in [f'f_{_}' for _ in gases]]) + ','
 
     sql_ss = ",".join([f'"qk_{_}" DOUBLE PRECISION' for _ in ss]) + ','
 
     sql_fk = ' FOREIGN KEY(`ord`) REFERENCES `orders`(`id`), \
                FOREIGN KEY(`uuid`) REFERENCES `vs`(`uuid`)'
 
-    parts = [
-        sql_info, sql_run, sql_state, sql_ele, sql_sp_a, sql_sp_m, sql_sol_qk,
-        sql_gas, sql_ss, sql_fk
-    ]
+    parts = [sql_info, sql_run, sql_state, sql_ele, sql_sp_a, sql_sp_m, sql_sol_qk, sql_gas, sql_ss, sql_fk]
     parts = [_ for _ in parts if _ != ',']
     execute_query(conn, ''.join(parts) + ')')
 
@@ -260,63 +218,42 @@ def create_es6_table(conn, camp, sp, solids, ss, ss_kids, gases, elements):
         ord INTEGER NOT NULL, file INTEGER NOT NULL, run DATE NOT NULL, \
         extended_alk DOUBLE PRECISION, charge_imbalance_eq DOUBLE PRECISION NOT NULL, "
 
-    run_columns = [
-        'initial_aff', 'xi_max', 'a_H2O', 'ionic', 'tds', 'soln_mass'
-    ]
-    sql_run = ",".join(
-        [f'"{_}" DOUBLE PRECISION NOT NULL' for _ in run_columns]) + ','
+    run_columns = ['initial_aff', 'xi_max', 'a_H2O', 'ionic', 'tds', 'soln_mass']
+    sql_run = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in run_columns]) + ','
 
-    sql_state = ",".join([
-        f'"{_}" DOUBLE PRECISION NOT NULL'
-        for _ in list(camp.vs_state.keys()) + ['pH']
-    ]) + ','
+    sql_state = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in list(camp.vs_state.keys()) + ['pH']]) + ','
 
     # convert vs_basis to elements for ES. This will allow teh use of
     # multiple species containing the same element to be used in the
     # basis, while still tracking total element values in the ES.
 
-    sql_ele = ",".join([
-        f'"{_}" DOUBLE PRECISION NOT NULL'
-        for _ in [f'm_{_}' for _ in elements]
-    ]) + ','
+    sql_ele = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in [f'm_{_}' for _ in elements]]) + ','
 
     # aq species, log activity (a_...) and log molal (m_...)
-    sql_sp_a = ",".join(
-        [f'"{_}" DOUBLE PRECISION NOT NULL'
-         for _ in [f'a_{_}' for _ in sp]]) + ','
+    sql_sp_a = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in [f'a_{_}' for _ in sp]]) + ','
 
-    sql_sp_m = ",".join(
-        [f'"{_}" DOUBLE PRECISION NOT NULL'
-         for _ in [f'm_{_}' for _ in sp]]) + ','
+    sql_sp_m = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in [f'm_{_}' for _ in sp]]) + ','
 
     # solids, log QoverK
-    sql_sol_qk = ",".join([
-        f'"{_}" DOUBLE PRECISION NOT NULL'
-        for _ in [f'qk_{_}' for _ in solids]
-    ]) + ','
+    sql_sol_qk = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in [f'qk_{_}' for _ in solids]]) + ','
 
     # solids, moles
-    sql_sol_m = ",".join([
-        f'"{_}" DOUBLE PRECISION NOT NULL' for _ in [f'm_{_}' for _ in solids]
-    ]) + ','
+    sql_sol_m = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in [f'm_{_}' for _ in solids]]) + ','
 
-    sql_gas = ",".join([
-        f'"{_}" DOUBLE PRECISION NOT NULL' for _ in [f'f_{_}' for _ in gases]
-    ]) + ','
+    sql_gas = ",".join([f'"{_}" DOUBLE PRECISION NOT NULL' for _ in [f'f_{_}' for _ in gases]]) + ','
 
     sql_ss_qk = ",".join([f'"qk_{_}" DOUBLE PRECISION' for _ in ss]) + ','
 
     sql_ss_m = ",".join([f'"m_{_}" DOUBLE PRECISION' for _ in ss]) + ','
 
-    sql_ss_kids_m = ",".join([f'"m_{_}" DOUBLE PRECISION'
-                              for _ in ss_kids]) + ','
+    sql_ss_kids_m = ",".join([f'"m_{_}" DOUBLE PRECISION' for _ in ss_kids]) + ','
 
     sql_fk = ' FOREIGN KEY(`ord`) REFERENCES `orders`(`id`), \
                FOREIGN KEY(`uuid`) REFERENCES `vs`(`uuid`)'
 
     parts = [
-        sql_info, sql_run, sql_state, sql_ele, sql_sp_a, sql_sp_m, sql_sol_qk,
-        sql_sol_m, sql_gas, sql_ss_qk, sql_ss_m, sql_ss_kids_m, sql_fk
+        sql_info, sql_run, sql_state, sql_ele, sql_sp_a, sql_sp_m, sql_sol_qk, sql_sol_m, sql_gas, sql_ss_qk, sql_ss_m,
+        sql_ss_kids_m, sql_fk
     ]
     parts = [_ for _ in parts if _ != ',']
     execute_query(conn, ''.join(parts) + ')')
@@ -339,23 +276,19 @@ def get_order_number(conn, camp, insert=True):
     create_orders_table(conn)
 
     orders = execute_query(
-        conn,
-        f"SELECT `id` FROM `orders` where `campaign_hash` = '{camp.hash}' \
+        conn, f"SELECT `id` FROM `orders` where `campaign_hash` = '{camp.hash}' \
         AND `data0_hash` = '{camp.data0_hash}'").fetchall()
 
     if len(orders) > 1:
         # DGM: This should never happen because there is a unique index on the hash columns
-        raise RuntimeError(
-            'more than one order found for campaign and data0 hash')
+        raise RuntimeError('more than one order found for campaign and data0 hash')
     elif len(orders) == 1:
         return orders[0][0]
 
     if insert:
         execute_query(
-            conn,
-            f"INSERT INTO `orders` (`campaign_hash`, `data0_hash`, `name`) \
-                      VALUES ('{camp.hash}', '{camp.data0_hash}', '{camp.name}')"
-        ).fetchall()
+            conn, f"INSERT INTO `orders` (`campaign_hash`, `data0_hash`, `name`) \
+                      VALUES ('{camp.hash}', '{camp.data0_hash}', '{camp.name}')").fetchall()
         return get_order_number(conn, camp, insert=False)
     else:
         raise RuntimeError('failed to insert order')
@@ -528,14 +461,7 @@ def get_column_names(conn, table):
 #     return df
 
 
-def retrieve_combined_records(camp_path,
-                              vs_cols,
-                              es3_cols,
-                              es6_cols,
-                              limit=None,
-                              ord_id=None,
-                              where=None,
-                              fname=None):
+def retrieve_combined_records(camp_path, vs_cols, es3_cols, es6_cols, limit=None, ord_id=None, where=None, fname=None):
 
     conn = sqlite3.connect(f'{camp_path}/campaign.sql')
 
@@ -573,9 +499,7 @@ def retrieve_combined_records(camp_path,
 
     records = retrieve_records(conn, query)
 
-    df_columns = [f"{c}_v"
-                  for c in vs_cols] + [f"{c}_e3" for c in es3_cols
-                                       ] + [f"{c}_e6" for c in es6_cols]
+    df_columns = [f"{c}_v" for c in vs_cols] + [f"{c}_e3" for c in es3_cols] + [f"{c}_e6" for c in es6_cols]
 
     df = pd.DataFrame(records, columns=df_columns)
 
@@ -588,9 +512,7 @@ def retrieve_combined_records(camp_path,
         elif ext == '.pickle':
             df.to_pickle(fname)
         else:
-            sys.stderr.write(
-                f"warning: cannot write records; unrecognized format '{ext}'\n"
-            )
+            sys.stderr.write(f"warning: cannot write records; unrecognized format '{ext}'\n")
 
     return df
 

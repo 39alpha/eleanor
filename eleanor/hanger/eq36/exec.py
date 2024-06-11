@@ -30,8 +30,7 @@ def error_guard(output, cmd, code, fname=None):
                 if fname is None:
                     raise Eq36Exception(message, code=code)
                 else:
-                    raise Eq36Exception(f'{message} in file "{fname}"',
-                                        code=code)
+                    raise Eq36Exception(f'{message} in file "{fname}"', code=code)
 
 
 def run(cmd, *args, **kwargs):

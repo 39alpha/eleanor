@@ -36,8 +36,7 @@ class PitzerModelParams(ModelParams):
 
 class Params(object):
 
-    def __init__(self, temperatures: np.ndarray, pressures: np.ndarray,
-                 debye_huckel: DebyeHuckelModelParams | None,
+    def __init__(self, temperatures: np.ndarray, pressures: np.ndarray, debye_huckel: DebyeHuckelModelParams | None,
                  pitzer: PitzerModelParams | None, ehlogk: np.ndarray):
 
         self.temperatures = temperatures
@@ -57,8 +56,7 @@ class BDotSpecies(object):
 
 class Dissociation(object):
 
-    def __init__(self, substrates: dict[str, Integer],
-                 products: dict[str, Integer]):
+    def __init__(self, substrates: dict[str, Integer], products: dict[str, Integer]):
         self.substrates = substrates
         self.products = products
 
@@ -66,10 +64,8 @@ class Dissociation(object):
         return f'Dissociation(substrates={repr(self.substrates)}, products={repr(self.products)})'
 
     def __str__(self) -> str:
-        substrates = ' + '.join(f'{count} {name}'
-                                for name, count in self.substrates.items())
-        products = ' + '.join(f'{count} {name}'
-                              for name, count in self.products.items())
+        substrates = ' + '.join(f'{count} {name}' for name, count in self.substrates.items())
+        products = ' + '.join(f'{count} {name}' for name, count in self.products.items())
         return f'{substrates} ⇌ {products}'
 
 
@@ -88,8 +84,7 @@ class Volume(object):
 
 class Species(object):
 
-    def __init__(self, name: str, note: str | None, revised: str | None,
-                 species_type: str | None, keys: str | None,
+    def __init__(self, name: str, note: str | None, revised: str | None, species_type: str | None, keys: str | None,
                  composition: dict[str, Integer]):
         self.name = name
         self.note = note
@@ -134,8 +129,7 @@ class ComplexSpecies(BasicSpecies):
                  charge: Integer,
                  volume: Volume | None = None):
 
-        super().__init__(name, note, revised, species_type, keys, composition,
-                         charge, volume)
+        super().__init__(name, note, revised, species_type, keys, composition, charge, volume)
         self.dissociation = dissociation
         self.logk = logk
 
@@ -267,10 +261,8 @@ class SolidSolutionModel(object):
 
 class SolidSolution(Species):
 
-    def __init__(self, name: str, note: str | None, revised: str | None,
-                 species_type: str | None, keys: str | None,
-                 composition: dict[str, Integer], model: SolidSolutionModel,
-                 site_params: np.ndarray):
+    def __init__(self, name: str, note: str | None, revised: str | None, species_type: str | None, keys: str | None,
+                 composition: dict[str, Integer], model: SolidSolutionModel, site_params: np.ndarray):
 
         super().__init__(name, note, revised, species_type, keys, composition)
         self.model = model
@@ -307,8 +299,8 @@ class PitzerTerm(object):
 
 class PitzerABCTerm(PitzerTerm):
 
-    def __init__(self, alpha1: float, alpha2: float, beta0: np.ndarray,
-                 beta1: np.ndarray, beta2: np.ndarray, cphi: np.ndarray):
+    def __init__(self, alpha1: float, alpha2: float, beta0: np.ndarray, beta1: np.ndarray, beta2: np.ndarray,
+                 cphi: np.ndarray):
         self.alpha1 = alpha1
         self.alpha2 = alpha2
         self.beta0 = beta0
@@ -356,17 +348,11 @@ class PitzerMuTerm(PitzerTerm):
 
 class PitzerCombinations(ModelSection):
 
-    def __init__(self, ca: dict[tuple,
-                                PitzerABCTerm], ccp_aap: dict[tuple,
-                                                              PitzerThetaTerm],
-                 nc_na: dict[tuple,
-                             PitzerLambdaTerm], nn: dict[tuple,
-                                                         PitzerLambdaMuTerm],
-                 nnp: dict[tuple,
-                           PitzerLambdaTerm], ccpa_aapc: dict[tuple,
-                                                              PitzerPsiTerm],
-                 nca: dict[tuple, PitzerZetaTerm], nnnp: dict[tuple,
-                                                              PitzerMuTerm]):
+    def __init__(self, ca: dict[tuple, PitzerABCTerm], ccp_aap: dict[tuple, PitzerThetaTerm],
+                 nc_na: dict[tuple, PitzerLambdaTerm], nn: dict[tuple, PitzerLambdaMuTerm], nnp: dict[tuple,
+                                                                                                      PitzerLambdaTerm],
+                 ccpa_aapc: dict[tuple, PitzerPsiTerm], nca: dict[tuple, PitzerZetaTerm], nnnp: dict[tuple,
+                                                                                                     PitzerMuTerm]):
 
         self.ca = ca
         self.ccp_aap = ccp_aap
@@ -463,15 +449,11 @@ class Data0(object):
                 return acc
 
             self.__used_elements = set[str]()
-            functools.reduce(union, self.basis_species.values(),
-                             self.__used_elements)
-            functools.reduce(union, self.auxiliary_basis_species.values(),
-                             self.__used_elements)
-            functools.reduce(union, self.aqueous_species.values(),
-                             self.__used_elements)
+            functools.reduce(union, self.basis_species.values(), self.__used_elements)
+            functools.reduce(union, self.auxiliary_basis_species.values(), self.__used_elements)
+            functools.reduce(union, self.aqueous_species.values(), self.__used_elements)
             functools.reduce(union, self.solids.values(), self.__used_elements)
-            functools.reduce(union, self.liquids.values(),
-                             self.__used_elements)
+            functools.reduce(union, self.liquids.values(), self.__used_elements)
             functools.reduce(union, self.gases.values(), self.__used_elements)
 
         return self.__used_elements
@@ -492,23 +474,20 @@ class Data0(object):
 
         n = len(self.params.pressures)
         if n != num_grid_points:
-            raise Exception(
-                f'number of pressures in params section ({n}) differs from the number of temperatures ({num_grid_points})'
-            )  # noqa: E501
+            msg = f'number of pressures in params section ({n}) differs from the number of temperatures ({num_grid_points})'  # noqa: E501
+            raise Exception(msg)
 
         n = len(self.params.ehlogk)
         if n != num_grid_points:
-            raise Exception(
-                f'number of ehlogk values in params section ({n}) differs from the number of temperatures ({num_grid_points})'
-            )  # noqa: E501
+            msg = f'number of ehlogk values in params section ({n}) differs from the number of temperatures ({num_grid_points})'  # noqa: E501
+            raise Exception(msg)
 
     def __verify_basic_species(self, species):
         for s in species.values():
             for element in s.composition.keys():
                 if element not in self.elements:
-                    raise Exception(
-                        f'{species} has an element {element} that does not appear in the data0 element list'
-                    )  # noqa: E501
+                    msg = f'{species} has an element {element} that does not appear in the data0 element list'  # noqa: E501
+                    raise Exception(msg)
 
     def __verify_complex_species(self, species):
         self.__verify_basic_species(species)
@@ -516,25 +495,21 @@ class Data0(object):
         for s in species.values():
             for substrate in s.dissociation.substrates.keys():
                 if substrate not in self.species_names:
-                    raise Exception(
-                        f'{species} has a substrate ({substrate}) in its dissocation reaction ({species.dissociation}) that does not appear in the elements or any species sections'
-                    )  # noqa: E501
+                    msg = f'{species} has a substrate ({substrate}) in its dissocation reaction ({species.dissociation}) that does not appear in the elements or any species sections'  # noqa: E501
+                    raise Exception(msg)
 
             for product in s.dissociation.products.keys():
                 if product not in self.species_names:
-                    raise Exception(
-                        f'{species} has a product ({product}) in its dissocation reaction ({species.dissociation}) that does not appear in the elements or any species sections'
-                    )  # noqa: E501
+                    msg = f'{species} has a product ({product}) in its dissocation reaction ({species.dissociation}) that does not appear in the elements or any species sections'  # noqa: E501
+                    raise Exception(msg)
 
             if len(s.logk) != len(self.params.temperatures):
-                raise Exception(
-                    f'{species} has a different number of log(K) values than the number of values in the data0 temperature grid'
-                )  # noqa: E501
+                msg = f'{species} has a different number of log(K) values than the number of values in the data0 temperature grid'  # noqa: E501
+                raise Exception(msg)
 
     def __verify_solid_solutions(self, solid_solutions):
         for solid_solution in solid_solutions.values():
             for solid in solid_solution.composition.keys():
                 if solid not in self.solids:
                     raise Exception(
-                        f'{solid_solutions} has an solid ({solid}) that does not appear in the data0 solids section'
-                    )  # noqa: E501
+                        f'{solid_solutions} has an solid ({solid}) that does not appear in the data0 solids section')

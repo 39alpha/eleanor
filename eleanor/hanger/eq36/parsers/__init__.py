@@ -5,8 +5,7 @@ from .Data0Listener import Data0Listener
 from .Data0Parser import Data0Parser
 
 
-def parse_stream(stream, lexerCls, parserCls, builderCls, start, *args,
-                 **kwargs):
+def parse_stream(stream, lexerCls, parserCls, builderCls, start, *args, **kwargs):
     lexer = lexerCls(stream)
     token_stream = antlr4.CommonTokenStream(lexer)
     parser = parserCls(token_stream)
@@ -29,12 +28,9 @@ def parse_file(fname, *args, encoding=None, **kwargs):
         file_stream = antlr4.FileStream(fname, encoding=encoding)
 
     if file_stream is None:
-        raise Exception(
-            f'cannot infer encoding for data0 files "{fname}"; consider passing the encoding explicitly'
-        )
+        raise Exception(f'cannot infer encoding for data0 files "{fname}"; consider passing the encoding explicitly')
     return parse_stream(file_stream, *args, **kwargs)
 
 
 def parse_data0(fname, *args, **kwargs):
-    return parse_file(fname, Data0Lexer, Data0Parser, Data0Builder, 'data0',
-                      *args, **kwargs)
+    return parse_file(fname, Data0Lexer, Data0Parser, Data0Builder, 'data0', *args, **kwargs)

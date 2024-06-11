@@ -31,9 +31,8 @@ release = '0.0.0'
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
-    'sphinx.ext.autodoc', 'sphinx.ext.mathjax', 'sphinx.ext.viewcode',
-    'sphinx.ext.doctest', 'sphinx.ext.coverage', 'sphinx.ext.autosummary',
-    'sphinx.ext.inheritance_diagram', 'sphinx.ext.intersphinx'
+    'sphinx.ext.autodoc', 'sphinx.ext.mathjax', 'sphinx.ext.viewcode', 'sphinx.ext.doctest', 'sphinx.ext.coverage',
+    'sphinx.ext.autosummary', 'sphinx.ext.inheritance_diagram', 'sphinx.ext.intersphinx'
 ]
 
 # Add any paths that contain templates here, relative to this directory.

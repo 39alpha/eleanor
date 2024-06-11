@@ -67,12 +67,10 @@ class TestDBComms(TestCase):
         """
         with TemporaryDirectory() as root:
             self.campaign.create_env(dir=root, verbose=False)
-            conn = dbc.establish_database_connection(self.campaign,
-                                                     verbose=False)
+            conn = dbc.establish_database_connection(self.campaign, verbose=False)
             conn.close()
 
-            self.assertTrue(
-                isfile(join(self.campaign.campaign_dir, 'campaign.sql')))
+            self.assertTrue(isfile(join(self.campaign.campaign_dir, 'campaign.sql')))
 
     def test_get_order_number(self):
         """
@@ -80,8 +78,7 @@ class TestDBComms(TestCase):
         """
         with TemporaryDirectory() as root:
             self.campaign.create_env(dir=root, verbose=False)
-            conn = dbc.establish_database_connection(self.campaign,
-                                                     verbose=False)
+            conn = dbc.establish_database_connection(self.campaign, verbose=False)
 
             order_number = dbc.get_order_number(conn, self.campaign)
             self.assertEqual(order_number, 1)
@@ -100,8 +97,7 @@ class TestDBComms(TestCase):
     def test_retrieve_records(self):
         with TemporaryDirectory() as root:
             self.campaign.create_env(dir=root, verbose=False)
-            conn = dbc.establish_database_connection(self.campaign,
-                                                     verbose=False)
+            conn = dbc.establish_database_connection(self.campaign, verbose=False)
 
             with self.assertRaises(sqlite3.Error):
                 dbc.retrieve_records(conn, 'SELECT * FROM `vs`')
@@ -111,8 +107,7 @@ class TestDBComms(TestCase):
             with self.assertRaises(sqlite3.Error):
                 dbc.retrieve_records(conn, 'nonsense query')
 
-            conn.executemany('INSERT INTO `vs` VALUES (?)', [(1, ), (2, ),
-                                                             (3, )])
+            conn.executemany('INSERT INTO `vs` VALUES (?)', [(1, ), (2, ), (3, )])
 
             records = dbc.retrieve_records(conn, 'SELECT * FROM `vs`')
             self.assertEqual(len(records), 3)
@@ -120,8 +115,7 @@ class TestDBComms(TestCase):
     def test_execute_query(self):
         with TemporaryDirectory() as root:
             self.campaign.create_env(dir=root, verbose=False)
-            conn = dbc.establish_database_connection(self.campaign,
-                                                     verbose=False)
+            conn = dbc.establish_database_connection(self.campaign, verbose=False)
 
             with self.assertRaises(sqlite3.Error):
                 dbc.execute_query(conn, 'INSERT INTO `vs` VALUES (1)')
@@ -139,74 +133,56 @@ class TestDBComms(TestCase):
     def test_get_column_names(self):
         with TemporaryDirectory() as root:
             self.campaign.create_env(dir=root, verbose=False)
-            conn = dbc.establish_database_connection(self.campaign,
-                                                     verbose=False)
+            conn = dbc.establish_database_connection(self.campaign, verbose=False)
 
             dbc.execute_query(conn, 'CREATE TABLE `vs` (`ord` SMALLINT)')
 
-            self.assertEqual(dbc.get_column_names(conn, 'not-a-real-table'),
-                             [])
+            self.assertEqual(dbc.get_column_names(conn, 'not-a-real-table'), [])
             self.assertEqual(dbc.get_column_names(conn, 'vs'), ['ord'])
 
     def test_retrieve_combined_records(self):
         with TemporaryDirectory() as root:
             self.campaign.create_env(dir=root, verbose=False)
-            conn = dbc.establish_database_connection(self.campaign,
-                                                     verbose=False)
+            conn = dbc.establish_database_connection(self.campaign, verbose=False)
 
             with self.assertRaises(sqlite3.Error):
                 dbc.retrieve_combined_records(conn, ['X'], ['Y'])
 
-            dbc.execute_query(
-                conn, 'CREATE TABLE `vs` (`uuid` VAR(256), `ord` SMALLINT)')
-            dbc.execute_query(
-                conn,
-                'CREATE TABLE `es6` (`uuid` VARCHAR(256), `ord` SMALLINT)')
+            dbc.execute_query(conn, 'CREATE TABLE `vs` (`uuid` VAR(256), `ord` SMALLINT)')
+            dbc.execute_query(conn, 'CREATE TABLE `es6` (`uuid` VARCHAR(256), `ord` SMALLINT)')
 
             with self.assertRaises(sqlite3.Error):
                 dbc.retrieve_combined_records(conn, ['X'], ['Y'])
 
             dbc.execute_query(conn, 'DROP TABLE `vs`')
             dbc.execute_query(conn, 'DROP TABLE `es6`')
-            dbc.execute_query(
-                conn,
-                'CREATE TABLE `vs` (`uuid` VARCHAR(256), `ord` SMALLINT, `X` REAL, `U` REAL)'
-            )
-            dbc.execute_query(
-                conn,
-                'CREATE TABLE `es6` (`uuid` VARCHAR(256), `ord` SMALLINT, `Y` REAL, `V` REAL)'
-            )
+            dbc.execute_query(conn, 'CREATE TABLE `vs` (`uuid` VARCHAR(256), `ord` SMALLINT, `X` REAL, `U` REAL)')
+            dbc.execute_query(conn, 'CREATE TABLE `es6` (`uuid` VARCHAR(256), `ord` SMALLINT, `Y` REAL, `V` REAL)')
 
             df = dbc.retrieve_combined_records(conn, ['X'], ['Y'])
             self.assertEqual(sorted(df.columns), ['X_v', 'Y_e'])
             self.assertEqual(len(df), 0)
 
-            conn.executemany('INSERT INTO `vs` VALUES (?, ?, ?, ?)',
-                             [('a', 1, 1.1, 2.1), ('b', 1, 1.2, 2.2),
-                              ('c', 2, 1.3, 2.3)])
+            conn.executemany('INSERT INTO `vs` VALUES (?, ?, ?, ?)', [('a', 1, 1.1, 2.1), ('b', 1, 1.2, 2.2),
+                                                                      ('c', 2, 1.3, 2.3)])
 
             df = dbc.retrieve_combined_records(conn, ['X'], ['Y'])
             self.assertEqual(sorted(df.columns), ['X_v', 'Y_e'])
             self.assertEqual(len(df), 0)
 
-            conn.executemany('INSERT INTO `es6` VALUES (?, ?, ?, ?)',
-                             [('a', 1, 3.1, 4.1), ('b', 1, 3.2, 4.2)])
+            conn.executemany('INSERT INTO `es6` VALUES (?, ?, ?, ?)', [('a', 1, 3.1, 4.1), ('b', 1, 3.2, 4.2)])
 
             df = dbc.retrieve_combined_records(conn, ['X'], ['Y'])
             self.assertEqual(sorted(df.columns), ['X_v', 'Y_e'])
             self.assertEqual(len(df), 2)
-            self.assertEqual([tuple(r) for r in df.to_numpy()], [(1.1, 3.1),
-                                                                 (1.2, 3.2)])
+            self.assertEqual([tuple(r) for r in df.to_numpy()], [(1.1, 3.1), (1.2, 3.2)])
 
-            conn.executemany('INSERT INTO `es6` VALUES (?, ?, ?, ?)',
-                             [('c', 2, 3.3, 4.3)])
+            conn.executemany('INSERT INTO `es6` VALUES (?, ?, ?, ?)', [('c', 2, 3.3, 4.3)])
 
             df = dbc.retrieve_combined_records(conn, ['X'], ['Y'])
             self.assertEqual(sorted(df.columns), ['X_v', 'Y_e'])
             self.assertEqual(len(df), 3)
-            self.assertEqual([tuple(r) for r in df.to_numpy()], [(1.1, 3.1),
-                                                                 (1.2, 3.2),
-                                                                 (1.3, 3.3)])
+            self.assertEqual([tuple(r) for r in df.to_numpy()], [(1.1, 3.1), (1.2, 3.2), (1.3, 3.3)])
 
             df = dbc.retrieve_combined_records(conn, ['X'], ['Y'], ord_id=2)
             self.assertEqual(sorted(df.columns), ['X_v', 'Y_e'])
@@ -214,15 +190,13 @@ class TestDBComms(TestCase):
             self.assertEqual([tuple(r) for r in df.to_numpy()], [(1.3, 3.3)])
 
             with self.campaign.working_directory() as campdir:
-                expected = dbc.retrieve_combined_records(conn, ['X'], ['Y'],
-                                                         fname='data.json')
+                expected = dbc.retrieve_combined_records(conn, ['X'], ['Y'], fname='data.json')
                 self.assertTrue(isfile(join(campdir, 'data.json')))
                 got = pd.read_json('data.json')
                 self.assertTrue((got.columns == expected.columns).all())
                 self.assertTrue((got.to_numpy() == expected.to_numpy()).all())
 
-                expected = dbc.retrieve_combined_records(conn, ['X'], ['Y'],
-                                                         fname='data.csv')
+                expected = dbc.retrieve_combined_records(conn, ['X'], ['Y'], fname='data.csv')
                 self.assertTrue(isfile(join(campdir, 'data.csv')))
                 got = pd.read_csv('data.csv')
                 self.assertTrue((got.columns == expected.columns).all())
@@ -231,12 +205,10 @@ class TestDBComms(TestCase):
     def test_create_vs_table(self):
         with TemporaryDirectory() as root:
             self.campaign.create_env(dir=root, verbose=False)
-            conn = dbc.establish_database_connection(self.campaign,
-                                                     verbose=False)
+            conn = dbc.establish_database_connection(self.campaign, verbose=False)
             dbc.create_vs_table(conn, self.campaign, ['X'])
 
-            result = dbc.execute_query(conn,
-                                       'pragma table_info(vs)').fetchall()
+            result = dbc.execute_query(conn, 'pragma table_info(vs)').fetchall()
             self.assertEqual(len(result), 26)
             columns = list(map(lambda x: x[1], result))
             self.assertIn('X', columns)
@@ -244,20 +216,16 @@ class TestDBComms(TestCase):
     def test_create_es_tables(self):
         with TemporaryDirectory() as root:
             self.campaign.create_env(dir=root, verbose=False)
-            conn = dbc.establish_database_connection(self.campaign,
-                                                     verbose=False)
-            dbc.create_es_tables(conn, self.campaign, ['W'], ['X'], ['Y'],
-                                 ['Z'])
+            conn = dbc.establish_database_connection(self.campaign, verbose=False)
+            dbc.create_es_tables(conn, self.campaign, ['W'], ['X'], ['Y'], ['Z'])
 
-            result = dbc.execute_query(conn,
-                                       'pragma table_info(es3)').fetchall()
+            result = dbc.execute_query(conn, 'pragma table_info(es3)').fetchall()
             self.assertEqual(len(result), 17)
             columns = list(map(lambda x: x[1], result))
             for c in ['Z', 'aW', 'Y', 'X']:
                 self.assertIn(c, columns)
 
-            result = dbc.execute_query(conn,
-                                       'pragma table_info(es6)').fetchall()
+            result = dbc.execute_query(conn, 'pragma table_info(es6)').fetchall()
             self.assertEqual(len(result), 20)
             columns = list(map(lambda x: x[1], result))
             for c in ['Z', 'aW', 'mW', 'Y', 'X']:
@@ -266,13 +234,9 @@ class TestDBComms(TestCase):
     def test_create_orders_table(self):
         with TemporaryDirectory() as root:
             self.campaign.create_env(dir=root, verbose=False)
-            conn = dbc.establish_database_connection(self.campaign,
-                                                     verbose=False)
+            conn = dbc.establish_database_connection(self.campaign, verbose=False)
             dbc.create_orders_table(conn)
 
-            result = dbc.execute_query(conn,
-                                       'pragma table_info(orders)').fetchall()
+            result = dbc.execute_query(conn, 'pragma table_info(orders)').fetchall()
             columns = list(map(lambda x: x[1], result))
-            self.assertEqual(
-                columns,
-                ['id', 'campaign_hash', 'data0_hash', 'name', 'create_date'])
+            self.assertEqual(columns, ['id', 'campaign_hash', 'data0_hash', 'name', 'create_date'])

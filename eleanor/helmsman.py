@@ -20,12 +20,7 @@ from .hanger.tool_room import mk_check_directory, mine_pickup_lines, grab_float
 from .hanger.tool_room import grab_lines, grab_str, determine_ss_kids, WorkingDirectory
 
 
-def Helmsman(camp,
-             ord_id=None,
-             num_cores=os.cpu_count(),
-             keep_every_n_files=100,
-             quiet=False,
-             no_progress=False):
+def Helmsman(camp, ord_id=None, num_cores=os.cpu_count(), keep_every_n_files=100, quiet=False, no_progress=False):
     """
     Keeping with the naval terminology: The Navigator charts where to go.
     Then the helmsman guides the ship there, using sailors to do the necessary work.
@@ -58,8 +53,7 @@ def Helmsman(camp,
     with camp.working_directory():
         conn = establish_database_connection(camp)
 
-        elements, aq_sp, solids, ss, gasses = determine_species_set(
-            path='huffer/')
+        elements, aq_sp, solids, ss, gasses = determine_species_set(path='huffer/')
 
         ss_kids = []
         if len(ss) > 0:
@@ -103,31 +97,24 @@ def Helmsman(camp,
 
     if num_cores == 1:
         for r in rec:
-            sailor(camp, scratch_path, vs_queue, es3_queue, es6_queue, date, r,
-                   elements, solids, ss, ss_kids, vs_col_names, es3_col_names,
-                   es6_col_names, keep_every_n_files)
+            sailor(camp, scratch_path, vs_queue, es3_queue, es6_queue, date, r, elements, solids, ss, ss_kids,
+                   vs_col_names, es3_col_names, es6_col_names, keep_every_n_files)
         keep_running_yoeman = multiprocessing.Value('b', False)
-        yoeman(camp, keep_running_yoeman, vs_queue, es3_queue, es6_queue,
-               len(rec), no_progress)
+        yoeman(camp, keep_running_yoeman, vs_queue, es3_queue, es6_queue, len(rec), no_progress)
 
     elif num_cores > 1:
         keep_running_yoeman = multiprocessing.Value('b', True)
-        yoeman_process = multiprocessing.Process(
-            target=yoeman,
-            args=(camp, keep_running_yoeman, vs_queue, es3_queue, es6_queue,
-                  len(rec), no_progress))
+        yoeman_process = multiprocessing.Process(target=yoeman,
+                                                 args=(camp, keep_running_yoeman, vs_queue, es3_queue, es6_queue,
+                                                       len(rec), no_progress))
         yoeman_process.start()
         with multiprocessing.Pool(processes=num_cores) as pool:
             _ = pool.starmap(
                 sailor,
-                zip([camp] * len(rec), [scratch_path] * len(rec),
-                    [vs_queue] * len(rec), [es3_queue] * len(rec),
-                    [es6_queue] * len(rec), [date] * len(rec), rec,
-                    [elements] * len(rec), [solids] * len(rec),
-                    [ss] * len(rec), [ss_kids] * len(rec),
-                    [vs_col_names] * len(rec), [es3_col_names] * len(rec),
-                    [es6_col_names] * len(rec),
-                    [keep_every_n_files] * len(rec)))
+                zip([camp] * len(rec), [scratch_path] * len(rec), [vs_queue] * len(rec), [es3_queue] * len(rec),
+                    [es6_queue] * len(rec), [date] * len(rec), rec, [elements] * len(rec), [solids] * len(rec),
+                    [ss] * len(rec), [ss_kids] * len(rec), [vs_col_names] * len(rec), [es3_col_names] * len(rec),
+                    [es6_col_names] * len(rec), [keep_every_n_files] * len(rec)))
 
         with keep_running_yoeman.get_lock():
             keep_running_yoeman.value = False
@@ -139,16 +126,12 @@ def Helmsman(camp,
             print('\nOrder(s) complete.')
 
             print(f'        total time: {round(time.time() - start, 3)}')
-            print(
-                f'        time/point: {round((time.time() - start) / len(rec), 3)}'
-            )
+            print(f'        time/point: {round((time.time() - start) / len(rec), 3)}')
         else:
             print(f'\nOrder {ord_id} complete.')
 
             print(f'        total time: {round(time.time() - start, 3)}')
-            print(
-                f'        time/point: {round((time.time() - start) / len(rec), 3)}'
-            )
+            print(f'        time/point: {round((time.time() - start) / len(rec), 3)}')
 
             conn = establish_database_connection(camp)
             order_query = ('SELECT code, COUNT(*) FROM vs GROUP BY code'
@@ -358,8 +341,7 @@ def sailor(camp,
             rkb1 = master_dict['{}_rkb1'.format(name)]
             rnt_dict[name] = [rnt_type, morr, rkb1]
 
-    paths = SailorPaths(scratch_path, master_dict['ord'], master_dict['file'],
-                        keep_every_n_files)
+    paths = SailorPaths(scratch_path, master_dict['ord'], master_dict['file'], keep_every_n_files)
 
     paths.create_directory()
     with WorkingDirectory(paths.directory):
@@ -377,26 +359,21 @@ def sailor(camp,
 
             pickup = mine_pickup_lines('.', paths.threep, 's')
 
-            camp.local_6i.write(paths.sixi, rnt_dict, pickup,
-                                state_dict['T_cel'])
+            camp.local_6i.write(paths.sixi, rnt_dict, pickup, state_dict['T_cel'])
             eq6(data1_file, paths.sixi)
 
-            threeodf = mine_3o(camp, date, elements, solids, ss, ss_kids,
-                               paths.threeo, master_dict, es3_col_names)
-            sixodf = mine_6o(camp, date, elements, solids, ss, ss_kids,
-                             paths.sixo, master_dict, es6_col_names)
+            threeodf = mine_3o(camp, date, elements, solids, ss, ss_kids, paths.threeo, master_dict, es3_col_names)
+            sixodf = mine_6o(camp, date, elements, solids, ss, ss_kids, paths.sixo, master_dict, es6_col_names)
 
             es3_queue.put_nowait(threeodf)
             es6_queue.put_nowait(sixodf)
 
-            return reset_sailor(paths, vs_queue, master_dict['uuid'],
-                                RunCode.SUCCESS)
+            return reset_sailor(paths, vs_queue, master_dict['uuid'], RunCode.SUCCESS)
         except EleanorException as e:
             return reset_sailor(paths, vs_queue, master_dict['uuid'], e.code)
 
 
-def mine_3o(camp, date, elements, solids, ss, ss_kids, file, master_dict,
-            col_names):
+def mine_3o(camp, date, elements, solids, ss, ss_kids, file, master_dict, col_names):
     """
     open and mine the eqe output file ('file'.3o) for all of the run information
     with associated columns in the es3 table.
@@ -424,17 +401,14 @@ def mine_3o(camp, date, elements, solids, ss, ss_kids, file, master_dict,
     """
 
     build_dict = {k: [] for k in col_names}
-    build_dict['extended_alk'] = [
-        np.nan
-    ]  # undefined for systems over 50 in EQ36 output
+    build_dict['extended_alk'] = [np.nan]  # undefined for systems over 50 in EQ36 output
 
     try:
         lines = grab_lines(file)
 
         run_code = RunCode.NOT_RUN
         if 'Normal exit' not in lines[-1]:
-            raise EleanorException('eq3 terminated early',
-                                   code=RunCode.EQ3_EARLY_TERMINATION)
+            raise EleanorException('eq3 terminated early', code=RunCode.EQ3_EARLY_TERMINATION)
         else:
             run_code = RunCode.SUCCESS
 
@@ -453,11 +427,8 @@ def mine_3o(camp, date, elements, solids, ss, ss_kids, file, master_dict,
                 while not re.findall('^\n', lines[i + x]):
                     if grab_str(lines[i + x], 0) in elements:
                         # log molality
-                        this_dat = [
-                            np.round(np.log10(grab_float(lines[i + x], -1)), 6)
-                        ]
-                        build_dict['m_{}'.format(grab_str(lines[i + x],
-                                                          0))] = this_dat
+                        this_dat = [np.round(np.log10(grab_float(lines[i + x], -1)), 6)]
+                        build_dict['m_{}'.format(grab_str(lines[i + x], 0))] = this_dat
                         x += 1
                     else:
                         x += 1
@@ -496,23 +467,15 @@ def mine_3o(camp, date, elements, solids, ss, ss_kids, file, master_dict,
 
                         # ### -3 is log molality
                         if '****' in grab_str(lines[i + x], -3):
-                            build_dict[f'm_{grab_str(lines[i + x], 0)}'] = [
-                                -99999.0
-                            ]
+                            build_dict[f'm_{grab_str(lines[i + x], 0)}'] = [-99999.0]
                         else:
-                            build_dict[f'm_{grab_str(lines[i + x], 0)}'] = [
-                                grab_float(lines[i + x], -3)
-                            ]
+                            build_dict[f'm_{grab_str(lines[i + x], 0)}'] = [grab_float(lines[i + x], -3)]
 
                         # ### -1 position is log activity,
                         if '****' in grab_str(lines[i + x], -1):
-                            build_dict[f'a_{grab_str(lines[i + x], 0)}'] = [
-                                -99999.0
-                            ]
+                            build_dict[f'a_{grab_str(lines[i + x], 0)}'] = [-99999.0]
                         else:
-                            build_dict[f'a_{grab_str(lines[i + x], 0)}'] = [
-                                grab_float(lines[i + x], -1)
-                            ]
+                            build_dict[f'a_{grab_str(lines[i + x], 0)}'] = [grab_float(lines[i + x], -1)]
                         x += 1
                     else:
                         x += 1
@@ -524,34 +487,25 @@ def mine_3o(camp, date, elements, solids, ss, ss_kids, file, master_dict,
                         # ## '******'' fills in the value region for numbers
                         # ## lower than -999.9999. Replace with boundary condition
                         # ## log Q/K
-                        build_dict[f'qk_{lines[i + x][:30].strip()}'] = [
-                            float(-999.9999)
-                        ]
+                        build_dict[f'qk_{lines[i + x][:30].strip()}'] = [float(-999.9999)]
                         x += 1
                     elif 'None' not in lines[i + x]:
-                        build_dict[f'qk_{lines[i + x][:30].strip()}'] = [
-                            float(lines[i + x][31:44])
-                        ]
+                        build_dict[f'qk_{lines[i + x][:30].strip()}'] = [float(lines[i + x][31:44])]
                         x += 1
                     else:
                         x += 1
 
-            elif camp.SS and ' --- Saturation States of Solid Solutions ---' in lines[
-                    i]:
+            elif camp.SS and ' --- Saturation States of Solid Solutions ---' in lines[i]:
                 x = 4
                 while not re.findall('^\n', lines[i + x]):
                     # ## log Q/K
                     if re.findall(r'\*{4}$', lines[i + x]):
                         # ## '******' fills in the value region for numbers
                         # ## lower than -999.9999. Replace with boundary condition
-                        build_dict[f'qk_{lines[i + x][:30].strip()}'] = [
-                            float(-999.9999)
-                        ]
+                        build_dict[f'qk_{lines[i + x][:30].strip()}'] = [float(-999.9999)]
                         x += 1
                     elif 'None' not in lines[i + x]:
-                        build_dict[f'qk_{lines[i + x][:30].strip()}'] = [
-                            float(lines[i + x][44:55])
-                        ]
+                        build_dict[f'qk_{lines[i + x][:30].strip()}'] = [float(lines[i + x][44:55])]
                         x += 1
                     else:
                         x += 1
@@ -563,14 +517,10 @@ def mine_3o(camp, date, elements, solids, ss, ss_kids, file, master_dict,
                         if re.findall(r'\*{4}', lines[i + x]):
                             # ## '******'' fills in the value region for numbers
                             # ## lower than -999.9999. Replace with boundary condition
-                            build_dict[f'f_{lines[i + x][:30].strip()}'] = [
-                                float(-999.9999)
-                            ]
+                            build_dict[f'f_{lines[i + x][:30].strip()}'] = [float(-999.9999)]
                             x += 1
                         else:
-                            build_dict[f'f_{grab_str(lines[i + x], 0)}'] = [
-                                float(lines[i + x][28:41])
-                            ]
+                            build_dict[f'f_{grab_str(lines[i + x], 0)}'] = [float(lines[i + x][28:41])]
                             x += 1
                     else:
                         x += 1
@@ -599,8 +549,7 @@ def mine_3o(camp, date, elements, solids, ss, ss_kids, file, master_dict,
         raise EleanorFileException(e, code=RunCode.NO_3O_FILE)
 
 
-def mine_6o(camp, date, elements, solids, ss, ss_kids, file, master_dict,
-            col_names):
+def mine_6o(camp, date, elements, solids, ss, ss_kids, file, master_dict, col_names):
     """
     open and mine the eq6 output file ('file'.6o) for all of the run information
     with associated columns in the ES table.
@@ -627,14 +576,10 @@ def mine_6o(camp, date, elements, solids, ss, ss_kids, file, master_dict,
     :type col_names: list of strings
     """
     build_dict = {k: [] for k in col_names}
-    build_dict['extended_alk'] = [
-        np.nan
-    ]  # undefined for systems over 50 in EQ36 output
+    build_dict['extended_alk'] = [np.nan]  # undefined for systems over 50 in EQ36 output
 
     for _ in solids + ss + ss_kids:
-        build_dict[f'm_{_}'] = [
-            0.0
-        ]  # mols precip must be preset, as its field is not inculsive
+        build_dict[f'm_{_}'] = [0.0]  # mols precip must be preset, as its field is not inculsive
 
     try:
         lines = grab_lines(file)  # 6o file
@@ -644,10 +589,8 @@ def mine_6o(camp, date, elements, solids, ss, ss_kids, file, master_dict,
         for i in range(len(lines) - 1, 0, -1):
             # ## search from bottom of file
             if '---  The reaction path has terminated early ---' in lines[i]:
-                raise EleanorException('eq6 reaction path terminated early',
-                                       code=RunCode.EQ6_EARLY_TERMINATION)
-            elif '---  The reaction path has terminated normally ---' in lines[
-                    i]:
+                raise EleanorException('eq6 reaction path terminated early', code=RunCode.EQ6_EARLY_TERMINATION)
+            elif '---  The reaction path has terminated normally ---' in lines[i]:
                 run_code = RunCode.SUCCESS
                 # Healthy file. Search for index of the last xi step
                 search_for_xi = True
@@ -660,14 +603,12 @@ def mine_6o(camp, date, elements, solids, ss, ss_kids, file, master_dict,
         if run_code == RunCode.NOT_RUN:
             # run code has not be altered, therefore unknown error
             # build_df = pd.DataFrame.from_dict(build_dict)
-            raise EleanorException('no reaction path termination status found',
-                                   code=RunCode.FILE_ERROR_6O)
+            raise EleanorException('no reaction path termination status found', code=RunCode.FILE_ERROR_6O)
 
         # populate ES table
         if camp.target_rnt != {}:
             for i in range(len(lines)):
-                if '   Affinity of the overall irreversible reaction=' in lines[
-                        i]:
+                if '   Affinity of the overall irreversible reaction=' in lines[i]:
                     # the first instance of this line is xi = 0.0
                     # (initial disequilibria with target mineral)
                     build_dict["initial_aff"] = [grab_float(lines[i], -2)]
@@ -694,11 +635,8 @@ def mine_6o(camp, date, elements, solids, ss, ss_kids, file, master_dict,
                 while not re.findall('^\n', lines[i + x]):
                     if grab_str(lines[i + x], 0) in elements:
                         # log molality
-                        this_dat = [
-                            np.round(np.log10(grab_float(lines[i + x], -1)), 6)
-                        ]
-                        build_dict['m_{}'.format(grab_str(lines[i + x],
-                                                          0))] = this_dat
+                        this_dat = [np.round(np.log10(grab_float(lines[i + x], -1)), 6)]
+                        build_dict['m_{}'.format(grab_str(lines[i + x], 0))] = this_dat
                         x += 1
                     else:
                         x += 1
@@ -720,9 +658,8 @@ def mine_6o(camp, date, elements, solids, ss, ss_kids, file, master_dict,
                 if len(camp.salinity) > 0:
                     # ### limited salinity sought
                     if tds > max(camp.salinity) or tds < min(camp.salinity):
-                        raise EleanorException(
-                            'total disolved solute is outside salinity window',
-                            code=RunCode.OUTSIDE_SALINITY_WINDOW)
+                        raise EleanorException('total disolved solute is outside salinity window',
+                                               code=RunCode.OUTSIDE_SALINITY_WINDOW)
                     else:
                         build_dict['tds'] = [tds]
                 else:
@@ -736,9 +673,7 @@ def mine_6o(camp, date, elements, solids, ss, ss_kids, file, master_dict,
 
             elif '        --- Aqueous Solution Charge Balance ---' in lines[i]:
                 # ### Actual charge imbalance eq/kg.H2O
-                build_dict['charge_imbalance_eq'] = [
-                    grab_float(lines[i + 2], -2)
-                ]
+                build_dict['charge_imbalance_eq'] = [grab_float(lines[i + 2], -2)]
 
             # elif '--- Distribution of Aqueous Solute Species ---' in lines[i]:
             #     x = 4
@@ -762,23 +697,15 @@ def mine_6o(camp, date, elements, solids, ss, ss_kids, file, master_dict,
 
                         # ### -3 is log molality
                         if '****' in grab_str(lines[i + x], -3):
-                            build_dict[f'm_{grab_str(lines[i + x], 0)}'] = [
-                                -99999.0
-                            ]
+                            build_dict[f'm_{grab_str(lines[i + x], 0)}'] = [-99999.0]
                         else:
-                            build_dict[f'm_{grab_str(lines[i + x], 0)}'] = [
-                                grab_float(lines[i + x], -3)
-                            ]
+                            build_dict[f'm_{grab_str(lines[i + x], 0)}'] = [grab_float(lines[i + x], -3)]
 
                         # ### -1 position is log activity,
                         if '****' in grab_str(lines[i + x], -1):
-                            build_dict[f'a_{grab_str(lines[i + x], 0)}'] = [
-                                -99999.0
-                            ]
+                            build_dict[f'a_{grab_str(lines[i + x], 0)}'] = [-99999.0]
                         else:
-                            build_dict[f'a_{grab_str(lines[i + x], 0)}'] = [
-                                grab_float(lines[i + x], -1)
-                            ]
+                            build_dict[f'a_{grab_str(lines[i + x], 0)}'] = [grab_float(lines[i + x], -1)]
                         x += 1
                     else:
                         x += 1
@@ -790,8 +717,7 @@ def mine_6o(camp, date, elements, solids, ss, ss_kids, file, master_dict,
                 if 'None' not in lines[i + x]:
 
                     while True:
-                        if re.findall('^\n', lines[i + x]) and re.findall(
-                                '^\n', lines[i + x + 1]):
+                        if re.findall('^\n', lines[i + x]) and re.findall('^\n', lines[i + x + 1]):
                             # ### two blank lines signifies end of block
                             break
 
@@ -803,17 +729,13 @@ def mine_6o(camp, date, elements, solids, ss, ss_kids, file, master_dict,
                         elif re.findall('^ [^ ]', lines[i + x]):
                             # ### pure phases and solid solutions parents
                             parent = lines[i + x][:25].strip()
-                            build_dict[f'm_{lines[i + x][:25].strip()}'] = [
-                                grab_float(lines[i + x], -3)
-                            ]
+                            build_dict[f'm_{lines[i + x][:25].strip()}'] = [grab_float(lines[i + x], -3)]
                             x += 1
 
                         elif re.findall('^   [^ ]', lines[i + x]):
                             # ### solid solution endmember. Grab with parent association
                             kid = lines[i + x][:25].strip()
-                            build_dict[f'm_{kid}_{parent}'] = [
-                                grab_float(lines[i + x], -3)
-                            ]
+                            build_dict[f'm_{kid}_{parent}'] = [grab_float(lines[i + x], -3)]
                             kid = None
                             x += 1
 
@@ -827,34 +749,25 @@ def mine_6o(camp, date, elements, solids, ss, ss_kids, file, master_dict,
                     if re.findall(r'\*{4}$', lines[i + x]):
                         # ## '******'' fills in the value region for numbers
                         # ## lower than -999.9999. Replace with boundary condition
-                        build_dict[f'qk_{lines[i + x][:30].strip()}'] = [
-                            float(-999.9999)
-                        ]
+                        build_dict[f'qk_{lines[i + x][:30].strip()}'] = [float(-999.9999)]
                         x += 1
                     elif 'None' not in lines[i + x]:
-                        build_dict[f'qk_{lines[i + x][:30].strip()}'] = [
-                            float(lines[i + x][31:44])
-                        ]
+                        build_dict[f'qk_{lines[i + x][:30].strip()}'] = [float(lines[i + x][31:44])]
                         x += 1
                     else:
                         x += 1
 
-            elif camp.SS and ' --- Saturation States of Solid Solutions ---' in lines[
-                    i]:
+            elif camp.SS and ' --- Saturation States of Solid Solutions ---' in lines[i]:
                 x = 4
                 while not re.findall('^\n', lines[i + x]):
                     # ## log Q/K
                     if re.findall(r'\*{4}$', lines[i + x]):
                         # ## '******' fills in the value region for numbers
                         # ## lower than -999.9999. Replace with boundary condition
-                        build_dict[f'qk_{lines[i + x][:30].strip()}'] = [
-                            float(-999.9999)
-                        ]
+                        build_dict[f'qk_{lines[i + x][:30].strip()}'] = [float(-999.9999)]
                         x += 1
                     elif 'None' not in lines[i + x]:
-                        build_dict[f'qk_{lines[i + x][:30].strip()}'] = [
-                            float(lines[i + x][44:55])
-                        ]
+                        build_dict[f'qk_{lines[i + x][:30].strip()}'] = [float(lines[i + x][44:55])]
                         x += 1
                     else:
                         x += 1
@@ -867,14 +780,10 @@ def mine_6o(camp, date, elements, solids, ss, ss_kids, file, master_dict,
                         if re.findall(r'\*{4}', lines[i + x]):
                             # ## '******'' fills in the value region for numbers
                             # ## lower than -999.9999. Replace with boundary condition
-                            build_dict[f'f_{lines[i + x][:30].strip()}'] = [
-                                float(-999.9999)
-                            ]
+                            build_dict[f'f_{lines[i + x][:30].strip()}'] = [float(-999.9999)]
                             x += 1
                         else:
-                            build_dict[f'f_{grab_str(lines[i + x], 0)}'] = [
-                                float(lines[i + x][28:41])
-                            ]
+                            build_dict[f'f_{grab_str(lines[i + x], 0)}'] = [float(lines[i + x][28:41])]
                             x += 1
                     else:
                         x += 1
@@ -894,13 +803,7 @@ def mine_6o(camp, date, elements, solids, ss, ss_kids, file, master_dict,
         raise EleanorFileException(e, code=RunCode.NO_6O_fILE)
 
 
-def yoeman(camp,
-           keep_running,
-           write_vs_q,
-           write_es3_q,
-           write_es6_q,
-           num_points,
-           no_progress=False):
+def yoeman(camp, keep_running, write_vs_q, write_es3_q, write_es6_q, num_points, no_progress=False):
     """
     Collecting each sailors df output, and then writing it in
     bulk to sql
@@ -959,10 +862,7 @@ def yoeman(camp,
             # Write ES3 table
             if len(es3_df_list) != 0:
                 total_es3_df = pd.concat(es3_df_list, ignore_index=True)
-                total_es3_df.to_sql('es3',
-                                    conn,
-                                    if_exists='append',
-                                    index=False)
+                total_es3_df.to_sql('es3', conn, if_exists='append', index=False)
                 es3_df_list = []
             # Get ES6 points
             while not write_es6_q.empty():
@@ -972,10 +872,7 @@ def yoeman(camp,
             # Write ES6 table
             if len(es6_df_list) != 0:
                 total_es6_df = pd.concat(es6_df_list, ignore_index=True)
-                total_es6_df.to_sql('es6',
-                                    conn,
-                                    if_exists='append',
-                                    index=False)
+                total_es6_df.to_sql('es6', conn, if_exists='append', index=False)
                 es6_df_list = []
                 # Write VS lines
                 execute_vs_exit_updates(conn, vs_list)
@@ -1002,10 +899,7 @@ def yoeman(camp,
             # Write batch to ES3 table
             if len(es3_df_list) != 0:
                 total_es3_df = pd.concat(es3_df_list, ignore_index=True)
-                total_es3_df.to_sql('es3',
-                                    conn,
-                                    if_exists='append',
-                                    index=False)
+                total_es3_df.to_sql('es3', conn, if_exists='append', index=False)
                 es3_df_list = []
 
             # Get ES3 batch
@@ -1018,10 +912,7 @@ def yoeman(camp,
             # Write batch to ES6 table
             if len(es6_df_list) != 0:
                 total_es6_df = pd.concat(es6_df_list, ignore_index=True)
-                total_es6_df.to_sql('es6',
-                                    conn,
-                                    if_exists='append',
-                                    index=False)
+                total_es6_df.to_sql('es6', conn, if_exists='append', index=False)
                 es6_df_list = []
 
             if not no_progress:

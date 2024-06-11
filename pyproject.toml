@@ -31,3 +31,6 @@ navigator = "eleanor.command_line:navigator"
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.yapf]
+column_limit = 120

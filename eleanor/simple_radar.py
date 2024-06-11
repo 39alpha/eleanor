@@ -82,16 +82,7 @@ def Radar(camp,
         else:
             return where
 
-    def plt_set(ax,
-                df,
-                x,
-                y,
-                mk,
-                cmap=None,
-                sz=10,
-                fc='white',
-                ec='black',
-                lw=0.5):
+    def plt_set(ax, df, x, y, mk, cmap=None, sz=10, fc='white', ec='black', lw=0.5):
         """
         plot subset of marhys database with style (mk=marker, sz=marker size,
             fc=face color, ec=edge color, lw-edge line width)
@@ -183,22 +174,11 @@ def Radar(camp,
         if ord_id:
             df_list = []
             for order in ord_id:
-                df = retrieve_combined_records('.',
-                                               vs_cols,
-                                               es3_cols,
-                                               es6_cols,
-                                               limit=limit,
-                                               where=where,
-                                               ord_id=order)
+                df = retrieve_combined_records('.', vs_cols, es3_cols, es6_cols, limit=limit, where=where, ord_id=order)
                 df_list.append(df)
             df = pd.concat(df_list)
         else:
-            df = retrieve_combined_records('.',
-                                           vs_cols,
-                                           es3_cols,
-                                           es6_cols,
-                                           limit=limit,
-                                           where=where)
+            df = retrieve_combined_records('.', vs_cols, es3_cols, es6_cols, limit=limit, where=where)
 
         print(len(df))
         # ### Add new df columns where math is detected
@@ -206,19 +186,10 @@ def Radar(camp,
             df = solve_eq(df, s)
 
         # ### process plot
-        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(5, 9),
-                                       tight_layout=True)  # figsize=(5, 9)
+        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(5, 9), tight_layout=True)  # figsize=(5, 9)
 
         if re.findall('^#', z_sp):
-            ax1.scatter(x_plt,
-                        y_plt,
-                        data=df,
-                        facecolors=z_sp,
-                        marker='o',
-                        alpha=1,
-                        edgecolor=None,
-                        s=3,
-                        linewidth=0)
+            ax1.scatter(x_plt, y_plt, data=df, facecolors=z_sp, marker='o', alpha=1, edgecolor=None, s=3, linewidth=0)
 
         else:
             df = df.sort_values(by=z_plt, ascending=True, na_position='first')

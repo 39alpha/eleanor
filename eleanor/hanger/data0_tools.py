@@ -80,8 +80,7 @@ def determine_species_set(path=''):
         # search for all other info from teh bottom of the file
         for i in range(len(lines) - 1, 0, -1):
             # find the beginning of the print section for the final system composition.
-            if ' Done. Hybrid Newton-Raphson iteration converged in ' in lines[
-                    i]:
+            if ' Done. Hybrid Newton-Raphson iteration converged in ' in lines[i]:
                 break
 
         # now count forward in lines against to read the system composition
@@ -90,8 +89,7 @@ def determine_species_set(path=''):
             if re.findall('^\n', lines[i]):
                 i += 1
 
-            elif '           --- Elemental Composition of the Aqueous Solution ---' in lines[
-                    i]:
+            elif '           --- Elemental Composition of the Aqueous Solution ---' in lines[i]:
                 i += 4
                 while not re.findall('^\n', lines[i]):
                     ele = lines[i][:13].strip()
@@ -115,8 +113,7 @@ def determine_species_set(path=''):
                 # this fictive aq species shows up in the aqueous block
                 aqueous_sp.remove('O2(g)')
 
-            elif '           --- Saturation States of Pure Solids ---' in lines[
-                    i]:
+            elif '           --- Saturation States of Pure Solids ---' in lines[i]:
                 i += 4
                 while not re.findall('^\n', lines[i]):
                     if 'None' not in lines[i]:
@@ -186,8 +183,7 @@ def determine_loaded_sp(path=''):
                     loaded_sp.append(lines[_ + 2].split('1.000  ')[-1].strip())
                 elif 'is a strict' in lines[_ + 2]:
                     # ## grabs basis species
-                    loaded_sp.append(
-                        lines[_ + 2].split(' is a strict ')[0].strip())
+                    loaded_sp.append(lines[_ + 2].split(' is a strict ')[0].strip())
 
         # ## O2(g) shows up as a strict basis species, and again with the gasses
         # ## so its basis form is removed here. Also, H2O shows up 2 times, and
@@ -198,10 +194,7 @@ def determine_loaded_sp(path=''):
         aq_and_s = [_ for _ in loaded_sp if ' (' not in _]
         ss_and_gas = [_ for _ in loaded_sp if ' (' in _]
         gas = [_.split(' (')[0] for _ in ss_and_gas if '(Gas)' in _]
-        ss = [
-            _.split(' (')[1].strip(')(') for _ in ss_and_gas
-            if '(Gas)' not in _
-        ]
+        ss = [_.split(' (')[1].strip(')(') for _ in ss_and_gas if '(Gas)' not in _]
 
         sp_names = aq_and_s + gas
         ss_names = list(set(ss))
@@ -245,9 +238,8 @@ def data0_suffix(T, P):
     """
 
     char = [
-        '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd',
-        'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r',
-        's', 't', 'u', 'v', 'w', 'x', 'y', 'z'
+        '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l',
+        'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z'
     ]
     data0_system_T_interval = 7
     data0_system_P_interval = 0.5
@@ -259,8 +251,7 @@ def data0_suffix(T, P):
     # for example, T = 7.99 (P=1), does in fact call the data0.002 file. The data0 files
     # themselves overlap in their lowest and highest values for consecutive files.
     t_char = char[math.floor(T / data0_system_T_interval)]
-    tp_char = '{}{}'.format(t_char,
-                            dualchar[math.floor(P / data0_system_P_interval)])
+    tp_char = '{}{}'.format(t_char, dualchar[math.floor(P / data0_system_P_interval)])
 
     return tp_char
 
@@ -272,17 +263,14 @@ def data0_TP(suffix):
     t = suffix[0]
     p = suffix[1:]
     char = [
-        '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd',
-        'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r',
-        's', 't', 'u', 'v', 'w', 'x', 'y', 'z'
+        '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l',
+        'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z'
     ]
 
     data0_system_T_interval = 7
     data0_system_P_interval = 0.5
     t_pos = char.index(t)
-    t_rng = [
-        t_pos * data0_system_T_interval, t_pos * data0_system_T_interval + 7
-    ]
+    t_rng = [t_pos * data0_system_T_interval, t_pos * data0_system_T_interval + 7]
     dualchar = []
     for i in char:
         for j in char:
@@ -298,13 +286,9 @@ def check_data0s_loaded():
     """
     what data1 files are currently active in eq3_68.0a/db
     """
-    file_name, file_list = read_inputs('data1',
-                                       'EQ3_6v8.0a/db',
-                                       str_loc='prefix')
+    file_name, file_list = read_inputs('data1', 'EQ3_6v8.0a/db', str_loc='prefix')
 
-    suf_list = [
-        _[-3:] for _ in file_list if _.startswith('EQ3_6v8.0a/db/data1')
-    ]
+    suf_list = [_[-3:] for _ in file_list if _.startswith('EQ3_6v8.0a/db/data1')]
 
     # for _ in suf_list
 
@@ -318,8 +302,7 @@ def check_data0s_loaded():
     plt.xlabel('T (˚C)')
     plt.ylabel('P (bars)')
 
-    plt.title(
-        'data0 family coverage\n(∆P = descrete 0.5 bars)\n∆T = 7C contineuous')
+    plt.title('data0 family coverage\n(∆P = descrete 0.5 bars)\n∆T = 7C contineuous')
 
     plt.show()
 
@@ -344,8 +327,7 @@ def convert_to_d1(src, dst):
         if os.path.isdir(src):
             for root, dirs, files in os.walk(src):
                 os.makedirs(os.path.relpath(root, src), exist_ok=True)
-                with WorkingDirectory(
-                        os.path.join(dst, os.path.relpath(root, src))):
+                with WorkingDirectory(os.path.join(dst, os.path.relpath(root, src))):
                     for data0 in files:
                         data0 = os.path.join(root, data0)
                         if is_data0_file(data0):
@@ -417,8 +399,7 @@ class TPCurve(object):
 
     def __init__(self, fname, T, P):
         if not ('min' in T and 'mid' in T and 'max' in T):
-            raise ValueError(
-                'temperature dictionary must have min, mid and max keys')
+            raise ValueError('temperature dictionary must have min, mid and max keys')
 
         if len(P) != 2:
             raise ValueError('expected exactly two polynomials')
@@ -431,11 +412,9 @@ class TPCurve(object):
         self.domain = []
 
         if len(self.P) == 0:
-            raise RuntimeError(
-                'interpolation coefficients for pressure not found')
+            raise RuntimeError('interpolation coefficients for pressure not found')
         elif len(self.T) == 0:
-            raise RuntimeError(
-                'interpolation coefficients for termperature not found')
+            raise RuntimeError('interpolation coefficients for termperature not found')
 
         self.reset_domain()
 
@@ -444,8 +423,7 @@ class TPCurve(object):
         right = np.dot(coeff_right, self.T['mid']**np.arange(len(coeff_right)))
 
         if not np.isclose(left, right):
-            raise ValueError(
-                'provided polynomials differ at the common temperature')
+            raise ValueError('provided polynomials differ at the common temperature')
 
     @property
     def data1file(self):
@@ -474,8 +452,7 @@ class TPCurve(object):
         Tmin, Tmax = temperature_range
         Pmin, Pmax = pressure_range
 
-        intersections = self.find_boundary_intersections(
-            temperature_range, pressure_range)
+        intersections = self.find_boundary_intersections(temperature_range, pressure_range)
 
         domain = []
         notEmpty = True
@@ -538,11 +515,9 @@ class TPCurve(object):
                 coefficients[0] -= P
                 roots = np.roots(coefficients[::-1])
                 roots = np.real(roots[np.isreal(roots)])
-                points = [
-                    (T, self(T)) for T in roots if Tmin <= T and T <= Tmax and
-                    (i == 0 and self.T['min'] <= T and T <= self.T['mid']) or (
-                        i == 1 and self.T['mid'] <= T and T <= self.T['max'])
-                ]
+                points = [(T, self(T)) for T in roots
+                          if Tmin <= T and T <= Tmax and (i == 0 and self.T['min'] <= T and T <= self.T['mid']) or (
+                              i == 1 and self.T['mid'] <= T and T <= self.T['max'])]
                 intersections.extend(points)
 
         return sorted(set(intersections))
@@ -555,8 +530,7 @@ class TPCurve(object):
             if len(line) % chars != 0:
                 msg = f'the precision is not what was expected\n  len({line})=={len(line)}'
                 raise Exception(msg)
-            return np.asarray(
-                [float(line[i:i + chars]) for i in range(0, len(line), chars)])
+            return np.asarray([float(line[i:i + chars]) for i in range(0, len(line), chars)])
 
         P, T = [], {}
 
@@ -604,9 +578,7 @@ class TPCurve(object):
     def sample(cls, curves, num_samples):
         domain = cls.union_domains(curves)
         domain_size = sum(map(lambda s: s[1] - s[0], domain))
-        steps = [
-            domain[i + 1][0] - domain[i][1] for i in range(len(domain) - 1)
-        ]
+        steps = [domain[i + 1][0] - domain[i][1] for i in range(len(domain) - 1)]
 
         Ts = np.random.uniform(0, domain_size, num_samples) + domain[0][0]
         Ps = []
@@ -620,9 +592,7 @@ class TPCurve(object):
 
             Ts[i] = T = float(T)
 
-            curves_above = [
-                curve for curve in curves if curve.temperature_in_domain(T)
-            ]
+            curves_above = [curve for curve in curves if curve.temperature_in_domain(T)]
             selected_index = np.random.randint(0, len(curves_above))
             selected_curve = curves_above[selected_index]
 

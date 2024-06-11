@@ -73,16 +73,10 @@ class TestCampaign(TestCase):
         self.assertEqual(camp.est_date, self.config['est_date'])
         self.assertEqual(camp.target_rnt, self.config['reactant'])
         self.assertEqual(camp.suppress_min, self.config['suppress min'])
-        self.assertEqual(camp.min_supp_exemp,
-                         self.config['suppress min exemptions'])
+        self.assertEqual(camp.min_supp_exemp, self.config['suppress min exemptions'])
         self.assertEqual(camp.cb, 'Cl-')
-        self.assertEqual(camp.vs_state, {
-            'T_cel': [0.5, 6],
-            'P_bar': [4, 6],
-            'fO2': [-20, -1]
-        })
-        self.assertEqual(camp.vs_basis,
-                         self.config['initial fluid constraints']['basis'])
+        self.assertEqual(camp.vs_state, {'T_cel': [0.5, 6], 'P_bar': [4, 6], 'fO2': [-20, -1]})
+        self.assertEqual(camp.vs_basis, self.config['initial fluid constraints']['basis'])
         self.assertEqual(camp.distro, self.config['vs_distro'])
         self.assertEqual(camp.reso, self.config['resolution'])
         self.assertEqual(camp.SS, self.config['solid solutions'])
@@ -92,10 +86,8 @@ class TestCampaign(TestCase):
 
         self.assertIsInstance(camp.local_6i, Six_i)
         self.assertEqual(camp.local_6i.iopt4, ' 1')
-        self.assertEqual(camp.local_6i.suppress_min,
-                         self.config['suppress min'])
-        self.assertEqual(camp.local_6i.min_supp_exemp,
-                         self.config['suppress min exemptions'])
+        self.assertEqual(camp.local_6i.suppress_min, self.config['suppress min'])
+        self.assertEqual(camp.local_6i.min_supp_exemp, self.config['suppress min exemptions'])
 
     def test_init_without_solid_solution(self):
         """
@@ -113,16 +105,10 @@ class TestCampaign(TestCase):
         self.assertEqual(camp.est_date, self.config['est_date'])
         self.assertEqual(camp.target_rnt, self.config['reactant'])
         self.assertEqual(camp.suppress_min, self.config['suppress min'])
-        self.assertEqual(camp.min_supp_exemp,
-                         self.config['suppress min exemptions'])
+        self.assertEqual(camp.min_supp_exemp, self.config['suppress min exemptions'])
         self.assertEqual(camp.cb, 'Cl-')
-        self.assertEqual(camp.vs_state, {
-            'T_cel': [0.5, 6],
-            'P_bar': [4, 6],
-            'fO2': [-20, -1]
-        })
-        self.assertEqual(camp.vs_basis,
-                         self.config['initial fluid constraints']['basis'])
+        self.assertEqual(camp.vs_state, {'T_cel': [0.5, 6], 'P_bar': [4, 6], 'fO2': [-20, -1]})
+        self.assertEqual(camp.vs_basis, self.config['initial fluid constraints']['basis'])
         self.assertEqual(camp.distro, self.config['vs_distro'])
         self.assertEqual(camp.reso, self.config['resolution'])
         self.assertEqual(camp.SS, self.config['solid solutions'])
@@ -132,10 +118,8 @@ class TestCampaign(TestCase):
 
         self.assertIsInstance(camp.local_6i, Six_i)
         self.assertEqual(camp.local_6i.iopt4, ' 0')
-        self.assertEqual(camp.local_6i.suppress_min,
-                         self.config['suppress min'])
-        self.assertEqual(camp.local_6i.min_supp_exemp,
-                         self.config['suppress min exemptions'])
+        self.assertEqual(camp.local_6i.suppress_min, self.config['suppress min'])
+        self.assertEqual(camp.local_6i.min_supp_exemp, self.config['suppress min exemptions'])
 
     def test_load_from_json(self):
         """
@@ -154,16 +138,10 @@ class TestCampaign(TestCase):
         self.assertEqual(camp.est_date, self.config['est_date'])
         self.assertEqual(camp.target_rnt, self.config['reactant'])
         self.assertEqual(camp.suppress_min, self.config['suppress min'])
-        self.assertEqual(camp.min_supp_exemp,
-                         self.config['suppress min exemptions'])
+        self.assertEqual(camp.min_supp_exemp, self.config['suppress min exemptions'])
         self.assertEqual(camp.cb, 'Cl-')
-        self.assertEqual(camp.vs_state, {
-            'T_cel': [0.5, 6],
-            'P_bar': [4, 6],
-            'fO2': [-20, -1]
-        })
-        self.assertEqual(camp.vs_basis,
-                         self.config['initial fluid constraints']['basis'])
+        self.assertEqual(camp.vs_state, {'T_cel': [0.5, 6], 'P_bar': [4, 6], 'fO2': [-20, -1]})
+        self.assertEqual(camp.vs_basis, self.config['initial fluid constraints']['basis'])
         self.assertEqual(camp.distro, self.config['vs_distro'])
         self.assertEqual(camp.reso, self.config['resolution'])
         self.assertEqual(camp.SS, self.config['solid solutions'])
@@ -173,10 +151,8 @@ class TestCampaign(TestCase):
 
         self.assertIsInstance(camp.local_6i, Six_i)
         self.assertEqual(camp.local_6i.iopt4, ' 1')
-        self.assertEqual(camp.local_6i.suppress_min,
-                         self.config['suppress min'])
-        self.assertEqual(camp.local_6i.min_supp_exemp,
-                         self.config['suppress min exemptions'])
+        self.assertEqual(camp.local_6i.suppress_min, self.config['suppress min'])
+        self.assertEqual(camp.local_6i.min_supp_exemp, self.config['suppress min exemptions'])
 
     def test_create_env(self):
         """
@@ -187,8 +163,7 @@ class TestCampaign(TestCase):
         with TemporaryDirectory() as root:
             camp.create_env(dir=root, verbose=False)
 
-            self.assertEquals(camp.campaign_dir,
-                              realpath(join(root, camp.name)))
+            self.assertEquals(camp.campaign_dir, realpath(join(root, camp.name)))
 
             campaign_dir = join(root, self.config['campaign'])
             self.assertTrue(isdir(campaign_dir))
@@ -201,8 +176,7 @@ class TestCampaign(TestCase):
 
             order_json = join(campaign_dir, 'orders', camp.hash + '.json')
             self.assertTrue(isfile(order_json))
-            self.assertTrue(
-                isfile(join(campaign_dir, 'orders', 'campaign.json')))
+            self.assertTrue(isfile(join(campaign_dir, 'orders', 'campaign.json')))
 
             with open(order_json, mode='r', encoding='utf-8') as handle:
                 dumped = json.load(handle)
@@ -232,17 +206,14 @@ class TestCampaign(TestCase):
 
             order_json = join(campaign_dir, 'orders', camp.hash + '.json')
             self.assertTrue(isfile(order_json))
-            self.assertTrue(
-                isfile(join(campaign_dir, 'orders', 'campaign.json')))
+            self.assertTrue(isfile(join(campaign_dir, 'orders', 'campaign.json')))
 
             with open(order_json, mode='r', encoding='utf-8') as handle:
                 dumped = json.load(handle)
                 self.assertEqual(dumped, self.config)
 
         self.assertEquals(camp.campaign_dir, realpath(join(root, camp.name)))
-        self.assertEquals(
-            camp.order_file,
-            join(camp.campaign_dir, 'orders', camp.hash + '.json'))
+        self.assertEquals(camp.order_file, join(camp.campaign_dir, 'orders', camp.hash + '.json'))
 
     def test_working_directory(self):
         """
@@ -253,8 +224,7 @@ class TestCampaign(TestCase):
         with TemporaryDirectory() as root:
             camp.create_env(dir=root, verbose=False)
             with camp.working_directory():
-                self.assertEquals(
-                    os.getcwd(), realpath(join(root, self.config['campaign'])))
+                self.assertEquals(os.getcwd(), realpath(join(root, self.config['campaign'])))
 
                 self.assertTrue(isdir('huffer'))
                 self.assertTrue(isdir('fig'))
@@ -269,8 +239,7 @@ class TestCampaign(TestCase):
         camp = Campaign(self.config, self.data0_dir)
         with TemporaryDirectory() as root:
             with camp.working_directory(dir=root, verbose=False):
-                self.assertEquals(
-                    os.getcwd(), realpath(join(root, self.config['campaign'])))
+                self.assertEquals(os.getcwd(), realpath(join(root, self.config['campaign'])))
 
                 self.assertTrue(isdir('huffer'))
                 self.assertTrue(isdir('fig'))

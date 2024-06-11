@@ -122,13 +122,11 @@ class Data0Listener(ParseTreeListener):
         pass
 
     # Enter a parse tree produced by Data0Parser#debyeHuckelModelParams.
-    def enterDebyeHuckelModelParams(
-            self, ctx: Data0Parser.DebyeHuckelModelParamsContext):
+    def enterDebyeHuckelModelParams(self, ctx: Data0Parser.DebyeHuckelModelParamsContext):
         pass
 
     # Exit a parse tree produced by Data0Parser#debyeHuckelModelParams.
-    def exitDebyeHuckelModelParams(
-            self, ctx: Data0Parser.DebyeHuckelModelParamsContext):
+    def exitDebyeHuckelModelParams(self, ctx: Data0Parser.DebyeHuckelModelParamsContext):
         pass
 
     # Enter a parse tree produced by Data0Parser#debyeHuckelA.
@@ -164,8 +162,7 @@ class Data0Listener(ParseTreeListener):
         pass
 
     # Enter a parse tree produced by Data0Parser#pitzerModelParams.
-    def enterPitzerModelParams(self,
-                               ctx: Data0Parser.PitzerModelParamsContext):
+    def enterPitzerModelParams(self, ctx: Data0Parser.PitzerModelParamsContext):
         pass
 
     # Exit a parse tree produced by Data0Parser#pitzerModelParams.
@@ -197,13 +194,11 @@ class Data0Listener(ParseTreeListener):
         pass
 
     # Enter a parse tree produced by Data0Parser#bdotSpeciesSection.
-    def enterBdotSpeciesSection(self,
-                                ctx: Data0Parser.BdotSpeciesSectionContext):
+    def enterBdotSpeciesSection(self, ctx: Data0Parser.BdotSpeciesSectionContext):
         pass
 
     # Exit a parse tree produced by Data0Parser#bdotSpeciesSection.
-    def exitBdotSpeciesSection(self,
-                               ctx: Data0Parser.BdotSpeciesSectionContext):
+    def exitBdotSpeciesSection(self, ctx: Data0Parser.BdotSpeciesSectionContext):
         pass
 
     # Enter a parse tree produced by Data0Parser#bdotSpecies.
@@ -223,13 +218,11 @@ class Data0Listener(ParseTreeListener):
         pass
 
     # Enter a parse tree produced by Data0Parser#pitzerCombinations.
-    def enterPitzerCombinations(self,
-                                ctx: Data0Parser.PitzerCombinationsContext):
+    def enterPitzerCombinations(self, ctx: Data0Parser.PitzerCombinationsContext):
         pass
 
     # Exit a parse tree produced by Data0Parser#pitzerCombinations.
-    def exitPitzerCombinations(self,
-                               ctx: Data0Parser.PitzerCombinationsContext):
+    def exitPitzerCombinations(self, ctx: Data0Parser.PitzerCombinationsContext):
         pass
 
     # Enter a parse tree produced by Data0Parser#caCombinations.
@@ -241,13 +234,11 @@ class Data0Listener(ParseTreeListener):
         pass
 
     # Enter a parse tree produced by Data0Parser#ccPrimeAaPrimeCombinations.
-    def enterCcPrimeAaPrimeCombinations(
-            self, ctx: Data0Parser.CcPrimeAaPrimeCombinationsContext):
+    def enterCcPrimeAaPrimeCombinations(self, ctx: Data0Parser.CcPrimeAaPrimeCombinationsContext):
         pass
 
     # Exit a parse tree produced by Data0Parser#ccPrimeAaPrimeCombinations.
-    def exitCcPrimeAaPrimeCombinations(
-            self, ctx: Data0Parser.CcPrimeAaPrimeCombinationsContext):
+    def exitCcPrimeAaPrimeCombinations(self, ctx: Data0Parser.CcPrimeAaPrimeCombinationsContext):
         pass
 
     # Enter a parse tree produced by Data0Parser#ncNaCombinations.
@@ -267,23 +258,19 @@ class Data0Listener(ParseTreeListener):
         pass
 
     # Enter a parse tree produced by Data0Parser#nnPrimeCombinations.
-    def enterNnPrimeCombinations(self,
-                                 ctx: Data0Parser.NnPrimeCombinationsContext):
+    def enterNnPrimeCombinations(self, ctx: Data0Parser.NnPrimeCombinationsContext):
         pass
 
     # Exit a parse tree produced by Data0Parser#nnPrimeCombinations.
-    def exitNnPrimeCombinations(self,
-                                ctx: Data0Parser.NnPrimeCombinationsContext):
+    def exitNnPrimeCombinations(self, ctx: Data0Parser.NnPrimeCombinationsContext):
         pass
 
     # Enter a parse tree produced by Data0Parser#ccPrimeAAaPrimeCCombinations.
-    def enterCcPrimeAAaPrimeCCombinations(
-            self, ctx: Data0Parser.CcPrimeAAaPrimeCCombinationsContext):
+    def enterCcPrimeAAaPrimeCCombinations(self, ctx: Data0Parser.CcPrimeAAaPrimeCCombinationsContext):
         pass
 
     # Exit a parse tree produced by Data0Parser#ccPrimeAAaPrimeCCombinations.
-    def exitCcPrimeAAaPrimeCCombinations(
-            self, ctx: Data0Parser.CcPrimeAAaPrimeCCombinationsContext):
+    def exitCcPrimeAAaPrimeCCombinations(self, ctx: Data0Parser.CcPrimeAAaPrimeCCombinationsContext):
         pass
 
     # Enter a parse tree produced by Data0Parser#ncaCombinations.
@@ -295,43 +282,35 @@ class Data0Listener(ParseTreeListener):
         pass
 
     # Enter a parse tree produced by Data0Parser#nnnPrimeCombinations.
-    def enterNnnPrimeCombinations(
-            self, ctx: Data0Parser.NnnPrimeCombinationsContext):
+    def enterNnnPrimeCombinations(self, ctx: Data0Parser.NnnPrimeCombinationsContext):
         pass
 
     # Exit a parse tree produced by Data0Parser#nnnPrimeCombinations.
-    def exitNnnPrimeCombinations(self,
-                                 ctx: Data0Parser.NnnPrimeCombinationsContext):
+    def exitNnnPrimeCombinations(self, ctx: Data0Parser.NnnPrimeCombinationsContext):
         pass
 
     # Enter a parse tree produced by Data0Parser#pitzerAlphaBetaCphiParams.
-    def enterPitzerAlphaBetaCphiParams(
-            self, ctx: Data0Parser.PitzerAlphaBetaCphiParamsContext):
+    def enterPitzerAlphaBetaCphiParams(self, ctx: Data0Parser.PitzerAlphaBetaCphiParamsContext):
         pass
 
     # Exit a parse tree produced by Data0Parser#pitzerAlphaBetaCphiParams.
-    def exitPitzerAlphaBetaCphiParams(
-            self, ctx: Data0Parser.PitzerAlphaBetaCphiParamsContext):
+    def exitPitzerAlphaBetaCphiParams(self, ctx: Data0Parser.PitzerAlphaBetaCphiParamsContext):
         pass
 
     # Enter a parse tree produced by Data0Parser#pitzerLambdaMuParams.
-    def enterPitzerLambdaMuParams(
-            self, ctx: Data0Parser.PitzerLambdaMuParamsContext):
+    def enterPitzerLambdaMuParams(self, ctx: Data0Parser.PitzerLambdaMuParamsContext):
         pass
 
     # Exit a parse tree produced by Data0Parser#pitzerLambdaMuParams.
-    def exitPitzerLambdaMuParams(self,
-                                 ctx: Data0Parser.PitzerLambdaMuParamsContext):
+    def exitPitzerLambdaMuParams(self, ctx: Data0Parser.PitzerLambdaMuParamsContext):
         pass
 
     # Enter a parse tree produced by Data0Parser#pitzerLambdaParams.
-    def enterPitzerLambdaParams(self,
-                                ctx: Data0Parser.PitzerLambdaParamsContext):
+    def enterPitzerLambdaParams(self, ctx: Data0Parser.PitzerLambdaParamsContext):
         pass
 
     # Exit a parse tree produced by Data0Parser#pitzerLambdaParams.
-    def exitPitzerLambdaParams(self,
-                               ctx: Data0Parser.PitzerLambdaParamsContext):
+    def exitPitzerLambdaParams(self, ctx: Data0Parser.PitzerLambdaParamsContext):
         pass
 
     # Enter a parse tree produced by Data0Parser#pitzerMuParams.
@@ -351,8 +330,7 @@ class Data0Listener(ParseTreeListener):
         pass
 
     # Enter a parse tree produced by Data0Parser#pitzerThetaParams.
-    def enterPitzerThetaParams(self,
-                               ctx: Data0Parser.PitzerThetaParamsContext):
+    def enterPitzerThetaParams(self, ctx: Data0Parser.PitzerThetaParamsContext):
         pass
 
     # Exit a parse tree produced by Data0Parser#pitzerThetaParams.
@@ -520,13 +498,11 @@ class Data0Listener(ParseTreeListener):
         pass
 
     # Enter a parse tree produced by Data0Parser#basisSpeciesSection.
-    def enterBasisSpeciesSection(self,
-                                 ctx: Data0Parser.BasisSpeciesSectionContext):
+    def enterBasisSpeciesSection(self, ctx: Data0Parser.BasisSpeciesSectionContext):
         pass
 
     # Exit a parse tree produced by Data0Parser#basisSpeciesSection.
-    def exitBasisSpeciesSection(self,
-                                ctx: Data0Parser.BasisSpeciesSectionContext):
+    def exitBasisSpeciesSection(self, ctx: Data0Parser.BasisSpeciesSectionContext):
         pass
 
     # Enter a parse tree produced by Data0Parser#basisSpecies.
@@ -666,23 +642,19 @@ class Data0Listener(ParseTreeListener):
         pass
 
     # Enter a parse tree produced by Data0Parser#auxiliaryBasisSpeciesSection.
-    def enterAuxiliaryBasisSpeciesSection(
-            self, ctx: Data0Parser.AuxiliaryBasisSpeciesSectionContext):
+    def enterAuxiliaryBasisSpeciesSection(self, ctx: Data0Parser.AuxiliaryBasisSpeciesSectionContext):
         pass
 
     # Exit a parse tree produced by Data0Parser#auxiliaryBasisSpeciesSection.
-    def exitAuxiliaryBasisSpeciesSection(
-            self, ctx: Data0Parser.AuxiliaryBasisSpeciesSectionContext):
+    def exitAuxiliaryBasisSpeciesSection(self, ctx: Data0Parser.AuxiliaryBasisSpeciesSectionContext):
         pass
 
     # Enter a parse tree produced by Data0Parser#auxiliaryBasisSpecies.
-    def enterAuxiliaryBasisSpecies(
-            self, ctx: Data0Parser.AuxiliaryBasisSpeciesContext):
+    def enterAuxiliaryBasisSpecies(self, ctx: Data0Parser.AuxiliaryBasisSpeciesContext):
         pass
 
     # Exit a parse tree produced by Data0Parser#auxiliaryBasisSpecies.
-    def exitAuxiliaryBasisSpecies(
-            self, ctx: Data0Parser.AuxiliaryBasisSpeciesContext):
+    def exitAuxiliaryBasisSpecies(self, ctx: Data0Parser.AuxiliaryBasisSpeciesContext):
         pass
 
     # Enter a parse tree produced by Data0Parser#dissociation.
@@ -702,13 +674,11 @@ class Data0Listener(ParseTreeListener):
         pass
 
     # Enter a parse tree produced by Data0Parser#aqueousSpeciesSection.
-    def enterAqueousSpeciesSection(
-            self, ctx: Data0Parser.AqueousSpeciesSectionContext):
+    def enterAqueousSpeciesSection(self, ctx: Data0Parser.AqueousSpeciesSectionContext):
         pass
 
     # Exit a parse tree produced by Data0Parser#aqueousSpeciesSection.
-    def exitAqueousSpeciesSection(
-            self, ctx: Data0Parser.AqueousSpeciesSectionContext):
+    def exitAqueousSpeciesSection(self, ctx: Data0Parser.AqueousSpeciesSectionContext):
         pass
 
     # Enter a parse tree produced by Data0Parser#aqueousSpecies.
@@ -768,13 +738,11 @@ class Data0Listener(ParseTreeListener):
         pass
 
     # Enter a parse tree produced by Data0Parser#solidSolutionsSection.
-    def enterSolidSolutionsSection(
-            self, ctx: Data0Parser.SolidSolutionsSectionContext):
+    def enterSolidSolutionsSection(self, ctx: Data0Parser.SolidSolutionsSectionContext):
         pass
 
     # Exit a parse tree produced by Data0Parser#solidSolutionsSection.
-    def exitSolidSolutionsSection(
-            self, ctx: Data0Parser.SolidSolutionsSectionContext):
+    def exitSolidSolutionsSection(self, ctx: Data0Parser.SolidSolutionsSectionContext):
         pass
 
     # Enter a parse tree produced by Data0Parser#solidSolution.
@@ -794,43 +762,35 @@ class Data0Listener(ParseTreeListener):
         pass
 
     # Enter a parse tree produced by Data0Parser#solidSolutionModelSpec.
-    def enterSolidSolutionModelSpec(
-            self, ctx: Data0Parser.SolidSolutionModelSpecContext):
+    def enterSolidSolutionModelSpec(self, ctx: Data0Parser.SolidSolutionModelSpecContext):
         pass
 
     # Exit a parse tree produced by Data0Parser#solidSolutionModelSpec.
-    def exitSolidSolutionModelSpec(
-            self, ctx: Data0Parser.SolidSolutionModelSpecContext):
+    def exitSolidSolutionModelSpec(self, ctx: Data0Parser.SolidSolutionModelSpecContext):
         pass
 
     # Enter a parse tree produced by Data0Parser#solidSolutionModelType.
-    def enterSolidSolutionModelType(
-            self, ctx: Data0Parser.SolidSolutionModelTypeContext):
+    def enterSolidSolutionModelType(self, ctx: Data0Parser.SolidSolutionModelTypeContext):
         pass
 
     # Exit a parse tree produced by Data0Parser#solidSolutionModelType.
-    def exitSolidSolutionModelType(
-            self, ctx: Data0Parser.SolidSolutionModelTypeContext):
+    def exitSolidSolutionModelType(self, ctx: Data0Parser.SolidSolutionModelTypeContext):
         pass
 
     # Enter a parse tree produced by Data0Parser#solidSolutionModelParams.
-    def enterSolidSolutionModelParams(
-            self, ctx: Data0Parser.SolidSolutionModelParamsContext):
+    def enterSolidSolutionModelParams(self, ctx: Data0Parser.SolidSolutionModelParamsContext):
         pass
 
     # Exit a parse tree produced by Data0Parser#solidSolutionModelParams.
-    def exitSolidSolutionModelParams(
-            self, ctx: Data0Parser.SolidSolutionModelParamsContext):
+    def exitSolidSolutionModelParams(self, ctx: Data0Parser.SolidSolutionModelParamsContext):
         pass
 
     # Enter a parse tree produced by Data0Parser#possiblyEmptyNumberGrid.
-    def enterPossiblyEmptyNumberGrid(
-            self, ctx: Data0Parser.PossiblyEmptyNumberGridContext):
+    def enterPossiblyEmptyNumberGrid(self, ctx: Data0Parser.PossiblyEmptyNumberGridContext):
         pass
 
     # Exit a parse tree produced by Data0Parser#possiblyEmptyNumberGrid.
-    def exitPossiblyEmptyNumberGrid(
-            self, ctx: Data0Parser.PossiblyEmptyNumberGridContext):
+    def exitPossiblyEmptyNumberGrid(self, ctx: Data0Parser.PossiblyEmptyNumberGridContext):
         pass
 
     # Enter a parse tree produced by Data0Parser#siteParams.

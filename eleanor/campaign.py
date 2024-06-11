@@ -72,20 +72,15 @@ class Campaign:
         rnt_types = [self.target_rnt[tr][0] for tr in self.target_rnt]
         for rt in rnt_types:
             if rt not in ['mineral', 'gas', 'fixed_gas', 'sr']:
-                err_message = (
-                    f'\nReactant type "{rt}" not supported.',
-                    '\n Reactants must a "mineral", "gas", or "fixed gas"',
-                    '\n at this time.')
+                err_message = (f'\nReactant type "{rt}" not supported.',
+                               '\n Reactants must a "mineral", "gas", or "fixed gas"', '\n at this time.')
                 raise ValueError(err_message)
 
         self.suppress_sp = self._raw['suppress sp']
         self.suppress_min = self._raw['suppress min']
         self.min_supp_exemp = self._raw['suppress min exemptions']
         self.cb = self._raw['initial fluid constraints']['cb']
-        self.vs_state = {
-            key: self._raw['initial fluid constraints'][key]
-            for key in ['T_cel', 'P_bar', 'fO2']
-        }
+        self.vs_state = {key: self._raw['initial fluid constraints'][key] for key in ['T_cel', 'P_bar', 'fO2']}
         self.vs_basis = self._raw['initial fluid constraints']['basis']
         self.distro = self._raw['vs_distro']
         self.reso = self._raw['resolution']
@@ -104,10 +99,9 @@ class Campaign:
         elif self.model == 'b-dot':
             pass
         else:
-            err_message = (
-                f'the model "{self._raw["model"]}" specified in the campaign file is',
-                'not recognized: must be "pitzer", "davies", "b-dot" or a standard EQ36',
-                'file suffix (see Campaign class docs)')
+            err_message = (f'the model "{self._raw["model"]}" specified in the campaign file is',
+                           'not recognized: must be "pitzer", "davies", "b-dot" or a standard EQ36',
+                           'file suffix (see Campaign class docs)')
             raise EleanorException(err_message)
 
         if self.SS:
@@ -119,9 +113,7 @@ class Campaign:
 
         self.three_i_switches = set_3i_switches(self.ThreeI_config)
         self.six_i_switches = set_6i_switches(self.SixI_config)
-        self.local_3i = tool_room.Three_i(self.special_basis_switch,
-                                          self.three_i_switches,
-                                          self.suppress_sp)
+        self.local_3i = tool_room.Three_i(self.special_basis_switch, self.three_i_switches, self.suppress_sp)
         self.local_6i = tool_room.Six_i(self.target_rnt,
                                         self.six_i_switches,
                                         suppress_min=self.suppress_min,
@@ -166,8 +158,7 @@ class Campaign:
 
     @property
     def representative_data0(self):
-        return Data0.from_file(self._representative_data0_fname,
-                               permissive=True)
+        return Data0.from_file(self._representative_data0_fname, permissive=True)
 
     def create_env(self, dir=None, verbose=True):
         """
@@ -238,9 +229,8 @@ class Campaign:
 
         self._data0_hash, unhashed = data0_tools.hash_data0s(self.data0_dir)
         if verbose and len(unhashed) != 0:
-            warning_msg = (
-                'WARNING: The following files in the data0 directory \n',
-                f'({self.data0_dir}) do not appear to be valid data0 files:')
+            warning_msg = ('WARNING: The following files in the data0 directory \n',
+                           f'({self.data0_dir}) do not appear to be valid data0 files:')
             print(warning_msg)
             for file in unhashed:
                 print(f'  {relpath(file, self.data0_dir)}\n')
@@ -252,10 +242,7 @@ class Campaign:
         # move to data1 tools
         with tool_room.WorkingDirectory(self.data1_dir):
             _, data1f_files, *_ = tool_room.read_inputs('.d1f', '.')
-            tp_curves = [
-                TPCurve.from_data1f(data1f_file)
-                for data1f_file in data1f_files
-            ]
+            tp_curves = [TPCurve.from_data1f(data1f_file) for data1f_file in data1f_files]
 
         self.tp_curves = []
         for curve in tp_curves:
@@ -285,9 +272,7 @@ class Campaign:
                 self._representative_data0_fname = fname
                 break
         if self._representative_data0_fname is None:
-            raise Exception(
-                'Could not choose a representative data0 file. Are there any in the data0 directory?'
-            )
+            raise Exception('Could not choose a representative data0 file. Are there any in the data0 directory?')
 
     def working_directory(self, *args, **kwargs):
         """

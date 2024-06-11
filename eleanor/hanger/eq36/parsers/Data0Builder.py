@@ -26,22 +26,21 @@ class Data0Builder(Data0Listener):
 
     def exitData0(self, ctx: Data0Parser.Data0Context):
         (bdot, pitzer_combinations) = ctx.modelSection().data
-        ctx.data = Data0(
-            fname=self.fname,
-            magic=ctx.magicLine().data,
-            header=ctx.header().data,
-            params=ctx.paramsSection().data,
-            bdot=bdot,
-            pitzer_combinations=pitzer_combinations,
-            elements=ctx.elementsSection().data,
-            basis_species=ctx.basisSpeciesSection().data,
-            auxiliary_basis_species=ctx.auxiliaryBasisSpeciesSection().data,
-            aqueous_species=ctx.aqueousSpeciesSection().data,
-            solids=ctx.solidsSection().data,
-            liquids=ctx.liquidsSection().data,
-            gases=ctx.gasesSection().data,
-            solid_solutions=ctx.solidSolutionsSection().data,
-            references=ctx.referenceSection().data)
+        ctx.data = Data0(fname=self.fname,
+                         magic=ctx.magicLine().data,
+                         header=ctx.header().data,
+                         params=ctx.paramsSection().data,
+                         bdot=bdot,
+                         pitzer_combinations=pitzer_combinations,
+                         elements=ctx.elementsSection().data,
+                         basis_species=ctx.basisSpeciesSection().data,
+                         auxiliary_basis_species=ctx.auxiliaryBasisSpeciesSection().data,
+                         aqueous_species=ctx.aqueousSpeciesSection().data,
+                         solids=ctx.solidsSection().data,
+                         liquids=ctx.liquidsSection().data,
+                         gases=ctx.gasesSection().data,
+                         solid_solutions=ctx.solidSolutionsSection().data,
+                         references=ctx.referenceSection().data)
 
         ctx.data.verify()
 
@@ -91,13 +90,11 @@ class Data0Builder(Data0Listener):
 
         ctx.data = (debye_huckel, pitzer)
 
-    def exitDebyeHuckelModelParams(
-            self, ctx: Data0Parser.DebyeHuckelModelParamsContext):
-        ctx.data = DebyeHuckelModelParams(
-            debye_huckel_a=ctx.debyeHuckelA().data,
-            debye_huckel_b=ctx.debyeHuckelB().data,
-            bdot=ctx.bdot().data,
-            cco2=ctx.cco2().data)
+    def exitDebyeHuckelModelParams(self, ctx: Data0Parser.DebyeHuckelModelParamsContext):
+        ctx.data = DebyeHuckelModelParams(debye_huckel_a=ctx.debyeHuckelA().data,
+                                          debye_huckel_b=ctx.debyeHuckelB().data,
+                                          bdot=ctx.bdot().data,
+                                          cco2=ctx.cco2().data)
 
     def exitPitzerModelParams(self, ctx: Data0Parser.PitzerModelParamsContext):
         ctx.data = PitzerModelParams(debye_huckel_a=ctx.debyeHuckelA().data)
@@ -130,8 +127,7 @@ class Data0Builder(Data0Listener):
 
         ctx.data = (bdot, pitzer)
 
-    def exitBdotSpeciesSection(self,
-                               ctx: Data0Parser.BdotSpeciesSectionContext):
+    def exitBdotSpeciesSection(self, ctx: Data0Parser.BdotSpeciesSectionContext):
         ctx.data = {bdot.data.name: bdot.data for bdot in ctx.bdotSpecies()}
 
     def exitBdotSpecies(self, ctx: Data0Parser.BdotSpeciesContext):
@@ -140,24 +136,20 @@ class Data0Builder(Data0Listener):
         azer0, neutral_ion_type = [n.data for n in ctx.number()]
         neutral_ion_type = np.int64(neutral_ion_type)
 
-        ctx.data = BDotSpecies(name=name,
-                               azer0=azer0,
-                               neutral_ion_type=neutral_ion_type)
+        ctx.data = BDotSpecies(name=name, azer0=azer0, neutral_ion_type=neutral_ion_type)
 
     def exitBdotSpeciesName(self, ctx: Data0Parser.BdotSpeciesNameContext):
         ctx.data = ctx.getText().strip()
 
-    def exitPitzerCombinations(self,
-                               ctx: Data0Parser.PitzerCombinationsContext):
-        ctx.data = PitzerCombinations(
-            ca=ctx.caCombinations().data,
-            ccp_aap=ctx.ccPrimeAaPrimeCombinations().data,
-            nc_na=ctx.ncNaCombinations().data,
-            nn=ctx.nnCombinations().data,
-            nnp=ctx.nnPrimeCombinations().data,
-            ccpa_aapc=ctx.ccPrimeAAaPrimeCCombinations().data,
-            nca=ctx.ncaCombinations().data,
-            nnnp=ctx.nnnPrimeCombinations().data)
+    def exitPitzerCombinations(self, ctx: Data0Parser.PitzerCombinationsContext):
+        ctx.data = PitzerCombinations(ca=ctx.caCombinations().data,
+                                      ccp_aap=ctx.ccPrimeAaPrimeCombinations().data,
+                                      nc_na=ctx.ncNaCombinations().data,
+                                      nn=ctx.nnCombinations().data,
+                                      nnp=ctx.nnPrimeCombinations().data,
+                                      ccpa_aapc=ctx.ccPrimeAAaPrimeCCombinations().data,
+                                      nca=ctx.ncaCombinations().data,
+                                      nnnp=ctx.nnnPrimeCombinations().data)
 
     def exitCaCombinations(self, ctx: Data0Parser.CaCombinationsContext):
         ctx.data = dict()
@@ -165,8 +157,7 @@ class Data0Builder(Data0Listener):
             (name, datum) = abc.data
             ctx.data[name] = datum
 
-    def exitCcPrimeAaPrimeCombinations(
-            self, ctx: Data0Parser.CcPrimeAaPrimeCombinationsContext):
+    def exitCcPrimeAaPrimeCombinations(self, ctx: Data0Parser.CcPrimeAaPrimeCombinationsContext):
         ctx.data = dict()
         for theta in ctx.pitzerThetaParams():
             (name, datum) = theta.data
@@ -184,15 +175,13 @@ class Data0Builder(Data0Listener):
             (name, datum) = lambda_mu.data
             ctx.data[name] = datum
 
-    def exitNnPrimeCombinations(self,
-                                ctx: Data0Parser.NnPrimeCombinationsContext):
+    def exitNnPrimeCombinations(self, ctx: Data0Parser.NnPrimeCombinationsContext):
         ctx.data = dict()
         for lam in ctx.pitzerLambdaParams():
             (name, datum) = lam.data
             ctx.data[name] = datum
 
-    def exitCcPrimeAAaPrimeCCombinations(
-            self, ctx: Data0Parser.CcPrimeAAaPrimeCCombinationsContext):
+    def exitCcPrimeAAaPrimeCCombinations(self, ctx: Data0Parser.CcPrimeAAaPrimeCCombinationsContext):
         ctx.data = dict()
         for psi in ctx.pitzerPsiParams():
             (name, datum) = psi.data
@@ -204,15 +193,13 @@ class Data0Builder(Data0Listener):
             (name, datum) = zeta.data
             ctx.data[name] = datum
 
-    def exitNnnPrimeCombinations(self,
-                                 ctx: Data0Parser.NnnPrimeCombinationsContext):
+    def exitNnnPrimeCombinations(self, ctx: Data0Parser.NnnPrimeCombinationsContext):
         ctx.data = dict()
         for mu in ctx.pitzerMuParams():
             (name, datum) = mu.data
             ctx.data[name] = datum
 
-    def exitPitzerAlphaBetaCphiParams(
-            self, ctx: Data0Parser.PitzerAlphaBetaCphiParamsContext):
+    def exitPitzerAlphaBetaCphiParams(self, ctx: Data0Parser.PitzerAlphaBetaCphiParamsContext):
         term = PitzerABCTerm(alpha1=ctx.alpha1().data,
                              alpha2=ctx.alpha2().data,
                              beta0=ctx.beta0().data,
@@ -225,13 +212,11 @@ class Data0Builder(Data0Listener):
         term = PitzerThetaTerm(theta=ctx.theta().data)
         ctx.data = (ctx.pitzerTuple().data, term)
 
-    def exitPitzerLambdaParams(self,
-                               ctx: Data0Parser.PitzerLambdaParamsContext):
+    def exitPitzerLambdaParams(self, ctx: Data0Parser.PitzerLambdaParamsContext):
         term = PitzerLambdaTerm(lam=ctx.lambda_().data)
         ctx.data = (ctx.pitzerTuple().data, term)
 
-    def exitPitzerLambdaMuParams(self,
-                                 ctx: Data0Parser.PitzerLambdaMuParamsContext):
+    def exitPitzerLambdaMuParams(self, ctx: Data0Parser.PitzerLambdaMuParamsContext):
         term = PitzerLambdaMuTerm(lam=ctx.lambda_().data, mu=ctx.mu().data)
         ctx.data = (ctx.pitzerTuple().data, term)
 
@@ -296,10 +281,7 @@ class Data0Builder(Data0Listener):
         ctx.data = ctx.number().data
 
     def exitElementsSection(self, ctx: Data0Parser.ElementsSectionContext):
-        ctx.data = {
-            name: weight
-            for name, weight in map(lambda c: c.data, ctx.element())
-        }
+        ctx.data = {name: weight for name, weight in map(lambda c: c.data, ctx.element())}
 
     def exitElement(self, ctx: Data0Parser.ElementContext):
         name = ctx.elementName().data
@@ -309,12 +291,8 @@ class Data0Builder(Data0Listener):
     def exitElementName(self, ctx: Data0Parser.ElementNameContext):
         ctx.data = ctx.WORD().getText().strip()
 
-    def exitBasisSpeciesSection(self,
-                                ctx: Data0Parser.BasisSpeciesSectionContext):
-        ctx.data = {
-            species.data.name: species.data
-            for species in ctx.basisSpecies()
-        }
+    def exitBasisSpeciesSection(self, ctx: Data0Parser.BasisSpeciesSectionContext):
+        ctx.data = {species.data.name: species.data for species in ctx.basisSpecies()}
 
     def exitChargeLine(self, ctx: Data0Parser.ChargeLineContext):
         ctx.data = ctx.number().data
@@ -345,12 +323,8 @@ class Data0Builder(Data0Listener):
     def exitComponentName(self, ctx: Data0Parser.ComponentNameContext):
         ctx.data = ctx.getText().strip()
 
-    def exitAuxiliaryBasisSpeciesSection(
-            self, ctx: Data0Parser.AuxiliaryBasisSpeciesSectionContext):
-        ctx.data = {
-            species.data.name: species.data
-            for species in ctx.auxiliaryBasisSpecies()
-        }
+    def exitAuxiliaryBasisSpeciesSection(self, ctx: Data0Parser.AuxiliaryBasisSpeciesSectionContext):
+        ctx.data = {species.data.name: species.data for species in ctx.auxiliaryBasisSpecies()}
 
     def exitDissociation(self, ctx: Data0Parser.DissociationContext):
         substrates = dict()
@@ -371,8 +345,7 @@ class Data0Builder(Data0Listener):
 
         ctx.data = Dissociation(substrates, products)
 
-    def exitPossiblyEmptyNumberGrid(
-            self, ctx: Data0Parser.PossiblyEmptyNumberGridContext):
+    def exitPossiblyEmptyNumberGrid(self, ctx: Data0Parser.PossiblyEmptyNumberGridContext):
         grid = []
         for line in ctx.numberLine():
             grid.extend(line.data)
@@ -393,12 +366,8 @@ class Data0Builder(Data0Listener):
     def exitNumberLine(self, ctx: Data0Parser.NumberLineContext):
         ctx.data = np.asarray([n.data for n in ctx.number()])
 
-    def exitAqueousSpeciesSection(
-            self, ctx: Data0Parser.AqueousSpeciesSectionContext):
-        ctx.data = {
-            species.data.name: species.data
-            for species in ctx.aqueousSpecies()
-        }
+    def exitAqueousSpeciesSection(self, ctx: Data0Parser.AqueousSpeciesSectionContext):
+        ctx.data = {species.data.name: species.data for species in ctx.aqueousSpecies()}
 
     def exitSolidsSection(self, ctx: Data0Parser.SolidsSectionContext):
         ctx.data = {solid.data.name: solid.data for solid in ctx.solid()}
@@ -410,18 +379,13 @@ class Data0Builder(Data0Listener):
         ctx.data = {gas.data.name: gas.data for gas in ctx.gas()}
 
     def exitVolumeLine(self, ctx: Data0Parser.VolumeLineContext):
-        ctx.data = Volume(value=ctx.volume().data,
-                          unit=ctx.restOfLine().getText().strip())
+        ctx.data = Volume(value=ctx.volume().data, unit=ctx.restOfLine().getText().strip())
 
     def exitVolume(self, ctx: Data0Parser.VolumeContext):
         ctx.data = ctx.number().data
 
-    def exitSolidSolutionsSection(
-            self, ctx: Data0Parser.SolidSolutionsSectionContext):
-        ctx.data = {
-            solid_solution.data.name: solid_solution.data
-            for solid_solution in ctx.solidSolution()
-        }
+    def exitSolidSolutionsSection(self, ctx: Data0Parser.SolidSolutionsSectionContext):
+        ctx.data = {solid_solution.data.name: solid_solution.data for solid_solution in ctx.solidSolution()}
 
     def exitComponents(self, ctx: Data0Parser.ComponentsContext):
         ctx.data = dict()
@@ -435,30 +399,24 @@ class Data0Builder(Data0Listener):
             msg = f'expected {num_elements} solid solution components, got {len(ctx.data)}'
             raise Exception(msg)
 
-    def exitSolidSolutionModelSpec(
-            self, ctx: Data0Parser.SolidSolutionModelSpecContext):
-        ctx.data = SolidSolutionModel(
-            type=ctx.solidSolutionModelType().data,
-            params=ctx.solidSolutionModelParams().data)
+    def exitSolidSolutionModelSpec(self, ctx: Data0Parser.SolidSolutionModelSpecContext):
+        ctx.data = SolidSolutionModel(type=ctx.solidSolutionModelType().data,
+                                      params=ctx.solidSolutionModelParams().data)
 
-    def exitSolidSolutionModelType(
-            self, ctx: Data0Parser.SolidSolutionModelTypeContext):
+    def exitSolidSolutionModelType(self, ctx: Data0Parser.SolidSolutionModelTypeContext):
         ctx.data = np.int64(ctx.number().data)
 
-    def exitSolidSolutionModelParams(
-            self, ctx: Data0Parser.SolidSolutionModelParamsContext):
+    def exitSolidSolutionModelParams(self, ctx: Data0Parser.SolidSolutionModelParamsContext):
         num_params = np.int64(ctx.number().data)
         ctx.data = ctx.possiblyEmptyNumberGrid().data
         if not self.permissive and num_params != len(ctx.data):
-            raise Exception(
-                f'expected {num_params} model parameters, got {len(ctx.data)}')
+            raise Exception(f'expected {num_params} model parameters, got {len(ctx.data)}')
 
     def exitSiteParams(self, ctx: Data0Parser.SiteParamsContext):
         num_params = np.int64(ctx.number().data)
         ctx.data = ctx.numberLine().data
         if not self.permissive and num_params != len(ctx.data):
-            raise Exception(
-                f'expected {num_params} site parameters, got {len(ctx.data)}')
+            raise Exception(f'expected {num_params} site parameters, got {len(ctx.data)}')
 
     def exitDateRevised(self, ctx: Data0Parser.DateRevisedContext):
         ctx.data = ctx.date().data
@@ -484,10 +442,8 @@ class Data0Builder(Data0Listener):
     def exitBasisSpecies(self, ctx: Data0Parser.BasisSpeciesContext):
         name = ctx.speciesName().data
         note = ctx.speciesNote().data
-        revised = ctx.dateRevised()[-1].data if len(
-            ctx.dateRevised()) > 0 else None
-        species_type = ctx.speciesType()[-1].data if len(
-            ctx.speciesType()) > 0 else None
+        revised = ctx.dateRevised()[-1].data if len(ctx.dateRevised()) > 0 else None
+        species_type = ctx.speciesType()[-1].data if len(ctx.speciesType()) > 0 else None
         keys = ctx.keys()[-1].data if len(ctx.keys()) > 0 else None
 
         charges = ctx.chargeLine()
@@ -496,8 +452,7 @@ class Data0Builder(Data0Listener):
         elif len(charges) == 1:
             charge = charges[0].data
         elif len(charges) > 1:
-            raise Exception(
-                f'expected at most 1 charge line, got {len(charges)}')
+            raise Exception(f'expected at most 1 charge line, got {len(charges)}')
 
         composition = ctx.composition().data
 
@@ -516,14 +471,11 @@ class Data0Builder(Data0Listener):
         content = ctx.getText().strip()
         ctx.data = content if content != '' else None
 
-    def exitAuxiliaryBasisSpecies(
-            self, ctx: Data0Parser.AuxiliaryBasisSpeciesContext):
+    def exitAuxiliaryBasisSpecies(self, ctx: Data0Parser.AuxiliaryBasisSpeciesContext):
         name = ctx.speciesName().data
         note = ctx.speciesNote().data
-        revised = ctx.dateRevised()[-1].data if len(
-            ctx.dateRevised()) > 0 else None
-        species_type = ctx.speciesType()[-1].data if len(
-            ctx.speciesType()) > 0 else None
+        revised = ctx.dateRevised()[-1].data if len(ctx.dateRevised()) > 0 else None
+        species_type = ctx.speciesType()[-1].data if len(ctx.speciesType()) > 0 else None
         keys = ctx.keys()[-1].data if len(ctx.keys()) > 0 else None
 
         charge = None
@@ -533,8 +485,7 @@ class Data0Builder(Data0Listener):
         elif len(charges) == 1:
             charge = charges[0].data
         elif len(charges) > 1:
-            raise Exception(
-                f'expected at most 1 charge line, got {len(charges)}')
+            raise Exception(f'expected at most 1 charge line, got {len(charges)}')
 
         volume = None
         volumes = ctx.volumeLine()
@@ -543,8 +494,7 @@ class Data0Builder(Data0Listener):
         elif len(volumes) == 1:
             volume = volumes[0].data
         elif len(volumes) > 1:
-            raise Exception(
-                f'expected at most 1 volume line, got {len(volumes)}')
+            raise Exception(f'expected at most 1 volume line, got {len(volumes)}')
 
         composition = ctx.composition().data
         dissociation = ctx.dissociation().data
@@ -567,10 +517,8 @@ class Data0Builder(Data0Listener):
     def exitAqueousSpecies(self, ctx: Data0Parser.AqueousSpeciesContext):
         name = ctx.speciesName().data
         note = ctx.speciesNote().data
-        revised = ctx.dateRevised()[-1].data if len(
-            ctx.dateRevised()) > 0 else None
-        species_type = ctx.speciesType()[-1].data if len(
-            ctx.speciesType()) > 0 else None
+        revised = ctx.dateRevised()[-1].data if len(ctx.dateRevised()) > 0 else None
+        species_type = ctx.speciesType()[-1].data if len(ctx.speciesType()) > 0 else None
         keys = ctx.keys()[-1].data if len(ctx.keys()) > 0 else None
 
         charge = None
@@ -580,8 +528,7 @@ class Data0Builder(Data0Listener):
         elif len(charges) == 1:
             charge = charges[0].data
         elif len(charges) > 1:
-            raise Exception(
-                f'expected at most 1 charge line, got {len(charges)}')
+            raise Exception(f'expected at most 1 charge line, got {len(charges)}')
 
         volume = None
         volumes = ctx.volumeLine()
@@ -590,8 +537,7 @@ class Data0Builder(Data0Listener):
         elif len(volumes) == 1:
             volume = volumes[0].data
         elif len(volumes) > 1:
-            raise Exception(
-                f'expected at most 1 volume line, got {len(volumes)}')
+            raise Exception(f'expected at most 1 volume line, got {len(volumes)}')
 
         composition = ctx.composition().data
         dissociation = ctx.dissociation().data
@@ -611,10 +557,8 @@ class Data0Builder(Data0Listener):
     def exitSolid(self, ctx: Data0Parser.SolidContext):
         name = ctx.speciesName().data
         note = ctx.speciesNote().data
-        revised = ctx.dateRevised()[-1].data if len(
-            ctx.dateRevised()) > 0 else None
-        species_type = ctx.speciesType()[-1].data if len(
-            ctx.speciesType()) > 0 else None
+        revised = ctx.dateRevised()[-1].data if len(ctx.dateRevised()) > 0 else None
+        species_type = ctx.speciesType()[-1].data if len(ctx.speciesType()) > 0 else None
         keys = ctx.keys()[-1].data if len(ctx.keys()) > 0 else None
 
         charge = None
@@ -624,8 +568,7 @@ class Data0Builder(Data0Listener):
         elif len(charges) == 1:
             charge = charges[0].data
         elif len(charges) > 1:
-            raise Exception(
-                f'expected at most 1 charge line, got {len(charges)}')
+            raise Exception(f'expected at most 1 charge line, got {len(charges)}')
 
         volume = None
         volumes = ctx.volumeLine()
@@ -634,8 +577,7 @@ class Data0Builder(Data0Listener):
         elif len(volumes) == 1:
             volume = volumes[0].data
         elif len(volumes) > 1:
-            raise Exception(
-                f'expected at most 1 volume line, got {len(volumes)}')
+            raise Exception(f'expected at most 1 volume line, got {len(volumes)}')
 
         composition = ctx.composition().data
         dissociation = ctx.dissociation().data
@@ -655,10 +597,8 @@ class Data0Builder(Data0Listener):
     def exitLiquid(self, ctx: Data0Parser.LiquidContext):
         name = ctx.speciesName().data
         note = ctx.speciesNote().data
-        revised = ctx.dateRevised()[-1].data if len(
-            ctx.dateRevised()) > 0 else None
-        species_type = ctx.speciesType()[-1].data if len(
-            ctx.speciesType()) > 0 else None
+        revised = ctx.dateRevised()[-1].data if len(ctx.dateRevised()) > 0 else None
+        species_type = ctx.speciesType()[-1].data if len(ctx.speciesType()) > 0 else None
         keys = ctx.keys()[-1].data if len(ctx.keys()) > 0 else None
 
         charge = None
@@ -668,8 +608,7 @@ class Data0Builder(Data0Listener):
         elif len(charges) == 1:
             charge = charges[0].data
         elif len(charges) > 1:
-            raise Exception(
-                f'expected at most 1 charge line, got {len(charges)}')
+            raise Exception(f'expected at most 1 charge line, got {len(charges)}')
 
         volume = None
         volumes = ctx.volumeLine()
@@ -678,8 +617,7 @@ class Data0Builder(Data0Listener):
         elif len(volumes) == 1:
             volume = volumes[0].data
         elif len(volumes) > 1:
-            raise Exception(
-                f'expected at most 1 volume line, got {len(volumes)}')
+            raise Exception(f'expected at most 1 volume line, got {len(volumes)}')
 
         composition = ctx.composition().data
         dissociation = ctx.dissociation().data
@@ -699,10 +637,8 @@ class Data0Builder(Data0Listener):
     def exitGas(self, ctx: Data0Parser.GasContext):
         name = ctx.speciesName().data
         note = ctx.speciesNote().data
-        revised = ctx.dateRevised()[-1].data if len(
-            ctx.dateRevised()) > 0 else None
-        species_type = ctx.speciesType()[-1].data if len(
-            ctx.speciesType()) > 0 else None
+        revised = ctx.dateRevised()[-1].data if len(ctx.dateRevised()) > 0 else None
+        species_type = ctx.speciesType()[-1].data if len(ctx.speciesType()) > 0 else None
         keys = ctx.keys()[-1].data if len(ctx.keys()) > 0 else None
 
         charge = None
@@ -712,8 +648,7 @@ class Data0Builder(Data0Listener):
         elif len(charges) == 1:
             charge = charges[0].data
         elif len(charges) > 1:
-            raise Exception(
-                f'expected at most 1 charge line, got {len(charges)}')
+            raise Exception(f'expected at most 1 charge line, got {len(charges)}')
 
         volume = None
         volumes = ctx.volumeLine()
@@ -722,8 +657,7 @@ class Data0Builder(Data0Listener):
         elif len(volumes) == 1:
             volume = volumes[0].data
         elif len(volumes) > 1:
-            raise Exception(
-                f'expected at most 1 volume line, got {len(volumes)}')
+            raise Exception(f'expected at most 1 volume line, got {len(volumes)}')
 
         composition = ctx.composition().data
         dissociation = ctx.dissociation().data
@@ -743,10 +677,8 @@ class Data0Builder(Data0Listener):
     def exitSolidSolution(self, ctx: Data0Parser.SolidSolutionContext):
         name = ctx.speciesName().data
         note = ctx.speciesNote().data
-        revised = ctx.dateRevised()[-1].data if len(
-            ctx.dateRevised()) > 0 else None
-        species_type = ctx.speciesType()[-1].data if len(
-            ctx.speciesType()) > 0 else None
+        revised = ctx.dateRevised()[-1].data if len(ctx.dateRevised()) > 0 else None
+        species_type = ctx.speciesType()[-1].data if len(ctx.speciesType()) > 0 else None
         keys = ctx.keys()[-1].data if len(ctx.keys()) > 0 else None
         composition = ctx.components().data
         model = ctx.solidSolutionModelSpec().data

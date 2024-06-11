@@ -42,24 +42,12 @@ class TestTPCurve(TestCase):
         with self.assertRaises(ValueError):
             data0.TPCurve('file.d0', {'min': 5, 'mid': 8, 'max': 10}, [])
         with self.assertRaises(ValueError):
-            data0.TPCurve('file.d0', {
-                'min': 5,
-                'mid': 8,
-                'max': 10
-            }, [[1, 0, 0, 0], []])
+            data0.TPCurve('file.d0', {'min': 5, 'mid': 8, 'max': 10}, [[1, 0, 0, 0], []])
 
         with self.assertRaises(ValueError):
-            data0.TPCurve('file.d0', {
-                'min': 5,
-                'mid': 8,
-                'max': 10
-            }, [[1, 0, 0, 0], [2, 0, 0, 0, 0]])
+            data0.TPCurve('file.d0', {'min': 5, 'mid': 8, 'max': 10}, [[1, 0, 0, 0], [2, 0, 0, 0, 0]])
 
-        curve = data0.TPCurve('file.d0', {
-            'min': 5,
-            'mid': 8,
-            'max': 10
-        }, [[1, 0, 0, 0], [-7, 1, 0, 0, 0]])
+        curve = data0.TPCurve('file.d0', {'min': 5, 'mid': 8, 'max': 10}, [[1, 0, 0, 0], [-7, 1, 0, 0, 0]])
         self.assertEquals(curve.T, {'min': 5, 'mid': 8, 'max': 10})
         self.assertEquals(curve.P, [[1, 0, 0, 0], [-7, 1, 0, 0, 0]])
         self.assertEquals(curve.domain, [[5, 10]])
@@ -68,11 +56,7 @@ class TestTPCurve(TestCase):
         """
         Test that we can reset the temperature domain to the default
         """
-        curve = data0.TPCurve('file.d0', {
-            'min': 5,
-            'mid': 8,
-            'max': 10
-        }, [[1, 0, 0, 0], [-7, 1, 0, 0, 0]])
+        curve = data0.TPCurve('file.d0', {'min': 5, 'mid': 8, 'max': 10}, [[1, 0, 0, 0], [-7, 1, 0, 0, 0]])
         curve.domain = [[5, 7], [8, 10]]
         self.assertEquals(curve.domain, [[5, 7], [8, 10]])
 
@@ -83,11 +67,7 @@ class TestTPCurve(TestCase):
         """
         Test that we can determine if a temperature is in the interpolation's domain
         """
-        curve = data0.TPCurve('file.d0', {
-            'min': 5,
-            'mid': 8,
-            'max': 10
-        }, [[1, 0, 0, 0], [-7, 1, 0]])
+        curve = data0.TPCurve('file.d0', {'min': 5, 'mid': 8, 'max': 10}, [[1, 0, 0, 0], [-7, 1, 0]])
 
         for T in [5, 5.1, 7.9, 8, 8.1, 9.9, 10]:
             self.assertTrue(curve.temperature_in_domain(T))
@@ -107,11 +87,7 @@ class TestTPCurve(TestCase):
         """
         Test that we can evaluate the polynomial at a given temperature in it's domain
         """
-        curve = data0.TPCurve('file.d0', {
-            'min': 5,
-            'mid': 8,
-            'max': 10
-        }, [[1, 0, 0], [-7, 1, 0]])
+        curve = data0.TPCurve('file.d0', {'min': 5, 'mid': 8, 'max': 10}, [[1, 0, 0], [-7, 1, 0]])
 
         for T in [4, 4.9999, 10.0001, 11]:
             with self.assertRaises(ValueError):
@@ -124,10 +100,7 @@ class TestTPCurve(TestCase):
 
         curve.domain = [[6, 7], [8.5, 9.3]]
 
-        for T in [
-                4, 4.9999, 5, 5.9999, 7.0001, 8, 8.4999, 9.3001, 9.4, 10.0001,
-                11
-        ]:
+        for T in [4, 4.9999, 5, 5.9999, 7.0001, 8, 8.4999, 9.3001, 9.4, 10.0001, 11]:
             with self.assertRaises(ValueError):
                 curve(T)
 
@@ -250,8 +223,7 @@ class TestTPCurve(TestCase):
                 # The fourth element comes from the max T boundary and the fifth comes
                 # from the intersection with the max P boundary because the curve hits
                 # the corner exactly
-                'intersections': [(0.5, 0.125), (1.0, 2.0), (2.0, 2.0),
-                                  (3.0, 2.0), (3.0, 2.0)],
+                'intersections': [(0.5, 0.125), (1.0, 2.0), (2.0, 2.0), (3.0, 2.0), (3.0, 2.0)],
             },
             {
                 # Horizontal line that crosses a vertical
@@ -281,10 +253,8 @@ class TestTPCurve(TestCase):
 
         for row in table:
             curve = data0.TPCurve('file.d0', row['T'], row['P'])
-            intersections = curve.find_boundary_intersections(
-                row['Trange'], row['Prange'])
-            self.assertIntersectionsAlmostEqual(intersections,
-                                                row['intersections'])
+            intersections = curve.find_boundary_intersections(row['Trange'], row['Prange'])
+            self.assertIntersectionsAlmostEqual(intersections, row['intersections'])
 
     def test_set_domain(self):
         """
@@ -450,8 +420,7 @@ class TestTPCurve(TestCase):
         P = [[1, 0, 0, 0], [1, 0, 0, 0, 0]]
         Q = [[-4, 11, -6, 1], [-4, 11, -6, 1]]
         table = [{
-            'curves':
-            [data0.TPCurve('file.d0', {
+            'curves': [data0.TPCurve('file.d0', {
                 'min': 0,
                 'mid': 2,
                 'max': 10
@@ -500,8 +469,7 @@ class TestTPCurve(TestCase):
             ],
             'domain': [[0, 4], [6, 8]],
         }, {
-            'curves':
-            [data0.TPCurve('file.d0', {
+            'curves': [data0.TPCurve('file.d0', {
                 'min': 0,
                 'mid': 2,
                 'max': 4
@@ -568,8 +536,7 @@ class TestTPCurve(TestCase):
 
         Ts, Ps, sampled_curves = data0.TPCurve.sample(curves, 1000)
         Ts, Ps = np.asarray(Ts), np.asarray(Ps)
-        self.assertTrue(
-            np.all((0 <= Ts) & (Ts <= 10) & ((Ts <= 4) | (Ts >= 6))))
+        self.assertTrue(np.all((0 <= Ts) & (Ts <= 10) & ((Ts <= 4) | (Ts >= 6))))
         self.assertTrue(np.all(Ps == 1))
 
         curves = [
@@ -617,6 +584,4 @@ class TestTPCurve(TestCase):
         self.assertTrue(np.all(Ps[Ps != 1] > 1))
 
         topTs = Ts[Ps != 1]
-        self.assertTrue(
-            np.all(
-                ((2 <= topTs) & (topTs <= 3) | (0.8 <= topTs) & (topTs <= 1))))
+        self.assertTrue(np.all(((2 <= topTs) & (topTs <= 3) | (0.8 <= topTs) & (topTs <= 1))))

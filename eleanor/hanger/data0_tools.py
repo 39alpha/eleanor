@@ -165,32 +165,31 @@ def determine_loaded_sp(path=''):
         lines = f.readlines()
         grab_loaded_sp = False
         for _ in range(len(lines)):
-            # ## search for loaded species.
+            # Search for loaded species.
+            #
             # These only appear if verbose 'v' is set with local_3i.write() above
             if ' --- Listing of Species and Reactions ---' in lines[_]:
                 grab_loaded_sp = True
             elif ' - - BEGIN ITERATIVE CALCULATIONS  - - - ' in lines[_]:
                 break
             elif grab_loaded_sp and '------------------' in lines[_]:
-                # ## the two options below avoid the 'BEGIN ITERATIVE . .'
-                # ## which is also caught with the above string.
+                # The two options below avoid the 'BEGIN ITERATIVE . .' which is also caught with the above string.
                 if '1.000' in lines[_ + 2]:
-                    # ## exclude basis species
-                    # ## grab full string (with spaces) after the stoichiometry
-                    # ## this correctly differentiates solid solution end-members
-                    # ## from their stand alone counterparts ie: 'CA-SAPONITE'
-                    # ## vs 'CA-SAPONITE (SAPONITE)'
+                    # Exclude basis species
+                    #
+                    # Grab full string (with spaces) after the stoichiometry this correctly differentiates solid
+                    # solution end-members from their stand alone counterparts ie: 'CA-SAPONITE' vs 'CA-SAPONITE
+                    # (SAPONITE)'
                     loaded_sp.append(lines[_ + 2].split('1.000  ')[-1].strip())
                 elif 'is a strict' in lines[_ + 2]:
-                    # ## grabs basis species
+                    # Grab the basis species
                     loaded_sp.append(lines[_ + 2].split(' is a strict ')[0].strip())
 
-        # ## O2(g) shows up as a strict basis species, and again with the gasses
-        # ## so its basis form is removed here. Also, H2O shows up 2 times, and
-        # ## regardless is separately tracked via the aH2O variable.
+        # O2(g) shows up as a strict basis species, and again with the gasses so its basis form is removed here. Also,
+        # H2O shows up 2 times, and regardless is separately tracked via the aH2O variable.
         loaded_sp = [_ for _ in loaded_sp if _ != 'H2O' and _ != 'O2(g)']
 
-        # alter loaded_sp to reflect correct search names required for 6o
+        # Alter loaded_sp to reflect correct search names required for 6o
         aq_and_s = [_ for _ in loaded_sp if ' (' not in _]
         ss_and_gas = [_ for _ in loaded_sp if ' (' in _]
         gas = [_.split(' (')[0] for _ in ss_and_gas if '(Gas)' in _]

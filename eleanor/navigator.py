@@ -1,10 +1,4 @@
 """The Navigator is the main tool to construct orders for the Helmsman to distribute"""
-# Navigator.py
-# Generates orders (sets of points in VS) to be stored in VS
-# postgresql database. These orders are to be managed by the
-# helmsman at her leisure.
-# Tucker Ely and then 39Alpha
-# October 6nd 2020 and then Dec 12th 2021
 
 from sqlite3.dbapi2 import Error
 import os
@@ -375,8 +369,7 @@ def orders_to_sql(conn, table, ord, df, quiet=False):
     """
 
     if len(df) == 0:
-        # ### TODO: @ Doug, not sure if this is the officnally correct way
-        # ###       to exit the code. Its just the one I know.
+        # TODO: Not sure if this is the  correct way to exit the code. Its just the one I know.
         sys.exit(' Orders dataframe is empty. WTF?')
     if not quiet:
         print(f'Writing order #{ord} to table {table}')

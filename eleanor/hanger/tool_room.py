@@ -726,7 +726,6 @@ def switch_grid_3(three_i_switches):
     pr = {}
 
     for _ in three_i_switches:
-        # ### add_gap
         pr[_] = ' ' * (2 - len(str(int(three_i_switches[_])))) + str(int(three_i_switches[_]))
 
     switches = "\n".join((
@@ -898,29 +897,30 @@ def build_sr_rnt(sp, dat):
     The reactants which may be passed are interations within the camp.target_rnt dictionary
     defined in th eloaded campaign file.
     """
-    # ### Special reactant dictionary.
-    # ### sr_dict['name'] = [[ele list], [associated sto list]]
+    # Special reactant dictionary.
+    #
+    # sr_dict['name'] = [[ele list], [associated sto list]]
     sr_dict = {"FeCl2": [["Fe", "Cl", "O"], [1, 2, 1]]}
 
-    # ### special reactant is specified and it is not a lone element
+    # Special reactant is specified and it is not a lone element
     if dat[0] == 'sr':
-        # ### does special reactnat exists in sr_dict
+        # Does special reactnat exists in sr_dict?
         try:
             sr_dat = sr_dict[sp]
         except Exception as e:
             raise ValueError('Special reactant not installed:', e)
 
-        # transpose to create [ele, sto] pairs and iterate
+        # Transpose to create [ele, sto] pairs and iterate
         middle = []
         for l_idx in [list(i) for i in zip(*sr_dat)]:
             mid = f"   {l_idx[0]}{' '*(2-len(l_idx[0]))}          {format_e(l_idx[1], 5)}\n"
             middle.append(mid)
-    # special reactant is a lone element
+    # Special reactant is a lone element
     else:
         middle = f"   {sp}{' '*(2-len(sp))}          1.00000E+00\n"
 
-    #  the top and bottom of the reactant block is the same for ele and sr,
-    #  as the reactant is titrated as a single unit (rk1b).
+    # The top and bottom of the reactant block is the same for ele and sr, as the reactant is titrated as a single unit
+    # (rk1b).
     top = '\n'.join([
         '*-----------------------------------------------------------------------------', '  reactant=  {}'.format(sp),
         '     jcode=  2               jreac=  0', f'      morr=  {format_e(10**dat[1], 5)}      modr=  0.00000E+00',
@@ -987,7 +987,7 @@ class Three_i(object):
         """
 
         if output_details == 'v':
-            # ### maximal infomration sought from the 3o file (used in huffer)
+            # Maximum information sought from the 3o file (used in huffer)
             self.switches['iopt_4'] = IOPT_4(1)
             self.switches['iopr_1'] = IOPR_1(1)
             self.switches['iopr_2'] = IOPR_2(3)
@@ -1001,7 +1001,7 @@ class Three_i(object):
             self.switches['iodb_4'] = IODB_4(4)
             self.switches['iodb_6'] = IODB_6(2)
 
-            # ### rebuild local switch_grid
+            # Rebuild local switch_grid
             switch_grid = switch_grid_3(self.switches)
 
         else:

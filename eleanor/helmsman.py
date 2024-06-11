@@ -455,23 +455,22 @@ def mine_3o(camp, date, elements, solids, ss, ss_kids, file, master_dict, col_na
                 build_dict['extended_alk'] = [grab_float(lines[i + 2], 0)]
 
             elif '         Charge imbalance=' in lines[i]:
-                # ### eq/kg.H2O
+                # eq/kg.H2O
                 build_dict['charge_imbalance_eq'] = [grab_float(lines[i], -1)]
 
             elif '--- Distribution of Aqueous Solute Species ---' in lines[i]:
                 x = 4
                 while not re.findall('^\n', lines[i + x]):
                     if grab_str(lines[i + x], 0) != 'O2(g)':
-                        # ### ****** shows up with species are less than -99999.0
-                        # ### which signifies that it was suppressed.
+                        # '******' shows up with species are less than -99999.0 which signifies that it was suppressed.
 
-                        # ### -3 is log molality
+                        # -3 is log molality
                         if '****' in grab_str(lines[i + x], -3):
                             build_dict[f'm_{grab_str(lines[i + x], 0)}'] = [-99999.0]
                         else:
                             build_dict[f'm_{grab_str(lines[i + x], 0)}'] = [grab_float(lines[i + x], -3)]
 
-                        # ### -1 position is log activity,
+                        # -1 position is log activity,
                         if '****' in grab_str(lines[i + x], -1):
                             build_dict[f'a_{grab_str(lines[i + x], 0)}'] = [-99999.0]
                         else:
@@ -484,9 +483,8 @@ def mine_3o(camp, date, elements, solids, ss, ss_kids, file, master_dict, col_na
                 x = 4
                 while not re.findall('^\n', lines[i + x]):
                     if re.findall(r'\*{4}$', lines[i + x]):
-                        # ## '******'' fills in the value region for numbers
-                        # ## lower than -999.9999. Replace with boundary condition
-                        # ## log Q/K
+                        # '******'' fills in the value region for numbers lower than -999.9999. Replace with boundary
+                        # condition log Q/K
                         build_dict[f'qk_{lines[i + x][:30].strip()}'] = [float(-999.9999)]
                         x += 1
                     elif 'None' not in lines[i + x]:
@@ -498,10 +496,10 @@ def mine_3o(camp, date, elements, solids, ss, ss_kids, file, master_dict, col_na
             elif camp.SS and ' --- Saturation States of Solid Solutions ---' in lines[i]:
                 x = 4
                 while not re.findall('^\n', lines[i + x]):
-                    # ## log Q/K
+                    # log Q/K
                     if re.findall(r'\*{4}$', lines[i + x]):
-                        # ## '******' fills in the value region for numbers
-                        # ## lower than -999.9999. Replace with boundary condition
+                        # '******' fills in the value region for numbers lower than -999.9999. Replace with boundary
+                        # condition
                         build_dict[f'qk_{lines[i + x][:30].strip()}'] = [float(-999.9999)]
                         x += 1
                     elif 'None' not in lines[i + x]:
@@ -515,8 +513,8 @@ def mine_3o(camp, date, elements, solids, ss, ss_kids, file, master_dict, col_na
                 while not re.findall('^\n', lines[i + x]):
                     if 'None' not in lines[i + x]:  # log f
                         if re.findall(r'\*{4}', lines[i + x]):
-                            # ## '******'' fills in the value region for numbers
-                            # ## lower than -999.9999. Replace with boundary condition
+                            # '******'' fills in the value region for numbers lower than -999.9999. Replace with
+                            # boundary condition
                             build_dict[f'f_{lines[i + x][:30].strip()}'] = [float(-999.9999)]
                             x += 1
                         else:
@@ -531,7 +529,7 @@ def mine_3o(camp, date, elements, solids, ss, ss_kids, file, master_dict, col_na
         build_dict['file'] = [master_dict['file']]
         build_dict['run'] = [date]
 
-        # reorganize columns to match es table
+        # Reorganize columns to match es table
         columns_to_remove = set()
         for key, value in build_dict.items():
             if len(value) == 0:
@@ -587,7 +585,7 @@ def mine_6o(camp, date, elements, solids, ss, ss_kids, file, master_dict, col_na
         run_code = RunCode.NOT_RUN
         search_for_xi = False
         for i in range(len(lines) - 1, 0, -1):
-            # ## search from bottom of file
+            # Search from bottom of file
             if '---  The reaction path has terminated early ---' in lines[i]:
                 raise EleanorException('eq6 reaction path terminated early', code=RunCode.EQ6_EARLY_TERMINATION)
             elif '---  The reaction path has terminated normally ---' in lines[i]:
@@ -601,11 +599,12 @@ def mine_6o(camp, date, elements, solids, ss, ss_kids, file, master_dict, col_na
                 break
 
         if run_code == RunCode.NOT_RUN:
-            # run code has not be altered, therefore unknown error
+            # `run_code has not be altered, therefore unknown error
+
             # build_df = pd.DataFrame.from_dict(build_dict)
             raise EleanorException('no reaction path termination status found', code=RunCode.FILE_ERROR_6O)
 
-        # populate ES table
+        # Populate the ES table
         if camp.target_rnt != {}:
             for i in range(len(lines)):
                 if '   Affinity of the overall irreversible reaction=' in lines[i]:
@@ -616,8 +615,8 @@ def mine_6o(camp, date, elements, solids, ss, ss_kids, file, master_dict, col_na
         else:
             build_dict["initial_aff"] = [0.0]
 
-        # search from beginning of last xi step (set in last_xi_step_begins)
-        # grab xi_max. since initial index contains log Xi.
+        # Search from beginning of last xi step (set in last_xi_step_begins) grab xi_max. since initial index contains
+        # log Xi.
         build_dict['xi_max'] = [grab_float(lines[last_xi_step_begins], -1)]
 
         for i in range(last_xi_step_begins, len(lines)):
@@ -656,7 +655,7 @@ def mine_6o(camp, date, elements, solids, ss, ss_kids, file, master_dict, col_na
             elif '                 Solutes (TDS) mass=' in lines[i]:
                 tds = grab_float(lines[i], -2)
                 if len(camp.salinity) > 0:
-                    # ### limited salinity sought
+                    # Limited salinity sought
                     if tds > max(camp.salinity) or tds < min(camp.salinity):
                         raise EleanorException('total disolved solute is outside salinity window',
                                                code=RunCode.OUTSIDE_SALINITY_WINDOW)
@@ -672,14 +671,14 @@ def mine_6o(camp, date, elements, solids, ss, ss_kids, file, master_dict, col_na
                 build_dict['extended_alk'] = [grab_float(lines[i + 2], 0)]
 
             elif '        --- Aqueous Solution Charge Balance ---' in lines[i]:
-                # ### Actual charge imbalance eq/kg.H2O
+                # Actual charge imbalance eq/kg.H2O
                 build_dict['charge_imbalance_eq'] = [grab_float(lines[i + 2], -2)]
 
             # elif '--- Distribution of Aqueous Solute Species ---' in lines[i]:
             #     x = 4
             #     while not re.findall('^\n', lines[i + x]):
             #         if grab_str(lines[i + x], 0) != 'O2(g)':
-            #             # ### -1 position is log activity, -3 is log molality
+            #             # -1 position is log activity, -3 is log molality
             #             build_dict[f'm_{grab_str(lines[i + x], 0)}'] = [grab_float(
             #                 lines[i + x], -3)]
             #             build_dict[f'a_{grab_str(lines[i + x], 0)}'] = [grab_float(
@@ -692,16 +691,15 @@ def mine_6o(camp, date, elements, solids, ss, ss_kids, file, master_dict, col_na
                 x = 4
                 while not re.findall('^\n', lines[i + x]):
                     if grab_str(lines[i + x], 0) != 'O2(g)':
-                        # ### ****** shows up with species are less than -99999.0
-                        # ### which signifies that it was suppressed.
+                        # '******' shows up with species are less than -99999.0 which signifies that it was suppressed.
 
-                        # ### -3 is log molality
+                        # -3 is log molality
                         if '****' in grab_str(lines[i + x], -3):
                             build_dict[f'm_{grab_str(lines[i + x], 0)}'] = [-99999.0]
                         else:
                             build_dict[f'm_{grab_str(lines[i + x], 0)}'] = [grab_float(lines[i + x], -3)]
 
-                        # ### -1 position is log activity,
+                        # -1 position is log activity,
                         if '****' in grab_str(lines[i + x], -1):
                             build_dict[f'a_{grab_str(lines[i + x], 0)}'] = [-99999.0]
                         else:
@@ -718,22 +716,22 @@ def mine_6o(camp, date, elements, solids, ss, ss_kids, file, master_dict, col_na
 
                     while True:
                         if re.findall('^\n', lines[i + x]) and re.findall('^\n', lines[i + x + 1]):
-                            # ### two blank lines signifies end of block
+                            # Two blank lines signifies end of block
                             break
 
                         elif re.findall('^\n', lines[i + x]):
-                            # ### single blank lines separate solids from solid slutions reporting
+                            # Single blank lines separate solids from solid slutions reporting
                             parent = None
                             x += 1
 
                         elif re.findall('^ [^ ]', lines[i + x]):
-                            # ### pure phases and solid solutions parents
+                            # Pure phases and solid solutions parents
                             parent = lines[i + x][:25].strip()
                             build_dict[f'm_{lines[i + x][:25].strip()}'] = [grab_float(lines[i + x], -3)]
                             x += 1
 
                         elif re.findall('^   [^ ]', lines[i + x]):
-                            # ### solid solution endmember. Grab with parent association
+                            # Solid solution endmember. Grab with parent association
                             kid = lines[i + x][:25].strip()
                             build_dict[f'm_{kid}_{parent}'] = [grab_float(lines[i + x], -3)]
                             kid = None
@@ -745,10 +743,10 @@ def mine_6o(camp, date, elements, solids, ss, ss_kids, file, master_dict, col_na
             elif '--- Saturation States of Pure Solids ---' in lines[i]:
                 x = 4
                 while not re.findall('^\n', lines[i + x]):
-                    # ## log Q/K
+                    # log Q/K
                     if re.findall(r'\*{4}$', lines[i + x]):
-                        # ## '******'' fills in the value region for numbers
-                        # ## lower than -999.9999. Replace with boundary condition
+                        # '******'' fills in the value region for numbers lower than -999.9999. Replace with boundary
+                        # condition
                         build_dict[f'qk_{lines[i + x][:30].strip()}'] = [float(-999.9999)]
                         x += 1
                     elif 'None' not in lines[i + x]:
@@ -760,10 +758,10 @@ def mine_6o(camp, date, elements, solids, ss, ss_kids, file, master_dict, col_na
             elif camp.SS and ' --- Saturation States of Solid Solutions ---' in lines[i]:
                 x = 4
                 while not re.findall('^\n', lines[i + x]):
-                    # ## log Q/K
+                    # log Q/K
                     if re.findall(r'\*{4}$', lines[i + x]):
-                        # ## '******' fills in the value region for numbers
-                        # ## lower than -999.9999. Replace with boundary condition
+                        # '******' fills in the value region for numbers lower than -999.9999. Replace with boundary
+                        # condition
                         build_dict[f'qk_{lines[i + x][:30].strip()}'] = [float(-999.9999)]
                         x += 1
                     elif 'None' not in lines[i + x]:
@@ -778,8 +776,8 @@ def mine_6o(camp, date, elements, solids, ss, ss_kids, file, master_dict, col_na
 
                     if 'None' not in lines[i + x]:  # log f
                         if re.findall(r'\*{4}', lines[i + x]):
-                            # ## '******'' fills in the value region for numbers
-                            # ## lower than -999.9999. Replace with boundary condition
+                            # '******'' fills in the value region for numbers lower than -999.9999. Replace with
+                            # boundary condition
                             build_dict[f'f_{lines[i + x][:30].strip()}'] = [float(-999.9999)]
                             x += 1
                         else:

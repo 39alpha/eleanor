@@ -59,7 +59,8 @@ def Radar(camp,
     print(x_sp)
     print(y_sp)
     print(z_sp)
-    # ###  ploting
+
+    # Plotting
     font = {'family': 'andale mono', 'size': 10}
     matplotlib.rc('font', **font)
     matplotlib.rcParams['axes.edgecolor'] = '#000000'
@@ -169,8 +170,7 @@ def Radar(camp,
         vs_cols = ['ord'] + vs_cols
 
     with camp.working_directory():
-        # ### grab orders, concatinating the dataframe, 1 record retrieved per
-        # ### ord_id.
+        # Grab orders, concatinating the dataframe, 1 record retrieved per ord_id.
         if ord_id:
             df_list = []
             for order in ord_id:
@@ -181,19 +181,17 @@ def Radar(camp,
             df = retrieve_combined_records('.', vs_cols, es3_cols, es6_cols, limit=limit, where=where)
 
         print(len(df))
-        # ### Add new df columns where math is detected
+        # Add new df columns where math is detected
         for s in math_sp:
             df = solve_eq(df, s)
 
-        # ### process plot
+        # Process the plot
         fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(5, 9), tight_layout=True)  # figsize=(5, 9)
 
         if re.findall('^#', z_sp):
             ax1.scatter(x_plt, y_plt, data=df, facecolors=z_sp, marker='o', alpha=1, edgecolor=None, s=3, linewidth=0)
-
         else:
             df = df.sort_values(by=z_plt, ascending=True, na_position='first')
-            # df = df.sample(frac=1)
 
             if re.findall('[<>]|[<>]=|==|!=', z_sp):
                 cb = ax1.scatter(x_plt,
@@ -235,7 +233,7 @@ def Radar(camp,
             f"campaign: {camp.name}",
             f"data: {date}",
             f"n = {len(df)}",
-            f"thouhts: {print_where(thought_process)}",
+            f"thoughts: {print_where(thought_process)}",
             # f"x = {x_sp}",
             # f"y = {y_sp}",
             f"z = {z_sp}",

@@ -1,0 +1,616 @@
+
+ EQ3/6, Version 8.0a (EQ3/6-V8-REL-V8.0a-PC)
+ EQPT Data File Preprocessor Code (EQ3/6-V8-EQPT-EXE-R43a-PC)
+ Supported by the following EQ3/6 libraries:
+   EQLIBU (EQ3/6-V8-EQLIBU-LIB-R43a-PC)
+
+ Copyright (c) 1987, 1990-1993, 1995, 1997, 2002 The Regents of the
+ University of California, Lawrence Livermore National Laboratory.
+ All rights reserved.
+
+ This work is subject to additional statements and
+ disclaimers which may be found in the README.txt file
+ included in the EQ3/6 software transmittal package.
+
+
+ Run  15:36:39  12Jun2024
+
+
+           Number of elements =    28
+           Number of basis species =    79
+
+ data0.500
+ Water model: SUPCRT92
+ +--------------------------------------------------------------------
+
+ Number of logK temperature grid ranges= 2
+
+ Enthalpy functions flag= -1 (Not present)
+ Volume functions flag  = -1 (Not present)
+
+
+ element = O       , atwt =   15.99940
+ element = Cl      , atwt =   35.45270
+ element = H       , atwt =    1.00794
+ element = pl      , atwt =    1.00000
+ element = Al      , atwt =   26.98154
+ element = B       , atwt =   10.81000
+ element = Ba      , atwt =  137.34000
+ element = Br      , atwt =   79.90400
+ element = Ca      , atwt =   40.08000
+ element = Cr      , atwt =   51.99600
+ element = Cu      , atwt =   63.54600
+ element = F       , atwt =   18.99840
+ element = Fe      , atwt =   55.84700
+ element = C       , atwt =   12.01100
+ element = P       , atwt =   30.97376
+ element = I       , atwt =  126.90450
+ element = K       , atwt =   39.09830
+ element = Li      , atwt =    6.94100
+ element = Mg      , atwt =   24.30500
+ element = Mn      , atwt =   54.93800
+ element = Na      , atwt =   22.98977
+ element = Ni      , atwt =   58.71000
+ element = N       , atwt =   14.00670
+ element = Si      , atwt =   28.08550
+ element = S       , atwt =   32.06000
+ element = Sr      , atwt =   87.62000
+ element = Ti      , atwt =   47.88000
+ element = Zn      , atwt =   65.38000
+
+
+ The minimum temperature is      0.010C
+ The maximum temperature is    400.000C
+
+ The maximum temperatures (C) by range are:
+      150.000
+      400.000
+
+
+       presg
+       adh
+       bdh
+       bdot
+       cco2
+       xlke
+
+
+ aqueous
+
+     1 H2O
+     2 Cl-
+     3 H+
+     4 plhold
+     5 Al+3
+     6 B(OH)3
+     7 Ba+2
+     8 Br-
+     9 Ca+2
+    10 CrO4-2
+    11 Cu+2
+    12 F-
+    13 Fe+2
+    14 HCO3-
+    15 HPO4-2
+    16 I-
+    17 K+
+    18 Li+
+    19 Mg+2
+    20 Mn+2
+    21 Na+
+    22 Ni+2
+    23 NO3-
+    24 SiO2
+    25 SO4-2
+    26 Sr+2
+    27 Ti+4
+    28 Zn+2
+    29 O2(g)
+    30 O2
+    31 Br3-
+    32 BrO3-
+    33 BrO4-
+    34 ClO-
+    35 ClO2-
+    36 ClO3-
+    37 ClO4-
+    38 CN-
+    39 CO
+    40 Cr+2
+    41 Cr+3
+    42 Cu+
+    43 Fe+3
+    44 H2
+    45 H2O2
+    46 H3PO2
+    47 H3PO3
+    48 HBrO
+    49 HS-
+    50 HSO5-
+    51 I3-
+    52 IO-
+    53 IO3-
+    54 IO4-
+    55 METHANE
+    56 Mn+3
+    57 MnO4-
+    58 MnO4-2
+    59 N2
+    60 N2H5+
+    61 N2O2-2
+    62 NH4+
+    63 NO2-
+    64 S2-2
+    65 S2O3-2
+    66 SiF6-2
+    67 SO3-2
+    68 OCN-
+    69 S2O4-2
+    70 S2O5-2
+    71 S2O6-2
+    72 S2O8-2
+    73 S3-2
+    74 S3O6-2
+    75 S4-2
+    76 S4O6-2
+    77 S5-2
+    78 S5O6-2
+    79 SCN-
+    80 OH-
+    81 AlO+
+    82 AlO2-
+    83 AlOH+2
+    84 Ba(CO3)
+    85 Ba(HCO3)+
+    86 BaCl+
+    87 BaF+
+    88 BaOH+
+    89 BF4-
+    90 BO2-
+    91 BrO-
+    92 Ca(CO3)
+    93 Ca(HCO3)+
+    94 Ca(HSiO3)+
+    95 CaCl+
+    96 CaCl2
+    97 CaF+
+    98 CaOH+
+    99 CaSO4
+   100 CO2
+   101 CO3-2
+   102 Cr2O7-2
+   103 CrO+
+   104 CrO2-
+   105 CrOH+2
+   106 CuCl
+   107 CuCl+
+   108 CuCl2
+   109 CuCl2-
+   110 CuCl3-
+   111 CuCl3-2
+   112 CuCl4-2
+   113 CuF+
+   114 CuO
+   115 CuO2-2
+   116 CuOH+
+   117 FeCl+
+   118 FeCl2
+   119 FeF+
+   120 FeF+2
+   121 FeO
+   122 FeO+
+   123 FeO2-
+   124 FeOH+
+   125 FeOH+2
+   126 H2N2O2
+   127 H2P2O7-2
+   128 H2PO2-
+   129 H2PO3-
+   130 H2PO4-
+   131 H2S
+   132 H2S2O3
+   133 H2S2O4
+   134 H3P2O7-
+   135 H3PO4
+   136 H4P2O7
+   137 HAlO2
+   138 HCl
+   139 HClO
+   140 HCN
+   141 HCrO2
+   142 HCrO4-
+   143 HCuO2-
+   144 HF
+   145 HF2-
+   146 HFeO2
+   147 HFeO2-
+   148 HMnO2-
+   149 HN2O2-
+   150 HNiO2-
+   151 HNO2
+   152 HNO3
+   153 HO2-
+   154 HP2O7-3
+   155 HPO3-2
+   156 HS2O4-
+   157 HSiO3-
+   158 HSO3-
+   159 HSO4-
+   160 HZnO2-
+   161 KBr
+   162 KCl
+   163 KHSO4
+   164 KI
+   165 KOH
+   166 KSO4-
+   167 LiCl
+   168 LiOH
+   169 Mg(CO3)
+   170 Mg(HCO3)+
+   171 Mg(HSiO3)+
+   172 MgCl+
+   173 MgF+
+   174 MgOH+
+   175 MgSO4
+   176 MnCl+
+   177 MnF+
+   178 MnO
+   179 MnO2-2
+   180 MnOH+
+   181 MnSO4
+   182 N2H6+2
+   183 NaBr
+   184 NaCl
+   185 NaF
+   186 NaHSiO3
+   187 NaI
+   188 NaOH
+   189 NaSO4-
+   190 NH3
+   191 NiCl+
+   192 NiF+
+   193 NiO
+   194 NiO2-2
+   195 NiOH+
+   196 P2O7-4
+   197 PO4-3
+   198 SO2
+   199 Sr(CO3)
+   200 Sr(HCO3)+
+   201 SrCl+
+   202 SrF+
+   203 SrOH+
+   204 ZnCl+
+   205 ZnCl2
+   206 ZnCl3-
+   207 ZnF+
+   208 ZnO
+   209 ZnO2-2
+   210 ZnOH+
+
+
+ minerals
+
+     1 PLACEHOLDER1
+     2 PLACEHOLDER2
+     3 akermanite
+     4 alabandite
+     5 albite
+     6 albite,high
+     7 albite,low
+     8 alunite
+     9 amesite,7a
+    10 amorphous-silica
+    11 analcime
+    12 analcime,dehydrated
+    13 anatase
+    14 andalusite
+    15 andradite
+    16 anhydrite
+    17 annite
+    18 anorthite
+    19 anthophyllite
+    20 antigorite
+    21 aragonite
+    22 artinite
+    23 azurite
+    24 barite
+    25 boehmite
+    26 bornite
+    27 brucite
+    28 bunsenite
+    29 ca-al-pyroxene
+    30 calcite
+    31 celadonite
+    32 celestite
+    33 chabazite
+    34 chalcedony
+    35 chalcocite
+    36 chalcopyrite
+    37 chloritoid
+    38 chrysotile
+    39 clinochlore,14a
+    40 clinochlore,7a
+    41 clinozoisite
+    42 coesite
+    43 copper
+    44 cordierite
+    45 cordierite,hydrous
+    46 corundum
+    47 covellite
+    48 cristobalite
+    49 cristobalite,alpha
+    50 cronstedtite,7a
+    51 cristobalite,beta
+    52 cummingtonite
+    53 cuprite
+    54 daphnite,14a
+    55 diaspore
+    56 diopside
+    57 dolomite
+    58 dolomite-dis
+    59 dolomite-ord
+    60 enstatite
+    61 epidote
+    62 epidote,ordered
+    63 fayalite
+    64 fe-brucite
+    65 ferrihydrite
+    66 ferrihydrite*0h2o
+    67 ferrihydrite*1h2o
+    68 ferropargasite
+    69 ferrosilite
+    70 ferrotremolite
+    71 ferrous-oxide
+    72 fluorite
+    73 forsterite
+    74 gehlenite
+    75 gibbsite
+    76 goethite
+    77 graphite
+    78 greenalite
+    79 grossular
+    80 halite
+    81 hedenbergite
+    82 hematite
+    83 huntite
+    84 hydromagnesite
+    85 ilmenite
+    86 iron
+    87 jadeite
+    88 K-feldspar
+    89 kalsilite
+    90 kaolinite
+    91 kyanite
+    92 laumontite
+    93 lawsonite
+    94 lepidocrocite
+    95 lime
+    96 maghemite
+    97 magnesite
+    98 magnetite
+    99 malachite
+   100 manganosite
+   101 margarite
+   102 merwinite
+   103 microcline,maximum
+   104 minnesotaite
+   105 monticellite
+   106 muscovite
+   107 nepheline
+   108 nesquehonite
+   109 nickel
+   110 paragonite
+   111 pargasite
+   112 periclase
+   113 perovskite
+   114 phlogopite
+   115 potassium-oxide
+   116 prehnite
+   117 pyrite
+   118 pyrophyllite
+   119 pyrrhotite
+   120 quartz
+   121 rhodochrosite
+   122 rutile
+   123 sanidine,high
+   124 sepiolite
+   125 siderite
+   126 sillimanite
+   127 smithsonite
+   128 sodium-oxide
+   129 sphalerite
+   130 spinel
+   131 strontianite
+   132 sulfur
+   133 sylvite
+   134 talc
+   135 tenorite
+   136 titanite
+   137 tremolite
+   138 ulvospinel
+   139 wairakite
+   140 wollastonite
+   141 wurtzite
+   142 zincite
+   143 zoisite
+   144 mg-beidellite
+   145 mg-montmorillonite
+   146 mg-nontronite
+   147 mg-saponite
+   148 na-beidellite
+   149 na-montmorillonite
+   150 na-nontronite
+   151 na-saponite
+   152 k-montmorillonite
+   153 k-nontronite
+   154 k-saponite
+   155 h-beidellite
+   156 h-montmorillonite
+   157 h-nontronite
+   158 h-saponite
+   159 feca-saponite
+   160 feh-saponite
+   161 fek-saponite
+   162 femg-saponite
+   163 fena-saponite
+   164 ca-beidellite
+   165 ca-montmorillonite
+   166 ca-nontronite
+   167 ca-saponite
+   168 k-beidellite
+   169 flourapatite
+   170 hydroxyapatite
+   171 chlorapatite
+   172 chlorannite
+
+
+ liquids
+
+     1 PLACEHOLDER3
+
+ * Note - (EQPT/pcrsg) The pure liquids block has
+       not been written on the DATA1 and DATA1F files,
+       because the EQ3NR and EQ6 codes presently do not
+       treat non-aqeuous liquids.
+
+
+ gases
+
+     1 H2O(g)
+     2 O2(g)
+     3 CH4(g)
+     4 CO(g)
+     5 CO2(g)
+     6 H2(g)
+     7 H2S(g)
+     8 N2(g)
+     9 NH3(g)
+    10 S2(g)
+    11 SO2(g)
+    12 ETHYLENE(g)
+    13 NO(g)
+    14 N2O(g)
+
+
+ solid solutions
+
+ PLAC EHO LDER 4
+     Number of components=   2  Activity coefficient code=   4
+            PLACEHOLDER1              PLACEHOLDER2
+ biotite-ss
+     Number of components=   2  Activity coefficient code=   1
+            annite                    phlogopite
+ carbonate-ss
+     Number of components=   6  Activity coefficient code=   1
+            calcite                   magnesite
+            rhodochrosite             siderite
+            smithsonite               strontianite
+ chlorite-ss
+     Number of components=   2  Activity coefficient code=   1
+            clinochlore,14a           daphnite,14a
+ epidote-ss
+     Number of components=   2  Activity coefficient code=   1
+            clinozoisite              epidote
+ garnet-ss
+     Number of components=   2  Activity coefficient code=   1
+            andradite                 grossular
+ olivine-ss
+     Number of components=   2  Activity coefficient code=   3
+            fayalite                  forsterite
+ ideal_olivine-ss
+     Number of components=   2  Activity coefficient code=   1
+            fayalite                  forsterite
+ orthopyroxene-ss
+     Number of components=   2  Activity coefficient code=   1
+            enstatite                 ferrosilite
+ clinopyroxene-ss
+     Number of components=   2  Activity coefficient code=   1
+            diopside                  hedenbergite
+ ca-amphib_binary-ss
+     Number of components=   2  Activity coefficient code=   1
+            tremolite                 ferrotremolite
+ amphib_ternary-ss
+     Number of components=   3  Activity coefficient code=   1
+            tremolite                 ferrotremolite
+            pargasite
+ trem_parg_binary-ss
+     Number of components=   2  Activity coefficient code=   1
+            tremolite                 pargasite
+ ideal_plagioclase-ss
+     Number of components=   2  Activity coefficient code=   1
+            albite,high               anorthite
+ plagioclase_low-ss
+     Number of components=   2  Activity coefficient code=   1
+            albite,low                anorthite
+ plag_cub_mac-ss
+     Number of components=   2  Activity coefficient code=   4
+            albite,low                anorthite
+ sanidine-ss
+     Number of components=   2  Activity coefficient code=   1
+            albite,high               sanidine,high
+ microcline-ss
+     Number of components=   2  Activity coefficient code=   1
+            albite,low                microcline,maximum
+ alk_feldspar-ss
+     Number of components=   2  Activity coefficient code=   1
+            albite,low                K-feldspar
+ alk_feld_bin_mar-ss
+     Number of components=   2  Activity coefficient code=   4
+            albite,low                K-feldspar
+ feld_bin_marg2-ss
+     Number of components=   2  Activity coefficient code=   4
+            albite,low                K-feldspar
+ serpentine
+     Number of components=   3  Activity coefficient code=   1
+            chrysotile                greenalite
+            cronstedtite,7a
+ brucite-ss
+     Number of components=   2  Activity coefficient code=   1
+            brucite                   fe-brucite
+ talc-ss
+     Number of components=   2  Activity coefficient code=   1
+            talc                      minnesotaite
+ saponite-ss
+     Number of components=   5  Activity coefficient code=   1
+            ca-saponite               h-saponite
+            k-saponite                mg-saponite
+            na-saponite
+ nontronite-ss
+     Number of components=   5  Activity coefficient code=   1
+            ca-nontronite             h-nontronite
+            k-nontronite              mg-nontronite
+            na-nontronite
+ beidellite
+     Number of components=   5  Activity coefficient code=   1
+            ca-beidellite             h-beidellite
+            k-beidellite              mg-beidellite
+            na-beidellite
+ montmorillonite
+     Number of components=   5  Activity coefficient code=   1
+            ca-montmorillonite        h-montmorillonite
+            k-montmorillonite         mg-montmorillonite
+            na-montmorillonite
+
+
+  Aqueous species hard core diameter coverage:
+
+      209 aqueous species have hard core diameters specified on the data file
+      209 aqueous solute species are present on this file
+    Coverage is 100.00 per cent
+
+
+ Completed processing the SEDH data file data0.500.
+
+
+ No errors were encountered.
+
+ No warnings were encountered.
+
+
+          Start time = 15:36:39  12Jun2024
+            End time = 15:36:39  12Jun2024
+
+           Run time =  0.195E-01 seconds
+
+ Normal exit

@@ -1,0 +1,56 @@
+{
+  "campaign": "regression-testing",
+  "est_date": "2024-06-12",
+  "notes": "For use to test for Eleanor regressions",
+  "creator": "39 Alpha Research, Team 0",
+  "model": "b-dot",
+  "initial fluid constraints": {
+    "T_cel": [
+      50,
+      150
+    ],
+    "P_bar": 500,
+    "fO2": -1,
+    "cb": "H+",
+    "basis": {
+      "H+": -7,
+      "Na+": -9,
+      "Mg+2": -9,
+      "Ca+2": -9,
+      "Fe+2": -9,
+      "K+": -9,
+      "Sr+2": -9,
+      "Cl-": -9,
+      "SO4-2": -9,
+      "Br-": -9,
+      "F-": -9,
+      "B(OH)3": -9,
+      "HCO3-": -9,
+      "SiO2": -9,
+      "HPO4-2": -9,
+      "NO3-": -9,
+      "Al+3": -9
+    }
+  },
+  "reactant": {
+    "fayalite": [
+      "mineral",
+      0.01,
+      1
+    ],
+    "forsterite": [
+      "mineral",
+      0.01,
+      1
+    ]
+  },
+  "vs_distro": "random",
+  "resolution": 10,
+  "suppress sp": [
+    "METHANE",
+    "antigorite"
+  ],
+  "suppress min": false,
+  "suppress min exemptions": [],
+  "solid solutions": true
+}

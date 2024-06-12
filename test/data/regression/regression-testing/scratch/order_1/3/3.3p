@@ -1,0 +1,222 @@
+EQ6 input file name= sample.6i
+Description= "Sample"
+Version level= 8.0
+Revised mm/dd/yy    Revisor= Username
+
+  This is a sample EQ6 input file written as an EQ3NR pickup file.
+The EQ3NR input file used to generate this output is identified in
+the second title given below.
+
+  You are expected to modify this EQ6 input file to meet your own needs.
+
+  This sample file has "Fluid 2" mixing into "Fluid 1". "Fluid 2" was the
+first aqueous solution on the EQ3NR input file, "Fluid 1" was the second.
+The option switch iopt(19) was set to 3 for the latter to produce the
+present EQ6 input file.
+
+  Mixing will be isothermal as specified below.
+
+  Warning: This EQ6 input file is set up to mix a fluid with itself.
+
+
+
+
+
+
+endit.
+     jtemp=  0
+    tempcb=  6.48371E+01
+      ttk1=  0.00000E+00      ttk2=  0.00000E+00
+    jpress=  0
+    pressb=  5.00000E+02
+      ptk1=  0.00000E+00      ptk2=  0.00000E+00
+      nrct=  1
+*-----------------------------------------------------------------------------
+  reactant= Fluid 2
+     jcode=  2               jreac=  0
+      morr=  1.00000E+00      modr=  0.00000E+00
+     vreac=  0.10000E+01
+* Elemental composition
+   O           5.550852996240845E+01
+   Cl          9.999999999999988E-10
+   H           1.110168709756472E+02
+   Al          1.000000000000245E-09
+   B           9.999999999999984E-10
+   Br          9.999999999999984E-10
+   Ca          9.999999999999982E-10
+   F           9.999999999999984E-10
+   Fe          1.000000000000107E-09
+   C           1.000000000000032E-09
+   P           1.000000000000156E-09
+   K           1.000000000000000E-09
+   Mg          9.999999999999984E-10
+   Na          9.999999999999990E-10
+   N           1.000000000000002E-09
+   Si          1.000000000000001E-09
+   S           9.999999999999982E-10
+   Sr          9.999999999999994E-10
+   endit.
+* Reaction
+   Fluid 2                    -1.000000000000000E+00
+   H2O                         5.550843548732360E+01
+   Cl-                         9.999999999999988E-10
+   H+                         -3.999999999958214E-09
+   Al+3                        1.000000000000245E-09
+   B(OH)3                      9.999999999999984E-10
+   Br-                         9.999999999999984E-10
+   Ca+2                        9.999999999999982E-10
+   F-                          9.999999999999984E-10
+   Fe+2                        1.000000000000107E-09
+   HCO3-                       1.000000000000032E-09
+   HPO4-2                      1.000000000000156E-09
+   K+                          1.000000000000000E-09
+   Mg+2                        9.999999999999984E-10
+   Na+                         9.999999999999990E-10
+   NO3-                        1.000000000000002E-09
+   SiO2                        1.000000000000001E-09
+   SO4-2                       9.999999999999982E-10
+   Sr+2                        9.999999999999994E-10
+   O2(g)                       4.722804243148344E-05
+   endit.
+       nsk=  0               sfcar=  0.00000E+00    ssfcar=  0.00000E+00
+      fkrc=  0.00000E+00
+      nrk1=  1                nrk2=  0
+      rkb1=  1.00000E+00      rkb2=  0.00000E+00      rkb3=  0.00000E+00
+*-----------------------------------------------------------------------------
+    xistti=  0.00000E+00    ximaxi=  1.00000E+00
+    tistti=  0.00000E+00    timmxi=  1.00000E+38
+    phmini= -1.00000E+38    phmaxi=  1.00000E+38
+    ehmini= -1.00000E+38    ehmaxi=  1.00000E+38
+    o2mini= -1.00000E+38    o2maxi=  1.00000E+38
+    awmini= -1.00000E+38    awmaxi=  1.00000E+38
+    kstpmx=          500
+    dlxprn=  0.00000E+00    dlxprl=  5.00000E-01
+    dltprn=  1.00000E+38    dltprl=  1.00000E+38
+    dlhprn=  1.00000E+38    dleprn=  1.00000E+38
+    dloprn=  1.00000E+38    dlaprn=  1.00000E+38
+    ksppmx=            0
+    dlxplo=  0.00000E+00    dlxpll=  0.00000E+00
+    dltplo=  1.00000E+38    dltpll=  1.00000E+38
+    dlhplo=  1.00000E+38    dleplo=  1.00000E+38
+    dloplo=  1.00000E+38    dlaplo=  1.00000E+38
+    ksplmx=            0
+*               1    2    3    4    5    6    7    8    9   10
+  iopt1-10=     0    0    0    1    0    0    0    0    0    0
+ iopt11-20=     0    0    0    0    0    0    0    0    3    0
+  iopr1-10=     0    0    0    1    0   -1    1    0    0    0
+ iopr11-20=     0    0    0    0    0    0    0    0    0    0
+  iodb1-10=     0    0    0    0    0    0    0    0    0    0
+ iodb11-20=     0    0    0    0    0    0    0    0    0    0
+     nxopt=  0
+      nffg=  0
+    nordmx=   6
+     tolbt=  1.00000E-06     toldl=  1.00000E-06
+    itermx= 200
+    tolxsf=  0.00000E+00
+    tolsat=  0.00000E+00
+    ntrymx=   0
+    dlxmx0=  0.00000E+00
+    dlxdmp=  0.00000E+00
+*-----------------------------------------------------------------------------
+EQ3NR input file name= local
+endit.
+*   Special basis switches
+    nsbswt=   0
+    tempci=  6.48371E+01
+    pressi=  5.00000E+02
+* Ion exchanger creation
+    qgexsh=        F
+       net=   0
+     nxmod=  2
+   species= METHANE
+    option= -1              xlkmod=  0.00000E+00
+   species= antigorite
+    option= -1              xlkmod=  0.00000E+00
+*               1    2    3    4    5    6    7    8    9   10
+  iopg1-10=     0    0    0    0    0    0    0    0    0    0
+ iopg11-20=     0    0    0    0    0    0    0    0    0    0
+       kct= 18                 kbt= 19                 kmt= 19
+       kxt= 19                kdim= 19                kprs=  0
+* Data file basis species and jflgi values
+   H2O                     Aqueous solution            0
+   Cl-                     Aqueous solution            0
+   H+                      Aqueous solution            0
+   Al+3                    Aqueous solution            0
+   B(OH)3                  Aqueous solution            0
+   Br-                     Aqueous solution            0
+   Ca+2                    Aqueous solution            0
+   F-                      Aqueous solution            0
+   Fe+2                    Aqueous solution            0
+   HCO3-                   Aqueous solution            0
+   HPO4-2                  Aqueous solution            0
+   K+                      Aqueous solution            0
+   Mg+2                    Aqueous solution            0
+   Na+                     Aqueous solution            0
+   NO3-                    Aqueous solution            0
+   SiO2                    Aqueous solution            0
+   SO4-2                   Aqueous solution            0
+   Sr+2                    Aqueous solution            0
+   O2(g)                   Aqueous solution            0
+*       Mass balance totals     Aqueous mass balance totals
+       5.550843548732360E+01       5.550843548732360E+01
+       9.999999999999988E-10       9.999999999999988E-10
+      -3.999999999958214E-09      -3.999999999958214E-09
+       1.000000000000245E-09       1.000000000000245E-09
+       9.999999999999984E-10       9.999999999999984E-10
+       9.999999999999984E-10       9.999999999999984E-10
+       9.999999999999982E-10       9.999999999999982E-10
+       9.999999999999984E-10       9.999999999999984E-10
+       1.000000000000107E-09       1.000000000000107E-09
+       1.000000000000032E-09       1.000000000000032E-09
+       1.000000000000156E-09       1.000000000000156E-09
+       1.000000000000000E-09       1.000000000000000E-09
+       9.999999999999984E-10       9.999999999999984E-10
+       9.999999999999990E-10       9.999999999999990E-10
+       1.000000000000002E-09       1.000000000000002E-09
+       1.000000000000001E-09       1.000000000000001E-09
+       9.999999999999982E-10       9.999999999999982E-10
+       9.999999999999994E-10       9.999999999999994E-10
+       4.722804243148344E-05       4.722804243148344E-05
+         Electrical imbalance=     4.235164736271502E-20
+*   Ordinary basis switches
+    nobswt=   0
+* Matrix species or entities
+   H2O                     Aqueous solution
+   Cl-                     Aqueous solution
+   H+                      Aqueous solution
+   Al+3                    Aqueous solution
+   B(OH)3                  Aqueous solution
+   Br-                     Aqueous solution
+   Ca+2                    Aqueous solution
+   F-                      Aqueous solution
+   Fe+2                    Aqueous solution
+   HCO3-                   Aqueous solution
+   HPO4-2                  Aqueous solution
+   K+                      Aqueous solution
+   Mg+2                    Aqueous solution
+   Na+                     Aqueous solution
+   NO3-                    Aqueous solution
+   SiO2                    Aqueous solution
+   SO4-2                   Aqueous solution
+   Sr+2                    Aqueous solution
+   O2(g)                   Aqueous solution
+*   Values of matrix variables
+    1.744358983526984E+00
+   -9.000000040295776E+00
+   -6.373744264697588E+00
+   -1.585277948281652E+01
+   -9.002877145266087E+00
+   -9.000000000055568E+00
+   -9.000005394985621E+00
+   -9.000455090617308E+00
+   -1.789983226377976E+01
+   -9.156870733705460E+00
+   -9.701961331571260E+00
+   -9.000000088798279E+00
+   -9.000041048446866E+00
+   -9.000000109528520E+00
+   -9.000000018968555E+00
+   -9.001029256257295E+00
+   -9.000040924488893E+00
+   -9.000002225650434E+00
+   -1.000000000000000E+00

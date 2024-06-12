@@ -1,0 +1,1445 @@
+
+ EQ3/6, Version 8.0a (EQ3/6-V8-REL-V8.0a-PC)
+ EQ3NR Speciation-Solubility Code (EQ3/6-V8-EQ3NR-EXE-R43a-PC)
+ Supported by the following EQ3/6 libraries:
+   EQLIB (EQ3/6-V8-EQLIB-LIB-R43a-PC)
+   EQLIBG (EQ3/6-V8-EQLIBG-LIB-R43a-PC)
+   EQLIBU (EQ3/6-V8-EQLIBU-LIB-R43a-PC)
+
+ Copyright (c) 1987, 1990-1993, 1995, 1997, 2002 The Regents of the
+ University of California, Lawrence Livermore National Laboratory.
+ All rights reserved.
+
+ This work is subject to additional statements and
+ disclaimers which may be found in the README.txt file
+ included in the EQ3/6 software transmittal package.
+
+
+ Run  15:38:04  12Jun2024
+
+
+ Reading the data1 file header section ...
+
+ Reading the rest of the DATA1 file ...
+
+   The data file title is:
+
+     data0.500
+     Water model: SUPCRT92
+
+   Continuing to read the DATA1 file ...
+
+   Done reading the DATA1 file.
+
+ The redox basis species is O2(g).
+
+
+ Reading problem   1 from the input file ...
+
+ EQ3NR input file name= local                                                    
+ endit.
+ * Special basis switches
+     nsbswt=   0
+ * General
+      tempc=  5.58485E+01
+     jpres3=   0
+      press=  5.00000E+02
+        rho=  1.00000E+00
+     itdsf3=   0
+     tdspkg=  0.00000E+00     tdspl=  0.00000E+00
+     iebal3=   1
+      uebal= H+
+     irdxc3=   0
+     fo2lgi= -1.00000E+00       ehi=  0.00000E+00
+        pei=  0.00000E+00    uredox= None
+ * Aqueous basis species
+ species= H+
+    jflgi= 16    covali= -7.00000E+00
+ species= Na+
+    jflgi=  0    covali=  1.00000E-09
+ species= Mg+2
+    jflgi=  0    covali=  1.00000E-09
+ species= Ca+2
+    jflgi=  0    covali=  1.00000E-09
+ species= Fe+2
+    jflgi=  0    covali=  1.00000E-09
+ species= K+
+    jflgi=  0    covali=  1.00000E-09
+ species= Sr+2
+    jflgi=  0    covali=  1.00000E-09
+ species= Cl-
+    jflgi=  0    covali=  1.00000E-09
+ species= SO4-2
+    jflgi=  0    covali=  1.00000E-09
+ species= Br-
+    jflgi=  0    covali=  1.00000E-09
+ species= F-
+    jflgi=  0    covali=  1.00000E-09
+ species= B(OH)3
+    jflgi=  0    covali=  1.00000E-09
+ species= HCO3-
+    jflgi=  0    covali=  1.00000E-09
+ species= SiO2
+    jflgi=  0    covali=  1.00000E-09
+ species= HPO4-2
+    jflgi=  0    covali=  1.00000E-09
+ species= NO3-
+    jflgi=  0    covali=  1.00000E-09
+ species= Al+3
+    jflgi=  0    covali=  1.00000E-09
+ endit.
+ * Ion exchangers
+     qgexsh= 
+        net=   0
+ * Ion exchanger compositions
+       neti=   0
+ * Solid solution compositions
+       nxti=   0
+ * Alter/suppress options
+      nxmod=   2
+    species= METHANE
+     option= -1              xlkmod=  0.00000E+00
+    species= antigorite
+     option= -1              xlkmod=  0.00000E+00
+ * Iopt, iopg, iopr, and iodb options
+ *               1    2    3    4    5    6    7    8    9   10
+   iopt1-10=     0    0    0    1    0    0    0    0    0    0
+  iopt11-20=     0    0    0    0    0    0    0    0    3    0
+   iopg1-10=     0    0    0    0    0    0    0    0    0    0
+  iopg11-20=     0    0    0    0    0    0    0    0    0    0
+   iopr1-10=     0    0    0    1    0   -1    1    0    0    0
+  iopr11-20=     0    0    0    0    0    0    0    0    0    0
+   iodb1-10=     0    0    0    0    0    0    0    0    0    0
+  iodb11-20=     0    0    0    0    0    0    0    0    0    0
+ * Numerical parameters
+      tolbt=  0.00000E+00     toldl=  0.00000E+00
+     itermx=   0
+ * Ordinary basis switches
+     nobswt=   0
+ * Saturation flag tolerance
+     tolspf=  0.00000E+00
+ * Aqueous phase scale factor
+     scamas=  1.00000E+00
+
+   Done reading problem   1.
+
+
+ The following phase has been user-suppressed:
+
+    antigorite
+
+ The following species has been user-suppressed:
+
+    METHANE (Aqueous solution)
+
+ The redox basis species is O2(g).
+
+ * Note - (EQLIBG/wterm) The phase olivine-ss is
+       listed as non-ideal, but no non-zero data are present
+       in the apx array. This phase will be treated as ideal.
+
+ * Note - (EQLIBG/wterm) The phase plag_cub_mac-ss is
+       listed as non-ideal, but no non-zero data are present
+       in the apx array. This phase will be treated as ideal.
+
+ * Note - (EQLIBG/wterm) The phase alk_feld_bin_mar-ss is
+       listed as non-ideal, but no non-zero data are present
+       in the apx array. This phase will be treated as ideal.
+
+ The activity coefficients of aqueous species will be
+ calculated using the B-dot equation.
+
+
+ Temperature=  55.85 C
+
+
+ jpres3=    0 (Pressure option switch)
+
+   Pressure=   500.00     bars (data file reference curve value)
+
+
+       --- Numbers of Phases, Species, and Groups Thereof---
+
+       Entity               Date Base    Dimension   Current Problem
+
+   Chemical Elements             28          28          18
+   Basis Species                 79          89          59
+   Phases                       203         226         175
+   Species                      471         962         372
+   Aqueous Species              210         210         142
+   Pure Minerals                172         172         145
+   Pure Liquids                   1           2           1
+   Gas Species                   14          14          14
+   Solid Soutions                28          28          27
+
+
+ iopt(1)=   0 (Used only by EQ6)
+ iopt(2)=   0 (Used only by EQ6)
+ iopt(3)=   0 (Used only by EQ6)
+ iopt(4)=   1 (Solid solutions)
+ iopt(5)=   0 (Used only by EQ6)
+ iopt(6)=   0 (Used only by EQ6)
+ iopt(7)=   0 (Not used)
+ iopt(8)=   0 (Not used)
+ iopt(9)=   0 (Not used)
+ iopt(10)=  0 (Not used)
+ iopt(11)=  0 (Auto basis switching, in pre-Newton-Raphson optimization)
+ iopt(12)=  0 (Used only by EQ6)
+ iopt(13)=  0 (Not used)
+ iopt(14)=  0 (Not used)
+ iopt(15)=  0 (Used only by EQ6)
+ iopt(16)=  0 (Not used)
+ iopt(17)=  0 (pickup file options)
+ iopt(18)=  0 (Used only by EQ6)
+ iopt(19)= 
+
+   iopg(1)=   0 (Aqueous species activity coefficient model)
+   iopg(2)=   0 (pH scale)
+
+
+ iopr(1)=   0 (List all species)
+ iopr(2)=   0 (List all reactions)
+ iopr(3)=   0 (List HC diameters)
+ iopr(4)=   1 (Aqueous species concentration print cut-off)
+ iopr(5)=   0 (Ion/H+ activity ratios)
+ iopr(6)=  -1 (Mass balance percentages)
+ iopr(7)=   1 (Affinity print cut-off)
+ iopr(8)=   0 (Fugacities)
+ iopr(9)=   0 (Mean molal activity coefficients)
+ iopr(10)=  0 (Pitzer coefficients tabulation)
+ iopr(11)=  0 (Not used)
+ iopr(12)=  0 (Not used)
+ iopr(13)=  0 (Not used)
+ iopr(14)=  0 (Not used)
+ iopr(15)=  0 (Not used)
+ iopr(16)=  0 (Not used)
+ iopr(17)=  0 (pickup file format)
+
+
+   iodb(1)=   0 (General diagnostics)
+   iodb(2)=   0 (Used only by EQ6)
+   iodb(3)=   0 (pre-Newton-Raphson optimization iterations)
+   iodb(4)=   0 (Newton-Raphson iterations)
+   iodb(5)=   0 (Used only by EQ6)
+   iodb(6)=   0 (Hypothetical affinity iterations)
+   iodb(7)=   0 (Used only by EQ6)
+
+
+ irdxc3=    0 (Default redox constraint switch)
+
+   The default redox state is constrained by Log fO2 =  -1.0000     (log bars).
+
+
+ iebal3=    1 (Electrical balancing option switch)
+
+   The species H+ will be adjusted to
+   achieve electrical balance.
+
+
+ Solution density =  1.00000 g/ml
+
+
+ itdsf3=    0 (Total dissolved solutes option switch)
+
+   Total dissolved salts =       0.00 mg/kg.sol
+
+
+ tolbt  =  1.00000E-06 (convergence tolerance on residual functions)
+ toldl  =  1.00000E-06 (convergence tolerance on correction terms)
+ tolspf =  5.00000E-05 (saturation print flag tolerance, does not affect
+                         convergence)
+
+
+ itermx = 200 (maximum number of iterations)
+
+
+ scamas =  1.00000E+00 (scale factor for aqueous solution
+                         mass written on the pickup file)
+
+
+                     --- Original Input Constraints ---
+
+     Species                    coval   jflag   Type of Input
+
+  H+                        -7.00000E+00  16  Log activity
+  Na+                        1.00000E-09   0  Total molality
+  Mg+2                       1.00000E-09   0  Total molality
+  Ca+2                       1.00000E-09   0  Total molality
+  Fe+2                       1.00000E-09   0  Total molality
+  K+                         1.00000E-09   0  Total molality
+  Sr+2                       1.00000E-09   0  Total molality
+  Cl-                        1.00000E-09   0  Total molality
+  SO4-2                      1.00000E-09   0  Total molality
+  Br-                        1.00000E-09   0  Total molality
+  F-                         1.00000E-09   0  Total molality
+  B(OH)3                     1.00000E-09   0  Total molality
+  HCO3-                      1.00000E-09   0  Total molality
+  SiO2                       1.00000E-09   0  Total molality
+  HPO4-2                     1.00000E-09   0  Total molality
+  NO3-                       1.00000E-09   0  Total molality
+  Al+3                       1.00000E-09   0  Total molality
+
+
+ - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+
+
+                     --- Modified Input Constraints ---
+
+     Species                    coval   jflag   Type of Input
+
+  H2O                        0.00000E+00   0  Total molality
+  Cl-                        1.00000E-09   0  Total molality
+  H+                        -7.00000E+00  16  Log activity
+  Al+3                       1.00000E-09   0  Total molality
+  B(OH)3                     1.00000E-09   0  Total molality
+  Br-                        1.00000E-09   0  Total molality
+  Ca+2                       1.00000E-09   0  Total molality
+  F-                         1.00000E-09   0  Total molality
+  Fe+2                       1.00000E-09   0  Total molality
+  HCO3-                      1.00000E-09   0  Total molality
+  HPO4-2                     1.00000E-09   0  Total molality
+  K+                         1.00000E-09   0  Total molality
+  Mg+2                       1.00000E-09   0  Total molality
+  Na+                        1.00000E-09   0  Total molality
+  NO3-                       1.00000E-09   0  Total molality
+  SiO2                       1.00000E-09   0  Total molality
+  SO4-2                      1.00000E-09   0  Total molality
+  Sr+2                       1.00000E-09   0  Total molality
+  O2(g)                      0.00000E+00   0  Log fO2
+  O2                                      30  Make non-basis
+  Br3-                                    30  Make non-basis
+  BrO3-                                   30  Make non-basis
+  BrO4-                                   30  Make non-basis
+  ClO-                                    30  Make non-basis
+  ClO2-                                   30  Make non-basis
+  ClO3-                                   30  Make non-basis
+  ClO4-                                   30  Make non-basis
+  CN-                                     30  Make non-basis
+  CO                                      30  Make non-basis
+  Fe+3                                    30  Make non-basis
+  H2                                      30  Make non-basis
+  H2O2                                    30  Make non-basis
+  H3PO2                                   30  Make non-basis
+  H3PO3                                   30  Make non-basis
+  HBrO                                    30  Make non-basis
+  HS-                                     30  Make non-basis
+  HSO5-                                   30  Make non-basis
+  N2                                      30  Make non-basis
+  N2H5+                                   30  Make non-basis
+  N2O2-2                                  30  Make non-basis
+  NH4+                                    30  Make non-basis
+  NO2-                                    30  Make non-basis
+  S2-2                                    30  Make non-basis
+  S2O3-2                                  30  Make non-basis
+  SiF6-2                                  30  Make non-basis
+  SO3-2                                   30  Make non-basis
+  OCN-                                    30  Make non-basis
+  S2O4-2                                  30  Make non-basis
+  S2O5-2                                  30  Make non-basis
+  S2O6-2                                  30  Make non-basis
+  S2O8-2                                  30  Make non-basis
+  S3-2                                    30  Make non-basis
+  S3O6-2                                  30  Make non-basis
+  S4-2                                    30  Make non-basis
+  S4O6-2                                  30  Make non-basis
+  S5-2                                    30  Make non-basis
+  S5O6-2                                  30  Make non-basis
+  SCN-                                    30  Make non-basis
+
+
+ Electrical balance will be achieved by adjusting
+   the concentration of H+.
+
+
+                     --- Inactive Species ---
+
+    METHANE
+    antigorite
+
+ - - BEGIN ITERATIVE CALCULATIONS  - - - - - - - - - - - - - - - - - - - - - -
+
+
+ Starting Pre-Newton-Raphson Optimization.
+
+             Completed pass   1 in   6 cycles.
+             Completed pass   2 in   5 cycles.
+             Completed pass   3 in   5 cycles.
+
+   Done. Optimization ended outside requested limits.
+
+
+ Starting hybrid Newton-Raphson iteration.
+
+   Done. Hybrid Newton-Raphson iteration converged in   6 iterations.
+
+
+ * Warning - (EQ3NR/eq3nr) The calculated TDS of 1.5960 mg/kg.sol
+       differs from the input file/default value of 0.0000 mg/kg.sol.
+       The calculated value will be used in subsequent calculations.
+
+ - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+
+           --- Elemental Composition of the Aqueous Solution ---
+
+   Element        mg/L       mg/kg.sol    Molarity     Molality
+
+     O         8.88102E+05  8.88102E+05  5.55084E-02  5.55085E+01
+     Cl        3.54526E-05  3.54526E-05  9.99998E-13  1.00000E-09
+     H         1.11898E+05  1.11898E+05  1.11017E-01  1.11017E+02
+     Al        2.69815E-05  2.69815E-05  9.99998E-13  1.00000E-09
+     B         1.08100E-05  1.08100E-05  9.99998E-13  1.00000E-09
+     Br        7.99039E-05  7.99039E-05  9.99998E-13  1.00000E-09
+     Ca        4.00799E-05  4.00799E-05  9.99998E-13  1.00000E-09
+     F         1.89984E-05  1.89984E-05  9.99998E-13  1.00000E-09
+     Fe        5.58469E-05  5.58469E-05  9.99998E-13  1.00000E-09
+     C         1.20110E-05  1.20110E-05  9.99998E-13  1.00000E-09
+     P         3.09737E-05  3.09737E-05  9.99998E-13  1.00000E-09
+     K         3.90982E-05  3.90982E-05  9.99998E-13  1.00000E-09
+     Mg        2.43050E-05  2.43050E-05  9.99998E-13  1.00000E-09
+     Na        2.29897E-05  2.29897E-05  9.99998E-13  1.00000E-09
+     N         1.40067E-05  1.40067E-05  9.99998E-13  1.00000E-09
+     Si        2.80855E-05  2.80855E-05  9.99998E-13  1.00000E-09
+     S         3.20599E-05  3.20599E-05  9.99998E-13  1.00000E-09
+     Sr        8.76199E-05  8.76199E-05  9.99998E-13  1.00000E-09
+
+
+           --- Numerical Composition of the Aqueous Solution ---
+
+   Species                    mg/L       mg/kg.sol    Molarity     Molality
+
+ H2O                       9.99998E+05  9.99998E+05  5.55083E-02  5.55084E+01
+ Cl-                       3.54526E-05  3.54526E-05  9.99998E-13  1.00000E-09
+ H+                       -4.03175E-06 -4.03175E-06 -3.99999E-12 -4.00000E-09
+ Al+3                      2.69815E-05  2.69815E-05  9.99998E-13  1.00000E-09
+ B(OH)3                    6.18319E-05  6.18319E-05  9.99998E-13  1.00000E-09
+ Br-                       7.99039E-05  7.99039E-05  9.99998E-13  1.00000E-09
+ Ca+2                      4.00799E-05  4.00799E-05  9.99998E-13  1.00000E-09
+ F-                        1.89984E-05  1.89984E-05  9.99998E-13  1.00000E-09
+ Fe+2                      5.58469E-05  5.58469E-05  9.99998E-13  1.00000E-09
+ HCO3-                     6.10170E-05  6.10170E-05  9.99998E-13  1.00000E-09
+ HPO4-2                    9.59791E-05  9.59791E-05  9.99998E-13  1.00000E-09
+ K+                        3.90982E-05  3.90982E-05  9.99998E-13  1.00000E-09
+ Mg+2                      2.43050E-05  2.43050E-05  9.99998E-13  1.00000E-09
+ Na+                       2.29897E-05  2.29897E-05  9.99998E-13  1.00000E-09
+ NO3-                      6.20048E-05  6.20048E-05  9.99998E-13  1.00000E-09
+ SiO2                      6.00842E-05  6.00842E-05  9.99998E-13  1.00000E-09
+ SO4-2                     9.60574E-05  9.60574E-05  9.99998E-13  1.00000E-09
+ Sr+2                      8.76199E-05  8.76199E-05  9.99998E-13  1.00000E-09
+ O2(g)                     1.58909E+00  1.58909E+00  4.96608E-08  4.96609E-05
+
+   Some of the above data may not be physically significant.
+
+
+           --- Sensible Composition of the Aqueous Solution ---
+
+   Species                    mg/L       mg/kg.sol    Molarity     Molality
+
+ Cl-                       3.54526E-05  3.54526E-05  9.99998E-13  1.00000E-09
+ OH-                       6.80293E-05  6.80293E-05 -3.99999E-12  4.00000E-09
+ Al+3                      2.69815E-05  2.69815E-05  9.99998E-13  1.00000E-09
+ B(OH)3                    6.18319E-05  6.18319E-05  9.99998E-13  1.00000E-09
+ Br-                       7.99039E-05  7.99039E-05  9.99998E-13  1.00000E-09
+ Ca+2                      4.00799E-05  4.00799E-05  9.99998E-13  1.00000E-09
+ F-                        1.89984E-05  1.89984E-05  9.99998E-13  1.00000E-09
+ Fe+2                      5.58469E-05  5.58469E-05  9.99998E-13  1.00000E-09
+ HCO3-                     6.10170E-05  6.10170E-05  9.99998E-13  1.00000E-09
+ HPO4-2                    9.59791E-05  9.59791E-05  9.99998E-13  1.00000E-09
+ K+                        3.90982E-05  3.90982E-05  9.99998E-13  1.00000E-09
+ Mg+2                      2.43050E-05  2.43050E-05  9.99998E-13  1.00000E-09
+ Na+                       2.29897E-05  2.29897E-05  9.99998E-13  1.00000E-09
+ NO3-                      6.20048E-05  6.20048E-05  9.99998E-13  1.00000E-09
+ SiO2                      6.00842E-05  6.00842E-05  9.99998E-13  1.00000E-09
+ SO4-2                     9.60574E-05  9.60574E-05  9.99998E-13  1.00000E-09
+ Sr+2                      8.76199E-05  8.76199E-05  9.99998E-13  1.00000E-09
+
+   The above data have physical significance, but some may be
+   inconsistent with certain analytical methods or reporting schemes.
+
+
+
+                    Oxygen fugacity= 0.10000 bars
+                Log oxygen fugacity= -1.0000
+
+                  Activity of water= 1.0000
+              Log activity of water= -3.93880E-07
+
+             Mole fraction of water= 1.0000
+         Log mole fraction of water= -3.93881E-07
+
+      Activity coefficient of water= 1.0000
+  Log activity coefficient of water= 1.10788E-12
+
+                Osmotic coefficient= 1.0000
+ Stoichiometric osmotic coefficient= 2517.1
+
+                  Sum of molalities= 5.03431E-05
+   Sum of stoichiometric molalities= 2.00000E-08
+
+                 Ionic strength (I)= 3.45869E-07 molal
+      Stoichiometric ionic strength= 2.20000E-08 molal
+
+                Ionic asymmetry (J)= 1.75624E-09 molal
+     Stoichiometric ionic asymmetry= 7.33333E-09 molal
+
+                       Solvent mass= 1000.0 g
+                 Solutes (TDS) mass= 1.59601E-03 g
+              Aqueous solution mass= 1000.0 g
+
+            Aqueous solution volume= 0.0000 L
+
+                   Solvent fraction= 1.0000 kg.H2O/kg.sol
+                    Solute fraction= 1.59601E-06 kg.tds/kg.sol
+
+      Total dissolved solutes (TDS)= 1.5960 mg/kg.sol
+                                TDS= 0.0000 mg/L
+                                TDS= 0.0000 g/L
+
+                   Solution density= 0.0000 g/mL
+                   Solution density= 0.0000 g/L
+
+                  Molarity/molality= 9.99998E-04 kg.H2O/L
+                  Molality/molarity= 1000.0 L/kg.H2O
+
+
+           --- The pH, Eh, pe-, and Ah on various pH scales ---
+
+                               pH     Eh, volts        pe-       Ah, kcal
+
+ NBS pH scale                6.4772     0.7595     1.1634E+01     17.5149
+ Mesmer pH (pmH) scale       6.4769     0.7595     1.1635E+01     17.5154
+
+
+      pcH=      9.4769
+     pHCl=     15.4776
+
+
+   The single ion activities and activity coefficients listed below
+   are consistent with the NBS pH scale.
+
+
+
+      Alkalinity is not defined at 55.849 C.
+      It is only defined in the temperature range 0-50 C.
+
+
+           --- Electrical Balance Totals ---
+
+                                  eq/kg.H2O
+
+        Sigma(mz) cations=     3.4162497517E-07
+         Sigma(mz) anions=    -3.4162497517E-07
+             Total charge=     6.8324995034E-07
+              Mean charge=     3.4162497517E-07
+         Charge imbalance=     1.4537202957E-19
+
+
+         The electrical imbalance is:
+
+              0.0000 per cent of the total charge
+              0.0000 per cent of the mean charge
+
+
+      --- Electrical Balancing on H+ ---
+
+           Log Activity
+
+     Input       -7.0000
+     Final       -6.4772
+     Adj          0.5228
+
+
+
+                --- Distribution of Aqueous Solute Species ---
+
+    Species                  Molality    Log Molality   Log Gamma  Log Activity
+
+ O2                         4.9661E-05      -4.3040       0.0000      -4.3040
+ H+                         3.3347E-07      -6.4769      -0.0003      -6.4772
+ OH-                        3.3296E-07      -6.4776      -0.0003      -6.4779
+ Br-                        1.0000E-09      -9.0000      -0.0003      -9.0003
+ NO3-                       1.0000E-09      -9.0000      -0.0003      -9.0003
+ Cl-                        1.0000E-09      -9.0000      -0.0003      -9.0003
+ K+                         1.0000E-09      -9.0000      -0.0003      -9.0003
+ Na+                        1.0000E-09      -9.0000      -0.0003      -9.0003
+ Sr+2                       1.0000E-09      -9.0000      -0.0012      -9.0012
+ Ca+2                       9.9999E-10      -9.0000      -0.0012      -9.0012
+ SO4-2                      9.9994E-10      -9.0000      -0.0012      -9.0013
+ Mg+2                       9.9994E-10      -9.0000      -0.0012      -9.0013
+ F-                         9.9931E-10      -9.0003      -0.0003      -9.0006
+ SiO2                       9.9743E-10      -9.0011       0.0000      -9.0011
+ B(OH)3                     9.9240E-10      -9.0033       0.0000      -9.0033
+ HFeO2                      8.4895E-10      -9.0711       0.0000      -9.0711
+ H2PO4-                     7.5645E-10      -9.1212      -0.0003      -9.1215
+ HCO3-                      7.4323E-10      -9.1289      -0.0003      -9.1292
+ AlO2-                      6.6516E-10      -9.1771      -0.0003      -9.1774
+ HAlO2                      3.3170E-10      -9.4793       0.0000      -9.4793
+ CO2                        2.5649E-10      -9.5909       0.0000      -9.5909
+ HPO4-2                     2.4351E-10      -9.6135      -0.0012      -9.6147
+ FeO+                       1.4756E-10      -9.8310      -0.0003      -9.8313
+ BO2-                       7.6017E-12     -11.1191      -0.0003     -11.1194
+ FeO2-                      3.4667E-12     -11.4601      -0.0003     -11.4604
+ AlO+                       3.0982E-12     -11.5089      -0.0003     -11.5092
+ HSiO3-                     2.5660E-12     -11.5907      -0.0003     -11.5910
+ HF                         6.8559E-13     -12.1639       0.0000     -12.1639
+ CO3-2                      2.8455E-13     -12.5458      -0.0012     -12.5471
+ MgOH+                      6.3550E-14     -13.1969      -0.0003     -13.1972
+ HSO4-                      5.5467E-14     -13.2560      -0.0003     -13.2563
+ H3PO4                      3.9155E-14     -13.4072       0.0000     -13.4072
+ AlOH+2                     3.6861E-14     -13.4334      -0.0012     -13.4347
+ FeOH+2                     2.6781E-14     -13.5722      -0.0012     -13.5734
+ CaOH+                      7.3522E-15     -14.1336      -0.0003     -14.1339
+ SrOH+                      2.9419E-15     -14.5314      -0.0003     -14.5317
+ PO4-3                      1.0221E-15     -14.9905      -0.0028     -14.9933
+ Al+3                       2.8214E-16     -15.5495      -0.0028     -15.5523
+ MgSO4                      2.0222E-16     -15.6942       0.0000     -15.6942
+ NaOH                       1.8883E-16     -15.7239       0.0000     -15.7239
+ CaSO4                      1.5314E-16     -15.8149       0.0000     -15.8149
+ KOH                        1.4014E-16     -15.8534       0.0000     -15.8534
+ HCl                        7.2958E-17     -16.1369       0.0000     -16.1369
+ Sr(HCO3)+                  2.8409E-17     -16.5465      -0.0003     -16.5468
+ HNO3                       2.7912E-17     -16.5542       0.0000     -16.5542
+ MgF+                       2.5535E-17     -16.5929      -0.0003     -16.5932
+ Ca(HCO3)+                  9.2126E-18     -17.0356      -0.0003     -17.0359
+ Mg(HCO3)+                  9.2116E-18     -17.0357      -0.0003     -17.0360
+ KSO4-                      9.0156E-18     -17.0450      -0.0003     -17.0453
+ H2O2                       6.9964E-18     -17.1551       0.0000     -17.1551
+ CaF+                       6.1151E-18     -17.2136      -0.0003     -17.2139
+ NaSO4-                     5.0035E-18     -17.3007      -0.0003     -17.3010
+ SrF+                       1.6530E-18     -17.7817      -0.0003     -17.7820
+ Ca(CO3)                    1.0491E-18     -17.9792       0.0000     -17.9792
+ Fe+2                       9.5977E-19     -18.0178      -0.0012     -18.0191
+ MgCl+                      7.9084E-19     -18.1019      -0.0003     -18.1022
+ SrCl+                      7.5319E-19     -18.1231      -0.0003     -18.1234
+ CaCl+                      6.7664E-19     -18.1696      -0.0003     -18.1700
+ Sr(CO3)                    4.0177E-19     -18.3960       0.0000     -18.3960
+ Mg(CO3)                    3.5232E-19     -18.4531       0.0000     -18.4531
+ Fe+3                       2.6254E-19     -18.5808      -0.0028     -18.5836
+ NaCl                       1.8942E-19     -18.7226       0.0000     -18.7226
+ NaF                        1.2092E-19     -18.9175       0.0000     -18.9175
+ NaHSiO3                    7.1282E-20     -19.1470       0.0000     -19.1470
+ NaBr                       5.5388E-20     -19.2566       0.0000     -19.2566
+ Mg(HSiO3)+                 4.4381E-20     -19.3528      -0.0003     -19.3531
+ Ca(HSiO3)+                 2.9300E-20     -19.5331      -0.0003     -19.5334
+ KBr                        2.6644E-20     -19.5744       0.0000     -19.5744
+ HBrO                       2.3460E-20     -19.6297       0.0000     -19.6297
+ FeOH+                      1.2211E-20     -19.9133      -0.0003     -19.9136
+ H2P2O7-2                   8.4974E-21     -20.0707      -0.0012     -20.0720
+ HP2O7-3                    8.0557E-21     -20.0939      -0.0028     -20.0967
+ KCl                        5.3036E-21     -20.2754       0.0000     -20.2754
+ NO2-                       2.7162E-21     -20.5660      -0.0003     -20.5663
+ FeF+2                      6.5670E-22     -21.1826      -0.0012     -21.1839
+ BrO-                       5.9580E-22     -21.2249      -0.0003     -21.2252
+ HO2-                       2.2246E-22     -21.6527      -0.0003     -21.6531
+ HF2-                       1.7085E-22     -21.7674      -0.0003     -21.7677
+ P2O7-4                     1.5010E-23     -22.8236      -0.0050     -22.8286
+ FeO                        3.1429E-24     -23.5027       0.0000     -23.5027
+ HNO2                       8.2597E-25     -24.0830       0.0000     -24.0830
+ H3P2O7-                    6.2620E-25     -24.2033      -0.0003     -24.2036
+ HClO                       5.2450E-25     -24.2803       0.0000     -24.2803
+ ClO-                       1.1404E-25     -24.9430      -0.0003     -24.9433
+ HFeO2-                     4.7752E-26     -25.3210      -0.0003     -25.3213
+ KHSO4                      3.8817E-26     -25.4110       0.0000     -25.4110
+ FeF+                       2.7035E-26     -25.5681      -0.0003     -25.5684
+ N2                         1.4831E-27     -26.8288       0.0000     -26.8288
+ FeCl+                      7.5372E-28     -27.1228      -0.0003     -27.1231
+ CaCl2                      1.6994E-28     -27.7697       0.0000     -27.7697
+ H4P2O7                     9.0152E-30     -29.0450       0.0000     -29.0450
+ BrO3-                      6.5577E-32     -31.1832      -0.0003     -31.1836
+ ClO3-                      6.0251E-32     -31.2200      -0.0003     -31.2203
+ ClO4-                      7.9802E-33     -32.0980      -0.0003     -32.0983
+ HSO5-                      1.9965E-33     -32.6997      -0.0003     -32.7000
+ ClO2-                      4.0961E-35     -34.3876      -0.0003     -34.3879
+ Br3-                       2.8722E-36     -35.5418      -0.0003     -35.5421
+ H2                         2.7128E-40     -39.5666       0.0000     -39.5666
+ FeCl2                      2.4689E-43     -42.6075       0.0000     -42.6075
+ BF4-                       8.2891E-48     -47.0815      -0.0003     -47.0818
+ BrO4-                      1.3422E-48     -47.8722      -0.0003     -47.8725
+ HSO3-                      4.2590E-49     -48.3707      -0.0003     -48.3710
+ SO3-2                      9.6661E-50     -49.0147      -0.0012     -49.0160
+ CO                         1.4438E-51     -50.8405       0.0000     -50.8405
+ HPO3-2                     4.1475E-53     -52.3822      -0.0012     -52.3834
+ S2O8-2                     1.9449E-53     -52.7111      -0.0012     -52.7123
+ H2PO3-                     1.6084E-53     -52.7936      -0.0003     -52.7939
+ SO2                        1.4464E-53     -52.8397       0.0000     -52.8397
+ H3PO3                      3.7753E-58     -57.4231       0.0000     -57.4231
+ NH4+                       1.4447E-61     -60.8402      -0.0003     -60.8405
+ NH3                        1.5821E-63     -62.8008       0.0000     -62.8008
+ SiF6-2                     6.4719E-65     -64.1890      -0.0012     -64.1902
+ H2N2O2                     8.1161E-69     -68.0907       0.0000     -68.0907
+ HN2O2-                     5.8830E-69     -68.2304      -0.0003     -68.2307
+ N2O2-2                     7.8603E-73     -72.1046      -0.0012     -72.1058
+ S2O6-2                     2.6675E-75     -74.5739      -0.0012     -74.5751
+ OCN-                       3.4340E-79     -78.4642      -0.0003     -78.4645
+ S2O5-2                     3.0321-102    -101.5183      -0.0012    -101.5195
+ H2PO2-                     7.6750-106    -105.1149      -0.0003    -105.1152
+ H3PO2                      2.3486-110    -109.6292       0.0000    -109.6292
+ N2H5+                      1.1188-117    -116.9513      -0.0003    -116.9516
+ HCN                        3.8323-119    -118.4165       0.0000    -118.4165
+ CN-                        4.6584-121    -120.3318      -0.0003    -120.3321
+ N2H6+2                     2.9683-125    -124.5275      -0.0012    -124.5287
+ S2O4-2                     1.7519-131    -130.7565      -0.0012    -130.7577
+ H2S                        6.0652-132    -131.2172       0.0000    -131.2172
+ HS-                        5.0285-132    -131.2986      -0.0003    -131.2989
+ HS2O4-                     1.9137-135    -134.7181      -0.0003    -134.7184
+ H2S2O4                     2.2918-141    -140.6398       0.0000    -140.6398
+ S2O3-2                     5.7126-143    -142.2432      -0.0012    -142.2444
+ H2S2O3                     2.6396-153    -152.5785       0.0000    -152.5785
+ S3O6-2                     9.7468-176    -175.0111      -0.0012    -175.0124
+ SCN-                       2.0643-207    -206.6852      -0.0003    -206.6855
+ S2-2                       1.1965-235    -234.9221      -0.0012    -234.9233
+ S4O6-2                     2.4961-261    -260.6027      -0.0012    -260.6040
+ S3-2                       0.0000E+00    -333.0325      -0.0012    -333.0337
+ S5O6-2                     0.0000E+00    -373.2126      -0.0012    -373.2138
+ S4-2                       0.0000E+00    -431.3432      -0.0012    -431.3445
+ S5-2                       0.0000E+00    -529.8533      -0.0012    -529.8546
+ METHANE                    0.0000E+00  -99999.0000       0.0000  -99999.0000
+ O2(g)                      0.0000E+00  -99999.0000       0.0000      -1.0000
+
+
+
+                --- Aqueous Redox Reactions ---
+
+   Couple                           Eh, volts      pe-      log fO2   Ah, kcal
+
+ DEFAULT                              0.759    1.1634E+01    -1.000    17.515
+
+    Couples required to satisfy the default redox constraint are not listed.
+
+
+
+      --- Saturation States of Aqueous Reactions Not Fixed at Equilibrium ---
+
+   Reaction                           Log Q/K    Affinity, kcal
+
+ None
+
+
+
+           --- Saturation States of Pure Solids ---
+
+       Phase                      Log Q/K    Affinity, kcal
+
+     akermanite                  -47.11032    -70.92191
+     albite                      -27.33375    -41.14940
+     albite,high                 -28.47284    -42.86423
+     albite,low                  -27.33228    -41.14720
+     alunite                     -30.97793    -46.63550
+     amesite,7a                 **********   **********
+     amorphous-silica             -6.68646    -10.06609
+     analcime                    -21.97659    -33.08450
+     analcime,dehydrated         -26.26136    -39.53499
+     andalusite                  -12.69340    -19.10919
+     andradite                   -42.47117    -63.93793
+     anhydrite                   -13.67572    -20.58802
+     annite                      -66.10148    -99.51200
+     anorthite                   -27.46501    -41.34701
+     anthophyllite              -103.93894   -156.47415
+     antigorite                 -543.23757   -817.81318
+     aragonite                   -13.38661    -20.15277
+     artinite                    -25.39369    -38.22875
+     boehmite                     -2.98298     -4.49070
+     brucite                     -10.60183    -15.96045
+     ca-al-pyroxene              -26.77944    -40.31492
+     calcite                     -13.26542    -19.97033
+     celadonite                 **********   **********
+     celestite                   -11.62060    -17.49415
+     chabazite                  **********   **********
+     chalcedony                   -5.79434     -8.72305
+     chloritoid                 **********   **********
+     chrysotile                  -34.00721    -51.19591
+     clinochlore,14a             -56.50030    -85.05799
+     clinochlore,7a              -59.69279    -89.86409
+     clinozoisite                -42.36945    -63.78479
+     coesite                      -6.27151     -9.44139
+     cordierite                  -62.89782    -94.68908
+     cordierite,hydrous          -60.63091    -91.27637
+     corundum                     -7.86350    -11.83805
+     cristobalite                 -6.06148     -9.12522
+     cristobalite,alpha           -6.06148     -9.12522
+     cronstedtite,7a             -31.08163    -46.79162
+     cristobalite,beta            -6.44754     -9.70641
+     cummingtonite              **********   **********
+     daphnite,14a                -87.20147   -131.27684
+     diaspore                     -2.26841     -3.41496
+     diopside                    -29.05475    -43.74026
+     dolomite                    -25.16902    -37.89052
+     dolomite-dis                -26.51218    -39.91258
+     dolomite-ord                -25.16876    -37.89013
+     enstatite                   -15.11559    -22.75566
+     epidote                     -36.77287    -55.35946
+     epidote,ordered             -36.77467    -55.36216
+     fayalite                    -35.98627    -54.17528
+     fe-brucite                  -16.53486    -24.89229
+     ferrihydrite                 -0.86089     -1.29602
+     ferrihydrite*0h2o            -2.30803     -3.47460
+     ferrihydrite*1h2o            -0.49017     -0.73792
+     ferropargasite             -127.37492   -191.75568
+     ferrosilite                 -20.67690    -31.12789
+     ferrotremolite             -136.94243   -206.15902
+     ferrous-oxide               -16.97418    -25.55367
+     fluorite                    -17.44336    -26.25999
+     forsterite                  -25.80393    -38.84634
+     gehlenite                   -41.24171    -62.08704
+     gibbsite                     -1.70458     -2.56615
+     goethite                      1.35710      2.04304     SSATD
+     graphite                    -69.18275   -104.15069
+     greenalite                  -54.28929    -81.72944
+     grossular                   -51.78642    -77.96150
+     halite                      -19.68720    -29.63795
+     hedenbergite                -36.88294    -55.52516
+     hematite                      3.32918      5.01189     SSATD
+     huntite                     -54.76198    -82.44103
+     hydromagnesite              -69.29194   -104.31506
+     iron                        -56.01617    -84.32915
+     jadeite                     -23.28031    -35.04717
+     K-feldspar                  -24.74224    -37.24803
+     kalsilite                   -16.47948    -24.80892
+     kaolinite                   -13.86896    -20.87893
+     kyanite                     -12.43474    -18.71979
+     laumontite                  -34.45198    -51.86549
+     lawsonite                   -23.79147    -35.81671
+     lepidocrocite                 0.31647      0.47643     SSATD
+     lime                        -25.55885    -38.47739
+     maghemite                     1.30483      1.96434     SSATD
+     magnesite                   -13.36846    -20.12545
+     magnetite                   -10.80572    -16.26740
+     margarite                   -29.82570    -44.90089
+     merwinite                   -64.10825    -96.51132
+     microcline,maximum          -24.73789    -37.24148
+     minnesotaite                -63.85591    -96.13143
+     monticellite                -27.71293    -41.72024
+     muscovite                   -26.49362    -39.88464
+     nepheline                   -18.98209    -28.57646
+     nesquehonite                -17.03400    -25.64372
+     paragonite                  -29.92239    -45.04646
+     pargasite                  -108.41602   -163.21413
+     periclase                   -15.03018    -22.62708
+     phlogopite                  -46.15381    -69.48193
+     potassium-oxide             -82.08537   -123.57484
+     prehnite                    -38.71395    -58.28164
+     pyrite                     -228.90028   -344.59632
+     pyrophyllite                -26.31426    -39.61462
+     pyrrhotite                 -139.09811   -209.40426
+     quartz                       -5.54887     -8.35350
+     sanidine,high               -25.75691    -38.77556
+     sepiolite                   -66.43016   -100.00681
+     siderite                    -20.11065    -30.27544
+     sillimanite                 -12.99105    -19.55729
+     sodium-oxide                -66.75791   -100.50022
+     spinel                      -18.85426    -28.38402
+     strontianite                -11.41674    -17.18726
+     sulfur                      -99.12226   -149.22291
+     sylvite                     -19.17338    -28.86442
+     talc                        -43.16478    -64.98211
+     tremolite                   -99.64197   -150.00531
+     wairakite                   -38.09707    -57.35297
+     wollastonite                -17.68141    -26.61836
+     zoisite                     -42.40559    -63.83919
+     mg-beidellite               -25.41345    -38.25850
+     mg-montmorillonite          -27.85450    -41.93336
+     mg-nontronite               -17.16721    -25.84425
+     mg-saponite                 -42.24535    -63.59797
+     na-beidellite               -27.14129    -40.85967
+     na-montmorillonite          -29.58165    -44.53349
+     na-nontronite               -18.89516    -28.44559
+     na-saponite                 -43.97585    -66.20314
+     k-montmorillonite           -29.32331    -44.14456
+     k-nontronite                -18.63576    -28.05508
+     k-saponite                  -43.71658    -65.81282
+     h-beidellite                -25.30888    -38.10107
+     h-montmorillonite           -27.74992    -41.77593
+     h-nontronite                -17.06275    -25.68699
+     h-saponite                  -42.14321    -63.44420
+     feca-saponite               -63.03018    -94.88834
+     feh-saponite                -62.85552    -94.62540
+     fek-saponite                -64.40694    -96.96097
+     femg-saponite               -62.93736    -94.74860
+     fena-saponite               -64.66728    -97.35290
+     ca-beidellite               -25.50502    -38.39635
+     ca-montmorillonite          -27.94598    -42.07107
+     ca-nontronite               -17.25866    -25.98193
+     ca-saponite                 -42.33922    -63.73929
+     k-beidellite                -26.88225    -40.46969
+     flourapatite                -40.37912    -60.78846
+     hydroxyapatite              -41.12466    -61.91083
+     chlorapatite                -52.49236    -79.02426
+     chlorannite                 -99.34768   -149.56226
+
+
+
+           --- Saturation States of Pure Liquids ---
+
+       Phase                      Log Q/K    Affinity, kcal
+
+     H2O                          -0.00000     -0.00000     SATD
+
+
+
+           --- Saturation States of Solid Solutions ---
+
+       Phase                      Log Q/K    Affinity, kcal
+
+     biotite-ss                 **********   **********
+     carbonate-ss               **********   **********
+     chlorite-ss                **********   **********
+     epidote-ss                 **********   **********
+     garnet-ss                  **********   **********
+     olivine-ss                 **********   **********
+     ideal_olivine-ss           **********   **********
+     orthopyroxene-ss           **********   **********
+     clinopyroxene-ss           **********   **********
+     ca-amphib_binary-ss        **********   **********
+     amphib_ternary-ss          **********   **********
+     trem_parg_binary-ss        **********   **********
+     ideal_plagioclase-ss       **********   **********
+     plagioclase_low-ss         **********   **********
+     plag_cub_mac-ss            **********   **********
+     sanidine-ss                **********   **********
+     microcline-ss              **********   **********
+     alk_feldspar-ss            **********   **********
+     alk_feld_bin_mar-ss        **********   **********
+     feld_bin_marg2-ss          **********   **********
+     serpentine                 **********   **********
+     brucite-ss                 **********   **********
+     talc-ss                    **********   **********
+     saponite-ss                **********   **********
+     nontronite-ss              **********   **********
+     beidellite                 **********   **********
+     montmorillonite            **********   **********
+
+
+           --- Summary of Saturated and Supersaturated Phases ---
+
+                There is 1 saturated phase.
+                There are    4 supersaturated phases.
+
+
+                --- Saturation States of Hypothetical Solid Solutions ---
+
+
+                --- biotite-ss ---
+
+   Ideal solution
+
+    Component                    x           Log x   Log lambda  Log activity
+
+ annite                      2.2427E-07     -6.6492    -13.2984    -19.9477
+ phlogopite                  1.0000E+00     -0.0000     -0.0000     -0.0000
+
+
+    Mineral                       Log Q/K         Aff, kcal    State
+
+ biotite-ss                        -46.1538        -69.4819
+   annite                          -46.1538        -69.4819
+   phlogopite                      -46.1538        -69.4819
+
+
+                --- carbonate-ss ---
+
+   Ideal solution
+
+    Component                    x           Log x   Log lambda  Log activity
+
+ calcite                     1.3818E-02     -1.8595      0.0000     -1.8595
+ magnesite                   1.0900E-02     -1.9626      0.0000     -1.9626
+ siderite                    1.9734E-09     -8.7048      0.0000     -8.7048
+ strontianite                9.7528E-01     -0.0109      0.0000     -0.0109
+
+
+    Mineral                       Log Q/K         Aff, kcal    State
+
+ carbonate-ss                      -11.4059        -17.1709
+   calcite                         -11.4059        -17.1709
+   magnesite                       -11.4059        -17.1709
+   siderite                        -11.4059        -17.1709
+   strontianite                    -11.4059        -17.1709
+
+
+                --- chlorite-ss ---
+
+   Ideal solution
+
+    Component                    x           Log x   Log lambda  Log activity
+
+ clinochlore,14a             1.0000E+00     -0.0000     -0.0000     -0.0000
+ daphnite,14a                7.2405E-07     -6.1402    -24.5609    -30.7012
+
+
+    Mineral                       Log Q/K         Aff, kcal    State
+
+ chlorite-ss                       -56.5003        -85.0580
+   clinochlore,14a                 -56.5003        -85.0580
+   daphnite,14a                    -56.5003        -85.0580
+
+
+                --- epidote-ss ---
+
+   Ideal solution
+
+    Component                    x           Log x   Log lambda  Log activity
+
+ clinozoisite                2.5318E-06     -5.5966      0.0000     -5.5966
+ epidote                     1.0000E+00     -0.0000      0.0000     -0.0000
+
+
+    Mineral                       Log Q/K         Aff, kcal    State
+
+ epidote-ss                        -36.7729        -55.3595
+   clinozoisite                    -36.7729        -55.3595
+   epidote                         -36.7729        -55.3595
+
+
+                --- garnet-ss ---
+
+   Ideal solution
+
+    Component                    x           Log x   Log lambda  Log activity
+
+ andradite                   9.9998E-01     -0.0000     -0.0000     -0.0000
+ grossular                   2.1997E-05     -4.6576     -4.6576     -9.3153
+
+
+    Mineral                       Log Q/K         Aff, kcal    State
+
+ garnet-ss                         -42.4712        -63.9379
+   andradite                       -42.4712        -63.9379
+   grossular                       -42.4712        -63.9379
+
+
+                --- olivine-ss ---
+
+   Ideal solution
+
+    Component                    x           Log x   Log lambda  Log activity
+
+ fayalite                    8.1063E-06     -5.0912     -5.0912    -10.1824
+ forsterite                  9.9999E-01     -0.0000     -0.0000     -0.0000
+
+
+    Mineral                       Log Q/K         Aff, kcal    State
+
+ olivine-ss                        -25.8039        -38.8463
+   fayalite                        -25.8039        -38.8463
+   forsterite                      -25.8039        -38.8463
+
+
+                --- ideal_olivine-ss ---
+
+   Ideal solution
+
+    Component                    x           Log x   Log lambda  Log activity
+
+ fayalite                    8.1063E-06     -5.0912     -5.0912    -10.1824
+ forsterite                  9.9999E-01     -0.0000     -0.0000     -0.0000
+
+
+    Mineral                       Log Q/K         Aff, kcal    State
+
+ ideal_olivine-ss                  -25.8039        -38.8463
+   fayalite                        -25.8039        -38.8463
+   forsterite                      -25.8039        -38.8463
+
+
+                --- orthopyroxene-ss ---
+
+   Ideal solution
+
+    Component                    x           Log x   Log lambda  Log activity
+
+ enstatite                   1.0000E+00     -0.0000      0.0000     -0.0000
+ ferrosilite                 2.7460E-06     -5.5613      0.0000     -5.5613
+
+
+    Mineral                       Log Q/K         Aff, kcal    State
+
+ orthopyroxene-ss                  -15.1156        -22.7557
+   enstatite                       -15.1156        -22.7557
+   ferrosilite                     -15.1156        -22.7557
+
+
+                --- clinopyroxene-ss ---
+
+   Ideal solution
+
+    Component                    x           Log x   Log lambda  Log activity
+
+ diopside                    1.0000E+00     -0.0000      0.0000     -0.0000
+ hedenbergite                1.4853E-08     -7.8282      0.0000     -7.8282
+
+
+    Mineral                       Log Q/K         Aff, kcal    State
+
+ clinopyroxene-ss                  -29.0547        -43.7403
+   diopside                        -29.0547        -43.7403
+   hedenbergite                    -29.0547        -43.7403
+
+
+                --- ca-amphib_binary-ss ---
+
+   Ideal solution
+
+    Component                    x           Log x   Log lambda  Log activity
+
+ tremolite                   1.0000E+00      0.0000      0.0000      0.0000
+ ferrotremolite              5.0066E-38    -37.3005      0.0000    -37.3005
+
+
+    Mineral                       Log Q/K         Aff, kcal    State
+
+ ca-amphib_binary-ss               -99.6420       -150.0053
+   tremolite                       -99.6420       -150.0053
+   ferrotremolite                  -99.6420       -150.0053
+
+
+                --- amphib_ternary-ss ---
+
+   Ideal solution
+
+    Component                    x           Log x   Log lambda  Log activity
+
+ tremolite                   1.0000E+00     -0.0000      0.0000     -0.0000
+ ferrotremolite              5.0066E-38    -37.3005      0.0000    -37.3005
+ pargasite                   1.6825E-09     -8.7740      0.0000     -8.7740
+
+
+    Mineral                       Log Q/K         Aff, kcal    State
+
+ amphib_ternary-ss                 -99.6420       -150.0053
+   tremolite                       -99.6420       -150.0053
+   ferrotremolite                  -99.6420       -150.0053
+   pargasite                       -99.6420       -150.0053
+
+
+                --- trem_parg_binary-ss ---
+
+   Ideal solution
+
+    Component                    x           Log x   Log lambda  Log activity
+
+ tremolite                   1.0000E+00     -0.0000      0.0000     -0.0000
+ pargasite                   1.6825E-09     -8.7740      0.0000     -8.7740
+
+
+    Mineral                       Log Q/K         Aff, kcal    State
+
+ trem_parg_binary-ss               -99.6420       -150.0053
+   tremolite                       -99.6420       -150.0053
+   pargasite                       -99.6420       -150.0053
+
+
+                --- ideal_plagioclase-ss ---
+
+   Ideal solution
+
+    Component                    x           Log x   Log lambda  Log activity
+
+ albite,high                 8.9431E-02     -1.0485      0.0000     -1.0485
+ anorthite                   9.1057E-01     -0.0407      0.0000     -0.0407
+
+
+    Mineral                       Log Q/K         Aff, kcal    State
+
+ ideal_plagioclase-ss              -27.4243        -41.2858
+   albite,high                     -27.4243        -41.2858
+   anorthite                       -27.4243        -41.2858
+
+
+                --- plagioclase_low-ss ---
+
+   Ideal solution
+
+    Component                    x           Log x   Log lambda  Log activity
+
+ albite,low                  5.7581E-01     -0.2397      0.0000     -0.2397
+ anorthite                   4.2419E-01     -0.3724      0.0000     -0.3724
+
+
+    Mineral                       Log Q/K         Aff, kcal    State
+
+ plagioclase_low-ss                -27.0926        -40.7863
+   albite,low                      -27.0926        -40.7863
+   anorthite                       -27.0926        -40.7863
+
+
+                --- plag_cub_mac-ss ---
+
+   Ideal solution
+
+    Component                    x           Log x   Log lambda  Log activity
+
+ albite,low                  5.7581E-01     -0.2397      0.0000     -0.2397
+ anorthite                   4.2419E-01     -0.3724      0.0000     -0.3724
+
+
+    Mineral                       Log Q/K         Aff, kcal    State
+
+ plag_cub_mac-ss                   -27.0926        -40.7863
+   albite,low                      -27.0926        -40.7863
+   anorthite                       -27.0926        -40.7863
+
+
+                --- sanidine-ss ---
+
+   Ideal solution
+
+    Component                    x           Log x   Log lambda  Log activity
+
+ albite,high                 1.9197E-03     -2.7168      0.0000     -2.7168
+ sanidine,high               9.9808E-01     -0.0008      0.0000     -0.0008
+
+
+    Mineral                       Log Q/K         Aff, kcal    State
+
+ sanidine-ss                       -25.7561        -38.7743
+   albite,high                     -25.7561        -38.7743
+   sanidine,high                   -25.7561        -38.7743
+
+
+                --- microcline-ss ---
+
+   Ideal solution
+
+    Component                    x           Log x   Log lambda  Log activity
+
+ albite,low                  2.5381E-03     -2.5955      0.0000     -2.5955
+ microcline,maximum          9.9746E-01     -0.0011      0.0000     -0.0011
+
+
+    Mineral                       Log Q/K         Aff, kcal    State
+
+ microcline-ss                     -24.7368        -37.2398
+   albite,low                      -24.7368        -37.2398
+   microcline,maximum              -24.7368        -37.2398
+
+
+                --- alk_feldspar-ss ---
+
+   Ideal solution
+
+    Component                    x           Log x   Log lambda  Log activity
+
+ albite,low                  2.5635E-03     -2.5912      0.0000     -2.5912
+ K-feldspar                  9.9744E-01     -0.0011      0.0000     -0.0011
+
+
+    Mineral                       Log Q/K         Aff, kcal    State
+
+ alk_feldspar-ss                   -24.7411        -37.2464
+   albite,low                      -24.7411        -37.2464
+   K-feldspar                      -24.7411        -37.2464
+
+
+                --- alk_feld_bin_mar-ss ---
+
+   Ideal solution
+
+    Component                    x           Log x   Log lambda  Log activity
+
+ albite,low                  2.5635E-03     -2.5912      0.0000     -2.5912
+ K-feldspar                  9.9744E-01     -0.0011      0.0000     -0.0011
+
+
+    Mineral                       Log Q/K         Aff, kcal    State
+
+ alk_feld_bin_mar-ss               -24.7411        -37.2464
+   albite,low                      -24.7411        -37.2464
+   K-feldspar                      -24.7411        -37.2464
+
+
+                --- feld_bin_marg2-ss ---
+
+   Binary, cubic Maclaurin (P,T)
+
+    Component                    x           Log x   Log lambda  Log activity
+
+ albite,low                  2.5635E-03     -2.5912      0.0000     -2.5912
+ K-feldspar                  9.9744E-01     -0.0011      0.0000     -0.0011
+
+
+    Mineral                       Log Q/K         Aff, kcal    State
+
+ feld_bin_marg2-ss                 -24.7411        -37.2464
+   albite,low                      -24.7411        -37.2464
+   K-feldspar                      -24.7411        -37.2464
+
+
+                --- serpentine ---
+
+   Ideal solution
+
+    Component                    x           Log x   Log lambda  Log activity
+
+ chrysotile                  9.5741E-02     -1.0189     -2.0378     -3.0567
+ greenalite                  1.6611E-08     -7.7796    -15.5592    -23.3388
+ cronstedtite,7a             9.0426E-01     -0.0437     -0.0874     -0.1311
+
+
+    Mineral                       Log Q/K         Aff, kcal    State
+
+ serpentine                        -30.9505        -46.5942
+   chrysotile                      -30.9505        -46.5942
+   greenalite                      -30.9505        -46.5942
+   cronstedtite,7a                 -30.9505        -46.5942
+
+
+                --- brucite-ss ---
+
+   Ideal solution
+
+    Component                    x           Log x   Log lambda  Log activity
+
+ brucite                     1.0000E+00     -0.0000      0.0000     -0.0000
+ fe-brucite                  1.1667E-06     -5.9330      0.0000     -5.9330
+
+
+    Mineral                       Log Q/K         Aff, kcal    State
+
+ brucite-ss                        -10.6018        -15.9604
+   brucite                         -10.6018        -15.9604
+   fe-brucite                      -10.6018        -15.9604
+
+
+                --- talc-ss ---
+
+   Ideal solution
+
+    Component                    x           Log x   Log lambda  Log activity
+
+ talc                        1.0000E+00     -0.0000     -0.0000     -0.0000
+ minnesotaite                1.2675E-07     -6.8970    -13.7941    -20.6911
+
+
+    Mineral                       Log Q/K         Aff, kcal    State
+
+ talc-ss                           -43.1648        -64.9821
+   talc                            -43.1648        -64.9821
+   minnesotaite                    -43.1648        -64.9821
+
+
+                --- saponite-ss ---
+
+   Ideal solution
+
+    Component                    x           Log x   Log lambda  Log activity
+
+ ca-saponite                 1.4595E-01     -0.8358      0.5600     -0.2758
+ h-saponite                  5.7306E-01     -0.2418      0.1620     -0.0798
+ k-saponite                  9.7816E-06     -5.0096      3.3564     -1.6532
+ mg-saponite                 2.8098E-01     -0.5513      0.3694     -0.1819
+ na-saponite                 1.6022E-06     -5.7953      3.8828     -1.9124
+
+
+    Mineral                       Log Q/K         Aff, kcal    State
+
+ saponite-ss                       -42.0634        -63.3241
+   ca-saponite                     -42.0634        -63.3241
+   h-saponite                      -42.0634        -63.3241
+   k-saponite                      -42.0634        -63.3241
+   mg-saponite                     -42.0634        -63.3241
+   na-saponite                     -42.0634        -63.3241
+
+
+                --- nontronite-ss ---
+
+   Ideal solution
+
+    Component                    x           Log x   Log lambda  Log activity
+
+ ca-nontronite               1.4670E-01     -0.8336      0.5585     -0.2751
+ h-nontronite                5.7559E-01     -0.2399      0.1607     -0.0792
+ k-nontronite                9.8491E-06     -5.0066      3.3544     -1.6522
+ mg-nontronite               2.7769E-01     -0.5564      0.3728     -0.1836
+ na-nontronite               1.6119E-06     -5.7927      3.8811     -1.9116
+
+
+    Mineral                       Log Q/K         Aff, kcal    State
+
+ nontronite-ss                     -16.9836        -25.5678
+   ca-nontronite                   -16.9836        -25.5678
+   h-nontronite                    -16.9836        -25.5678
+   k-nontronite                    -16.9836        -25.5678
+   mg-nontronite                   -16.9836        -25.5678
+   na-nontronite                   -16.9836        -25.5678
+
+
+                --- beidellite ---
+
+   Ideal solution
+
+    Component                    x           Log x   Log lambda  Log activity
+
+ ca-beidellite               1.4653E-01     -0.8341      0.5588     -0.2752
+ h-beidellite                5.7585E-01     -0.2397      0.1606     -0.0791
+ k-beidellite                9.8294E-06     -5.0075      3.3550     -1.6525
+ mg-beidellite               2.7760E-01     -0.5566      0.3729     -0.1837
+ na-beidellite               1.6126E-06     -5.7925      3.8810     -1.9115
+
+
+    Mineral                       Log Q/K         Aff, kcal    State
+
+ beidellite                        -25.2298        -37.9820
+   ca-beidellite                   -25.2298        -37.9820
+   h-beidellite                    -25.2298        -37.9820
+   k-beidellite                    -25.2298        -37.9820
+   mg-beidellite                   -25.2298        -37.9820
+   na-beidellite                   -25.2298        -37.9820
+
+
+                --- montmorillonite ---
+
+   Ideal solution
+
+    Component                    x           Log x   Log lambda  Log activity
+
+ ca-montmorillonite          1.4661E-01     -0.8338      0.5587     -0.2752
+ h-montmorillonite           5.7580E-01     -0.2397      0.1606     -0.0791
+ k-montmorillonite           9.8276E-06     -5.0076      3.3551     -1.6525
+ mg-montmorillonite          2.7757E-01     -0.5566      0.3729     -0.1837
+ na-montmorillonite          1.6203E-06     -5.7904      3.8796     -1.9108
+
+
+    Mineral                       Log Q/K         Aff, kcal    State
+
+ montmorillonite                   -27.6708        -41.6568
+   ca-montmorillonite              -27.6708        -41.6568
+   h-montmorillonite               -27.6708        -41.6568
+   k-montmorillonite               -27.6708        -41.6568
+   mg-montmorillonite              -27.6708        -41.6568
+   na-montmorillonite              -27.6708        -41.6568
+
+
+                     --- Fugacities ---
+
+     Gas                     Log Fugacity    Fugacity
+
+   H2O(g)                       -0.72666    1.87647E-01
+   O2(g)                        -1.00000    1.00000E-01
+   CO2(g)                       -7.52239    3.00337E-08
+   N2(g)                       -23.24305    5.71410E-24
+   NO(g)                       -25.80320    1.57327E-26
+   H2(g)                       -36.21629    6.07734E-37
+   N2O(g)                      -40.65009    2.23824E-41
+   CO(g)                       -47.42597    3.75000E-48
+   SO2(g)                      -52.29021    5.12616E-53
+   NH3(g)                      -63.82674    1.49025E-64
+   H2S(g)                     -129.67918    2.09327-130
+   CH4(g)                     -133.92532    1.18764-134
+   S2(g)                      -209.78234    1.65066-210
+   ETHYLENE(g)                **********    0.00000E+00
+
+
+ - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+
+ The pickup file has been written.
+
+ No further input found.
+
+
+          Start time = 15:38:04  12Jun2024
+            End time = 15:38:04  12Jun2024
+
+           Run time =  0.781E-02 seconds
+
+ Normal exit

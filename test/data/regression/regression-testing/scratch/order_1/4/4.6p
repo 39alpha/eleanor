@@ -1,0 +1,175 @@
+Note: This main title is a carry-over from a previous run.
+endit.
+     jtemp=  0
+    tempcb=  7.12611E+01
+      ttk1=  0.00000E+00      ttk2=  0.00000E+00
+    jpress=  0
+    pressb=  0.00000E+00
+      ptk1=  0.00000E+00      ptk2=  0.00000E+00
+      nrct=  2
+*-----------------------------------------------------------------------------
+  reactant= fayalite
+     jcode=  0               jreac=  1
+      morr=  0.00000E+00      modr=  1.02329E+00
+       nsk=  0               sfcar=  0.00000E+00    ssfcar=  0.00000E+00
+      fkrc=  1.00000E+00
+      nrk1=  1                nrk2=  0
+      rkb1=  1.00000E+00      rkb2=  0.00000E+00      rkb3=  0.00000E+00
+*-----------------------------------------------------------------------------
+  reactant= forsterite
+     jcode=  0               jreac=  1
+      morr=  0.00000E+00      modr=  1.02329E+00
+       nsk=  0               sfcar=  0.00000E+00    ssfcar=  0.00000E+00
+      fkrc=  1.00000E+00
+      nrk1=  1                nrk2=  0
+      rkb1=  1.00000E+00      rkb2=  0.00000E+00      rkb3=  0.00000E+00
+*-----------------------------------------------------------------------------
+    xistti=  1.02329E+00    ximaxi=  1.00000E+02
+    tistti=  0.00000E+00    timmxi=  1.00000E+38
+    phmini= -1.00000E+38    phmaxi=  1.00000E+38
+    ehmini= -1.00000E+38    ehmaxi=  1.00000E+38
+    o2mini= -1.00000E+38    o2maxi=  1.00000E+38
+    awmini= -1.00000E+38    awmaxi=  1.00000E+38
+    kstpmx=        10000
+    dlxprn=  1.00000E+38    dlxprl=  1.00000E+38
+    dltprn=  1.00000E+38    dltprl=  1.00000E+38
+    dlhprn=  1.00000E+38    dleprn=  1.00000E+38
+    dloprn=  1.00000E+38    dlaprn=  1.00000E+38
+    ksppmx=          999
+    dlxplo=  1.00000E+38    dlxpll=  1.00000E+38
+    dltplo=  1.00000E+38    dltpll=  1.00000E+38
+    dlhplo=  1.00000E+38    dleplo=  1.00000E+38
+    dloplo=  1.00000E+38    dlaplo=  1.00000E+38
+    ksplmx=        10000
+*               1    2    3    4    5    6    7    8    9   10
+  iopt1-10=     1    0    0    1    0    0    0    0    0    0
+ iopt11-20=     0    0    0    0    0   -1    0   -1    0    0
+  iopr1-10=     0    0    0    1    0   -1    1    0    0    0
+ iopr11-20=     0    0    0    0    0    0    1    0    0    0
+  iodb1-10=     0    0    0    0    0    0    0    0    0    0
+ iodb11-20=     0    0    0    0    0    0    0    0    0    0
+     nxopt=  0
+      nffg=  0
+    nordmx=   6
+     tolbt=  1.00000E-06     toldl=  1.00000E-06
+    itermx= 200
+    tolxsf=  1.00000E-06
+    tolsat=  5.00000E-04
+    ntrymx= 100
+    dlxmx0=  1.00000E-08
+    dlxdmp=  1.00000E+38
+*-----------------------------------------------------------------------------
+EQ3NR input file name= local
+endit.
+*   Special basis switches
+    nsbswt=   0
+    tempci=  7.12611E+01
+    pressi=  5.00000E+02
+* Ion exchanger creation
+    qgexsh=        F
+       net=   0
+     nxmod=  2
+   species= METHANE
+    option= -1              xlkmod=  0.00000E+00
+   species= antigorite
+    option= -1              xlkmod=  0.00000E+00
+*               1    2    3    4    5    6    7    8    9   10
+  iopg1-10=     0    0    0    0    0    0    0    0    0    0
+ iopg11-20=     0    0    0    0    0    0    0    0    0    0
+       kct= 18                 kbt= 19                 kmt= 20
+       kxt= 25                kdim= 25                kprs=  0
+* Data file basis species and jflgi values
+   H2O                     Aqueous solution            0
+   Cl-                     Aqueous solution            0
+   H+                      Aqueous solution            0
+   Al+3                    Aqueous solution            0
+   B(OH)3                  Aqueous solution            0
+   Br-                     Aqueous solution            0
+   Ca+2                    Aqueous solution            0
+   F-                      Aqueous solution            0
+   Fe+2                    Aqueous solution            0
+   HCO3-                   Aqueous solution            0
+   HPO4-2                  Aqueous solution            0
+   K+                      Aqueous solution            0
+   Mg+2                    Aqueous solution            0
+   Na+                     Aqueous solution            0
+   NO3-                    Aqueous solution            0
+   SiO2                    Aqueous solution            0
+   SO4-2                   Aqueous solution            0
+   Sr+2                    Aqueous solution            0
+   O2(g)                   Aqueous solution            0
+*       Mass balance totals     Aqueous mass balance totals
+       5.960159555949848E+01       5.270286704546596E+01
+       1.000000000000002E-09       1.000000000000161E-09
+      -8.186320004000011E+00      -1.248362445802639E-04
+       1.000000000000598E-09       1.000000002426920E-09
+       9.999999999999978E-10       9.999999992344854E-10
+       1.000000000000002E-09       1.000000000000001E-09
+       9.999999999999999E-10       1.000000000005317E-09
+       1.000000000000000E-09       1.000000000005396E-09
+       2.046580001000003E+00       1.693954986459500E-06
+       1.000000000000088E-09       6.025716433114085E-15
+       1.000000000000431E-09       1.000000000051429E-09
+       9.999999999999990E-10       9.999999999999850E-10
+       2.046580001000003E+00       6.072366741610132E-05
+       9.999999999999982E-10       9.999999999999804E-10
+       9.999999999999996E-10       1.000000001254774E-09
+       2.046580001000003E+00       1.431251798068434E-07
+       1.000000000000000E-09       1.000000003075648E-09
+       1.000000000000001E-09       1.000000000002320E-09
+       4.611511504403622E-05      -8.801279213925355E-02
+         Electrical imbalance=     1.265255464961111E-19
+*   Ordinary basis switches
+    nobswt=   0
+* Matrix species or entities
+   H2O                     Aqueous solution
+   Cl-                     Aqueous solution
+   H+                      Aqueous solution
+   Al+3                    Aqueous solution
+   B(OH)3                  Aqueous solution
+   Br-                     Aqueous solution
+   Ca+2                    Aqueous solution
+   F-                      Aqueous solution
+   Fe+2                    Aqueous solution
+   HCO3-                   Aqueous solution
+   HPO4-2                  Aqueous solution
+   K+                      Aqueous solution
+   Mg+2                    Aqueous solution
+   Na+                     Aqueous solution
+   NO3-                    Aqueous solution
+   SiO2                    Aqueous solution
+   SO4-2                   Aqueous solution
+   Sr+2                    Aqueous solution
+   O2(g)                   Aqueous solution
+   graphite                graphite
+   chrysotile              serpentine
+   greenalite              serpentine
+   cronstedtite,7a         serpentine
+   brucite                 brucite-ss
+   fe-brucite              brucite-ss
+*   Values of matrix variables
+    1.720380259037715E+00
+   -9.000023273357954E+00
+   -8.727757832894859E+00
+   -2.545969468885755E+01
+   -9.408723273024483E+00
+   -9.000000000045629E+00
+   -9.001816976474027E+00
+   -9.000783729790484E+00
+   -6.700920025348675E+00
+   -1.425559190567843E+01
+   -9.008277363522902E+00
+   -9.000026256008125E+00
+   -4.229488635437894E+00
+   -9.000032341908922E+00
+   -1.032211014976001E+02
+   -7.043589362334406E+00
+   -3.808872836330450E+01
+   -9.000774962779804E+00
+   -7.460889741146548E+01
+   -9.000002616943243E+00
+   -1.989323721245868E-01
+   -5.189579052552352E-01
+   -7.541967074078959E-01
+   -8.268479381575276E-01
+   -3.625653198154707E-01

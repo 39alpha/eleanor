@@ -191,7 +191,7 @@ def random_uniform_order(camp, date, ord, file_number, order_size, elements, pre
     d0 = camp.representative_data0
 
     df = pd.DataFrame()
-    df = build_admin_info(camp, df, ord, file_number, order_size, date)
+    df = build_admin_info(camp, df, ord, file_number, order_size, date, quiet=quiet)
 
     if camp.target_rnt.items() != {}:
         for reactant, [rtype, morr, rkb1] in camp.target_rnt.items():
@@ -260,7 +260,7 @@ def build_basis(camp, precision, n):
     return df
 
 
-def build_admin_info(camp, df, ord, file_number, order_size, date):
+def build_admin_info(camp, df, ord, file_number, order_size, date, quiet=False):
     """
     Construct the 'admin_info' into dataframe
 
@@ -279,20 +279,25 @@ def build_admin_info(camp, df, ord, file_number, order_size, date):
     :param date: birthdate of order
     :type data: str
 
+    :param quiet: suppress console output
+    :type quiet: bool
+
     :return: dataframe with all admin info columns added
     :rtype: :class:'pandas.core.frame.DataFrame'
 
     """
-    print(order_size)
     df['uuid'] = [uuid.uuid4().hex for _ in range(order_size)]
+    if not quiet:
+        print("Order size: ", order_size)
     df['camp'] = camp.name
     df['file'] = list(range(file_number, file_number + order_size))
     df['ord'] = ord
     df['birth'] = date
     df['cb'] = camp.cb
     df['code'] = 0  # custom exit codes
-    print(df)
 
+    if not quiet:
+        print(df)
     return df
 
 

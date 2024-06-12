@@ -36,6 +36,24 @@ class TestIntegration(TestCase):
         self.assertEqual(es3_1, es3_2)
         self.assertEqual(es6_1, es6_2)
 
+    def test_regression(self):
+        campaign_json = self.data_path("regression", "campaign.json")
+        compaign_data0 = self.data_path("regression", "db")
+        camp = Campaign.from_json(campaign_json, compaign_data0)
+        camp.create_env(dir=self.data_path("regression"))
+
+        conn = db_comms.establish_database_connection(camp, verbose=False)
+        expected_vs = list(conn.execute('SELECT * FROM vs'))
+        expected_es3 = list(conn.execute('SELECT * FROM es3'))
+        expected_es6 = list(conn.execute('SELECT * FROM es6'))
+        conn.close()
+
+        got_vs, got_es3, got_es6 = self.worker(camp)
+
+        self.assertEqual(expected_vs, got_vs)
+        self.assertEqual(expected_es3, got_es3)
+        self.assertEqual(expected_es6, got_es6)
+
     def worker(self, camp):
         """
         Run eleanor on a campaign within a temporary testing directory.

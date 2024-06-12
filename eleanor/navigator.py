@@ -286,9 +286,10 @@ def build_admin_info(camp, df, ord, file_number, order_size, date, quiet=False):
     :rtype: :class:'pandas.core.frame.DataFrame'
 
     """
-    df['uuid'] = [uuid.uuid4().hex for _ in range(order_size)]
     if not quiet:
         print("Order size: ", order_size)
+
+    df['uuid'] = [uuid.UUID(int=random.getrandbits(128)).hex for _ in range(order_size)]
     df['camp'] = camp.name
     df['file'] = list(range(file_number, file_number + order_size))
     df['ord'] = ord
@@ -298,6 +299,7 @@ def build_admin_info(camp, df, ord, file_number, order_size, date, quiet=False):
 
     if not quiet:
         print(df)
+
     return df
 
 

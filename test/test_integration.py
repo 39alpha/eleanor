@@ -1,11 +1,15 @@
 import unittest
+import random
+import numpy as np
 from .common import TestCase
-import eleanor
+from eleanor import Campaign, Helmsman, Navigator
+from eleanor.hanger import db_comms
 from tempfile import TemporaryDirectory
+from shutil import copytree
+from os.path import join
 
 
-@unittest.skip('Integration tests are borked')
-class TestCampaign_to_Helmsman(TestCase):
+class TestIntegration(TestCase):
     """
     Tests integration between Campaign, Navigator and Helmsmen Classes
     """
@@ -16,33 +20,41 @@ class TestCampaign_to_Helmsman(TestCase):
         """
         self.assertTrue(True)
 
-    def test_campaign_to_orders(self):
+    def test_is_seedable(self):
         """
-        Confirm that the demo campaign CSS0 can be generated and converted into orders
+        Ensure that we can seed the RNGs and get the same result between runs.
         """
-        demo_camp_file = "demo/CSS0.json"
+
+        campaign_json = self.data_path("regression", "campaign.json")
+        compaign_data0 = self.data_path("regression", "db")
+        camp = Campaign.from_json(campaign_json, compaign_data0)
+
+        vs_1, es3_1, es6_1 = self.worker(camp)
+        vs_2, es3_2, es6_2 = self.worker(camp)
+
+        self.assertEqual(vs_1, vs_2)
+        self.assertEqual(es3_1, es3_2)
+        self.assertEqual(es6_1, es6_2)
+
+    def worker(self, camp):
+        """
+        Run eleanor on a campaign within a temporary testing directory.
+        """
+        random.seed(2024)
+        np.random.seed(2024)
+
         with TemporaryDirectory() as root:
-            my_camp = eleanor.Campaign.from_json(demo_camp_file, '/path/to/db')
-            my_camp.create_env(dir=root, verbose=False)
+            camp.create_env(dir=root, verbose=False)
 
-            eleanor.Navigator(my_camp)
-            with my_camp.working_directory():
-                this_conn = eleanor.hanger.db_comms.establish_database_connection(my_camp)
-            order_num = eleanor.hanger.db_comms.get_order_number(this_conn)
-            self.assertTrue(order_num == 1)
-            # Need to clean this up by removing CSSO directory
+            Navigator(camp, quiet=True)
+            Helmsman(camp, ord_id=None, num_cores=1, keep_every_n_files=1, quiet=True, no_progress=False)
 
-    def test_orders_to_results(self):
-        """
-        Confirm that the demo campaign CSS0 Orders can be read and submitted to sailors
-        """
+            conn = db_comms.establish_database_connection(camp, verbose=False)
 
-        from eleanor.helmsman import main
-        demo_camp_file = "demo/CSS0.json"
-        with TemporaryDirectory() as root:
-            my_camp = eleanor.Campaign.from_json(demo_camp_file, '/path/to/db')
-            my_camp.create_env(dir=root, verbose=False)
+            vs = list(conn.execute('SELECT * FROM vs'))
+            es3 = list(conn.execute('SELECT * FROM es3'))
+            es6 = list(conn.execute('SELECT * FROM es6'))
 
-            eleanor.Navigator(my_camp)
+            conn.close()
 
-            main(my_camp, 1)
+            return (vs, es3, es6)

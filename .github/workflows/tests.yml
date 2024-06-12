@@ -1,0 +1,33 @@
+name: Tests
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Python 3.12
+      uses: actions/setup-python@v3
+      with:
+        python-version: "3.12"
+    - name: Install EQ3/6
+      run: |
+        git clone https://github.com/39alpha/eq3_6
+        sudo make -C eq3_6 all install
+    - name: Install Python Dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install green
+        pip install .
+    - name: Test with Green
+      run: |
+        green
+

@@ -1,4 +1,4 @@
-name: Tests
+name: Test
 
 on:
   push:
@@ -21,7 +21,7 @@ jobs:
     - name: Install EQ3/6
       run: |
         git clone https://github.com/39alpha/eq3_6
-        sudo make -C eq3_6 all install
+        sudo make -C eq3_6 -j8 all install
     - name: Install Python Dependencies
       run: |
         python -m pip install --upgrade pip

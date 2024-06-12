@@ -6,8 +6,6 @@ from os.path import abspath, dirname, exists, join, realpath
 
 import os
 
-DATADIR = abspath(join(dirname(realpath(__file__)), '..', 'data'))
-
 
 class TestEQ36(TestCase):
     """
@@ -30,12 +28,12 @@ class TestEQ36(TestCase):
         with TemporaryDirectory() as tmpdir:
             self.assertNotEqual(os.getcwd(), tmpdir)
             os.chdir(tmpdir)
-            data0 = join(DATADIR, "ymp.d0")
+            data0 = self.data_path('ymp.d0')
 
             eqpt(data0)
 
             for ext in ['.po', '.d1', '.s', '.d1f']:
-                fname = join(tmpdir, "ymp" + ext)
+                fname = join(tmpdir, 'ymp' + ext)
                 self.assertTrue(exists(fname))
 
             os.chdir(cwd)
@@ -50,13 +48,13 @@ class TestEQ36(TestCase):
         with TemporaryDirectory() as tmpdir:
             self.assertNotEqual(os.getcwd(), tmpdir)
             os.chdir(tmpdir)
-            data1 = join(DATADIR, "ymp.d1")
-            threei = join(DATADIR, "acidmwb.3i")
+            data1 = self.data_path('ymp.d1')
+            threei = self.data_path('acidmwb.3i')
 
             eq3(data1, threei)
 
             for ext in ['.3p', '.3o']:
-                fname = join(tmpdir, "acidmwb" + ext)
+                fname = join(tmpdir, 'acidmwb' + ext)
                 self.assertTrue(exists(fname))
 
             os.chdir(cwd)
@@ -68,8 +66,8 @@ class TestEQ36(TestCase):
         with TemporaryDirectory() as tmpdir:
             self.assertNotEqual(os.getcwd(), tmpdir)
             with WorkingDirectory(tmpdir):
-                data1 = join(DATADIR, "eq36_error", "test.d1")
-                threei = join(DATADIR, "eq36_error", "bad.3i")
+                data1 = self.data_path('eq36_error', 'test.d1')
+                threei = self.data_path('eq36_error', 'bad.3i')
 
                 with self.assertRaises(Eq36Exception):
                     eq3(data1, threei)
@@ -84,13 +82,13 @@ class TestEQ36(TestCase):
         with TemporaryDirectory() as tmpdir:
             self.assertNotEqual(os.getcwd(), tmpdir)
             os.chdir(tmpdir)
-            data1 = join(DATADIR, "ymp.d1")
-            sixi = join(DATADIR, "crisqtz.6i")
+            data1 = self.data_path('ymp.d1')
+            sixi = self.data_path('crisqtz.6i')
 
             eq6(data1, sixi)
 
             for ext in ['.6p', '.6o']:
-                fname = join(tmpdir, "crisqtz" + ext)
+                fname = join(tmpdir, 'crisqtz' + ext)
                 self.assertTrue(exists(fname))
 
             os.chdir(cwd)
@@ -102,8 +100,8 @@ class TestEQ36(TestCase):
         with TemporaryDirectory() as tmpdir:
             self.assertNotEqual(os.getcwd(), tmpdir)
             with WorkingDirectory(tmpdir):
-                data1 = join(DATADIR, "eq36_error", "test.d1")
-                sixi = join(DATADIR, "eq36_error", "bad.6i")
+                data1 = self.data_path('eq36_error', 'test.d1')
+                sixi = self.data_path('eq36_error', 'bad.6i')
 
                 with self.assertRaises(Eq36Exception):
                     eq6(data1, sixi)

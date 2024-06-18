@@ -123,6 +123,7 @@ class Campaign:
         self._hash = None
         self._data0_hash = None
         self._representative_data0_fname = None
+        self._representative_data0 = None
         self.data1_dir = None
         self.tp_curves = None
 
@@ -158,7 +159,11 @@ class Campaign:
 
     @property
     def representative_data0(self):
-        return Data0.from_file(self._representative_data0_fname, permissive=True)
+        if self._representative_data0 is None:
+            if self._representative_data0_fname is None:
+                raise Exception('No representative data0 file selected. Have you run create_env?')
+            self._representative_data0 = Data0.from_file(self._representative_data0_fname, permissive=True)
+        return self._representative_data0
 
     def create_env(self, dir=None, verbose=True):
         """

@@ -245,10 +245,10 @@ def determine_ss_kids(camp, ss, solids):
     :rtype: list of strings
     """
     ss_kids = []
-    for _ in ss:
-        all_kids = camp.representative_data0[_].composition.keys()
-        kids_we_care_about = [_ for _ in all_kids if _ in solids]
-        ss_kids = ss_kids + [f'{i}_{_}' for i in kids_we_care_about]
+    for i in ss:
+        all_kids = camp.representative_data0[i].composition.keys()
+        kids_we_care_about = [j for j in all_kids if j in solids]
+        ss_kids = ss_kids + [f'{k}_{i}' for k in kids_we_care_about]
     return ss_kids
 
 

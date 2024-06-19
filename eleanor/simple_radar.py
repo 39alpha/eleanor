@@ -5,10 +5,7 @@ import sys
 import time
 import numpy as np
 import pandas as pd
-import seaborn as sns
 import matplotlib.pyplot as plt
-from sklearn_extra.cluster import KMedoids
-from scipy.stats import kde
 
 from .hanger.db_comms import establish_database_connection, retrieve_combined_records
 from .hanger.db_comms import get_column_names

@@ -9,7 +9,6 @@ import pandas as pd
 
 import matplotlib
 import matplotlib.pyplot as plt
-from mpl_toolkits.axes_grid1 import make_axes_locatable
 from matplotlib.colors import LinearSegmentedColormap
 
 from .db_comms import *

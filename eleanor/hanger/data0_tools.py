@@ -1,18 +1,19 @@
 import math
 import os
 import os.path
-import pandas as pd
-import numpy as np
 import re
 import shutil
 import sys
-
 from os.path import abspath, dirname, join, realpath
+from tempfile import TemporaryDirectory
+from typing import Tuple
+
 import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
 
 from .eq36 import eqpt
-from .tool_room import grab_lines, grab_str, hash_dir, read_inputs, WorkingDirectory
-from tempfile import TemporaryDirectory
+from .tool_room import WorkingDirectory, grab_lines, grab_str, hash_dir, read_inputs
 
 DATA_PATH = join(abspath(join(dirname(realpath(__file__)), '..')), 'data')
 
@@ -43,7 +44,7 @@ def determine_ele_set(path=''):
                 return [_ for _ in elements if _ not in ['O', 'H']]
 
 
-def determine_species_set(path=''):
+def determine_species_set(path: str = '') -> Tuple[list[str], list[str], list[str], list[str], list[str]]:
     """
     Use the verbose test.3o file run by the huffer to determine the loaded species
         separated into their groups (elements, aqueous, solids, solid solutions, and gases)

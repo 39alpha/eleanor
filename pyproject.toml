@@ -32,3 +32,10 @@ build-backend = "hatchling.build"
 
 [tool.yapf]
 column_limit = 120
+
+[tool.isort]
+line_length = 120
+
+[tool.mypy]
+check_untyped_defs = true
+exclude = "eleanor/hanger/eq36/parsers/.*\\.py"

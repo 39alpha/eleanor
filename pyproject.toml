@@ -38,4 +38,4 @@ line_length = 120
 
 [tool.mypy]
 check_untyped_defs = true
-exclude = "eleanor/hanger/eq36/parsers/.*\\.py"
+exclude = "(docs/source/conf\\.py|eleanor/hanger/eq36/parsers/.*\\.py)"

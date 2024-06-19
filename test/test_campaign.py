@@ -1,9 +1,12 @@
-from eleanor.campaign import Campaign
-from eleanor.hanger.tool_room import IOPT_4, Three_i, Six_i
-from tempfile import NamedTemporaryFile, TemporaryDirectory
-from os.path import dirname, isdir, isfile, join, realpath
 import json
 import os
+from os.path import dirname, isdir, isfile, join, realpath
+from tempfile import NamedTemporaryFile, TemporaryDirectory
+from typing import Any
+
+from eleanor.campaign import Campaign
+from eleanor.hanger.tool_room import IOPT_4, Six_i, Three_i
+
 from .common import TestCase
 
 
@@ -16,7 +19,7 @@ class TestCampaign(TestCase):
         """
         Setup the tests
         """
-        self.config = {
+        self.config: dict[str, Any] = {
             'campaign': 'CSS0',
             'est_date': '4Dec2021',
             'notes': 'template',
@@ -86,8 +89,8 @@ class TestCampaign(TestCase):
 
         self.assertIsInstance(camp.local_6i, Six_i)
         self.assertEqual(camp.local_6i.switches['iopt_4'], IOPT_4.PERMIT_SS)
-        self.assertEqual(camp.local_6i.suppress_min, self.config['suppress min'])
-        self.assertEqual(camp.local_6i.min_supp_exemp, self.config['suppress min exemptions'])
+        self.assertEqual(camp.local_6i.suppress_minerals, self.config['suppress min'])
+        self.assertEqual(camp.local_6i.mineral_suppression_exemptions, self.config['suppress min exemptions'])
 
     def test_init_without_solid_solution(self):
         """
@@ -118,8 +121,8 @@ class TestCampaign(TestCase):
 
         self.assertIsInstance(camp.local_6i, Six_i)
         self.assertEqual(camp.local_6i.switches['iopt_4'], IOPT_4.IGNORE_SS)
-        self.assertEqual(camp.local_6i.suppress_min, self.config['suppress min'])
-        self.assertEqual(camp.local_6i.min_supp_exemp, self.config['suppress min exemptions'])
+        self.assertEqual(camp.local_6i.suppress_minerals, self.config['suppress min'])
+        self.assertEqual(camp.local_6i.mineral_suppression_exemptions, self.config['suppress min exemptions'])
 
     def test_load_from_json(self):
         """
@@ -151,8 +154,8 @@ class TestCampaign(TestCase):
 
         self.assertIsInstance(camp.local_6i, Six_i)
         self.assertEqual(camp.local_6i.switches['iopt_4'], IOPT_4.PERMIT_SS)
-        self.assertEqual(camp.local_6i.suppress_min, self.config['suppress min'])
-        self.assertEqual(camp.local_6i.min_supp_exemp, self.config['suppress min exemptions'])
+        self.assertEqual(camp.local_6i.suppress_minerals, self.config['suppress min'])
+        self.assertEqual(camp.local_6i.mineral_suppression_exemptions, self.config['suppress min exemptions'])
 
     def test_create_env(self):
         """
@@ -165,7 +168,7 @@ class TestCampaign(TestCase):
 
             self.assertEqual(camp.campaign_dir, realpath(join(root, camp.name)))
 
-            campaign_dir = join(root, self.config['campaign'])
+            campaign_dir = join(root, str(self.config['campaign']))
             self.assertTrue(isdir(campaign_dir))
 
             huffer_dir = join(campaign_dir, 'huffer')
@@ -195,7 +198,7 @@ class TestCampaign(TestCase):
         with TemporaryDirectory() as root:
             camp.create_env(dir=root, verbose=False)
 
-            campaign_dir = join(root, self.config['campaign'])
+            campaign_dir = join(root, str(self.config['campaign']))
             self.assertTrue(isdir(campaign_dir))
 
             huffer_dir = join(campaign_dir, 'huffer')
@@ -224,7 +227,7 @@ class TestCampaign(TestCase):
         with TemporaryDirectory() as root:
             camp.create_env(dir=root, verbose=False)
             with camp.working_directory():
-                self.assertEqual(os.getcwd(), realpath(join(root, self.config['campaign'])))
+                self.assertEqual(os.getcwd(), realpath(join(root, str(self.config['campaign']))))
 
                 self.assertTrue(isdir('huffer'))
                 self.assertTrue(isdir('fig'))
@@ -239,7 +242,7 @@ class TestCampaign(TestCase):
         camp = Campaign(self.config, self.data0_dir)
         with TemporaryDirectory() as root:
             with camp.working_directory(dir=root, verbose=False):
-                self.assertEqual(os.getcwd(), realpath(join(root, self.config['campaign'])))
+                self.assertEqual(os.getcwd(), realpath(join(root, str(self.config['campaign']))))
 
                 self.assertTrue(isdir('huffer'))
                 self.assertTrue(isdir('fig'))

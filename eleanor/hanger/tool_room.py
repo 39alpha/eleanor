@@ -2,25 +2,35 @@
 The tool_room contains functions and classes primarily related to
 construction of EQ3/6 input files.
 """
-import os
-import sys
-import re
-import numpy as np
 import hashlib
+import os
+import re
+import sys
 from enum import IntEnum
+from typing import Any
+
+import numpy as np
+from numpy.typing import NDArray
+
+from eleanor.exceptions import EleanorException, EleanorFileException, RunCode
+
 from .constants import *  # noqa (F403)
-from eleanor.exceptions import RunCode, EleanorFileException
 
 
-def read_inputs(match, location, str_loc='suffix'):
+# TODO: Use an enumeration for str_loc parameter
+def read_inputs(match: str, location: str, str_loc: str = 'suffix') -> tuple[list[str], list[str]]:
     """
     Find all files in folders downstream from 'location', with extension 'file_extension'
+
     :param match: characters to match in file names.
     :type match: str
+
     :param location: outermost parent directory beign searched.
     :type location: str
+
     :param str_loc: are the match characters at the beginning or end of the file?
     :type str_loc:  str ('prefix' or 'suffix')
+
     :return: list containing file names, list containing file paths
     :rtype: list, list
     """
@@ -39,9 +49,10 @@ def read_inputs(match, location, str_loc='suffix'):
     return file_names, file_paths
 
 
-def mk_check_directory(path):
+def mk_check_directory(path: str) -> None:
     """
     This code checks for the dir being created. It will make the directory if it doesn't exist.
+
     :param path: directory path to be created
     :type path: str
     """
@@ -49,117 +60,121 @@ def mk_check_directory(path):
         os.makedirs(path)
 
 
-def mk_check_del_file(path):
+def mk_check_del_file(path: str) -> None:
     """
     Check if the file being created/moved already exists at the destination.
     """
-    if os.path.isfile(path):  # Check if the file is alrady pessent
-        os.remove(path)  # Delete file
+    if os.path.isfile(path):
+        os.remove(path)
 
 
-def ck_for_empty_file(f):
+def ck_for_empty_file(path: str) -> None:
     """
-    Check if file is empty.
+    Check if path is empty.
 
-    :param file: file path
-    :type file: str
+    :param path: file path
+    :type path: str
     """
-    if os.stat(f).st_size == 0:
-        print('file: ' + str(f) + ' is empty.')
+    if os.stat(path).st_size == 0:
+        print('file: ' + path + ' is empty.')
         sys.exit()
 
 
-def format_e(n, p):
+def format_e(n: int | float, p: int) -> str:
     """
-    Conver number to a string with scienctific notation format
+    Convert a number to a string with scienctific notation format
 
     :param n: number
-    :type n: numeric
+    :type n: int | float
+
     :param p: precision
-    "type n: int
+    :type p: int
+
     :return: scientific float as string with precision p
     :rtype: str
     """
     return "%0.*E" % (p, n)
 
 
-def format_n(n, p):
+def format_n(n: int | float, p: int) -> str:
     """
-    Conver number to string
+    Convert a number to string
 
     :param n: number
-    :type n: numeric
+    :type n: int | float
+
     :param p: precision
-    "type n: int
+    :type n: int
+
     :return: float as string with precision p
     :rtype: str
     """
     return "%0.*f" % (p, n)
 
 
-def grab_str(line, pos):
+def grab_str(line: str, pos: int) -> str:
     """
-    retrieve a substring from a larger string split on spaces
-    :param line: srting. typically a 'line' from an eq36 output file
+    Split the string `line` on spaces and return the `pos`-th
+
+    :param line: the string to split
     :type line: str
+
     :param pos: position of substring in line
     :type pos: int
+
     :return: substring at position pos in line
     :rtype: str
     """
-    a = str(line)
-    b = a.split()
-    return b[pos]
+    return line.split()[pos]
 
 
-def grab_lines(file):
+def grab_lines(path: str) -> list[str]:
     """
-    Read the lines from a text file
+    Read all lines from a file at `path`
 
     :param file: path the file
     :type file: str
+
     :return: list of strings, 1 per line in file
     :rtype: list of str
     """
-    f = open(file, "r")
-    lines = f.readlines()
-    f.close()
-    return lines
+    with open(path, "r") as handle:
+        return handle.readlines()
 
 
-def grab_float(line, pos):
+def grab_float(line: str, pos: int) -> float:
     """
-    grab a number from a line of text.
-
+    Split the `line` on spaces and parse the `pos`-th element as a `float`
 
     :param line: line from a text file (or other string)
     :type line: str
+
     :param pos: position of number in line
     :type pos: int
+
     :return: number of interest
     :rtype: float
     """
-    a = str(line)
-    b = a.split()
+    field = grab_str(line, pos)
     # designed to catch exponents of 3 digits, which are misprinted in EQ3/6 outputs,
     # ommiting the 'E'.
-    if re.findall(r'[0-9][-\+][0-9]', b[pos]):
+    if re.findall(r'[0-9][-\+][0-9]', field):
         return 0.000
     else:
         # handle attached units if present (rid of letters) without bothering the E+ in scientific
         # notation if present.
-        c = re.findall(r'[0-9Ee\+\.-]+', b[pos])
+        c = re.findall(r'[0-9Ee\+\.-]+', field)
         return float(c[0])
 
 
-def mine_pickup_lines(pp, file, position):
+# TODO: Change `type` to an enum instead of a string
+def mine_pickup_lines(path: str, type: str) -> list[str]:
     """
-    Grab the necessary ines from an eq3 pickup file, for use in an eq6 reaction path calculation
+    Grab the necessary lines from an eq3 pickup file, for use in an eq6 reaction path calculation
 
-    :param pp: project path
-    :type pp: str
-    :param file: pickup file name
+    :param file: path to the pickup file
     :type file: str
+
     :param position: 's' or 'd', signifies the position of the pickup lines sought in the larger
         pickup file. Eleanor uses iopt_20 = 1, which generates a pickup file containing two blocks,
         allowing the described system to be employed in two different ways. The top of a 3p or 6p
@@ -169,87 +184,74 @@ def mine_pickup_lines(pp, file, position):
         contains a traditional pickup file. This can also be thought of as a static system/fluid
         's', as it is the system that is initiated at a fixed mass during a titration.
     :type position: str
+
     :return: lines within the pickup file, given 's' or 'd' above.
     :rtype: list of strings
     """
     try:
-        p_lines = grab_lines(os.path.join(pp, file))
+        lines = grab_lines(path)
 
-        if position == 'd':
+        if type == 'd':
             # mine the reactant block (dynamic fluid)
             x = 0
-            while not re.findall(r'^\*------------------', p_lines[x]):
+            while not re.findall(r'^\*------------------', lines[x]):
                 x += 1
             x += 1
             start_sw = x
-            while not re.findall(r'^\*------------------', p_lines[x]):
+            while not re.findall(r'^\*------------------', lines[x]):
                 # Replace morr value to excess, so that it can be continuesly titrated in pickup
                 # fluid, without exhaustion. Note that other codes may alter this later, if fluid
                 # mixes to exact ratios are sought.
-                if re.findall('^      morr=', p_lines[x]):
-                    p_lines[x] = p_lines[x].replace('morr=  1.00000E+00', 'morr=  1.00000E+20')
+                if re.findall('^      morr=', lines[x]):
+                    lines[x] = lines[x].replace('morr=  1.00000E+00', 'morr=  1.00000E+20')
                     x += 1
                 else:
                     x += 1
 
             end_sw = x
-            return p_lines[start_sw:end_sw]
+            return lines[start_sw:end_sw]
 
-        elif position == 's':
+        elif type == 's':
             # mine fluid in the 'pickup' position from the bottom of the 3p file
-            x = len(p_lines) - 1
-            while not re.findall(r'^\*------------------', p_lines[x]):
+            x = len(lines) - 1
+            while not re.findall(r'^\*------------------', lines[x]):
                 x -= 1
             x += 1
-            return p_lines[x:]
+            return lines[x:]
         else:
-            print('Ya fucked up!')
-            print('  Pickup file choice not set correctly.')
-            print('  must be either "d" (dynamic), referring')
-            print('  to the system entered in the reactant block')
-            print('  or "s" (static), reffereing to fluid in the ')
-            print('  pickup position which exists at a fixed mass.')
-            sys.exit()
+            msg = f"invalid pickup file type \"{type}\" while parsing \"{path}\"; expected either \"d\" or \"s\""
+            raise EleanorException(msg)
     except FileNotFoundError as e:
         raise EleanorFileException(e, code=RunCode.FILE_ERROR_3P)
 
 
-def log_rng(mid, error_in_frac):
+def log_rng(mid: np.floating, error_in_frac: np.floating) -> list[np.floating]:
     """
-    TODO, @Doug
+    Compute the base-10 logarithm of `mid` plus-or-minus some error.
+
+    :param mid: the central value
+    :type mid: np.float64
+
+    :param error_in_frac: the +/- fraction
+    :type error_in_frac: np.float64
+
+    :return: the base-10 log of `mid +/- error_in_frac * mid`
+    :rtype: list[np.float64]
     """
     return [np.log10(mid * _) for _ in [1 - error_in_frac, 1 + error_in_frac]]
 
 
-def norm_list(data):
+def norm_list(data: NDArray[np.floating]) -> list[np.floating]:
     """
-    TODO, @Doug
+    Normalize a list of floating-point values so that the minimum value is 0.0 and the maximum value is 1.0.
+
+    :param data: the list of values
+    :type data: `NDArray[np.floating]`
+
+    :return: the normalized list
+    :rtype: list[np.float64]
     """
     return list((data - np.min(data)) / (np.max(data) - np.min(data)))
-
-
-def determine_ss_kids(camp, ss, solids):
-    """
-    determine which solid solution (ss) endmember (kids) will be present in the system
-
-    :param camp: campaign instance
-    :type camp: class 'eleanor.campaign.Campaign'
-
-    :param ss: solid solution sloaded given data0 and system setup
-    :type ss: list of strings
-
-    :param solids: solids loaded given data0 and system setup
-    :type solids: list of strings
-
-    :return: solid solution endmemebers
-    :rtype: list of strings
-    """
-    ss_kids = []
-    for i in ss:
-        all_kids = camp.representative_data0[i].composition.keys()
-        kids_we_care_about = [j for j in all_kids if j in solids]
-        ss_kids = ss_kids + [f'{k}_{i}' for k in kids_we_care_about]
-    return ss_kids
 
 
 class JTEMP(IntEnum):
@@ -616,110 +618,111 @@ class IODB_8(IntEnum):
     DETAILED_ODE_CORRECTOR = 2  # Print detailed information (including the betar and delvcr vectors)|
 
 
-def set_3i_switches(config):
+def get_3i_switches(config: dict[str, int]) -> dict[str, IntEnum]:
     """
     Set eq3 switches, including:
-    iopt model option switches,
-    iopg activity coefficient option switches
-    iopr print option switches
+      * iopt model option switches,
+      * iopg activity coefficient option switches
+      * iopr print option switches
 
     :param config: non-default switch values for 3i file
-    :type config: dict
+    :type config: dict[str,int]
 
     :return: dictionary of switch settings
-    :rtype: dictionary of IntEnum class instances
+    :rtype: dict[str,IntEnum]
     """
-    d = {}
-    d['iopt_4'] = IOPT_4(config.get('iopt_4', 0))
-    d['iopt_11'] = IOPT_11(config.get('iopt_11', 0))
-    d['iopt_17'] = IOPT_17(config.get('iopt_17', 0))
-    d['iopt_19'] = IOPT_19(config.get('iopt_19', 3))
+    d = {
+        'iopt_4': IOPT_4(config.get('iopt_4', 0)),
+        'iopt_11': IOPT_11(config.get('iopt_11', 0)),
+        'iopt_17': IOPT_17(config.get('iopt_17', 0)),
+        'iopt_19': IOPT_19(config.get('iopt_19', 3)),
+        'iopg_1': IOPG_1(config.get('iopg_1', 0)),
+        'iopg_2': IOPG_2(config.get('iopg_2', 0)),
+        'iopr_1': IOPR_1(config.get('iopr_1', 0)),
+        'iopr_2': IOPR_2(config.get('iopr_2', 0)),
+        'iopr_3': IOPR_3(config.get('iopr_3', 0)),
+        'iopr_4': IOPR_4(config.get('iopr_4', 1)),
+        'iopr_5': IOPR_5(config.get('iopr_5', 0)),
+        'iopr_6': IOPR_6(config.get('iopr_6', -1)),
+        'iopr_7': IOPR_7(config.get('iopr_7', 1)),
+        'iopr_8': IOPR_8(config.get('iopr_8', 0)),
+        'iopr_9': IOPR_9(config.get('iopr_9', 0)),
+        'iopr_10': IOPR_10(config.get('iopr_10', 0)),
+        'iopr_17': IOPR_17(config.get('iopr_17', 0)),
+        'iodb_1': IODB_1(config.get('iodb_1', 0)),
+        'iodb_3': IODB_3(config.get('iodb_3', 0)),
+        'iodb_4': IODB_4(config.get('iodb_4', 0)),
+        'iodb_6': IODB_6(config.get('iodb_6', 0)),
+    }
 
-    if config.get('iopt_19', 3) != 3:
-        print('Please remove iopt_19 constraint on campaign json')
-        print(' "3i settings" as iopt_19 = 3 is a default requirement')
-        print(' for Eleanor.')
-        sys.exit()
+    if d['iopt_19'] != IOPT_19.SIXI_FLUID_1_AS_FLUID_MIX:
+        msg = f"invalid iopt_19 setting in 3i file ({d['iopt_19']}); must be {IOPT_19.SIXI_FLUID_1_AS_FLUID_MIX}"
+        raise EleanorException(msg)
 
-    d['iopg_1'] = IOPG_1(config.get('iopg_1', 0))
-    d['iopg_2'] = IOPG_2(config.get('iopg_2', 0))
-    d['iopr_1'] = IOPR_1(config.get('iopr_1', 0))
-    d['iopr_2'] = IOPR_2(config.get('iopr_2', 0))
-    d['iopr_3'] = IOPR_3(config.get('iopr_3', 0))
-    d['iopr_4'] = IOPR_4(config.get('iopr_4', 1))
-    d['iopr_5'] = IOPR_5(config.get('iopr_5', 0))
-    d['iopr_6'] = IOPR_6(config.get('iopr_6', -1))
-    d['iopr_7'] = IOPR_7(config.get('iopr_7', 1))
-    d['iopr_8'] = IOPR_8(config.get('iopr_8', 0))
-    d['iopr_9'] = IOPR_9(config.get('iopr_9', 0))
-    d['iopr_10'] = IOPR_10(config.get('iopr_10', 0))
-    d['iopr_17'] = IOPR_17(config.get('iopr_17', 0))
-    d['iodb_1'] = IODB_1(config.get('iodb_1', 0))
-    d['iodb_3'] = IODB_3(config.get('iodb_3', 0))
-    d['iodb_4'] = IODB_4(config.get('iodb_4', 0))
-    d['iodb_6'] = IODB_6(config.get('iodb_6', 0))
     return d
 
 
-def set_6i_switches(config):
+def get_6i_switches(config: dict[str, int]) -> dict[str, IntEnum]:
     """
     Set eq6 switches, including:
-    iopt model option switches,
-    iopg activity coefficient option switches
-    iopr print option switches
+      * iopt model option switches,
+      * iopg activity coefficient option switches
+      * iopr print option switches
 
     :param config: non-default switch values for 6i file
-    :type config: dict
+    :type config: dict[str, IntEnum]
 
     :return: dictionary of switch settings
-    :rtype: dictionary of IntEnum class instances
+    :rtype: dict[str, IntEnum]
     """
-    d = {}
-    d['iopt_1'] = IOPT_1(config.get('iopt_1', 0))
-    d['iopt_2'] = IOPT_2(config.get('iopt_2', 0))
-    d['iopt_3'] = IOPT_3(config.get('iopt_3', 0))
-    d['iopt_4'] = IOPT_4(config.get('iopt_4', 0))
-    d['iopt_5'] = IOPT_5(config.get('iopt_5', 0))
-    d['iopt_6'] = IOPT_6(config.get('iopt_6', 0))
-    d['iopt_7'] = IOPT_7(config.get('iopt_7', 0))
-    d['iopt_9'] = IOPT_9(config.get('iopt_9', 0))
-    d['iopt_10'] = IOPT_10(config.get('iopt_10', 0))
-    d['iopt_11'] = IOPT_11(config.get('iopt_11', 0))
-    d['iopt_12'] = IOPT_12(config.get('iopt_12', 0))
-    d['iopt_13'] = IOPT_13(config.get('iopt_13', 0))
-    d['iopt_14'] = IOPT_14(config.get('iopt_14', 0))
-    d['iopt_15'] = IOPT_15(config.get('iopt_15', 0))
-    d['iopt_16'] = IOPT_16(config.get('iopt_16', -1))
-    d['iopt_17'] = IOPT_17(config.get('iopt_17', 0))
-    d['iopt_18'] = IOPT_18(config.get('iopt_18', -1))
-    d['iopt_20'] = IOPT_20(config.get('iopt_20', 0))
-    d['iopr_1'] = IOPR_1(config.get('iopr_1', 0))
-    d['iopr_2'] = IOPR_2(config.get('iopr_2', 0))
-    d['iopr_3'] = IOPR_3(config.get('iopr_3', 0))
-    d['iopr_4'] = IOPR_4(config.get('iopr_4', 1))
-    d['iopr_5'] = IOPR_5(config.get('iopr_5', 0))
-    d['iopr_6'] = IOPR_6(config.get('iopr_6', -1))
-    d['iopr_7'] = IOPR_7(config.get('iopr_7', 1))
-    d['iopr_8'] = IOPR_8(config.get('iopr_8', 0))
-    d['iopr_9'] = IOPR_9(config.get('iopr_9', 0))
-    d['iopr_10'] = IOPR_10(config.get('iopr_10', 0))
-    d['iopr_17'] = IOPR_17(config.get('iopr_17', 1))
-    d['iodb_1'] = IODB_1(config.get('iodb_1', 0))
-    d['iodb_2'] = IODB_2(config.get('iodb_2', 0))
-    d['iodb_3'] = IODB_3(config.get('iodb_3', 0))
-    d['iodb_4'] = IODB_4(config.get('iodb_4', 0))
-    d['iodb_5'] = IODB_5(config.get('iodb_5', 0))
-    d['iodb_6'] = IODB_6(config.get('iodb_6', 0))
-    d['iodb_7'] = IODB_7(config.get('iodb_7', 0))
-    d['iodb_8'] = IODB_8(config.get('iodb_8', 0))
-    return d
+    return {
+        'iopt_1': IOPT_1(config.get('iopt_1', 0)),
+        'iopt_2': IOPT_2(config.get('iopt_2', 0)),
+        'iopt_3': IOPT_3(config.get('iopt_3', 0)),
+        'iopt_4': IOPT_4(config.get('iopt_4', 0)),
+        'iopt_5': IOPT_5(config.get('iopt_5', 0)),
+        'iopt_6': IOPT_6(config.get('iopt_6', 0)),
+        'iopt_7': IOPT_7(config.get('iopt_7', 0)),
+        'iopt_9': IOPT_9(config.get('iopt_9', 0)),
+        'iopt_10': IOPT_10(config.get('iopt_10', 0)),
+        'iopt_11': IOPT_11(config.get('iopt_11', 0)),
+        'iopt_12': IOPT_12(config.get('iopt_12', 0)),
+        'iopt_13': IOPT_13(config.get('iopt_13', 0)),
+        'iopt_14': IOPT_14(config.get('iopt_14', 0)),
+        'iopt_15': IOPT_15(config.get('iopt_15', 0)),
+        'iopt_16': IOPT_16(config.get('iopt_16', -1)),
+        'iopt_17': IOPT_17(config.get('iopt_17', 0)),
+        'iopt_18': IOPT_18(config.get('iopt_18', -1)),
+        'iopt_20': IOPT_20(config.get('iopt_20', 0)),
+        'iopr_1': IOPR_1(config.get('iopr_1', 0)),
+        'iopr_2': IOPR_2(config.get('iopr_2', 0)),
+        'iopr_3': IOPR_3(config.get('iopr_3', 0)),
+        'iopr_4': IOPR_4(config.get('iopr_4', 1)),
+        'iopr_5': IOPR_5(config.get('iopr_5', 0)),
+        'iopr_6': IOPR_6(config.get('iopr_6', -1)),
+        'iopr_7': IOPR_7(config.get('iopr_7', 1)),
+        'iopr_8': IOPR_8(config.get('iopr_8', 0)),
+        'iopr_9': IOPR_9(config.get('iopr_9', 0)),
+        'iopr_10': IOPR_10(config.get('iopr_10', 0)),
+        'iopr_17': IOPR_17(config.get('iopr_17', 1)),
+        'iodb_1': IODB_1(config.get('iodb_1', 0)),
+        'iodb_2': IODB_2(config.get('iodb_2', 0)),
+        'iodb_3': IODB_3(config.get('iodb_3', 0)),
+        'iodb_4': IODB_4(config.get('iodb_4', 0)),
+        'iodb_5': IODB_5(config.get('iodb_5', 0)),
+        'iodb_6': IODB_6(config.get('iodb_6', 0)),
+        'iodb_7': IODB_7(config.get('iodb_7', 0)),
+        'iodb_8': IODB_8(config.get('iodb_8', 0)),
+    }
 
 
-def switch_grid_3(three_i_switches):
+def switch_grid_3(three_i_switches: dict[str, IntEnum]) -> str:
     """
-    build the lines containing switch information for each 3i file
+    Build the lines containing switch information for each 3i file
+
     :param three_i_switches: switch values for 6i file
-    :type three_i_switches: dict
+    :type three_i_switches: dict[str, IntEnum]
+
     :return: switch grid bloack for eq3 input file
     :rtype: str
     """
@@ -738,14 +741,17 @@ def switch_grid_3(three_i_switches):
         f' iopr11-20=     0    0    0    0    0    0   {pr["iopr_17"]}    0    0    0',
         f'  iodb1-10=    {pr["iodb_1"]}    0   {pr["iodb_3"]}   {pr["iodb_4"]}    0   {pr["iodb_6"]}    0    0    0    0',  # noqa: E501
         ' iodb11-20=     0    0    0    0    0    0    0    0    0    0')) + "\n"
+
     return switches
 
 
-def switch_grid_6(six_i_switches):
+def switch_grid_6(six_i_switches: dict[str, IntEnum]) -> str:
     """
-    build the lines containing switch information for each 3i file
+    Build the lines containing switch information for each 3i file
+
     :param six_i_switches: switch values for 6i file
     :type six_i_switches: dict
+
     :return: switch grid bloack for eq6 input file
     :rtype: str
     """
@@ -763,57 +769,53 @@ def switch_grid_6(six_i_switches):
         f' iopr11-20=     0    0    0    0    0    0   {pr["iopr_17"]}    0    0    0',
         f'  iodb1-10=    {pr["iodb_1"]}   {pr["iodb_2"]}   {pr["iodb_3"]}   {pr["iodb_4"]}   {pr["iodb_5"]}   {pr["iodb_6"]}   {pr["iodb_7"]}   {pr["iodb_8"]}    0    0',  # noqa: E501
         ' iodb11-20=     0    0    0    0    0    0    0    0    0    0')) + "\n"
+
     return switches
 
 
-def format_suppress_options(suppress_sp):
+def format_suppress_options(suppress_species: list[str]):
     """
     Format the species suppress options for the 3i file template
 
     :param suppress_sp: data0 speices to be suppressed
     :type suppress_sp: list of strings
+
     :return: formated text for the 3i files, species suppress section
     :rtype: str
     """
-    build = ''
-    if suppress_sp:
-        build = build + f'     nxmod=   {str(len(suppress_sp))}\n'
-        for sp in suppress_sp:
-            build = build + f'   species= {sp}\n'
-            build = build + '    option= -1              xlkmod=  0.00000E+00\n'
-    else:
-        build = build + '     nxmod=   0\n'
+    build = f'     nxmod=   {len(suppress_species)}\n'
+    for species in suppress_species:
+        build += f'   species= {species}\n'
+        build += '    option= -1              xlkmod=  0.00000E+00\n'
     return build
 
 
-def format_special_basis_switch(special_basis_switch):
+def format_special_basis_switch(special_basis_switch: dict[str, str]) -> str:
     """
     Format the special basis switching section for the 3i file template
 
     :param special_basis_switch: dict. key=initial basis species, val = new basis species
-    :type special_basis_switch: dictionary
+    :type special_basis_switch: dict[str, str]
+
     :return: formated text for the 3i files, special basis switching section
     :rtype: str
 
     """
-    build = ''
-    if special_basis_switch == {}:
-        build = build + '    nsbswt=   0\n'
-    else:
-        build = build + f'    nsbswt=   {len(special_basis_switch)}\n'
-        for sbs in special_basis_switch:
-            build = build + f'species= {sbs}\n'
-            build = build + f'  switch with= {special_basis_switch[sbs]}\n'
+    build = f'    nsbswt=   {len(special_basis_switch)}\n'
+    for old, new in special_basis_switch.items():
+        build = build + f'species= {old}\n'
+        build = build + f'  switch with= {new}\n'
     return build
 
 
-def format_limits(xi_max):
+def format_limits(xi_max: int | float) -> str:
     """
     Format the limits section for the 6i file template. for Eleanor version 1, only xi_max
     is set in this block, with all other variables fixed
 
     :param xi_max: maximum xi valve for 6i reaction path.
     :type xi_max: int or float
+
     :return: formated text for the 6i files, limits section
     :rtype: str
     """
@@ -839,17 +841,19 @@ def format_limits(xi_max):
     ])
 
 
-def build_mineral_rnt(mineral, morr, rk1b):
+def build_mineral_rnt(mineral: str, morr: int | float, rk1b: int | float) -> str:
     """
     Constructs a 6i reactant block for mineral 'mineral' of type jcode = 0.
 
     :param mineral: mineral name, much match a solid in the loaded data0 file
-    :param type: str
+    :type mineral: str
+
     :param morr: moles of reactant available for titration
-    :type morr: numeric
+    :type morr: int | float
+
     :param rk1b: rate dmorr/dXi for reactant titration
-    :type rk1b: numeric
-    of moles  = morr, and a titration rate relative to xi=1 of rk1b
+    :type rk1b: int | float
+
     :return: formated text for 6i reactant block
     :rtype: str
     """
@@ -865,73 +869,81 @@ def build_mineral_rnt(mineral, morr, rk1b):
     ])  # noqa (E501)
 
 
-def build_gas_rnt(gas_sp, morr, rk1b):
+def build_gas_rnt(gas_species: str, morr: int | float, rk1b: int | float) -> str:
     """
     Build reactant block for gas (jcode = 4)
 
     :param gas_sp: name of gas reactant. This must come from the gaes loaded from the employed data0
     :type gas_sp: str
+
     :param morr: moles of reactant available for titration
-    :type morr: numeric
+    :type morr: int | float
+
     :param rk1b: rate dmorr/dXi for reactant titration
-    :type rk1b: numeric
+    :type rk1b: int | float
+
     :return: formated text for 6i reactant block
     :rtype: str
     """
     return '\n'.join(
-        ('*-----------------------------------------------------------------------------', f'  reactant= {gas_sp}',
+        ('*-----------------------------------------------------------------------------', f'  reactant= {gas_species}',
          '     jcode=  4               jreac=  0', f'      morr=  {format_e(10**morr, 5)}      modr=  0.00000E+00',
          '       nsk=  0               sfcar=  0.00000E+00    ssfcar=  0.00000E+00', '      fkrc=  0.00000E+00',
          '      nrk1=  1', f'       rk1=  {format_e(rk1b, 5)}       rk2=  0.00000E+00       rk3=  0.00000E+00\n'))
 
 
-def build_sr_rnt(sp, dat):
+# TODO: Improve the type of reactant
+def build_sr_rnt(species: str, reactant: list[Any]) -> str:
     """
     The function returns a 6i reactant block for special reactant 'phase' of type jcode = 2.
-    pahse_dat is the data in the reactant dictionary build for a specific VS by a sailor.
-    THis dictionary has the same structure as the camp.target_rnt dictionary in the loaded campaign
-    file, but without any ranges, as values have already been selected by the navigator function which
-    built the campaigns VS table and generated the local set of orders.
-    This function accepts lone elements 'ele' or custom species 'sr' existing
-    in the special reactant dictionary (sr_dict)
-    The reactants which may be passed are interations within the camp.target_rnt dictionary
-    defined in th eloaded campaign file.
+
+    phase_dat is the data in the reactant dictionary build for a specific VS by a sailor.
+
+    This dictionary has the same structure as the camp.target_rnt dictionary in the loaded campaign file, but without
+    any ranges, as values have already been selected by the navigator function which built the campaigns VS table and
+    generated the local set of orders.
+
+    This function accepts lone elements 'ele' or custom species 'sr' existing in the special reactant dictionary
+    (sr_dict)
+
+    The reactants which may be passed are interations within the camp.target_rnt dictionary defined in th eloaded
+    campaign file.
     """
     # Special reactant dictionary.
     #
     # sr_dict['name'] = [[ele list], [associated sto list]]
-    sr_dict = {"FeCl2": [["Fe", "Cl", "O"], [1, 2, 1]]}
+    special_reactants = {"FeCl2": [["Fe", "Cl", "O"], [1, 2, 1]]}
 
     # Special reactant is specified and it is not a lone element
-    if dat[0] == 'sr':
+    if reactant[0] == 'sr':
         # Does special reactnat exists in sr_dict?
         try:
-            sr_dat = sr_dict[sp]
+            special_reactant_data = special_reactants[species]
         except Exception as e:
             raise ValueError('Special reactant not installed:', e)
 
         # Transpose to create [ele, sto] pairs and iterate
-        middle = []
-        for l_idx in [list(i) for i in zip(*sr_dat)]:
+        middle: list[str] = []
+        for l_idx in [list(i) for i in zip(*special_reactant_data)]:
             mid = f"   {l_idx[0]}{' '*(2-len(l_idx[0]))}          {format_e(l_idx[1], 5)}\n"
             middle.append(mid)
     # Special reactant is a lone element
     else:
-        middle = f"   {sp}{' '*(2-len(sp))}          1.00000E+00\n"
+        middle = [f"   {species}{' '*(2-len(species))}          1.00000E+00\n"]
 
     # The top and bottom of the reactant block is the same for ele and sr, as the reactant is titrated as a single unit
     # (rk1b).
     top = '\n'.join([
-        '*-----------------------------------------------------------------------------', '  reactant=  {}'.format(sp),
-        '     jcode=  2               jreac=  0', f'      morr=  {format_e(10**dat[1], 5)}      modr=  0.00000E+00',
-        '     vreac=  0.00000E+00\n'
+        '*-----------------------------------------------------------------------------',
+        '  reactant=  {}'.format(species), '     jcode=  2               jreac=  0',
+        f'      morr=  {format_e(10**reactant[1], 5)}      modr=  0.00000E+00', '     vreac=  0.00000E+00\n'
     ])
 
     bottom = '\n'.join([
         '   endit.', '* Reaction', '   endit.',
         '       nsk=  0               sfcar=  0.00000E+00    ssfcar=  0.00000E+00', '      fkrc=  0.00000E+00',
         '      nrk1=  1                nrk2=  0',
-        f'      rkb1=  {format_e(dat[2], 5)}      rkb2=  0.00000E+00      rkb3=  0.00000E+00\n'
+        f'      rkb1=  {format_e(reactant[2], 5)}      rkb2=  0.00000E+00      rkb3=  0.00000E+00\n'
     ])
 
     return top + ''.join(middle) + bottom
@@ -942,25 +954,28 @@ class Three_i(object):
     3i files class.
     """
 
-    def __init__(self, special_basis_switch, three_i_switches, suppress_sp):
+    def __init__(self, special_basis_switch: dict[str, str], three_i_switches: dict[str, IntEnum],
+                 suppress_species: list[str]):
         """
         File.3i template
 
         :param special_basis_switch: dictionary of old_basis:new_basis pairs. The old basis must be
             in the basis block of the employed data0 file, and the new_basis species must be in the
             auxillary basis block. This swithc occures before the system is evaluated.
-        :type special_basis_switch: dict
+        :type special_basis_switch: dict[str, str]
+
         :param three_i_switches: swtich setings for the all 3i files not set to verbose (huffer)
-        :type three_i_switches: dict
+        :type three_i_switches: dict[str, IntEnum]
+
         :param suppress_sp: otehrwise loaded data0 species to exclude from calculations
-        :type suppress_sp: list of strings
+        :type suppress_sp: list[str]
         """
         self.top_piece = "\n".join(('EQ3NR input file name= local', 'endit.', '* Special basis switches\n'))
         self.basis_switch = format_special_basis_switch(special_basis_switch)
         self.middle_piece = "\n".join(
             ('endit.', '* Ion exchangers', '    qgexsh=        F', '       net=   0', '* Ion exchanger compositions',
              '      neti=   0', '* Solid solution compositions', '      nxti=   0', '* Alter/suppress options\n'))
-        self.supp = format_suppress_options(suppress_sp)
+        self.supp = format_suppress_options(suppress_species)
         self.switches = three_i_switches
         self.switch_grid = switch_grid_3(three_i_switches)
         self.end_piece = "\n".join(
@@ -968,20 +983,31 @@ class Three_i(object):
              '* Ordinary basis switches', '    nobswt=   0', '* Saturation flag tolerance', '    tolspf=  0.00000E+00',
              '* Aqueous phase scale factor', '    scamas=  1.00000E+00'))
 
-    def write(self, local_name, v_state, v_basis, cb, suppress_sp, output_details='n'):
+    def write(self,
+              local_name: str,
+              v_state: dict[str, int | float],
+              v_basis: dict[str, int | float],
+              cb: str,
+              suppress_species: list[str],
+              output_details: str = 'n') -> None:
         """
         Write a 3i file 'local_name' to disk.
 
         :param local_name: file names
         :type local_name: str
+
         :param v_state: dict['state_parameter_name'] = value
-        :type v_state: dict
+        :type v_state: dict[str, int | float]
+
         :param v_basis: dict['basis_species_name'] = value
-        :type v_basis: dict
+        :type v_basis: dict[str, int | float]
+
         :param cb: basis species to charge balance on. can also be None
         :type cb: str
+
         :param suppress_sp: data0 species to suppress
-        :type suppress_sp: list of str
+        :type suppress_sp: list[str]
+
         :param output_details: how verbose do you want the 3o file? 'n' (normal) 'v' (verbose)
         :type output_details: str (n, or v)
         """
@@ -1042,7 +1068,12 @@ class Six_i(object):
     6i files class
     """
 
-    def __init__(self, reactants, six_i_switches, xi_max=100, suppress_min=False, min_supp_exemp=[]):
+    def __init__(self,
+                 reactants: dict[str, list],
+                 six_i_switches: dict[str, IntEnum],
+                 xi_max: int | float = 100,
+                 suppress_minerals: bool = False,
+                 mineral_suppression_exemptions: list[int] = []):
         """
         File.6i template.
 
@@ -1050,22 +1081,26 @@ class Six_i(object):
             as the camp.target_rnt dict, except it does not contain ranges, as specific values
             on those ranges have already been selected by the navigator function that built
             the VS table.
-        :type reactants: dict
+        :type reactants: dict[str, list]
+
         :param six_i_switches: none default 3i setup switches  (iopt, iopg, iopr, and iodb)
-        :type six_i_switches: dict['switch_name'] = int
+        :type six_i_switches: dict[str, IntEnum]
+
         :param xi_max: the maximum path extent (in units of reaction progress)
-        :type xi_max: int or float
+        :type xi_max: int | float
+
         :param suppress_min: do you wish to suppress mineral precipitation?
-        :type suppress_min: Boolean
+        :type suppress_min: bool
+
         :param min_supp_exemp: exemptions to mass suppress option above
-        :type min_supp_exemp: list of stirngs (mineral names)
+        :type min_supp_exemp: list[str]
         """
         self.reactant_n = len([k for k in reactants.keys() if reactants[k][0] != 'fixed gas'])
         self.switches = six_i_switches
         self.switch_grid = switch_grid_6(six_i_switches)
         self.xi_max = xi_max
-        self.suppress_min = suppress_min
-        self.min_supp_exemp = min_supp_exemp
+        self.suppress_minerals = suppress_minerals
+        self.mineral_suppression_exemptions = mineral_suppression_exemptions
         self.jtemp = JTEMP(0)
         self.limits = format_limits(xi_max)
         self.end_piece = '\n'.join([
@@ -1075,20 +1110,23 @@ class Six_i(object):
             '*-----------------------------------------------------------------------------\n'
         ])
 
-    def write(self, local_name, reactants, pickup_lines, temp):
+    def write(self, local_name: str, reactants: dict[str, list], pickup_lines: list[str], temp: float):
         """
         Write a 6i file 'local_name' to disk.
 
         :param local_name:
         :type local_name:
+
         :param reactants: dictionary of reactant:value pairs. This dictionary has the same structure
             as the camp.target_rnt dict, except it does not contain ranges, as specific values
             on those ranges have already been selected by the navigator function that built
             the VS table.
         :type reactants: dict
+
         :param pickup_lines: local 3p files lines
         :type pickup_lines: list of strings (1 per row)
-        :param temp: systems tempeautre (celcius)
+
+        :param temp: system temperature (celcius)
         :type temp: float
         """
 
@@ -1116,18 +1154,18 @@ class Six_i(object):
             build.write(self.switch_grid)
 
             # mineral supression
-            if self.suppress_min:
+            if self.suppress_minerals:
                 build.write('     nxopt=  1\n    option= All    \n')
             else:
                 build.write('     nxopt=  0\n')
 
             # exemptions to mineral suppressions
-            if len(self.min_supp_exemp) != 0:
-                build.write(f'    nxopex= {str(int(len(self.min_supp_exemp)))}\n')
-                for mse in self.min_supp_exemp:
-                    build.write(f'   species= {mse}\n')
+            if len(self.mineral_suppression_exemptions) != 0:
+                build.write(f'    nxopex= {str(int(len(self.mineral_suppression_exemptions)))}\n')
+                for mineral in self.mineral_suppression_exemptions:
+                    build.write(f'   species= {mineral}\n')
 
-            elif len(self.min_supp_exemp) == 0 and self.suppress_min:
+            elif len(self.mineral_suppression_exemptions) == 0 and self.suppress_minerals:
                 build.write('    nxopex=  0\n')
 
             # fixed gases
@@ -1153,11 +1191,11 @@ class WorkingDirectory(object):
     :type path: str
     """
 
-    def __init__(self, path):
+    def __init__(self, path: str):
         self.path = os.path.realpath(path)
         self.cwd = os.getcwd()
 
-    def __enter__(self):
+    def __enter__(self) -> str:
         """
         Change into the new current working directory that path.
 
@@ -1176,34 +1214,45 @@ class WorkingDirectory(object):
         self.cwd, self.path = self.path, self.cwd
 
 
-def hash_file(filename, hasher=None):
+def hash_file(path: str, hasher=None) -> str:
     """
-    TODO, @Doug
+    Hash the contents of a file
+
+    :param path: the path to the filename
+    :type path: str
+
+    :param hasher: an (optional) hasher algorithm, defaults to `haslib.sha256`
+    :type hasher: haslib._Hash | None
+
+    :return: the hex-encoded hash of the file's contents
+    :rtype: str
     """
     if hasher is None:
         hasher = hashlib.sha256()
-    with open(filename, 'rb') as handle:
+    with open(path, 'rb') as handle:
         for bytes in iter(lambda: handle.read(4096), b''):
             hasher.update(bytes)
     return hasher.hexdigest()
 
 
-def hash_dir(dirname, hasher=None):
+def hash_dir(path: str, hasher=None) -> str:
     """
     Compute the hash of a named directory (sha256 by default). The hash is computed in a
     depth-first fashion. For a given directory, this function is called on each subdirectory in
     sorted order. Then :func:`hash_file` is called on each file at that level.
 
-    :param dirname: path to a directory
-    :type dirname: str
-    :param hasher: an optional hasher, defaults to `hasherlib.sha256()`
+    :param path: path to a directory
+    :type path: str
+
+    :param hasher: an (optional) hasher algorithm, defaults to `haslib.sha256`
+
     :return: the hex-encode sha256 hash of the file contents
     :rtype: str
     """
     if hasher is None:
         hasher = hashlib.sha256()
 
-    contents = list(map(lambda f: os.path.join(dirname, f), os.listdir(dirname)))
+    contents = list(map(lambda f: os.path.join(path, f), os.listdir(path)))
 
     for dir in sorted(filter(os.path.isdir, contents)):
         hash_dir(dir, hasher)

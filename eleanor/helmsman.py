@@ -5,7 +5,6 @@ import time
 from .campaign import Campaign
 from .hanger.data0_tools import determine_species_set
 from .hanger.db_comms import establish_database_connection, get_column_names, retrieve_records
-from .hanger.tool_room import determine_ss_kids
 from .sailor import sailor
 from .yeoman import yeoman
 
@@ -52,7 +51,7 @@ def Helmsman(camp: Campaign,
 
         ss_kids = []
         if len(ss) > 0:
-            ss_kids = determine_ss_kids(camp, ss, solids)
+            ss_kids = camp.representative_data0.solid_solution_end_members(ss, solids)
 
         # retrieve issued order 'ord_id'
         order_query = ('SELECT * FROM `vs` WHERE `code` = 0 '

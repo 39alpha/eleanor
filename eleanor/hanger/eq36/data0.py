@@ -1,4 +1,5 @@
 import functools
+
 import numpy as np
 
 Integer = int | np.int64
@@ -457,6 +458,13 @@ class Data0(object):
             functools.reduce(union, self.gases.values(), self.__used_elements)
 
         return self.__used_elements
+
+    def solid_solution_end_members(self, solid_solutions: list[str], solids: list[str]) -> list[str]:
+        end_members: list[str] = []
+        for solid_solution in solid_solutions:
+            end_members.extend(f'{end_member}_{solid_solution}'
+                               for end_member in self[solid_solution].composition.keys() if end_member in solids)
+        return end_members
 
     def verify(self):
         self.__verify_params()

@@ -1,16 +1,16 @@
 import os
-import matplotlib
 import re
 import sys
 import time
+
+import matplotlib
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
 
-from .hanger.db_comms import establish_database_connection, retrieve_combined_records
-from .hanger.db_comms import get_column_names
 from .hanger import radar_tools
 from .hanger.data0_tools import determine_species_set
+from .hanger.db_comms import establish_database_connection, get_column_names, retrieve_combined_records
 from .hanger.radar_tools import get_continuous_cmap
 
 
@@ -131,8 +131,8 @@ def Radar(camp,
         ord_id = [ord_id]
 
     # process species
-    add_sp = []
-    math_sp = []
+    add_sp: list = []
+    math_sp: list = []
     x_plt = x_sp.split('=')[0].strip()
     if '=' in x_sp:
         add_sp = add_sp + process_eq(x_sp)

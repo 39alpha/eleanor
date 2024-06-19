@@ -6,12 +6,12 @@ databases. This is used by :mod:`navigator`, :mod:`helmsman`, and sailor in the 
 and writing to and from the postgres databases housing the VS and SS infromation generating in the
 course of sucessful operation.
 """
-from contextlib import closing
-from os.path import splitext
-import pandas as pd
 import sqlite3
 import sys
-from eleanor.hanger.tool_room import determine_ss_kids
+from contextlib import closing
+from os.path import splitext
+
+import pandas as pd
 
 
 def establish_database_connection(camp, verbose=False):
@@ -150,7 +150,7 @@ def create_es_tables(conn, camp, sp, solids, ss, gases, elements):
     ss = [_ for _ in ss if _ != 'None']
     ss_kids = []
     if len(ss) > 0:
-        ss_kids = determine_ss_kids(camp, ss, solids)
+        ss_kids = camp.representative_data0.solid_solution_end_members(ss, solids)
 
     create_es3_table(conn, camp, sp, solids, ss, ss_kids, gases, elements)
     create_es6_table(conn, camp, sp, solids, ss, ss_kids, gases, elements)

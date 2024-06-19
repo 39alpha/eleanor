@@ -5,16 +5,17 @@ The :class:`Campaign` class contains the specification of modeling objectives.
 
 Version 1.0 is  designed to solve a specific type of problem.
 """
+import json
+import shutil
+from os import listdir, mkdir
+from os.path import isdir, isfile, join, realpath, relpath
+
 from .exceptions import EleanorException
+from .hanger import data0_tools, tool_room
 from .hanger.constants import EQ36_MODEL_SUFFIXES
 from .hanger.data0_tools import TPCurve
 from .hanger.eq36 import Data0
-from .hanger import data0_tools, tool_room
-from .hanger.tool_room import set_3i_switches, set_6i_switches
-from os import mkdir, listdir
-from os.path import isdir, isfile, join, realpath, relpath
-import json
-import shutil
+from .hanger.tool_room import get_3i_switches, get_6i_switches
 
 
 class Campaign:
@@ -111,13 +112,13 @@ class Campaign:
         if self.target_rnt != {}:
             self.SixI_config['iopt_1'] = 1  # default to titration
 
-        self.three_i_switches = set_3i_switches(self.ThreeI_config)
-        self.six_i_switches = set_6i_switches(self.SixI_config)
+        self.three_i_switches = get_3i_switches(self.ThreeI_config)
+        self.six_i_switches = get_6i_switches(self.SixI_config)
         self.local_3i = tool_room.Three_i(self.special_basis_switch, self.three_i_switches, self.suppress_sp)
         self.local_6i = tool_room.Six_i(self.target_rnt,
                                         self.six_i_switches,
-                                        suppress_min=self.suppress_min,
-                                        min_supp_exemp=self.min_supp_exemp)
+                                        suppress_minerals=self.suppress_min,
+                                        mineral_suppression_exemptions=self.min_supp_exemp)
 
         self._campaign_dir = None
         self._hash = None

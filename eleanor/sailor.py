@@ -230,7 +230,7 @@ def sailor(camp: Campaign,
         try:
             eq3(data1_file, paths.threei)
 
-            pickup = mine_pickup_lines('.', paths.threep, 's')
+            pickup = mine_pickup_lines(paths.threep, 's')
 
             camp.local_6i.write(paths.sixi, rnt_dict, pickup, state_dict['T_cel'])
             eq6(data1_file, paths.sixi)

@@ -1,6 +1,10 @@
-from ...common import TestCase
-import eleanor.hanger.data0_tools as data0
+from typing import Any
+
 import numpy as np
+
+import eleanor.hanger.data0_tools as data0
+
+from ...common import TestCase
 
 
 class TestTPCurve(TestCase):
@@ -419,7 +423,7 @@ class TestTPCurve(TestCase):
         """
         P = [[1, 0, 0, 0], [1, 0, 0, 0, 0]]
         Q = [[-4, 11, -6, 1], [-4, 11, -6, 1]]
-        table = [{
+        table: list[dict[str, Any]] = [{
             'curves': [data0.TPCurve('file.d0', {
                 'min': 0,
                 'mid': 2,

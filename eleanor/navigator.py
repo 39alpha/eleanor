@@ -1,21 +1,19 @@
 """The Navigator is the main tool to construct orders for the Helmsman to distribute"""
 
-from sqlite3.dbapi2 import Error
 import os
-import sys
-import uuid
 import random
+import sys
 import time
+import uuid
+from sqlite3.dbapi2 import Error
 
 import numpy as np
 import pandas as pd
 
 from .hanger import db_comms
+from .hanger.data0_tools import TPCurve, determine_ele_set, determine_species_set
 from .hanger.eq36 import eq3
-from .hanger.tool_room import mk_check_directory, grab_lines, WorkingDirectory
-from .hanger.data0_tools import determine_species_set
-from .hanger.data0_tools import determine_ele_set
-from .hanger.data0_tools import TPCurve
+from .hanger.tool_room import WorkingDirectory, grab_lines, mk_check_directory
 
 
 def Navigator(this_campaign, quiet=False):
@@ -255,8 +253,8 @@ def build_basis(camp, precision, n):
             ]
             df['{}'.format(k)] = vals
         else:
-            vals = np.round(camp.vs_basis[k], precision)
-            df['{}'.format(k)] = [float(vals) for i in range(n)]
+            val = float(np.round(camp.vs_basis[k], precision))
+            df['{}'.format(k)] = [val for _ in range(n)]
     return df
 
 

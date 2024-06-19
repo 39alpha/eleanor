@@ -25,4 +25,4 @@ jobs:
         pip install mypy
     - name: Typecheck with mypy
       run: |
-        mypy --install-types --non-interactive --exclude docs --exclude eleanor/hanger/eq36/parsers --check-untyped-defs .
+        mypy --install-types --non-interactive --exclude docs --exclude "eleanor/hanger/eq36/parsers/.*\\.py" --check-untyped-defs .

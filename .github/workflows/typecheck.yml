@@ -26,4 +26,4 @@ jobs:
         mypy --install-types --non-interactive .
     - name: Typecheck with mypy
       run: |
-        mypy --no-incremental .
+        mypy --no-incremental --exclude docs --exclude eleanor/hanger/eq36/parsers --check-untyped-defs .

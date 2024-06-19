@@ -13,7 +13,7 @@
  included in the EQ3/6 software transmittal package.
 
 
- Run  15:36:39  12Jun2024
+ Run  10:37:52  19Jun2024
 
 
            Number of elements =    28
@@ -608,8 +608,8 @@
  No warnings were encountered.
 
 
-          Start time = 15:36:39  12Jun2024
-            End time = 15:36:39  12Jun2024
+          Start time = 10:37:52  19Jun2024
+            End time = 10:37:52  19Jun2024
 
            Run time =  0.195E-01 seconds
 

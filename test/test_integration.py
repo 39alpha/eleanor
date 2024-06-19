@@ -42,11 +42,10 @@ class TestIntegration(TestCase):
         camp = Campaign.from_json(campaign_json, compaign_data0)
         camp.create_env(dir=self.data_path("regression"))
 
-        conn = db_comms.establish_database_connection(camp, verbose=False)
-        expected_vs = list(conn.execute('SELECT * FROM vs'))
-        expected_es3 = list(conn.execute('SELECT * FROM es3'))
-        expected_es6 = list(conn.execute('SELECT * FROM es6'))
-        conn.close()
+        with db_comms.establish_database_connection(camp, verbose=False) as conn:
+            expected_vs = list(conn.execute('SELECT * FROM vs'))
+            expected_es3 = list(conn.execute('SELECT * FROM es3'))
+            expected_es6 = list(conn.execute('SELECT * FROM es6'))
 
         got_vs, got_es3, got_es6 = self.worker(camp)
 
@@ -67,12 +66,13 @@ class TestIntegration(TestCase):
             Navigator(camp, quiet=True)
             Helmsman(camp, ord_id=None, num_cores=1, keep_every_n_files=1, quiet=True, no_progress=False)
 
-            conn = db_comms.establish_database_connection(camp, verbose=False)
+            with db_comms.establish_database_connection(camp, verbose=False) as conn:
+                conn.execute("UPDATE vs SET birth = '2024-06-12'")
+                conn.execute("UPDATE es3 SET run = '2024-06-12'")
+                conn.execute("UPDATE es6 SET run = '2024-06-12'")
 
-            vs = list(conn.execute('SELECT * FROM vs'))
-            es3 = list(conn.execute('SELECT * FROM es3'))
-            es6 = list(conn.execute('SELECT * FROM es6'))
-
-            conn.close()
+                vs = list(conn.execute('SELECT * FROM vs'))
+                es3 = list(conn.execute('SELECT * FROM es3'))
+                es6 = list(conn.execute('SELECT * FROM es6'))
 
             return (vs, es3, es6)

@@ -3,6 +3,7 @@ import shutil
 import random
 from eleanor import Campaign, Navigator, Helmsman
 from os.path import dirname, join, realpath
+from eleanor.hanger import db_comms
 
 DIR = dirname(realpath(__file__))
 
@@ -20,6 +21,11 @@ def main():
 
     Navigator(camp, quiet=False)
     Helmsman(camp, num_cores=1, keep_every_n_files=1)
+
+    with db_comms.establish_database_connection(camp) as conn:
+        conn.execute("UPDATE vs SET birth = '2024-06-12'")
+        conn.execute("UPDATE es3 SET run = '2024-06-12'")
+        conn.execute("UPDATE es6 SET run = '2024-06-12'")
 
 
 if __name__ == '__main__':

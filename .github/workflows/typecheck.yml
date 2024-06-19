@@ -23,7 +23,6 @@ jobs:
         python -m pip install --upgrade pip
         pip install .
         pip install mypy
-        mypy --install-types --non-interactive .
     - name: Typecheck with mypy
       run: |
-        mypy --no-incremental --exclude docs --exclude eleanor/hanger/eq36/parsers --check-untyped-defs .
+        mypy --install-types --non-interactive --no-incremental --exclude docs --exclude eleanor/hanger/eq36/parsers --check-untyped-defs .

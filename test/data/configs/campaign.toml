@@ -1,0 +1,64 @@
+name = "Regression Testing"
+date = 2024-06-12 12:34:36
+notes = "For use to test for Eleanor regressions"
+creator = "39 Alpha Research, Team 0"
+
+[kernel]
+type = "eq36"
+model = "b-dot"
+charge_balance = "H+"
+
+[constraints.temperature]
+unit = "celcius"
+min = 50
+max = 150
+
+[constraints.pressure]
+unit = "bar"
+min = 500
+max = 500
+
+[constraints.elements]
+Na = { unit = "log molality", min = -11.00, max = -9.0 }
+Mg = { unit = "log molality", value = -9.0 }
+Ca = { unit = "log molality", value = -9.0 }
+Fe = { unit = "log molality", value = -9.0 }
+K  = { unit = "log molality", value = -9.0 }
+Sr = { unit = "log molality", value = -9.0 }
+Cl = { unit = "log molality", value = -9.0 }
+S  = { unit = "log molality", value = -9.0 }
+Br = { unit = "log molality", value = -9.0 }
+F  = { unit = "log molality", value = -9.0 }
+B  = { unit = "log molality", value = -9.0 }
+C  = { unit = "log molality", value = -9.0 }
+Si = { unit = "log molality", value = -9.0 }
+P  = { unit = "log molality", value = -9.0 }
+N  = { unit = "log molality", value = -9.0 }
+Al = { unit = "log molality", value = -9.0 }
+
+[constraints.species]
+"H+"    = { unit = "log activity",     value = -7.0  }
+"O2(g)" = { unit = "partial pressure", value = -1.00 }
+
+[[constraints.suppress]]
+name = "methane"
+
+[[constraints.suppress]]
+type = "mineral"
+except = ["olivine"]
+
+[[constraints.suppress]]
+type = "solid solution"
+
+
+[reactants.fayalite]
+type = "mineral"
+unit = "log moles"
+min = 0.01
+max = 1.00
+
+[reactants.forsterite]
+type = "mineral"
+unit = "log moles"
+min = 0.01
+max = 1.00

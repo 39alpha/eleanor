@@ -59,3 +59,7 @@ class EleanorFileException(EleanorException):
 
     def __init__(self, error, *args, **kwargs):
         super().__init__(self, str(error), *args, **kwargs)
+
+
+class EleanorParserException(EleanorException):
+    pass

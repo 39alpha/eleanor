@@ -12,6 +12,7 @@ dependencies = [
   'matplotlib',
   'numpy',
   'pandas',
+  'pyyaml',
   'tqdm',
 ]
 requires-python = ">= 3.12"

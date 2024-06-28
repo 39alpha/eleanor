@@ -2,9 +2,7 @@ import functools
 
 import numpy as np
 
-Integer = int | np.int64
-Float = float | np.float64
-Number = int | np.int64 | float | np.float64
+from eleanor.typing import Float, Integer, Number, Optional
 
 
 class ModelParams(object):
@@ -458,6 +456,17 @@ class Data0(object):
             functools.reduce(union, self.gases.values(), self.__used_elements)
 
         return self.__used_elements
+
+    def get_basis_species(self, element: str) -> Optional[BasisSpecies]:
+        basis_species = []
+        for species in self.basis_species.values():
+            if element in species.composition:
+                basis_species.append(species)
+
+        if len(basis_species) == 0:
+            raise Exception(f'data0 file contains multiple basis species with element {element}')
+
+        return None if not basis_species else basis_species[0]
 
     def solid_solution_end_members(self, solid_solutions: list[str], solids: list[str]) -> list[str]:
         end_members: list[str] = []

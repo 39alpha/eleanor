@@ -5,38 +5,17 @@ from queue import Queue
 import pandas as pd
 from tqdm import tqdm
 
-from .campaign import Campaign
 from .hanger.db_comms import establish_database_connection, execute_vs_exit_updates
 
 
-def yeoman(camp: Campaign,
+def yeoman(db_path: str,
            keep_running: Synchronized,
            write_vs_q: Queue,
            write_es3_q: Queue,
            write_es6_q: Queue,
            num_points: int,
            no_progress: bool = False) -> None:
-    """
-    Collecting each sailors df output, and then writing it in
-    bulk to sql
-
-    :param camp: loaded campaign
-    :type camp: :class:`Campaign` instance
-
-    :param keep_running: should the yoeman continue to run (ie. is there shit
-                         left to write to the VS/ES)
-    :type keep_running: multiprocessing.value boolean
-
-    :param write_vs_q: queue of lines waiting to be written to vs table
-    :type write_vs_q: queue.Queue
-
-    :param write_es6_q: queue of DataFrames waiting to be written to vs table
-    :type write_es6_q: queue.Queue
-
-    :param num_points: number of vs points in the order
-    :type num_points: int
-    """
-    conn = establish_database_connection(camp)
+    conn = establish_database_connection(db_path)
     WRITE_EVERY_N = 100
     vs_n_written = 0
 

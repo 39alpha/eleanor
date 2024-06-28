@@ -10,13 +10,13 @@ from sqlite3.dbapi2 import Error
 import numpy as np
 import pandas as pd
 
+from .config import Config
 from .hanger import db_comms
-from .hanger.data0_tools import TPCurve, determine_ele_set, determine_species_set
-from .hanger.eq36 import eq3
-from .hanger.tool_room import WorkingDirectory, grab_lines, mk_check_directory
+from .hanger.tool_room import WorkingDirectory, ensure_directory
+from .kernel.interface import AbstractKernel
 
 
-def Navigator(this_campaign, quiet=False):
+def Navigator(this_campaign, config: Config, kernel: AbstractKernel, quiet=False):
     """
     The Navigator decides where to go (see what we did there), given the
     praticulars of the loaded Campaign. The Navigator drafts an order,
@@ -53,10 +53,16 @@ def Navigator(this_campaign, quiet=False):
 
         # Always run the huffer. This is necessary because the huffer is responsible for ensuring that the DB
         # structure is sound.
-        huffer(conn, this_campaign, quiet=quiet)
+        elements, aqueous_species, solids, solid_solutions, _, gases = kernel.prime()
 
-        # Grab non O/H elements and species data from the verbose huffer test.3o files
-        elements = determine_ele_set(path="huffer/")
+        # New VS table based on vs_state and vs_basis
+        db_comms.create_or_expand_vs_table(conn, this_campaign, elements)
+
+        # Build the ES tables (es3 and es6)
+        if not this_campaign.SS:
+            solid_solutions = []
+
+        db_comms.create_es_tables(conn, this_campaign, aqueous_species, solids, solid_solutions, gases, elements)
 
         # Current order birthday
         date = time.strftime("%Y-%m-%d", time.gmtime())
@@ -86,72 +92,6 @@ def Navigator(this_campaign, quiet=False):
                                    'Note that you may have fucked up\n'
                                    'repeatedly in myriad and unimaginable ways.\n')
             print(nav_success_message)
-
-
-def huffer(conn, camp, quiet=False):
-    """
-    The huffer runs test 3i files to determine the loaded elements and species
-    for said campaign, and to check for obvious user erros given system
-    configuration.
-
-    The huffer also establishes the VS (variable space, input) and ES
-    (equilibrium space, output) tables in the campaign SQL database.
-    These are only set up the first time a campaign is run. Subsequent
-    calls to the same campaign simply generate new sequentially numberd orders.
-
-    :param conn: sql database connnection
-    :type conn: :class: sqlite3.Connection
-
-    :param camp: loaded campaign
-    :type camp: :class:`Campaign` instance
-
-    """
-    if not quiet:
-        print('Running the Huffer.')
-
-    mk_check_directory("huffer")
-    with WorkingDirectory('huffer'):
-        [T], [P], [curve] = TPCurve.sample(camp.tp_curves, 1)
-
-        state_dict = {}
-        for _ in camp.vs_state.keys():
-            if _ == 'fO2':
-                if isinstance(camp.vs_state[_], str):
-                    state_dict[_] = camp.vs_state[_]
-                else:
-                    state_dict[_] = np.mean(camp.vs_state[_])
-            else:
-                state_dict[_] = np.mean(camp.vs_state[_])
-
-        state_dict['T_cel'] = T
-        state_dict['T_bar'] = P
-
-        basis_dict = {}
-        for _ in camp.vs_basis.keys():
-            basis_dict[_] = np.mean(camp.vs_basis[_])
-
-        camp.local_3i.write('test.3i', state_dict, basis_dict, camp.cb, camp.suppress_sp, output_details='v')
-        data1_file = os.path.realpath(os.path.join(camp.data1_dir, curve.data1file))
-        _, __ = eq3(data1_file, 'test.3i')
-
-        try:
-            _ = grab_lines('test.3o')
-        except FileNotFoundError:
-            raise Error("The huffer failed. Figure your shit out.")
-
-        elements, sp, solids, ss, gasses = determine_species_set()
-        # elements = determine_ele_set()
-
-        # New VS table based on vs_state and vs_basis
-        db_comms.create_or_expand_vs_table(conn, camp, elements)
-
-        # Build the ES tables (es3 and es6)
-        if not camp.SS:
-            ss = []
-        db_comms.create_es_tables(conn, camp, sp, solids, ss, gasses, elements)
-
-    if not quiet:
-        print('   Huffer complete.\n')
 
 
 def random_uniform_order(camp, date, ord, file_number, order_size, elements, precision=6, quiet=False):

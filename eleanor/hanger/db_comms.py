@@ -14,7 +14,7 @@ from os.path import splitext
 import pandas as pd
 
 
-def establish_database_connection(camp, verbose=False):
+def establish_database_connection(path: str, verbose: bool = False) -> sqlite3.Connection:
     """
     Connect to a campaign SQLite database.
 
@@ -24,7 +24,7 @@ def establish_database_connection(camp, verbose=False):
     :return: a connection to the campaign's SQLite database
     :rtype: sqlite3.Connection
     """
-    conn = sqlite3.connect(camp.campaign_db)
+    conn = sqlite3.connect(path)
     if verbose:
         print("New connection to campaign db")
     return conn

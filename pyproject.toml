@@ -22,11 +22,6 @@ Repository = "https://github.com/39alpha/eleanor.git"
 Issues = "https://github.com/39alpha/eleanor/issues"
 Changelog = "https://github.com/39alpha/eleanor/blob/master/CHANGELOG.md"
 
-[project.scripts]
-eleanor = "eleanor.command_line:combined"
-helmsman = "eleanor.command_line:helmsman"
-navigator = "eleanor.command_line:navigator"
-
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"

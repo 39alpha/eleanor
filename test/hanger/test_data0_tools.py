@@ -1,5 +1,6 @@
+import eleanor.kernel.eq36.data0_tools as data0
+
 from ..common import TestCase
-import eleanor.hanger.data0_tools as data0
 
 
 class TestData0Tools(TestCase):

@@ -2,7 +2,7 @@ from typing import Any
 
 import numpy as np
 
-import eleanor.hanger.data0_tools as data0
+import eleanor.kernel.eq36.data0_tools as data0
 
 from ...common import TestCase
 

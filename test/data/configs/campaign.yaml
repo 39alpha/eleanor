@@ -87,11 +87,51 @@ constraints:
 reactants:
   fayalite:
     type: mineral
+    amount:
+      unit: log moles
+      min: 1e-6
+      max: -3
+    titration_rate:
+      unit: log moles per step
+      value: -9
+  methane:
+    type: gas
+    amount:
+      unit: log moles
+      min: -6
+      max: -3
+    titration_rate:
+      unit: log moles per step
+      value: -9
+  CO2:
+    type: fixed gas
+    amount:
+      unit: log moles
+      min: -6
+      max: -3
+    fugacity:
+      unit: log fugacity
+      value: -9
+  Na:
+    type: element
+    amount:
+      unit: log moles
+      min: -6
+      max: -3
+    titration_rate:
+      unit: log moles per step
+      value: -9
+  FeCl2:
+    type: special
     unit: log moles
-    min: 0.01
-    max: 1.00
-  forsterite:
-    type: mineral
-    unit: log moles
-    min: 0.01
-    max: 1.00
+    amount:
+      unit: log moles
+      min: -6
+      max: -3
+    titration_rate:
+      unit: log moles per step
+      value: -9
+    composition:
+      Fe: 1
+      Cl: 2
+      O: 1

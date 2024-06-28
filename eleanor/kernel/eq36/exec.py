@@ -4,7 +4,8 @@
 Provide a simple API for running EQ3/6.
 """
 import re
-from subprocess import Popen, PIPE
+from subprocess import PIPE, Popen
+
 from eleanor.exceptions import Eq36Exception, RunCode
 
 
@@ -33,7 +34,7 @@ def error_guard(output, cmd, code, fname=None):
                     raise Eq36Exception(f'{message} in file "{fname}"', code=code)
 
 
-def run(cmd, *args, **kwargs):
+def run(cmd: str, *args, **kwargs) -> tuple[bytes, bytes]:
     """
     Create and run a subprocess with command :code:`cmd` with arguments
     :code:`args`, capture the standard input and output, and return them.
@@ -70,7 +71,7 @@ def eqpt(data0):
     return run('eqpt', data0, fname=data0, code=RunCode.EQPT_ERROR)
 
 
-def eq3(data1, threei):
+def eq3(data1: str, threei: str) -> tuple[bytes, bytes]:
     """
     Run eq3nr on a data1 and 3i file, writing output files to the current
     working directory.

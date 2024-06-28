@@ -2,14 +2,13 @@ import multiprocessing
 import os
 import time
 
-from .campaign import Campaign
-from .hanger.data0_tools import determine_species_set
+from .config import Config
 from .hanger.db_comms import establish_database_connection, get_column_names, retrieve_records
 from .sailor import sailor
 from .yeoman import yeoman
 
 
-def Helmsman(camp: Campaign,
+def Helmsman(config: Config,
              ord_id: int | None = None,
              num_cores: int | None = os.cpu_count(),
              keep_every_n_files: int = 100,

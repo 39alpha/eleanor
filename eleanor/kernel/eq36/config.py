@@ -1,10 +1,16 @@
+import json
+import os.path
 from dataclasses import dataclass
 
-from eleanor.exceptions import EleanorParserException
+from eleanor.config.parameter import Parameter
+from eleanor.exceptions import EleanorException, EleanorParserException
+from eleanor.kernel.config import Config as KernelConfig
 from eleanor.kernel.eq36.settings import *
 from eleanor.kernel.exceptions import EleanorKernelException
-from eleanor.kernel.interface import Config as KernelConfig
+from eleanor.problem import AbstractConstraint
 from eleanor.typing import Number, Optional, Self
+
+from .data0_tools import TPCurve
 
 EQ36_MODEL_EXTENSIONS: dict[str, str] = {
     'dav': 'davies',
@@ -114,6 +120,18 @@ class Eq3Config(object):
         except IndexError:
             raise IndexError(f'iodb_{n} is undefined')
 
+    def to_row(self) -> dict:
+        d = {}
+        for i in range(1, 21):
+            d[f'iopt_{i}'] = self.get_iopt(i)
+        for i in range(1, 21):
+            d[f'iopg_{i}'] = self.get_iopg(i)
+        for i in range(1, 21):
+            d[f'iopr_{i}'] = self.get_iopr(i)
+        for i in range(1, 21):
+            d[f'iodb_{i}'] = self.get_iodb(i)
+        return d
+
     def make_verbose(self) -> Self:
         return type(self)(iopt_4=IOPT_4.PERMIT_SS,
                           iopt_11=IOPT_11(self.get_iopt(11)),
@@ -122,8 +140,8 @@ class Eq3Config(object):
                           iopg_1=IOPG_1(self.get_iopg(1)),
                           iopg_2=IOPG_2(self.get_iopg(2)),
                           iopr_1=IOPR_1.PRINT_DATA_FILE_SP,
-                          iopr_2=IOPR_2.PRINT_RXNS_LOGK,
-                          iopr_3=IOPR_3.PRINT_HARD_DIAMETERS,
+                          iopr_2=IOPR_2.PRINT_RXNS_LOGK_DATA,
+                          iopr_3=IOPR_3(self.get_iopr(3)),
                           iopr_4=IOPR_4.INCLUDE_ALL_AQ,
                           iopr_5=IOPR_5.PRINT_CAT_AN_NU_RATIOS,
                           iopr_6=IOPR_6.PRINT_ALL_SP_MASS_BAL,
@@ -204,6 +222,16 @@ class Eq6Config(object):
         except IndexError:
             raise IndexError(f'iodb_{n} is undefined')
 
+    def to_row(self) -> dict:
+        d = {}
+        for i in range(1, 21):
+            d[f'iopt_{i}'] = self.get_iopt(i)
+        for i in range(1, 21):
+            d[f'iopr_{i}'] = self.get_iopr(i)
+        for i in range(1, 21):
+            d[f'iodb_{i}'] = self.get_iodb(i)
+        return d
+
 
 @dataclass(init=False)
 class Config(KernelConfig):
@@ -235,6 +263,20 @@ class Config(KernelConfig):
     @property
     def is_fully_specified(self) -> bool:
         return self.data1_file is not None
+
+    def to_row(self) -> dict:
+        d = super().to_row()
+        d['model'] = self.model
+        d['charge_balance'] = self.charge_balance
+        d['redox_species'] = self.redox_species
+        d['data1_file'] = os.path.basename(self.data1_file)
+        d['basis_map'] = json.dumps(self.basis_map)
+        for key, value in self.eq3_config.to_row().items():
+            d[f'eq3_{key}'] = value
+        for key, value in self.eq6_config.to_row().items():
+            d[f'eq6_{key}'] = value
+
+        return d
 
     @staticmethod
     def from_dict(raw: dict):
@@ -287,7 +329,7 @@ class Config(KernelConfig):
         raw_eq6_config: dict[str, int] = raw.get('eq6_config', dict())
         eq6_config = Eq6Config(
             jtemp=JTEMP.CONSTANT_T,
-            xi_max=float(raw_eq6_config.get('xi_max', 0)),
+            xi_max=float(raw_eq6_config.get('xi_max', 100)),
             iopt_1=IOPT_1(raw_eq6_config.get('iopt_1', 0)),
             iopt_2=IOPT_2(raw_eq6_config.get('iopt_2', 0)),
             iopt_3=IOPT_3(raw_eq6_config.get('iopt_3', 0)),
@@ -332,3 +374,72 @@ class Config(KernelConfig):
             raise EleanorParserException(msg)
 
         return Config(model, charge_balance, basis_map, eq3_config, eq6_config)
+
+
+class TPCurveConstraint(AbstractConstraint):
+    temperature: Parameter
+    pressure: Parameter
+    curves: list[TPCurve]
+    _is_resolved: bool
+
+    def __init__(self, temperature: Parameter, pressure: Parameter, curves: list[TPCurve]):
+        super().__init__()
+
+        self.temperature = temperature
+        self.pressure = pressure
+        self.curves = curves
+        self._is_resolved = False
+
+    @property
+    def independent_parameters(self) -> list[Parameter]:
+        return [self.temperature]
+
+    @property
+    def dependent_parameters(self) -> list[Parameter]:
+        return [self.pressure]
+
+    @property
+    def is_resolved(self) -> bool:
+        return self._is_resolved
+
+    def resolve(self) -> list[Parameter]:
+        for parameter, domain in self.apply():
+            if isinstance(domain, list):
+                parameter.constrain_by_list(domain)
+            elif isinstance(domain, tuple):
+                parameter.constrain_by_range(*domain)
+            else:
+                parameter.constrain_by_value(domain)
+
+        return self.dependent_parameters
+
+    def apply(self) -> list[tuple[Parameter, Number | tuple[Number, Number] | list[Number]]]:
+        if not self.temperature.is_fully_specified:
+            return []
+
+        T = self.temperature.value
+
+        values: list[Number] = []
+        for curve in self.curves:
+            if curve.temperature_in_domain(T):
+                P = curve(T)
+                if self.pressure.value is not None:
+                    if P != self.pressure.value:
+                        continue
+                elif self.pressure.min is not None and self.pressure.max is not None:
+                    if P < self.pressure.min or P > self.pressure.max:
+                        continue
+                elif self.pressure.values is not None:
+                    if P not in self.pressure.values:
+                        continue
+                else:
+                    raise EleanorException('problem.pressure is invalid')
+
+                values.append(curve(T))
+
+        self._is_resolved = True
+
+        return [(self.pressure, values)]
+
+
+AbstractConstraint.register(TPCurveConstraint)

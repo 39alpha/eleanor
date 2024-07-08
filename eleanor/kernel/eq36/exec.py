@@ -6,7 +6,9 @@ Provide a simple API for running EQ3/6.
 import re
 from subprocess import PIPE, Popen
 
-from eleanor.exceptions import Eq36Exception, RunCode
+from eleanor.exceptions import Eq36Exception
+
+from .codes import RunCode
 
 
 def error_guard(output, cmd, code, fname=None):

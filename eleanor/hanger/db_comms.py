@@ -14,22 +14,6 @@ from os.path import splitext
 import pandas as pd
 
 
-def establish_database_connection(path: str, verbose: bool = False) -> sqlite3.Connection:
-    """
-    Connect to a campaign SQLite database.
-
-    :param camp: The campaign whose DB to load
-    :type camp: eleanor.campaign.Campaign
-
-    :return: a connection to the campaign's SQLite database
-    :rtype: sqlite3.Connection
-    """
-    conn = sqlite3.connect(path)
-    if verbose:
-        print("New connection to campaign db")
-    return conn
-
-
 def create_or_expand_vs_table(conn, camp, elements):
     """
     Create the VS table if it does not exists, otherwise add any new reactant columns that may be required.

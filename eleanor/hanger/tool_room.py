@@ -1,7 +1,4 @@
-"""
-The tool_room contains functions and classes primarily related to
-construction of EQ3/6 input files.
-"""
+import datetime
 import hashlib
 import os
 import re
@@ -10,10 +7,8 @@ from enum import IntEnum, StrEnum
 
 import numpy as np
 
-from eleanor.exceptions import EleanorException, EleanorFileException, RunCode
-from eleanor.typing import Any, NDArray, Number
-
-from .constants import *  # noqa (F403)
+from ..exceptions import EleanorException, EleanorFileException, EleanorParserException
+from ..typing import Any, NDArray, Number, Optional
 
 
 # TODO: Use an enumeration for str_loc parameter
@@ -212,3 +207,46 @@ def hash_dir(path: str, hasher=None) -> str:
         hash_file(filename, hasher)
 
     return hasher.hexdigest()
+
+
+def convert_to_number(value: Number | str, types: Optional[list[type]] = None):
+    if types is None:
+        return convert_to_number(value, [int, np.integer, float, np.floating])
+    elif len(types) == 0:
+        raise EleanorParserException('could not convert string to numeric type')
+    elif isinstance(value, tuple(types)):
+        return value
+
+    try:
+        t, *types = types
+        if t is np.floating:
+            return np.float64(value)
+        elif t is np.integer:
+            return np.int64(value)
+        else:
+            return t(value)
+    except ValueError:
+        return convert_to_number(value, types)
+
+
+def is_list_of(value: Any, types: type | tuple, allowNone: bool = False) -> bool:
+    if allowNone:
+        if isinstance(types, tuple):
+            types = (*types, type(None))
+        else:
+            types = (types, type(None))
+
+    if value is None:
+        return allowNone
+
+    return isinstance(value, list) and all(isinstance(x, types) for x in value)
+
+
+def parse_date(date: str) -> datetime.date | datetime.datetime:
+    try:
+        return datetime.date.fromisoformat(date)
+    except ValueError:
+        try:
+            return datetime.datetime.fromisoformat(date)
+        except ValueError:
+            raise EleanorParserException(f'failed to parse date "{date}"')

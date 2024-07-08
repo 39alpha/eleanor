@@ -6,17 +6,18 @@ import numpy as np
 
 import eleanor.hanger.tool_room as tool_room
 import eleanor.kernel.eq36.data0_tools as tools
-from eleanor.config import (ElementReactant, FixedGasReactant, GasReactant, MineralReactant, Problem, Reactant,
-                            ReactantType, SpecialReactant)
+from eleanor.config import (ElementReactant, FixedGasReactant, GasReactant, MineralReactant, Reactant, ReactantType,
+                            SpecialReactant)
 from eleanor.exceptions import EleanorException, EleanorFileException
 from eleanor.hanger.tool_room import NumberFormat
 from eleanor.kernel.exceptions import EleanorKernelException
 from eleanor.kernel.interface import AbstractKernel
+from eleanor.problem import Problem
 from eleanor.typing import Callable, Float, Optional, Species, cast
 
 from . import util
 from .codes import RunCode
-from .config import Config, Eq3Config, Eq6Config
+from .config import Config, Eq3Config, Eq6Config, TPCurveConstraint
 from .data0 import Data0
 from .exec import eq3, eq6
 from .settings import IOPT_1, IOPT_4
@@ -35,7 +36,7 @@ class Kernel(AbstractKernel):
 
     def __init__(self, config: Config, data0_dir: str, data1_dir: Optional[str] = None, *args, **kwargs):
         self.data0_dir = data0_dir
-        self.data1_dir = data1_dir if data1_dir is not None else os.path.realpath(os.path.join("db", "dbdata1"))
+        self.data1_dir = data1_dir if data1_dir is not None else os.path.realpath("data1")
 
         self._setup = False
         self._data0_hash = None
@@ -44,7 +45,7 @@ class Kernel(AbstractKernel):
         self._representative_data0 = None
 
     # TODO: Return basic setup information, e.g. species, etc...
-    def setup(self, problem: Problem, verbose=False, *args, **kwargs):
+    def setup(self, problem: Problem, verbose: bool = False):
         self._data0_hash, unhashed = tools.hash_data0s(self.data0_dir)
         if verbose and len(unhashed) != 0:
             msg = f'The following files in the data0 directory "{self.data0_dir}" do not appear to be valid data0 files'
@@ -62,8 +63,8 @@ class Kernel(AbstractKernel):
             _, data1f_files, *_ = tool_room.find_files('.d1f')
             tp_curves = [tools.TPCurve.from_data1f(file) for file in data1f_files]
 
-        Trange = problem.constraints.temperature.range
-        Prange = problem.constraints.pressure.range
+        Trange = problem.temperature.range
+        Prange = problem.pressure.range
         for curve in tp_curves:
             if curve.set_domain(Trange, Prange):
                 self._tp_curves.append(curve)
@@ -109,7 +110,7 @@ class Kernel(AbstractKernel):
 
         suppress_all_solid_solutions = False
         suppress_named_solid_solutions = False
-        for suppression in problem.constraints.suppressions:
+        for suppression in problem.suppressions:
             if suppression.type == 'solid solution':
                 if len(suppression.exceptions) != 0:
                     raise NotImplementedError('solid solution exemptions are not yet supported')
@@ -121,7 +122,7 @@ class Kernel(AbstractKernel):
         if suppress_all_solid_solutions and suppress_named_solid_solutions:
             print('warning: all solid solutions are suppressed some are suppressed by name', file=sys.stderr)
 
-        if suppress_all_solid_solutions:
+        if not suppress_all_solid_solutions:
             config.eq3_config.set_iopt(4, IOPT_4.PERMIT_SS)
             config.eq6_config.set_iopt(4, IOPT_4.PERMIT_SS)
 
@@ -130,50 +131,64 @@ class Kernel(AbstractKernel):
 
         return problem.kernel
 
-    def prime(self, problem: Problem, *args, **kwargs) -> Species:
-        config = self.resolve_kernel_config(problem)
+    def constrain(self, problem: Problem) -> Problem:
+        constraint = TPCurveConstraint(problem.temperature, problem.pressure, self._tp_curves)
+        return problem.add_constraint(constraint)
 
-        [T], [P], [curve] = tools.TPCurve.sample(self._tp_curves, 1)
+    def find_data1_file(self, problem: Problem, verbose: bool = False) -> str:
+        if not problem.temperature.is_fully_specified or not problem.pressure.is_fully_specified:
+            raise EleanorKernelException('temperature and pressure are not fixed; cannot choose data1 file')
 
-        problem = problem.mean()
-        problem.constraints.temperature.fix(T)
-        problem.constraints.temperature.fix(P)
+        T = problem.temperature.value
+        P = problem.pressure.value
 
-        config.data1_file = os.path.realpath(os.path.join(self.data1_dir, curve.data1file))
+        curves: list[tools.TPCurve] = []
+        for curve in self._tp_curves:
+            if curve.temperature_in_domain(T):
+                if curve(T) == P:
+                    curves.append(curve)
 
-        eq3_input_path = self.write_eq3_input(problem, verbose=True)
-        eq3(config.data1_file, eq3_input_path)
+        if len(curves) == 0:
+            raise EleanorKernelException(f'failed to find a data1 file with temperature {T} and pressure {P}')
+        elif len(curves) > 1 and verbose:
+            print('warning: multiple data1 files pass through temperature {T} and pressure {P}; choosing first')
 
-        return self.get_species()
+        return os.path.join(self.data1_dir, curves[0].data1file)
 
-    def run(self, problem: Problem, *args, **kwargs) -> tuple[RunCode, dict[str, Float], dict[str, Float]]:
+    def run(self, problem: Problem, verbose: bool = False) -> tuple[dict[str, Float], dict[str, Float]]:
         config = self.resolve_kernel_config(problem)
         if config.data1_file is None:
-            raise EleanorKernelException('no data1 file in kernel configuration')
+            config.data1_file = self.find_data1_file(problem, verbose=verbose)
 
         if not problem.is_fully_specified:
             raise EleanorKernelException('cannot run kernel on an underspecified problem')
 
-        eq3_input_path = self.write_eq3_input(problem)
+        eq3_input_path = self.write_eq3_input(problem, verbose=verbose)
 
         eq3(config.data1_file, eq3_input_path)
         eq3_results = util.read_eq3_output()
 
         pickup_lines = util.read_pickup_lines()
 
-        eq6_input_path = self.write_eq6_input(problem, pickup_lines=pickup_lines)
+        eq6_input_path = self.write_eq6_input(problem, pickup_lines=pickup_lines, verbose=verbose)
         eq6(config.data1_file, eq6_input_path)
         eq6_results = util.read_eq6_output()
 
-        return RunCode.SUCCESS, eq3_results, {}
+        return eq3_results, eq6_results
 
-    def write_eq3_input(self, problem: Problem, file: Optional[str | io.TextIOWrapper] = None, verbose: bool = False):
+    def write_eq3_input(self,
+                        problem: Problem,
+                        file: Optional[str | io.TextIOWrapper] = None,
+                        verbose: bool = False) -> str:
         if not problem.is_fully_specified:
             raise EleanorKernelException('cannot write an underspecified problem as eq3 input')
 
         config = cast(Config, problem.kernel)
         if not problem.has_species_constraint(config.redox_species):
-            raise EleanorKernelException('eq3/6 redox species is unconstrained')
+            if config.redox_species == 'fO2' and problem.has_species_constraint('O2(g)'):
+                pass
+            else:
+                raise EleanorKernelException(f'eq3/6 redox species ({config.redox_species}) is unconstrained')
 
         if file is None:
             file = 'problem.3i'
@@ -192,16 +207,22 @@ class Kernel(AbstractKernel):
         for old, new in config.basis_map.items():
             print(f'species= {old}', file=file)
             print(f'  switch with= {new}', file=file)
-        print('endit.', file=file)
 
         # Write general settings
-        T = problem.constraints.temperature.format(precision=5, formatter=NumberFormat.SCIENTIFIC)
-        P = problem.constraints.pressure.format(precision=5, formatter=NumberFormat.SCIENTIFIC)
+        T = problem.temperature.format(precision=5, formatter=NumberFormat.SCIENTIFIC)
+        P = problem.pressure.format(precision=5, formatter=NumberFormat.SCIENTIFIC)
         charge_balance = config.charge_balance
 
-        if config.redox_species == 'O2(g)':
+        if config.redox_species == 'fO2':
             use_other_species = 0
-            value = problem.constraints.species['O2(g)'].format(precision=5)
+            if 'fO2' in problem.species:
+                value = problem.species['fO2'].format(precision=5)
+            else:
+                value = problem.species['O2(g)'].format(precision=5)
+            redox_species = 'None'
+        elif config.redox_species == 'O2(g)':
+            use_other_species = 0
+            value = problem.species['O2(g)'].format(precision=5)
             redox_species = 'None'
         else:
             use_other_species = 1
@@ -223,12 +244,12 @@ class Kernel(AbstractKernel):
 
         # Write species
         print('* Aqueous basis species', file=file)
-        H = problem.constraints.species.get('H+')
+        H = problem.species.get('H+')
         if H is not None:
             print(f'species= {H.name}', file=file)
-            print(f'jflgi= 16    covali=  {H.format(precision=5)}', file=file)
+            print(f'   jflgi= 16    covali=  {H.format(precision=5)}', file=file)
 
-        for element in problem.constraints.elements.values():
+        for element in problem.elements.values():
             if element.value is None:
                 raise EleanorKernelException('cannot write an underspecified problem as eq3 input')
 
@@ -242,7 +263,8 @@ class Kernel(AbstractKernel):
                 raise Exception(f'no basis species found for {element.name}')
 
             print(f'species= {basis_species.name}', file=file)
-            print(f'jflgi=  0    covali=  {NumberFormat.SCIENTIFIC.fmt(value, precision=5)}', file=file)
+            print(f'   jflgi=  0    covali=  {NumberFormat.SCIENTIFIC.fmt(value, precision=5)}', file=file)
+        print('endit.', file=file)
 
         # Write ion exchangers
         print('* Ion exchangers', file=file)
@@ -256,7 +278,7 @@ class Kernel(AbstractKernel):
         print('      nxti=   0', file=file)
 
         # Write suppressions
-        suppressed = [x.name for x in filter(lambda x: x.name is not None, problem.constraints.suppressions)]
+        suppressed = [x.name for x in filter(lambda x: x.name is not None, problem.suppressions)]
         print(f'* Alter/suppress options', file=file)
         print(f'     nxmod=   {len(suppressed)}', file=file)
         for species in suppressed:
@@ -281,31 +303,36 @@ class Kernel(AbstractKernel):
 
         # Write saturation tolerance
         print('* Aqueous phase scale factor', file=file)
-        print('    scamas=  1.00000E+00\n', file=file)
+        print('    scamas=  1.00000E+00', file=file)
+
+        return file.name
 
     def write_eq6_input(self,
                         problem: Problem,
                         file: Optional[str | io.TextIOWrapper] = None,
                         pickup_lines: Optional[list[str]] = None,
-                        verbose: bool = False):
+                        verbose: bool = False) -> str:
         if not problem.is_fully_specified:
             raise EleanorKernelException('cannot write an underspecified problem as eq6 input')
 
         config = cast(Config, problem.kernel)
         if not problem.has_species_constraint(config.redox_species):
-            raise EleanorKernelException('eq3/6 redox species is unconstrained')
+            if config.redox_species == 'fO2' and problem.has_species_constraint('O2(g)'):
+                pass
+            else:
+                raise EleanorKernelException(f'eq3/6 redox species ({config.redox_species}) is unconstrained')
 
         if file is None:
             file = 'problem.6i'
 
         if isinstance(file, str):
             with open(file, 'w') as handle:
-                return self.write_eq6_input(problem, file=handle, verbose=verbose)
+                return self.write_eq6_input(problem, file=handle, pickup_lines=pickup_lines, verbose=verbose)
 
         # Write Header
         jtemp = config.eq6_config.jtemp
         xi_max = config.eq6_config.xi_max
-        T = problem.constraints.temperature.format(precision=5, formatter=NumberFormat.SCIENTIFIC)
+        T = problem.temperature.format(precision=5, formatter=NumberFormat.SCIENTIFIC)
 
         reactants: dict[ReactantType, list[Reactant]] = {}
         for reactant in problem.reactants:
@@ -315,7 +342,7 @@ class Kernel(AbstractKernel):
 
         ncrt = sum(len(r) for t, r in reactants.items() if t is not ReactantType.FIXED_GAS)
 
-        print(f'EQ3NR input file name= local', file=file)
+        print(f'EQ3NR input file name= {os.path.basename(file.name)}', file=file)
         print(f'endit.', file=file)
         print(f'     jtemp=  {config.eq6_config.jtemp}', file=file)
         print(f'    tempcb=  {T}', file=file)
@@ -430,7 +457,7 @@ class Kernel(AbstractKernel):
         exemptions = []
         suppressions = []
         suppress_minerals = False
-        for suppression in problem.constraints.suppressions:
+        for suppression in problem.suppressions:
             if suppression.type is None:
                 suppressions.append(suppression)
             elif suppression.type == 'mineral':
@@ -448,9 +475,10 @@ class Kernel(AbstractKernel):
         else:
             print('     nxopt=  0', file=file)
 
-        print(f'    nxopex= {len(suppressions)}', file=file)
-        for mineral in suppressions:
-            print(f'   species= {mineral}', file=file)
+        if exemptions:
+            print(f'    nxopex=  {len(exemptions)}', file=file)
+            for species in exemptions:
+                print(f'   species= {species}', file=file)
 
         # Write fixed gases
         print(f'      nffg=  {len(reactants.get(ReactantType.FIXED_GAS, []))}', file=file)
@@ -481,6 +509,8 @@ class Kernel(AbstractKernel):
             for line in pickup_lines:
                 file.write(line)
 
+        return file.name
+
     def write_switch_grid(self, file: io.TextIOWrapper, c: Eq3Config | Eq6Config, verbose: bool = False):
         if isinstance(c, Eq3Config) and verbose:
             c = c.make_verbose()
@@ -504,7 +534,7 @@ class Kernel(AbstractKernel):
               file=file)
         print('  iodb1-10= {0: >5}{1: >5}{2: >5}{3: >5}{4: >5}{5: >5}{6: >5}{7: >5}{8: >5}{9: >5}'.format(*c.iodb[:10]),
               file=file)
-        print(' iopdb1-20= {0: >5}{1: >5}{2: >5}{3: >5}{4: >5}{5: >5}{6: >5}{7: >5}{8: >5}{9: >5}'.format(*c.iodb[10:]),
+        print(' iodb11-20= {0: >5}{1: >5}{2: >5}{3: >5}{4: >5}{5: >5}{6: >5}{7: >5}{8: >5}{9: >5}'.format(*c.iodb[10:]),
               file=file)
 
 

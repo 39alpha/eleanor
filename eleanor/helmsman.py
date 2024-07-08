@@ -1,135 +1,43 @@
-import multiprocessing
 import os
 import time
+from multiprocessing import Manager, Pool, Value
+from multiprocessing.managers import SyncManager
 
-from .config import Config
-from .hanger.db_comms import establish_database_connection, get_column_names, retrieve_records
+from .kernel.interface import AbstractKernel
+from .problem import Problem
 from .sailor import sailor
-from .yeoman import yeoman
+from .yeoman import Yeoman
 
 
-def Helmsman(config: Config,
-             ord_id: int | None = None,
-             num_cores: int | None = os.cpu_count(),
-             keep_every_n_files: int = 100,
-             quiet: bool = False,
-             no_progress: bool = False):
-    """
-    Keeping with the naval terminology: The Navigator charts where to go.
-    Then the helmsman guides the ship there, using sailors to do the necessary work.
+class Helmsman:
+    kernel: AbstractKernel
+    yeoman: Yeoman
+    queue_manager: SyncManager
 
-    Navigator decides the region of parameter space to be explored, by issuing orders that are
-    written in the `vs` (variable space) table. Each order contains a collections of discrete
-    `vs` points distributed about the parameter space. The dimensions of the parameter space
-    are (temperature, pressure, total C, total Fe, `etc`., depending on the constraints issued
-    in the campaign json).
+    def __init__(self, kernel: AbstractKernel, yeoman: Yeoman):
+        self.kernel = kernel
+        self.yeoman = yeoman
+        self.queue_manager = Manager()
 
-    The goal of the helmsman is to solve for the equilibrium behavior of each of these points
-    distributed about the variable space (`vs`).
+    def run(self, problems: list[Problem], num_cores: int | None = os.cpu_count(), progress: bool = False):
+        vs_queue = self.queue_manager.Queue()
+        es3_queue = self.queue_manager.Queue()
+        es6_queue = self.queue_manager.Queue()
 
-    The Helmsman does this by spawning a small number of sailors (with number of sailors
-    determined by system capabilities), assigning each a `vs` point that they will thermodynamic
-    'solve' in succession until all points have been solved.
-
-    Each vs point assigned to a sailor, contains enough information to define a closed
-    thermodynamic system. The sailor employs EQ3/6 to determine the equilibrium
-    characteristic of the system defined by the `vs` point, thus generating an associated point
-    in the equilibrium space (`es6`) table.
-
-    :param camp: loaded campaign
-    :type camp: :class:`Campaign` instance
-
-    :param ord_id: order number
-    :type ord_id: int
-    """
-
-    with camp.working_directory():
-        conn = establish_database_connection(camp)
-
-        elements, aq_sp, solids, ss, gasses = determine_species_set(path='huffer/')
-
-        ss_kids = []
-        if len(ss) > 0:
-            ss_kids = camp.representative_data0.solid_solution_end_members(ss, solids)
-
-        # retrieve issued order 'ord_id'
-        order_query = ('SELECT * FROM `vs` WHERE `code` = 0 '
-                       'AND `uuid` NOT IN (SELECT `uuid` FROM `es6`)')
-        if ord_id is not None:
-            order_query += f' AND `ord` = {ord_id}'
-        rec = retrieve_records(conn, order_query)
-        vs_col_names = get_column_names(conn, 'vs')
-
-        es3_col_names = get_column_names(conn, 'es3')
-        es6_col_names = get_column_names(conn, 'es6')
-
-        conn.close()
-
-    if len(rec) == 0:
-        msg = "The Helmsman found no unexecuted points"
-        if ord_id is not None:
-            msg += f" for order {ord_id}"
-        print(msg)
-        return
-
-    date = time.strftime("%Y-%m-%d", time.gmtime())
-
-    start = time.time()  # for diagnostic times
-    if not quiet:
-        if ord_id is None:
-            print(f"Processing all unfullfiled orders ({len(rec)} points)")
+        N = len(problems)
+        if num_cores is None or num_cores == 1:
+            for problem in problems:
+                sailor(self.kernel, problem, vs_queue, es3_queue, es6_queue)
+            wait = Value('b', False)
+            self.yeoman.run(wait, vs_queue, es3_queue, es6_queue, N, progress)
         else:
-            print(f"Processing Order {ord_id} ({len(rec)} points)")
+            wait = Value('b', True)
+            yeoman_process = self.yeoman.fork(wait, vs_queue, es3_queue, es6_queue, N, progress)
 
-    scratch_path = os.path.join(camp.campaign_dir, 'scratch')
+            with Pool(processes=num_cores) as pool:
+                pool.starmap(sailor, zip([self.kernel] * N, problems, [vs_queue] * N, [es3_queue] * N, [es6_queue] * N))
 
-    queue_manager = multiprocessing.Manager()
-    vs_queue = queue_manager.Queue()
-    es3_queue = queue_manager.Queue()
-    es6_queue = queue_manager.Queue()
+            with wait.get_lock():
+                wait.value = False
 
-    if num_cores is None or num_cores == 1:
-        for r in rec:
-            sailor(camp, scratch_path, vs_queue, es3_queue, es6_queue, date, r, elements, solids, ss, ss_kids,
-                   vs_col_names, es3_col_names, es6_col_names, keep_every_n_files)
-        keep_running_yeoman = multiprocessing.Value('b', False)
-        yeoman(camp, keep_running_yeoman, vs_queue, es3_queue, es6_queue, len(rec), no_progress)
-
-    elif num_cores > 1:
-        keep_running_yeoman = multiprocessing.Value('b', True)
-        yeoman_process = multiprocessing.Process(target=yeoman,
-                                                 args=(camp, keep_running_yeoman, vs_queue, es3_queue, es6_queue,
-                                                       len(rec), no_progress))
-        yeoman_process.start()
-        with multiprocessing.Pool(processes=num_cores) as pool:
-            _ = pool.starmap(
-                sailor,
-                zip([camp] * len(rec), [scratch_path] * len(rec), [vs_queue] * len(rec), [es3_queue] * len(rec),
-                    [es6_queue] * len(rec), [date] * len(rec), rec, [elements] * len(rec), [solids] * len(rec),
-                    [ss] * len(rec), [ss_kids] * len(rec), [vs_col_names] * len(rec), [es3_col_names] * len(rec),
-                    [es6_col_names] * len(rec), [keep_every_n_files] * len(rec)))
-
-        with keep_running_yeoman.get_lock():
-            keep_running_yeoman.value = False
-
-        yeoman_process.join()
-
-    if not quiet:
-        if ord_id is None:
-            print('\nOrder(s) complete.')
-
-            print(f'        total time: {round(time.time() - start, 3)}')
-            print(f'        time/point: {round((time.time() - start) / len(rec), 3)}')
-        else:
-            print(f'\nOrder {ord_id} complete.')
-
-            print(f'        total time: {round(time.time() - start, 3)}')
-            print(f'        time/point: {round((time.time() - start) / len(rec), 3)}')
-
-            conn = establish_database_connection(camp)
-            order_query = ('SELECT code, COUNT(*) FROM vs GROUP BY code'
-                           f'WHERE ord = {ord_id}')
-            rec = retrieve_records(conn, order_query)
-            conn.close()
-            print(rec)
-            print('\n')
+            yeoman_process.join()

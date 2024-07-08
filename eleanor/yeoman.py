@@ -1,143 +1,181 @@
+import sqlite3
 import time
+from multiprocessing import Process
 from multiprocessing.sharedctypes import Synchronized
 from queue import Queue
 
 import pandas as pd
 from tqdm import tqdm
 
-from .hanger.db_comms import establish_database_connection, execute_vs_exit_updates
+from .problem import Problem
+from .typing import Float
 
 
-def yeoman(db_path: str,
-           keep_running: Synchronized,
-           write_vs_q: Queue,
-           write_es3_q: Queue,
-           write_es6_q: Queue,
-           num_points: int,
-           no_progress: bool = False) -> None:
-    conn = establish_database_connection(db_path)
-    WRITE_EVERY_N = 100
-    vs_n_written = 0
+class Yeoman(object):
+    path: str
+    conn: sqlite3.Connection
 
-    es3_df_list = []
-    es6_df_list = []
-    vs_list = []
+    def __init__(self, path: str | None):
+        if path is None:
+            path = 'campaign.sql'
 
-    if num_points <= WRITE_EVERY_N:
-        write_all_at_once = True
-    else:
-        write_all_at_once = False
+        self.path = path
+        self.conn = sqlite3.connect(path)
 
-    if not write_all_at_once and not no_progress:
-        progress = tqdm(total=num_points)
+    def fork(self, *args) -> Process:
 
-    while keep_running.value:
-        # Get the current size
-        current_q_size = write_vs_q.qsize()
+        def proc(*args) -> None:
+            self.conn.close()
+            child = type(self)(self.path)
+            return child.run(*args)
 
-        if current_q_size < WRITE_EVERY_N and not write_all_at_once:
-            time.sleep(0.1)
+        yeoman = Process(target=proc, args=args)
+        yeoman.start()
+        return yeoman
 
-        elif current_q_size == num_points and write_all_at_once:
-            # Get everything written
-            # Get VS Points
-            while not write_vs_q.empty():
-                vs_line = write_vs_q.get_nowait()
-                vs_list.append(vs_line)
-                write_vs_q.task_done()
-            # Get ES3 points
-            while not write_es3_q.empty():
-                es3_df = write_es3_q.get_nowait()
-                es3_df_list.append(es3_df)
-                write_es3_q.task_done()
-            # Write ES3 table
-            if len(es3_df_list) != 0:
-                total_es3_df = pd.concat(es3_df_list, ignore_index=True)
-                total_es3_df.to_sql('es3', conn, if_exists='append', index=False)
-                es3_df_list = []
-            # Get ES6 points
-            while not write_es6_q.empty():
-                es6_df = write_es6_q.get_nowait()
-                es6_df_list.append(es6_df)
-                write_es6_q.task_done()
-            # Write ES6 table
-            if len(es6_df_list) != 0:
-                total_es6_df = pd.concat(es6_df_list, ignore_index=True)
-                total_es6_df.to_sql('es6', conn, if_exists='append', index=False)
-                es6_df_list = []
-                # Write VS lines
-                execute_vs_exit_updates(conn, vs_list)
+    def run(self,
+            keep_running: Synchronized,
+            vs_queue: Queue,
+            es3_queue: Queue,
+            es6_queue: Queue,
+            num_points: int,
+            show_progress: bool = False) -> None:
+        WRITE_EVERY_N = 100
+        vs_n_written = 0
+
+        es3_df_list: list[dict[str, Float]] = []
+        es6_df_list: list[dict[str, Float]] = []
+        vs_list: list[tuple[str, int]] = []
+
+        if num_points <= WRITE_EVERY_N:
+            write_all_at_once = True
+        else:
+            write_all_at_once = False
+
+        if not write_all_at_once and show_progress:
+            progress = tqdm(total=num_points)
+
+        while keep_running.value:
+            # Get the current size
+            current_q_size = vs_queue.qsize()
+
+            if current_q_size < WRITE_EVERY_N and not write_all_at_once:
+                time.sleep(0.1)
+            elif current_q_size == num_points and write_all_at_once:
+                # Get everything written
+                # Get VS Points
+                while not vs_queue.empty():
+                    vs_line = vs_queue.get_nowait()
+                    vs_list.append(vs_line)
+                    vs_queue.task_done()
+                vs_n_written = len(vs_list)
+                if vs_n_written != 0:
+                    rows = []
+                    for exit_code, problem in vs_list:
+                        row = problem.to_row()
+                        row['exit_code'] = exit_code
+                        rows.append(row)
+                    pd.DataFrame(rows).to_sql('vs', self.conn, if_exists='append', index=False)
+                vs_list = []
+                # Get ES3 points
+                while not es3_queue.empty():
+                    es3_df = es3_queue.get_nowait()
+                    es3_df_list.append(es3_df)
+                    es3_queue.task_done()
+                # Write ES3 table
+                if len(es3_df_list) != 0:
+                    total_es3_df = pd.DataFrame(es3_df_list)
+                    total_es3_df.to_sql('es3', self.conn, if_exists='append', index=False)
+                    es3_df_list = []
+                # Get ES6 points
+                while not es6_queue.empty():
+                    es6_df = es6_queue.get_nowait()
+                    es6_df_list.append(es6_df)
+                    es6_queue.task_done()
+                # Write ES6 table
+                if len(es6_df_list) != 0:
+                    total_es6_df = pd.DataFrame(es6_df_list)
+                    total_es6_df.to_sql('es6', self.conn, if_exists='append', index=False)
+                    es6_df_list = []
+            elif not write_all_at_once and current_q_size > WRITE_EVERY_N:
+                # Get VS batch
+                while len(vs_list) < WRITE_EVERY_N:
+                    vs_line = vs_queue.get_nowait()
+                    vs_list.append(vs_line)
+                    vs_queue.task_done()
+
+                # Write batch to VS table
+                vs_n_written = len(vs_list)
+                if vs_n_written != 0:
+                    rows = []
+                    for exit_code, problem in vs_list:
+                        row = problem.to_row()
+                        row['exit_code'] = exit_code
+                        rows.append(row)
+                    pd.DataFrame(rows).to_sql('vs', self.conn, if_exists='append', index=False)
                 vs_list = []
 
-        elif not write_all_at_once and current_q_size > WRITE_EVERY_N:
-            # Get VS batch
-            while len(vs_list) < WRITE_EVERY_N:
-                vs_line = write_vs_q.get_nowait()
-                vs_list.append(vs_line)
-                write_vs_q.task_done()
-            # Write batch to VS table
-            execute_vs_exit_updates(conn, vs_list)
-            vs_n_written = len(vs_list)
+                # Get ES6 batch
+                current_es6_q_size = es6_queue.qsize()
+                while len(es6_df_list) < current_es6_q_size:
+                    es6_df = es6_queue.get_nowait()
+                    es6_df_list.append(es6_df)
+                    es6_queue.task_done()
 
-            vs_list = []
-            # Get ES6 batch
-            current_es6_q_size = write_es6_q.qsize()
-            while len(es6_df_list) < current_es6_q_size:
-                es6_df = write_es6_q.get_nowait()
-                es6_df_list.append(es6_df)
-                write_es6_q.task_done()
+                # Write batch to ES3 table
+                if len(es3_df_list) != 0:
+                    total_es3_df = pd.DataFrame(es3_df_list)
+                    total_es3_df.to_sql('es3', self.conn, if_exists='append', index=False)
+                    es3_df_list = []
 
-            # Write batch to ES3 table
-            if len(es3_df_list) != 0:
-                total_es3_df = pd.concat(es3_df_list, ignore_index=True)
-                total_es3_df.to_sql('es3', conn, if_exists='append', index=False)
-                es3_df_list = []
+                # Get ES3 batch
+                current_es3_q_size = es3_queue.qsize()
+                while len(es3_df_list) < current_es3_q_size:
+                    es3_df = es3_queue.get_nowait()
+                    es3_df_list.append(es3_df)
+                    es3_queue.task_done()
 
-            # Get ES3 batch
-            current_es3_q_size = write_es3_q.qsize()
-            while len(es3_df_list) < current_es3_q_size:
-                es3_df = write_es3_q.get_nowait()
-                es3_df_list.append(es3_df)
-                write_es3_q.task_done()
+                # Write batch to ES6 table
+                if len(es6_df_list) != 0:
+                    total_es6_df = pd.DataFrame(es6_df_list)
+                    total_es6_df.to_sql('es6', self.conn, if_exists='append', index=False)
+                    es6_df_list = []
 
-            # Write batch to ES6 table
-            if len(es6_df_list) != 0:
-                total_es6_df = pd.concat(es6_df_list, ignore_index=True)
-                total_es6_df.to_sql('es6', conn, if_exists='append', index=False)
-                es6_df_list = []
+                if show_progress:
+                    progress.update(vs_n_written)
 
-            if not no_progress:
-                progress.update(vs_n_written)
+        # Clean up the last batch
+        # Get remaining vs lines
+        while not vs_queue.empty():
+            vs_line = vs_queue.get_nowait()
+            vs_list.append(vs_line)
+            vs_queue.task_done()
+        vs_n_written = len(vs_list)
+        if vs_n_written != 0:
+            rows = []
+            for exit_code, problem in vs_list:
+                row = problem.to_row()
+                row['exit_code'] = exit_code
+                rows.append(row)
+            pd.DataFrame(rows).to_sql('vs', self.conn, if_exists='append', index=False)
 
-    # Clean up the last batch
-    # Get remaining vs lines
-    while not write_vs_q.empty():
-        vs_line = write_vs_q.get_nowait()
-        vs_list.append(vs_line)
-        write_vs_q.task_done()
-    # Write last batch to VS table
-    execute_vs_exit_updates(conn, vs_list)
-    vs_n_written = len(vs_list)
+        while not es3_queue.empty():
+            es3_df = es3_queue.get_nowait()
+            es3_df_list.append(es3_df)
+            es3_queue.task_done()
+        # Write batch to ES table
+        if len(es3_df_list) != 0:
+            total_es3_df = pd.DataFrame(es3_df_list)
+            total_es3_df.to_sql('es3', self.conn, if_exists='append', index=False)
 
-    while not write_es3_q.empty():
-        es3_df = write_es3_q.get_nowait()
-        es3_df_list.append(es3_df)
-        write_es3_q.task_done()
-    # Write batch to ES table
-    if len(es3_df_list) != 0:
-        total_es3_df = pd.concat(es3_df_list, ignore_index=True)
-        total_es3_df.to_sql('es3', conn, if_exists='append', index=False)
+        while not es6_queue.empty():
+            es6_df = es6_queue.get_nowait()
+            es6_df_list.append(es6_df)
+            es6_queue.task_done()
+        # Write batch to ES table
+        if len(es6_df_list) != 0:
+            total_es6_df = pd.DataFrame(es6_df_list)
+            total_es6_df.to_sql('es6', self.conn, if_exists='append', index=False)
 
-    while not write_es6_q.empty():
-        es6_df = write_es6_q.get_nowait()
-        es6_df_list.append(es6_df)
-        write_es6_q.task_done()
-    # Write batch to ES table
-    if len(es6_df_list) != 0:
-        total_es6_df = pd.concat(es6_df_list, ignore_index=True)
-        total_es6_df.to_sql('es6', conn, if_exists='append', index=False)
-
-    if not write_all_at_once and not no_progress:
-        progress.update(vs_n_written)
-
-    return None
+        if not write_all_at_once and show_progress:
+            progress.update(vs_n_written)

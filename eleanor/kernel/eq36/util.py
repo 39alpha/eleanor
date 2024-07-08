@@ -39,7 +39,7 @@ def read_pickup_lines(file: Optional[str | io.TextIOWrapper] = None) -> list[str
             return read_pickup_lines(handle)
 
     try:
-        lines = handle.readlines()
+        lines = file.readlines()
         for i, line in reversed(list(enumerate(lines))):
             if line.startswith('*---'):
                 return lines[i + 1:]
@@ -71,6 +71,7 @@ def read_eq3_output(file: Optional[str | io.TextIOWrapper] = None) -> dict[str, 
         line = lines[i]
         if line == '\n':
             continue
+            i += 1
 
         fields = line.split()
 
@@ -97,7 +98,7 @@ def read_eq3_output(file: Optional[str | io.TextIOWrapper] = None) -> dict[str, 
         elif '                 Solutes (TDS) mass=' in line:
             data['tds'] = field_as_float(fields[-2])
         elif '              Aqueous solution mass=' in line:
-            data['soln_mass'] = field_as_float(lines[-2])
+            data['soln_mass'] = field_as_float(fields[-2])
         elif '           --- Extended Total Alkalinity ---' in line:
             field = get_field(lines[i + 2], 0)
             data['extended_alk'] = field_as_float(field)
@@ -172,11 +173,11 @@ def read_eq3_output(file: Optional[str | io.TextIOWrapper] = None) -> dict[str, 
 
 def read_eq6_output(file: Optional[str | io.TextIOWrapper] = None) -> dict[str, Float]:
     if file is None:
-        return read_eq3_output('problem.3o')
+        return read_eq6_output('problem.6o')
 
     if isinstance(file, str):
         with open(file, 'r') as handle:
-            return read_eq3_output(handle)
+            return read_eq6_output(handle)
 
     try:
         lines = file.readlines()
@@ -211,10 +212,12 @@ def read_eq6_output(file: Optional[str | io.TextIOWrapper] = None) -> dict[str, 
             fields = line.split()
             data['xi_max'] = field_as_float(fields[-1])
             break
+        line_num -= 1
 
     while line_num < len(lines):
         line = lines[line_num]
         if line == '\n':
+            line_num += 1
             continue
 
         fields = line.split()
@@ -247,7 +250,7 @@ def read_eq6_output(file: Optional[str | io.TextIOWrapper] = None) -> dict[str, 
             data['extended_alk'] = field_as_float(local_fields[0])
         elif '        --- Aqueous Solution Charge Balance ---' in line:
             local_fields = lines[line_num + 2].split()
-            data['charge_imbalance_eq'] = field_as_float(fields[-2])
+            data['charge_imbalance_eq'] = field_as_float(local_fields[-2])
         elif '--- Distribution of Aqueous Solute Species ---' in line:
             i = line_num + 4
             while lines[i] != '\n':
@@ -259,24 +262,29 @@ def read_eq6_output(file: Optional[str | io.TextIOWrapper] = None) -> dict[str, 
                     # -3 is log molality
                     molality = local_fields[-3]
                     data[f'm_{name}'] = -99999.0 if '*' in molality else field_as_float(molality)
+                    if data[f'm_{name}'] == -99999:
+                        data[f'm_{name}'] = 0
 
                     # -1 position is log activity,
                     activity = local_fields[-1]
                     data[f'a_{name}'] = -99999.0 if '*' in activity else field_as_float(activity)
+                    if data[f'a_{name}'] == -99999:
+                        data[f'a_{name}'] = 0
 
                 i += 1
-        elif '--- Summary of Solid Phases (ES) ---' in lines[i]:
+        elif '--- Summary of Solid Phases (ES) ---' in line:
             i = line_num + 4
             solid_solution = None
             end_member = None
             if 'None' not in lines[i]:
+                import sys
                 while True:
                     line = lines[i]
 
-                    if lines[i] == '\n' and lines[i + 1] == '\n':
+                    if line == '\n' and lines[i + 1] == '\n':
                         # Two blank lines signifies end of block
                         break
-                    elif lines[i] == '\n':
+                    elif line == '\n':
                         # Single blank lines separate solids from solid slutions reporting
                         solid_solution = None
                         end_member = None
@@ -292,11 +300,11 @@ def read_eq6_output(file: Optional[str | io.TextIOWrapper] = None) -> dict[str, 
                             raise EleanorParserException()
                         end_member = line[:25].strip()
                         local_fields = line.split()
-                        data[f'm_{end_member}_{solid_solution}'] = field_as_float(fields[-3])
+                        data[f'm_{end_member}_{solid_solution}'] = field_as_float(local_fields[-3])
                         end_member = None
 
                     i += 1
-        elif '--- Saturation States of Pure Solids ---' in lines[i]:
+        elif '--- Saturation States of Pure Solids ---' in line:
             i = line_num + 4
             while lines[i] != '\n':
                 local_line = lines[i]
@@ -310,7 +318,7 @@ def read_eq6_output(file: Optional[str | io.TextIOWrapper] = None) -> dict[str, 
                     data[f'qk_{name}'] = field_as_float(local_line[31:44])
 
                 i += 1
-        elif ' --- Saturation States of Solid Solutions ---' in lines[i]:
+        elif ' --- Saturation States of Solid Solutions ---' in line:
             i = line_num + 4
             while lines[i] != '\n':
                 local_line = lines[i]
@@ -325,7 +333,7 @@ def read_eq6_output(file: Optional[str | io.TextIOWrapper] = None) -> dict[str, 
 
                 i += 1
 
-        elif '    --- Fugacities ---' in lines[i]:
+        elif '    --- Fugacities ---' in line:
             i = line_num + 4
             while lines[i] != '\n':
                 local_line = lines[i]

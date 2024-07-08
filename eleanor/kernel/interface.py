@@ -1,19 +1,7 @@
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
 
-from eleanor.typing import Self, Species
-
-
-@dataclass
-class Config(object):
-    type: str
-
-    @property
-    def is_fully_specified(self) -> bool:
-        return True
-
-    def mean(self) -> Self:
-        return self
+from eleanor.problem import Problem
+from eleanor.typing import Float, Species
 
 
 class AbstractKernel(ABC):
@@ -23,9 +11,12 @@ class AbstractKernel(ABC):
         pass
 
     @abstractmethod
-    def prime(self, *args, **kwargs) -> Species:
+    def run(self, problem: Problem, *args, **kwargs) -> tuple[dict[str, Float], dict[str, Float]]:
         pass
 
     @abstractmethod
     def get_species(self) -> Species:
         pass
+
+    def constrain(self, problem: Problem) -> Problem:
+        return problem

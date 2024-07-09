@@ -62,7 +62,6 @@ def read_eq3_output(file: Optional[str | io.TextIOWrapper] = None) -> dict[str, 
         raise EleanorFileException(e, code=RunCode.NO_3O_FILE)
 
     data: dict[str, Float] = {}
-    data['extended_alk'] = np.nan
 
     if 'Normal exit' not in lines[-1]:
         raise EleanorException('eq3 terminated early', code=RunCode.EQ3_EARLY_TERMINATION)
@@ -76,9 +75,9 @@ def read_eq3_output(file: Optional[str | io.TextIOWrapper] = None) -> dict[str, 
         fields = line.split()
 
         if ' Temperature=' in line:
-            data['T_cel'] = field_as_float(fields[-2])
+            data['temperature'] = field_as_float(fields[-2])
         elif ' Pressure=' in lines[i]:
-            data['P_bar'] = field_as_float(fields[1])
+            data['pressure'] = field_as_float(fields[1])
         elif ' --- Elemental Composition' in line:
             j = i + 4
             while lines[j] != '\n':
@@ -94,16 +93,16 @@ def read_eq3_output(file: Optional[str | io.TextIOWrapper] = None) -> dict[str, 
         elif '              Log activity of water=' in line:
             data['a_H2O'] = field_as_float(fields[-1])
         elif '                 Ionic strength (I)=' in line:
-            data['ionic'] = field_as_float(fields[-2])
+            data['ionic_strength'] = field_as_float(fields[-2])
         elif '                 Solutes (TDS) mass=' in line:
-            data['tds'] = field_as_float(fields[-2])
+            data['total_dissolved_solute'] = field_as_float(fields[-2])
         elif '              Aqueous solution mass=' in line:
-            data['soln_mass'] = field_as_float(fields[-2])
+            data['solution_mass'] = field_as_float(fields[-2])
         elif '           --- Extended Total Alkalinity ---' in line:
             field = get_field(lines[i + 2], 0)
-            data['extended_alk'] = field_as_float(field)
+            data['extended_alkalinity'] = field_as_float(field)
         elif '         Charge imbalance=' in line:
-            data['charge_imbalance_eq'] = field_as_float(fields[-1])
+            data['charge_imbalance'] = field_as_float(fields[-1])
         elif '--- Distribution of Aqueous Solute Species ---' in line:
             j = i + 4
             while lines[j] != '\n':
@@ -185,7 +184,6 @@ def read_eq6_output(file: Optional[str | io.TextIOWrapper] = None) -> dict[str, 
         raise EleanorFileException(e, code=RunCode.NO_3O_FILE)
 
     data: dict[str, Float] = {}
-    data['extended_alk'] = np.nan
 
     reaction_path_terminated = False
     for i in range(len(lines) - 1, 0, -1):
@@ -198,11 +196,10 @@ def read_eq6_output(file: Optional[str | io.TextIOWrapper] = None) -> dict[str, 
     if not reaction_path_terminated:
         raise EleanorException('no reaction path termination status found', code=RunCode.FILE_ERROR_6O)
 
-    data["initial_aff"] = 0.0
     for line in lines:
         fields = line.split()
         if '   Affinity of the overall irreversible reaction=' in line:
-            data["initial_aff"] = field_as_float(fields[-2])
+            data["initial_affinity"] = field_as_float(fields[-2])
             break
 
     line_num = len(lines) - 1
@@ -223,10 +220,10 @@ def read_eq6_output(file: Optional[str | io.TextIOWrapper] = None) -> dict[str, 
         fields = line.split()
 
         if ' Temperature=' in line:
-            data['T_cel'] = field_as_float(fields[-2])
+            data['temperature'] = field_as_float(fields[-2])
         elif ' Pressure=' in line:
-            data['P_bar'] = field_as_float(fields[-2])
-        elif ' --- Elemental Composition' in lines[i]:
+            data['pressure'] = field_as_float(fields[-2])
+        elif ' --- Elemental Composition' in line:
             i = line_num + 4
             while lines[i] != '\n':
                 local_fields = lines[i].split()
@@ -240,17 +237,17 @@ def read_eq6_output(file: Optional[str | io.TextIOWrapper] = None) -> dict[str, 
         elif '              Log activity of water=' in line:
             data['a_H2O'] = field_as_float(fields[-1])
         elif '                 Ionic strength (I)=' in line:
-            data['ionic'] = field_as_float(fields[-2])
+            data['ionic_strength'] = field_as_float(fields[-2])
         elif '                 Solutes (TDS) mass=' in line:
-            data['tds'] = field_as_float(fields[-2])
+            data['total_dissolved_solute'] = field_as_float(fields[-2])
         elif '              Aqueous solution mass=' in line:
-            data['soln_mass'] = field_as_float(fields[-2])
+            data['solution_mass'] = field_as_float(fields[-2])
         elif '           --- Extended Total Alkalinity ---' in line:
             local_fields = lines[line_num + 2].split()
-            data['extended_alk'] = field_as_float(local_fields[0])
+            data['extended_alkalinity'] = field_as_float(local_fields[0])
         elif '        --- Aqueous Solution Charge Balance ---' in line:
             local_fields = lines[line_num + 2].split()
-            data['charge_imbalance_eq'] = field_as_float(local_fields[-2])
+            data['charge_imbalance'] = field_as_float(local_fields[-2])
         elif '--- Distribution of Aqueous Solute Species ---' in line:
             i = line_num + 4
             while lines[i] != '\n':

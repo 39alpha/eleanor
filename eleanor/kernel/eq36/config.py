@@ -8,7 +8,7 @@ from eleanor.kernel.config import Config as KernelConfig
 from eleanor.kernel.eq36.settings import *
 from eleanor.kernel.exceptions import EleanorKernelException
 from eleanor.problem import AbstractConstraint
-from eleanor.typing import Number, Optional, Self
+from eleanor.typing import Any, Number, Optional, Self
 
 from .data0_tools import TPCurve
 
@@ -120,8 +120,8 @@ class Eq3Config(object):
         except IndexError:
             raise IndexError(f'iodb_{n} is undefined')
 
-    def to_row(self) -> dict:
-        d = {}
+    def to_dict(self) -> dict[str, int]:
+        d: dict[str, int] = {}
         for i in range(1, 21):
             d[f'iopt_{i}'] = self.get_iopt(i)
         for i in range(1, 21):
@@ -222,8 +222,8 @@ class Eq6Config(object):
         except IndexError:
             raise IndexError(f'iodb_{n} is undefined')
 
-    def to_row(self) -> dict:
-        d = {}
+    def to_dict(self) -> dict[str, int]:
+        d: dict[str, int] = {}
         for i in range(1, 21):
             d[f'iopt_{i}'] = self.get_iopt(i)
         for i in range(1, 21):
@@ -264,17 +264,16 @@ class Config(KernelConfig):
     def is_fully_specified(self) -> bool:
         return self.data1_file is not None
 
-    def to_row(self) -> dict:
-        d = super().to_row()
+    def to_dict(self) -> dict[str, Any]:
+        d: dict[str, Any] = super().to_dict()
         d['model'] = self.model
         d['charge_balance'] = self.charge_balance
         d['redox_species'] = self.redox_species
-        d['data1_file'] = os.path.basename(self.data1_file)
-        d['basis_map'] = json.dumps(self.basis_map)
-        for key, value in self.eq3_config.to_row().items():
-            d[f'eq3_{key}'] = value
-        for key, value in self.eq6_config.to_row().items():
-            d[f'eq6_{key}'] = value
+        if self.data1_file is not None:
+            d['data1_file'] = os.path.basename(self.data1_file)
+        d['basis_map'] = self.basis_map
+        d['es3_config'] = self.eq3_config.to_dict()
+        d['es6_config'] = self.eq6_config.to_dict()
 
         return d
 

@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 
 from ..exceptions import EleanorParserException
-from ..typing import Optional
+from ..typing import Number, Optional
 from .parameter import Parameter
 
 
@@ -17,6 +17,8 @@ class ReactantType(StrEnum):
 
 @dataclass
 class AbstractReactant(ABC):
+    name: str
+    type: ReactantType
 
     @property
     def parameters(self) -> list[Parameter]:
@@ -26,6 +28,10 @@ class AbstractReactant(ABC):
     @abstractmethod
     def is_fully_specified(self) -> bool:
         return False
+
+    @abstractmethod
+    def to_row(self) -> dict[str, Number]:
+        pass
 
     @staticmethod
     def from_dict(raw: dict, name: Optional[str] = None):
@@ -46,8 +52,6 @@ class AbstractReactant(ABC):
 
 @dataclass
 class TitratedReactant(AbstractReactant):
-    name: str
-    type: ReactantType
     amount: Parameter
     titration_rate: Parameter
 
@@ -58,6 +62,13 @@ class TitratedReactant(AbstractReactant):
     @property
     def parameters(self) -> list[Parameter]:
         return [self.amount, self.titration_rate]
+
+    def to_row(self) -> dict[str, Number]:
+        d = self.amount.to_row()
+        d.update(self.titration_rate.to_row())
+        for key in list(d.keys()):
+            d[f'{self.name}_{key}'] = d.pop(key)
+        return d
 
     @classmethod
     def from_dict(cls, raw: dict, name: Optional[str] = None):
@@ -104,8 +115,6 @@ TitratedReactant.register(GasReactant)
 
 @dataclass
 class FixedGasReactant(AbstractReactant):
-    name: str
-    type: ReactantType
     amount: Parameter
     fugacity: Parameter
 
@@ -116,6 +125,13 @@ class FixedGasReactant(AbstractReactant):
     @property
     def is_fully_specified(self) -> bool:
         return self.amount.is_fully_specified and self.fugacity.is_fully_specified
+
+    def to_row(self) -> dict[str, Number]:
+        d = self.amount.to_row()
+        d.update(self.fugacity.to_row())
+        for key in list(d.keys()):
+            d[f'{self.name}_{key}'] = d.pop(key)
+        return d
 
     @staticmethod
     def from_dict(raw: dict, name: Optional[str] = None):

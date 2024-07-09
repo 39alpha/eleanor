@@ -177,6 +177,13 @@ class Parameter(object):
 
         raise EleanorException(f'unexpected Parameter state: {self}')
 
+    def to_row(self) -> dict[str, Number]:
+        # DGM: The second condition is redundant, but satisfies MyPy
+        if not self.is_fully_specified or self.value is None:
+            raise EleanorException('cannot convert underspecified parameter to row')
+
+        return {f'{self.name}': self.value}
+
     @staticmethod
     def from_dict(raw: dict, name: Optional[str] = None):
         if name is None:

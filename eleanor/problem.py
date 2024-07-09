@@ -1,3 +1,4 @@
+import json
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
@@ -138,17 +139,18 @@ class Problem(object):
     def has_species_constraint(self, species: str) -> bool:
         return species in self.species and self.species[species].name == species
 
-    def to_row(self) -> dict:
+    def to_row(self) -> dict[str, Number | str | bytes]:
         if not self.is_fully_specified:
             raise EleanorException('cannot convert underspecified problem to dict')
 
-        d = {}
-        for key, value in self.kernel.to_row().items():
-            d[f'kernel_{key}'] = value
-        d['T_cel'] = self.temperature.value
-        d['P_bar'] = self.pressure.value
+        d: dict[str, Number | str | bytes] = {}
+        d[f'kernel'] = bytes(json.dumps(self.kernel.to_dict()), 'utf-8')
+        d.update(self.temperature.to_row())
+        d.update(self.pressure.to_row())
         for param in self.elements.values():
-            d[f'm_{param.name}'] = param.value
+            d.update(param.to_row())
+        for reactant in self.reactants:
+            d.update(reactant.to_row())
 
         return d
 

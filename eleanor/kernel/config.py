@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 
 from eleanor.config.parameter import Parameter
-from eleanor.typing import Self
+from eleanor.typing import Any, Self
 
 
 @dataclass
@@ -19,5 +19,5 @@ class Config(object):
     def mean(self) -> Self:
         return self
 
-    def to_row(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         return {'type': self.type}

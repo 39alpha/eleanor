@@ -1,14 +1,41 @@
+import datetime
 import sqlite3
 import time
+from contextlib import closing
 from multiprocessing import Process
 from multiprocessing.sharedctypes import Synchronized
 from queue import Queue
 
+import numpy as np
 import pandas as pd
 from tqdm import tqdm
 
+from .exceptions import EleanorException
 from .problem import Problem
-from .typing import Float
+from .sailor import Result
+from .typing import Any, Float, Number
+
+
+def sql_spec(x: Any, nullable: bool = False) -> str:
+    if x is None:
+        raise EleanorException('cannot infer SQL type for None')
+    if isinstance(x, (int, np.integer)):
+        t = 'INTEGER'
+    elif isinstance(x, (float, np.floating)):
+        t = 'DOUBLE PRECISION DEFAULT 0.0'
+    elif isinstance(x, str):
+        t = 'TEXT'
+    elif isinstance(x, bytes):
+        t = 'BLOB'
+    elif isinstance(x, (datetime.date, datetime.datetime)):
+        t = 'TEXT'
+    else:
+        raise EleanorException(f'unsupported datatype {type(x)}')
+
+    if nullable:
+        return t
+    else:
+        return f'{t} NOT NULL'
 
 
 class Yeoman(object):
@@ -22,6 +49,103 @@ class Yeoman(object):
         self.path = path
         self.conn = sqlite3.connect(path)
 
+    def prepare_vs_table(self, problem: Problem) -> None:
+        columns = ['`id` INTEGER PRIMARY KEY AUTOINCREMENT']
+        for key, value in problem.to_row().items():
+            columns.append(f'`{key}` {sql_spec(value)}')
+        columns.extend(['`exit_code` SMALLINT NOT NULL', '`create_date` TEXT NOT NULL'])
+
+        return self.prepare_table('vs', columns)
+
+    def prepare_es_table(self, table: str, result: dict[str, Float]) -> None:
+        columns = ['`id` INTEGER PRIMARY KEY AUTOINCREMENT', '`vs_id` INTEGER NOT NULL']
+        for key, value in result.items():
+            columns.append(f'`{key}` {sql_spec(value)}')
+
+        return self.prepare_table(table, columns, foreign_keys=[('vs_id', 'vs', 'id')])
+
+    def prepare_table(self,
+                      table: str,
+                      columns: list[str],
+                      foreign_keys: list[tuple[str, str, str]] | None = None) -> None:
+
+        if foreign_keys:
+            columns.extend(['FOREIGN KEY (`{0}`) REFERENCES `{1}`(`{2}`)'.format(*foreign) for foreign in foreign_keys])
+
+        query = f'CREATE TABLE IF NOT EXISTS `{table}` ({', '.join(columns)})'
+
+        with self.conn as conn:
+            conn.execute(query)
+
+    def insert_vs_point(self, problem: Problem, exit_code: int):
+        row: dict[str, Any] = problem.to_row()
+        row['exit_code'] = exit_code
+        row['create_date'] = datetime.datetime.now()
+
+        return self.insert_dict('vs', row)
+
+    def insert_es_point(self, table: str, vs_id: int, point: dict[str, Float]):
+        point['vs_id'] = vs_id
+        self.insert_dict(table, point)
+
+    def insert_dict(self, table: str, data: dict[str, Any]) -> int:
+        columns: list[str] = []
+        keys: list[str] = []
+        values: list[Any] = []
+        for key, value in data.items():
+            columns.append(f'`{key}`')
+            keys.append(f'?')
+            values.append(value)
+
+        query = f'INSERT INTO `{table}` ({', '.join(columns)}) VALUES ({', '.join(keys)})'
+
+        with self.conn as conn:
+            cursor = conn.execute(query, values)
+
+        if cursor.lastrowid is None:
+            raise EleanorException('failed to get last row id after insert')
+        return cursor.lastrowid
+
+    def insert_result(self, result: Result):
+        problem, es3, es6, exit_code = result
+        id = self.insert_vs_point(problem, exit_code)
+        if es3 is not None:
+            self.insert_es_point('es3', id, es3)
+        if es6 is not None:
+            self.insert_es_point('es6', id, es6)
+
+    def insert_results(self, results: list[Result]):
+        vs_sample: dict[str, Any] = {}
+        es3_sample: dict[str, Float] = {}
+        es6_sample: dict[str, Float] = {}
+        for problem, es3, es6, _ in results:
+            vs_sample.update(problem.to_row())
+            if es3 is not None:
+                es3_sample.update(es3)
+            if es6 is not None:
+                es6_sample.update(es6)
+
+        self.expand_table('vs', vs_sample)
+        self.expand_table('es3', es3_sample)
+        self.expand_table('es6', es6_sample)
+
+        for result in results:
+            self.insert_result(result)
+
+    def expand_table(self, table: str, sample: dict[str, Any]):
+        columns = set(sample.keys())
+        with closing(self.conn.cursor()) as cursor:
+            cursor.execute(f"PRAGMA table_info(`{table}`)")
+            columns -= set(row[1] for row in cursor.fetchall())
+
+            if columns:
+                cursor.execute('BEGIN TRANSACTION')
+                for column in columns:
+                    query = f'ALTER TABLE `{table}` ADD COLUMN `{column}` {sql_spec(sample[column])}'
+                    cursor.execute(query)
+
+            self.conn.commit()
+
     def fork(self, *args) -> Process:
 
         def proc(*args) -> None:
@@ -33,149 +157,21 @@ class Yeoman(object):
         yeoman.start()
         return yeoman
 
-    def run(self,
-            keep_running: Synchronized,
-            vs_queue: Queue,
-            es3_queue: Queue,
-            es6_queue: Queue,
-            num_points: int,
-            show_progress: bool = False) -> None:
-        WRITE_EVERY_N = 100
-        vs_n_written = 0
-
-        es3_df_list: list[dict[str, Float]] = []
-        es6_df_list: list[dict[str, Float]] = []
-        vs_list: list[tuple[str, int]] = []
-
-        if num_points <= WRITE_EVERY_N:
-            write_all_at_once = True
-        else:
-            write_all_at_once = False
-
-        if not write_all_at_once and show_progress:
+    def run(self, queue: Queue[Result], num_points: int, batch_size: int = 100, show_progress: bool = False) -> None:
+        if num_points > batch_size and show_progress:
             progress = tqdm(total=num_points)
+        else:
+            progress = None
 
-        while keep_running.value:
-            # Get the current size
-            current_q_size = vs_queue.qsize()
+        batch: list[Result] = []
+        while num_points > 0:
+            while len(batch) < min(num_points, batch_size):
+                batch.append(queue.get())
+                queue.task_done
 
-            if current_q_size < WRITE_EVERY_N and not write_all_at_once:
-                time.sleep(0.1)
-            elif current_q_size == num_points and write_all_at_once:
-                # Get everything written
-                # Get VS Points
-                while not vs_queue.empty():
-                    vs_line = vs_queue.get_nowait()
-                    vs_list.append(vs_line)
-                    vs_queue.task_done()
-                vs_n_written = len(vs_list)
-                if vs_n_written != 0:
-                    rows = []
-                    for exit_code, problem in vs_list:
-                        row = problem.to_row()
-                        row['exit_code'] = exit_code
-                        rows.append(row)
-                    pd.DataFrame(rows).to_sql('vs', self.conn, if_exists='append', index=False)
-                vs_list = []
-                # Get ES3 points
-                while not es3_queue.empty():
-                    es3_df = es3_queue.get_nowait()
-                    es3_df_list.append(es3_df)
-                    es3_queue.task_done()
-                # Write ES3 table
-                if len(es3_df_list) != 0:
-                    total_es3_df = pd.DataFrame(es3_df_list)
-                    total_es3_df.to_sql('es3', self.conn, if_exists='append', index=False)
-                    es3_df_list = []
-                # Get ES6 points
-                while not es6_queue.empty():
-                    es6_df = es6_queue.get_nowait()
-                    es6_df_list.append(es6_df)
-                    es6_queue.task_done()
-                # Write ES6 table
-                if len(es6_df_list) != 0:
-                    total_es6_df = pd.DataFrame(es6_df_list)
-                    total_es6_df.to_sql('es6', self.conn, if_exists='append', index=False)
-                    es6_df_list = []
-            elif not write_all_at_once and current_q_size > WRITE_EVERY_N:
-                # Get VS batch
-                while len(vs_list) < WRITE_EVERY_N:
-                    vs_line = vs_queue.get_nowait()
-                    vs_list.append(vs_line)
-                    vs_queue.task_done()
+            self.insert_results(batch)
 
-                # Write batch to VS table
-                vs_n_written = len(vs_list)
-                if vs_n_written != 0:
-                    rows = []
-                    for exit_code, problem in vs_list:
-                        row = problem.to_row()
-                        row['exit_code'] = exit_code
-                        rows.append(row)
-                    pd.DataFrame(rows).to_sql('vs', self.conn, if_exists='append', index=False)
-                vs_list = []
+            if progress is not None:
+                progress.update(len(batch))
 
-                # Get ES6 batch
-                current_es6_q_size = es6_queue.qsize()
-                while len(es6_df_list) < current_es6_q_size:
-                    es6_df = es6_queue.get_nowait()
-                    es6_df_list.append(es6_df)
-                    es6_queue.task_done()
-
-                # Write batch to ES3 table
-                if len(es3_df_list) != 0:
-                    total_es3_df = pd.DataFrame(es3_df_list)
-                    total_es3_df.to_sql('es3', self.conn, if_exists='append', index=False)
-                    es3_df_list = []
-
-                # Get ES3 batch
-                current_es3_q_size = es3_queue.qsize()
-                while len(es3_df_list) < current_es3_q_size:
-                    es3_df = es3_queue.get_nowait()
-                    es3_df_list.append(es3_df)
-                    es3_queue.task_done()
-
-                # Write batch to ES6 table
-                if len(es6_df_list) != 0:
-                    total_es6_df = pd.DataFrame(es6_df_list)
-                    total_es6_df.to_sql('es6', self.conn, if_exists='append', index=False)
-                    es6_df_list = []
-
-                if show_progress:
-                    progress.update(vs_n_written)
-
-        # Clean up the last batch
-        # Get remaining vs lines
-        while not vs_queue.empty():
-            vs_line = vs_queue.get_nowait()
-            vs_list.append(vs_line)
-            vs_queue.task_done()
-        vs_n_written = len(vs_list)
-        if vs_n_written != 0:
-            rows = []
-            for exit_code, problem in vs_list:
-                row = problem.to_row()
-                row['exit_code'] = exit_code
-                rows.append(row)
-            pd.DataFrame(rows).to_sql('vs', self.conn, if_exists='append', index=False)
-
-        while not es3_queue.empty():
-            es3_df = es3_queue.get_nowait()
-            es3_df_list.append(es3_df)
-            es3_queue.task_done()
-        # Write batch to ES table
-        if len(es3_df_list) != 0:
-            total_es3_df = pd.DataFrame(es3_df_list)
-            total_es3_df.to_sql('es3', self.conn, if_exists='append', index=False)
-
-        while not es6_queue.empty():
-            es6_df = es6_queue.get_nowait()
-            es6_df_list.append(es6_df)
-            es6_queue.task_done()
-        # Write batch to ES table
-        if len(es6_df_list) != 0:
-            total_es6_df = pd.DataFrame(es6_df_list)
-            total_es6_df.to_sql('es6', self.conn, if_exists='append', index=False)
-
-        if not write_all_at_once and show_progress:
-            progress.update(vs_n_written)
+            num_points -= len(batch)

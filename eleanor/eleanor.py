@@ -38,9 +38,13 @@ class Eleanor(object):
         self.navigator = UniformNavigator(self.kernel)
 
         huffer_problem, *_ = self.navigator.navigate(problem, 1)
-        self.kernel.run(huffer_problem, *args, **kwargs)
+        es3_result, es6_result = self.kernel.run(huffer_problem, *args, **kwargs)
 
         self.yeoman = Yeoman(dbpath)
+        self.yeoman.prepare_vs_table(huffer_problem)
+        self.yeoman.prepare_es_table('es3', es3_result)
+        self.yeoman.prepare_es_table('es6', es6_result)
+
         self.helmsman = Helmsman(self.kernel, self.yeoman)
 
         return self

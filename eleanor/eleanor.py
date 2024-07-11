@@ -41,9 +41,7 @@ class Eleanor(object):
         es3_result, es6_result = self.kernel.run(huffer_problem, *args, **kwargs)
 
         self.yeoman = Yeoman(dbpath)
-        self.yeoman.prepare_vs_table(huffer_problem)
-        self.yeoman.prepare_es_table('es3', es3_result)
-        self.yeoman.prepare_es_table('es6', es6_result)
+        self.yeoman.initialize(huffer_problem)
 
         self.helmsman = Helmsman(self.kernel, self.yeoman)
 

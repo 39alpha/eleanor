@@ -12,6 +12,7 @@ from eleanor.exceptions import EleanorException, EleanorFileException
 from eleanor.hanger.tool_room import NumberFormat
 from eleanor.kernel.exceptions import EleanorKernelException
 from eleanor.kernel.interface import AbstractKernel
+from eleanor.models import Result
 from eleanor.problem import Problem
 from eleanor.typing import Callable, Float, Optional, Species, cast
 
@@ -155,7 +156,7 @@ class Kernel(AbstractKernel):
 
         return os.path.join(self.data1_dir, curves[0].data1file)
 
-    def run(self, problem: Problem, verbose: bool = False) -> tuple[dict[str, Float], dict[str, Float]]:
+    def run(self, problem: Problem, verbose: bool = False) -> tuple[Result, Result]:
         config = self.resolve_kernel_config(problem)
         if config.data1_file is None:
             config.data1_file = self.find_data1_file(problem, verbose=verbose)

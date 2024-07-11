@@ -1,10 +1,12 @@
 import io
 import re
+from dataclasses import dataclass
 
 import numpy as np
 
+import eleanor.models as model
 from eleanor.exceptions import EleanorException, EleanorFileException, EleanorParserException
-from eleanor.typing import Float, Optional
+from eleanor.typing import Any, Float, Optional
 
 from .codes import RunCode
 
@@ -48,7 +50,7 @@ def read_pickup_lines(file: Optional[str | io.TextIOWrapper] = None) -> list[str
         raise EleanorFileException(e, code=RunCode.FILE_ERROR_3P)
 
 
-def read_eq3_output(file: Optional[str | io.TextIOWrapper] = None) -> dict[str, Float]:
+def read_eq3_output(file: Optional[str | io.TextIOWrapper] = None) -> model.Result:
     if file is None:
         return read_eq3_output('problem.3o')
 
@@ -61,10 +63,16 @@ def read_eq3_output(file: Optional[str | io.TextIOWrapper] = None) -> dict[str, 
     except FileNotFoundError as e:
         raise EleanorFileException(e, code=RunCode.NO_3O_FILE)
 
-    data: dict[str, Float] = {}
-
     if 'Normal exit' not in lines[-1]:
         raise EleanorException('eq3 terminated early', code=RunCode.EQ3_EARLY_TERMINATION)
+
+    data: dict[str, Any] = {
+        'stage': 'eq3',
+        'elements': [],
+        'aqueous_species': [],
+        'solid_phases': [],
+        'gases': [],
+    }
 
     for i in range(len(lines)):
         line = lines[i]
@@ -75,27 +83,27 @@ def read_eq3_output(file: Optional[str | io.TextIOWrapper] = None) -> dict[str, 
         fields = line.split()
 
         if ' Temperature=' in line:
-            data['temperature'] = field_as_float(fields[-2])
+            data['temperature'] = field_as_float(fields[1])
         elif ' Pressure=' in lines[i]:
             data['pressure'] = field_as_float(fields[1])
         elif ' --- Elemental Composition' in line:
             j = i + 4
             while lines[j] != '\n':
-                local_fields = lines[j].split()
+                local_fields = lines[j].strip().split()
                 name = local_fields[0]
-                value = np.round(np.log10(field_as_float(local_fields[-1])), 6)
-                data[f'm_{name}'] = value
+                log_molality = np.log10(field_as_float(local_fields[4]))
+                data['elements'].append(model.Element(name=name, log_molality=log_molality))
                 j += 1
         elif ' NBS pH scale         ' in line:
             data['pH'] = field_as_float(fields[-4])
         elif '                Log oxygen fugacity=' in line:
-            data['fO2'] = field_as_float(fields[-1])
+            data['log_fO2'] = field_as_float(fields[-1])
         elif '              Log activity of water=' in line:
-            data['a_H2O'] = field_as_float(fields[-1])
+            data['log_activity_water'] = field_as_float(fields[-1])
         elif '                 Ionic strength (I)=' in line:
             data['ionic_strength'] = field_as_float(fields[-2])
         elif '                 Solutes (TDS) mass=' in line:
-            data['total_dissolved_solute'] = field_as_float(fields[-2])
+            data['tds_mass'] = field_as_float(fields[-2])
         elif '              Aqueous solution mass=' in line:
             data['solution_mass'] = field_as_float(fields[-2])
         elif '           --- Extended Total Alkalinity ---' in line:
@@ -109,15 +117,13 @@ def read_eq3_output(file: Optional[str | io.TextIOWrapper] = None) -> dict[str, 
                 local_fields = lines[j].split()
                 name = local_fields[0]
                 if name != 'O2(g)':
-                    # '******' shows up with species are less than -99999.0 which signifies that it was suppressed.
+                    if '*' in local_fields[2] or '*' in local_fields[4]:
+                        continue
 
-                    # -3 is log molality
-                    molality = local_fields[-3]
-                    data[f'm_{name}'] = -99999.0 if '*' in molality else field_as_float(molality)
-
-                    # -1 position is log activity,
-                    activity = local_fields[-1]
-                    data[f'a_{name}'] = -99999.0 if '*' in activity else field_as_float(activity)
+                    log_molality = field_as_float(local_fields[2])
+                    log_activity = field_as_float(local_fields[4])
+                    species = model.AqueousSpecies(name=name, log_molality=log_molality, log_activity=log_activity)
+                    data['aqueous_species'].append(species)
 
                 j += 1
         elif '--- Saturation States of Pure Solids ---' in line:
@@ -125,13 +131,12 @@ def read_eq3_output(file: Optional[str | io.TextIOWrapper] = None) -> dict[str, 
             while lines[j] != '\n':
                 local_line = lines[j]
 
-                # '******'' fills in the value region for numbers lower than -999.9999. Replace with boundary
-                if re.findall(r'\*{4}\s*$', local_line):
+                # '******' fills in the value region for numbers lower than -999.9999
+                if 'None' not in local_line and not re.findall(r'\*{4}\s*$', local_line):
                     name = local_line[:30].strip()
-                    data[f'qk_{name}'] = -999.9999
-                elif 'None' not in local_line:
-                    name = local_line[:30].strip()
-                    data[f'qk_{name}'] = field_as_float(local_line[31:44])
+                    log_qk = field_as_float(local_line[31:44])
+                    solid = model.SolidPhase(type='solid', name=name, log_qk=log_qk)
+                    data['solid_phases'].append(solid)
 
                 j += 1
         elif ' --- Saturation States of Solid Solutions ---' in line:
@@ -139,38 +144,33 @@ def read_eq3_output(file: Optional[str | io.TextIOWrapper] = None) -> dict[str, 
             while lines[j] != '\n':
                 local_line = lines[j]
 
-                # '******' fills in the value region for numbers lower than -999.9999. Replace with boundary
-                if re.findall(r'\*{4}\s*$', local_line):
+                # '******' fills in the value region for numbers lower than -999.9999
+                if 'None' not in local_line and not re.findall(r'\*{4}\s*$', local_line):
                     name = local_line[:30].strip()
-                    data[f'qk_{name}'] = -999.9999
-                elif 'None' not in local_line:
-                    name = local_line[:30].strip()
-                    data[f'qk_{name}'] = field_as_float(local_line[44:55])
+                    log_qk = field_as_float(local_line[44:55])
+                    solid_solution = model.SolidPhase(type='solid solution', name=name, log_qk=log_qk)
+                    data['solid_phases'].append(solid_solution)
 
                 j += 1
         elif '    --- Fugacities ---' in line:
             j = i + 4
             while lines[j] != '\n':
                 local_line = lines[j]
+                local_fields = local_line.strip().split()
 
-                if 'None' not in local_line:
-                    # '******'' fills in the value region for numbers lower than -999.9999. Replace with
-                    if re.findall(r'\*{4}', local_line):
-                        # boundary condition
-                        name = local_line[:30].strip()
-                        data[f'f_{name}'] = -999.9999
-                    else:
-                        name = local_line[:30].strip()
-                        data[f'f_{name}'] = field_as_float(local_line[28:41])
+                if 'None' not in local_line and not re.findall(r'\*{4}', local_line):
+                    name = local_fields[0].strip()
+                    log_fugacity = field_as_float(local_fields[1])
+                    data['gases'].append(model.Gas(name=name, log_fugacity=log_fugacity))
 
                 j += 1
 
             break
 
-    return data
+    return model.Result(**data)
 
 
-def read_eq6_output(file: Optional[str | io.TextIOWrapper] = None) -> dict[str, Float]:
+def read_eq6_output(file: Optional[str | io.TextIOWrapper] = None) -> model.Result:
     if file is None:
         return read_eq6_output('problem.6o')
 
@@ -183,7 +183,14 @@ def read_eq6_output(file: Optional[str | io.TextIOWrapper] = None) -> dict[str, 
     except FileNotFoundError as e:
         raise EleanorFileException(e, code=RunCode.NO_3O_FILE)
 
-    data: dict[str, Float] = {}
+    data: dict[str, Any] = {
+        'stage': 'eq6',
+        'elements': [],
+        'aqueous_species': [],
+        'solid_phases': [],
+        'gases': [],
+    }
+    precipitates: list[tuple[str, str, str | None, Float]] = []
 
     reaction_path_terminated = False
     for i in range(len(lines) - 1, 0, -1):
@@ -199,7 +206,7 @@ def read_eq6_output(file: Optional[str | io.TextIOWrapper] = None) -> dict[str, 
     for line in lines:
         fields = line.split()
         if '   Affinity of the overall irreversible reaction=' in line:
-            data["initial_affinity"] = field_as_float(fields[-2])
+            data['initial_affinity'] = field_as_float(fields[-2])
             break
 
     line_num = len(lines) - 1
@@ -207,7 +214,7 @@ def read_eq6_output(file: Optional[str | io.TextIOWrapper] = None) -> dict[str, 
         line = lines[line_num]
         if '                Log Xi=' in line:
             fields = line.split()
-            data['xi_max'] = field_as_float(fields[-1])
+            data['log_xi'] = field_as_float(fields[-1])
             break
         line_num -= 1
 
@@ -220,26 +227,27 @@ def read_eq6_output(file: Optional[str | io.TextIOWrapper] = None) -> dict[str, 
         fields = line.split()
 
         if ' Temperature=' in line:
-            data['temperature'] = field_as_float(fields[-2])
+            data['temperature'] = field_as_float(fields[1])
         elif ' Pressure=' in line:
-            data['pressure'] = field_as_float(fields[-2])
+            data['pressure'] = field_as_float(fields[1])
         elif ' --- Elemental Composition' in line:
             i = line_num + 4
             while lines[i] != '\n':
                 local_fields = lines[i].split()
                 name = local_fields[0]
-                data[f'm_{name}'] = np.round(np.log10(field_as_float(local_fields[-1])), 6)
+                log_molality = np.log10(field_as_float(local_fields[2]))
+                data['elements'].append(model.Element(name=name, log_molality=log_molality))
                 i += 1
         elif ' NBS pH scale         ' in line:
             data['pH'] = field_as_float(fields[-4])
         elif '                Log oxygen fugacity=' in line:
-            data['fO2'] = field_as_float(fields[-1])
+            data['log_fO2'] = field_as_float(fields[-1])
         elif '              Log activity of water=' in line:
-            data['a_H2O'] = field_as_float(fields[-1])
+            data['log_activity_water'] = field_as_float(fields[-1])
         elif '                 Ionic strength (I)=' in line:
             data['ionic_strength'] = field_as_float(fields[-2])
         elif '                 Solutes (TDS) mass=' in line:
-            data['total_dissolved_solute'] = field_as_float(fields[-2])
+            data['tds_mass'] = field_as_float(fields[-2])
         elif '              Aqueous solution mass=' in line:
             data['solution_mass'] = field_as_float(fields[-2])
         elif '           --- Extended Total Alkalinity ---' in line:
@@ -254,79 +262,118 @@ def read_eq6_output(file: Optional[str | io.TextIOWrapper] = None) -> dict[str, 
                 local_fields = lines[i].split()
                 name = local_fields[0]
                 if name != 'O2(g)':
-                    # '******' shows up with species are less than -99999.0 which signifies that it was suppressed.
+                    if '*' in local_fields[-3] or '*' in local_fields[-1]:
+                        continue
 
-                    # -3 is log molality
-                    molality = local_fields[-3]
-                    data[f'm_{name}'] = -99999.0 if '*' in molality else field_as_float(molality)
-                    if data[f'm_{name}'] == -99999:
-                        data[f'm_{name}'] = 0
-
-                    # -1 position is log activity,
-                    activity = local_fields[-1]
-                    data[f'a_{name}'] = -99999.0 if '*' in activity else field_as_float(activity)
-                    if data[f'a_{name}'] == -99999:
-                        data[f'a_{name}'] = 0
+                    log_molality = field_as_float(local_fields[2])
+                    log_activity = field_as_float(local_fields[4])
+                    species = model.AqueousSpecies(name=name, log_molality=log_molality, log_activity=log_activity)
+                    data['aqueous_species'].append(species)
 
                 i += 1
         elif '--- Summary of Solid Phases (ES) ---' in line:
             i = line_num + 4
-            solid_solution = None
-            end_member = None
+            solid = None
+            is_solid_solution = False
             if 'None' not in lines[i]:
                 import sys
                 while True:
                     line = lines[i]
+                    local_fields = line.strip().split()
 
                     if line == '\n' and lines[i + 1] == '\n':
-                        # Two blank lines signifies end of block
+                        if solid is not None:
+                            name, mass = solid
+                            type = 'solid solution' if is_solid_solution else 'solid'
+                            precipitates.append((type, name, None, mass))
+
+                        solid = None
+                        is_solid_solution = False
                         break
                     elif line == '\n':
-                        # Single blank lines separate solids from solid slutions reporting
-                        solid_solution = None
-                        end_member = None
+                        if solid is not None:
+                            name, mass = solid
+                            type = 'solid solution' if is_solid_solution else 'solid'
+                            precipitates.append((type, name, None, mass))
+
+                        solid = None
+                        is_solid_solution = False
                     elif re.findall(r'^ [^ ]', line):
-                        # Pure phases and solid solutions parents
-                        solid_solution = line[:25].strip()
-                        local_fields = line.split()
-                        data[f'm_{solid_solution}'] = field_as_float(local_fields[-3])
+                        if solid is not None:
+                            name, mass = solid
+                            type = 'solid solution' if is_solid_solution else 'solid'
+                            precipitates.append((type, name, None, mass))
+
+                        name = local_fields[0]
+                        log_moles = field_as_float(local_fields[2])
+                        solid = (name, log_moles)
                     elif re.findall(r'^   [^ ]', line):
-                        # Solid solution endmember. Grab with parent association
-                        if solid_solution is None:
+                        if solid is None:
                             msg = f'found solid solution end member without solid solution at {file.name}:{line_num}'
                             raise EleanorParserException()
-                        end_member = line[:25].strip()
-                        local_fields = line.split()
-                        data[f'm_{end_member}_{solid_solution}'] = field_as_float(local_fields[-3])
-                        end_member = None
+
+                        is_solid_solution = True
+                        local_fields = line.strip().split()
+                        end_member = local_fields[0]
+                        log_moles = field_as_float(local_fields[2])
+                        solid_solution, *_ = solid
+                        precipitates.append(('solid solution', solid_solution, end_member, log_moles))
 
                     i += 1
         elif '--- Saturation States of Pure Solids ---' in line:
             i = line_num + 4
             while lines[i] != '\n':
                 local_line = lines[i]
+                local_fields = local_line.strip().split()
 
-                # '******'' fills in the value region for numbers lower than -999.9999. Replace with boundary
-                if re.findall(r'\*{4}\s*$', local_line):
-                    name = local_line[:30].strip()
-                    data[f'qk_{name}'] = -999.9999
-                elif 'None' not in local_line:
-                    name = local_line[:30].strip()
-                    data[f'qk_{name}'] = field_as_float(local_line[31:44])
+                # '******' fills in the value region for numbers lower than -999.9999
+                if 'None' not in local_line and not re.findall(r'\*{4}\s*$', local_line):
+                    phase: model.SolidPhase | None = None
+                    name = local_fields[0]
+                    log_qk = field_as_float(local_fields[1])
+
+                    for precipitate in precipitates:
+                        if precipitate[0] == 'solid' and precipitate[1] == name and precipitate[2] is None:
+                            phase = model.SolidPhase(
+                                type=precipitate[0],
+                                name=name,
+                                log_qk=log_qk,
+                                log_moles=precipitate[3],
+                            )
+                            break
+
+                    if phase is None:
+                        phase = model.SolidPhase(type='solid', name=name, log_qk=log_qk)
+
+                    data['solid_phases'].append(phase)
 
                 i += 1
         elif ' --- Saturation States of Solid Solutions ---' in line:
             i = line_num + 4
             while lines[i] != '\n':
                 local_line = lines[i]
+                local_fields = local_line.strip().split()
 
-                # '******' fills in the value region for numbers lower than -999.9999. Replace with boundary
-                if re.findall(r'\*{4}\s*$', local_line):
-                    name = local_line[:30].strip()
-                    data[f'qk_{name}'] = -999.9999
-                elif 'None' not in local_line:
-                    name = local_line[:30].strip()
-                    data[f'qk_{name}'] = field_as_float(local_line[44:55])
+                # '******' fills in the value region for numbers lower than -999.9999
+                if 'None' not in local_line and not re.findall(r'\*{4}\s*$', local_line):
+                    phase = None
+                    name = local_fields[0]
+                    log_qk = field_as_float(local_fields[1])
+
+                    for precipitate in precipitates:
+                        if precipitate[0] == 'solid solution' and precipitate[1] == name and precipitate[2] is None:
+                            phase = model.SolidPhase(
+                                type=precipitate[0],
+                                name=name,
+                                log_qk=log_qk,
+                                log_moles=precipitate[3],
+                            )
+                            break
+
+                    if phase is None:
+                        phase = model.SolidPhase(type='solid solution', name=name, log_qk=log_qk)
+
+                    data['solid_phases'].append(phase)
 
                 i += 1
 
@@ -334,16 +381,12 @@ def read_eq6_output(file: Optional[str | io.TextIOWrapper] = None) -> dict[str, 
             i = line_num + 4
             while lines[i] != '\n':
                 local_line = lines[i]
+                local_fields = local_line.strip().split()
 
-                if 'None' not in local_line:
-                    # '******'' fills in the value region for numbers lower than -999.9999. Replace with
-                    if re.findall(r'\*{4}', local_line):
-                        # boundary condition
-                        name = local_line[:30].strip()
-                        data[f'f_{name}'] = -999.9999
-                    else:
-                        name = local_line[:30].strip()
-                        data[f'f_{name}'] = field_as_float(local_line[28:41])
+                if 'None' not in local_line and not re.findall(r'\*{4}', local_line):
+                    name = local_fields[0].strip()
+                    log_fugacity = field_as_float(local_fields[1])
+                    data['gases'].append(model.Gas(name=name, log_fugacity=log_fugacity))
 
                 i += 1
 
@@ -351,4 +394,4 @@ def read_eq6_output(file: Optional[str | io.TextIOWrapper] = None) -> dict[str, 
 
         line_num += 1
 
-    return data
+    return model.Result(**data)

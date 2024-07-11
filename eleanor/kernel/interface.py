@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 
+from eleanor.models import Result
 from eleanor.problem import Problem
 from eleanor.typing import Float, Species
 
@@ -11,7 +12,7 @@ class AbstractKernel(ABC):
         pass
 
     @abstractmethod
-    def run(self, problem: Problem, *args, **kwargs) -> tuple[dict[str, Float], dict[str, Float]]:
+    def run(self, problem: Problem, *args, **kwargs) -> tuple[Result, Result]:
         pass
 
     @abstractmethod

@@ -1,13 +1,15 @@
 from queue import Queue
 from tempfile import TemporaryDirectory
 
+import eleanor.models as model
+
 from .exceptions import EleanorException
 from .hanger.tool_room import WorkingDirectory
 from .kernel.interface import AbstractKernel
 from .problem import Problem
 from .typing import Float
 
-Result = tuple[Problem, dict[str, Float] | None, dict[str, Float] | None, int]
+Result = tuple[Problem, model.Result | None, model.Result | None, int]
 
 
 def sailor(kernel: AbstractKernel, problem: Problem, queue: Queue[Result], *args, **kwargs) -> None:

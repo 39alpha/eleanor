@@ -1,11 +1,7 @@
 import os
-import time
-from multiprocessing import Manager, Pool, Value
-from multiprocessing.managers import SyncManager
-from queue import Queue
+from multiprocessing import Pool
 
 from .kernel.interface import AbstractKernel
-from .models import VSPoint
 from .problem import Problem
 from .sailor import sailor
 from .yeoman import Yeoman
@@ -13,30 +9,20 @@ from .yeoman import Yeoman
 
 class Helmsman:
     kernel: AbstractKernel
-    yeoman: Yeoman
 
-    def __init__(self, kernel: AbstractKernel, yeoman: Yeoman):
+    def __init__(self, kernel: AbstractKernel):
         self.kernel = kernel
-        self.yeoman = yeoman
 
-    def run(self, problems: list[Problem], num_cores: int | None = os.cpu_count(), **kwargs):
-        queue_manager = Manager()
-        queue: Queue[VSPoint] = queue_manager.Queue()
+    def __call__(self, problem: Problem, *args, **kwargs):
+        with Yeoman() as yeoman:
+            sailor(self.kernel, yeoman, problem, *args, **kwargs)
+            yeoman.commit()
 
+    def run(self, problems: list[Problem], *args, num_cores: int | None = os.cpu_count(), **kwargs):
         N = len(problems)
         if num_cores is None or num_cores == 1:
             for problem in problems:
-                sailor(self.kernel, problem, queue, **kwargs)
-            wait = Value('b', False)
-            self.yeoman.run(queue, N, **kwargs)
+                self(problem, *args, **kwargs)
         else:
-            wait = Value('b', True)
-            yeoman_process = self.yeoman.fork(queue, N, **kwargs)
-
-            with Pool(processes=num_cores - 1) as pool:
-                pool.starmap(sailor, zip([self.kernel] * N, problems, [queue] * N))
-
-            with wait.get_lock():
-                wait.value = False
-
-            yeoman_process.join()
+            with Pool(processes=num_cores - 1, initializer=Yeoman.dispose) as pool:
+                pool.starmap(self, zip(problems, [args] * N, [kwargs] * N))

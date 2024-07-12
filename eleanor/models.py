@@ -3,24 +3,23 @@ import json
 from dataclasses import asdict, dataclass, field
 
 from sqlalchemy import BLOB, CheckConstraint, Column, DateTime, Double, ForeignKey, Integer, String, Table, func
-from sqlalchemy.orm import Mapped, mapped_column, registry, relationship
+from sqlalchemy.orm import relationship
 
 import eleanor.config.reactant as reactant
 import eleanor.config.suppression as suppression
-from eleanor.problem import Problem
 
 from .exceptions import EleanorException
+from .problem import Problem
 from .typing import Float, Optional
+from .yeoman import yeoman_registry
 
-mapper_registry = registry()
 
-
-@mapper_registry.mapped
+@yeoman_registry.mapped
 @dataclass
 class Element(object):
     __table__ = Table(
         'elements',
-        mapper_registry.metadata,
+        yeoman_registry.metadata,
         Column('id', Integer, primary_key=True),
         Column('es_id', Integer, ForeignKey('es.id'), nullable=False),
         Column('name', String, nullable=False),
@@ -33,12 +32,12 @@ class Element(object):
     id: Optional[int] = None
 
 
-@mapper_registry.mapped
+@yeoman_registry.mapped
 @dataclass
 class AqueousSpecies(object):
     __table__ = Table(
         'aqueous_species',
-        mapper_registry.metadata,
+        yeoman_registry.metadata,
         Column('id', Integer, primary_key=True),
         Column('es_id', Integer, ForeignKey('es.id'), nullable=False),
         Column('name', String, nullable=False),
@@ -53,12 +52,12 @@ class AqueousSpecies(object):
     id: int | None = None
 
 
-@mapper_registry.mapped
+@yeoman_registry.mapped
 @dataclass
 class SolidPhase(object):
     __table__ = Table(
         'solid_phase',
-        mapper_registry.metadata,
+        yeoman_registry.metadata,
         Column('id', Integer, primary_key=True),
         Column('es_id', Integer, ForeignKey('es.id'), nullable=False),
         Column('type', String, nullable=False),
@@ -77,12 +76,12 @@ class SolidPhase(object):
     id: int | None = None
 
 
-@mapper_registry.mapped
+@yeoman_registry.mapped
 @dataclass
 class Gas(object):
     __table__ = Table(
         'gas',
-        mapper_registry.metadata,
+        yeoman_registry.metadata,
         Column('id', Integer, primary_key=True),
         Column('es_id', Integer, ForeignKey('es.id'), nullable=False),
         Column('name', String, nullable=False),
@@ -95,12 +94,12 @@ class Gas(object):
     id: int | None = None
 
 
-@mapper_registry.mapped
+@yeoman_registry.mapped
 @dataclass
 class ESPoint(object):
     __table__ = Table(
         'es',
-        mapper_registry.metadata,
+        yeoman_registry.metadata,
         Column('id', Integer, primary_key=True),
         Column('vs_id', Integer, ForeignKey('vs.id'), nullable=False),
         Column('stage', String, nullable=False),
@@ -148,12 +147,12 @@ class ESPoint(object):
     id: Optional[int] = None
 
 
-@mapper_registry.mapped
+@yeoman_registry.mapped
 @dataclass
 class Kernel(object):
     __table__ = Table(
         'kernel',
-        mapper_registry.metadata,
+        yeoman_registry.metadata,
         Column('id', Integer, primary_key=True),
         Column('vs_id', Integer, ForeignKey('vs.id'), nullable=False),
         Column('type', String, nullable=False),
@@ -166,12 +165,12 @@ class Kernel(object):
     vs_id: Optional[int] = None
 
 
-@mapper_registry.mapped
+@yeoman_registry.mapped
 @dataclass
 class SuppressionException(object):
     __table__ = Table(
         'suppression_exceptions',
-        mapper_registry.metadata,
+        yeoman_registry.metadata,
         Column('name', String, primary_key=True),
         Column('suppression_id', ForeignKey('suppressions.id'), primary_key=True),
     )
@@ -180,12 +179,12 @@ class SuppressionException(object):
     suppression_id: Optional[int] = None
 
 
-@mapper_registry.mapped
+@yeoman_registry.mapped
 @dataclass
 class Suppression(object):
     __table__ = Table(
         'suppressions',
-        mapper_registry.metadata,
+        yeoman_registry.metadata,
         Column('id', Integer, primary_key=True),
         Column('vs_id', Integer, ForeignKey('vs.id'), nullable=False),
         Column('name', String),
@@ -206,12 +205,12 @@ class Suppression(object):
     vs_id: Optional[int] = None
 
 
-@mapper_registry.mapped
+@yeoman_registry.mapped
 @dataclass
 class ReactantComposition(object):
     __table__ = Table(
         'reactant_composition',
-        mapper_registry.metadata,
+        yeoman_registry.metadata,
         Column('id', Integer, primary_key=True),
         Column('titrated_reactant_id', Integer, ForeignKey('titrated_reactant.id'), nullable=False),
         Column('element', String, nullable=False),
@@ -224,12 +223,12 @@ class ReactantComposition(object):
     titrated_reactant_id: Optional[int] = None
 
 
-@mapper_registry.mapped
+@yeoman_registry.mapped
 @dataclass
 class TitratedReactant(object):
     __table__ = Table(
         'titrated_reactant',
-        mapper_registry.metadata,
+        yeoman_registry.metadata,
         Column('id', Integer, primary_key=True),
         Column('vs_id', Integer, ForeignKey('vs.id'), nullable=False),
         Column('name', String, nullable=False),
@@ -253,12 +252,12 @@ class TitratedReactant(object):
     vs_id: Optional[int] = None
 
 
-@mapper_registry.mapped
+@yeoman_registry.mapped
 @dataclass
 class FixedGasReactant(object):
     __table__ = Table(
         'fixed_gas_reactant',
-        mapper_registry.metadata,
+        yeoman_registry.metadata,
         Column('id', Integer, primary_key=True),
         Column('vs_id', Integer, ForeignKey('vs.id'), nullable=False),
         Column('name', String, nullable=False),
@@ -273,12 +272,12 @@ class FixedGasReactant(object):
     vs_id: Optional[int] = None
 
 
-@mapper_registry.mapped
+@yeoman_registry.mapped
 @dataclass
 class VSElement(object):
     __table__ = Table(
         'vs_elements',
-        mapper_registry.metadata,
+        yeoman_registry.metadata,
         Column('id', Integer, primary_key=True),
         Column('vs_id', Integer, ForeignKey('vs.id'), nullable=False),
         Column('name', String, nullable=False),
@@ -291,12 +290,12 @@ class VSElement(object):
     id: Optional[int] = None
 
 
-@mapper_registry.mapped
+@yeoman_registry.mapped
 @dataclass
 class VSSpecies(object):
     __table__ = Table(
         'vs_species',
-        mapper_registry.metadata,
+        yeoman_registry.metadata,
         Column('id', Integer, primary_key=True),
         Column('vs_id', Integer, ForeignKey('vs.id'), nullable=False),
         Column('name', String, nullable=False),
@@ -311,12 +310,12 @@ class VSSpecies(object):
     id: Optional[int] = None
 
 
-@mapper_registry.mapped
+@yeoman_registry.mapped
 @dataclass
 class VSPoint(object):
     __table__ = Table(
         'vs',
-        mapper_registry.metadata,
+        yeoman_registry.metadata,
         Column('id', Integer, primary_key=True),
         Column('temperature', Double, nullable=False),
         Column('pressure', Double, nullable=False),

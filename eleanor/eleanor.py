@@ -37,8 +37,8 @@ class Eleanor(object):
         huffer_problem, *_ = navigator.navigate(problem, 1)
         es3_result, es6_result = self.kernel.run(huffer_problem, *args, **kwargs)
 
-        yeoman = Yeoman(**kwargs)
-        helmsman = Helmsman(self.kernel, yeoman)
+        Yeoman.setup(**kwargs)
+        helmsman = Helmsman(self.kernel)
 
         base_problem = Problem.from_config(self.config)
         problems = navigator.navigate(base_problem, num_samples)

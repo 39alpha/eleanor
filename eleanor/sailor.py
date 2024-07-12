@@ -1,15 +1,14 @@
-from queue import Queue
 from tempfile import TemporaryDirectory
 
 from .exceptions import EleanorException
 from .hanger.tool_room import WorkingDirectory
 from .kernel.interface import AbstractKernel
-from .models import ESPoint, VSPoint
+from .models import VSPoint
 from .problem import Problem
-from .typing import Float
+from .yeoman import Yeoman
 
 
-def sailor(kernel: AbstractKernel, problem: Problem, queue: Queue[VSPoint], *args, **kwargs) -> None:
+def sailor(kernel: AbstractKernel, yeoman: Yeoman, problem: Problem, *args, **kwargs) -> None:
     with TemporaryDirectory(prefix="eleanor_") as tempdir:
         with WorkingDirectory(tempdir):
             try:
@@ -22,4 +21,4 @@ def sailor(kernel: AbstractKernel, problem: Problem, queue: Queue[VSPoint], *arg
             vs_point = VSPoint.from_problem(problem)
             vs_point.es_points = es_points
             vs_point.exit_code = exit_code
-            queue.put_nowait(vs_point)
+            yeoman.add(vs_point)

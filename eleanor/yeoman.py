@@ -1,72 +1,51 @@
-import datetime
-import sqlite3
-import time
-from contextlib import closing
-from dataclasses import asdict
-from multiprocessing import Process
-from multiprocessing.sharedctypes import Synchronized
-from queue import Queue
-
-import numpy as np
-import pandas as pd
 from sqlalchemy import Engine, create_engine
-from sqlalchemy.orm import Session
-from tqdm import tqdm
-
-import eleanor.models as model
+from sqlalchemy.orm import Session, registry
 
 from .exceptions import EleanorException
-from .models import VSPoint, mapper_registry
-from .problem import Problem
-from .typing import Any, Float, Number
+from .typing import Optional
+
+engine: Engine | None = None
+yeoman_registry = registry()
 
 
-class Yeoman(object):
-    path: str
-    engine: Engine
+class Yeoman(Session):
 
-    def __init__(self, path: str | None = None, verbose: bool = False, **kwargs):
-        if path is None:
-            path = 'campaign.sql'
+    def __init__(self, *args, **kwargs):
+        global engine
 
-        self.path = path
-        self.engine = create_engine(f'sqlite:///{path}', echo=verbose)
+        if engine is None:
+            raise EleanorException('cannot create Yeoman session without first setting up')
 
-        mapper_registry.metadata.create_all(self.engine)
+        super().__init__(engine, *args, **kwargs)
 
-    def fork(self, *args, **kwargs) -> Process:
+    @staticmethod
+    def setup(db_path: Optional[str] = None, verbose: bool = False, **kwargs) -> None:
+        global engine, yeoman_registry
 
-        def proc(*args, **kwargs) -> None:
-            child = type(self)(self.path)
-            return child.run(*args, **kwargs)
+        if engine is not None:
+            raise EleanorException('cannot resetup Yeoman')
 
-        yeoman = Process(target=proc, args=args, kwargs=kwargs)
-        yeoman.start()
-        return yeoman
+        if db_path is None:
+            db_path = 'campaign.sql'
 
-    def run(self,
-            queue: Queue[VSPoint],
-            num_points: int,
-            batch_size: int = 100,
-            verbose: bool = False,
-            show_progress: bool = False,
-            **kwargs) -> None:
-        if num_points > batch_size and show_progress:
-            progress = tqdm(total=num_points)
-        else:
-            progress = None
+        engine = create_engine(f'sqlite:///{db_path}', echo=verbose)
+        yeoman_registry.metadata.create_all(engine)
 
-        batch: list[VSPoint] = []
-        while num_points > 0:
-            while len(batch) < min(num_points, batch_size):
-                batch.append(queue.get())
-                queue.task_done
+    @staticmethod
+    def is_setup() -> bool:
+        global engine
+        return engine is not None
 
-            with Session(self.engine) as session:
-                session.add_all(batch)
-                session.commit()
+    @staticmethod
+    def unsafe_engine() -> Optional[Engine]:
+        global engine
+        return engine
 
-            if progress is not None:
-                progress.update(len(batch))
+    @staticmethod
+    def dispose(close: bool = False) -> None:
+        global engine
 
-            num_points -= len(batch)
+        if engine is None:
+            raise EleanorException('cannot dispose Yeoman before it is setup')
+
+        engine.dispose(close=close)

@@ -12,7 +12,7 @@ from eleanor.exceptions import EleanorException, EleanorFileException
 from eleanor.hanger.tool_room import NumberFormat
 from eleanor.kernel.exceptions import EleanorKernelException
 from eleanor.kernel.interface import AbstractKernel
-from eleanor.models import Result
+from eleanor.models import ESPoint
 from eleanor.problem import Problem
 from eleanor.typing import Callable, Float, Optional, Species, cast
 
@@ -46,7 +46,7 @@ class Kernel(AbstractKernel):
         self._representative_data0 = None
 
     # TODO: Return basic setup information, e.g. species, etc...
-    def setup(self, problem: Problem, verbose: bool = False):
+    def setup(self, problem: Problem, *args, verbose: bool = False, **kwargs):
         self._data0_hash, unhashed = tools.hash_data0s(self.data0_dir)
         if verbose and len(unhashed) != 0:
             msg = f'The following files in the data0 directory "{self.data0_dir}" do not appear to be valid data0 files'
@@ -156,7 +156,7 @@ class Kernel(AbstractKernel):
 
         return os.path.join(self.data1_dir, curves[0].data1file)
 
-    def run(self, problem: Problem, verbose: bool = False) -> tuple[Result, Result]:
+    def run(self, problem: Problem, *args, verbose: bool = False, **kwargs) -> list[ESPoint]:
         config = self.resolve_kernel_config(problem)
         if config.data1_file is None:
             config.data1_file = self.find_data1_file(problem, verbose=verbose)
@@ -175,7 +175,7 @@ class Kernel(AbstractKernel):
         eq6(config.data1_file, eq6_input_path)
         eq6_results = util.read_eq6_output()
 
-        return eq3_results, eq6_results
+        return [eq3_results, eq6_results]
 
     def write_eq3_input(self,
                         problem: Problem,

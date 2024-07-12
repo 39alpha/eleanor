@@ -50,7 +50,7 @@ def read_pickup_lines(file: Optional[str | io.TextIOWrapper] = None) -> list[str
         raise EleanorFileException(e, code=RunCode.FILE_ERROR_3P)
 
 
-def read_eq3_output(file: Optional[str | io.TextIOWrapper] = None) -> model.Result:
+def read_eq3_output(file: Optional[str | io.TextIOWrapper] = None) -> model.ESPoint:
     if file is None:
         return read_eq3_output('problem.3o')
 
@@ -167,10 +167,10 @@ def read_eq3_output(file: Optional[str | io.TextIOWrapper] = None) -> model.Resu
 
             break
 
-    return model.Result(**data)
+    return model.ESPoint(**data)
 
 
-def read_eq6_output(file: Optional[str | io.TextIOWrapper] = None) -> model.Result:
+def read_eq6_output(file: Optional[str | io.TextIOWrapper] = None) -> model.ESPoint:
     if file is None:
         return read_eq6_output('problem.6o')
 
@@ -394,4 +394,4 @@ def read_eq6_output(file: Optional[str | io.TextIOWrapper] = None) -> model.Resu
 
         line_num += 1
 
-    return model.Result(**data)
+    return model.ESPoint(**data)

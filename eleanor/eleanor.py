@@ -13,9 +13,6 @@ from .yeoman import Yeoman
 class Eleanor(object):
     config: Config
     kernel: AbstractKernel
-    yeoman: Yeoman
-    navigator: UniformNavigator
-    helmsman: Helmsman
 
     def __init__(self, config: str | Config, *args, **kwargs):
         if isinstance(config, str):
@@ -31,23 +28,20 @@ class Eleanor(object):
         else:
             raise EleanorException(f'unsupported kernel type: "{self.config.kernel.type}"')
 
-    def setup(self, dbpath: str | None = None, *args, **kwargs) -> Self:
+    def run(self, num_samples: int, *args, **kwargs) -> Self:
         problem = Problem.from_config(self.config)
 
-        self.kernel.setup(problem, *args, **kwargs)
-        self.navigator = UniformNavigator(self.kernel)
+        self.kernel.setup(problem, **kwargs)
+        navigator = UniformNavigator(self.kernel)
 
-        huffer_problem, *_ = self.navigator.navigate(problem, 1)
+        huffer_problem, *_ = navigator.navigate(problem, 1)
         es3_result, es6_result = self.kernel.run(huffer_problem, *args, **kwargs)
 
-        self.yeoman = Yeoman(dbpath)
-        self.yeoman.initialize(huffer_problem)
+        yeoman = Yeoman(**kwargs)
+        helmsman = Helmsman(self.kernel, yeoman)
 
-        self.helmsman = Helmsman(self.kernel, self.yeoman)
+        base_problem = Problem.from_config(self.config)
+        problems = navigator.navigate(base_problem, num_samples)
+        helmsman.run(problems, **kwargs)
 
         return self
-
-    def run(self, num_samples: int, *args, **kwargs):
-        base_problem = Problem.from_config(self.config)
-        problems = self.navigator.navigate(base_problem, num_samples)
-        self.helmsman.run(problems, *args, **kwargs)

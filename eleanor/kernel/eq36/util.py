@@ -50,7 +50,7 @@ def read_pickup_lines(file: Optional[str | io.TextIOWrapper] = None) -> list[str
         raise EleanorFileException(e, code=RunCode.FILE_ERROR_3P)
 
 
-def read_eq3_output(file: Optional[str | io.TextIOWrapper] = None) -> models.ESPoint:
+def read_eq3_output(file: Optional[str | io.TextIOWrapper] = None) -> models.Eq3Point:
     if file is None:
         return read_eq3_output('problem.3o')
 
@@ -67,7 +67,6 @@ def read_eq3_output(file: Optional[str | io.TextIOWrapper] = None) -> models.ESP
         raise EleanorException('eq3 terminated early', code=RunCode.EQ3_EARLY_TERMINATION)
 
     data: dict[str, Any] = {
-        'stage': 'eq3',
         'elements': [],
         'aqueous_species': [],
         'solid_phases': [],
@@ -167,10 +166,10 @@ def read_eq3_output(file: Optional[str | io.TextIOWrapper] = None) -> models.ESP
 
             break
 
-    return models.ESPoint(id=None, vs_id=None, kernel='eq36', **data)
+    return models.Eq3Point(**data)
 
 
-def read_eq6_output(file: Optional[str | io.TextIOWrapper] = None) -> models.ESPoint:
+def read_eq6_output(file: Optional[str | io.TextIOWrapper] = None) -> models.Eq6Point:
     if file is None:
         return read_eq6_output('problem.6o')
 
@@ -184,7 +183,6 @@ def read_eq6_output(file: Optional[str | io.TextIOWrapper] = None) -> models.ESP
         raise EleanorFileException(e, code=RunCode.NO_3O_FILE)
 
     data: dict[str, Any] = {
-        'stage': 'eq6',
         'elements': [],
         'aqueous_species': [],
         'solid_phases': [],
@@ -394,4 +392,4 @@ def read_eq6_output(file: Optional[str | io.TextIOWrapper] = None) -> models.ESP
 
         line_num += 1
 
-    return models.ESPoint(id=None, vs_id=None, kernel='eq36', **data)
+    return models.Eq6Point(**data)

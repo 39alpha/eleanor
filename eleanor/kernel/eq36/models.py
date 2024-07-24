@@ -3,7 +3,7 @@ import json
 from dataclasses import asdict, dataclass, field
 
 from sqlalchemy import BLOB, CheckConstraint, Column, DateTime, Double, ForeignKey, Integer, String, Table, func
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import declared_attr, relationship
 
 import eleanor.config.reactant as reactant
 import eleanor.config.suppression as suppression
@@ -94,36 +94,20 @@ class Gas(object):
 
 @yeoman_registry.mapped_as_dataclass
 class ESPoint(BaseESPoint):
-    __table__ = Table(
-        'eq36_es',
-        yeoman_registry.metadata,
-        Column('id', Integer, ForeignKey('es.id'), primary_key=True),
-        Column('stage', String, nullable=False),
-        Column('temperature', Double, nullable=False),
-        Column('pressure', Double, nullable=False),
-        Column('pH', Double, nullable=False),
-        Column('log_fO2', Double, nullable=False),
-        Column('log_activity_water', Double, nullable=False),
-        Column('ionic_strength', Double, nullable=False),
-        Column('tds_mass', Double, nullable=False),
-        Column('solution_mass', Double, nullable=False),
-        Column('charge_imbalance', Double, nullable=False),
-        Column('extended_alkalinity', Double),
-        Column('initial_affinity', Double),
-        Column('log_xi', Double),
-    )
+    __abstract__ = True
 
-    __mapper_args__ = {
-        'polymorphic_identity': 'eq36',
-        'properties': {
-            'elements': relationship(Element),
-            'aqueous_species': relationship(AqueousSpecies),
-            'solid_phases': relationship(SolidPhase),
-            'gases': relationship(Gas),
+    @declared_attr
+    def __mapper_args__(cls):
+        return {
+            'polymorphic_identity': __loader__.name + '.' + cls.__qualname__,  # type: ignore
+            'properties': {
+                'elements': relationship(Element),
+                'aqueous_species': relationship(AqueousSpecies),
+                'solid_phases': relationship(SolidPhase),
+                'gases': relationship(Gas),
+            }
         }
-    }
 
-    stage: str
     temperature: float
     pressure: float
     pH: float
@@ -140,3 +124,121 @@ class ESPoint(BaseESPoint):
     extended_alkalinity: Optional[float] = None
     initial_affinity: Optional[float] = None
     log_xi: Optional[float] = None
+
+
+@yeoman_registry.mapped_as_dataclass(init=False)
+class Eq3Point(ESPoint):
+    __table__ = Table(
+        'eq3',
+        yeoman_registry.metadata,
+        Column('id', Integer, ForeignKey('es.id'), primary_key=True),
+        Column('temperature', Double, nullable=False),
+        Column('pressure', Double, nullable=False),
+        Column('pH', Double, nullable=False),
+        Column('log_fO2', Double, nullable=False),
+        Column('log_activity_water', Double, nullable=False),
+        Column('ionic_strength', Double, nullable=False),
+        Column('tds_mass', Double, nullable=False),
+        Column('solution_mass', Double, nullable=False),
+        Column('charge_imbalance', Double, nullable=False),
+        Column('extended_alkalinity', Double),
+        Column('initial_affinity', Double),
+        Column('log_xi', Double),
+    )
+
+    def __init__(
+        self,
+        temperature: float,
+        pressure: float,
+        pH: float,
+        log_fO2: float,
+        log_activity_water: float,
+        ionic_strength: float,
+        tds_mass: float,
+        solution_mass: float,
+        charge_imbalance: float,
+        elements: list[Element],
+        aqueous_species: list[AqueousSpecies],
+        solid_phases: list[SolidPhase],
+        gases: list[Gas],
+        id: Optional[int] = None,
+        vs_id: Optional[int] = None,
+        extended_alkalinity: Optional[float] = None,
+        initial_affinity: Optional[float] = None,
+        log_xi: Optional[float] = None,
+    ):
+        self.temperature = temperature
+        self.pressure = pressure
+        self.pH = pH
+        self.log_fO2 = log_fO2
+        self.log_activity_water = log_activity_water
+        self.ionic_strength = ionic_strength
+        self.tds_mass = tds_mass
+        self.solution_mass = solution_mass
+        self.charge_imbalance = charge_imbalance
+        self.elements = elements
+        self.aqueous_species = aqueous_species
+        self.solid_phases = solid_phases
+        self.gases = gases
+        self.extended_alkalinity = extended_alkalinity
+        self.initial_affinity = initial_affinity
+        self.log_xi = log_xi
+
+
+@yeoman_registry.mapped_as_dataclass(init=False)
+class Eq6Point(ESPoint):
+    __table__ = Table(
+        'eq6',
+        yeoman_registry.metadata,
+        Column('id', Integer, ForeignKey('es.id'), primary_key=True),
+        Column('temperature', Double, nullable=False),
+        Column('pressure', Double, nullable=False),
+        Column('pH', Double, nullable=False),
+        Column('log_fO2', Double, nullable=False),
+        Column('log_activity_water', Double, nullable=False),
+        Column('ionic_strength', Double, nullable=False),
+        Column('tds_mass', Double, nullable=False),
+        Column('solution_mass', Double, nullable=False),
+        Column('charge_imbalance', Double, nullable=False),
+        Column('extended_alkalinity', Double),
+        Column('initial_affinity', Double),
+        Column('log_xi', Double),
+    )
+
+    def __init__(
+        self,
+        temperature: float,
+        pressure: float,
+        pH: float,
+        log_fO2: float,
+        log_activity_water: float,
+        ionic_strength: float,
+        tds_mass: float,
+        solution_mass: float,
+        charge_imbalance: float,
+        elements: list[Element],
+        aqueous_species: list[AqueousSpecies],
+        solid_phases: list[SolidPhase],
+        gases: list[Gas],
+        id: Optional[int] = None,
+        vs_id: Optional[int] = None,
+        extended_alkalinity: Optional[float] = None,
+        initial_affinity: Optional[float] = None,
+        log_xi: Optional[float] = None,
+    ):
+        self.temperature = temperature
+        self.pressure = pressure
+        self.pH = pH
+        self.log_fO2 = log_fO2
+        self.log_activity_water = log_activity_water
+        self.ionic_strength = ionic_strength
+        self.tds_mass = tds_mass
+        self.solution_mass = solution_mass
+        self.charge_imbalance = charge_imbalance
+        self.elements = elements
+        self.aqueous_species = aqueous_species
+        self.solid_phases = solid_phases
+        self.gases = gases
+        self.extended_alkalinity = extended_alkalinity
+        self.initial_affinity = initial_affinity
+        self.log_xi = log_xi

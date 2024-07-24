@@ -1,8 +1,8 @@
 from abc import ABC, abstractmethod
 
-from eleanor.models import ESPoint
-from eleanor.problem import Problem
-from eleanor.typing import Float, Species
+from eleanor.constraints import Boatswain
+from eleanor.models import ESPoint, VSPoint
+from eleanor.typing import Species
 
 
 class AbstractKernel(ABC):
@@ -12,12 +12,12 @@ class AbstractKernel(ABC):
         pass
 
     @abstractmethod
-    def run(self, problem: Problem, *args, **kwargs) -> list[ESPoint]:
+    def run(self, vs_point: VSPoint, *args, **kwargs) -> list[ESPoint]:
         pass
 
     @abstractmethod
     def get_species(self) -> Species:
         pass
 
-    def constrain(self, problem: Problem) -> Problem:
-        return problem
+    def constrain(self, boatswain: Boatswain) -> Boatswain:
+        return boatswain

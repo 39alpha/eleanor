@@ -20,18 +20,9 @@ class AbstractReactant(ABC):
     name: str
     type: ReactantType
 
-    @property
+    @abstractmethod
     def parameters(self) -> list[Parameter]:
         return []
-
-    @property
-    @abstractmethod
-    def is_fully_specified(self) -> bool:
-        return False
-
-    @abstractmethod
-    def to_row(self) -> dict[str, Number]:
-        pass
 
     @staticmethod
     def from_dict(raw: dict, name: Optional[str] = None):
@@ -55,20 +46,8 @@ class TitratedReactant(AbstractReactant):
     amount: Parameter
     titration_rate: Parameter
 
-    @property
-    def is_fully_specified(self) -> bool:
-        return self.amount.is_fully_specified and self.titration_rate.is_fully_specified
-
-    @property
     def parameters(self) -> list[Parameter]:
         return [self.amount, self.titration_rate]
-
-    def to_row(self) -> dict[str, Number]:
-        d = self.amount.to_row()
-        d.update(self.titration_rate.to_row())
-        for key in list(d.keys()):
-            d[f'{self.name}_{key}'] = d.pop(key)
-        return d
 
     @classmethod
     def from_dict(cls, raw: dict, name: Optional[str] = None):
@@ -118,20 +97,8 @@ class FixedGasReactant(AbstractReactant):
     amount: Parameter
     fugacity: Parameter
 
-    @property
     def parameters(self) -> list[Parameter]:
         return [self.amount, self.fugacity]
-
-    @property
-    def is_fully_specified(self) -> bool:
-        return self.amount.is_fully_specified and self.fugacity.is_fully_specified
-
-    def to_row(self) -> dict[str, Number]:
-        d = self.amount.to_row()
-        d.update(self.fugacity.to_row())
-        for key in list(d.keys()):
-            d[f'{self.name}_{key}'] = d.pop(key)
-        return d
 
     @staticmethod
     def from_dict(raw: dict, name: Optional[str] = None):

@@ -4,9 +4,9 @@ from dataclasses import dataclass
 
 import numpy as np
 
-import eleanor.models as model
+import eleanor.kernel.eq36.models as models
 from eleanor.exceptions import EleanorException, EleanorFileException, EleanorParserException
-from eleanor.typing import Any, Float, Optional
+from eleanor.typing import Any, Number, Optional
 
 from .codes import RunCode
 
@@ -50,7 +50,7 @@ def read_pickup_lines(file: Optional[str | io.TextIOWrapper] = None) -> list[str
         raise EleanorFileException(e, code=RunCode.FILE_ERROR_3P)
 
 
-def read_eq3_output(file: Optional[str | io.TextIOWrapper] = None) -> model.ESPoint:
+def read_eq3_output(file: Optional[str | io.TextIOWrapper] = None) -> models.ESPoint:
     if file is None:
         return read_eq3_output('problem.3o')
 
@@ -92,7 +92,7 @@ def read_eq3_output(file: Optional[str | io.TextIOWrapper] = None) -> model.ESPo
                 local_fields = lines[j].strip().split()
                 name = local_fields[0]
                 log_molality = np.log10(field_as_float(local_fields[4]))
-                data['elements'].append(model.Element(name=name, log_molality=log_molality))
+                data['elements'].append(models.Element(name=name, log_molality=log_molality))
                 j += 1
         elif ' NBS pH scale         ' in line:
             data['pH'] = field_as_float(fields[-4])
@@ -122,7 +122,7 @@ def read_eq3_output(file: Optional[str | io.TextIOWrapper] = None) -> model.ESPo
 
                     log_molality = field_as_float(local_fields[2])
                     log_activity = field_as_float(local_fields[4])
-                    species = model.AqueousSpecies(name=name, log_molality=log_molality, log_activity=log_activity)
+                    species = models.AqueousSpecies(name=name, log_molality=log_molality, log_activity=log_activity)
                     data['aqueous_species'].append(species)
 
                 j += 1
@@ -135,7 +135,7 @@ def read_eq3_output(file: Optional[str | io.TextIOWrapper] = None) -> model.ESPo
                 if 'None' not in local_line and not re.findall(r'\*{4}\s*$', local_line):
                     name = local_line[:30].strip()
                     log_qk = field_as_float(local_line[31:44])
-                    solid = model.SolidPhase(type='solid', name=name, log_qk=log_qk)
+                    solid = models.SolidPhase(type='solid', name=name, log_qk=log_qk)
                     data['solid_phases'].append(solid)
 
                 j += 1
@@ -148,7 +148,7 @@ def read_eq3_output(file: Optional[str | io.TextIOWrapper] = None) -> model.ESPo
                 if 'None' not in local_line and not re.findall(r'\*{4}\s*$', local_line):
                     name = local_line[:30].strip()
                     log_qk = field_as_float(local_line[44:55])
-                    solid_solution = model.SolidPhase(type='solid solution', name=name, log_qk=log_qk)
+                    solid_solution = models.SolidPhase(type='solid solution', name=name, log_qk=log_qk)
                     data['solid_phases'].append(solid_solution)
 
                 j += 1
@@ -161,16 +161,16 @@ def read_eq3_output(file: Optional[str | io.TextIOWrapper] = None) -> model.ESPo
                 if 'None' not in local_line and not re.findall(r'\*{4}', local_line):
                     name = local_fields[0].strip()
                     log_fugacity = field_as_float(local_fields[1])
-                    data['gases'].append(model.Gas(name=name, log_fugacity=log_fugacity))
+                    data['gases'].append(models.Gas(name=name, log_fugacity=log_fugacity))
 
                 j += 1
 
             break
 
-    return model.ESPoint(**data)
+    return models.ESPoint(id=None, vs_id=None, kernel='eq36', **data)
 
 
-def read_eq6_output(file: Optional[str | io.TextIOWrapper] = None) -> model.ESPoint:
+def read_eq6_output(file: Optional[str | io.TextIOWrapper] = None) -> models.ESPoint:
     if file is None:
         return read_eq6_output('problem.6o')
 
@@ -190,7 +190,7 @@ def read_eq6_output(file: Optional[str | io.TextIOWrapper] = None) -> model.ESPo
         'solid_phases': [],
         'gases': [],
     }
-    precipitates: list[tuple[str, str, str | None, Float]] = []
+    precipitates: list[tuple[str, str, str | None, Number]] = []
 
     reaction_path_terminated = False
     for i in range(len(lines) - 1, 0, -1):
@@ -236,7 +236,7 @@ def read_eq6_output(file: Optional[str | io.TextIOWrapper] = None) -> model.ESPo
                 local_fields = lines[i].split()
                 name = local_fields[0]
                 log_molality = np.log10(field_as_float(local_fields[2]))
-                data['elements'].append(model.Element(name=name, log_molality=log_molality))
+                data['elements'].append(models.Element(name=name, log_molality=log_molality))
                 i += 1
         elif ' NBS pH scale         ' in line:
             data['pH'] = field_as_float(fields[-4])
@@ -267,7 +267,7 @@ def read_eq6_output(file: Optional[str | io.TextIOWrapper] = None) -> model.ESPo
 
                     log_molality = field_as_float(local_fields[2])
                     log_activity = field_as_float(local_fields[4])
-                    species = model.AqueousSpecies(name=name, log_molality=log_molality, log_activity=log_activity)
+                    species = models.AqueousSpecies(name=name, log_molality=log_molality, log_activity=log_activity)
                     data['aqueous_species'].append(species)
 
                 i += 1
@@ -328,13 +328,13 @@ def read_eq6_output(file: Optional[str | io.TextIOWrapper] = None) -> model.ESPo
 
                 # '******' fills in the value region for numbers lower than -999.9999
                 if 'None' not in local_line and not re.findall(r'\*{4}\s*$', local_line):
-                    phase: model.SolidPhase | None = None
+                    phase: models.SolidPhase | None = None
                     name = local_fields[0]
                     log_qk = field_as_float(local_fields[1])
 
                     for precipitate in precipitates:
                         if precipitate[0] == 'solid' and precipitate[1] == name and precipitate[2] is None:
-                            phase = model.SolidPhase(
+                            phase = models.SolidPhase(
                                 type=precipitate[0],
                                 name=name,
                                 log_qk=log_qk,
@@ -343,7 +343,7 @@ def read_eq6_output(file: Optional[str | io.TextIOWrapper] = None) -> model.ESPo
                             break
 
                     if phase is None:
-                        phase = model.SolidPhase(type='solid', name=name, log_qk=log_qk)
+                        phase = models.SolidPhase(type='solid', name=name, log_qk=log_qk)
 
                     data['solid_phases'].append(phase)
 
@@ -362,7 +362,7 @@ def read_eq6_output(file: Optional[str | io.TextIOWrapper] = None) -> model.ESPo
 
                     for precipitate in precipitates:
                         if precipitate[0] == 'solid solution' and precipitate[1] == name and precipitate[2] is None:
-                            phase = model.SolidPhase(
+                            phase = models.SolidPhase(
                                 type=precipitate[0],
                                 name=name,
                                 log_qk=log_qk,
@@ -371,7 +371,7 @@ def read_eq6_output(file: Optional[str | io.TextIOWrapper] = None) -> model.ESPo
                             break
 
                     if phase is None:
-                        phase = model.SolidPhase(type='solid solution', name=name, log_qk=log_qk)
+                        phase = models.SolidPhase(type='solid solution', name=name, log_qk=log_qk)
 
                     data['solid_phases'].append(phase)
 
@@ -386,7 +386,7 @@ def read_eq6_output(file: Optional[str | io.TextIOWrapper] = None) -> model.ESPo
                 if 'None' not in local_line and not re.findall(r'\*{4}', local_line):
                     name = local_fields[0].strip()
                     log_fugacity = field_as_float(local_fields[1])
-                    data['gases'].append(model.Gas(name=name, log_fugacity=log_fugacity))
+                    data['gases'].append(models.Gas(name=name, log_fugacity=log_fugacity))
 
                 i += 1
 
@@ -394,4 +394,4 @@ def read_eq6_output(file: Optional[str | io.TextIOWrapper] = None) -> model.ESPo
 
         line_num += 1
 
-    return model.ESPoint(**data)
+    return models.ESPoint(id=None, vs_id=None, kernel='eq36', **data)

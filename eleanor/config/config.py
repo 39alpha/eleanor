@@ -9,6 +9,7 @@ from ..exceptions import EleanorParserException
 from ..hanger.tool_room import parse_date
 from ..kernel.config import Config as KernelConfig
 from ..typing import Callable, Optional
+from .constraints import ConstraintConfig
 from .parameter import Parameter
 from .reactant import AbstractReactant, Reactant
 from .suppression import Suppression
@@ -27,51 +28,17 @@ class Config(object):
     species: dict[str, Parameter]
     suppressions: list[Suppression]
     reactants: list[Reactant]
-    raw: Optional[dict]
+    constraints: list[ConstraintConfig]
 
-    def __init__(self,
-                 name: str,
-                 date: datetime.date | datetime.datetime,
-                 notes: str,
-                 creator: str,
-                 kernel: KernelConfig,
-                 temperature: Parameter,
-                 pressure: Parameter,
-                 elements: dict[str, Parameter],
-                 species: dict[str, Parameter],
-                 suppressions: list[Suppression],
-                 reactants: list[Reactant],
-                 raw: Optional[dict] = None):
-        self.name = name
-        self.date = date
-        self.notes = notes
-        self.creator = creator
-        self.kernel = kernel
-        self.temperature = temperature
-        self.pressure = pressure
-        self.elements = elements
-        self.species = species
-        self.suppressions = suppressions
-        self.reactants = reactants
-        self.raw = raw
+    def parameters(self) -> list[Parameter]:
+        parameters: list[Parameter] = [self.temperature, self.pressure]
+        parameters.extend(self.kernel.parameters())
+        parameters.extend(e for e in self.elements.values())
+        parameters.extend(s for s in self.species.values())
+        for reactant in self.reactants:
+            parameters.extend(reactant.parameters())
 
-    @property
-    def is_fully_specified(self) -> bool:
-        if not self.kernel.is_fully_specified:
-            return False
-        if not self.temperature.is_fully_specified:
-            return False
-        elif not self.pressure.is_fully_specified:
-            return False
-        elif not all(param.is_fully_specified for param in self.elements.values()):
-            return False
-        elif not all(param.is_fully_specified for param in self.species.values()):
-            return False
-
-        return all(r.is_fully_specified for r in self.reactants)
-
-    def has_species(self, species: str) -> bool:
-        return species in self.species
+        return parameters
 
     @staticmethod
     def from_dict(raw: dict):
@@ -113,18 +80,22 @@ class Config(object):
 
         reactants = [AbstractReactant.from_dict(value, name=name) for name, value in raw.get('reactants', []).items()]
 
-        return Config(name,
-                      config_date,
-                      notes,
-                      creator,
-                      kernel,
-                      temperature,
-                      pressure,
-                      elements,
-                      species,
-                      suppressions,
-                      reactants,
-                      raw=raw)
+        constraints: list[ConstraintConfig] = []
+
+        return Config(
+            name,
+            config_date,
+            notes,
+            creator,
+            kernel,
+            temperature,
+            pressure,
+            elements,
+            species,
+            suppressions,
+            reactants,
+            constraints,
+        )
 
     @staticmethod
     def from_yaml(fname: str):
@@ -153,11 +124,11 @@ class Config(object):
         }
 
         for filetype, func in parsers.items():
-            try:
-                return func(fname)
-            except EleanorParserException:
-                raise
-            except Exception:
-                pass
+            #     try:
+            return func(fname)
+            # except EleanorParserException:
+            #     raise
+            # except Exception:
+            #     pass
 
         raise EleanorParserException(f'failed to parse "{fname}" as yaml, toml or json')

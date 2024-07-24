@@ -1,168 +1,36 @@
-import datetime
 import json
-from dataclasses import asdict, dataclass, field
+from abc import ABC
+from dataclasses import dataclass, field
+from datetime import datetime
 
-from sqlalchemy import BLOB, CheckConstraint, Column, DateTime, Double, ForeignKey, Integer, String, Table, func
+from sqlalchemy import (BLOB, JSON, CheckConstraint, Column, DateTime, Double, ForeignKey, Integer, String, Table,
+                        TypeDecorator)
 from sqlalchemy.orm import relationship
 
-import eleanor.config.reactant as reactant
-import eleanor.config.suppression as suppression
-
-from .exceptions import EleanorException
-from .problem import Problem
-from .typing import Float, Optional
-from .yeoman import yeoman_registry
+from eleanor.config import Config, ReactantType
+from eleanor.kernel.config import Config as KernelConfig
+from eleanor.typing import Any, Optional
+from eleanor.yeoman import yeoman_registry
 
 
-@yeoman_registry.mapped
-@dataclass
-class Element(object):
-    __table__ = Table(
-        'elements',
-        yeoman_registry.metadata,
-        Column('id', Integer, primary_key=True),
-        Column('es_id', Integer, ForeignKey('es.id'), nullable=False),
-        Column('name', String, nullable=False),
-        Column('log_molality', Double, nullable=False),
-    )
-
-    name: str
-    log_molality: Float
-    es_id: Optional[int] = None
-    id: Optional[int] = None
-
-
-@yeoman_registry.mapped
-@dataclass
-class AqueousSpecies(object):
-    __table__ = Table(
-        'aqueous_species',
-        yeoman_registry.metadata,
-        Column('id', Integer, primary_key=True),
-        Column('es_id', Integer, ForeignKey('es.id'), nullable=False),
-        Column('name', String, nullable=False),
-        Column('log_molality', Double, nullable=False),
-        Column('log_activity', Double, nullable=False),
-    )
-
-    name: str
-    log_molality: Float
-    log_activity: Float
-    es_id: int | None = None
-    id: int | None = None
-
-
-@yeoman_registry.mapped
-@dataclass
-class SolidPhase(object):
-    __table__ = Table(
-        'solid_phase',
-        yeoman_registry.metadata,
-        Column('id', Integer, primary_key=True),
-        Column('es_id', Integer, ForeignKey('es.id'), nullable=False),
-        Column('type', String, nullable=False),
-        Column('name', String, nullable=False),
-        Column('end_member', String, nullable=True),
-        Column('log_qk', Double, nullable=False),
-        Column('log_moles', Double),
-    )
-
-    type: str
-    name: str
-    log_qk: Float
-    log_moles: Float | None = None
-    end_member: str | None = None
-    es_id: int | None = None
-    id: int | None = None
-
-
-@yeoman_registry.mapped
-@dataclass
-class Gas(object):
-    __table__ = Table(
-        'gas',
-        yeoman_registry.metadata,
-        Column('id', Integer, primary_key=True),
-        Column('es_id', Integer, ForeignKey('es.id'), nullable=False),
-        Column('name', String, nullable=False),
-        Column('log_fugacity', Double, nullable=False),
-    )
-
-    name: str
-    log_fugacity: Float
-    es_id: int | None = None
-    id: int | None = None
-
-
-@yeoman_registry.mapped
-@dataclass
+@yeoman_registry.mapped_as_dataclass
 class ESPoint(object):
     __table__ = Table(
         'es',
         yeoman_registry.metadata,
         Column('id', Integer, primary_key=True),
-        Column('vs_id', Integer, ForeignKey('vs.id'), nullable=False),
-        Column('stage', String, nullable=False),
-        Column('temperature', Double, nullable=False),
-        Column('pressure', Double, nullable=False),
-        Column('pH', Double, nullable=False),
-        Column('log_fO2', Double, nullable=False),
-        Column('log_activity_water', Double, nullable=False),
-        Column('ionic_strength', Double, nullable=False),
-        Column('tds_mass', Double, nullable=False),
-        Column('solution_mass', Double, nullable=False),
-        Column('charge_imbalance', Double, nullable=False),
-        Column('extended_alkalinity', Double),
-        Column('initial_affinity', Double),
-        Column('log_xi', Double),
+        Column('vs_id', Integer, ForeignKey('vs.id')),
+        Column('kernel', String, nullable=False),
     )
 
-    __mapper_args__ = {
-        'properties': {
-            'elements': relationship('Element'),
-            'aqueous_species': relationship('AqueousSpecies'),
-            'solid_phases': relationship('SolidPhase'),
-            'gases': relationship('Gas'),
-        }
+    __mapper_args__: dict[str, Any] = {
+        'polymorphic_identity': 'es',
+        'polymorphic_on': 'kernel',
     }
 
-    stage: str
-    temperature: Float
-    pressure: Float
-    pH: Float
-    log_fO2: Float
-    log_activity_water: Float
-    ionic_strength: Float
-    tds_mass: Float
-    solution_mass: Float
-    charge_imbalance: Float
-    elements: list[Element]
-    aqueous_species: list[AqueousSpecies]
-    solid_phases: list[SolidPhase]
-    gases: list[Gas]
-    extended_alkalinity: Optional[Float] = None
-    initial_affinity: Optional[Float] = None
-    log_xi: Optional[Float] = None
-    vs_id: Optional[int] = None
-    id: Optional[int] = None
-
-
-@yeoman_registry.mapped
-@dataclass
-class Kernel(object):
-    __table__ = Table(
-        'kernel',
-        yeoman_registry.metadata,
-        Column('id', Integer, primary_key=True),
-        Column('vs_id', Integer, ForeignKey('vs.id'), nullable=False),
-        Column('type', String, nullable=False),
-        Column('config_json', BLOB, nullable=False),
-    )
-
-    type: str
-    config_json: Optional[bytes] = None
-    id: Optional[int] = None
-    vs_id: Optional[int] = None
+    id: Optional[int]
+    vs_id: Optional[int]
+    kernel: str
 
 
 @yeoman_registry.mapped
@@ -171,11 +39,13 @@ class SuppressionException(object):
     __table__ = Table(
         'suppression_exceptions',
         yeoman_registry.metadata,
-        Column('name', String, primary_key=True),
+        Column('id', Integer, primary_key=True),
+        Column('name', String, nullable=False),
         Column('suppression_id', ForeignKey('suppressions.id'), primary_key=True),
     )
 
     name: str
+    id: Optional[int] = None
     suppression_id: Optional[int] = None
 
 
@@ -194,25 +64,99 @@ class Suppression(object):
 
     __mapper_args__ = {
         'properties': {
-            'exceptions': relationship('SuppressionException'),
+            'exceptions': relationship(SuppressionException),
         }
     }
 
-    name: Optional[str] = None
-    type: Optional[str] = None
-    exceptions: list[SuppressionException] = field(default_factory=list)
+    name: Optional[str]
+    type: Optional[str]
+    exceptions: list[SuppressionException]
     id: Optional[int] = None
     vs_id: Optional[int] = None
 
 
-@yeoman_registry.mapped
-@dataclass
-class ReactantComposition(object):
+@yeoman_registry.mapped_as_dataclass
+class Reactant(object):
     __table__ = Table(
-        'reactant_composition',
+        'reactants',
         yeoman_registry.metadata,
         Column('id', Integer, primary_key=True),
-        Column('titrated_reactant_id', Integer, ForeignKey('titrated_reactant.id'), nullable=False),
+        Column('vs_id', Integer, ForeignKey('vs.id'), nullable=False),
+        Column('type', String, nullable=False),
+    )
+
+    __mapper_args__: dict[str, Any] = {
+        'polymorphic_identity': 'reactant',
+        'polymorphic_on': 'type',
+    }
+
+    id: Optional[int]
+    vs_id: Optional[int]
+    name: str
+    type: ReactantType
+
+
+@yeoman_registry.mapped_as_dataclass
+class MineralReactant(Reactant):
+    __table__ = Table(
+        'mineral_reactants',
+        yeoman_registry.metadata,
+        Column('id', Integer, ForeignKey('reactants.id'), primary_key=True),
+        Column('log_moles', Double, nullable=False),
+        Column('log_titration_rate', Double, nullable=False),
+    )
+
+    __mapper_args__ = {
+        'polymorphic_identity': ReactantType.MINERAL,
+    }
+
+    log_moles: float
+    log_titration_rate: float
+
+
+@yeoman_registry.mapped_as_dataclass
+class GasReactant(Reactant):
+    __table__ = Table(
+        'gas_reactants',
+        yeoman_registry.metadata,
+        Column('id', Integer, ForeignKey('reactants.id'), primary_key=True),
+        Column('log_moles', Double, nullable=False),
+        Column('log_titration_rate', Double, nullable=False),
+    )
+
+    __mapper_args__ = {
+        'polymorphic_identity': ReactantType.GAS,
+    }
+
+    log_moles: float
+    log_titration_rate: float
+
+
+@yeoman_registry.mapped_as_dataclass
+class ElementReactant(Reactant):
+    __table__ = Table(
+        'element_reactants',
+        yeoman_registry.metadata,
+        Column('id', Integer, ForeignKey('reactants.id'), primary_key=True),
+        Column('log_moles', Double, nullable=False),
+        Column('log_titration_rate', Double, nullable=False),
+    )
+
+    __mapper_args__ = {
+        'polymorphic_identity': ReactantType.ELEMENT,
+    }
+
+    log_moles: float
+    log_titration_rate: float
+
+
+@yeoman_registry.mapped_as_dataclass
+class SpecialReactantComposition(object):
+    __table__ = Table(
+        'special_reactant_composition',
+        yeoman_registry.metadata,
+        Column('id', Integer, primary_key=True),
+        Column('special_reactant_id', Integer, ForeignKey('special_reactants.id'), nullable=False),
         Column('element', String, nullable=False),
         Column('count', Integer, nullable=False),
     )
@@ -220,63 +164,54 @@ class ReactantComposition(object):
     element: str
     count: int
     id: Optional[int] = None
-    titrated_reactant_id: Optional[int] = None
+    special_reactant_id: Optional[int] = None
 
 
-@yeoman_registry.mapped
-@dataclass
-class TitratedReactant(object):
+@yeoman_registry.mapped_as_dataclass
+class SpecialReactant(Reactant):
     __table__ = Table(
-        'titrated_reactant',
+        'special_reactants',
         yeoman_registry.metadata,
-        Column('id', Integer, primary_key=True),
-        Column('vs_id', Integer, ForeignKey('vs.id'), nullable=False),
-        Column('name', String, nullable=False),
-        Column('type', String, nullable=False),
+        Column('id', Integer, ForeignKey('reactants.id'), primary_key=True),
         Column('log_moles', Double, nullable=False),
         Column('log_titration_rate', Double, nullable=False),
     )
 
     __mapper_args__ = {
+        'polymorphic_identity': ReactantType.SPECIAL,
         'properties': {
-            'composition': relationship('ReactantComposition'),
+            'composition': relationship(SpecialReactantComposition),
         }
     }
 
-    type: str
-    name: str
-    log_moles: Float
-    log_titration_rate: Float
-    composition: list[ReactantComposition] = field(default_factory=list)
-    id: Optional[int] = None
-    vs_id: Optional[int] = None
+    log_moles: float
+    log_titration_rate: float
+    composition: list[SpecialReactantComposition]
 
 
-@yeoman_registry.mapped
-@dataclass
-class FixedGasReactant(object):
+@yeoman_registry.mapped_as_dataclass
+class FixedGasReactant(Reactant):
     __table__ = Table(
-        'fixed_gas_reactant',
+        'fixed_gas_reactants',
         yeoman_registry.metadata,
-        Column('id', Integer, primary_key=True),
-        Column('vs_id', Integer, ForeignKey('vs.id'), nullable=False),
-        Column('name', String, nullable=False),
+        Column('id', Integer, ForeignKey('reactants.id'), primary_key=True),
         Column('log_moles', Double, nullable=False),
         Column('log_fugacity', Double, nullable=False),
     )
 
-    name: str
-    log_moles: Float
-    log_fugacity: Float
-    id: Optional[int] = None
-    vs_id: Optional[int] = None
+    __mapper_args__ = {
+        'polymorphic_identity': ReactantType.FIXED_GAS,
+    }
+
+    log_moles: float
+    log_fugacity: float
 
 
 @yeoman_registry.mapped
 @dataclass
-class VSElement(object):
+class Element(object):
     __table__ = Table(
-        'vs_elements',
+        'elements',
         yeoman_registry.metadata,
         Column('id', Integer, primary_key=True),
         Column('vs_id', Integer, ForeignKey('vs.id'), nullable=False),
@@ -285,16 +220,16 @@ class VSElement(object):
     )
 
     name: str
-    log_molality: Float
-    vs_id: Optional[int] = None
+    log_molality: float
     id: Optional[int] = None
+    vs_id: Optional[int] = None
 
 
 @yeoman_registry.mapped
 @dataclass
-class VSSpecies(object):
+class Species(object):
     __table__ = Table(
-        'vs_species',
+        'species',
         yeoman_registry.metadata,
         Column('id', Integer, primary_key=True),
         Column('vs_id', Integer, ForeignKey('vs.id'), nullable=False),
@@ -305,9 +240,23 @@ class VSSpecies(object):
 
     name: str
     unit: str
-    value: Float
-    vs_id: Optional[int] = None
+    value: float
     id: Optional[int] = None
+    vs_id: Optional[int] = None
+
+
+@yeoman_registry.mapped
+@dataclass
+class Scratch(object):
+    __table__ = Table(
+        'scratch',
+        yeoman_registry.metadata,
+        Column('id', Integer, ForeignKey('vs.id'), primary_key=True),
+        Column('zip', BLOB, nullable=False),
+    )
+
+    id: Optional[int]
+    zip: bytes
 
 
 @yeoman_registry.mapped
@@ -325,62 +274,63 @@ class VSPoint(object):
 
     __mapper_args__ = {
         'properties': {
-            'kernel': relationship('Kernel', uselist=False),
-            'elements': relationship('VSElement'),
-            'species': relationship('VSSpecies'),
-            'suppressions': relationship('Suppression'),
-            'titrated_reactants': relationship('TitratedReactant'),
-            'fixed_gas_reactants': relationship('FixedGasReactant'),
-            'es_points': relationship('ESPoint'),
+            'kernel': relationship(KernelConfig, uselist=False),
+            'elements': relationship(Element),
+            'species': relationship(Species),
+            'suppressions': relationship(Suppression),
+            'reactants': relationship(Reactant),
+            'es_points': relationship(ESPoint),
+            'scratch': relationship(Scratch, uselist=False)
         }
     }
 
-    temperature: Float
-    pressure: Float
-    kernel: Kernel
-    elements: list[VSElement]
-    species: list[VSSpecies]
+    kernel: KernelConfig
+    temperature: float
+    pressure: float
+    elements: list[Element]
+    species: list[Species]
     suppressions: list[Suppression]
-    titrated_reactants: list[TitratedReactant]
-    fixed_gas_reactants: list[FixedGasReactant]
-    es_points: list[ESPoint] = field(default_factory=list)
-    exit_code: Optional[int] = None
+    reactants: list[Reactant]
     id: Optional[int] = None
-    create_date: datetime.datetime = field(default_factory=datetime.datetime.now)
+    order_id: Optional[int] = None
+    es_points: list[ESPoint] = field(default_factory=list)
+    exit_code: int = 0
+    create_date: datetime = field(default_factory=datetime.now)
 
-    @classmethod
-    def from_problem(cls, problem: Problem):
-        if not problem.is_fully_specified:
-            raise EleanorException('cannot convert underspecified Problem to VSPoint')
+    def has_species_constraint(self, name: str) -> bool:
+        return any(s.name == name for s in self.species)
 
-        return cls(
-            temperature=problem.temperature.value,  # type: ignore
-            pressure=problem.pressure.value,  # type: ignore
-            kernel=Kernel(type=problem.kernel.type, config_json=bytes(json.dumps(problem.kernel.to_dict()), 'utf-8')),
-            elements=[VSElement(name=e.name, log_molality=e.value) for e in problem.elements.values()],  # type: ignore
-            species=[
-                VSSpecies(name=s.name, unit=s.unit, value=s.value)  # type: ignore
-                for s in problem.species.values()
-            ],
-            suppressions=[
-                Suppression(name=s.name, type=s.type, exceptions=[SuppressionException(e) for e in s.exceptions])
-                for s in problem.suppressions
-            ],
-            titrated_reactants=[
-                TitratedReactant(
-                    type=r.type,
-                    name=r.name,
-                    log_moles=r.amount.value,  # type: ignore
-                    log_titration_rate=r.titration_rate.value,  # type: ignore
-                    composition=[] if not isinstance(r, reactant.SpecialReactant) else
-                    [ReactantComposition(*c) for c in r.composition.items()],
-                ) for r in problem.reactants if isinstance(r, reactant.TitratedReactant)
-            ],
-            fixed_gas_reactants=[
-                FixedGasReactant(
-                    name=r.name,
-                    log_moles=r.amount.value,  # type: ignore
-                    log_fugacity=r.fugacity.value,  # type: ignore
-                ) for r in problem.reactants if isinstance(r, reactant.FixedGasReactant)
-            ],
-        )
+    def get_species(self, name: str) -> Optional[Species]:
+        for species in self.species:
+            if species.name == name:
+                return species
+        return None
+
+
+class CampaignField(TypeDecorator):
+    impl = JSON
+    cache_ok = True
+
+    def process_result_value(self, value, dialect):
+        if value is None:
+            return None
+        return json.loads(value)
+
+
+@yeoman_registry.mapped
+@dataclass
+class Order(object):
+    __table__ = Table(
+        'orders',
+        yeoman_registry.metadata,
+        Column('id', Integer, primary_key=True),
+        Column('name', String, nullable=False),
+        Column('campaign', CampaignField, nullable=False),
+        Column('create_date', DateTime, nullable=False),
+    )
+
+    name: str
+    campaign: Config
+    id: Optional[int] = None
+    vs_points: list[VSPoint] = field(default_factory=list)
+    create_date: datetime = field(default_factory=datetime.now)

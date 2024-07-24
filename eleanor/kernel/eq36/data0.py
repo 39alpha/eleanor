@@ -2,7 +2,7 @@ import functools
 
 import numpy as np
 
-from eleanor.typing import Float, Integer, Number, Optional
+from eleanor.typing import Number, Optional
 
 
 class ModelParams(object):
@@ -47,7 +47,7 @@ class Params(object):
 
 class BDotSpecies(object):
 
-    def __init__(self, name: str, azer0: Float, neutral_ion_type: Integer):
+    def __init__(self, name: str, azer0: float, neutral_ion_type: int):
         self.name = name
         self.azer0 = azer0
         self.neutral_ion_type = neutral_ion_type
@@ -55,7 +55,7 @@ class BDotSpecies(object):
 
 class Dissociation(object):
 
-    def __init__(self, substrates: dict[str, Integer], products: dict[str, Integer]):
+    def __init__(self, substrates: dict[str, int], products: dict[str, int]):
         self.substrates = substrates
         self.products = products
 
@@ -84,7 +84,7 @@ class Volume(object):
 class Species(object):
 
     def __init__(self, name: str, note: str | None, revised: str | None, species_type: str | None, keys: str | None,
-                 composition: dict[str, Integer]):
+                 composition: dict[str, int]):
         self.name = name
         self.note = note
         self.revised = revised
@@ -105,8 +105,8 @@ class BasicSpecies(Species):
                  revised: str | None,
                  species_type: str | None,
                  keys: str | None,
-                 composition: dict[str, Integer],
-                 charge: Integer,
+                 composition: dict[str, int],
+                 charge: int,
                  volume: Volume | None = None):
 
         super().__init__(name, note, revised, species_type, keys, composition)
@@ -122,10 +122,10 @@ class ComplexSpecies(BasicSpecies):
                  revised: str | None,
                  species_type: str | None,
                  keys: str | None,
-                 composition: dict[str, Integer],
+                 composition: dict[str, int],
                  dissociation: Dissociation,
                  logk: np.ndarray,
-                 charge: Integer,
+                 charge: int,
                  volume: Volume | None = None):
 
         super().__init__(name, note, revised, species_type, keys, composition, charge, volume)
@@ -247,7 +247,7 @@ class Gas(ComplexSpecies):
 
 class SolidSolutionModel(object):
 
-    def __init__(self, type: Integer, params: np.ndarray):
+    def __init__(self, type: int, params: np.ndarray):
         self.type = type
         self.params = params
 
@@ -261,7 +261,7 @@ class SolidSolutionModel(object):
 class SolidSolution(Species):
 
     def __init__(self, name: str, note: str | None, revised: str | None, species_type: str | None, keys: str | None,
-                 composition: dict[str, Integer], model: SolidSolutionModel, site_params: np.ndarray):
+                 composition: dict[str, int], model: SolidSolutionModel, site_params: np.ndarray):
 
         super().__init__(name, note, revised, species_type, keys, composition)
         self.model = model
@@ -347,11 +347,17 @@ class PitzerMuTerm(PitzerTerm):
 
 class PitzerCombinations(ModelSection):
 
-    def __init__(self, ca: dict[tuple, PitzerABCTerm], ccp_aap: dict[tuple, PitzerThetaTerm],
-                 nc_na: dict[tuple, PitzerLambdaTerm], nn: dict[tuple, PitzerLambdaMuTerm], nnp: dict[tuple,
-                                                                                                      PitzerLambdaTerm],
-                 ccpa_aapc: dict[tuple, PitzerPsiTerm], nca: dict[tuple, PitzerZetaTerm], nnnp: dict[tuple,
-                                                                                                     PitzerMuTerm]):
+    def __init__(
+        self,
+        ca: dict[tuple, PitzerABCTerm],
+        ccp_aap: dict[tuple, PitzerThetaTerm],
+        nc_na: dict[tuple, PitzerLambdaTerm],
+        nn: dict[tuple, PitzerLambdaMuTerm],
+        nnp: dict[tuple, PitzerLambdaTerm],
+        ccpa_aapc: dict[tuple, PitzerPsiTerm],
+        nca: dict[tuple, PitzerZetaTerm],
+        nnnp: dict[tuple, PitzerMuTerm],
+    ):
 
         self.ca = ca
         self.ccp_aap = ccp_aap
@@ -377,7 +383,7 @@ class Data0(object):
                  params: Params,
                  bdot: dict[str, BDotSpecies],
                  pitzer_combinations: PitzerCombinations,
-                 elements: dict[str, Float],
+                 elements: dict[str, float],
                  basis_species: dict[str, BasisSpecies],
                  auxiliary_basis_species: dict[str, AuxiliaryBasisSpecies],
                  aqueous_species: dict[str, AqueousSpecies],

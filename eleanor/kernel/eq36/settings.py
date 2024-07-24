@@ -1,5 +1,21 @@
 from enum import IntEnum
 
+from sqlalchemy import INTEGER, TypeDecorator
+
+
+class Eq36SettingField(TypeDecorator):
+    impl = INTEGER
+    cache_ok = True
+
+    def __init__(self, base):
+        super().__init__()
+        self.base = base
+
+    def process_result_value(self, value, dialect):
+        if value is None:
+            return None
+        return self.base(value)
+
 
 class JTEMP(IntEnum):
     """

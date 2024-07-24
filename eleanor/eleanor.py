@@ -5,7 +5,6 @@ from .exceptions import EleanorException
 from .helmsman import Helmsman
 from .kernel.interface import AbstractKernel
 from .navigator import UniformNavigator
-from .problem import Problem
 from .typing import Self, cast
 from .yeoman import Yeoman
 
@@ -29,19 +28,16 @@ class Eleanor(object):
             raise EleanorException(f'unsupported kernel type: "{self.config.kernel.type}"')
 
     def run(self, num_samples: int, *args, **kwargs) -> Self:
-        problem = Problem.from_config(self.config)
+        self.kernel.setup(self.config, **kwargs)
+        navigator = UniformNavigator(self.config, self.kernel)
 
-        self.kernel.setup(problem, **kwargs)
-        navigator = UniformNavigator(self.kernel)
-
-        huffer_problem, *_ = navigator.navigate(problem, 1)
+        huffer_problem, *_ = navigator.navigate(1, max_attempts=1)
         es3_result, es6_result = self.kernel.run(huffer_problem, *args, **kwargs)
 
         Yeoman.setup(**kwargs)
         helmsman = Helmsman(self.kernel)
 
-        base_problem = Problem.from_config(self.config)
-        problems = navigator.navigate(base_problem, num_samples)
-        helmsman.run(problems, **kwargs)
+        vs_points = navigator.navigate(num_samples, max_attempts=1)
+        helmsman.run(vs_points, **kwargs)
 
         return self

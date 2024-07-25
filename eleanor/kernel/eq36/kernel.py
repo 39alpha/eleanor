@@ -79,7 +79,7 @@ class Kernel(AbstractKernel):
         for fname in os.listdir(self.data0_dir):
             fname = os.path.join(self.data0_dir, fname)
             if os.path.isfile(fname):
-                self._representative_data0_fname = fname
+                self._representative_data0_fname = os.path.realpath(fname)
                 break
 
         if self._representative_data0_fname is None:

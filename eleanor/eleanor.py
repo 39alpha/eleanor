@@ -1,4 +1,5 @@
 import os
+from sys import exit, stderr
 
 from sqlalchemy import select
 
@@ -6,8 +7,9 @@ from .config import Config
 from .exceptions import EleanorException
 from .helmsman import Helmsman
 from .kernel.interface import AbstractKernel
-from .models import Order
+from .models import HufferResult, Order
 from .navigator import UniformNavigator
+from .sailor import sailor
 from .typing import Self, cast
 from .yeoman import Yeoman
 
@@ -35,15 +37,12 @@ class Eleanor(object):
         navigator = UniformNavigator(self.config, self.kernel)
 
         huffer_problem, *_ = navigator.navigate(1, max_attempts=1)
-
-        # TODO: Replace this with a call to the sailor and gracefully handle failures
-        es3_result, es6_result = self.kernel.run(huffer_problem, *args, **kwargs)
+        huffer_point = sailor(self.kernel, None, huffer_problem, *args, scratch=True, **kwargs)
+        huffer_result = HufferResult.from_scratch(huffer_point.scratch)
 
         Yeoman.setup(**kwargs)
-        helmsman = Helmsman(self.kernel)
-
         with Yeoman() as yeoman:
-            order = Order(self.config)
+            order = Order(self.config, huffer_result)
             result = yeoman.scalar(select(Order).where(Order.hash == order.hash))
             if result is None:
                 yeoman.add(order)
@@ -53,6 +52,13 @@ class Eleanor(object):
             else:
                 order_id = result.id
 
+        if huffer_point.exit_code != 0:
+            raise EleanorException(
+                f'Error: the huffer failed',
+                code=huffer_point.exit_code,
+            )
+
+        helmsman = Helmsman(self.kernel)
         vs_points = navigator.navigate(num_samples, order_id=order_id, max_attempts=1)
         helmsman.run(vs_points, **kwargs)
 

@@ -357,6 +357,29 @@ class CampaignField(TypeDecorator):
 
 
 @yeoman_registry.mapped
+@dataclass
+class HufferResult(object):
+    __table__ = Table(
+        'huffer',
+        yeoman_registry.metadata,
+        Column('id', Integer, ForeignKey('orders.id'), primary_key=True),
+        Column('zip', BLOB, nullable=False),
+    )
+
+    id: Optional[int]
+    zip: bytes
+
+    @classmethod
+    def from_scratch(cls, scratch: Optional[Scratch], id: Optional[int] = None):
+        if scratch is None:
+            zip = bytes('\0', 'ascii')
+        else:
+            zip = scratch.zip
+
+        return cls(id=id, zip=zip)
+
+
+@yeoman_registry.mapped
 @dataclass(init=False)
 class Order(object):
     __table__ = Table(
@@ -372,12 +395,14 @@ class Order(object):
     __mapper_args__ = {
         'properties': {
             'vs_points': relationship(VSPoint),
+            'huffer_result': relationship(HufferResult, uselist=False),
         }
     }
 
     name: str
     hash: str
     campaign: Config
+    huffer_result: HufferResult
     id: Optional[int] = None
     vs_points: list[VSPoint] = field(default_factory=list)
     create_date: datetime = field(default_factory=datetime.now)
@@ -385,12 +410,14 @@ class Order(object):
     def __init__(
         self,
         campaign: Config,
+        huffer_result: HufferResult,
         id: Optional[int] = None,
         vs_points: Optional[list[VSPoint]] = None,
         create_date: Optional[datetime] = None,
     ):
         self.name = campaign.name
         self.hash = campaign.hash()
+        self.huffer_result = huffer_result
         self.campaign = campaign
         self.id = id
         self.vs_points = [] if vs_points is None else vs_points

@@ -124,11 +124,11 @@ class Config(object):
         }
 
         for filetype, func in parsers.items():
-            #     try:
-            return func(fname)
-            # except EleanorParserException:
-            #     raise
-            # except Exception:
-            #     pass
+            try:
+                return func(fname)
+            except EleanorParserException:
+                raise
+            except Exception:
+                pass
 
         raise EleanorParserException(f'failed to parse "{fname}" as yaml, toml or json')

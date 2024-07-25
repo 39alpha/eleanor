@@ -6,6 +6,7 @@ from sqlalchemy.orm import relationship
 
 from eleanor.exceptions import EleanorException
 from eleanor.kernel.config import Config as KernelConfig
+from eleanor.models import JSONSerializedDict
 from eleanor.typing import Number, Optional, Self
 from eleanor.yeoman import yeoman_registry
 
@@ -315,7 +316,7 @@ class Config(KernelConfig):
         Column('model', String, nullable=False),
         Column('charge_balance', String, nullable=False),
         Column('redox_species', String, nullable=False),
-        # Column('basis_map', Something, nullable=False),
+        Column('basis_map', JSONSerializedDict(), nullable=False),
         Column('data1_file', String, nullable=False),
     )
 

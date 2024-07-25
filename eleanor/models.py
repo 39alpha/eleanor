@@ -102,6 +102,7 @@ class MineralReactant(Reactant):
         'mineral_reactants',
         yeoman_registry.metadata,
         Column('id', Integer, ForeignKey('reactants.id'), primary_key=True),
+        Column('name', String, nullable=False),
         Column('log_moles', Double, nullable=False),
         Column('log_titration_rate', Double, nullable=False),
     )
@@ -120,6 +121,7 @@ class GasReactant(Reactant):
         'gas_reactants',
         yeoman_registry.metadata,
         Column('id', Integer, ForeignKey('reactants.id'), primary_key=True),
+        Column('name', String, nullable=False),
         Column('log_moles', Double, nullable=False),
         Column('log_titration_rate', Double, nullable=False),
     )
@@ -138,6 +140,7 @@ class ElementReactant(Reactant):
         'element_reactants',
         yeoman_registry.metadata,
         Column('id', Integer, ForeignKey('reactants.id'), primary_key=True),
+        Column('name', String, nullable=False),
         Column('log_moles', Double, nullable=False),
         Column('log_titration_rate', Double, nullable=False),
     )
@@ -173,6 +176,7 @@ class SpecialReactant(Reactant):
         'special_reactants',
         yeoman_registry.metadata,
         Column('id', Integer, ForeignKey('reactants.id'), primary_key=True),
+        Column('name', String, nullable=False),
         Column('log_moles', Double, nullable=False),
         Column('log_titration_rate', Double, nullable=False),
     )
@@ -195,6 +199,7 @@ class FixedGasReactant(Reactant):
         'fixed_gas_reactants',
         yeoman_registry.metadata,
         Column('id', Integer, ForeignKey('reactants.id'), primary_key=True),
+        Column('name', String, nullable=False),
         Column('log_moles', Double, nullable=False),
         Column('log_fugacity', Double, nullable=False),
     )

@@ -299,6 +299,7 @@ class VSPoint(object):
     id: Optional[int] = None
     order_id: Optional[int] = None
     es_points: list[ESPoint] = field(default_factory=list)
+    scratch: Optional[Scratch] = None
     exit_code: int = 0
     create_date: datetime = field(default_factory=datetime.now)
 

@@ -1,9 +1,9 @@
 from dataclasses import dataclass
 
-from eleanor.config.config import Config
-from eleanor.config.parameter import ListParameter, Parameter, ValueParameter
 from eleanor.constraints import AbstractConstraint, Valuation
 from eleanor.exceptions import EleanorException
+from eleanor.order import Order
+from eleanor.parameters import ListParameter, Parameter, ValueParameter
 from eleanor.typing import Number
 
 from .data0_tools import TPCurve

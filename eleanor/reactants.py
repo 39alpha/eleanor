@@ -2,9 +2,9 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import StrEnum
 
-from ..exceptions import EleanorParserException
-from ..typing import Number, Optional
-from .parameter import Parameter
+from .exceptions import EleanorException
+from .parameters import Parameter
+from .typing import Optional
 
 
 class ReactantType(StrEnum):
@@ -38,7 +38,7 @@ class AbstractReactant(ABC):
         elif reactant_type == ReactantType.ELEMENT:
             return ElementReactant.from_dict(raw, name)
 
-        raise EleanorParserException(f'unexpected reactant type "{reactant_type}"')
+        raise EleanorException(f'unexpected reactant type "{reactant_type}"')
 
 
 @dataclass
@@ -71,7 +71,7 @@ class MineralReactant(TitratedReactant):
     def from_dict(cls, raw: dict, name: Optional[str] = None):
         base = TitratedReactant.from_dict(raw, name)
         if base.type != ReactantType.MINERAL:
-            raise EleanorParserException(f'cannot create a mineral reactant from config of type "{base.type}"')
+            raise EleanorException(f'cannot create a mineral reactant from config of type "{base.type}"')
         return cls(base.name, base.type, base.amount, base.titration_rate)
 
 
@@ -85,7 +85,7 @@ class GasReactant(TitratedReactant):
     def from_dict(cls, raw: dict, name: Optional[str] = None):
         base = TitratedReactant.from_dict(raw, name)
         if base.type != ReactantType.GAS:
-            raise EleanorParserException(f'cannot create a gas reactant from config of type "{base.type}"')
+            raise EleanorException(f'cannot create a gas reactant from config of type "{base.type}"')
         return cls(base.name, base.type, base.amount, base.titration_rate)
 
 
@@ -107,7 +107,7 @@ class FixedGasReactant(AbstractReactant):
 
         reactant_type = ReactantType(raw['type'])
         if reactant_type != ReactantType.FIXED_GAS:
-            raise EleanorParserException(f'cannot create a fixed gas reactant from config of type "{reactant_type}"')
+            raise EleanorException(f'cannot create a fixed gas reactant from config of type "{reactant_type}"')
 
         amount = Parameter.from_dict(raw['amount'], 'amount')
         fugacity = Parameter.from_dict(raw['fugacity'], 'fugacity')
@@ -127,7 +127,7 @@ class SpecialReactant(TitratedReactant):
         composition = raw['composition']
         base = TitratedReactant.from_dict(raw, name)
         if base.type != ReactantType.SPECIAL:
-            raise EleanorParserException(f'cannot create a special reactant from config of type "{base.type}"')
+            raise EleanorException(f'cannot create a special reactant from config of type "{base.type}"')
         return cls(base.name, base.type, base.amount, base.titration_rate, composition)
 
 
@@ -141,7 +141,7 @@ class ElementReactant(TitratedReactant):
     def from_dict(cls, raw: dict, name: Optional[str] = None):
         base = TitratedReactant.from_dict(raw, name)
         if base.type != ReactantType.ELEMENT:
-            raise EleanorParserException(f'cannot create a element reactant from config of type "{base.type}"')
+            raise EleanorException(f'cannot create a element reactant from config of type "{base.type}"')
         return cls(base.name, base.type, base.amount, base.titration_rate)
 
 

@@ -7,8 +7,8 @@ from enum import IntEnum, StrEnum
 
 import numpy as np
 
-from ..exceptions import EleanorException, EleanorFileException, EleanorParserException
-from ..typing import Any, NDArray, Number, Optional
+from .exceptions import EleanorException
+from .typing import Any, NDArray, Number, Optional
 
 
 # TODO: Use an enumeration for str_loc parameter
@@ -213,7 +213,7 @@ def convert_to_number(value: Number | str, types: Optional[list[type]] = None):
     if types is None:
         return convert_to_number(value, [int, np.integer, float, np.floating])
     elif len(types) == 0:
-        raise EleanorParserException('could not convert string to numeric type')
+        raise EleanorException('could not convert string to numeric type')
     elif isinstance(value, tuple(types)):
         return value
 
@@ -246,7 +246,4 @@ def parse_date(date: str) -> datetime.date | datetime.datetime:
     try:
         return datetime.date.fromisoformat(date)
     except ValueError:
-        try:
-            return datetime.datetime.fromisoformat(date)
-        except ValueError:
-            raise EleanorParserException(f'failed to parse date "{date}"')
+        return datetime.datetime.fromisoformat(date)

@@ -5,9 +5,7 @@ from dataclasses import asdict, dataclass, field
 from sqlalchemy import BLOB, CheckConstraint, Column, DateTime, Double, ForeignKey, Integer, String, Table, func
 from sqlalchemy.orm import declared_attr, relationship
 
-import eleanor.config.reactant as reactant
-import eleanor.config.suppression as suppression
-from eleanor.models import ESPoint as BaseESPoint
+import eleanor.equilibrium_space as es
 from eleanor.typing import Any, Optional
 from eleanor.yeoman import yeoman_registry
 
@@ -19,14 +17,14 @@ class Element(object):
         'eq36_elements',
         yeoman_registry.metadata,
         Column('id', Integer, primary_key=True),
-        Column('es_id', Integer, ForeignKey('es.id'), nullable=False),
+        Column('equilibrium_space_id', Integer, ForeignKey('equilibrium_space.id'), nullable=False),
         Column('name', String, nullable=False),
         Column('log_molality', Double, nullable=False),
     )
 
     name: str
     log_molality: float
-    es_id: Optional[int] = None
+    equilibrium_space_id: Optional[int] = None
     id: Optional[int] = None
 
 
@@ -37,7 +35,7 @@ class AqueousSpecies(object):
         'eq36_aqueous_species',
         yeoman_registry.metadata,
         Column('id', Integer, primary_key=True),
-        Column('es_id', Integer, ForeignKey('es.id'), nullable=False),
+        Column('equilibrium_space_id', Integer, ForeignKey('equilibrium_space.id'), nullable=False),
         Column('name', String, nullable=False),
         Column('log_molality', Double, nullable=False),
         Column('log_activity', Double, nullable=False),
@@ -46,7 +44,7 @@ class AqueousSpecies(object):
     name: str
     log_molality: float
     log_activity: float
-    es_id: int | None = None
+    equilibrium_space_id: int | None = None
     id: int | None = None
 
 
@@ -57,7 +55,7 @@ class SolidPhase(object):
         'eq36_solid_phase',
         yeoman_registry.metadata,
         Column('id', Integer, primary_key=True),
-        Column('es_id', Integer, ForeignKey('es.id'), nullable=False),
+        Column('equilibrium_space_id', Integer, ForeignKey('equilibrium_space.id'), nullable=False),
         Column('type', String, nullable=False),
         Column('name', String, nullable=False),
         Column('end_member', String, nullable=True),
@@ -70,7 +68,7 @@ class SolidPhase(object):
     log_qk: float
     log_moles: float | None = None
     end_member: str | None = None
-    es_id: int | None = None
+    equilibrium_space_id: int | None = None
     id: int | None = None
 
 
@@ -81,19 +79,19 @@ class Gas(object):
         'eq36_gas',
         yeoman_registry.metadata,
         Column('id', Integer, primary_key=True),
-        Column('es_id', Integer, ForeignKey('es.id'), nullable=False),
+        Column('equilibrium_space_id', Integer, ForeignKey('equilibrium_space.id'), nullable=False),
         Column('name', String, nullable=False),
         Column('log_fugacity', Double, nullable=False),
     )
 
     name: str
     log_fugacity: float
-    es_id: int | None = None
+    equilibrium_space_id: int | None = None
     id: int | None = None
 
 
 @yeoman_registry.mapped_as_dataclass
-class ESPoint(BaseESPoint):
+class Point(es.Point):
     __abstract__ = True
 
     @declared_attr
@@ -127,11 +125,11 @@ class ESPoint(BaseESPoint):
 
 
 @yeoman_registry.mapped_as_dataclass(init=False)
-class Eq3Point(ESPoint):
+class Eq3Point(Point):
     __table__ = Table(
         'eq3',
         yeoman_registry.metadata,
-        Column('id', Integer, ForeignKey('es.id'), primary_key=True),
+        Column('id', Integer, ForeignKey('equilibrium_space.id'), primary_key=True),
         Column('temperature', Double, nullable=False),
         Column('pressure', Double, nullable=False),
         Column('pH', Double, nullable=False),
@@ -162,7 +160,7 @@ class Eq3Point(ESPoint):
         solid_phases: list[SolidPhase],
         gases: list[Gas],
         id: Optional[int] = None,
-        vs_id: Optional[int] = None,
+        variable_space_id: Optional[int] = None,
         extended_alkalinity: Optional[float] = None,
         initial_affinity: Optional[float] = None,
         log_xi: Optional[float] = None,
@@ -186,11 +184,11 @@ class Eq3Point(ESPoint):
 
 
 @yeoman_registry.mapped_as_dataclass(init=False)
-class Eq6Point(ESPoint):
+class Eq6Point(Point):
     __table__ = Table(
         'eq6',
         yeoman_registry.metadata,
-        Column('id', Integer, ForeignKey('es.id'), primary_key=True),
+        Column('id', Integer, ForeignKey('equilibrium_space.id'), primary_key=True),
         Column('temperature', Double, nullable=False),
         Column('pressure', Double, nullable=False),
         Column('pH', Double, nullable=False),
@@ -221,7 +219,7 @@ class Eq6Point(ESPoint):
         solid_phases: list[SolidPhase],
         gases: list[Gas],
         id: Optional[int] = None,
-        vs_id: Optional[int] = None,
+        variable_space_id: Optional[int] = None,
         extended_alkalinity: Optional[float] = None,
         initial_affinity: Optional[float] = None,
         log_xi: Optional[float] = None,

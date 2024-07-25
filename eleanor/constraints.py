@@ -1,12 +1,11 @@
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
 
-import eleanor.models as models
+import eleanor.variable_space as vs
 
-from .config import Config, Parameter, ValueParameter
-from .config.constraints import ConstraintConfig
-from .config.reactant import *
 from .exceptions import EleanorException
+from .order import ConstraintConfig, Order
+from .parameters import Parameter, ValueParameter
+from .reactants import *
 from .typing import Optional
 
 Valuation = dict[Parameter, Parameter]
@@ -44,21 +43,21 @@ class AbstractConstraint(ABC):
         pass
 
     @classmethod
-    def from_config(cls, config: Config, constraint_config: ConstraintConfig):
+    def from_order(cls, order: Order, constraint_config: ConstraintConfig):
         pass
 
 
 class Boatswain(object):
-    config: Config
+    order: Order
     parameters: list[Parameter]
     constraints: list[AbstractConstraint]
     valuations: dict[Parameter, Parameter]
 
-    def __init__(self, config: Config, *constraints: AbstractConstraint):
-        self.config = config
-        self.parameters = config.parameters()
+    def __init__(self, order: Order, *constraints: AbstractConstraint):
+        self.order = order
+        self.parameters = order.parameters()
 
-        self.constraints = [AbstractConstraint.from_config(self.config, c) for c in config.constraints]
+        self.constraints = [AbstractConstraint.from_order(self.order, c) for c in self.order.constraints]
         self.constraints.extend(constraints)
 
         self.valuations = {p: p for p in self.parameters}
@@ -104,7 +103,7 @@ class Boatswain(object):
 
         return fully_constrained
 
-    def generate_vs(self, order_id: Optional[int] = None) -> models.VSPoint:
+    def generate_vs(self, order_id: Optional[int] = None) -> vs.Point:
         try:
             valuation: dict[Parameter, ValueParameter] = {}
             for original, refined in self.valuations.items():
@@ -112,70 +111,67 @@ class Boatswain(object):
                     raise Exception(f'parameter {original} is not fully refined: {refined}')
                 valuation[original] = refined
 
-            elements = [
-                models.Element(name=e.name, log_molality=valuation[e].value) for e in self.config.elements.values()
-            ]
+            elements = [vs.Element(name=e.name, log_molality=valuation[e].value) for e in self.order.elements.values()]
 
             species = [
-                models.Species(name=s.name,
-                               unit=s.unit if s.unit is not None else 'log_molality',
-                               value=valuation[s].value) for s in self.config.species.values()
+                vs.Species(name=s.name, unit=s.unit if s.unit is not None else 'log_molality', value=valuation[s].value)
+                for s in self.order.species.values()
             ]
 
             suppressions = [
-                models.Suppression(
+                vs.Suppression(
                     name=s.name,
                     type=s.type,
-                    exceptions=[models.SuppressionException(name=name) for name in s.exceptions],
-                ) for s in self.config.suppressions
+                    exceptions=[vs.SuppressionException(name=name) for name in s.exceptions],
+                ) for s in self.order.suppressions
             ]
 
-            reactants: list[models.Reactant] = []
-            for reactant in self.config.reactants:
+            reactants: list[vs.Reactant] = []
+            for reactant in self.order.reactants:
                 match reactant:
                     case MineralReactant(name, rct_type, log_moles, log_titration_rate):
-                        model: models.Reactant = models.MineralReactant(
+                        model: vs.Reactant = vs.MineralReactant(
                             id=None,
-                            vs_id=None,
+                            variable_space_id=None,
                             name=name,
                             type=rct_type,
                             log_moles=valuation[log_moles].value,
                             log_titration_rate=valuation[log_titration_rate].value,
                         )
                     case GasReactant(name, rct_type, log_moles, log_titration_rate):
-                        model = models.GasReactant(
+                        model = vs.GasReactant(
                             id=None,
-                            vs_id=None,
+                            variable_space_id=None,
                             name=name,
                             type=rct_type,
                             log_moles=valuation[log_moles].value,
                             log_titration_rate=valuation[log_titration_rate].value,
                         )
                     case ElementReactant(name, rct_type, log_moles, log_titration_rate):
-                        model = models.ElementReactant(
+                        model = vs.ElementReactant(
                             id=None,
-                            vs_id=None,
+                            variable_space_id=None,
                             name=name,
                             type=rct_type,
                             log_moles=valuation[log_moles].value,
                             log_titration_rate=valuation[log_titration_rate].value,
                         )
                     case SpecialReactant(name, rct_type, log_moles, log_titration_rate, composition):
-                        model = models.SpecialReactant(
+                        model = vs.SpecialReactant(
                             id=None,
-                            vs_id=None,
+                            variable_space_id=None,
                             name=name,
                             type=rct_type,
                             log_moles=valuation[log_moles].value,
                             log_titration_rate=valuation[log_titration_rate].value,
                             composition=[
-                                models.SpecialReactantComposition(element=k, count=v) for k, v in composition.items()
+                                vs.SpecialReactantComposition(element=k, count=v) for k, v in composition.items()
                             ],
                         )
                     case FixedGasReactant(name, rct_type, log_moles, log_fugacity):
-                        model = models.FixedGasReactant(
+                        model = vs.FixedGasReactant(
                             id=None,
-                            vs_id=None,
+                            variable_space_id=None,
                             name=name,
                             type=rct_type,
                             log_moles=valuation[log_moles].value,
@@ -185,15 +181,15 @@ class Boatswain(object):
                         raise Exception()
                 reactants.append(model)
 
-            return models.VSPoint(
+            return vs.Point(
                 order_id=order_id,
-                kernel=self.config.kernel,
-                temperature=valuation[self.config.temperature].value,
-                pressure=valuation[self.config.pressure].value,
+                kernel=self.order.kernel,
+                temperature=valuation[self.order.temperature].value,
+                pressure=valuation[self.order.pressure].value,
                 elements=elements,
                 species=species,
                 suppressions=suppressions,
                 reactants=reactants,
             )
         except Exception as e:
-            raise Exception('cannot generate VSPoint from config') from e
+            raise Exception('cannot generate Point from config') from e

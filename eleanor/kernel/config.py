@@ -1,8 +1,8 @@
 from sqlalchemy import Column, ForeignKey, Integer, String, Table
 
-from eleanor.config.parameter import Parameter
-from eleanor.typing import Any, Optional
-from eleanor.yeoman import yeoman_registry
+from ..parameters import Parameter
+from ..typing import Any, Optional
+from ..yeoman import yeoman_registry
 
 
 @yeoman_registry.mapped_as_dataclass
@@ -10,7 +10,7 @@ class Config(object):
     __table__ = Table(
         'kernel',
         yeoman_registry.metadata,
-        Column('id', Integer, ForeignKey('vs.id'), primary_key=True),
+        Column('id', Integer, ForeignKey('variable_space.id'), primary_key=True),
         Column('type', String, nullable=False),
     )
 

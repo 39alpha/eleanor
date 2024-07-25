@@ -1,37 +1,15 @@
-import json
-from abc import ABC
 from dataclasses import dataclass, field
 from datetime import datetime
 
-from sqlalchemy import (BLOB, JSON, CheckConstraint, Column, DateTime, Double, ForeignKey, Integer, String, Table,
-                        TypeDecorator)
+from sqlalchemy import BLOB, CheckConstraint, Column, Double, ForeignKey, Integer, String, Table
 from sqlalchemy.orm import relationship
 
-from .config import Config, ReactantType
-from .exceptions import EleanorException
+import eleanor.equilibrium_space as es
+
 from .kernel.config import Config as KernelConfig
+from .reactants import ReactantType
 from .typing import Any, Optional
 from .yeoman import yeoman_registry
-
-
-@yeoman_registry.mapped_as_dataclass
-class ESPoint(object):
-    __table__ = Table(
-        'es',
-        yeoman_registry.metadata,
-        Column('id', Integer, primary_key=True),
-        Column('vs_id', Integer, ForeignKey('vs.id')),
-        Column('kernel', String, nullable=False),
-    )
-
-    __mapper_args__: dict[str, Any] = {
-        'polymorphic_identity': 'es',
-        'polymorphic_on': 'kernel',
-    }
-
-    id: Optional[int]
-    vs_id: Optional[int]
-    kernel: str
 
 
 @yeoman_registry.mapped
@@ -57,7 +35,7 @@ class Suppression(object):
         'suppressions',
         yeoman_registry.metadata,
         Column('id', Integer, primary_key=True),
-        Column('vs_id', Integer, ForeignKey('vs.id'), nullable=False),
+        Column('variable_space_id', Integer, ForeignKey('variable_space.id'), nullable=False),
         Column('name', String),
         Column('type', String),
         CheckConstraint('name is not null or type is not null', name='suppressions_well_defined'),
@@ -73,7 +51,7 @@ class Suppression(object):
     type: Optional[str]
     exceptions: list[SuppressionException]
     id: Optional[int] = None
-    vs_id: Optional[int] = None
+    variable_space_id: Optional[int] = None
 
 
 @yeoman_registry.mapped_as_dataclass
@@ -82,7 +60,7 @@ class Reactant(object):
         'reactants',
         yeoman_registry.metadata,
         Column('id', Integer, primary_key=True),
-        Column('vs_id', Integer, ForeignKey('vs.id'), nullable=False),
+        Column('variable_space_id', Integer, ForeignKey('variable_space.id'), nullable=False),
         Column('type', String, nullable=False),
     )
 
@@ -92,7 +70,7 @@ class Reactant(object):
     }
 
     id: Optional[int]
-    vs_id: Optional[int]
+    variable_space_id: Optional[int]
     name: str
     type: ReactantType
 
@@ -220,7 +198,7 @@ class Element(object):
         'elements',
         yeoman_registry.metadata,
         Column('id', Integer, primary_key=True),
-        Column('vs_id', Integer, ForeignKey('vs.id'), nullable=False),
+        Column('variable_space_id', Integer, ForeignKey('variable_space.id'), nullable=False),
         Column('name', String, nullable=False),
         Column('log_molality', Double, nullable=False),
     )
@@ -228,7 +206,7 @@ class Element(object):
     name: str
     log_molality: float
     id: Optional[int] = None
-    vs_id: Optional[int] = None
+    variable_space_id: Optional[int] = None
 
 
 @yeoman_registry.mapped
@@ -238,7 +216,7 @@ class Species(object):
         'species',
         yeoman_registry.metadata,
         Column('id', Integer, primary_key=True),
-        Column('vs_id', Integer, ForeignKey('vs.id'), nullable=False),
+        Column('variable_space_id', Integer, ForeignKey('variable_space.id'), nullable=False),
         Column('name', String, nullable=False),
         Column('unit', String, nullable=False),
         Column('value', Double, nullable=False),
@@ -248,7 +226,7 @@ class Species(object):
     unit: str
     value: float
     id: Optional[int] = None
-    vs_id: Optional[int] = None
+    variable_space_id: Optional[int] = None
 
 
 @yeoman_registry.mapped
@@ -257,7 +235,7 @@ class Scratch(object):
     __table__ = Table(
         'scratch',
         yeoman_registry.metadata,
-        Column('id', Integer, ForeignKey('vs.id'), primary_key=True),
+        Column('id', Integer, ForeignKey('variable_space.id'), primary_key=True),
         Column('zip', BLOB, nullable=False),
     )
 
@@ -267,9 +245,9 @@ class Scratch(object):
 
 @yeoman_registry.mapped
 @dataclass
-class VSPoint(object):
+class Point(object):
     __table__ = Table(
-        'vs',
+        'variable_space',
         yeoman_registry.metadata,
         Column('id', Integer, primary_key=True),
         Column('order_id', Integer, ForeignKey('orders.id'), nullable=False),
@@ -286,7 +264,7 @@ class VSPoint(object):
             'species': relationship(Species),
             'suppressions': relationship(Suppression),
             'reactants': relationship(Reactant),
-            'es_points': relationship(ESPoint),
+            'es_points': relationship(es.Point),
             'scratch': relationship(Scratch, uselist=False)
         }
     }
@@ -300,7 +278,7 @@ class VSPoint(object):
     reactants: list[Reactant]
     id: Optional[int] = None
     order_id: Optional[int] = None
-    es_points: list[ESPoint] = field(default_factory=list)
+    es_points: list[es.Point] = field(default_factory=list)
     scratch: Optional[Scratch] = None
     exit_code: int = 0
     create_date: datetime = field(default_factory=datetime.now)
@@ -313,112 +291,3 @@ class VSPoint(object):
             if species.name == name:
                 return species
         return None
-
-
-class JSONSerializedDict(TypeDecorator):
-    impl = JSON
-    cache_ok = True
-
-    def process_bind_param(self, value, dialect):
-        if value is None:
-            return None
-        elif not isinstance(value, dict):
-            raise EleanorException('cannot serialize non-dict to JSON')
-        return json.dumps(value)
-
-    def process_result_value(self, value, dialect):
-        if value is None:
-            return None
-        elif not isinstance(value, (str, bytes)):
-            raise EleanorException(f'cannot deserialize dict from type {type(value)}')
-
-        return json.loads(value)
-
-
-class CampaignField(TypeDecorator):
-    impl = JSON
-    cache_ok = True
-
-    def process_bind_param(self, value, dialect):
-        if value is None:
-            return None
-        elif not isinstance(value, Config):
-            raise EleanorException('cannot serialize non-dict to JSON')
-        return json.dumps(value.raw, sort_keys=True, default=str)
-
-    def process_result_value(self, value, dialect):
-        if value is None:
-            return None
-        elif not isinstance(value, (str, bytes)):
-            raise EleanorException(f'cannot deserialize Campaign from type {type(value)}')
-
-        raw: dict[str, Any] = json.loads(value)
-        return Config.from_dict(raw)
-
-
-@yeoman_registry.mapped
-@dataclass
-class HufferResult(object):
-    __table__ = Table(
-        'huffer',
-        yeoman_registry.metadata,
-        Column('id', Integer, ForeignKey('orders.id'), primary_key=True),
-        Column('zip', BLOB, nullable=False),
-    )
-
-    id: Optional[int]
-    zip: bytes
-
-    @classmethod
-    def from_scratch(cls, scratch: Optional[Scratch], id: Optional[int] = None):
-        if scratch is None:
-            zip = bytes('\0', 'ascii')
-        else:
-            zip = scratch.zip
-
-        return cls(id=id, zip=zip)
-
-
-@yeoman_registry.mapped
-@dataclass(init=False)
-class Order(object):
-    __table__ = Table(
-        'orders',
-        yeoman_registry.metadata,
-        Column('id', Integer, primary_key=True),
-        Column('name', String, nullable=False, index=True),
-        Column('hash', String, nullable=False, index=True, unique=True),
-        Column('campaign', CampaignField, nullable=False),
-        Column('create_date', DateTime, nullable=False),
-    )
-
-    __mapper_args__ = {
-        'properties': {
-            'vs_points': relationship(VSPoint),
-            'huffer_result': relationship(HufferResult, uselist=False),
-        }
-    }
-
-    name: str
-    hash: str
-    campaign: Config
-    huffer_result: HufferResult
-    id: Optional[int] = None
-    vs_points: list[VSPoint] = field(default_factory=list)
-    create_date: datetime = field(default_factory=datetime.now)
-
-    def __init__(
-        self,
-        campaign: Config,
-        huffer_result: HufferResult,
-        id: Optional[int] = None,
-        vs_points: Optional[list[VSPoint]] = None,
-        create_date: Optional[datetime] = None,
-    ):
-        self.name = campaign.name
-        self.hash = campaign.hash()
-        self.huffer_result = huffer_result
-        self.campaign = campaign
-        self.id = id
-        self.vs_points = [] if vs_points is None else vs_points
-        self.create_date = datetime.now() if create_date is None else create_date

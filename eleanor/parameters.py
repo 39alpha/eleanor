@@ -2,8 +2,8 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
 from eleanor.exceptions import EleanorException
-from eleanor.hanger.tool_room import convert_to_number
 from eleanor.typing import Any, Number, Optional
+from eleanor.util import convert_to_number
 
 
 @dataclass(frozen=True)

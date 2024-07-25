@@ -1,4 +1,6 @@
-from sqlalchemy import Engine, create_engine
+import json
+
+from sqlalchemy import JSON, Engine, TypeDecorator, create_engine
 from sqlalchemy.orm import Session, registry
 
 from .exceptions import EleanorException
@@ -6,6 +8,26 @@ from .typing import Optional
 
 engine: Engine | None = None
 yeoman_registry = registry()
+
+
+class JSONDict(TypeDecorator):
+    impl = JSON
+    cache_ok = True
+
+    def process_bind_param(self, value, dialect):
+        if value is None:
+            return None
+        elif not isinstance(value, dict):
+            raise EleanorException('cannot serialize non-dict to JSON')
+        return json.dumps(value, sort_keys=True, default=str)
+
+    def process_result_value(self, value, dialect):
+        if value is None:
+            return None
+        elif not isinstance(value, (str, bytes)):
+            raise EleanorException(f'cannot deserialize dict from type {type(value)}')
+
+        return json.loads(value)
 
 
 class Yeoman(Session):

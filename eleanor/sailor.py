@@ -4,36 +4,38 @@ import zipfile
 from os.path import join
 from tempfile import TemporaryDirectory
 
+import eleanor.equilibrium_space as es
+import eleanor.variable_space as vs
+
 from .exceptions import EleanorException
-from .hanger.tool_room import WorkingDirectory
 from .kernel.interface import AbstractKernel
-from .models import ESPoint, Scratch, VSPoint
 from .typing import Optional
+from .util import WorkingDirectory
 from .yeoman import Yeoman
 
 
-def collect_scratch(dir: str) -> Optional[Scratch]:
+def collect_scratch(dir: str) -> Optional[vs.Scratch]:
     try:
         buffer = io.BytesIO()
         with zipfile.ZipFile(buffer, 'w', compression=zipfile.ZIP_BZIP2, allowZip64=True, compresslevel=9) as zip:
             for filename in os.listdir(dir):
                 zip.write(join(dir, filename), filename)
-        return Scratch(id=None, zip=buffer.getvalue())
+        return vs.Scratch(id=None, zip=buffer.getvalue())
     except Exception as e:
-        return Scratch(id=None, zip=bytes('\0', 'ascii'))
+        return vs.Scratch(id=None, zip=bytes('\0', 'ascii'))
 
 
 def sailor(
     kernel: AbstractKernel,
     yeoman: Optional[Yeoman],
-    vs_point: VSPoint,
+    vs_point: vs.Point,
     *args,
     scratch: bool = False,
     **kwargs,
-) -> VSPoint:
+) -> vs.Point:
     with TemporaryDirectory(prefix="eleanor_") as tempdir:
         with WorkingDirectory(tempdir):
-            es_points: list[ESPoint] = []
+            es_points: list[es.Point] = []
             try:
                 es_points = kernel.run(vs_point, *args, **kwargs)
                 if scratch:

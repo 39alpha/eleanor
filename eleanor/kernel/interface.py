@@ -1,7 +1,8 @@
 from abc import ABC, abstractmethod
 
+import eleanor.equilibrium_space as es
+import eleanor.variable_space as vs
 from eleanor.constraints import Boatswain
-from eleanor.models import ESPoint, VSPoint
 from eleanor.typing import Species
 
 
@@ -12,7 +13,7 @@ class AbstractKernel(ABC):
         pass
 
     @abstractmethod
-    def run(self, vs_point: VSPoint, *args, **kwargs) -> list[ESPoint]:
+    def run(self, vs_point: vs.Point, *args, **kwargs) -> list[es.Point]:
         pass
 
     @abstractmethod

@@ -1,4 +1,5 @@
 import datetime
+import hashlib
 import json
 import tomllib
 from dataclasses import dataclass
@@ -8,7 +9,7 @@ import yaml
 from ..exceptions import EleanorParserException
 from ..hanger.tool_room import parse_date
 from ..kernel.config import Config as KernelConfig
-from ..typing import Callable, Optional
+from ..typing import Any, Callable, Optional
 from .constraints import ConstraintConfig
 from .parameter import Parameter
 from .reactant import AbstractReactant, Reactant
@@ -29,6 +30,7 @@ class Config(object):
     suppressions: list[Suppression]
     reactants: list[Reactant]
     constraints: list[ConstraintConfig]
+    raw: dict[str, Any]
 
     def parameters(self) -> list[Parameter]:
         parameters: list[Parameter] = [self.temperature, self.pressure]
@@ -39,6 +41,13 @@ class Config(object):
             parameters.extend(reactant.parameters())
 
         return parameters
+
+    def hash(self) -> str:
+        hasher = hashlib.sha256()
+        content: bytes = bytes(json.dumps(self.raw, sort_keys=True, default=str), 'utf-8')
+        hasher.update(content)
+
+        return hasher.hexdigest()
 
     @staticmethod
     def from_dict(raw: dict):
@@ -95,6 +104,7 @@ class Config(object):
             suppressions,
             reactants,
             constraints,
+            raw=raw,
         )
 
     @staticmethod

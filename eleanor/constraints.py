@@ -186,6 +186,7 @@ class Boatswain(object):
                 reactants.append(model)
 
             return models.VSPoint(
+                order_id=order_id,
                 kernel=self.config.kernel,
                 temperature=valuation[self.config.temperature].value,
                 pressure=valuation[self.config.pressure].value,

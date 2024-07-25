@@ -7,10 +7,11 @@ from sqlalchemy import (BLOB, JSON, CheckConstraint, Column, DateTime, Double, F
                         TypeDecorator)
 from sqlalchemy.orm import relationship
 
-from eleanor.config import Config, ReactantType
-from eleanor.kernel.config import Config as KernelConfig
-from eleanor.typing import Any, Optional
-from eleanor.yeoman import yeoman_registry
+from .config import Config, ReactantType
+from .exceptions import EleanorException
+from .kernel.config import Config as KernelConfig
+from .typing import Any, Optional
+from .yeoman import yeoman_registry
 
 
 @yeoman_registry.mapped_as_dataclass
@@ -271,6 +272,7 @@ class VSPoint(object):
         'vs',
         yeoman_registry.metadata,
         Column('id', Integer, primary_key=True),
+        Column('order_id', Integer, ForeignKey('orders.id'), nullable=False),
         Column('temperature', Double, nullable=False),
         Column('pressure', Double, nullable=False),
         Column('exit_code', Integer, nullable=False),
@@ -320,11 +322,16 @@ class JSONSerializedDict(TypeDecorator):
     def process_bind_param(self, value, dialect):
         if value is None:
             return None
+        elif not isinstance(value, dict):
+            raise EleanorException('cannot serialize non-dict to JSON')
         return json.dumps(value)
 
     def process_result_value(self, value, dialect):
         if value is None:
             return None
+        elif not isinstance(value, (str, bytes)):
+            raise EleanorException(f'cannot deserialize dict from type {type(value)}')
+
         return json.loads(value)
 
 
@@ -332,26 +339,59 @@ class CampaignField(TypeDecorator):
     impl = JSON
     cache_ok = True
 
+    def process_bind_param(self, value, dialect):
+        if value is None:
+            return None
+        elif not isinstance(value, Config):
+            raise EleanorException('cannot serialize non-dict to JSON')
+        return json.dumps(value.raw, sort_keys=True, default=str)
+
     def process_result_value(self, value, dialect):
         if value is None:
             return None
-        return json.loads(value)
+        elif not isinstance(value, (str, bytes)):
+            raise EleanorException(f'cannot deserialize Campaign from type {type(value)}')
+
+        raw: dict[str, Any] = json.loads(value)
+        return Config.from_dict(raw)
 
 
 @yeoman_registry.mapped
-@dataclass
+@dataclass(init=False)
 class Order(object):
     __table__ = Table(
         'orders',
         yeoman_registry.metadata,
         Column('id', Integer, primary_key=True),
-        Column('name', String, nullable=False),
+        Column('name', String, nullable=False, index=True),
+        Column('hash', String, nullable=False, index=True, unique=True),
         Column('campaign', CampaignField, nullable=False),
         Column('create_date', DateTime, nullable=False),
     )
 
+    __mapper_args__ = {
+        'properties': {
+            'vs_points': relationship(VSPoint),
+        }
+    }
+
     name: str
+    hash: str
     campaign: Config
     id: Optional[int] = None
     vs_points: list[VSPoint] = field(default_factory=list)
     create_date: datetime = field(default_factory=datetime.now)
+
+    def __init__(
+        self,
+        campaign: Config,
+        id: Optional[int] = None,
+        vs_points: Optional[list[VSPoint]] = None,
+        create_date: Optional[datetime] = None,
+    ):
+        self.name = campaign.name
+        self.hash = campaign.hash()
+        self.campaign = campaign
+        self.id = id
+        self.vs_points = [] if vs_points is None else vs_points
+        self.create_date = datetime.now() if create_date is None else create_date

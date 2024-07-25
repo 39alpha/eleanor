@@ -22,10 +22,10 @@ class AbstractNavigator(ABC):
         self.config = config
         self.kernel = kernel
 
-    def navigate(self, n: int, max_attempts: int = 1) -> list[VSPoint]:
-        return [self.select(max_attempts) for _ in range(n)]
+    def navigate(self, n: int, order_id: Optional[int] = None, max_attempts: int = 1) -> list[VSPoint]:
+        return [self.select(order_id, max_attempts) for _ in range(n)]
 
-    def select(self, max_attempts: int = 1) -> VSPoint:
+    def select(self, order_id: Optional[int] = None, max_attempts: int = 1) -> VSPoint:
         last_exception: Optional[Exception] = None
         attempt = 0
 
@@ -41,7 +41,7 @@ class AbstractNavigator(ABC):
                         boatswain[parameter] = self.fix(boatswain[parameter])
                     parameters = boatswain.constrain()
 
-                return boatswain.generate_vs()
+                return boatswain.generate_vs(order_id)
             except Exception as e:
                 last_exception = e
 

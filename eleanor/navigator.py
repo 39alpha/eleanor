@@ -9,7 +9,6 @@ import eleanor.variable_space as vs
 
 from .constraints import Boatswain
 from .exceptions import EleanorException
-from .kernel.eq36.data0_tools import TPCurve
 from .kernel.interface import AbstractKernel
 from .order import Order
 from .parameters import ListParameter, Parameter, RangeParameter, ValueParameter

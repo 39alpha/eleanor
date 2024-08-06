@@ -8,12 +8,8 @@ description = "Large-scale, aqueous geochemical modeling"
 readme = "README.rst"
 license = {file = "LICENSE"}
 dependencies = [
-  'antlr4-python3-runtime',
-  'matplotlib',
   'numpy',
-  'pandas',
   'pyyaml',
-  'tqdm',
   'SQLAlchemy'
 ]
 requires-python = ">= 3.12"

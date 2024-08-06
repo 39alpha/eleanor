@@ -11,6 +11,7 @@ from sqlalchemy import BLOB, Column, DateTime, ForeignKey, Integer, String, Tabl
 from sqlalchemy.orm import reconstructor, relationship
 
 import eleanor.variable_space as vs
+from eleanor.kernel.discover import import_kernel_module
 
 from .exceptions import EleanorException
 from .kernel.config import Config as KernelConfig
@@ -150,13 +151,8 @@ class Order(object):
         if not isinstance(self.creator, str):
             raise EleanorException('creator must be a string')
 
-        kernel_type = self.raw['kernel']['type'].lower()
-        if kernel_type == 'eq36':
-            # DGM: Ideally this would be done via some type of registration
-            from eleanor.kernel.eq36 import Config as Eq36KernelConfig
-            self.kernel = Eq36KernelConfig.from_dict(self.raw['kernel'])
-        else:
-            raise EleanorException(f'unsupported kernel type "{kernel_type}"')
+        kernel_module = import_kernel_module(self.raw['kernel']['type'])
+        self.kernel = kernel_module.Config.from_dict(self.raw['kernel'])
 
         self.temperature = Parameter.from_dict(self.raw['temperature'], 'temperature')
         self.pressure = Parameter.from_dict(self.raw['pressure'], 'pressure')
@@ -216,11 +212,11 @@ class Order(object):
         }
 
         for filetype, func in parsers.items():
-            try:
-                return func(fname)
-            except EleanorException:
-                raise
-            except Exception:
-                pass
+            # try:
+            return func(fname)
+        # except EleanorException:
+        #     raise
+        # except Exception:
+        #     pass
 
         raise EleanorException(f'failed to parse "{fname}" as yaml, toml or json')

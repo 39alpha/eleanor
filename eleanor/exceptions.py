@@ -11,10 +11,6 @@ class EleanorException(Exception):
         return f"(code: {self.code}) {super().__str__()}"
 
 
-class Eq36Exception(EleanorException):
-    pass
-
-
 class EleanorFileException(EleanorException):
 
     def __init__(self, error, *args, **kwargs):

@@ -1,11 +1,13 @@
-from ..common import TestCase
-import eleanor.hanger.tool_room as tr
 import os
-from os.path import realpath, join
+from os.path import join, realpath
 from tempfile import TemporaryDirectory
 
+import eleanor.util as util
 
-class TestToolRoom(TestCase):
+from .common import TestCase
+
+
+class TestUtils(TestCase):
     """
     Tests of the eleanor.hanger.tool_room module
     """
@@ -23,7 +25,7 @@ class TestToolRoom(TestCase):
         cwd = os.getcwd()
         new_dir = realpath(join(cwd, '..'))
 
-        wd = tr.WorkingDirectory('..')
+        wd = util.WorkingDirectory('..')
 
         self.assertEqual(wd.path, new_dir)
         self.assertEqual(wd.cwd, cwd)
@@ -44,7 +46,7 @@ class TestToolRoom(TestCase):
         """
         cwd = os.getcwd()
 
-        wd = tr.WorkingDirectory('not-real')
+        wd = util.WorkingDirectory('not-real')
 
         self.assertEqual(wd.path, join(cwd, 'not-real'))
         self.assertEqual(wd.cwd, cwd)
@@ -64,7 +66,7 @@ class TestToolRoom(TestCase):
         """
         cwd = os.getcwd()
 
-        wd = tr.WorkingDirectory('..')
+        wd = util.WorkingDirectory('..')
 
         self.assertEqual(wd.path, realpath(join(cwd, '..')))
         self.assertEqual(wd.cwd, cwd)
@@ -85,10 +87,10 @@ class TestToolRoom(TestCase):
         with TemporaryDirectory() as root:
             self.assertNotEqual(root, cwd0)
             os.mkdir(join(root, "abc"))
-            with tr.WorkingDirectory(root) as cwd1:
+            with util.WorkingDirectory(root) as cwd1:
                 self.assertEqual(os.getcwd(), root)
                 self.assertEqual(cwd1, root)
-                with tr.WorkingDirectory("abc") as cwd2:
+                with util.WorkingDirectory("abc") as cwd2:
                     self.assertEqual(os.getcwd(), join(root, "abc"))
                     self.assertEqual(cwd2, join(root, "abc"))
                 self.assertEqual(os.getcwd(), root)

@@ -4,14 +4,24 @@ from sys import exit, stderr
 import ray
 from sqlalchemy import select
 
+from .config import Config
 from .exceptions import EleanorException
 from .kernel.discover import import_kernel_module
 from .kernel.interface import AbstractKernel
 from .navigator import AbstractNavigator, UniformNavigator
 from .order import HufferResult, Order
 from .sailor import sailor
-from .typing import Any, Self, cast
+from .typing import Any, Optional, Self, cast
 from .yeoman import Yeoman
+
+
+def load_config(config: Optional[str | Config]) -> Config:
+    if config is None:
+        config = Config()
+    elif isinstance(config, str):
+        config = Config.from_file(config)
+
+    return cast(Config, config)
 
 
 def load_order(order: str | Order) -> Order:
@@ -29,12 +39,13 @@ def load_kernel(order: Order, kernel_args: list[Any], **kwargs) -> tuple[Abstrac
     return kernel, ray.put(kernel)
 
 
-def ignite(order: Order, kernel_ref: ray.ObjectRef, navigator: AbstractNavigator, *args, **kwargs) -> int:
+def ignite(config: Config, order: Order, kernel_ref: ray.ObjectRef, navigator: AbstractNavigator, *args,
+           **kwargs) -> int:
     huffer_problem = navigator.select(max_attempts=1)
     huffer_point = ray.get(sailor.remote(kernel_ref, None, huffer_problem, *args, scratch=True, **kwargs))
     order.huffer_result = HufferResult.from_scratch(huffer_point.scratch)
 
-    Yeoman.setup(**kwargs)
+    Yeoman.setup(config.database, **kwargs)
     with Yeoman() as yeoman:
         result = yeoman.scalar(select(Order).where(Order.hash == order.hash))
         if result is None:
@@ -61,15 +72,16 @@ def ignite(order: Order, kernel_ref: ray.ObjectRef, navigator: AbstractNavigator
 
 
 @ray.remote
-def Eleanor(order: str | Order, kernel_args: list[Any], num_samples: int, *args, **kwargs):
+def Eleanor(config: str | Config, order: str | Order, kernel_args: list[Any], num_samples: int, *args, **kwargs):
+    config = load_config(config)
     order = load_order(order)
     kernel, kernel_ref = load_kernel(order, kernel_args, **kwargs)
 
     navigator = UniformNavigator(order, kernel)
 
-    order_id = ignite(order, kernel_ref, navigator, *args, **kwargs)
+    order_id = ignite(config, order, kernel_ref, navigator, *args, **kwargs)
 
-    vs_points = navigator.navigate(num_samples, order_id=order_id, max_attempts=1)
-    results = [sailor.remote(kernel_ref, None, point, *args, **kwargs) for point in vs_points]
-    while results:
-        _, results = ray.wait(results)
+    # vs_points = navigator.navigate(num_samples, order_id=order_id, max_attempts=1)
+    # results = [sailor.remote(kernel_ref, None, point, *args, **kwargs) for point in vs_points]
+    # while results:
+    #     _, results = ray.wait(results)

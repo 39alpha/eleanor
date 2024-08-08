@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from datetime import datetime
 
-from sqlalchemy import BLOB, CheckConstraint, Column, Double, ForeignKey, Integer, String, Table
+from sqlalchemy import CheckConstraint, Column, Double, ForeignKey, Integer, String, Table
 from sqlalchemy.orm import relationship
 
 import eleanor.equilibrium_space as es
@@ -9,7 +9,7 @@ import eleanor.equilibrium_space as es
 from .kernel.config import Config as KernelConfig
 from .reactants import ReactantType
 from .typing import Any, Optional
-from .yeoman import yeoman_registry
+from .yeoman import Binary, yeoman_registry
 
 
 @yeoman_registry.mapped
@@ -236,7 +236,7 @@ class Scratch(object):
         'scratch',
         yeoman_registry.metadata,
         Column('id', Integer, ForeignKey('variable_space.id'), primary_key=True),
-        Column('zip', BLOB, nullable=False),
+        Column('zip', Binary, nullable=False),
     )
 
     id: Optional[int]

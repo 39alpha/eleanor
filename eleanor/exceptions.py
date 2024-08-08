@@ -19,3 +19,7 @@ class EleanorFileException(EleanorException):
 
 class EleanorParserException(EleanorException):
     pass
+
+
+class EleanorConfigurationException(EleanorException):
+    pass

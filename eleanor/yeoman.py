@@ -1,8 +1,10 @@
 import json
 
-from sqlalchemy import JSON, Engine, TypeDecorator, create_engine
+from sqlalchemy import BLOB, JSON, Engine, TypeDecorator, create_engine
+from sqlalchemy.dialects.postgresql import BYTEA, JSONB
 from sqlalchemy.orm import Session, registry
 
+from .config import DatabaseConfig
 from .exceptions import EleanorException
 from .typing import Optional
 
@@ -14,20 +16,31 @@ class JSONDict(TypeDecorator):
     impl = JSON
     cache_ok = True
 
+    def load_dialect_impl(self, dialect):
+        match dialect.name:
+            case 'postgresql':
+                return dialect.type_descriptor(JSONB)
+            case _:
+                return dialect.type_descriptor(JSON)
+
     def process_bind_param(self, value, dialect):
         if value is None:
             return None
         elif not isinstance(value, dict):
             raise EleanorException('cannot serialize non-dict to JSON')
-        return json.dumps(value, sort_keys=True, default=str)
+        return json.loads(json.dumps(value, sort_keys=True, default=str))
 
-    def process_result_value(self, value, dialect):
-        if value is None:
-            return None
-        elif not isinstance(value, (str, bytes)):
-            raise EleanorException(f'cannot deserialize dict from type {type(value)}')
 
-        return json.loads(value)
+class Binary(TypeDecorator):
+    impl = BLOB
+    cache_ok = True
+
+    def load_dialect_impl(self, dialect):
+        match dialect.name:
+            case 'postgresql':
+                return dialect.type_descriptor(BYTEA)
+            case _:
+                return dialect.type_descriptor(BLOB)
 
 
 class Yeoman(Session):
@@ -41,16 +54,13 @@ class Yeoman(Session):
         super().__init__(engine, *args, **kwargs)
 
     @staticmethod
-    def setup(db_path: Optional[str] = None, verbose: bool = False, **kwargs) -> None:
+    def setup(config: DatabaseConfig, verbose: bool = False, **kwargs) -> None:
         global engine, yeoman_registry
 
         if engine is not None:
             raise EleanorException('cannot resetup Yeoman')
 
-        if db_path is None:
-            db_path = 'campaign.sql'
-
-        engine = create_engine(f'sqlite:///{db_path}', echo=verbose)
+        engine = create_engine(str(config), echo=verbose)
         yeoman_registry.metadata.create_all(engine)
 
     @staticmethod

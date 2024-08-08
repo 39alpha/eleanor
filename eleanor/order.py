@@ -7,7 +7,7 @@ from datetime import datetime
 from enum import StrEnum
 
 import yaml
-from sqlalchemy import BLOB, Column, DateTime, ForeignKey, Integer, String, Table
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Table
 from sqlalchemy.orm import reconstructor, relationship
 
 import eleanor.variable_space as vs
@@ -19,7 +19,7 @@ from .parameters import Parameter
 from .reactants import AbstractReactant, Reactant
 from .typing import Any, Callable, Optional
 from .util import is_list_of
-from .yeoman import JSONDict, yeoman_registry
+from .yeoman import Binary, JSONDict, yeoman_registry
 
 
 @dataclass
@@ -66,7 +66,7 @@ class HufferResult(object):
         'huffer',
         yeoman_registry.metadata,
         Column('id', Integer, ForeignKey('orders.id'), primary_key=True),
-        Column('zip', BLOB, nullable=False),
+        Column('zip', Binary, nullable=False),
     )
 
     id: Optional[int]
@@ -212,11 +212,11 @@ class Order(object):
         }
 
         for filetype, func in parsers.items():
-            # try:
-            return func(fname)
-        # except EleanorException:
-        #     raise
-        # except Exception:
-        #     pass
+            try:
+                return func(fname)
+            except EleanorException:
+                raise
+            except Exception:
+                pass
 
         raise EleanorException(f'failed to parse "{fname}" as yaml, toml or json')

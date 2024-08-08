@@ -4,6 +4,8 @@ import zipfile
 from os.path import join
 from tempfile import TemporaryDirectory
 
+import ray
+
 import eleanor.equilibrium_space as es
 import eleanor.variable_space as vs
 
@@ -25,6 +27,7 @@ def collect_scratch(dir: str) -> Optional[vs.Scratch]:
         return vs.Scratch(id=None, zip=bytes('\0', 'ascii'))
 
 
+@ray.remote
 def sailor(
     kernel: AbstractKernel,
     yeoman: Optional[Yeoman],
@@ -51,7 +54,7 @@ def sailor(
             vs_point.es_points = es_points
             vs_point.exit_code = exit_code
 
-            if yeoman is not None:
-                yeoman.add(vs_point)
+            # if yeoman is not None:
+            #     yeoman.add(vs_point)
 
             return vs_point

@@ -10,7 +10,8 @@ license = {file = "LICENSE"}
 dependencies = [
   'numpy',
   'pyyaml',
-  'SQLAlchemy'
+  'SQLAlchemy',
+  'ray[default]',
 ]
 requires-python = ">= 3.12"
 

@@ -81,7 +81,7 @@ def Eleanor(config: str | Config, order: str | Order, kernel_args: list[Any], nu
 
     order_id = ignite(config, order, kernel_ref, navigator, *args, **kwargs)
 
-    # vs_points = navigator.navigate(num_samples, order_id=order_id, max_attempts=1)
-    # results = [sailor.remote(kernel_ref, None, point, *args, **kwargs) for point in vs_points]
-    # while results:
-    #     _, results = ray.wait(results)
+    vs_points = navigator.navigate(num_samples, order_id=order_id, max_attempts=1)
+    results = [sailor.remote(kernel_ref, None, point, *args, **kwargs) for point in vs_points]
+    while results:
+        _, results = ray.wait(results)

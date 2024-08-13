@@ -27,8 +27,7 @@ def collect_scratch(dir: str) -> Optional[vs.Scratch]:
         return vs.Scratch(id=None, zip=bytes('\0', 'ascii'))
 
 
-@ray.remote
-def sailor(
+def __run(
     kernel: AbstractKernel,
     yeoman: Optional[Yeoman],
     vs_point: vs.Point,
@@ -54,7 +53,9 @@ def sailor(
             vs_point.es_points = es_points
             vs_point.exit_code = exit_code
 
-            # if yeoman is not None:
-            #     yeoman.add(vs_point)
-
             return vs_point
+
+
+@ray.remote
+def sailor(*args, **kwargs) -> vs.Point:
+    return __run(*args, **kwargs)

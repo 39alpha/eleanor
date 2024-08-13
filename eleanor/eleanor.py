@@ -4,13 +4,14 @@ from sys import exit, stderr
 import ray
 from sqlalchemy import select
 
+import eleanor.sailor as sailor
+
 from .config import Config
 from .exceptions import EleanorException
 from .kernel.discover import import_kernel_module
 from .kernel.interface import AbstractKernel
 from .navigator import AbstractNavigator, UniformNavigator
 from .order import HufferResult, Order
-from .sailor import sailor
 from .typing import Any, Optional, Self, cast
 from .yeoman import Yeoman
 
@@ -31,18 +32,17 @@ def load_order(order: str | Order) -> Order:
     return cast(Order, order)
 
 
-def load_kernel(order: Order, kernel_args: list[Any], **kwargs) -> tuple[AbstractKernel, ray.ObjectRef]:
+def load_kernel(order: Order, kernel_args: list[Any], **kwargs) -> AbstractKernel:
     kernel_module = import_kernel_module(order.kernel.type)
     kernel = kernel_module.Kernel(order.kernel, *kernel_args)
     kernel.setup(order, **kwargs)
 
-    return kernel, ray.put(kernel)
+    return kernel
 
 
-def ignite(config: Config, order: Order, kernel_ref: ray.ObjectRef, navigator: AbstractNavigator, *args,
-           **kwargs) -> int:
+def ignite(config: Config, order: Order, kernel: AbstractKernel, navigator: AbstractNavigator, *args, **kwargs) -> int:
     huffer_problem = navigator.select(max_attempts=1)
-    huffer_point = ray.get(sailor.remote(kernel_ref, None, huffer_problem, *args, scratch=True, **kwargs))
+    huffer_point = sailor.__run(kernel, None, huffer_problem, *args, scratch=True, **kwargs)
     order.huffer_result = HufferResult.from_scratch(huffer_point.scratch)
 
     Yeoman.setup(config.database, **kwargs)
@@ -71,17 +71,18 @@ def ignite(config: Config, order: Order, kernel_ref: ray.ObjectRef, navigator: A
     return order_id
 
 
-@ray.remote
 def Eleanor(config: str | Config, order: str | Order, kernel_args: list[Any], num_samples: int, *args, **kwargs):
     config = load_config(config)
     order = load_order(order)
-    kernel, kernel_ref = load_kernel(order, kernel_args, **kwargs)
+    kernel = load_kernel(order, kernel_args, **kwargs)
+
+    kernel_ref = ray.put(kernel)
 
     navigator = UniformNavigator(order, kernel)
 
-    order_id = ignite(config, order, kernel_ref, navigator, *args, **kwargs)
+    order_id = ignite(config, order, kernel, navigator, *args, **kwargs)
 
     vs_points = navigator.navigate(num_samples, order_id=order_id, max_attempts=1)
-    results = [sailor.remote(kernel_ref, None, point, *args, **kwargs) for point in vs_points]
+    results = [sailor.sailor.remote(kernel_ref, None, point, *args, **kwargs) for point in vs_points]
     while results:
         _, results = ray.wait(results)

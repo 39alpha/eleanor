@@ -32,7 +32,7 @@ def main():
     num_samples = args['samples']
     batch_size = args['batch_size']
 
-    ref = Eleanor.remote(
+    Eleanor(
         config,
         campaign,
         kernel_args,
@@ -42,5 +42,3 @@ def main():
         verbose=verbose,
         show_progress=show_progress,
     )
-
-    ray.wait([ref])

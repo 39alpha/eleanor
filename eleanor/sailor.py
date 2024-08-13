@@ -9,6 +9,7 @@ import ray
 import eleanor.equilibrium_space as es
 import eleanor.variable_space as vs
 
+from .config import DatabaseConfig
 from .exceptions import EleanorException
 from .kernel.interface import AbstractKernel
 from .typing import Optional
@@ -29,7 +30,6 @@ def collect_scratch(dir: str) -> Optional[vs.Scratch]:
 
 def __run(
     kernel: AbstractKernel,
-    yeoman: Optional[Yeoman],
     vs_point: vs.Point,
     *args,
     scratch: bool = False,
@@ -57,5 +57,20 @@ def __run(
 
 
 @ray.remote
-def sailor(*args, **kwargs) -> vs.Point:
-    return __run(*args, **kwargs)
+def sailor(yeoman_or_config: ray.actor.ActorHandle | DatabaseConfig, *args, **kwargs) -> vs.Point:
+    if isinstance(yeoman_or_config, DatabaseConfig):
+        if yeoman_or_config.dialect == 'sqlite':
+            raise EleanorException('sailors cannot instantiate SQLite3 yeomans; use the YeomanActor')
+        Yeoman.setup(yeoman_or_config)
+        yeoman: Yeoman | ray.actor.ActorHandle = Yeoman()
+    else:
+        yeoman = yeoman_or_config
+
+    vs_point = __run(*args, **kwargs)
+
+    if isinstance(yeoman, Yeoman):
+        yeoman.write(vs_point)
+    else:
+        yeoman.write.remote(vs_point)
+
+    return vs_point

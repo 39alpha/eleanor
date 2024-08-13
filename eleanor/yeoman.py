@@ -63,6 +63,11 @@ class Yeoman(Session):
         engine = create_engine(str(config), echo=verbose)
         yeoman_registry.metadata.create_all(engine)
 
+    def write(self, entity):
+        with self as session:
+            session.add(entity)
+            session.commit()
+
     @staticmethod
     def is_setup() -> bool:
         global engine

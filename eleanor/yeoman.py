@@ -8,7 +8,6 @@ from .config import DatabaseConfig
 from .exceptions import EleanorException
 from .typing import Optional
 
-engine: Engine | None = None
 yeoman_registry = registry()
 
 
@@ -44,45 +43,16 @@ class Binary(TypeDecorator):
 
 
 class Yeoman(Session):
+    engine: Engine
 
-    def __init__(self, *args, **kwargs):
-        global engine
+    def __init__(self, config: DatabaseConfig, *args, verbose: bool = False, **kwargs):
+        self.engine = create_engine(str(config), echo=verbose)
+        super().__init__(self.engine, *args, **kwargs)
 
-        if engine is None:
-            raise EleanorException('cannot create Yeoman session without first setting up')
-
-        super().__init__(engine, *args, **kwargs)
-
-    @staticmethod
-    def setup(config: DatabaseConfig, verbose: bool = False, **kwargs) -> None:
-        global engine, yeoman_registry
-
-        if engine is not None:
-            raise EleanorException('cannot resetup Yeoman')
-
-        engine = create_engine(str(config), echo=verbose)
-        yeoman_registry.metadata.create_all(engine)
+    def setup(self) -> None:
+        yeoman_registry.metadata.create_all(self.engine)
 
     def write(self, entity):
         with self as session:
             session.add(entity)
             session.commit()
-
-    @staticmethod
-    def is_setup() -> bool:
-        global engine
-        return engine is not None
-
-    @staticmethod
-    def unsafe_engine() -> Optional[Engine]:
-        global engine
-        return engine
-
-    @staticmethod
-    def dispose(close: bool = False) -> None:
-        global engine
-
-        if engine is None:
-            raise EleanorException('cannot dispose Yeoman before it is setup')
-
-        engine.dispose(close=close)

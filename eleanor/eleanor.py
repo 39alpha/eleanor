@@ -43,13 +43,22 @@ def load_kernel(order: Order, kernel_args: list[Any], **kwargs) -> AbstractKerne
     return kernel
 
 
-def ignite(config: Config, order: Order, kernel: AbstractKernel, navigator: AbstractNavigator, *args, **kwargs) -> int:
+def ignite(
+    config: Config,
+    order: Order,
+    kernel: AbstractKernel,
+    navigator: AbstractNavigator,
+    *args,
+    verbose: bool = False,
+    **kwargs,
+) -> int:
     huffer_problem = navigator.select(max_attempts=1)
     huffer_point = sailor.__run(kernel, huffer_problem, *args, scratch=True, **kwargs)
     order.huffer_result = HufferResult.from_scratch(huffer_point.scratch)
 
-    Yeoman.setup(config.database, **kwargs)
-    with Yeoman() as yeoman:
+    with Yeoman(config.database, verbose=verbose) as yeoman:
+        yeoman.setup()
+
         result = yeoman.scalar(select(Order).where(Order.hash == order.hash))
         if result is None:
             yeoman.add(order)

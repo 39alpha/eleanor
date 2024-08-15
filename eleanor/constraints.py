@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from copy import deepcopy
 
 import eleanor.variable_space as vs
 
@@ -183,7 +184,7 @@ class Boatswain(object):
 
             return vs.Point(
                 order_id=order_id,
-                kernel=self.order.kernel,
+                kernel=deepcopy(self.order.kernel),
                 temperature=valuation[self.order.temperature].value,
                 pressure=valuation[self.order.pressure].value,
                 elements=elements,

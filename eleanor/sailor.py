@@ -56,21 +56,24 @@ def __run(
             return vs_point
 
 
-@ray.remote
-def sailor(yeoman_or_config: ray.actor.ActorHandle | DatabaseConfig, *args, **kwargs) -> vs.Point:
-    if isinstance(yeoman_or_config, DatabaseConfig):
-        if yeoman_or_config.dialect == 'sqlite':
-            raise EleanorException('sailors cannot instantiate SQLite3 yeomans; use the YeomanActor')
-        Yeoman.setup(yeoman_or_config)
-        yeoman: Yeoman | ray.actor.ActorHandle = Yeoman()
-    else:
-        yeoman = yeoman_or_config
-
+def sailor_actor(yeoman: ray.actor.ActorHandle, *args, **kwargs):
     vs_point = __run(*args, **kwargs)
+    yeoman.write.remote(vs_point)
 
-    if isinstance(yeoman, Yeoman):
+
+def sailor_config(config: DatabaseConfig, *args, verbose: bool = False, **kwargs):
+    if config.dialect == 'sqlite':
+        raise EleanorException('sailors cannot instantiate SQLite3 yeomans; use the YeomanActor')
+
+    vs_point = __run(*args, verbose=verbose, **kwargs)
+
+    with Yeoman(config, verbose=verbose) as yeoman:
         yeoman.write(vs_point)
-    else:
-        yeoman.write.remote(vs_point)
 
-    return vs_point
+
+@ray.remote
+def sailor(yeoman_or_config: ray.actor.ActorHandle | DatabaseConfig, *args, **kwargs):
+    if isinstance(yeoman_or_config, DatabaseConfig):
+        sailor_config(yeoman_or_config, *args, **kwargs)
+    else:
+        sailor_actor(yeoman_or_config, *args, **kwargs)

@@ -4,7 +4,7 @@ from dataclasses import asdict, dataclass
 
 import yaml
 
-from .exceptions import EleanorConfigurationException
+from .exceptions import EleanorConfigurationException, EleanorException
 from .typing import Any, Callable, Optional
 
 
@@ -19,6 +19,10 @@ class DatabaseConfig(object):
     password: Optional[str] = None
 
     def __post_init__(self):
+        if self.dialect not in ['sqlite', 'postgresql']:
+            msg = f'the "{self.dialect}" database dialect is not supported; choose either "sqlite" or "postgresql"'
+            raise EleanorConfigurationException(msg)
+
         if self.dialect != 'sqlite' and any(x is None for x in [self.dbapi, self.username, self.password]):
             msg = f'must provide a dbapi, username and password for {self.dialect} databases'
             raise EleanorConfigurationException(msg)

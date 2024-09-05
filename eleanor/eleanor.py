@@ -8,31 +8,15 @@ from sqlalchemy import select
 
 import eleanor.sailor as sailor
 
-from .config import Config, DatabaseConfig
+from .config import Config, DatabaseConfig, load_config
 from .exceptions import EleanorException
 from .kernel.discover import import_kernel_module
 from .kernel.interface import AbstractKernel
 from .navigator import AbstractNavigator, UniformNavigator
-from .order import HufferResult, Order
+from .order import HufferResult, Order, load_order
 from .typing import Any, Optional, Self, cast
 from .yeoman import Yeoman
 from .yeoman_actor import YeomanActor
-
-
-def load_config(config: Optional[str | Config]) -> Config:
-    if config is None:
-        config = Config()
-    elif isinstance(config, str):
-        config = Config.from_file(config)
-
-    return cast(Config, config)
-
-
-def load_order(order: str | Order) -> Order:
-    if isinstance(order, str):
-        order = Order.from_file(order)
-
-    return cast(Order, order)
 
 
 def load_kernel(order: Order, kernel_args: list[Any], **kwargs) -> AbstractKernel:
@@ -59,7 +43,7 @@ def ignite(
     with Yeoman(config.database, verbose=verbose) as yeoman:
         yeoman.setup()
 
-        result = yeoman.scalar(select(Order).where(Order.hash == order.hash))
+        result = yeoman.scalar(select(Order).where(Order.hash == order.hash))  # type: ignore
         if result is None:
             yeoman.add(order)
             yeoman.commit()

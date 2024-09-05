@@ -5,7 +5,7 @@ from dataclasses import asdict, dataclass
 import yaml
 
 from .exceptions import EleanorConfigurationException, EleanorException
-from .typing import Any, Callable, Optional
+from .typing import Any, Callable, Optional, cast
 
 
 @dataclass(frozen=True)
@@ -66,7 +66,7 @@ class Config(object):
 
     @staticmethod
     def from_file(fname: str):
-        parsers: dict[str, Callable[[str], Order]] = {
+        parsers: dict[str, Callable[[str], Order]] = {  # type: ignore
             'yaml': Config.from_yaml,
             'toml': Config.from_toml,
             'json': Config.from_json
@@ -79,3 +79,12 @@ class Config(object):
                 pass
 
         raise EleanorException(f'failed to parse "{fname}" as yaml, toml or json')
+
+
+def load_config(config: Optional[str | Config]) -> Config:
+    if config is None:
+        config = Config()
+    elif isinstance(config, str):
+        config = Config.from_file(config)
+
+    return cast(Config, config)

@@ -17,7 +17,7 @@ from .exceptions import EleanorException
 from .kernel.config import Config as KernelConfig
 from .parameters import Parameter
 from .reactants import AbstractReactant, Reactant
-from .typing import Any, Callable, Optional
+from .typing import Any, Callable, Optional, cast
 from .util import is_list_of
 from .yeoman import Binary, JSONDict, yeoman_registry
 
@@ -220,3 +220,10 @@ class Order(object):
                 pass
 
         raise EleanorException(f'failed to parse "{fname}" as yaml, toml or json')
+
+
+def load_order(order: str | Order) -> Order:
+    if isinstance(order, str):
+        order = Order.from_file(order)
+
+    return cast(Order, order)

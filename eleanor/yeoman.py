@@ -1,8 +1,8 @@
 import json
 
-from sqlalchemy import BLOB, JSON, Engine, TypeDecorator, create_engine
+from sqlalchemy import *
 from sqlalchemy.dialects.postgresql import BYTEA, JSONB
-from sqlalchemy.orm import Session, registry
+from sqlalchemy.orm import *
 
 from .config import DatabaseConfig
 from .exceptions import EleanorException

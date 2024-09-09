@@ -7,6 +7,7 @@ import ray
 from sqlalchemy import select
 
 import eleanor.sailor as sailor
+from eleanor.version import __version__
 
 from .config import Config, DatabaseConfig, load_config
 from .exceptions import EleanorException
@@ -45,12 +46,19 @@ def ignite(
 
         result = yeoman.scalar(select(Order).where(Order.hash == order.hash))  # type: ignore
         if result is None:
+            order.eleanor_version = __version__
             yeoman.add(order)
             yeoman.commit()
             yeoman.refresh(order)
             order_id = order.id
         else:
-            order_id = result.id
+            if result.eleanor_version != __version__:
+                msg = f'cannot extend order {result.id} with eleanor version {__version__}; '
+                msg += f'order was created under version {result.eleanor_version}'
+                raise EleanorException(msg)
+
+            order.eleanor_version = result.eleanor_version
+            order_id = order.id = result.id
 
     if order_id is None:
         raise EleanorException(

@@ -94,6 +94,7 @@ class Order(object):
         Column('id', Integer, primary_key=True),
         Column('name', String, nullable=False, index=True),
         Column('hash', String, nullable=False, index=True, unique=True),
+        Column('eleanor_version', String, nullable=False),
         Column('raw', JSONDict, nullable=False),
         Column('create_date', DateTime, nullable=False),
     )
@@ -122,6 +123,7 @@ class Order(object):
     id: Optional[int] = None
     vs_points: list[vs.Point] = field(default_factory=list)
     create_date: datetime = field(default_factory=datetime.now)
+    eleanor_version: Optional[str] = None
 
     def __init__(
         self,

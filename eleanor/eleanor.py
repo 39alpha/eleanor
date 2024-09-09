@@ -47,18 +47,27 @@ def ignite(
         result = yeoman.scalar(select(Order).where(Order.hash == order.hash))  # type: ignore
         if result is None:
             order.eleanor_version = __version__
+            order.kernel_version = kernel.version()
             yeoman.add(order)
             yeoman.commit()
             yeoman.refresh(order)
             order_id = order.id
         else:
+            order_id = order.id = result.id
+
             if result.eleanor_version != __version__:
                 msg = f'cannot extend order {result.id} with eleanor version {__version__}; '
-                msg += f'order was created under version {result.eleanor_version}'
+                msg += f'order was created under eleanor version {result.eleanor_version}'
                 raise EleanorException(msg)
 
             order.eleanor_version = result.eleanor_version
-            order_id = order.id = result.id
+
+            if result.kernel_version != kernel.version():
+                msg = f'cannot extend order {result.id} with kernel version {kernel.version()}; '
+                msg += f'order was created under kernel version {result.kernel_version}'
+                raise EleanorException(msg)
+
+            order.kernel_version = result.kernel_version
 
     if order_id is None:
         raise EleanorException(

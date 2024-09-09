@@ -9,6 +9,10 @@ from eleanor.typing import Species
 class AbstractKernel(ABC):
 
     @abstractmethod
+    def version(self) -> str:
+        pass
+
+    @abstractmethod
     def setup(self, *args, **kwargs):
         pass
 

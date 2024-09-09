@@ -1,10 +1,7 @@
 from dataclasses import dataclass
 
-from sqlalchemy import Column, Double, ForeignKey, Integer, String, Table
-from sqlalchemy.orm import relationship
-
 from .typing import Any, Optional
-from .yeoman import yeoman_registry
+from .yeoman import Column, Double, ForeignKey, Integer, String, Table, declared_attr, relationship, yeoman_registry
 
 
 @yeoman_registry.mapped_as_dataclass
@@ -58,6 +55,11 @@ class SolidPhase(object):
         Column('log_moles', Double),
     )
 
+    __mapper_args__: dict[str, Any] = {
+        'polymorphic_identity': 'solid_phase',
+        'polymorphic_on': 'type',
+    }
+
     type: str
     name: str
     log_qk: float
@@ -66,6 +68,62 @@ class SolidPhase(object):
     end_member: Optional[str] = None
     equilibrium_space_id: Optional[int] = None
     id: Optional[int] = None
+
+
+@yeoman_registry.mapped_as_dataclass(init=False)
+class PureSolid(SolidPhase):
+
+    @declared_attr
+    def __mapper_args__(cls):
+        return {
+            'polymorphic_identity': 'solid',
+        }
+
+    def __init__(
+        self,
+        name: str,
+        log_qk: float,
+        affinity: float,
+        log_moles: Optional[float] = None,
+        end_member: Optional[str] = None,
+        equilibrium_space_id: Optional[int] = None,
+        id: Optional[int] = None,
+    ):
+        self.name = name
+        self.log_qk = log_qk
+        self.affinity = affinity
+        self.log_moles = log_moles
+        self.end_member = end_member
+        self.equilibrium_space_id = equilibrium_space_id
+        self.id = id
+
+
+@yeoman_registry.mapped_as_dataclass(init=False)
+class SolidSolution(SolidPhase):
+
+    @declared_attr
+    def __mapper_args__(cls):
+        return {
+            'polymorphic_identity': 'solid solution',
+        }
+
+    def __init__(
+        self,
+        name: str,
+        log_qk: float,
+        affinity: float,
+        log_moles: Optional[float] = None,
+        end_member: Optional[str] = None,
+        equilibrium_space_id: Optional[int] = None,
+        id: Optional[int] = None,
+    ):
+        self.name = name
+        self.log_qk = log_qk
+        self.affinity = affinity
+        self.log_moles = log_moles
+        self.end_member = end_member
+        self.equilibrium_space_id = equilibrium_space_id
+        self.id = id
 
 
 @yeoman_registry.mapped_as_dataclass

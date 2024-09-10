@@ -7,7 +7,7 @@ from datetime import datetime
 from enum import StrEnum
 
 import yaml
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Table
+from sqlalchemy import Column, DateTime, ForeignKey, Index, Integer, String, Table
 from sqlalchemy.orm import reconstructor, relationship
 
 import eleanor.variable_space as vs
@@ -93,12 +93,14 @@ class Order(object):
         yeoman_registry.metadata,
         Column('id', Integer, primary_key=True),
         Column('name', String, nullable=False, index=True),
-        Column('hash', String, nullable=False, index=True, unique=True),
+        Column('hash', String, nullable=False, index=True),
         Column('eleanor_version', String, nullable=False),
         Column('kernel_version', String, nullable=False),
         Column('raw', JSONDict, nullable=False),
         Column('create_date', DateTime, nullable=False),
     )
+
+    __table_args__ = (Index('hash_version', 'hash', 'eleanor_version', 'kernel_version', unique=True), )
 
     __mapper_args__ = {
         'properties': {

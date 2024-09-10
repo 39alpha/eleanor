@@ -4,7 +4,7 @@ from datetime import datetime
 from sys import exit, stderr
 
 import ray
-from sqlalchemy import select
+from sqlalchemy import and_, select
 
 import eleanor.sailor as sailor
 from eleanor.version import __version__
@@ -35,6 +35,7 @@ def ignite(
     navigator: AbstractNavigator,
     *args,
     verbose: bool = False,
+    new_order: bool = False,
     **kwargs,
 ) -> int:
     huffer_problem = navigator.select(max_attempts=1)
@@ -44,30 +45,30 @@ def ignite(
     with Yeoman(config.database, verbose=verbose) as yeoman:
         yeoman.setup()
 
-        result = yeoman.scalar(select(Order).where(Order.hash == order.hash))  # type: ignore
-        if result is None:
-            order.eleanor_version = __version__
-            order.kernel_version = kernel.version()
-            yeoman.add(order)
-            yeoman.commit()
-            yeoman.refresh(order)
-            order_id = order.id
-        else:
+        result = yeoman.scalar(
+            select(Order).where(
+                and_(
+                    Order.hash == order.hash,  # type: ignore
+                    Order.eleanor_version == __version__,  # type: ignore
+                    Order.kernel_version == kernel.version(),  # type: ignore
+                )))
+
+        if result is not None:
             order_id = order.id = result.id
-
-            if result.eleanor_version != __version__:
-                msg = f'cannot extend order {result.id} with eleanor version {__version__}; '
-                msg += f'order was created under eleanor version {result.eleanor_version}'
-                raise EleanorException(msg)
-
             order.eleanor_version = result.eleanor_version
-
-            if result.kernel_version != kernel.version():
-                msg = f'cannot extend order {result.id} with kernel version {kernel.version()}; '
-                msg += f'order was created under kernel version {result.kernel_version}'
-                raise EleanorException(msg)
-
             order.kernel_version = result.kernel_version
+        else:
+            result = yeoman.scalar(select(Order).where(Order.hash == order.hash))  # type: ignore
+            if result is not None and not new_order:
+                raise EleanorException(
+                    f'cannot extend order {result.id} with eleanor {__version__} and kernel {kernel.version()}')
+            else:
+                order.eleanor_version = __version__
+                order.kernel_version = kernel.version()
+                yeoman.add(order)
+                yeoman.commit()
+                yeoman.refresh(order)
+                order_id = order.id
 
     if order_id is None:
         raise EleanorException(
@@ -84,7 +85,15 @@ def ignite(
     return order_id
 
 
-def Eleanor(config: str | Config, order: str | Order, kernel_args: list[Any], num_samples: int, *args, **kwargs):
+def Eleanor(
+    config: str | Config,
+    order: str | Order,
+    kernel_args: list[Any],
+    num_samples: int,
+    *args,
+    new_order: bool = False,
+    **kwargs,
+):
     config = load_config(config)
     order = load_order(order)
     kernel = load_kernel(order, kernel_args, **kwargs)
@@ -93,7 +102,7 @@ def Eleanor(config: str | Config, order: str | Order, kernel_args: list[Any], nu
 
     navigator = UniformNavigator(order, kernel)
 
-    order_id = ignite(config, order, kernel, navigator, *args, **kwargs)
+    order_id = ignite(config, order, kernel, navigator, *args, new_order=new_order, **kwargs)
 
     if config.database.dialect == 'sqlite':
         yeoman_or_config: ray.actor.ActorHandle | DatabaseConfig = YeomanActor.remote(  # type: ignore

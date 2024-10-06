@@ -20,9 +20,5 @@ class AbstractKernel(ABC):
     def run(self, vs_point: vs.Point, *args, **kwargs) -> list[es.Point]:
         pass
 
-    @abstractmethod
-    def get_species(self) -> Species:
-        pass
-
     def constrain(self, boatswain: Boatswain) -> Boatswain:
         return boatswain

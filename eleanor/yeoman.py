@@ -49,6 +49,10 @@ class Yeoman(Session):
         self.engine = create_engine(str(config), echo=verbose)
         super().__init__(self.engine, *args, **kwargs)
 
+    def __exit__(self, *args, **kwargs):
+        super().__exit__(*args, **kwargs)
+        self.engine.dispose()
+
     def setup(self) -> None:
         yeoman_registry.metadata.create_all(self.engine)
 

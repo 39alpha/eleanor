@@ -8,17 +8,17 @@ type = "eq36"
 model = "b-dot"
 charge_balance = "H+"
 
-[constraints.temperature]
+[temperature]
 unit = "celcius"
 min = 50
 max = 150
 
-[constraints.pressure]
+[pressure]
 unit = "bar"
 min = 500
 max = 500
 
-[constraints.elements]
+[elements]
 Na = { unit = "log molality", min = -11.00, max = -9.0 }
 Mg = { unit = "log molality", value = -9.0 }
 Ca = { unit = "log molality", value = -9.0 }
@@ -36,18 +36,18 @@ P  = { unit = "log molality", value = -9.0 }
 N  = { unit = "log molality", value = -9.0 }
 Al = { unit = "log molality", value = -9.0 }
 
-[constraints.species]
+[species]
 "H+"    = { unit = "log activity",     value = -7.0  }
 "O2(g)" = { unit = "partial pressure", value = -1.00 }
 
-[[constraints.suppress]]
+[[suppress]]
 name = "methane"
 
-[[constraints.suppress]]
+[[suppress]]
 type = "mineral"
 except = ["olivine"]
 
-[[constraints.suppress]]
+[[suppress]]
 type = "solid solution"
 
 [reactants.fayalite]

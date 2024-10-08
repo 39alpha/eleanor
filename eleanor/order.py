@@ -198,16 +198,31 @@ class Order(object):
             return Order(raw)
 
     @staticmethod
+    def from_yamls(content: str):
+        raw = yaml.safe_load(content)
+        return Order(raw)
+
+    @staticmethod
     def from_toml(fname: str):
         with open(fname, 'rb') as handle:
             raw = tomllib.load(handle)
             return Order(raw)
 
     @staticmethod
+    def from_tomls(content: str):
+        raw = tomllib.loads(content)
+        return Order(raw)
+
+    @staticmethod
     def from_json(fname: str):
         with open(fname, 'rb') as handle:
             raw = json.load(handle)
             return Order(raw)
+
+    @staticmethod
+    def from_jsons(content: str):
+        raw = json.loads(content)
+        return Order(raw)
 
     @staticmethod
     def from_file(fname: str):

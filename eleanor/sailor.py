@@ -44,9 +44,11 @@ def __run(
                     vs_point.scratch = collect_scratch(tempdir)
                 exit_code = 0
             except EleanorException as e:
+                print(e)
                 exit_code = e.code
                 vs_point.scratch = collect_scratch(tempdir)
             except Exception as e:
+                print(e)
                 exit_code = -1
                 vs_point.scratch = collect_scratch(tempdir)
 

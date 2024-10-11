@@ -83,7 +83,7 @@ class MineralReactant(Reactant):
         Column('id', Integer, ForeignKey('reactants.id'), primary_key=True),
         Column('name', String, nullable=False),
         Column('log_moles', Double, nullable=False),
-        Column('log_titration_rate', Double, nullable=False),
+        Column('titration_rate', Double, nullable=False),
     )
 
     __mapper_args__ = {
@@ -91,7 +91,7 @@ class MineralReactant(Reactant):
     }
 
     log_moles: float
-    log_titration_rate: float
+    titration_rate: float
 
 
 @yeoman_registry.mapped_as_dataclass
@@ -102,7 +102,7 @@ class GasReactant(Reactant):
         Column('id', Integer, ForeignKey('reactants.id'), primary_key=True),
         Column('name', String, nullable=False),
         Column('log_moles', Double, nullable=False),
-        Column('log_titration_rate', Double, nullable=False),
+        Column('titration_rate', Double, nullable=False),
     )
 
     __mapper_args__ = {
@@ -110,7 +110,7 @@ class GasReactant(Reactant):
     }
 
     log_moles: float
-    log_titration_rate: float
+    titration_rate: float
 
 
 @yeoman_registry.mapped_as_dataclass
@@ -121,7 +121,7 @@ class ElementReactant(Reactant):
         Column('id', Integer, ForeignKey('reactants.id'), primary_key=True),
         Column('name', String, nullable=False),
         Column('log_moles', Double, nullable=False),
-        Column('log_titration_rate', Double, nullable=False),
+        Column('titration_rate', Double, nullable=False),
     )
 
     __mapper_args__ = {
@@ -129,7 +129,7 @@ class ElementReactant(Reactant):
     }
 
     log_moles: float
-    log_titration_rate: float
+    titration_rate: float
 
 
 @yeoman_registry.mapped_as_dataclass
@@ -157,7 +157,7 @@ class SpecialReactant(Reactant):
         Column('id', Integer, ForeignKey('reactants.id'), primary_key=True),
         Column('name', String, nullable=False),
         Column('log_moles', Double, nullable=False),
-        Column('log_titration_rate', Double, nullable=False),
+        Column('titration_rate', Double, nullable=False),
     )
 
     __mapper_args__ = {
@@ -168,7 +168,7 @@ class SpecialReactant(Reactant):
     }
 
     log_moles: float
-    log_titration_rate: float
+    titration_rate: float
     composition: list[SpecialReactantComposition]
 
 

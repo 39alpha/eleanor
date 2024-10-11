@@ -130,41 +130,41 @@ class Boatswain(object):
             reactants: list[vs.Reactant] = []
             for reactant in self.order.reactants:
                 match reactant:
-                    case MineralReactant(name, rct_type, log_moles, log_titration_rate):
+                    case MineralReactant(name, rct_type, log_moles, titration_rate):
                         model: vs.Reactant = vs.MineralReactant(
                             id=None,
                             variable_space_id=None,
                             name=name,
                             type=rct_type,
                             log_moles=valuation[log_moles].value,
-                            log_titration_rate=valuation[log_titration_rate].value,
+                            titration_rate=valuation[titration_rate].value,
                         )
-                    case GasReactant(name, rct_type, log_moles, log_titration_rate):
+                    case GasReactant(name, rct_type, log_moles, titration_rate):
                         model = vs.GasReactant(
                             id=None,
                             variable_space_id=None,
                             name=name,
                             type=rct_type,
                             log_moles=valuation[log_moles].value,
-                            log_titration_rate=valuation[log_titration_rate].value,
+                            titration_rate=valuation[titration_rate].value,
                         )
-                    case ElementReactant(name, rct_type, log_moles, log_titration_rate):
+                    case ElementReactant(name, rct_type, log_moles, titration_rate):
                         model = vs.ElementReactant(
                             id=None,
                             variable_space_id=None,
                             name=name,
                             type=rct_type,
                             log_moles=valuation[log_moles].value,
-                            log_titration_rate=valuation[log_titration_rate].value,
+                            titration_rate=valuation[titration_rate].value,
                         )
-                    case SpecialReactant(name, rct_type, log_moles, log_titration_rate, composition):
+                    case SpecialReactant(name, rct_type, log_moles, titration_rate, composition):
                         model = vs.SpecialReactant(
                             id=None,
                             variable_space_id=None,
                             name=name,
                             type=rct_type,
                             log_moles=valuation[log_moles].value,
-                            log_titration_rate=valuation[log_titration_rate].value,
+                            titration_rate=valuation[titration_rate].value,
                             composition=[
                                 vs.SpecialReactantComposition(element=k, count=v) for k, v in composition.items()
                             ],

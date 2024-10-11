@@ -53,12 +53,12 @@ type = "solid solution"
 [reactants.fayalite]
 type = "mineral"
 amount = { unit = "log moles", min = 1e-9, max = 1.00 }
-titration_rate = { unit = "log moles per step", value = -9 }
+titration_rate = { unit = "moles per step", value = -9 }
 
 [reactants.methane]
 type = "gas"
 amount = { unit = "log moles", min = 0.01, max = 1.00 }
-titration_rate = { unit = "log moles per step", value = -9 }
+titration_rate = { unit = "moles per step", value = -9 }
 
 [reactants.CO2]
 type = "fixed gas"
@@ -68,10 +68,10 @@ fugacity = { unit = "log fugacity", value = -9 }
 [reactants.Na]
 type = "element"
 amount = { unit = "log moles", min = 0.01, max = 1.00 }
-titration_rate = { unit = "log moles per step", value = -9 }
+titration_rate = { unit = "moles per step", value = -9 }
 
 [reactants.FeCl2]
 type = "special"
 amount = { unit = "log moles", min = 0.01, max = 1.00 }
-titration_rate = { unit = "log moles per step", value = -9 }
+titration_rate = { unit = "moles per step", value = -9 }
 composition = { Fe = 1, Cl = 2, O = 1}

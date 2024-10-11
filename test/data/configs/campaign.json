@@ -118,7 +118,7 @@
                 "max": 1.00
             },
             "titration_rate": {
-                "unit": "log moles per step",
+                "unit": "moles per step",
                 "value": -9
             }
         },
@@ -130,7 +130,7 @@
                 "max": 1.00
             },
             "titration_rate": {
-                "unit": "log moles per step",
+                "unit": "moles per step",
                 "value": -9
             }
         },
@@ -154,7 +154,7 @@
                 "max": 1.00
             },
             "titration_rate": {
-                "unit": "log moles per step",
+                "unit": "moles per step",
                 "value": -9
             }
         },
@@ -166,7 +166,7 @@
                 "max": 1.00
             },
             "titration_rate": {
-                "unit": "log moles per step",
+                "unit": "moles per step",
                 "value": -9
             },
             "composition": {

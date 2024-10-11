@@ -35,7 +35,6 @@ def ignite(
     navigator: AbstractNavigator,
     *args,
     verbose: bool = False,
-    new_order: bool = False,
     **kwargs,
 ) -> int:
     huffer_problem = navigator.select(max_attempts=1)
@@ -59,16 +58,19 @@ def ignite(
             order.kernel_version = result.kernel_version
         else:
             result = yeoman.scalar(select(Order).where(Order.hash == order.hash))  # type: ignore
-            if result is not None and not new_order:
-                raise EleanorException(
-                    f'cannot extend order {result.id} with eleanor {__version__} and kernel {kernel.version()}')
-            else:
-                order.eleanor_version = __version__
-                order.kernel_version = kernel.version()
-                yeoman.add(order)
-                yeoman.commit()
-                yeoman.refresh(order)
-                order_id = order.id
+            if result is not None:
+                stderr.write('''WARNING: An order exists with the same hash, but was created using a different
+         eleanor or kernel version.
+
+         Creating a new order.
+''')
+
+            order.eleanor_version = __version__
+            order.kernel_version = kernel.version()
+            yeoman.add(order)
+            yeoman.commit()
+            yeoman.refresh(order)
+            order_id = order.id
 
     if order_id is None:
         raise EleanorException(
@@ -91,7 +93,6 @@ def Eleanor(
     kernel_args: list[Any],
     num_samples: int,
     *args,
-    new_order: bool = False,
     **kwargs,
 ):
     config = load_config(config)
@@ -102,7 +103,7 @@ def Eleanor(
 
     navigator = UniformNavigator(order, kernel)
 
-    order_id = ignite(config, order, kernel, navigator, *args, new_order=new_order, **kwargs)
+    order_id = ignite(config, order, kernel, navigator, *args, **kwargs)
 
     if config.database.dialect == 'sqlite':
         yeoman_or_config: ray.actor.ActorHandle | DatabaseConfig = YeomanActor.remote(  # type: ignore

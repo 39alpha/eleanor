@@ -16,13 +16,6 @@ def main():
     arg_parser.add_argument("-v", "--verbose", required=False, action="store_true", help="enable verbose output")
     arg_parser.add_argument("-b", "--batch-size", required=False, type=int, default=100, help="the size of db batches")
     arg_parser.add_argument("-c", "--config", required=False, type=str, help="path to the configuration file")
-    arg_parser.add_argument(
-        "-n",
-        "--new-order",
-        required=False,
-        action="store_true",
-        help="create new order if versions clash",
-    )
     arg_parser.add_argument("--progress", required=False, action="store_true", help="enable progress bars")
     arg_parser.add_argument("campaign", type=str, help="campaign file")
     arg_parser.add_argument("samples", type=int, help="number of samples")
@@ -38,7 +31,6 @@ def main():
     show_progress = args['progress']
     num_samples = args['samples']
     batch_size = args['batch_size']
-    new_order = args['new_order']
 
     Eleanor(
         config,
@@ -49,5 +41,4 @@ def main():
         batch_size=batch_size,
         verbose=verbose,
         show_progress=show_progress,
-        new_order=new_order,
     )

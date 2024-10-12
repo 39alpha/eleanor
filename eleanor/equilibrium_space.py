@@ -1,7 +1,8 @@
 from dataclasses import dataclass
+from datetime import datetime
 
 from .typing import Any, Optional
-from .yeoman import Column, Double, ForeignKey, Integer, String, Table, declared_attr, relationship, yeoman_registry
+from .yeoman import Column, Double, DateTime, ForeignKey, Integer, String, Table, declared_attr, relationship, yeoman_registry
 
 
 @yeoman_registry.mapped_as_dataclass
@@ -163,6 +164,8 @@ class Point(object):
         Column('extended_alkalinity', Double),
         Column('initial_affinity', Double),
         Column('log_xi', Double),
+        Column('start_date', DateTime, nullable=False),
+        Column('complete_date', DateTime, nullable=False),
     )
 
     __mapper_args__: dict[str, Any] = {
@@ -195,3 +198,5 @@ class Point(object):
     extended_alkalinity: Optional[float] = None
     initial_affinity: Optional[float] = None
     log_xi: Optional[float] = None
+    start_date: Optional[datetime] = None
+    complete_date: Optional[datetime] = None

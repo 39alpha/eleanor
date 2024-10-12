@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from datetime import datetime
 
-from sqlalchemy import CheckConstraint, Column, Double, ForeignKey, Integer, String, Table
+from sqlalchemy import CheckConstraint, Column, DateTime, Double, ForeignKey, Integer, String, Table
 from sqlalchemy.orm import relationship
 
 import eleanor.equilibrium_space as es
@@ -255,6 +255,8 @@ class Point(object):
         Column('pressure', Double, nullable=False),
         Column('exit_code', Integer, nullable=False),
         Column('create_date', String, nullable=False),
+        Column('start_date', DateTime, nullable=False),
+        Column('complete_date', DateTime, nullable=False),
     )
 
     __mapper_args__ = {
@@ -282,6 +284,8 @@ class Point(object):
     scratch: Optional[Scratch] = None
     exit_code: int = 0
     create_date: datetime = field(default_factory=datetime.now)
+    start_date: Optional[datetime] = None
+    complete_date: Optional[datetime] = None
 
     def has_species_constraint(self, name: str) -> bool:
         return any(s.name == name for s in self.species)

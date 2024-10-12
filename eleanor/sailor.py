@@ -1,6 +1,7 @@
 import io
 import os
 import zipfile
+from datetime import datetime
 from os.path import join
 from tempfile import TemporaryDirectory
 
@@ -37,6 +38,7 @@ def __run(
 ) -> vs.Point:
     with TemporaryDirectory(prefix="eleanor_") as tempdir:
         with WorkingDirectory(tempdir):
+            vs_point.start_date = datetime.now()
             es_points: list[es.Point] = []
             try:
                 es_points = kernel.run(vs_point, *args, **kwargs)
@@ -54,6 +56,7 @@ def __run(
 
             vs_point.es_points = es_points
             vs_point.exit_code = exit_code
+            vs_point.complete_date = datetime.now()
 
             return vs_point
 

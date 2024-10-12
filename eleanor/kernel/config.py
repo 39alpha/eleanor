@@ -12,6 +12,7 @@ class Config(object):
         yeoman_registry.metadata,
         Column('id', Integer, ForeignKey('variable_space.id'), primary_key=True),
         Column('type', String, nullable=False),
+        Column('timeout', Integer, nullable=True),
     )
 
     __mapper_args__: dict[str, Any] = {
@@ -21,6 +22,7 @@ class Config(object):
 
     id: Optional[int]
     type: str
+    timeout: Optional[int]
 
     def parameters(self) -> list[Parameter]:
         return []

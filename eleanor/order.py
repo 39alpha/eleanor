@@ -170,7 +170,7 @@ class Order(object):
         ]
 
         self.reactants = [
-            AbstractReactant.from_dict(value, name=name) for name, value in self.raw.get('reactants', []).items()
+            AbstractReactant.from_dict(value, name=name) for name, value in self.raw.get('reactants', {}).items()
         ]
 
         self.constraints: list[ConstraintConfig] = []

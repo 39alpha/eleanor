@@ -229,15 +229,17 @@ class Order(object):
         parsers: dict[str, Callable[[str], Order]] = {
             'yaml': Order.from_yaml,
             'toml': Order.from_toml,
-            'json': Order.from_json
+            'json': Order.from_json,
         }
 
         for filetype, func in parsers.items():
             try:
                 return func(fname)
-            except EleanorException:
-                raise
-            except Exception:
+            except tomllib.TOMLDecodeError:
+                pass
+            except json.decoder.JSONDecodeError:
+                pass
+            except yaml.scanner.ScannerError:
                 pass
 
         raise EleanorException(f'failed to parse "{fname}" as yaml, toml or json')

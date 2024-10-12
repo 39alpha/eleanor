@@ -254,7 +254,7 @@ class Point(object):
         Column('temperature', Double, nullable=False),
         Column('pressure', Double, nullable=False),
         Column('exit_code', Integer, nullable=False),
-        Column('create_date', String, nullable=False),
+        Column('create_date', DateTime, nullable=False),
         Column('start_date', DateTime, nullable=False),
         Column('complete_date', DateTime, nullable=False),
     )

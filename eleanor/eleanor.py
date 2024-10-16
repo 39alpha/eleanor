@@ -39,7 +39,7 @@ def ignite(
 ) -> int:
     huffer_problem = navigator.select(max_attempts=1)
     huffer_point = sailor.__run(kernel, huffer_problem, *args, scratch=True, **kwargs)
-    order.huffer_result = HufferResult.from_scratch(huffer_point.scratch)
+    order.huffer_result = HufferResult.from_scratch(huffer_point.scratch, huffer_point.exit_code)
 
     with Yeoman(config.database, verbose=verbose) as yeoman:
         yeoman.setup()

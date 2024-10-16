@@ -66,24 +66,27 @@ class HufferResult(object):
         'huffer',
         yeoman_registry.metadata,
         Column('id', Integer, ForeignKey('orders.id'), primary_key=True),
+        Column('exit_code', Integer, nullable=False),
         Column('zip', Binary, nullable=False),
     )
 
     id: Optional[int]
+    exit_code: Optional[int]
     zip: bytes
 
-    def __init__(self, zip: bytes, id: Optional[int] = None):
+    def __init__(self, zip: bytes, exit_code: int, id: Optional[int] = None):
         self.id = id
+        self.exit_code = exit_code
         self.zip = zip
 
     @classmethod
-    def from_scratch(cls, scratch: Optional[vs.Scratch], id: Optional[int] = None):
+    def from_scratch(cls, scratch: Optional[vs.Scratch], exit_code: int, id: Optional[int] = None):
         if scratch is None:
             zip = bytes('\0', 'ascii')
         else:
             zip = scratch.zip
 
-        return cls(id=id, zip=zip)
+        return cls(id=id, exit_code=exit_code, zip=zip)
 
 
 @yeoman_registry.mapped_as_dataclass(init=False)

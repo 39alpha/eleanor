@@ -56,6 +56,12 @@ def ignite(
             order_id = order.id = result.id
             order.eleanor_version = result.eleanor_version
             order.kernel_version = result.kernel_version
+
+            result.huffer_result.exit_code = order.huffer_result.exit_code
+            result.huffer_result.zip = order.huffer_result.zip
+
+            yeoman.merge(result)
+            yeoman.commit()
         else:
             result = yeoman.scalar(select(Order).where(Order.hash == order.hash))  # type: ignore
             if result is not None:

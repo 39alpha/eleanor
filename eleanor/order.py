@@ -167,13 +167,14 @@ class Order(object):
         self.pressure = Parameter.from_dict(self.raw['pressure'], 'pressure')
         self.elements = {name: Parameter.from_dict(value, name=name) for name, value in self.raw['elements'].items()}
         self.species = {name: Parameter.from_dict(value, name=name) for name, value in self.raw['species'].items()}
+
         self.suppressions = [
             Suppression.from_dict({}, name=value) if isinstance(value, str) else Suppression.from_dict(value)
-            for value in self.raw.get('suppressions', [])
+            for value in self.raw.get('suppressions', []) or []
         ]
 
         self.reactants = [
-            AbstractReactant.from_dict(value, name=name) for name, value in self.raw.get('reactants', {}).items()
+            AbstractReactant.from_dict(value, name=name) for name, value in (self.raw.get('reactants', {}) or {}).items()
         ]
 
         self.constraints: list[ConstraintConfig] = []

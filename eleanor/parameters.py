@@ -149,3 +149,35 @@ class ListParameter(Parameter):
 
 
 Parameter.register(ListParameter)
+
+Valuation = dict[int, Parameter]
+
+
+class ParameterRegistry(object):
+    parameters: list[Parameter]
+
+    def __init__(self):
+        self.parameters = []
+
+    def add_parameter(self, parameter: Parameter) -> None:
+        if any(parameter is p for p in self.parameters):
+            raise EleanorException()
+        self.parameters.append(parameter)
+
+    def add_parameters(self, parameters: list[Parameter]) -> None:
+        for parameter in parameters:
+            self.add_parameter(parameter)
+
+    def valuation(self) -> Valuation:
+        return {i: p for i, p in enumerate(self.parameters)}
+
+    def id(self, parameter: Parameter) -> int:
+        for i, p in enumerate(self.parameters):
+            if p is parameter:
+                return i
+        raise IndexError('parameter not in registry')
+
+    def parameter(self, id: int) -> Parameter:
+        if id < 0 or id >= len(self.parameters):
+            raise IndexError('parameter id not in registry')
+        return self.parameters[id]

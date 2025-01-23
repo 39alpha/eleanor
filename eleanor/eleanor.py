@@ -57,8 +57,11 @@ def ignite(
             order.eleanor_version = result.eleanor_version
             order.kernel_version = result.kernel_version
 
-            result.huffer_result.exit_code = order.huffer_result.exit_code
-            result.huffer_result.zip = order.huffer_result.zip
+            if result.huffer_result is None:
+                result.huffer_result = order.huffer_result
+            else:
+                result.huffer_result.exit_code = order.huffer_result.exit_code  # type: ignore
+                result.huffer_result.zip = order.huffer_result.zip  # type: ignore
 
             yeoman.merge(result)
             yeoman.commit()

@@ -46,8 +46,8 @@ def __run(
                     vs_point.scratch = collect_scratch(tempdir)
                 exit_code = 0
             except EleanorException as e:
-                print(e)
-                exit_code = e.code
+                print(e, file=sys.stderr)
+                exit_code = e.code if e.code is not None else -1
                 vs_point.scratch = collect_scratch(tempdir)
             except Exception as e:
                 print(e)

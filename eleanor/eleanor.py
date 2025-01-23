@@ -85,13 +85,13 @@ def ignite(
         raise EleanorException(
             f'Error: the huffer failed',
             code=huffer_point.exit_code,
-        )
+        ) from huffer_point.exception
 
     if huffer_point.exit_code != 0:
         raise EleanorException(
             f'Error: the huffer failed',
             code=huffer_point.exit_code,
-        )
+        ) from huffer_point.exception
 
     return order_id
 

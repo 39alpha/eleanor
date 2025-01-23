@@ -7,8 +7,6 @@ from os.path import join
 from tempfile import TemporaryDirectory
 from traceback import print_exception
 
-import ray
-
 import eleanor.equilibrium_space as es
 import eleanor.variable_space as vs
 
@@ -69,24 +67,19 @@ def __run(
             return vs_point
 
 
-def sailor_actor(yeoman: ray.actor.ActorHandle, *args, **kwargs):
-    vs_point = __run(*args, **kwargs)
-    yeoman.write.remote(vs_point)
-
-
-def sailor_config(config: DatabaseConfig, *args, verbose: bool = False, **kwargs):
-    if config.dialect == 'sqlite':
-        raise EleanorException('sailors cannot instantiate SQLite3 yeomans; use the YeomanActor')
-
-    vs_point = __run(*args, verbose=verbose, **kwargs)
-
+def sailor(
+    config: DatabaseConfig,
+    kernel: AbstractKernel,
+    points: vs.Point | list[vs.Point],
+    *args,
+    verbose: bool = False,
+    **kwargs,
+):
     with Yeoman(config, verbose=verbose) as yeoman:
-        yeoman.write(vs_point)
-
-
-@ray.remote
-def sailor(yeoman_or_config: ray.actor.ActorHandle | DatabaseConfig, *args, **kwargs):
-    if isinstance(yeoman_or_config, DatabaseConfig):
-        sailor_config(yeoman_or_config, *args, **kwargs)
-    else:
-        sailor_actor(yeoman_or_config, *args, **kwargs)
+        if isinstance(points, list):
+            for point in points:
+                vs_point = __run(kernel, point, *args, verbose=verbose, **kwargs)
+                yeoman.write(vs_point)
+        else:
+            vs_point = __run(kernel, points, *args, verbose=verbose, **kwargs)
+            yeoman.write(vs_point)

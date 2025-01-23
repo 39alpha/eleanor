@@ -247,3 +247,17 @@ def parse_date(date: str) -> datetime.date | datetime.datetime:
         return datetime.date.fromisoformat(date)
     except ValueError:
         return datetime.datetime.fromisoformat(date)
+
+
+def chunks(indexable, n: int):
+    N = len(indexable)
+    chunk_size = N // n
+    residual = N - n * chunk_size
+    start = 0
+    while residual > 0 and start < N:
+        yield indexable[start:start + chunk_size + 1]
+        start += chunk_size + 1
+        residual -= 1
+    while start < N:
+        yield indexable[start:start + chunk_size]
+        start += chunk_size

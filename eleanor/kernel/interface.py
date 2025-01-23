@@ -20,5 +20,8 @@ class AbstractKernel(ABC):
     def run(self, vs_point: vs.Point, *args, **kwargs) -> list[es.Point]:
         pass
 
+    def is_soft_exit(self, code: int) -> bool:
+        return code in [0]
+
     def constrain(self, boatswain: Boatswain) -> Boatswain:
         return boatswain

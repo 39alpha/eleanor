@@ -48,16 +48,19 @@ def __run(
                 if scratch:
                     vs_point.scratch = collect_scratch(tempdir)
                 exit_code = 0
+                vs_point.exception = None
             except EleanorException as e:
                 if verbose:
                     print_exception(e, file=sys.stderr)
                 exit_code = e.code if e.code is not None else -1
                 vs_point.scratch = collect_scratch(tempdir)
+                vs_point.exception = e
             except Exception as e:
                 if verbose:
                     print_exception(e, file=sys.stderr)
                 exit_code = -1
                 vs_point.scratch = collect_scratch(tempdir)
+                vs_point.exception = e
 
             vs_point.es_points = es_points
             vs_point.exit_code = exit_code

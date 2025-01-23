@@ -284,6 +284,7 @@ class Point(object):
     scratch: Optional[Scratch] = None
     exit_code: int = 0
     create_date: datetime = field(default_factory=datetime.now)
+    exception: Optional[Exception] = None
     start_date: Optional[datetime] = None
     complete_date: Optional[datetime] = None
 

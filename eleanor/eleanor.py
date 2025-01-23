@@ -87,7 +87,7 @@ def ignite(
             code=huffer_point.exit_code,
         ) from huffer_point.exception
 
-    if huffer_point.exit_code != 0:
+    if not kernel.is_soft_exit(huffer_point.exit_code):
         raise EleanorException(
             f'Error: the huffer failed',
             code=huffer_point.exit_code,

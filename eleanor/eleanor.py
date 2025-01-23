@@ -1,9 +1,9 @@
 import os
 import time
 from datetime import datetime
+from multiprocessing import Pool
 from sys import exit, stderr
 
-import ray
 from sqlalchemy import and_, select
 
 import eleanor.sailor as sailor
@@ -16,8 +16,8 @@ from .kernel.interface import AbstractKernel
 from .navigator import AbstractNavigator, UniformNavigator
 from .order import HufferResult, Order, load_order
 from .typing import Any, Optional, Self, cast
+from .util import chunks
 from .yeoman import Yeoman
-from .yeoman_actor import YeomanActor
 
 
 def load_kernel(order: Order, kernel_args: list[Any], **kwargs) -> AbstractKernel:
@@ -102,45 +102,29 @@ def Eleanor(
     kernel_args: list[Any],
     num_samples: int,
     *args,
+    num_procs: int | None = None,
     **kwargs,
 ):
     config = load_config(config)
     order = load_order(order)
     kernel = load_kernel(order, kernel_args, **kwargs)
 
-    kernel_ref = ray.put(kernel)
-
     navigator = UniformNavigator(order, kernel)
 
     order_id = ignite(config, order, kernel, navigator, *args, **kwargs)
 
-    if config.database.dialect == 'sqlite':
-        yeoman_or_config: ray.actor.ActorHandle | DatabaseConfig = YeomanActor.remote(  # type: ignore
-            config.database,
-            num_samples,
-            **kwargs,
-        )
-    else:
-        yeoman_or_config = config.database
-
     vs_points = navigator.navigate(num_samples, order_id=order_id, max_attempts=1)
-    results = [sailor.sailor.remote(yeoman_or_config, kernel_ref, point, *args, **kwargs) for point in vs_points]
-    while results:
-        _, results = ray.wait(results)
 
-    if not isinstance(yeoman_or_config, DatabaseConfig):
-        wait_duration = num_samples / 50
-        started_waiting = datetime.now()
-        lock = [yeoman_or_config.is_done.remote()]
-        while lock:
-            is_done, lock = ray.wait(lock)
-            if is_done and is_done[0]:
-                break
+    if num_procs is not None and num_procs <= 0:
+        num_procs = 1
 
-            elapsed = (datetime.now() - started_waiting).total_seconds()
-            if elapsed < wait_duration:
-                print(f'WARNING: exited after waiting {elapsed}s for the yeoman to complete', file=stderr)
-                break
+    with Pool(processes=num_procs) as pool:
+        futures = []
 
-            time.sleep(1)
-            lock = [yeoman_or_config.is_done.remote()]
+        for batch_num, batch in enumerate(chunks(vs_points, pool._processes)):  # type: ignore
+            future = pool.apply_async(sailor.sailor, (config.database, kernel, batch, *args), kwargs)
+            futures.append(future)
+
+        while futures:
+            future = futures.pop()
+            future.wait()

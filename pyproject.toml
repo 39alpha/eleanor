@@ -10,7 +10,6 @@ dependencies = [
   'SQLAlchemy==2.0.34',
   'numpy==2.1.0',
   'pyyaml',
-  'ray[default]==2.35.0',
 ]
 requires-python = ">= 3.12"
 dynamic = ["version"]

@@ -1,9 +1,11 @@
 import io
 import os
+import sys
 import zipfile
 from datetime import datetime
 from os.path import join
 from tempfile import TemporaryDirectory
+from traceback import print_exception
 
 import ray
 
@@ -34,6 +36,7 @@ def __run(
     vs_point: vs.Point,
     *args,
     scratch: bool = False,
+    verbose: bool = False,
     **kwargs,
 ) -> vs.Point:
     with TemporaryDirectory(prefix="eleanor_") as tempdir:
@@ -46,11 +49,13 @@ def __run(
                     vs_point.scratch = collect_scratch(tempdir)
                 exit_code = 0
             except EleanorException as e:
-                print(e, file=sys.stderr)
+                if verbose:
+                    print_exception(e, file=sys.stderr)
                 exit_code = e.code if e.code is not None else -1
                 vs_point.scratch = collect_scratch(tempdir)
             except Exception as e:
-                print(e)
+                if verbose:
+                    print_exception(e, file=sys.stderr)
                 exit_code = -1
                 vs_point.scratch = collect_scratch(tempdir)
 

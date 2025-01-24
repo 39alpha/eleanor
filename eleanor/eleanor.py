@@ -1,10 +1,12 @@
 import os
+import queue
 import time
 from datetime import datetime
-from multiprocessing import Pool
+from multiprocessing import Manager, Pool, Process, Queue
 from sys import exit, stderr
 
 from sqlalchemy import and_, select
+from tqdm import tqdm
 
 import eleanor.sailor as sailor
 from eleanor.version import __version__
@@ -96,6 +98,15 @@ def ignite(
     return order_id
 
 
+def display_progress(queue: queue.Queue[bool], samples: int):
+    progress = tqdm(total=samples, unit=' systems', colour='#ec5c29')
+    while samples > 0:
+        queue.get()
+        progress.update()
+        samples -= 1
+    progress.close()
+
+
 def Eleanor(
     config: str | Config,
     order: str | Order,
@@ -103,6 +114,7 @@ def Eleanor(
     num_samples: int,
     *args,
     num_procs: int | None = None,
+    show_progress: bool = False,
     **kwargs,
 ):
     config = load_config(config)
@@ -115,6 +127,15 @@ def Eleanor(
 
     vs_points = navigator.navigate(num_samples, order_id=order_id, max_attempts=1)
 
+    manager = Manager()
+
+    progress: Optional[queue.Queue[bool]] = None
+    progress_proc: Optional[Process] = None
+    if show_progress:
+        progress = manager.Queue()
+        progress_proc = Process(target=display_progress, args=(progress, len(vs_points)))
+        progress_proc.start()
+
     if num_procs is not None and num_procs <= 0:
         num_procs = 1
 
@@ -122,9 +143,12 @@ def Eleanor(
         futures = []
 
         for batch_num, batch in enumerate(chunks(vs_points, pool._processes)):  # type: ignore
-            future = pool.apply_async(sailor.sailor, (config.database, kernel, batch, *args), kwargs)
+            future = pool.apply_async(sailor.sailor, (config.database, kernel, batch, progress, *args), kwargs)
             futures.append(future)
 
         while futures:
             future = futures.pop()
-            future.wait()
+            future.get()
+
+    if progress_proc is not None:
+        progress_proc.join()

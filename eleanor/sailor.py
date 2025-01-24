@@ -4,6 +4,7 @@ import sys
 import zipfile
 from datetime import datetime
 from os.path import join
+from queue import Queue
 from tempfile import TemporaryDirectory
 from traceback import print_exception
 
@@ -71,6 +72,7 @@ def sailor(
     config: DatabaseConfig,
     kernel: AbstractKernel,
     points: vs.Point | list[vs.Point],
+    progress: Optional[Queue[bool]],
     *args,
     verbose: bool = False,
     **kwargs,
@@ -80,6 +82,10 @@ def sailor(
             for point in points:
                 vs_point = __run(kernel, point, *args, verbose=verbose, **kwargs)
                 yeoman.write(vs_point)
+                if progress is not None:
+                    progress.put(True)
         else:
             vs_point = __run(kernel, points, *args, verbose=verbose, **kwargs)
             yeoman.write(vs_point)
+            if progress is not None:
+                progress.put(True)

@@ -76,8 +76,8 @@ def sailor(
     config: DatabaseConfig,
     kernel: AbstractKernel,
     points: vs.Point | list[vs.Point],
-    progress: Optional[Queue[bool]],
     *args,
+    progress: Optional[Queue[bool]] = None,
     verbose: bool = False,
     **kwargs,
 ):

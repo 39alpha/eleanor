@@ -143,7 +143,10 @@ def Eleanor(
         futures = []
 
         for batch_num, batch in enumerate(chunks(vs_points, pool._processes)):  # type: ignore
-            future = pool.apply_async(sailor.sailor, (config.database, kernel, batch, progress, *args), kwargs)
+            future = pool.apply_async(sailor.sailor, (config.database, kernel, batch, *args), {
+                **kwargs,
+                'progress': progress,
+            })
             futures.append(future)
 
         while futures:

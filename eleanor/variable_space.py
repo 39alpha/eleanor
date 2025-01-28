@@ -18,9 +18,9 @@ class SuppressionException(object):
     __table__ = Table(
         'suppression_exceptions',
         yeoman_registry.metadata,
-        Column('id', Integer, primary_key=True),
+        Column('id', Integer, primary_key=True, autoincrement=True),
         Column('name', String, nullable=False),
-        Column('suppression_id', ForeignKey('suppressions.id'), primary_key=True),
+        Column('suppression_id', Integer, ForeignKey('suppressions.id'), primary_key=True, nullable=False),
     )
 
     name: str

@@ -232,9 +232,9 @@ class Order(object):
     @staticmethod
     def from_file(fname: str):
         parsers: dict[str, Callable[[str], Order]] = {
-            'yaml': Order.from_yaml,
             'toml': Order.from_toml,
             'json': Order.from_json,
+            'yaml': Order.from_yaml,
         }
 
         for filetype, func in parsers.items():

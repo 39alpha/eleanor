@@ -192,6 +192,20 @@ class Boatswain(object):
                             log_moles=valuation[self.registry.id(log_moles)].value,
                             log_fugacity=valuation[self.registry.id(log_fugacity)].value,
                         )
+                    case SolidSolutionReactant(name, rct_type, log_moles, titration_rate, end_members):
+                        model = vs.SolidSolutionReactant(
+                            id=None,
+                            variable_space_id=None,
+                            name=name,
+                            type=rct_type,
+                            log_moles=valuation[self.registry.id(log_moles)].value,
+                            titration_rate=valuation[self.registry.id(titration_rate)].value,
+                            end_members=[
+                                vs.SolidSolutionReactantEndMembers(
+                                    name=name, fraction=valuation[self.registry.id(end_member_param)].value)
+                                for name, end_member_param in end_members.items()
+                            ],
+                        )
                     case _:
                         raise Exception(f'Unexpected reactant type {reactant}')
                 reactants.append(model)

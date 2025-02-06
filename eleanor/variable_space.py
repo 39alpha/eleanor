@@ -191,6 +191,47 @@ class FixedGasReactant(Reactant):
     log_fugacity: float
 
 
+@yeoman_registry.mapped_as_dataclass
+class SolidSolutionReactantEndMembers(object):
+    __table__ = Table(
+        'solid_solution_reactant_end_members',
+        yeoman_registry.metadata,
+        Column('id', Integer, primary_key=True),
+        Column('solid_solution_reactant_id', Integer, ForeignKey('solid_solution_reactants.id'), nullable=False),
+        Column('name', String, nullable=False),
+        Column('fraction', Double, nullable=False),
+        CheckConstraint('0.0 <= fraction AND fraction <= 1.0', name='fraction_in_range'),
+    )
+
+    name: str
+    fraction: float
+    id: Optional[int] = None
+    solid_solution_reactant_id: Optional[int] = None
+
+
+@yeoman_registry.mapped_as_dataclass
+class SolidSolutionReactant(Reactant):
+    __table__ = Table(
+        'solid_solution_reactants',
+        yeoman_registry.metadata,
+        Column('id', Integer, ForeignKey('reactants.id'), primary_key=True),
+        Column('name', String, nullable=False),
+        Column('log_moles', Double, nullable=False),
+        Column('titration_rate', Double, nullable=False),
+    )
+
+    __mapper_args__ = {
+        'polymorphic_identity': ReactantType.SOLID_SOLUTION,
+        'properties': {
+            'end_members': relationship(SolidSolutionReactantEndMembers),
+        }
+    }
+
+    log_moles: float
+    titration_rate: float
+    end_members: list[SolidSolutionReactantEndMembers]
+
+
 @yeoman_registry.mapped
 @dataclass
 class Element(object):

@@ -134,3 +134,20 @@ reactants:
       Fe: 1
       Cl: 2
       O: 1
+  olivine-ss:
+    type: solid solution
+    unit: log moles
+    amount:
+      unit: log moles
+      min: -6
+      max: -3
+    titration_rate:
+      unit: moles per step
+      value: -9
+    end_members:
+      fayalite:
+        unit: molar percent
+        value: 0.84
+      forsterite:
+        unit: molar percent
+        value: 0.16

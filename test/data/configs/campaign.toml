@@ -75,3 +75,12 @@ type = "special"
 amount = { unit = "log moles", min = 0.01, max = 1.00 }
 titration_rate = { unit = "moles per step", value = -9 }
 composition = { Fe = 1, Cl = 2, O = 1}
+
+[reactants.olivine-ss]
+type = "solid solution"
+amount = { unit = "log moles", min = -6, max = -3 }
+titration_rate = { unit = "moles per step", value = -9 }
+
+[reactants.olivine-ss.end_members]
+fayalite = { unit = "molar percent", value = 0.84 }
+forsterite = { unit = "molar percent", value = 0.16 }

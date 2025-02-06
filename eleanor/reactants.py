@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 
 from .exceptions import EleanorException
-from .parameters import Parameter
+from .parameters import Parameter, ValueParameter
 from .typing import Optional
 
 
@@ -13,6 +13,7 @@ class ReactantType(StrEnum):
     FIXED_GAS = 'fixed gas'
     SPECIAL = 'special'
     ELEMENT = 'element'
+    SOLID_SOLUTION = 'solid solution'
 
 
 @dataclass
@@ -37,6 +38,8 @@ class AbstractReactant(ABC):
             return SpecialReactant.from_dict(raw, name)
         elif reactant_type == ReactantType.ELEMENT:
             return ElementReactant.from_dict(raw, name)
+        elif reactant_type == ReactantType.SOLID_SOLUTION:
+            return SolidSolutionReactant.from_dict(raw, name)
 
         raise EleanorException(f'unexpected reactant type "{reactant_type}"')
 
@@ -146,5 +149,45 @@ class ElementReactant(TitratedReactant):
 
 
 TitratedReactant.register(ElementReactant)
+
+
+@dataclass
+class SolidSolutionReactant(TitratedReactant):
+    end_members: dict[str, Parameter]
+
+    def parameters(self) -> list[Parameter]:
+        return [*super().parameters(), *self.end_members.values()]
+
+    @classmethod
+    def from_dict(cls, raw: dict, name: Optional[str] = None):
+        base = TitratedReactant.from_dict(raw, name)
+        if base.type != ReactantType.SOLID_SOLUTION:
+            raise EleanorException(f'cannot create a solid solution reactant from config of type "{base.type}"')
+
+        end_members = {
+            end_member: Parameter.from_dict(param, 'fraction')
+            for end_member, param in raw['end_members'].items()
+        }
+
+        fraction = 0.0
+        for name, param in end_members.items():
+            if not isinstance(param, ValueParameter):
+                raise EleanorException(
+                    f'solid solution "{base.name}" end member "{name}" has a non-value parameter; list and range parameters are not supported yet'
+                )
+            elif 1.0 < param.value or param.value < 0:
+                raise EleanorException(
+                    f'solid solution "{base.name}" end member "{name}" has a value {param.value}; must be between 0 and 1 inclusive'
+                )
+            fraction += param.value
+
+        if fraction != 1.0:
+            raise EleanorException(
+                f'solid solution "{base.name}" end member fractions sum to {fraction}; must sum to 1.0')
+
+        return cls(base.name, base.type, base.amount, base.titration_rate, end_members)
+
+
+TitratedReactant.register(SpecialReactant)
 
 Reactant = MineralReactant | GasReactant | FixedGasReactant | SpecialReactant | ElementReactant

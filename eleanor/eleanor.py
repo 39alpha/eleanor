@@ -115,6 +115,7 @@ def Eleanor(
     *args,
     num_procs: int | None = None,
     show_progress: bool = False,
+    scratch: bool = False,
     **kwargs,
 ):
     config = load_config(config)
@@ -145,6 +146,7 @@ def Eleanor(
         for batch_num, batch in enumerate(chunks(vs_points, pool._processes)):  # type: ignore
             future = pool.apply_async(sailor.sailor, (config.database, kernel, batch, *args), {
                 **kwargs,
+                'scratch': scratch,
                 'progress': progress,
             })
             futures.append(future)

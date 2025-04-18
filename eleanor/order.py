@@ -98,12 +98,11 @@ class Order(object):
         Column('name', String, nullable=False, index=True),
         Column('hash', String, nullable=False, index=True),
         Column('eleanor_version', String, nullable=False),
-        Column('kernel_version', String, nullable=False),
         Column('raw', JSONDict, nullable=False),
         Column('create_date', DateTime, nullable=False),
     )
 
-    __table_args__ = (Index('hash_version', 'hash', 'eleanor_version', 'kernel_version', unique=True), )
+    __table_args__ = (Index('hash_version', 'hash', 'eleanor_version', unique=True), )
 
     __mapper_args__ = {
         'properties': {
@@ -130,7 +129,6 @@ class Order(object):
     vs_points: list[vs.Point] = field(default_factory=list)
     create_date: datetime = field(default_factory=datetime.now)
     eleanor_version: Optional[str] = None
-    kernel_version: Optional[str] = None
 
     def __init__(
         self,

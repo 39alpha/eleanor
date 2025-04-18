@@ -51,13 +51,11 @@ def ignite(
                 and_(
                     Order.hash == order.hash,  # type: ignore
                     Order.eleanor_version == __version__,  # type: ignore
-                    Order.kernel_version == kernel.version(),  # type: ignore
                 )))
 
         if result is not None:
             order_id = order.id = result.id
             order.eleanor_version = result.eleanor_version
-            order.kernel_version = result.kernel_version
 
             if result.huffer_result is None:
                 result.huffer_result = order.huffer_result
@@ -77,7 +75,6 @@ def ignite(
 ''')
 
             order.eleanor_version = __version__
-            order.kernel_version = kernel.version()
             yeoman.add(order)
             yeoman.commit()
             yeoman.refresh(order)

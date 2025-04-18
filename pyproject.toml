@@ -27,7 +27,7 @@ eleanor-huffer = "eleanor.cli.huffer:main"
 eleanor-scratch = "eleanor.cli.scratch:main"
 
 [build-system]
-requires = ["hatchling", "hatch-vcs"]
+requires = ["hatchling", "hatch-vcs", "hatch-build-scripts"]
 build-backend = "hatchling.build"
 
 [tool.hatch.version]
@@ -45,3 +45,17 @@ line_length = 120
 [tool.mypy]
 check_untyped_defs = true
 exclude = "(docs/source/conf\\.py)"
+
+[[tool.hatch.build.targets.wheel.hooks.build-scripts.scripts]]
+commands = [
+  'meson setup --wipe build',
+]
+artifacts = []
+
+[[tool.hatch.build.targets.wheel.hooks.build-scripts.scripts]]
+out_dir = "eleanor/kernel/eq36/lib"
+work_dir = "build"
+commands = [
+  'meson compile',
+]
+artifacts = ["*.so", "*.dylib"]

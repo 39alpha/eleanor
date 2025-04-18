@@ -6,8 +6,8 @@
 CSS0
 __pycache__
 docs/build
-eleanor/radar_grid.py
-eleanor/radar_xyz.py
 eleanor/version.py
 config.yaml
 campaign.yaml
+*.so
+*.dylib

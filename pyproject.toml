@@ -7,11 +7,13 @@ description = "Large-scale, aqueous geochemical modeling"
 readme = "README.rst"
 license = {file = "LICENSE"}
 dependencies = [
-  'SQLAlchemy==2.0.34',
-  'numpy==2.1.0',
+  'sqlalchemy==2.0.35',
+  'numpy',
   'pyyaml',
+  'tqdm',
+  'psycopg[binary]',
 ]
-requires-python = ">= 3.12"
+requires-python = ">= 3.11"
 dynamic = ["version"]
 
 [project.urls]

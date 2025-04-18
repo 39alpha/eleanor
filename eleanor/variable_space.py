@@ -20,7 +20,7 @@ class SuppressionException(object):
         yeoman_registry.metadata,
         Column('id', Integer, primary_key=True, autoincrement=True),
         Column('name', String, nullable=False),
-        Column('suppression_id', Integer, ForeignKey('suppressions.id'), primary_key=True, nullable=False),
+        Column('suppression_id', Integer, ForeignKey('suppressions.id'), nullable=False),
     )
 
     name: str

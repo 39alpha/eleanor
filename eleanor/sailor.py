@@ -45,10 +45,12 @@ def __run(
             try:
                 es_points = kernel.run(vs_point, *args, **kwargs)
                 if scratch:
+                    kernel.copy_data(vs_point, tempdir)
                     vs_point.scratch = collect_scratch(tempdir)
                 exit_code = 0
                 vs_point.exception = None
             except EleanorException as e:
+                kernel.copy_data(vs_point)
                 with open('traceback.txt', 'w') as file:
                     print_exception(e, file=file)
                 if verbose:
@@ -57,6 +59,7 @@ def __run(
                 vs_point.scratch = collect_scratch(tempdir)
                 vs_point.exception = e
             except Exception as e:
+                kernel.copy_data(vs_point)
                 with open('traceback.txt', 'w') as file:
                     print_exception(e, file=file)
                 if verbose:

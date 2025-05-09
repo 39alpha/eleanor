@@ -21,3 +21,6 @@ class AbstractKernel(ABC):
 
     def constrain(self, boatswain: Boatswain) -> Boatswain:
         return boatswain
+
+    def copy_data(self, vs_point: vs.Point, *args, dir: str = '.', **kwargs):
+        pass

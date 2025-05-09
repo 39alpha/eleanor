@@ -2,6 +2,7 @@ import io
 import os.path
 import sys
 from datetime import datetime
+from shutil import copyfile
 
 import numpy as np
 
@@ -41,6 +42,14 @@ class Kernel(AbstractKernel):
 
     def is_soft_exit(self, code: int) -> bool:
         return code in [0, 60]
+
+    def copy_data(self, vs_point: vs.Point, *args, dir: str = '.', verbose: bool = False, **kwargs):
+        config = self.resolve_kernel_config(vs_point)
+        if config.data1_file is None:
+            data1 = self.find_data1(vs_point, verbose=verbose)
+            config.data1_file = data1.filename
+
+        copyfile(config.data1_file, os.path.join(dir, os.path.basename(config.data1_file)))
 
     # TODO: Return basic setup information, e.g. species, etc...
     def setup(self, order: Order, *args, verbose: bool = False, **kwargs):

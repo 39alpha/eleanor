@@ -310,7 +310,7 @@ class Kernel(AbstractKernel):
         print(f'    jpress=  0', file=file)
         print(f'    pressb=  0.00000E+00', file=file)
         print(f'      ptk1=  0.00000E+00      ptk2=  0.00000E+00', file=file)
-        print(f'      nrct=  {ncrt}', file=file)
+        print(f'      nrct={ncrt: >3}', file=file)
 
         # Write Mineral Reactants
         for reactant in reactants.get(ReactantType.MINERAL, []):

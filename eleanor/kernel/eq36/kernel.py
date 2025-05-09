@@ -103,7 +103,7 @@ class Kernel(AbstractKernel):
         d1s: list[Data1] = []
         for data1 in self._data1s:
             curve = data1.tp_curve
-            if curve.temperature_in_domain(T):
+            if curve is not None and curve.temperature_in_domain(T):
                 if curve(T) == P:
                     d1s.append(data1)
 

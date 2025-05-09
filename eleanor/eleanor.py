@@ -46,6 +46,9 @@ def ignite(
     with Yeoman(config.database, verbose=verbose) as yeoman:
         yeoman.setup()
 
+        if yeoman.scalar(select(Order).where(Order.eleanor_version != __version__)):  # type: ignore
+            raise EleanorException('cannot add order to a database created with a different version of Eleanor')
+
         result = yeoman.scalar(
             select(Order).where(
                 and_(
@@ -66,14 +69,6 @@ def ignite(
             yeoman.merge(result)
             yeoman.commit()
         else:
-            result = yeoman.scalar(select(Order).where(Order.hash == order.hash))  # type: ignore
-            if result is not None:
-                stderr.write('''WARNING: An order exists with the same hash, but was created using a different
-         eleanor or kernel version.
-
-         Creating a new order.
-''')
-
             order.eleanor_version = __version__
             yeoman.add(order)
             yeoman.commit()

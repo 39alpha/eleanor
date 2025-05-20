@@ -1,6 +1,8 @@
 import io
+import math
 import os.path
 import sys
+import warnings
 from datetime import datetime
 from shutil import copyfile
 
@@ -15,7 +17,7 @@ from eleanor.kernel.exceptions import EleanorKernelException
 from eleanor.kernel.interface import AbstractKernel
 from eleanor.order import Order
 from eleanor.reactants import *
-from eleanor.typing import Number, Optional, Species, cast
+from eleanor.typing import Any, Number, Optional, Species, cast
 from eleanor.util import NumberFormat
 
 from . import util
@@ -23,7 +25,9 @@ from .codes import RunCode
 from .config import Config, Eq3Config, Eq6Config
 from .constraints import TPCurveConstraint
 from .data1 import Data1
+from .equilibrium_space import Eq3Point, Eq6Point
 from .exec import eq3, eq6
+from .parsers import OutputParser3, OutputParser6
 from .settings import IOPT_1, IOPT_4
 
 
@@ -134,7 +138,7 @@ class Kernel(AbstractKernel):
         start_date = datetime.now()
         eq3_input_path = self.write_eq3_input(vs_point, data1, verbose=verbose)
         eq3(config.data1_file, eq3_input_path, timeout=config.timeout)
-        eq3_results = util.read_eq3_output()
+        eq3_results = self.read_eq3_output()
         complete_date = datetime.now()
         eq3_results.start_date, eq3_results.complete_date = start_date, complete_date
 
@@ -142,11 +146,12 @@ class Kernel(AbstractKernel):
         pickup_lines = util.read_pickup_lines()
         eq6_input_path = self.write_eq6_input(vs_point, pickup_lines=pickup_lines, verbose=verbose)
         eq6(config.data1_file, eq6_input_path, timeout=config.timeout)
-        eq6_results = util.read_eq6_output()
+        eq6_results = self.read_eq6_output()
         complete_date = datetime.now()
-        eq6_results.start_date, eq6_results.complete_date = start_date, complete_date
+        for point in eq6_results:
+            point.start_date, point.complete_date = start_date, complete_date
 
-        return [eq3_results, eq6_results]
+        return [eq3_results, *eq6_results]
 
     def write_eq3_input(
         self,
@@ -414,8 +419,8 @@ class Kernel(AbstractKernel):
 
             for end_member in reactant.end_members:
                 name, fraction = end_member.name, end_member.fraction
-                fraction = NumberFormat.SCIENTIFIC.fmt(fraction, precision=5)
-                print('   {name: <28}          {fraction}'.format(name=name, fraction=fraction), file=file)
+                frac = NumberFormat.SCIENTIFIC.fmt(fraction, precision=5)
+                print('   {name: <28}          {frac}'.format(name=name, frac=frac), file=file)
 
             print(f'   endit.', file=file)
             print(f'       nsk=  0               sfcar=  0.00000E+00    ssfcar=  0.00000E+00', file=file)
@@ -533,6 +538,327 @@ class Kernel(AbstractKernel):
               file=file)
         print(' iodb11-20= {0: >5}{1: >5}{2: >5}{3: >5}{4: >5}{5: >5}{6: >5}{7: >5}{8: >5}{9: >5}'.format(*c.iodb[10:]),
               file=file)
+
+    def read_eq3_output(self, file: Optional[str | io.TextIOWrapper] = None) -> Eq3Point:
+        parser = OutputParser3().parse()
+
+        data = {
+            'temperature':
+            parser.data['temperature'],
+            'pressure':
+            parser.data['pressure'],
+            'log_fO2':
+            parser.data['log_fO2'],
+            'log_activity_water':
+            parser.data['log_activity_water'],
+            'mole_fraction_water':
+            parser.data['mole_fraction_water'],
+            'log_gamma_water':
+            parser.data['log_activity_coefficient_water'],
+            'osmotic_coefficient':
+            parser.data['osmotic_coefficient'],
+            'stoichiometric_osmotic_coefficient':
+            parser.data['stoichiometric_osmotic_coefficient'],
+            'log_sum_molalities':
+            parser.data['log_sum_molalities'],
+            'log_sum_stoichiometric_molalities':
+            parser.data['log_sum_stoichiometric_molalities'],
+            'log_ionic_strength':
+            parser.data['log_ionic_strength'],
+            'log_stoichiometric_ionic_strength':
+            parser.data['log_stoichiometric_ionic_strength'],
+            'log_ionic_asymmetry':
+            parser.data['log_ionic_asymmetry'],
+            'log_stoichiometric_ionic_asymmetry':
+            parser.data['log_stoichiometric_ionic_asymmetry'],
+            'solvent_mass':
+            parser.data['solvent_mass'],
+            'solute_mass':
+            parser.data['solute_mass'],
+            'solution_mass':
+            parser.data['solution_mass'],
+            'solution_volume':
+            parser.data['solution_volume'],
+            'solvent_fraction':
+            parser.data['solvent_fraction'],
+            'solute_fraction':
+            parser.data['solute_fraction'],
+            'tds_mass':
+            parser.data['tds_mass'],
+            'pH':
+            parser.data['pH']['NBS pH scale']['pH'],
+            'Eh':
+            parser.data['pH']['NBS pH scale']['Eh'],
+            'pe':
+            parser.data['pH']['NBS pH scale']['pe-'],
+            'Ah':
+            parser.data['pH']['NBS pH scale']['Ah'],
+            'pHCl':
+            parser.data['pHCl'],
+            'pcH':
+            parser.data['pcH'],
+            'pHCl':
+            parser.data['pHCl'],
+            'cations':
+            parser.data['cations'],
+            'anions':
+            parser.data['anions'],
+            'total_charge':
+            parser.data['total_charge'],
+            'mean_charge':
+            parser.data['mean_charge'],
+            'charge_imbalance':
+            parser.data['charge_imbalance'],
+            'extended_alkalinity':
+            parser.data.get('alkalinity', {}).get('Extended', {}).get('Total'),
+            'elements': [
+                es.Element(**{
+                    'name': name,
+                    'log_molality': props['log_molality'],
+                    'mass_fraction': props['mass_fraction'],
+                }) for name, props in parser.data['elements'].items()
+            ],
+            'aqueous_species': [
+                es.AqueousSpecies(
+                    **{
+                        'name': name,
+                        'log_molality': -math.inf if props['molality'] == 0 else props['log_molality'],
+                        'log_activity': -math.inf if props['log_activity'] == -99999 else props['log_activity'],
+                        'log_gamma': props['log_gamma'],
+                    }) for name, props in parser.data['aqueous'].items()
+            ],
+            'pure_solids': [
+                es.PureSolid(
+                    **{
+                        'name': name,
+                        'log_qk': props['log_qk'],
+                        'affinity': props['affinity'],
+                        'log_moles': -math.inf if props.get('moles') == -99999 else props.get('log_moles'),
+                        'log_mass': -math.inf if props.get('mass') == -99999 else props.get('log_mass'),
+                        'log_volume': -math.inf if props.get('volume') == -99999 else props.get('log_volume'),
+                    }) for name, props in parser.data['solids']['pure_solids'].items()
+            ],
+            'solid_solutions': [
+                es.SolidSolution(
+                    **{
+                        'name':
+                        name,
+                        'log_qk':
+                        props['log_qk'],
+                        'affinity':
+                        props['affinity'],
+                        'log_moles':
+                        props.get('log_moles'),
+                        'log_mass':
+                        props.get('log_mass'),
+                        'log_volume':
+                        props.get('log_volume'),
+                        'end_members': [
+                            es.EndMember(
+                                **{
+                                    'name': em_name,
+                                    'log_qk': em_props['log_qk'],
+                                    'affinity': em_props['affinity'],
+                                    'log_moles': em_props.get('log_moles'),
+                                    'log_mass': em_props.get('log_mass'),
+                                    'log_volume': em_props.get('log_volume'),
+                                }) for em_name, em_props in props.get('end_members', {}).items()
+                        ]
+                    }) for name, props in parser.data['solids']['solid_solutions'].items()
+            ],
+            'gases': [
+                es.Gas(**{
+                    'name': name,
+                    'log_fugacity': props['log_fugacity'],
+                }) for name, props in parser.data['gases'].items()
+            ],
+            'redox_reactions': [
+                es.RedoxReaction(
+                    **{
+                        'couple': couple,
+                        'Eh': props['Eh'],
+                        'pe': props['pe-'],
+                        'log_fO2': props['log_fO2'],
+                        'Ah': props['Ah'],
+                    }) for couple, props in parser.data['redox'].items()
+            ]
+        }
+
+        return Eq3Point(**data)
+
+    def read_eq6_output(self, file: Optional[str | io.TextIOWrapper] = None) -> list[Eq6Point]:
+        path: list[Eq6Point] = []
+
+        for step in OutputParser6().parse().path:
+            data: dict[str, Any] = {
+                'log_xi':
+                step['log_xi'],
+                'temperature':
+                step['temperature'],
+                'pressure':
+                step['pressure'],
+                'pH':
+                step['pH']['NBS pH scale']['pH'],
+                'Eh':
+                step['pH']['NBS pH scale']['Eh'],
+                'pe':
+                step['pH']['NBS pH scale']['pe-'],
+                'Ah':
+                step['pH']['NBS pH scale']['Ah'],
+                'pHCl':
+                step['pHCl'],
+                'log_fO2':
+                step['log_fO2'],
+                'log_activity_water':
+                step['log_activity_water'],
+                'mole_fraction_water':
+                step['mole_fraction_water'],
+                'log_gamma_water':
+                step['log_activity_coefficient_water'],
+                'osmotic_coefficient':
+                step['osmotic_coefficient'],
+                'stoichiometric_osmotic_coefficient':
+                step['stoichiometric_osmotic_coefficient'],
+                'log_sum_molalities':
+                step['log_sum_molalities'],
+                'log_sum_stoichiometric_molalities':
+                step['log_sum_stoichiometric_molalities'],
+                'log_ionic_strength':
+                step['log_ionic_strength'],
+                'log_stoichiometric_ionic_strength':
+                step['log_stoichiometric_ionic_strength'],
+                'log_ionic_asymmetry':
+                step['log_ionic_asymmetry'],
+                'log_stoichiometric_ionic_asymmetry':
+                step['log_stoichiometric_ionic_asymmetry'],
+                'solvent_mass':
+                step['solvent_mass'],
+                'solute_mass':
+                step['solute_mass'],
+                'solution_mass':
+                step['solution_mass'],
+                'solvent_fraction':
+                step['solvent_fraction'],
+                'solute_fraction':
+                step['solute_fraction'],
+                'tds_mass':
+                step['tds_mass'],
+                'charge_imbalance':
+                step['charge_imbalance'],
+                'expected_charge_imbalance':
+                step['expected_charge_imbalance'],
+                'charge_discrepancy':
+                step['charge_discrepancy'],
+                'sigma':
+                step['sigma'],
+                'extended_alkalinity':
+                step.get('alkalinity', {}).get('Extended', {}).get('Total'),
+                'overall_affinity':
+                step['reactants']['overall_affinity'],
+                'reactant_mass_reacted':
+                step['reactants']['mass_reacted'],
+                'reactant_mass_remaining':
+                step['reactants']['mass_remaining'],
+                'solid_mass_created':
+                step['solids']['created']['mass'],
+                'solid_mass_destroyed':
+                step['solids']['destroyed']['mass'],
+                'solid_mass_change':
+                step['solids']['net']['mass'],
+                'solid_volume_created':
+                step['solids']['created']['volume'],
+                'solid_volume_destroyed':
+                step['solids']['destroyed']['volume'],
+                'solid_volume_change':
+                step['solids']['net']['volume'],
+                'elements': [
+                    es.Element(**{
+                        'name': name,
+                        'log_molality': props['log_molality'],
+                        'mass_fraction': props['mass_fraction'],
+                    }) for name, props in step['elements'].items()
+                ],
+                'aqueous_species': [
+                    es.AqueousSpecies(
+                        **{
+                            'name': name,
+                            'log_molality': -math.inf if props['molality'] == 0 else props['log_molality'],
+                            'log_activity': -math.inf if props['log_activity'] == -99999 else props['log_activity'],
+                            'log_gamma': props['log_gamma'],
+                        }) for name, props in step['aqueous'].items() if name != 'O2(g)'
+                ],
+                'pure_solids': [
+                    es.PureSolid(
+                        **{
+                            'name': name,
+                            'log_qk': props['log_qk'],
+                            'affinity': props['affinity'],
+                            'log_moles': -math.inf if props.get('moles') == 0 else props.get('log_moles'),
+                            'log_mass': props.get('log_mass'),
+                            'log_volume': props.get('log_volume'),
+                        }) for name, props in step['solids']['pure_solids'].items()
+                ],
+                'solid_solutions': [
+                    es.SolidSolution(
+                        **{
+                            'name':
+                            name,
+                            'log_qk':
+                            props['log_qk'],
+                            'affinity':
+                            props['affinity'],
+                            'log_moles':
+                            props.get('log_moles'),
+                            'log_mass':
+                            props.get('log_mass'),
+                            'log_volume':
+                            props.get('log_volume'),
+                            'end_members': [
+                                es.EndMember(
+                                    **{
+                                        'name': em_name,
+                                        'log_qk': em_props['log_qk'],
+                                        'affinity': em_props['affinity'],
+                                        'log_moles': em_props.get('log_moles'),
+                                        'log_mass': em_props.get('log_mass'),
+                                        'log_volume': em_props.get('log_volume'),
+                                    }) for em_name, em_props in props.get('end_members', {}).items()
+                            ]
+                        }) for name, props in step['solids']['solid_solutions'].items()
+                ],
+                'gases': [
+                    es.Gas(**{
+                        'name': name,
+                        'log_fugacity': props['log_fugacity'],
+                    }) for name, props in step['gases'].items()
+                ],
+                'reactants': [
+                    es.Reactant(
+                        **{
+                            'name': name,
+                            'log_moles_reacted': props['log_moles_reacted'],
+                            'log_moles_remaining': props['log_moles_remaining'],
+                            'log_mass_reacted': props['log_mass_reacted'],
+                            'log_mass_remaining': props['log_mass_remaining'],
+                            'affinity': props['affinity'],
+                            'relative_rate': props['relative_rate'],
+                        }) for name, props in step['reactants']['reactants'].items()
+                ],
+                'redox_reactions': [
+                    es.RedoxReaction(
+                        **{
+                            'couple': couple,
+                            'Eh': props['Eh'],
+                            'pe': props['pe-'],
+                            'log_fO2': props['log_fO2'],
+                            'Ah': props['Ah'],
+                        }) for couple, props in step['redox'].items()
+                ]
+            }
+
+            path.append(Eq6Point(**data))
+
+        return path
 
 
 AbstractKernel.register(Kernel)

@@ -146,7 +146,7 @@ class Kernel(AbstractKernel):
         pickup_lines = util.read_pickup_lines()
         eq6_input_path = self.write_eq6_input(vs_point, pickup_lines=pickup_lines, verbose=verbose)
         eq6(config.data1_file, eq6_input_path, timeout=config.timeout)
-        eq6_results = self.read_eq6_output()
+        eq6_results = self.read_eq6_output(track_path=config.track_path)
         complete_date = datetime.now()
         for point in eq6_results:
             point.start_date, point.complete_date = start_date, complete_date
@@ -305,7 +305,9 @@ class Kernel(AbstractKernel):
 
         # Write Header
         jtemp = config.eq6_config.jtemp
-        xi_max = config.eq6_config.xi_max
+        ttk1 = NumberFormat.SCIENTIFIC.fmt(config.eq6_config.ttk1, precision=5)
+        ttk2 = NumberFormat.SCIENTIFIC.fmt(config.eq6_config.ttk2, precision=5)
+
         T = NumberFormat.SCIENTIFIC.fmt(vs_point.temperature, precision=5)
 
         reactants: dict[ReactantType, list[vs.Reactant]] = {}
@@ -320,7 +322,7 @@ class Kernel(AbstractKernel):
         print(f'endit.', file=file)
         print(f'     jtemp=  {config.eq6_config.jtemp}', file=file)
         print(f'    tempcb=  {T}', file=file)
-        print(f'      ttk1=  0.00000E+00      ttk2=  0.00000E+00', file=file)
+        print(f'      ttk1={ttk1: >13}      ttk2={ttk2: >13}', file=file)
         print(f'    jpress=  0', file=file)
         print(f'    pressb=  0.00000E+00', file=file)
         print(f'      ptk1=  0.00000E+00      ptk2=  0.00000E+00', file=file)
@@ -429,19 +431,43 @@ class Kernel(AbstractKernel):
             print(f'       rk1=  {rk1}       rk2=  0.00000E+00       rk3=  0.00000E+00', file=file)
 
         # Write limits
+        xi_min = NumberFormat.SCIENTIFIC.fmt(config.eq6_config.xi_min, precision=5)
+        time_min = NumberFormat.SCIENTIFIC.fmt(config.eq6_config.time_min, precision=5)
+        ph_min = NumberFormat.SCIENTIFIC.fmt(config.eq6_config.ph_min, precision=5)
+        eh_min = NumberFormat.SCIENTIFIC.fmt(config.eq6_config.eh_min, precision=5)
+        log_fO2_min = NumberFormat.SCIENTIFIC.fmt(config.eq6_config.log_fO2_min, precision=5)
+        aw_min = NumberFormat.SCIENTIFIC.fmt(config.eq6_config.aw_min, precision=5)
+
+        xi_max = NumberFormat.SCIENTIFIC.fmt(config.eq6_config.xi_max, precision=5)
+        time_max = NumberFormat.SCIENTIFIC.fmt(config.eq6_config.time_max, precision=5)
+        ph_max = NumberFormat.SCIENTIFIC.fmt(config.eq6_config.ph_max, precision=5)
+        eh_max = NumberFormat.SCIENTIFIC.fmt(config.eq6_config.eh_max, precision=5)
+        log_fO2_max = NumberFormat.SCIENTIFIC.fmt(config.eq6_config.log_fO2_max, precision=5)
+        aw_max = NumberFormat.SCIENTIFIC.fmt(config.eq6_config.aw_max, precision=5)
+
+        xi_print_interval = NumberFormat.SCIENTIFIC.fmt(config.eq6_config.xi_print_interval, precision=5)
+        log_xi_print_interval = NumberFormat.SCIENTIFIC.fmt(config.eq6_config.log_xi_print_interval, precision=5)
+        time_print_interval = NumberFormat.SCIENTIFIC.fmt(config.eq6_config.time_print_interval, precision=5)
+        log_time_print_interval = NumberFormat.SCIENTIFIC.fmt(config.eq6_config.log_time_print_interval, precision=5)
+        ph_print_interval = NumberFormat.SCIENTIFIC.fmt(config.eq6_config.ph_print_interval, precision=5)
+        eh_print_interval = NumberFormat.SCIENTIFIC.fmt(config.eq6_config.eh_print_interval, precision=5)
+        log_fO2_print_interval = NumberFormat.SCIENTIFIC.fmt(config.eq6_config.log_fO2_print_interval, precision=5)
+        aw_print_interval = NumberFormat.SCIENTIFIC.fmt(config.eq6_config.aw_print_interval, precision=5)
+        steps_print_interval = config.eq6_config.steps_print_interval
+
         print(f'*-----------------------------------------------------------------------------', file=file)
-        print(f'    xistti=  0.00000E+00    ximaxi=  {NumberFormat.SCIENTIFIC.fmt(xi_max, precision=5)}', file=file)
-        print(f'    tistti=  0.00000E+00    timmxi=  1.00000E+38', file=file)
-        print(f'    phmini= -1.00000E+38    phmaxi=  1.00000E+38', file=file)
-        print(f'    ehmini= -1.00000E+38    ehmaxi=  1.00000E+38', file=file)
-        print(f'    o2mini= -1.00000E+38    o2maxi=  1.00000E+38', file=file)
-        print(f'    awmini= -1.00000E+38    awmaxi=  1.00000E+38', file=file)
+        print(f'    xistti={xi_min: >13}    ximaxi={xi_max: >13}', file=file)
+        print(f'    tistti={time_min: >13}    timmxi={time_max: >13}', file=file)
+        print(f'    phmini={ph_min: >13}    phmaxi={ph_max: >13}', file=file)
+        print(f'    ehmini={eh_min: >13}    ehmaxi={eh_max: >13}', file=file)
+        print(f'    o2mini={log_fO2_min: >13}    o2maxi={log_fO2_max: >13}', file=file)
+        print(f'    awmini={aw_min: >13}    awmaxi={aw_max: >13}', file=file)
         print(f'    kstpmx=        10000', file=file)
-        print(f'    dlxprn=  1.00000E+38    dlxprl=  1.00000E+38', file=file)
-        print(f'    dltprn=  1.00000E+38    dltprl=  1.00000E+38', file=file)
-        print(f'    dlhprn=  1.00000E+38    dleprn=  1.00000E+38', file=file)
-        print(f'    dloprn=  1.00000E+38    dlaprn=  1.00000E+38', file=file)
-        print(f'    ksppmx=          999', file=file)
+        print(f'    dlxprn={xi_print_interval: >13}    dlxprl={log_xi_print_interval: >13}', file=file)
+        print(f'    dltprn={time_print_interval: >13}    dltprl={log_time_print_interval: >13}', file=file)
+        print(f'    dlhprn={ph_print_interval: >13}    dleprn={eh_print_interval: >13}', file=file)
+        print(f'    dloprn={log_fO2_print_interval: >13}    dlaprn={aw_print_interval: >13}', file=file)
+        print(f'    ksppmx={steps_print_interval: >13}', file=file)
         print(f'    dlxplo=  1.00000E+38    dlxpll=  1.00000E+38', file=file)
         print(f'    dltplo=  1.00000E+38    dltpll=  1.00000E+38', file=file)
         print(f'    dlhplo=  1.00000E+38    dleplo=  1.00000E+38', file=file)
@@ -686,10 +712,18 @@ class Kernel(AbstractKernel):
 
         return Eq3Point(**data)
 
-    def read_eq6_output(self, file: Optional[str | io.TextIOWrapper] = None) -> list[Eq6Point]:
+    def read_eq6_output(self,
+                        file: Optional[str | io.TextIOWrapper] = None,
+                        track_path: bool = False) -> list[Eq6Point]:
         path: list[Eq6Point] = []
 
-        for step in OutputParser6().parse().path:
+        print(track_path)
+
+        steps = OutputParser6().parse().path
+        if not track_path:
+            steps = steps[-1:]
+
+        for step in steps:
             data: dict[str, Any] = {
                 'log_xi':
                 step['log_xi'],

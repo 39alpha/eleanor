@@ -25,6 +25,9 @@ class JTEMP(IntEnum):
     We plan to add jtemp = 3 (fluid mixing, for Eleanor version 1.1)
     """
     CONSTANT_T = 0
+    LINEAR_WITH_XI = 1
+    LINEAR_WITH_TIME = 2
+    FLUID_MIXING = 3
 
 
 class IOPT_1(IntEnum):

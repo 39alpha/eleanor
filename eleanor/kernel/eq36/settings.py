@@ -368,7 +368,7 @@ class IODB_7(IntEnum):
     """
     Print General Search (e.g., for a phase boundary) Information:
     """
-    DONT_PRINT_PHASE_BOUNDRY_INFO = 0
+    DONT_PRINT_PHASE_BOUNDARY_INFO = 0
     SUMMARY_PHASE_BOUNDRY_INFO = 1  # Print summary information
 
 

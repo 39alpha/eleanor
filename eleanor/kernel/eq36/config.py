@@ -167,7 +167,7 @@ class Eq3Config(object):
     def make_verbose(self) -> Self:
         verbose = copy(self)
 
-        verbose.iopt_4 = IOPT_4.PERMIT_SS
+        verbose.iopt_4 = IOPT_4.PERMIT_SOLID_SOLUTIONS
         verbose.iopr_1 = IOPR_1.PRINT_DATA_FILE_SP
         verbose.iopr_2 = IOPR_2.PRINT_RXNS_LOGK_DATA
         verbose.iopr_4 = IOPR_4.INCLUDE_ALL_AQ

@@ -57,8 +57,8 @@ class IOPT_4(IntEnum):
     """
     Solid Solutions
     """
-    IGNORE_SS = 0
-    PERMIT_SS = 1
+    IGNORE_SOLID_SOLUTIONS = 0
+    PERMIT_SOLID_SOLUTIONS = 1
 
 
 class IOPT_5(IntEnum):

@@ -94,8 +94,8 @@ class Kernel(AbstractKernel):
             print('warning: all solid solutions are suppressed some are suppressed by name', file=sys.stderr)
 
         if not suppress_all_solid_solutions:
-            config.eq3_config.iopt_4 = IOPT_4.PERMIT_SS
-            config.eq6_config.iopt_4 = IOPT_4.PERMIT_SS
+            config.eq3_config.iopt_4 = IOPT_4.PERMIT_SOLID_SOLUTIONS
+            config.eq6_config.iopt_4 = IOPT_4.PERMIT_SOLID_SOLUTIONS
 
         if len(vs_point.reactants) != 0:
             config.eq6_config.iopt_1 = IOPT_1.TITRATION_SYS

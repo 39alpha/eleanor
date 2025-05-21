@@ -2,6 +2,9 @@ from enum import IntEnum
 
 from sqlalchemy import INTEGER, TypeDecorator
 
+from eleanor.kernel.exceptions import EleanorKernelException
+from eleanor.typing import Number, Optional
+
 
 class Eq36SettingField(TypeDecorator):
     impl = INTEGER
@@ -15,6 +18,21 @@ class Eq36SettingField(TypeDecorator):
         if value is None:
             return None
         return self.base(value)
+
+
+def get_setting(cfg: dict[str, int], setting, default=None):
+    key: str = setting.__name__.lower()
+    value: Optional[Number | str] = cfg.get(key, default)
+    if value is None:
+        raise EleanorKernelException(f'config option {key} is required')
+
+    try:
+        if isinstance(value, str):
+            return setting[value]
+        else:
+            return setting(value)
+    except Exception as e:
+        raise EleanorKernelException(f'unexpected value for option {key}') from e
 
 
 class JTEMP(IntEnum):

@@ -23,7 +23,7 @@ from eleanor.util import NumberFormat
 from . import util
 from .codes import RunCode
 from .config import Config, Eq3Config, Eq6Config
-from .constraints import TPCurveConstraint
+from .constraints import TemperatureRangeConstraint, TPCurveConstraint
 from .data1 import Data1
 from .equilibrium_space import Eq3Point, Eq6Point
 from .exec import eq3, eq6
@@ -105,8 +105,18 @@ class Kernel(AbstractKernel):
         return vs_point.kernel
 
     def constrain(self, boatswain: Boatswain) -> Boatswain:
-        constraint = TPCurveConstraint(boatswain.order.temperature, boatswain.order.pressure, self._data1s)
-        boatswain.constraints.append(constraint)
+        boatswain.constraints.append(TemperatureRangeConstraint(
+            boatswain.order.temperature,
+            self._data1s,
+        ))
+
+        boatswain.constraints.append(
+            TPCurveConstraint(
+                boatswain.order.temperature,
+                boatswain.order.pressure,
+                self._data1s,
+            ))
+
         return boatswain
 
     def find_data1(self, vs_point: vs.Point, verbose: bool = False) -> Data1:

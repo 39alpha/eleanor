@@ -725,8 +725,6 @@ class Kernel(AbstractKernel):
                         track_path: bool = False) -> list[Eq6Point]:
         path: list[Eq6Point] = []
 
-        print(track_path)
-
         steps = OutputParser6().parse().path
         if not track_path:
             steps = steps[-1:]

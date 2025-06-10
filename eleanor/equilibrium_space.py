@@ -216,7 +216,7 @@ class Point(object):
         Column('pe', Double, nullable=False),
         Column('Ah', Double, nullable=False),
         Column('pcH', Double),
-        Column('pHCl', Double, nullable=False),
+        Column('pHCl', Double),
         Column('log_ionic_strength', Double, nullable=False),
         Column('log_stoichiometric_ionic_strength', Double, nullable=False),
         Column('log_ionic_asymmetry', Double, nullable=False),

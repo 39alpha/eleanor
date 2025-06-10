@@ -241,7 +241,11 @@ class OutputParser(ABC):
             self.read_basic_property('pcH')
         except Exception:
             pass
-        self.read_basic_property('pHCl')
+
+        try:
+            self.read_basic_property('pHCl')
+        except Exception:
+            pass
 
     @abstractmethod
     def read_bulk_properties(self):

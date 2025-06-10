@@ -619,12 +619,10 @@ class Kernel(AbstractKernel):
             parser.data['pH']['NBS pH scale']['pe-'],
             'Ah':
             parser.data['pH']['NBS pH scale']['Ah'],
-            'pHCl':
-            parser.data['pHCl'],
             'pcH':
-            parser.data['pcH'],
+            parser.data.get('pcH'),
             'pHCl':
-            parser.data['pHCl'],
+            parser.data.get('pHCl'),
             'cations':
             parser.data['cations'],
             'anions':
@@ -740,7 +738,7 @@ class Kernel(AbstractKernel):
                 'Ah':
                 step['pH']['NBS pH scale']['Ah'],
                 'pHCl':
-                step['pHCl'],
+                step.get('pHCl'),
                 'log_fO2':
                 step['log_fO2'],
                 'log_activity_water':

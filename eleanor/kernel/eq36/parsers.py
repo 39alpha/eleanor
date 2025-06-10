@@ -138,6 +138,9 @@ class OutputParser(ABC):
         self.advance()
         self.consume_blank_lines()
 
+        if self.line().strip() == 'None':
+            return
+
         reactants: dict[str, Any] = {}
         while not self.eof() and not self.is_blank():
             name, moles, delta_moles, mass, delta_mass = self.line().strip().split()
@@ -435,6 +438,9 @@ class OutputParser(ABC):
         self.advance(n=2)
 
         while not self.eof() and not self.is_blank():
+            if self.line().strip() == 'None':
+                break
+
             phase, log_qk, affinity, *rest = self.line().strip().split()
             if len(rest) > 1:
                 raise EleanorParserException(f'too many columns in {header} at line {self.line_num}')

@@ -786,23 +786,23 @@ class Kernel(AbstractKernel):
                 'extended_alkalinity':
                 step.get('alkalinity', {}).get('Extended', {}).get('Total'),
                 'overall_affinity':
-                step['reactants']['overall_affinity'],
+                step.get('reactants', {}).get('overall_affinity'),
                 'reactant_mass_reacted':
-                step['reactants']['mass_reacted'],
+                step.get('reactants', {}).get('mass_reacted', 0.0),
                 'reactant_mass_remaining':
-                step['reactants']['mass_remaining'],
+                step.get('reactants', {}).get('mass_remaining', 0.0),
                 'solid_mass_created':
-                step['solids']['created']['mass'],
+                step['solids'].get('created', {}).get('mass', 0.0),
                 'solid_mass_destroyed':
-                step['solids']['destroyed']['mass'],
+                step['solids'].get('destroyed', {}).get('mass', 0.0),
                 'solid_mass_change':
-                step['solids']['net']['mass'],
+                step['solids'].get('net', {}).get('mass', 0.0),
                 'solid_volume_created':
-                step['solids']['created']['volume'],
+                step['solids'].get('created', {}).get('volume', 0.0),
                 'solid_volume_destroyed':
-                step['solids']['destroyed']['volume'],
+                step['solids'].get('destroyed', {}).get('volume', 0.0),
                 'solid_volume_change':
-                step['solids']['net']['volume'],
+                step['solids'].get('net', {}).get('volume', 0.0),
                 'elements': [
                     es.Element(**{
                         'name': name,
@@ -874,7 +874,7 @@ class Kernel(AbstractKernel):
                             'log_mass_remaining': props['log_mass_remaining'],
                             'affinity': props['affinity'],
                             'relative_rate': props['relative_rate'],
-                        }) for name, props in step['reactants']['reactants'].items()
+                        }) for name, props in step.get('reactants', {}).get('reactants', {}).items()
                 ],
                 'redox_reactions': [
                     es.RedoxReaction(

@@ -162,7 +162,6 @@ class Eq6Point(Point):
         expected_charge_imbalance: float,
         charge_discrepancy: float,
         sigma: float,
-        overall_affinity: float,
         reactant_mass_reacted: float,
         reactant_mass_remaining: float,
         solid_mass_created: float,
@@ -181,6 +180,7 @@ class Eq6Point(Point):
         id: Optional[int] = None,
         variable_space_id: Optional[int] = None,
         extended_alkalinity: Optional[float] = None,
+        overall_affinity: Optional[float] = None,
         start_date: Optional[datetime] = None,
         complete_date: Optional[datetime] = None,
     ):

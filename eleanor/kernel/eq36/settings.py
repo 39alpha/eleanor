@@ -238,7 +238,7 @@ class IOPR_1(IntEnum):
 
 class IOPR_2(IntEnum):
     """
-     - Print All Reactions:
+    Print All Reactions:
     """
     DONT_PRINT_RXNS = 0  # Don't print
     PRINT_ALL_RXNS = 1  # Print the reactions

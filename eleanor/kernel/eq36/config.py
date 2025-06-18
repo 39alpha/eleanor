@@ -412,7 +412,7 @@ class Config(KernelConfig):
 
         track_path = raw.get('track_path', False)
         if not isinstance(track_path, bool):
-            raise EleanorException('kernel.timeout must be a boolean')
+            raise EleanorException('kernel.track_path must be a boolean')
 
         raw_eq3_config: dict[str, int] = raw.get('eq3_config', dict())
 

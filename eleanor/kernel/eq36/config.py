@@ -54,7 +54,7 @@ class Eq3Config(object):
     __table__ = Table(
         'eq3_config',
         yeoman_registry.metadata,
-        Column('id', Integer, ForeignKey('eq36_config.id'), primary_key=True),
+        Column('id', Integer, ForeignKey('eq36_config.id', ondelete="CASCADE"), primary_key=True),
         Column('iopt_1', Eq36SettingField(IOPT_1), nullable=False),
         Column('iopt_2', Eq36SettingField(IOPT_2), nullable=False),
         Column('iopt_3', Eq36SettingField(IOPT_3), nullable=False),
@@ -190,7 +190,7 @@ class Eq6Config(object):
     __table__ = Table(
         'eq6_config',
         yeoman_registry.metadata,
-        Column('id', Integer, ForeignKey('eq36_config.id'), primary_key=True),
+        Column('id', Integer, ForeignKey('eq36_config.id', ondelete="CASCADE"), primary_key=True),
         Column('jtemp', Eq36SettingField(JTEMP), nullable=False),
         Column('ttk1', Double, nullable=False),
         Column('ttk2', Double, nullable=False),
@@ -355,7 +355,7 @@ class Config(KernelConfig):
     __table__ = Table(
         'eq36_config',
         yeoman_registry.metadata,
-        Column('id', Integer, ForeignKey('kernel.id'), primary_key=True),
+        Column('id', Integer, ForeignKey('kernel.id', ondelete="CASCADE"), primary_key=True),
         Column('model', String, nullable=False),
         Column('charge_balance', String, nullable=False),
         Column('redox_species', String, nullable=False),
@@ -367,8 +367,8 @@ class Config(KernelConfig):
     __mapper_args__ = {
         'polymorphic_identity': 'eq36',
         'properties': {
-            'eq3_config': relationship('Eq3Config', uselist=False),
-            'eq6_config': relationship('Eq6Config', uselist=False),
+            'eq3_config': relationship('Eq3Config', cascade="all, delete", uselist=False),
+            'eq6_config': relationship('Eq6Config', cascade="all, delete", uselist=False),
         },
     }
 

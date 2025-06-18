@@ -2,8 +2,7 @@ import json
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
 
-from sqlalchemy import BLOB, CheckConstraint, Column, DateTime, Double, ForeignKey, Integer, String, Table, func
-from sqlalchemy.orm import declared_attr, relationship
+from sqlalchemy.orm import declared_attr
 
 import eleanor.equilibrium_space as es
 from eleanor.equilibrium_space import AqueousSpecies, Element, Gas, PureSolid, Reactant, RedoxReaction, SolidSolution

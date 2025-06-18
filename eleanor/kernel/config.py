@@ -10,7 +10,7 @@ class Config(object):
     __table__ = Table(
         'kernel',
         yeoman_registry.metadata,
-        Column('id', Integer, ForeignKey('variable_space.id'), primary_key=True),
+        Column('id', Integer, ForeignKey('variable_space.id', ondelete="CASCADE"), primary_key=True),
         Column('type', String, nullable=False),
         Column('timeout', Integer, nullable=True),
     )

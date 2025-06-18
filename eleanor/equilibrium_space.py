@@ -13,7 +13,7 @@ class Element(object):
         'equilibrium_elements',
         yeoman_registry.metadata,
         Column('id', Integer, primary_key=True),
-        Column('equilibrium_space_id', Integer, ForeignKey('equilibrium_space.id'), nullable=False),
+        Column('equilibrium_space_id', Integer, ForeignKey('equilibrium_space.id', ondelete="CASCADE"), nullable=False),
         Column('name', String, nullable=False),
         Column('log_molality', Double, nullable=False),
         Column('mass_fraction', Double, nullable=False),
@@ -32,7 +32,7 @@ class AqueousSpecies(object):
         'equilibrium_aqueous_species',
         yeoman_registry.metadata,
         Column('id', Integer, primary_key=True),
-        Column('equilibrium_space_id', Integer, ForeignKey('equilibrium_space.id'), nullable=False),
+        Column('equilibrium_space_id', Integer, ForeignKey('equilibrium_space.id', ondelete="CASCADE"), nullable=False),
         Column('name', String, nullable=False),
         Column('log_molality', Double, nullable=False),
         Column('log_activity', Double, nullable=False),
@@ -53,7 +53,7 @@ class PureSolid(object):
         'equilibrium_pure_solid',
         yeoman_registry.metadata,
         Column('id', Integer, primary_key=True),
-        Column('equilibrium_space_id', Integer, ForeignKey('equilibrium_space.id'), nullable=False),
+        Column('equilibrium_space_id', Integer, ForeignKey('equilibrium_space.id', ondelete="CASCADE"), nullable=False),
         Column('name', String, nullable=False),
         Column('log_qk', Double, nullable=False),
         Column('affinity', Double, nullable=False),
@@ -78,7 +78,10 @@ class EndMember(object):
         'equilibrium_end_member',
         yeoman_registry.metadata,
         Column('id', Integer, primary_key=True),
-        Column('equilibrium_solid_solution_id', Integer, ForeignKey('equilibrium_solid_solution.id'), nullable=False),
+        Column('equilibrium_solid_solution_id',
+               Integer,
+               ForeignKey('equilibrium_solid_solution.id', ondelete="CASCADE"),
+               nullable=False),
         Column('name', String, nullable=False),
         Column('log_qk', Double, nullable=False),
         Column('affinity', Double, nullable=False),
@@ -103,7 +106,7 @@ class SolidSolution(object):
         'equilibrium_solid_solution',
         yeoman_registry.metadata,
         Column('id', Integer, primary_key=True),
-        Column('equilibrium_space_id', Integer, ForeignKey('equilibrium_space.id'), nullable=False),
+        Column('equilibrium_space_id', Integer, ForeignKey('equilibrium_space.id', ondelete="CASCADE"), nullable=False),
         Column('name', String, nullable=False),
         Column('log_qk', Double, nullable=False),
         Column('affinity', Double, nullable=False),
@@ -114,7 +117,7 @@ class SolidSolution(object):
 
     __mapper_args__: dict[str, Any] = {
         'properties': {
-            'end_members': relationship(EndMember),
+            'end_members': relationship(EndMember, cascade="all, delete"),
         }
     }
 
@@ -135,7 +138,7 @@ class Gas(object):
         'equilibrium_gas',
         yeoman_registry.metadata,
         Column('id', Integer, primary_key=True),
-        Column('equilibrium_space_id', Integer, ForeignKey('equilibrium_space.id'), nullable=False),
+        Column('equilibrium_space_id', Integer, ForeignKey('equilibrium_space.id', ondelete="CASCADE"), nullable=False),
         Column('name', String, nullable=False),
         Column('log_fugacity', Double, nullable=False),
     )
@@ -152,7 +155,7 @@ class Reactant(object):
         'equilibrium_reactants',
         yeoman_registry.metadata,
         Column('id', Integer, primary_key=True),
-        Column('equilibrium_space_id', Integer, ForeignKey('equilibrium_space.id'), nullable=False),
+        Column('equilibrium_space_id', Integer, ForeignKey('equilibrium_space.id', ondelete="CASCADE"), nullable=False),
         Column('name', String, nullable=False),
         Column('affinity', Double, nullable=False),
         Column('relative_rate', Double, nullable=False),
@@ -179,7 +182,7 @@ class RedoxReaction(object):
         'equilibrium_redox_reactions',
         yeoman_registry.metadata,
         Column('id', Integer, primary_key=True),
-        Column('equilibrium_space_id', Integer, ForeignKey('equilibrium_space.id'), nullable=False),
+        Column('equilibrium_space_id', Integer, ForeignKey('equilibrium_space.id', ondelete="CASCADE"), nullable=False),
         Column('couple', String, nullable=False),
         Column('Eh', Double, nullable=False),
         Column('pe', Double, nullable=False),
@@ -202,7 +205,7 @@ class Point(object):
         'equilibrium_space',
         yeoman_registry.metadata,
         Column('id', Integer, primary_key=True),
-        Column('variable_space_id', Integer, ForeignKey('variable_space.id')),
+        Column('variable_space_id', Integer, ForeignKey('variable_space.id', ondelete="CASCADE")),
         Column('kernel', String, nullable=False),
         Column('log_xi', Double),
         Column('temperature', Double, nullable=False),
@@ -258,13 +261,13 @@ class Point(object):
         'polymorphic_identity': 'eleanor',
         'polymorphic_on': 'kernel',
         'properties': {
-            'elements': relationship(Element),
-            'aqueous_species': relationship(AqueousSpecies),
-            'pure_solids': relationship(PureSolid),
-            'solid_solutions': relationship(SolidSolution),
-            'gases': relationship(Gas),
-            'reactants': relationship(Reactant),
-            'redox_reactions': relationship(RedoxReaction),
+            'elements': relationship(Element, cascade="all, delete"),
+            'aqueous_species': relationship(AqueousSpecies, cascade="all, delete"),
+            'pure_solids': relationship(PureSolid, cascade="all, delete"),
+            'solid_solutions': relationship(SolidSolution, cascade="all, delete"),
+            'gases': relationship(Gas, cascade="all, delete"),
+            'reactants': relationship(Reactant, cascade="all, delete"),
+            'redox_reactions': relationship(RedoxReaction, cascade="all, delete"),
         }
     }
 

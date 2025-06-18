@@ -65,7 +65,7 @@ class HufferResult(object):
     __table__ = Table(
         'huffer',
         yeoman_registry.metadata,
-        Column('id', Integer, ForeignKey('orders.id'), primary_key=True),
+        Column('id', Integer, ForeignKey('orders.id', ondelete="CASCADE"), primary_key=True),
         Column('exit_code', Integer, nullable=False),
         Column('zip', Binary, nullable=False),
     )
@@ -106,8 +106,8 @@ class Order(object):
 
     __mapper_args__ = {
         'properties': {
-            'vs_points': relationship(vs.Point),
-            'huffer_result': relationship(HufferResult, uselist=False),
+            'vs_points': relationship(vs.Point, cascade="all, delete"),
+            'huffer_result': relationship(HufferResult, cascade="all, delete", uselist=False),
         }
     }
 

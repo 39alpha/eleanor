@@ -20,7 +20,7 @@ class SuppressionException(object):
         yeoman_registry.metadata,
         Column('id', Integer, primary_key=True, autoincrement=True),
         Column('name', String, nullable=False),
-        Column('suppression_id', Integer, ForeignKey('suppressions.id'), nullable=False),
+        Column('suppression_id', Integer, ForeignKey('suppressions.id', ondelete="CASCADE"), nullable=False),
     )
 
     name: str
@@ -35,7 +35,7 @@ class Suppression(object):
         'suppressions',
         yeoman_registry.metadata,
         Column('id', Integer, primary_key=True),
-        Column('variable_space_id', Integer, ForeignKey('variable_space.id'), nullable=False),
+        Column('variable_space_id', Integer, ForeignKey('variable_space.id', ondelete="CASCADE"), nullable=False),
         Column('name', String),
         Column('type', String),
         CheckConstraint('name is not null or type is not null', name='suppressions_well_defined'),
@@ -43,7 +43,7 @@ class Suppression(object):
 
     __mapper_args__ = {
         'properties': {
-            'exceptions': relationship(SuppressionException),
+            'exceptions': relationship(SuppressionException, cascade="all, delete"),
         }
     }
 
@@ -60,7 +60,7 @@ class Reactant(object):
         'reactants',
         yeoman_registry.metadata,
         Column('id', Integer, primary_key=True),
-        Column('variable_space_id', Integer, ForeignKey('variable_space.id'), nullable=False),
+        Column('variable_space_id', Integer, ForeignKey('variable_space.id', ondelete="CASCADE"), nullable=False),
         Column('type', String, nullable=False),
     )
 
@@ -80,7 +80,7 @@ class MineralReactant(Reactant):
     __table__ = Table(
         'mineral_reactants',
         yeoman_registry.metadata,
-        Column('id', Integer, ForeignKey('reactants.id'), primary_key=True),
+        Column('id', Integer, ForeignKey('reactants.id', ondelete="CASCADE"), primary_key=True),
         Column('name', String, nullable=False),
         Column('log_moles', Double, nullable=False),
         Column('titration_rate', Double, nullable=False),
@@ -99,7 +99,7 @@ class AqueousReactant(Reactant):
     __table__ = Table(
         'aqueous_reactants',
         yeoman_registry.metadata,
-        Column('id', Integer, ForeignKey('reactants.id'), primary_key=True),
+        Column('id', Integer, ForeignKey('reactants.id', ondelete="CASCADE"), primary_key=True),
         Column('name', String, nullable=False),
         Column('log_moles', Double, nullable=False),
         Column('titration_rate', Double, nullable=False),
@@ -118,7 +118,7 @@ class GasReactant(Reactant):
     __table__ = Table(
         'gas_reactants',
         yeoman_registry.metadata,
-        Column('id', Integer, ForeignKey('reactants.id'), primary_key=True),
+        Column('id', Integer, ForeignKey('reactants.id', ondelete="CASCADE"), primary_key=True),
         Column('name', String, nullable=False),
         Column('log_moles', Double, nullable=False),
         Column('titration_rate', Double, nullable=False),
@@ -137,7 +137,7 @@ class ElementReactant(Reactant):
     __table__ = Table(
         'element_reactants',
         yeoman_registry.metadata,
-        Column('id', Integer, ForeignKey('reactants.id'), primary_key=True),
+        Column('id', Integer, ForeignKey('reactants.id', ondelete="CASCADE"), primary_key=True),
         Column('name', String, nullable=False),
         Column('log_moles', Double, nullable=False),
         Column('titration_rate', Double, nullable=False),
@@ -157,7 +157,7 @@ class SpecialReactantComposition(object):
         'special_reactant_composition',
         yeoman_registry.metadata,
         Column('id', Integer, primary_key=True),
-        Column('special_reactant_id', Integer, ForeignKey('special_reactants.id'), nullable=False),
+        Column('special_reactant_id', Integer, ForeignKey('special_reactants.id', ondelete="CASCADE"), nullable=False),
         Column('element', String, nullable=False),
         Column('count', Integer, nullable=False),
     )
@@ -173,7 +173,7 @@ class SpecialReactant(Reactant):
     __table__ = Table(
         'special_reactants',
         yeoman_registry.metadata,
-        Column('id', Integer, ForeignKey('reactants.id'), primary_key=True),
+        Column('id', Integer, ForeignKey('reactants.id', ondelete="CASCADE"), primary_key=True),
         Column('name', String, nullable=False),
         Column('log_moles', Double, nullable=False),
         Column('titration_rate', Double, nullable=False),
@@ -182,7 +182,7 @@ class SpecialReactant(Reactant):
     __mapper_args__ = {
         'polymorphic_identity': ReactantType.SPECIAL,
         'properties': {
-            'composition': relationship(SpecialReactantComposition),
+            'composition': relationship(SpecialReactantComposition, cascade="all, delete"),
         }
     }
 
@@ -196,7 +196,7 @@ class FixedGasReactant(Reactant):
     __table__ = Table(
         'fixed_gas_reactants',
         yeoman_registry.metadata,
-        Column('id', Integer, ForeignKey('reactants.id'), primary_key=True),
+        Column('id', Integer, ForeignKey('reactants.id', ondelete="CASCADE"), primary_key=True),
         Column('name', String, nullable=False),
         Column('log_moles', Double, nullable=False),
         Column('log_fugacity', Double, nullable=False),
@@ -216,7 +216,10 @@ class SolidSolutionReactantEndMembers(object):
         'solid_solution_reactant_end_members',
         yeoman_registry.metadata,
         Column('id', Integer, primary_key=True),
-        Column('solid_solution_reactant_id', Integer, ForeignKey('solid_solution_reactants.id'), nullable=False),
+        Column('solid_solution_reactant_id',
+               Integer,
+               ForeignKey('solid_solution_reactants.id', ondelete="CASCADE"),
+               nullable=False),
         Column('name', String, nullable=False),
         Column('fraction', Double, nullable=False),
         CheckConstraint('0.0 <= fraction AND fraction <= 1.0', name='fraction_in_range'),
@@ -233,7 +236,7 @@ class SolidSolutionReactant(Reactant):
     __table__ = Table(
         'solid_solution_reactants',
         yeoman_registry.metadata,
-        Column('id', Integer, ForeignKey('reactants.id'), primary_key=True),
+        Column('id', Integer, ForeignKey('reactants.id', ondelete="CASCADE"), primary_key=True),
         Column('name', String, nullable=False),
         Column('log_moles', Double, nullable=False),
         Column('titration_rate', Double, nullable=False),
@@ -242,7 +245,7 @@ class SolidSolutionReactant(Reactant):
     __mapper_args__ = {
         'polymorphic_identity': ReactantType.SOLID_SOLUTION,
         'properties': {
-            'end_members': relationship(SolidSolutionReactantEndMembers),
+            'end_members': relationship(SolidSolutionReactantEndMembers, cascade="all, delete"),
         }
     }
 
@@ -258,7 +261,7 @@ class Element(object):
         'elements',
         yeoman_registry.metadata,
         Column('id', Integer, primary_key=True),
-        Column('variable_space_id', Integer, ForeignKey('variable_space.id'), nullable=False),
+        Column('variable_space_id', Integer, ForeignKey('variable_space.id', ondelete="CASCADE"), nullable=False),
         Column('name', String, nullable=False),
         Column('log_molality', Double, nullable=False),
     )
@@ -276,7 +279,7 @@ class Species(object):
         'species',
         yeoman_registry.metadata,
         Column('id', Integer, primary_key=True),
-        Column('variable_space_id', Integer, ForeignKey('variable_space.id'), nullable=False),
+        Column('variable_space_id', Integer, ForeignKey('variable_space.id', ondelete="CASCADE"), nullable=False),
         Column('name', String, nullable=False),
         Column('unit', String, nullable=False),
         Column('value', Double, nullable=False),
@@ -295,7 +298,7 @@ class Scratch(object):
     __table__ = Table(
         'scratch',
         yeoman_registry.metadata,
-        Column('id', Integer, ForeignKey('variable_space.id'), primary_key=True),
+        Column('id', Integer, ForeignKey('variable_space.id', ondelete="CASCADE"), primary_key=True),
         Column('zip', Binary, nullable=False),
     )
 
@@ -310,7 +313,7 @@ class Point(object):
         'variable_space',
         yeoman_registry.metadata,
         Column('id', Integer, primary_key=True),
-        Column('order_id', Integer, ForeignKey('orders.id'), nullable=False),
+        Column('order_id', Integer, ForeignKey('orders.id', ondelete="CASCADE"), nullable=False),
         Column('temperature', Double, nullable=False),
         Column('pressure', Double, nullable=False),
         Column('exit_code', Integer, nullable=False),
@@ -321,13 +324,13 @@ class Point(object):
 
     __mapper_args__ = {
         'properties': {
-            'kernel': relationship(KernelConfig, uselist=False),
-            'elements': relationship(Element),
-            'species': relationship(Species),
-            'suppressions': relationship(Suppression),
-            'reactants': relationship(Reactant),
-            'es_points': relationship(es.Point),
-            'scratch': relationship(Scratch, uselist=False)
+            'kernel': relationship(KernelConfig, cascade="all, delete", uselist=False),
+            'elements': relationship(Element, cascade="all, delete"),
+            'species': relationship(Species, cascade="all, delete"),
+            'suppressions': relationship(Suppression, cascade="all, delete"),
+            'reactants': relationship(Reactant, cascade="all, delete"),
+            'es_points': relationship(es.Point, cascade="all, delete"),
+            'scratch': relationship(Scratch, cascade="all, delete", uselist=False)
         }
     }
 

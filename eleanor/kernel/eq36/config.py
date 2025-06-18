@@ -511,7 +511,7 @@ class Config(KernelConfig):
             iopr_6=get_setting(raw_eq6_config, IOPR_6, IOPR_6.DONT_PRINT_AQ_MASS_BAL),
             iopr_7=get_setting(raw_eq6_config, IOPR_7, IOPR_7.PRINT_ALL_AFFINITIES),
             iopr_8=get_setting(raw_eq6_config, IOPR_8, IOPR_8.PRINT_FUGACITIES),
-            iopr_9=get_setting(raw_eq6_config, IOPR_9, IOPR_9.PRINT_MEAN_ACTIVITY_COE),
+            iopr_9=get_setting(raw_eq6_config, IOPR_9, IOPR_9.DONT_PRINT_MEAN_ACTIVITY_COE),
             iopr_10=get_setting(raw_eq6_config, IOPR_10, IOPR_10.DONT_PRINT_PITZER_INTERACT_COE),
             iopr_17=get_setting(raw_eq6_config, IOPR_17, IOPR_17.PICKUP_IS_INPUT_FORMAT),
             iodb_1=get_setting(raw_eq6_config, IODB_1, IODB_1.DONT_PRINT_DIAG),

@@ -43,6 +43,12 @@ class OutputParser(ABC):
     def is_blank(self):
         return blank_line.match(self.line())
 
+    def match_pattern(self, pattern: str | re.Pattern):
+        if isinstance(pattern, str):
+            pattern = re.compile(pattern)
+
+        return pattern.match(self.line())
+
     def unconsume_to_pattern(self, pattern: str | re.Pattern):
         if isinstance(pattern, str):
             pattern = re.compile(pattern)
@@ -400,23 +406,32 @@ class OutputParser(ABC):
 
     def read_solid_phases(self):
         solids: dict[str, Any] = {}
+
+        pure_solids: dict[str, Any] = {}
+        solid_solutions: dict[str, Any] = {}
+
         self.consume_to_header(r'Summary of Solid Phases \(ES\)')
         self.consume_to_pattern(r'\s*Phase/End-member\s+Log moles\s+Moles\s+Grams\s+Volume, cm3\s*')
         self.advance(n=2)
 
-        pure_solids: dict[str, Any] = {}
-        solid_solutions: dict[str, Any] = {}
-        while not self.eof() and 'None' not in self.line() and not self.is_blank():
-            self.read_solid_blocks(pure_solids, solid_solutions)
+        if 'None' in self.line():
+            self.advance(n=3)
+        else:
+            while not self.eof() and 'None' not in self.line() and not self.is_blank():
+                self.read_solid_blocks(pure_solids, solid_solutions)
+            self.advance()
 
-        self.consume_to_header(r'Grand Summary of Solid Phases \(ES \+ PRS \+ Reactants\)')
-        self.consume_to_pattern(r'\s*Phase/End-member\s+Log moles\s+Moles\s+Grams\s+Volume, cm3\s*')
-        self.advance(n=2)
+        if self.match_pattern(r'^\s*---\s+Grand Summary of Solid Phases \(ES \+ PRS \+ Reactants\)\s+---\s*$'):
+            self.consume_to_pattern(r'\s*Phase/End-member\s+Log moles\s+Moles\s+Grams\s+Volume, cm3\s*')
+            self.advance(n=2)
 
-        while not self.eof() and 'None' not in self.line() and not self.is_blank():
-            self.read_solid_blocks(pure_solids, solid_solutions)
+            while not self.eof() and 'None' not in self.line() and not self.is_blank():
+                self.read_solid_blocks(pure_solids, solid_solutions)
 
-        self.advance(n=3)
+            self.advance(n=3)
+        else:
+            self.advance(n=2)
+
         solids.update(self.read_basic_table('mass', 'volume', row_names=['created', 'destroyed', 'net']))
 
         solids['pure_solids'] = pure_solids
@@ -507,6 +522,15 @@ class OutputParser(ABC):
             self.data['solids']['solid_solutions'] = {}
 
         self.read_saturation_states('Saturation States of Solid Solutions', self.data['solids']['solid_solutions'])
+
+        pure_solids = self.data['solids']['pure_solids']
+        for name, props in self.data['solids']['solid_solutions'].items():
+            for end_member, em_props in props.get('end_members', {}).items():
+                if em_props.get('log_qk') is None:
+                    em_props['log_qk'] = pure_solids[end_member]['log_qk']
+
+                if em_props.get('affinity') is None:
+                    em_props['affinity'] = pure_solids[end_member]['affinity']
 
     def read_end_members(self, end_members):
         self.consume_to_pattern(r'^\s*Component\s+x\s+Log x\s+ Log lambda\s+Log activity\s*$')
@@ -854,7 +878,6 @@ class OutputParser6(OutputParser):
         self.data['elements'] = elements
 
     def read_numerical_composition(self):
-        pass
         self.consume_to_header('Numerical Composition of the Aqueous Solution')
         self.consume_to_pattern(r'\s*Species\s+mg/kg\.sol\s+Molality\s*')
         self.advance(n=2)

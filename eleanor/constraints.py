@@ -153,6 +153,15 @@ class Boatswain(object):
                             log_moles=valuation[self.registry.id(log_moles)].value,
                             titration_rate=valuation[self.registry.id(titration_rate)].value,
                         )
+                    case AqueousReactant(name, rct_type, log_moles, titration_rate):
+                        model: vs.Reactant = vs.AqueousReactant(
+                            id=None,
+                            variable_space_id=None,
+                            name=name,
+                            type=rct_type,
+                            log_moles=valuation[self.registry.id(log_moles)].value,
+                            titration_rate=valuation[self.registry.id(titration_rate)].value,
+                        )
                     case GasReactant(name, rct_type, log_moles, titration_rate):
                         model = vs.GasReactant(
                             id=None,

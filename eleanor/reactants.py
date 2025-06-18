@@ -14,6 +14,7 @@ class ReactantType(StrEnum):
     SPECIAL = 'special'
     ELEMENT = 'element'
     SOLID_SOLUTION = 'solid solution'
+    AQUEOUS = 'aqueous'
 
 
 @dataclass
@@ -30,6 +31,8 @@ class AbstractReactant(ABC):
         reactant_type = ReactantType(raw['type'])
         if reactant_type == ReactantType.MINERAL:
             return MineralReactant.from_dict(raw, name)
+        elif reactant_type == ReactantType.AQUEOUS:
+            return AqueousReactant.from_dict(raw, name)
         elif reactant_type == ReactantType.GAS:
             return GasReactant.from_dict(raw, name)
         elif reactant_type == ReactantType.FIXED_GAS:
@@ -79,6 +82,20 @@ class MineralReactant(TitratedReactant):
 
 
 TitratedReactant.register(MineralReactant)
+
+
+@dataclass
+class AqueousReactant(TitratedReactant):
+
+    @classmethod
+    def from_dict(cls, raw: dict, name: Optional[str] = None):
+        base = TitratedReactant.from_dict(raw, name)
+        if base.type != ReactantType.AQUEOUS:
+            raise EleanorException(f'cannot create an aqueous reactant from config of type "{base.type}"')
+        return cls(base.name, base.type, base.amount, base.titration_rate)
+
+
+TitratedReactant.register(AqueousReactant)
 
 
 @dataclass
@@ -190,4 +207,4 @@ class SolidSolutionReactant(TitratedReactant):
 
 TitratedReactant.register(SpecialReactant)
 
-Reactant = MineralReactant | GasReactant | FixedGasReactant | SpecialReactant | ElementReactant
+Reactant = MineralReactant | AqueousReactant | GasReactant | FixedGasReactant | SpecialReactant | ElementReactant

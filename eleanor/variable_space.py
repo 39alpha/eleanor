@@ -95,6 +95,25 @@ class MineralReactant(Reactant):
 
 
 @yeoman_registry.mapped_as_dataclass
+class AqueousReactant(Reactant):
+    __table__ = Table(
+        'aqueous_reactants',
+        yeoman_registry.metadata,
+        Column('id', Integer, ForeignKey('reactants.id'), primary_key=True),
+        Column('name', String, nullable=False),
+        Column('log_moles', Double, nullable=False),
+        Column('titration_rate', Double, nullable=False),
+    )
+
+    __mapper_args__ = {
+        'polymorphic_identity': ReactantType.AQUEOUS,
+    }
+
+    log_moles: float
+    titration_rate: float
+
+
+@yeoman_registry.mapped_as_dataclass
 class GasReactant(Reactant):
     __table__ = Table(
         'gas_reactants',

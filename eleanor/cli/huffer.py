@@ -11,6 +11,7 @@ from eleanor.config import DatabaseConfig, load_config
 from eleanor.order import HufferResult
 from eleanor.yeoman import Yeoman, select
 
+
 def main():
     arg_parser = argparse.ArgumentParser()
     arg_parser.add_argument(
@@ -57,9 +58,7 @@ def main():
 
     try:
         with Yeoman(config) as yeoman:
-            result = yeoman.scalar(
-                select(HufferResult).where(HufferResult.id == order_id)
-            )
+            result = yeoman.scalar(select(HufferResult).where(HufferResult.id == order_id))
             if result is None:
                 raise Exception('no huffer result found')
 

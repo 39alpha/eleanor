@@ -4,11 +4,12 @@ import argparse
 import os
 import subprocess
 import sys
-from getpass import getpass
 from copy import deepcopy
 from dataclasses import asdict
+from getpass import getpass
 
 from eleanor.config import DatabaseConfig, load_config
+
 
 def main():
     arg_parser = argparse.ArgumentParser()
@@ -56,28 +57,37 @@ def main():
 
     ps = subprocess.Popen(
         ['psql', '-d', 'postgres'],
-        env={**os.environ, 'PGPASSWORD': password},
+        env={
+            **os.environ,
+            'PGPASSWORD': password,
+        },
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
-        text=True
+        text=True,
     )
-    ps.communicate(
-        input=f'DROP DATABASE {local_database}; CREATE DATABASE {local_database};',
-    )
+    ps.communicate(input=f'DROP DATABASE {local_database}; CREATE DATABASE {local_database};', )
 
     fetch = subprocess.Popen(
-        ['pg_dump', '--no-owner', '-h', config.host, '-U', config.username, '-d', config.database],
-        env={**os.environ, 'PGPASSWORD': config.password},
+        [
+            'pg_dump', '--no-owner', '-h', (config.host or ''), '-U', (config.username or ''), '-d',
+            (config.database or '')
+        ],
+        env={
+            **os.environ,
+            'PGPASSWORD': config.password or '',
+        },
         stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE
+        stderr=subprocess.PIPE,
     )
 
     env = deepcopy(os.environ)
     env['PGPASSWORD'] = password
     load = subprocess.Popen(
         ['psql', '-d', local_database],
-        env={**os.environ, 'PGPASSWORD': password},
+        env={
+            **os.environ, 'PGPASSWORD': password
+        },
         stdin=fetch.stdout,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,

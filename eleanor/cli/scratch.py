@@ -11,6 +11,7 @@ from eleanor.config import DatabaseConfig, load_config
 from eleanor.variable_space import Point
 from eleanor.yeoman import Yeoman, select
 
+
 def main():
     arg_parser = argparse.ArgumentParser()
     arg_parser.add_argument(
@@ -57,9 +58,7 @@ def main():
 
     try:
         with Yeoman(config) as yeoman:
-            result = yeoman.scalar(
-                select(Point).where(Point.id == variable_space_id)
-            )
+            result = yeoman.scalar(select(Point).where(Point.id == variable_space_id))
             if result is None:
                 raise Exception(f'no variable space point found with id {variable_space_id}')
 

@@ -18,3 +18,7 @@ def import_kernel_module(kernel_type: str) -> ModuleType:
         raise EleanorException(msg)
 
     return import_module(kernel_type)
+
+
+def import_all_kernels() -> dict[str, ModuleType]:
+    return {kernel_type: import_kernel_module(kernel_type) for kernel_type in kernels}

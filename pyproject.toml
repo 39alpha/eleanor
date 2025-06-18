@@ -27,6 +27,7 @@ eleanor-run = "eleanor.cli.run:main"
 eleanor-fetch = "eleanor.cli.fetch:main"
 eleanor-huffer = "eleanor.cli.huffer:main"
 eleanor-scratch = "eleanor.cli.scratch:main"
+eleanor-schema = "eleanor.cli.schema:main"
 
 [build-system]
 requires = ["hatchling", "hatch-vcs", "hatch-build-scripts"]

@@ -759,7 +759,6 @@ class OutputParser3(OutputParser):
 
         self.consume_to_pattern(r'\s*Solution density')
         self.read_basic_property('Solution density', key='solution_density', units=['g/ml'])
-        self.data['solution_density'] *= 1e3
 
         with warnings.catch_warnings():
             warnings.filterwarnings('ignore', category=RuntimeWarning)

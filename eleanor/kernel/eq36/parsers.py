@@ -62,6 +62,7 @@ class OutputParser(ABC):
     def consume_to_pattern(self, pattern: str | re.Pattern):
         if isinstance(pattern, str):
             pattern = re.compile(pattern)
+
         while not self.eof() and not pattern.match(self.line()):
             self.advance()
 
@@ -865,41 +866,80 @@ class OutputParser6(OutputParser):
 
     def read_elemental_composition(self):
         self.consume_to_header('Elemental Composition of the Aqueous Solution')
-        self.consume_to_pattern(r'\s*Element\s+mg/kg\.sol\s+Molality\s*')
         self.advance(n=2)
 
-        elements = self.read_basic_table('mass_fraction', 'molality')
+        if self.match_pattern(r'\s*Element\s+mg/kg\.sol\s+Molality\s*'):
+            self.advance(n=2)
+            elements = self.read_basic_table('mass_fraction', 'molality')
+        elif self.match_pattern(r'\s*Element\s+mg/L\s+mg/kg\.sol\s+Molarity\s+Molality\s*'):
+            self.advance(n=2)
+            elements = self.read_basic_table('mass_per_volume', 'mass_fraction', 'molarity', 'molality')
+        else:
+            raise EleanorParserException('expected a table header')
+
         with warnings.catch_warnings():
             warnings.filterwarnings('ignore', category=RuntimeWarning)
             for element, properties in elements.items():
                 properties['mass_fraction'] *= 1e-6
                 properties['log_molality'] = float(np.log10(properties['molality']))
+
+                if 'mass_per_volume' in properties:
+                    properties['mass_per_volume'] *= 1e-6
+                if 'molarity' in properties:
+                    properties['log_molarity'] = float(np.log10(properties['molarity']))
+
         self.data['elements'] = elements
 
     def read_numerical_composition(self):
         self.consume_to_header('Numerical Composition of the Aqueous Solution')
-        self.consume_to_pattern(r'\s*Species\s+mg/kg\.sol\s+Molality\s*')
         self.advance(n=2)
 
-        composition = self.read_basic_table('mass_fraction', 'molality')
+        if self.match_pattern(r'\s*Species\s+mg/kg\.sol\s+Molality\s*'):
+            self.advance(n=2)
+            composition = self.read_basic_table('mass_fraction', 'molality')
+        elif self.match_pattern(r'\s*Species\s+mg/L\s+mg/kg\.sol\s+Molarity\s+Molality\s*'):
+            self.advance(n=2)
+            composition = self.read_basic_table('mass_per_volume', 'mass_fraction', 'molarity', 'molality')
+        else:
+            raise EleanorParserException('expected a table header')
+
         with warnings.catch_warnings():
             warnings.filterwarnings('ignore', category=RuntimeWarning)
             for species, properties in composition.items():
                 properties['mass_fraction'] *= 1e-6
                 properties['log_molality'] = float(np.log10(properties['molality']))
+
+                if 'mass_per_volume' in properties:
+                    properties['mass_per_volume'] *= 1e-6
+                if 'molarity' in properties:
+                    properties['log_molarity'] = float(np.log10(properties['molarity']))
+
         self.data['numerical_composition'] = composition
 
     def read_sensible_composition(self):
         self.consume_to_header('Sensible Composition of the Aqueous Solution')
-        self.consume_to_pattern(r'\s*Species\s+mg/kg\.sol\s+Molality\s*')
         self.advance(n=2)
 
-        composition = self.read_basic_table('mass_fraction', 'molality')
+        if self.match_pattern(r'\s*Species\s+mg/kg\.sol\s+Molality\s*'):
+            self.advance(n=2)
+            composition = self.read_basic_table('mass_fraction', 'molality')
+        elif self.match_pattern(r'\s*Species\s+mg/L\s+mg/kg\.sol\s+Molarity\s+Molality\s*'):
+            self.advance(n=2)
+            composition = self.read_basic_table('mass_per_volume', 'mass_fraction', 'molarity', 'molality')
+        else:
+            raise EleanorParserException('expected a table header')
+
         with warnings.catch_warnings():
             warnings.filterwarnings('ignore', category=RuntimeWarning)
             for species, properties in composition.items():
                 properties['mass_fraction'] *= 1e-6
                 properties['log_molality'] = float(np.log10(properties['molality']))
+
+                if 'mass_per_volume' in properties:
+                    properties['mass_per_volume'] *= 1e-6
+                if 'molarity' in properties:
+                    properties['log_molarity'] = float(np.log10(properties['molarity']))
+
         self.data['sensible_composition'] = composition
 
     def read_bulk_properties(self):

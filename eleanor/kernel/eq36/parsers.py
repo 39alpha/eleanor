@@ -756,7 +756,6 @@ class OutputParser3(OutputParser):
 
         self.consume_to_pattern(r'\s*Total dissolved solutes \(TDS\)')
         self.read_basic_property('Total dissolved solutes (TDS)', key='tds_mass', units=['mg/kg.sol'])
-        self.data['tds_mass'] *= 1e-6
 
         self.consume_to_pattern(r'\s*Solution density')
         self.read_basic_property('Solution density', key='solution_density', units=['g/ml'])
@@ -977,7 +976,6 @@ class OutputParser6(OutputParser):
 
         self.consume_to_pattern(rf'\s*Total dissolved solutes \(TDS\)')
         self.read_basic_property('Total dissolved solutes (TDS)', key='tds_mass', units=['mg/kg.sol'])
-        self.data['tds_mass'] *= 1e-6
 
         self.consume_to_header('More Precise Aqueous Phase Masses')
         self.advance(n=2)

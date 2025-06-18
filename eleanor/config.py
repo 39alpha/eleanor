@@ -8,7 +8,7 @@ from .exceptions import EleanorConfigurationException, EleanorException
 from .typing import Any, Callable, Optional, cast
 
 
-@dataclass(frozen=True)
+@dataclass
 class DatabaseConfig(object):
     dialect: str = 'sqlite'
     dbapi: Optional[str] = None
@@ -35,7 +35,7 @@ class DatabaseConfig(object):
             return f'{self.dialect}+{self.dbapi}://{self.username}:{self.password}@{self.host}{port}/{self.database}'
 
 
-@dataclass(init=False, frozen=True)
+@dataclass(init=False)
 class Config(object):
     database: DatabaseConfig
     raw: dict[str, Any]

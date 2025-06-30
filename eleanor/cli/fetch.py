@@ -75,7 +75,7 @@ def main():
         ],
         env={
             **os.environ,
-            'PGPASSWORD': config.password or '',
+            'PGPASSWORD': str(config.password or ''),
         },
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,

@@ -70,8 +70,8 @@ def main():
 
     fetch = subprocess.Popen(
         [
-            'pg_dump', '--no-owner', '-h', (config.host or ''), '-U', (config.username or ''), '-d',
-            (config.database or '')
+            'pg_dump', '--no-owner', '-h', (config.host or ''), '-p',
+            str(config.port or 5432), '-U', (config.username or ''), '-d', (config.database or '')
         ],
         env={
             **os.environ,

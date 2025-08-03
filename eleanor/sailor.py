@@ -82,17 +82,20 @@ def sailor(
     *args,
     progress: Optional[Queue[bool]] = None,
     verbose: bool = False,
+    success_only_progress: bool = False,
     **kwargs,
 ):
     with Yeoman(config, verbose=verbose) as yeoman:
         if isinstance(points, list):
             for point in points:
                 vs_point = __run(kernel, point, *args, verbose=verbose, **kwargs)
+                show_progress = not success_only_progress or vs_point.exit_code == 0
                 yeoman.write(vs_point)
-                if progress is not None:
+                if progress is not None and show_progress:
                     progress.put(True)
         else:
             vs_point = __run(kernel, points, *args, verbose=verbose, **kwargs)
+            show_progress = not success_only_progress or vs_point.exit_code == 0
             yeoman.write(vs_point)
-            if progress is not None:
+            if progress is not None and show_progress:
                 progress.put(True)

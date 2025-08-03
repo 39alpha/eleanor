@@ -9,7 +9,7 @@ from sqlalchemy import and_, select
 from tqdm import tqdm
 
 import eleanor.sailor as sailor
-from eleanor.version import __version__
+import eleanor.variable_space as vs
 
 from .config import Config, DatabaseConfig, load_config
 from .exceptions import EleanorException
@@ -19,6 +19,7 @@ from .navigator import AbstractNavigator, UniformNavigator
 from .order import HufferResult, Order, load_order
 from .typing import Any, Optional, Self, cast
 from .util import chunks
+from .version import __version__
 from .yeoman import Yeoman
 
 
@@ -95,10 +96,49 @@ def ignite(
 def display_progress(queue: queue.Queue[bool], samples: int):
     progress = tqdm(total=samples, unit=' systems', colour='#ec5c29')
     while samples > 0:
-        queue.get()
+        if not queue.get():
+            break
         progress.update()
         samples -= 1
     progress.close()
+
+
+def count_successes(config: DatabaseConfig, order_id: int) -> int:
+    with Yeoman(config) as yeoman:
+        successes = yeoman.query(vs.Point).filter(
+            and_(
+                vs.Point.exit_code == 0,  # type: ignore
+                vs.Point.order_id == order_id,  # type: ignore
+            )).count()
+        return successes
+
+
+def process_batch(pool,
+                  config: Config,
+                  kernel: AbstractKernel,
+                  navigator: AbstractNavigator,
+                  num_samples: int,
+                  order_id: int,
+                  *args,
+                  scratch: bool = False,
+                  success_sampling: bool = False,
+                  progress: Optional[queue.Queue[bool]] = None,
+                  **kwargs):
+    vs_points = navigator.navigate(num_samples, order_id=order_id, max_attempts=1)
+
+    futures = []
+    for batch_num, batch in enumerate(chunks(vs_points, pool._processes)):  # type: ignore
+        future = pool.apply_async(sailor.sailor, (config.database, kernel, batch, *args), {
+            **kwargs,
+            'scratch': scratch,
+            'progress': progress,
+            'success_only_progress': success_sampling,
+        })
+        futures.append(future)
+
+    while futures:
+        future = futures.pop()
+        future.get()
 
 
 def Eleanor(
@@ -110,6 +150,7 @@ def Eleanor(
     num_procs: int | None = None,
     show_progress: bool = False,
     scratch: bool = False,
+    success_sampling: bool = False,
     **kwargs,
 ):
     config = load_config(config)
@@ -120,34 +161,49 @@ def Eleanor(
 
     order_id = ignite(config, order, kernel, navigator, *args, **kwargs)
 
-    vs_points = navigator.navigate(num_samples, order_id=order_id, max_attempts=1)
-
     manager = Manager()
 
     progress: Optional[queue.Queue[bool]] = None
     progress_proc: Optional[Process] = None
     if show_progress:
         progress = manager.Queue()
-        progress_proc = Process(target=display_progress, args=(progress, len(vs_points)))
+        progress_proc = Process(target=display_progress, args=(progress, num_samples))
         progress_proc.start()
 
     if num_procs is not None and num_procs <= 0:
         num_procs = 1
 
     with Pool(processes=num_procs) as pool:
-        futures = []
+        if success_sampling:
+            successes = count_successes(config.database, order_id)
+            target_samples = successes + num_samples
 
-        for batch_num, batch in enumerate(chunks(vs_points, pool._processes)):  # type: ignore
-            future = pool.apply_async(sailor.sailor, (config.database, kernel, batch, *args), {
-                **kwargs,
-                'scratch': scratch,
-                'progress': progress,
-            })
-            futures.append(future)
+            while successes < target_samples:
+                process_batch(pool,
+                              config,
+                              kernel,
+                              navigator,
+                              target_samples - successes,
+                              order_id,
+                              *args,
+                              scratch=scratch,
+                              success_sampling=success_sampling,
+                              progress=progress,
+                              **kwargs)
 
-        while futures:
-            future = futures.pop()
-            future.get()
+                successes = count_successes(config.database, order_id)
+        else:
+            process_batch(pool,
+                          config,
+                          kernel,
+                          navigator,
+                          num_samples,
+                          order_id,
+                          *args,
+                          scratch=scratch,
+                          success_sampling=success_sampling,
+                          progress=progress,
+                          **kwargs)
 
     if progress_proc is not None:
         progress_proc.join()

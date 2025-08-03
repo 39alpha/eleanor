@@ -163,8 +163,14 @@ class Order(object):
 
         self.temperature = Parameter.from_dict(self.raw['temperature'], 'temperature')
         self.pressure = Parameter.from_dict(self.raw['pressure'], 'pressure')
-        self.elements = {name: Parameter.from_dict(value, name=name) for name, value in self.raw['elements'].items()}
-        self.species = {name: Parameter.from_dict(value, name=name) for name, value in self.raw['species'].items()}
+        self.elements = {
+            name: Parameter.from_dict(value, name=name)
+            for name, value in (self.raw.get('elements', {}) or {}).items()
+        }
+        self.species = {
+            name: Parameter.from_dict(value, name=name)
+            for name, value in (self.raw.get('species', {}) or {}).items()
+        }
 
         self.suppressions = [
             Suppression.from_dict({}, name=value) if isinstance(value, str) else Suppression.from_dict(value)

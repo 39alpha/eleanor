@@ -11,6 +11,7 @@ def main():
     arg_parser.add_argument("-b", "--batch-size", required=False, type=int, default=100, help="the size of db batches")
     arg_parser.add_argument("-c", "--config", required=False, type=str, help="path to the configuration file")
     arg_parser.add_argument("--progress", required=False, action="store_true", help="enable progress bars")
+    arg_parser.add_argument("--no-huffer", required=False, action="store_true", help="disable the huffer")
     arg_parser.add_argument("campaign", type=str, help="campaign file")
     arg_parser.add_argument("samples", type=int, help="number of samples")
     arg_parser.add_argument('kernel_args', nargs='*')
@@ -23,6 +24,7 @@ def main():
     verbose = args['verbose']
     num_procs = args['num_procs']
     show_progress = args['progress']
+    no_huffer = args['no_huffer']
     num_samples = args['samples']
     batch_size = args['batch_size']
     scratch = args['scratch']
@@ -37,4 +39,5 @@ def main():
         verbose=verbose,
         show_progress=show_progress,
         scratch=scratch,
+        no_huffer=no_huffer,
     )

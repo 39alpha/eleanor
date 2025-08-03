@@ -37,11 +37,16 @@ def ignite(
     navigator: AbstractNavigator,
     *args,
     verbose: bool = False,
+    no_huffer: bool = False,
     **kwargs,
 ) -> int:
-    huffer_problem = navigator.select(max_attempts=1)
-    huffer_point = sailor.__run(kernel, huffer_problem, *args, scratch=True, **kwargs)
-    order.huffer_result = HufferResult.from_scratch(huffer_point.scratch, huffer_point.exit_code)
+    if not no_huffer:
+        huffer_problem = navigator.select(max_attempts=1)
+        huffer_point = sailor.__run(kernel, huffer_problem, *args, scratch=True, **kwargs)
+        order.huffer_result = HufferResult.from_scratch(huffer_point.scratch, huffer_point.exit_code)
+    else:
+        huffer_point = None
+        order.huffer_result = None
 
     with Yeoman(config.database, verbose=verbose) as yeoman:
         yeoman.setup()
@@ -60,11 +65,12 @@ def ignite(
             order_id = order.id = result.id
             order.eleanor_version = result.eleanor_version
 
-            if result.huffer_result is None:
-                result.huffer_result = order.huffer_result
-            else:
-                result.huffer_result.exit_code = order.huffer_result.exit_code  # type: ignore
-                result.huffer_result.zip = order.huffer_result.zip  # type: ignore
+            if order.huffer_result is not None:
+                if result.huffer_result is None:
+                    result.huffer_result = order.huffer_result
+                else:
+                    result.huffer_result.exit_code = order.huffer_result.exit_code  # type: ignore
+                    result.huffer_result.zip = order.huffer_result.zip  # type: ignore
 
             yeoman.merge(result)
             yeoman.commit()
@@ -75,17 +81,13 @@ def ignite(
             yeoman.refresh(order)
             order_id = order.id
 
-    if order_id is None:
+    if huffer_point is not None and not kernel.is_soft_exit(huffer_point.exit_code):
         raise EleanorException(
             f'Error: the huffer failed',
             code=huffer_point.exit_code,
         ) from huffer_point.exception
-
-    if not kernel.is_soft_exit(huffer_point.exit_code):
-        raise EleanorException(
-            f'Error: the huffer failed',
-            code=huffer_point.exit_code,
-        ) from huffer_point.exception
+    elif order_id is None:
+        raise EleanorException(f'Error: failed to create the order')
 
     return order_id
 

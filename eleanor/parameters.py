@@ -6,7 +6,7 @@ from eleanor.typing import Any, Number, Optional
 from eleanor.util import convert_to_number
 
 
-@dataclass(frozen=True)
+@dataclass
 class Parameter(ABC):
     name: str
     type: Optional[str]
@@ -66,7 +66,7 @@ class Parameter(ABC):
         return cls.refine(parameter)
 
 
-@dataclass(frozen=True)
+@dataclass
 class ValueParameter(Parameter):
     value: Number
 
@@ -83,7 +83,7 @@ class ValueParameter(Parameter):
 Parameter.register(ValueParameter)
 
 
-@dataclass(frozen=True, init=False)
+@dataclass(init=False)
 class RangeParameter(Parameter):
     min: Number
     max: Number
@@ -117,7 +117,7 @@ class RangeParameter(Parameter):
 Parameter.register(RangeParameter)
 
 
-@dataclass(frozen=True)
+@dataclass
 class ListParameter(Parameter):
     values: list[Number]
 

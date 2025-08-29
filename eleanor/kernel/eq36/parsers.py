@@ -363,7 +363,8 @@ class OutputParser(ABC):
                     datum['log_mass'] = float(np.log10(datum['mass']))
                     datum['log_volume'] = float(np.log10(datum['volume']))
 
-                solid_solutions[parent_phase]['end_members'][solid] = datum
+                if solid not in solid_solutions[parent_phase]['end_members']:
+                    solid_solutions[parent_phase]['end_members'][solid] = datum
             elif is_end_member(next_line) and not blank_line.match(next_line):
                 # This line is a solid solution
                 parent_phase = solid
@@ -381,7 +382,8 @@ class OutputParser(ABC):
                     datum['log_mass'] = float(np.log10(datum['mass']))
                     datum['log_volume'] = float(np.log10(datum['volume']))
 
-                solid_solutions[solid] = datum
+                if solid not in solid_solutions:
+                    solid_solutions[solid] = datum
             else:
                 # This line is a pure_phase
                 datum = {
@@ -396,7 +398,8 @@ class OutputParser(ABC):
                     datum['log_mass'] = float(np.log10(datum['mass']))
                     datum['log_volume'] = float(np.log10(datum['volume']))
 
-                pure_solids[solid] = datum
+                if solid not in pure_solids:
+                    pure_solids[solid] = datum
 
                 parent_phase = None
 

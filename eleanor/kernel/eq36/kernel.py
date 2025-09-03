@@ -95,9 +95,11 @@ class Kernel(AbstractKernel):
 
         if not suppress_all_solid_solutions:
             config.eq3_config.iopt_4 = IOPT_4.PERMIT_SOLID_SOLUTIONS
-            config.eq6_config.iopt_4 = IOPT_4.PERMIT_SOLID_SOLUTIONS
 
-        if len(vs_point.reactants) != 0:
+            if config.eq6_config is not None:
+                config.eq6_config.iopt_4 = IOPT_4.PERMIT_SOLID_SOLUTIONS
+
+        if len(vs_point.reactants) != 0 and config.eq6_config is not None:
             config.eq6_config.iopt_1 = IOPT_1.TITRATION_SYS
 
         vs_point.kernel = config
@@ -152,14 +154,17 @@ class Kernel(AbstractKernel):
         complete_date = datetime.now()
         eq3_results.start_date, eq3_results.complete_date = start_date, complete_date
 
-        start_date = datetime.now()
-        pickup_lines = util.read_pickup_lines()
-        eq6_input_path = self.write_eq6_input(vs_point, pickup_lines=pickup_lines, verbose=verbose)
-        eq6(config.data1_file, eq6_input_path, timeout=config.timeout)
-        eq6_results = self.read_eq6_output(track_path=config.track_path)
-        complete_date = datetime.now()
-        for point in eq6_results:
-            point.start_date, point.complete_date = start_date, complete_date
+        if config.eq6_config is None:
+            eq6_results: list[Eq6Point] = []
+        else:
+            start_date = datetime.now()
+            pickup_lines = util.read_pickup_lines()
+            eq6_input_path = self.write_eq6_input(vs_point, pickup_lines=pickup_lines, verbose=verbose)
+            eq6(config.data1_file, eq6_input_path, timeout=config.timeout)
+            eq6_results = self.read_eq6_output(track_path=config.track_path)
+            complete_date = datetime.now()
+            for point in eq6_results:
+                point.start_date, point.complete_date = start_date, complete_date
 
         return [eq3_results, *eq6_results]
 

@@ -55,100 +55,79 @@ class Suppression(object):
 
 
 @yeoman_registry.mapped_as_dataclass
-class Reactant(object):
-    __table__ = Table(
-        'reactants',
-        yeoman_registry.metadata,
-        Column('id', Integer, primary_key=True),
-        Column('variable_space_id', Integer, ForeignKey('variable_space.id', ondelete="CASCADE"), nullable=False),
-        Column('type', String, nullable=False),
-    )
-
-    __mapper_args__: dict[str, Any] = {
-        'polymorphic_identity': 'reactant',
-        'polymorphic_on': 'type',
-    }
-
-    id: Optional[int]
-    variable_space_id: Optional[int]
-    name: str
-    type: ReactantType
-
-
-@yeoman_registry.mapped_as_dataclass
-class MineralReactant(Reactant):
+class MineralReactant(object):
     __table__ = Table(
         'mineral_reactants',
         yeoman_registry.metadata,
-        Column('id', Integer, ForeignKey('reactants.id', ondelete="CASCADE"), primary_key=True),
+        Column('id', Integer, primary_key=True),
+        Column('variable_space_id', Integer, ForeignKey('variable_space.id', ondelete="CASCADE"), nullable=False),
         Column('name', String, nullable=False),
         Column('log_moles', Double, nullable=False),
         Column('titration_rate', Double, nullable=False),
     )
 
-    __mapper_args__ = {
-        'polymorphic_identity': ReactantType.MINERAL,
-    }
-
+    name: str
     log_moles: float
     titration_rate: float
+    id: Optional[int]
+    variable_space_id: Optional[int]
 
 
 @yeoman_registry.mapped_as_dataclass
-class AqueousReactant(Reactant):
+class AqueousReactant(object):
     __table__ = Table(
         'aqueous_reactants',
         yeoman_registry.metadata,
-        Column('id', Integer, ForeignKey('reactants.id', ondelete="CASCADE"), primary_key=True),
+        Column('id', Integer, primary_key=True),
+        Column('variable_space_id', Integer, ForeignKey('variable_space.id', ondelete="CASCADE"), nullable=False),
         Column('name', String, nullable=False),
         Column('log_moles', Double, nullable=False),
         Column('titration_rate', Double, nullable=False),
     )
 
-    __mapper_args__ = {
-        'polymorphic_identity': ReactantType.AQUEOUS,
-    }
-
+    name: str
     log_moles: float
     titration_rate: float
+    id: Optional[int]
+    variable_space_id: Optional[int]
 
 
 @yeoman_registry.mapped_as_dataclass
-class GasReactant(Reactant):
+class GasReactant(object):
     __table__ = Table(
         'gas_reactants',
         yeoman_registry.metadata,
-        Column('id', Integer, ForeignKey('reactants.id', ondelete="CASCADE"), primary_key=True),
+        Column('id', Integer, primary_key=True),
+        Column('variable_space_id', Integer, ForeignKey('variable_space.id', ondelete="CASCADE"), nullable=False),
         Column('name', String, nullable=False),
         Column('log_moles', Double, nullable=False),
         Column('titration_rate', Double, nullable=False),
     )
 
-    __mapper_args__ = {
-        'polymorphic_identity': ReactantType.GAS,
-    }
-
+    name: str
     log_moles: float
     titration_rate: float
+    id: Optional[int]
+    variable_space_id: Optional[int]
 
 
 @yeoman_registry.mapped_as_dataclass
-class ElementReactant(Reactant):
+class ElementReactant(object):
     __table__ = Table(
         'element_reactants',
         yeoman_registry.metadata,
-        Column('id', Integer, ForeignKey('reactants.id', ondelete="CASCADE"), primary_key=True),
+        Column('id', Integer, primary_key=True),
+        Column('variable_space_id', Integer, ForeignKey('variable_space.id', ondelete="CASCADE"), nullable=False),
         Column('name', String, nullable=False),
         Column('log_moles', Double, nullable=False),
         Column('titration_rate', Double, nullable=False),
     )
 
-    __mapper_args__ = {
-        'polymorphic_identity': ReactantType.ELEMENT,
-    }
-
+    name: str
     log_moles: float
     titration_rate: float
+    id: Optional[int]
+    variable_space_id: Optional[int]
 
 
 @yeoman_registry.mapped_as_dataclass
@@ -169,45 +148,48 @@ class SpecialReactantComposition(object):
 
 
 @yeoman_registry.mapped_as_dataclass
-class SpecialReactant(Reactant):
+class SpecialReactant(object):
     __table__ = Table(
         'special_reactants',
         yeoman_registry.metadata,
-        Column('id', Integer, ForeignKey('reactants.id', ondelete="CASCADE"), primary_key=True),
+        Column('id', Integer, primary_key=True),
+        Column('variable_space_id', Integer, ForeignKey('variable_space.id', ondelete="CASCADE"), nullable=False),
         Column('name', String, nullable=False),
         Column('log_moles', Double, nullable=False),
         Column('titration_rate', Double, nullable=False),
     )
 
     __mapper_args__ = {
-        'polymorphic_identity': ReactantType.SPECIAL,
         'properties': {
             'composition': relationship(SpecialReactantComposition, cascade="all, delete"),
         }
     }
 
+    name: str
     log_moles: float
     titration_rate: float
     composition: list[SpecialReactantComposition]
+    id: Optional[int]
+    variable_space_id: Optional[int]
 
 
 @yeoman_registry.mapped_as_dataclass
-class FixedGasReactant(Reactant):
+class FixedGasReactant(object):
     __table__ = Table(
         'fixed_gas_reactants',
         yeoman_registry.metadata,
-        Column('id', Integer, ForeignKey('reactants.id', ondelete="CASCADE"), primary_key=True),
+        Column('id', Integer, primary_key=True),
+        Column('variable_space_id', Integer, ForeignKey('variable_space.id', ondelete="CASCADE"), nullable=False),
         Column('name', String, nullable=False),
         Column('log_moles', Double, nullable=False),
         Column('log_fugacity', Double, nullable=False),
     )
 
-    __mapper_args__ = {
-        'polymorphic_identity': ReactantType.FIXED_GAS,
-    }
-
+    name: str
     log_moles: float
     log_fugacity: float
+    id: Optional[int]
+    variable_space_id: Optional[int]
 
 
 @yeoman_registry.mapped_as_dataclass
@@ -232,26 +214,29 @@ class SolidSolutionReactantEndMembers(object):
 
 
 @yeoman_registry.mapped_as_dataclass
-class SolidSolutionReactant(Reactant):
+class SolidSolutionReactant(object):
     __table__ = Table(
         'solid_solution_reactants',
         yeoman_registry.metadata,
-        Column('id', Integer, ForeignKey('reactants.id', ondelete="CASCADE"), primary_key=True),
+        Column('id', Integer, primary_key=True),
+        Column('variable_space_id', Integer, ForeignKey('variable_space.id', ondelete="CASCADE"), nullable=False),
         Column('name', String, nullable=False),
         Column('log_moles', Double, nullable=False),
         Column('titration_rate', Double, nullable=False),
     )
 
     __mapper_args__ = {
-        'polymorphic_identity': ReactantType.SOLID_SOLUTION,
         'properties': {
             'end_members': relationship(SolidSolutionReactantEndMembers, cascade="all, delete"),
         }
     }
 
+    name: str
     log_moles: float
     titration_rate: float
     end_members: list[SolidSolutionReactantEndMembers]
+    id: Optional[int]
+    variable_space_id: Optional[int]
 
 
 @yeoman_registry.mapped
@@ -328,7 +313,13 @@ class Point(object):
             'elements': relationship(Element, cascade="all, delete"),
             'species': relationship(Species, cascade="all, delete"),
             'suppressions': relationship(Suppression, cascade="all, delete"),
-            'reactants': relationship(Reactant, cascade="all, delete"),
+            'mineral_reactants': relationship(MineralReactant, cascade="all, delete"),
+            'aqueous_reactants': relationship(AqueousReactant, cascade="all, delete"),
+            'gas_reactants': relationship(GasReactant, cascade="all, delete"),
+            'element_reactants': relationship(ElementReactant, cascade="all, delete"),
+            'special_reactants': relationship(SpecialReactant, cascade="all, delete"),
+            'fixed_gas_reactants': relationship(FixedGasReactant, cascade="all, delete"),
+            'solid_solution_reactants': relationship(SolidSolutionReactant, cascade="all, delete"),
             'es_points': relationship(es.Point, cascade="all, delete"),
             'scratch': relationship(Scratch, cascade="all, delete", uselist=False)
         }
@@ -340,7 +331,13 @@ class Point(object):
     elements: list[Element]
     species: list[Species]
     suppressions: list[Suppression]
-    reactants: list[Reactant]
+    mineral_reactants: list[MineralReactant]
+    aqueous_reactants: list[AqueousReactant]
+    gas_reactants: list[GasReactant]
+    element_reactants: list[ElementReactant]
+    special_reactants: list[SpecialReactant]
+    fixed_gas_reactants: list[FixedGasReactant]
+    solid_solution_reactants: list[SolidSolutionReactant]
     id: Optional[int] = None
     order_id: Optional[int] = None
     es_points: list[es.Point] = field(default_factory=list)
@@ -359,3 +356,18 @@ class Point(object):
             if species.name == name:
                 return species
         return None
+
+    def reactant_count(self) -> int:
+        return sum(
+            map(lambda rs: len(rs), [
+                self.mineral_reactants,
+                self.aqueous_reactants,
+                self.gas_reactants,
+                self.element_reactants,
+                self.special_reactants,
+                self.fixed_gas_reactants,
+                self.solid_solution_reactants,
+            ]))
+
+    def has_reactants(self) -> bool:
+        return self.reactant_count() != 0

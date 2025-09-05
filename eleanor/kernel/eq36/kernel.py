@@ -95,11 +95,10 @@ class Kernel(AbstractKernel):
 
         if not suppress_all_solid_solutions:
             config.eq3_config.iopt_4 = IOPT_4.PERMIT_SOLID_SOLUTIONS
-
             if config.eq6_config is not None:
                 config.eq6_config.iopt_4 = IOPT_4.PERMIT_SOLID_SOLUTIONS
 
-        if len(vs_point.reactants) != 0 and config.eq6_config is not None:
+        if vs_point.has_reactants() and config.eq6_config is not None:
             config.eq6_config.iopt_1 = IOPT_1.TITRATION_SYS
 
         vs_point.kernel = config
@@ -305,6 +304,9 @@ class Kernel(AbstractKernel):
         verbose: bool = False,
     ) -> str:
         config = cast(Config, vs_point.kernel)
+        if config.eq6_config is None:
+            raise ValueError('no eq6_config provided')
+
         if not vs_point.has_species_constraint(config.redox_species):
             if config.redox_species == 'fO2' and vs_point.has_species_constraint('O2(g)'):
                 pass
@@ -325,13 +327,7 @@ class Kernel(AbstractKernel):
 
         T = NumberFormat.SCIENTIFIC.fmt(vs_point.temperature, precision=5)
 
-        reactants: dict[ReactantType, list[vs.Reactant]] = {}
-        for reactant in vs_point.reactants:
-            if reactant.type not in reactants:
-                reactants[reactant.type] = []
-            reactants[reactant.type].append(reactant)
-
-        ncrt = sum(len(r) for t, r in reactants.items() if t is not ReactantType.FIXED_GAS)
+        ncrt = vs_point.reactant_count() - len(vs_point.fixed_gas_reactants)
 
         print(f'EQ3NR input file name= {os.path.basename(file.name)}', file=file)
         print(f'endit.', file=file)
@@ -344,14 +340,14 @@ class Kernel(AbstractKernel):
         print(f'      nrct={ncrt: >3}', file=file)
 
         # Write Mineral Reactants
-        for reactant in reactants.get(ReactantType.MINERAL, []):
-            if not isinstance(reactant, vs.MineralReactant):
-                raise EleanorKernelException(f'attempted to write {type(reactant)} reactant in mineral block')
-            morr = NumberFormat.SCIENTIFIC.fmt(10**reactant.log_moles, precision=5)
-            rk1 = NumberFormat.SCIENTIFIC.fmt(reactant.titration_rate, precision=5)
+        for mr in vs_point.mineral_reactants:
+            if not isinstance(mr, vs.MineralReactant):
+                raise EleanorKernelException(f'attempted to write {type(mr)} reactant in mineral block')
+            morr = NumberFormat.SCIENTIFIC.fmt(10**mr.log_moles, precision=5)
+            rk1 = NumberFormat.SCIENTIFIC.fmt(mr.titration_rate, precision=5)
 
             print(f'*-----------------------------------------------------------------------------', file=file)
-            print(f'  reactant= {reactant.name}', file=file)
+            print(f'  reactant= {mr.name}', file=file)
             print(f'     jcode=  0               jreac=  0', file=file)
             print(f'      morr={morr: >13}      modr=  0.00000E+00', file=file)
             print(f'       nsk=  0               sfcar=  0.00000E+00    ssfcar=  0.00000E+00', file=file)
@@ -360,18 +356,18 @@ class Kernel(AbstractKernel):
             print(f'       rk1={rk1: >13}       rk2=  0.00000E+00       rk3=  0.00000E+00', file=file)
 
         # Write Solid Solution Reactants
-        for reactant in reactants.get(ReactantType.SOLID_SOLUTION, []):
-            if not isinstance(reactant, vs.SolidSolutionReactant):
-                raise EleanorKernelException(f'attempted to write {type(reactant)} reactant in solid solution block')
-            morr = NumberFormat.SCIENTIFIC.fmt(10**reactant.log_moles, precision=5)
-            rk1 = NumberFormat.SCIENTIFIC.fmt(reactant.titration_rate, precision=5)
+        for ssr in vs_point.solid_solution_reactants:
+            if not isinstance(ssr, vs.SolidSolutionReactant):
+                raise EleanorKernelException(f'attempted to write {type(ssr)} reactant in solid solution block')
+            morr = NumberFormat.SCIENTIFIC.fmt(10**ssr.log_moles, precision=5)
+            rk1 = NumberFormat.SCIENTIFIC.fmt(ssr.titration_rate, precision=5)
 
             print(f'*-----------------------------------------------------------------------------', file=file)
-            print(f'  reactant= {reactant.name}', file=file)
+            print(f'  reactant= {ssr.name}', file=file)
             print(f'     jcode=  1               jreac=  0', file=file)
             print(f'      morr={morr: >13}      modr=  0.00000E+00', file=file)
 
-            for end_member in reactant.end_members:
+            for end_member in ssr.end_members:
                 name, fraction = end_member.name, end_member.fraction
                 frac = NumberFormat.SCIENTIFIC.fmt(fraction, precision=5)
                 print('   {name: <28}          {frac}'.format(name=name, frac=frac), file=file)
@@ -383,19 +379,19 @@ class Kernel(AbstractKernel):
             print(f'       rk1={rk1: >13}       rk2=  0.00000E+00       rk3=  0.00000E+00', file=file)
 
         # Write Special Reactants
-        for reactant in reactants.get(ReactantType.SPECIAL, []):
-            if not isinstance(reactant, vs.SpecialReactant):
-                raise EleanorKernelException(f'attempted to write {type(reactant)} reactant in special reactant block')
-            morr = NumberFormat.SCIENTIFIC.fmt(10**reactant.log_moles, precision=5)
-            rk1 = NumberFormat.SCIENTIFIC.fmt(reactant.titration_rate, precision=5)
+        for sr in vs_point.special_reactants:
+            if not isinstance(sr, vs.SpecialReactant):
+                raise EleanorKernelException(f'attempted to write {type(sr)} reactant in special reactant block')
+            morr = NumberFormat.SCIENTIFIC.fmt(10**sr.log_moles, precision=5)
+            rk1 = NumberFormat.SCIENTIFIC.fmt(sr.titration_rate, precision=5)
 
             print(f'*-----------------------------------------------------------------------------', file=file)
-            print(f'  reactant=  {reactant.name}', file=file)
+            print(f'  reactant=  {sr.name}', file=file)
             print(f'     jcode=  2               jreac=  0', file=file)
             print(f'      morr={morr: >13}      modr=  0.00000E+00', file=file)
             print(f'     vreac=  0.00000E+00', file=file)
 
-            for component in reactant.composition:
+            for component in sr.composition:
                 element, count = component.element, component.count
                 c = NumberFormat.SCIENTIFIC.fmt(count, precision=5)
                 print('   {element: <2}          {count}'.format(element=element, count=c), file=file)
@@ -409,18 +405,18 @@ class Kernel(AbstractKernel):
             print(f'      rkb1={rk1: >13}      rkb2=  0.00000E+00      rkb3=  0.00000E+00', file=file)
 
         # Write Element Reactants
-        for reactant in reactants.get(ReactantType.ELEMENT, []):
-            if not isinstance(reactant, vs.ElementReactant):
-                raise EleanorKernelException(f'attempted to write {type(reactant)} reactant in element reactant block')
-            morr = NumberFormat.SCIENTIFIC.fmt(10**reactant.log_moles, precision=5)
-            rk1 = NumberFormat.SCIENTIFIC.fmt(reactant.titration_rate, precision=5)
+        for er in vs_point.element_reactants:
+            if not isinstance(er, vs.ElementReactant):
+                raise EleanorKernelException(f'attempted to write {type(er)} reactant in element reactant block')
+            morr = NumberFormat.SCIENTIFIC.fmt(10**er.log_moles, precision=5)
+            rk1 = NumberFormat.SCIENTIFIC.fmt(er.titration_rate, precision=5)
 
             print(f'*-----------------------------------------------------------------------------', file=file)
-            print(f'  reactant=  {reactant.name}', file=file)
+            print(f'  reactant=  {er.name}', file=file)
             print(f'     jcode=  2               jreac=  0', file=file)
             print(f'      morr={morr: >13}      modr=  0.00000E+00', file=file)
             print(f'     vreac=  0.00000E+00', file=file)
-            print(f'   {0: <2}          1.00000E+00'.format(reactant.name), file=file)
+            print(f'   {0: <2}          1.00000E+00'.format(er.name), file=file)
             print(f'   endit.', file=file)
             print(f'* Reaction', file=file)
             print(f'   endit.', file=file)
@@ -430,15 +426,15 @@ class Kernel(AbstractKernel):
             print(f'      rkb1={rk1: >13}      rkb2=  0.00000E+00      rkb3=  0.00000E+00', file=file)
 
         # Write Aqueous Species Reactants
-        for reactant in reactants.get(ReactantType.AQUEOUS, []):
-            if not isinstance(reactant, vs.AqueousReactant):
-                raise EleanorKernelException(f'attempted to write {type(reactant)} reactant in aqueous block')
+        for ar in vs_point.aqueous_reactants:
+            if not isinstance(ar, vs.AqueousReactant):
+                raise EleanorKernelException(f'attempted to write {type(ar)} reactant in aqueous block')
 
-            morr = NumberFormat.SCIENTIFIC.fmt(10**reactant.log_moles, precision=5)
-            rk1 = NumberFormat.SCIENTIFIC.fmt(reactant.titration_rate, precision=5)
+            morr = NumberFormat.SCIENTIFIC.fmt(10**ar.log_moles, precision=5)
+            rk1 = NumberFormat.SCIENTIFIC.fmt(ar.titration_rate, precision=5)
 
             print(f'*-----------------------------------------------------------------------------', file=file)
-            print(f'  reactant= {reactant.name}', file=file)
+            print(f'  reactant= {ar.name}', file=file)
             print(f'     jcode=  3               jreac=  0', file=file)
             print(f'      morr={morr: >13}      modr=  0.00000E+00', file=file)
             print(f'       nsk=  0               sfcar=  0.00000E+00    ssfcar=  0.00000E+00', file=file)
@@ -447,14 +443,14 @@ class Kernel(AbstractKernel):
             print(f'       rk1={rk1: >13}       rk2=  0.00000E+00       rk3=  0.00000E+00', file=file)
 
         # Write Gas Reactants
-        for reactant in reactants.get(ReactantType.GAS, []):
-            if not isinstance(reactant, vs.GasReactant):
-                raise EleanorKernelException(f'attempted to write {type(reactant)} reactant in gas block')
-            morr = NumberFormat.SCIENTIFIC.fmt(10**reactant.log_moles, precision=5)
-            rk1 = NumberFormat.SCIENTIFIC.fmt(reactant.titration_rate, precision=5)
+        for gr in vs_point.gas_reactants:
+            if not isinstance(gr, vs.GasReactant):
+                raise EleanorKernelException(f'attempted to write {type(gr)} reactant in gas block')
+            morr = NumberFormat.SCIENTIFIC.fmt(10**gr.log_moles, precision=5)
+            rk1 = NumberFormat.SCIENTIFIC.fmt(gr.titration_rate, precision=5)
 
             print(f'*-----------------------------------------------------------------------------', file=file)
-            print(f'  reactant= {reactant.name}', file=file)
+            print(f'  reactant= {gr.name}', file=file)
             print(f'     jcode=  4               jreac=  0', file=file)
             print(f'      morr={morr: >13}      modr=  0.00000E+00', file=file)
             print(f'       nsk=  0               sfcar=  0.00000E+00    ssfcar=  0.00000E+00', file=file)
@@ -541,15 +537,14 @@ class Kernel(AbstractKernel):
             print(f'    nxopex={len(exceptions): >3}', file=file)
 
         # Write fixed gases
-        print(f'      nffg=  {len(reactants.get(ReactantType.FIXED_GAS, []))}', file=file)
-        for reactant in reactants.get(ReactantType.FIXED_GAS, []):
-            if not isinstance(reactant, vs.FixedGasReactant):
-                raise EleanorKernelException(
-                    f'attempted to write {type(reactant)} reactant in fixed gas reactant block')
-            moffg = NumberFormat.SCIENTIFIC.fmt(10**reactant.log_moles, precision=5)
-            xlkffg = NumberFormat.SCIENTIFIC.fmt(reactant.log_fugacity, precision=5)
+        print(f'      nffg=  {len(vs_point.fixed_gas_reactants)}', file=file)
+        for fgr in vs_point.fixed_gas_reactants:
+            if not isinstance(fgr, vs.FixedGasReactant):
+                raise EleanorKernelException(f'attempted to write {type(fgr)} reactant in fixed gas reactant block')
+            moffg = NumberFormat.SCIENTIFIC.fmt(10**fgr.log_moles, precision=5)
+            xlkffg = NumberFormat.SCIENTIFIC.fmt(fgr.log_fugacity, precision=5)
 
-            print(f'   species= {reactant.name}', file=file)
+            print(f'   species= {fgr.name}', file=file)
             print(f'     moffg=  {moffg}', file=file)
             print(f'    xlkffg= {xlkffg}', file=file)
 

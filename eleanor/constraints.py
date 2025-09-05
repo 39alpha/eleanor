@@ -141,83 +141,88 @@ class Boatswain(object):
                 ) for s in self.order.suppressions
             ]
 
-            reactants: list[vs.Reactant] = []
+            mineral_reactants: list[vs.MineralReactant] = []
+            aqueous_reactants: list[vs.AqueousReactant] = []
+            gas_reactants: list[vs.GasReactant] = []
+            element_reactants: list[vs.ElementReactant] = []
+            special_reactants: list[vs.SpecialReactant] = []
+            fixed_gas_reactants: list[vs.FixedGasReactant] = []
+            solid_solution_reactants: list[vs.SolidSolutionReactant] = []
             for reactant in self.order.reactants:
                 match reactant:
                     case MineralReactant(name, rct_type, log_moles, titration_rate):
-                        model: vs.Reactant = vs.MineralReactant(
-                            id=None,
-                            variable_space_id=None,
-                            name=name,
-                            type=rct_type,
-                            log_moles=valuation[self.registry.id(log_moles)].value,
-                            titration_rate=valuation[self.registry.id(titration_rate)].value,
-                        )
+                        mineral_reactants.append(
+                            vs.MineralReactant(
+                                id=None,
+                                variable_space_id=None,
+                                name=name,
+                                log_moles=valuation[self.registry.id(log_moles)].value,
+                                titration_rate=valuation[self.registry.id(titration_rate)].value,
+                            ), )
                     case AqueousReactant(name, rct_type, log_moles, titration_rate):
-                        model: vs.Reactant = vs.AqueousReactant(
-                            id=None,
-                            variable_space_id=None,
-                            name=name,
-                            type=rct_type,
-                            log_moles=valuation[self.registry.id(log_moles)].value,
-                            titration_rate=valuation[self.registry.id(titration_rate)].value,
-                        )
+                        aqueous_reactants.append(
+                            vs.AqueousReactant(
+                                id=None,
+                                variable_space_id=None,
+                                name=name,
+                                log_moles=valuation[self.registry.id(log_moles)].value,
+                                titration_rate=valuation[self.registry.id(titration_rate)].value,
+                            ), )
                     case GasReactant(name, rct_type, log_moles, titration_rate):
-                        model = vs.GasReactant(
-                            id=None,
-                            variable_space_id=None,
-                            name=name,
-                            type=rct_type,
-                            log_moles=valuation[self.registry.id(log_moles)].value,
-                            titration_rate=valuation[self.registry.id(titration_rate)].value,
-                        )
+                        gas_reactants.append(
+                            vs.GasReactant(
+                                id=None,
+                                variable_space_id=None,
+                                name=name,
+                                log_moles=valuation[self.registry.id(log_moles)].value,
+                                titration_rate=valuation[self.registry.id(titration_rate)].value,
+                            ), )
                     case ElementReactant(name, rct_type, log_moles, titration_rate):
-                        model = vs.ElementReactant(
-                            id=None,
-                            variable_space_id=None,
-                            name=name,
-                            type=rct_type,
-                            log_moles=valuation[self.registry.id(log_moles)].value,
-                            titration_rate=valuation[self.registry.id(titration_rate)].value,
-                        )
+                        element_reactants.append(
+                            vs.ElementReactant(
+                                id=None,
+                                variable_space_id=None,
+                                name=name,
+                                log_moles=valuation[self.registry.id(log_moles)].value,
+                                titration_rate=valuation[self.registry.id(titration_rate)].value,
+                            ), )
                     case SpecialReactant(name, rct_type, log_moles, titration_rate, composition):
-                        model = vs.SpecialReactant(
-                            id=None,
-                            variable_space_id=None,
-                            name=name,
-                            type=rct_type,
-                            log_moles=valuation[self.registry.id(log_moles)].value,
-                            titration_rate=valuation[self.registry.id(titration_rate)].value,
-                            composition=[
-                                vs.SpecialReactantComposition(element=k, count=v) for k, v in composition.items()
-                            ],
-                        )
+                        special_reactants.append(
+                            vs.SpecialReactant(
+                                id=None,
+                                variable_space_id=None,
+                                name=name,
+                                log_moles=valuation[self.registry.id(log_moles)].value,
+                                titration_rate=valuation[self.registry.id(titration_rate)].value,
+                                composition=[
+                                    vs.SpecialReactantComposition(element=k, count=v) for k, v in composition.items()
+                                ],
+                            ), )
                     case FixedGasReactant(name, rct_type, log_moles, log_fugacity):
-                        model = vs.FixedGasReactant(
-                            id=None,
-                            variable_space_id=None,
-                            name=name,
-                            type=rct_type,
-                            log_moles=valuation[self.registry.id(log_moles)].value,
-                            log_fugacity=valuation[self.registry.id(log_fugacity)].value,
-                        )
+                        fixed_gas_reactants.append(
+                            vs.FixedGasReactant(
+                                id=None,
+                                variable_space_id=None,
+                                name=name,
+                                log_moles=valuation[self.registry.id(log_moles)].value,
+                                log_fugacity=valuation[self.registry.id(log_fugacity)].value,
+                            ), )
                     case SolidSolutionReactant(name, rct_type, log_moles, titration_rate, end_members):
-                        model = vs.SolidSolutionReactant(
-                            id=None,
-                            variable_space_id=None,
-                            name=name,
-                            type=rct_type,
-                            log_moles=valuation[self.registry.id(log_moles)].value,
-                            titration_rate=valuation[self.registry.id(titration_rate)].value,
-                            end_members=[
-                                vs.SolidSolutionReactantEndMembers(
-                                    name=name, fraction=valuation[self.registry.id(end_member_param)].value)
-                                for name, end_member_param in end_members.items()
-                            ],
-                        )
+                        solid_solution_reactants.append(
+                            vs.SolidSolutionReactant(
+                                id=None,
+                                variable_space_id=None,
+                                name=name,
+                                log_moles=valuation[self.registry.id(log_moles)].value,
+                                titration_rate=valuation[self.registry.id(titration_rate)].value,
+                                end_members=[
+                                    vs.SolidSolutionReactantEndMembers(
+                                        name=name, fraction=valuation[self.registry.id(end_member_param)].value)
+                                    for name, end_member_param in end_members.items()
+                                ],
+                            ), )
                     case _:
                         raise Exception(f'Unexpected reactant type {reactant}')
-                reactants.append(model)
 
             return vs.Point(
                 order_id=order_id,
@@ -227,7 +232,13 @@ class Boatswain(object):
                 elements=elements,
                 species=species,
                 suppressions=suppressions,
-                reactants=reactants,
+                mineral_reactants=mineral_reactants,
+                aqueous_reactants=aqueous_reactants,
+                gas_reactants=gas_reactants,
+                element_reactants=element_reactants,
+                special_reactants=special_reactants,
+                fixed_gas_reactants=fixed_gas_reactants,
+                solid_solution_reactants=solid_solution_reactants,
             )
         except Exception as e:
             raise Exception('cannot generate Point from config') from e

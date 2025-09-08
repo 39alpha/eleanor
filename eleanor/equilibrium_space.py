@@ -206,7 +206,7 @@ class Point(object):
         yeoman_registry.metadata,
         Column('id', Integer, primary_key=True),
         Column('variable_space_id', Integer, ForeignKey('variable_space.id', ondelete="CASCADE")),
-        Column('kernel', String, nullable=False),
+        Column('stage', String, nullable=False),
         Column('log_xi', Double),
         Column('temperature', Double, nullable=False),
         Column('pressure', Double, nullable=False),
@@ -269,7 +269,7 @@ class Point(object):
         }
     }
 
-    kernel: str
+    stage: str
 
     temperature: float
     pressure: float

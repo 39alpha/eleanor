@@ -734,7 +734,7 @@ class Kernel(AbstractKernel):
             ]
         }
 
-        return es.Point(kernel='eq3', **data)  # type: ignore
+        return es.Point(stage='eq3', **data)  # type: ignore
 
     def read_eq6_output(self,
                         file: Optional[str | io.TextIOWrapper] = None,
@@ -912,7 +912,7 @@ class Kernel(AbstractKernel):
                 ]
             }
 
-            path.append(es.Point(kernel='eq6', **data))  # type: ignore
+            path.append(es.Point(stage='eq6', **data))  # type: ignore
 
         return path
 

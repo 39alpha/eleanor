@@ -1,4 +1,5 @@
 import json
+from dataclasses import asdict, is_dataclass
 
 from sqlalchemy import *
 from sqlalchemy.dialects.postgresql import BYTEA, JSONB
@@ -25,6 +26,8 @@ class JSONDict(TypeDecorator):
     def process_bind_param(self, value, dialect):
         if value is None:
             return None
+        elif is_dataclass(value):
+            value = asdict(value)  # type: ignore
         elif not isinstance(value, dict):
             raise EleanorException('cannot serialize non-dict to JSON')
         return json.loads(json.dumps(value, sort_keys=True, default=str))

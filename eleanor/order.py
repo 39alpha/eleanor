@@ -159,7 +159,8 @@ class Order(object):
             raise EleanorException('creator must be a string')
 
         kernel_module = import_kernel_module(self.raw['kernel']['type'])
-        self.kernel = kernel_module.Config.from_dict(self.raw['kernel'])
+        kernel_settings = kernel_module.Settings.from_dict(self.raw['kernel'])
+        self.kernel = KernelConfig(type=self.raw['kernel']['type'], settings=kernel_settings)
 
         self.temperature = Parameter.load(self.raw['temperature'], 'temperature')
         self.pressure = Parameter.load(self.raw['pressure'], 'pressure')

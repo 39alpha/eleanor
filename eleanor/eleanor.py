@@ -25,7 +25,7 @@ from .yeoman import Yeoman
 
 def load_kernel(order: Order, kernel_args: list[Any], **kwargs) -> AbstractKernel:
     kernel_module = import_kernel_module(order.kernel.type)
-    kernel = kernel_module.Kernel(order.kernel, *kernel_args)
+    kernel = kernel_module.Kernel(order.kernel.settings, *kernel_args)
     kernel.setup(order, **kwargs)
 
     return kernel

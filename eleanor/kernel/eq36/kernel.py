@@ -22,23 +22,22 @@ from eleanor.util import NumberFormat
 
 from . import util
 from .codes import RunCode
-from .config import Config, Eq3Config, Eq6Config
 from .constraints import TemperatureRangeConstraint, TPCurveConstraint
 from .data1 import Data1
 from .equilibrium_space import Eq3Point, Eq6Point
 from .exec import eq3, eq6
 from .parsers import OutputParser3, OutputParser6
-from .settings import IOPT_1, IOPT_4
+from .settings import IOPT_1, IOPT_4, Eq3Config, Eq6Config, Settings
 
 
 class Kernel(AbstractKernel):
-    config: Config
+    settings: Settings
     data1_dir: str
 
     _setup: bool
     _data1s: list[Data1]
 
-    def __init__(self, config: Config, data1_dir: str, *args, **kwargs):
+    def __init__(self, settings: Settings, data1_dir: str, *args, **kwargs):
         self.data1_dir = data1_dir
 
         self._setup = False
@@ -48,12 +47,12 @@ class Kernel(AbstractKernel):
         return code in [0, 60]
 
     def copy_data(self, vs_point: vs.Point, *args, dir: str = '.', verbose: bool = False, **kwargs):
-        config = self.resolve_kernel_config(vs_point)
-        if config.data1_file is None:
+        settings = self.resolve_kernel_settings(vs_point)
+        if settings.data1_file is None:
             data1 = self.find_data1(vs_point, verbose=verbose)
-            config.data1_file = data1.filename
+            settings.data1_file = data1.filename
 
-        copyfile(config.data1_file, os.path.join(dir, os.path.basename(config.data1_file)))
+        copyfile(settings.data1_file, os.path.join(dir, os.path.basename(settings.data1_file)))
 
     # TODO: Return basic setup information, e.g. species, etc...
     def setup(self, order: Order, *args, verbose: bool = False, **kwargs):
@@ -73,11 +72,12 @@ class Kernel(AbstractKernel):
 
         self._setup = True
 
-    def resolve_kernel_config(self, vs_point: vs.Point) -> Config:
-        if not isinstance(vs_point.kernel, Config):
-            raise TypeError(f'the provided problem.kernel has type {type(vs_point.kernel)} expected {Config}')
+    def resolve_kernel_settings(self, vs_point: vs.Point) -> Settings:
+        if not isinstance(vs_point.kernel.settings, Settings):
+            raise TypeError(
+                f'the provided problem.kernel has type {type(vs_point.kernel.settings)} expected {Settings}')
 
-        config = cast(Config, vs_point.kernel)
+        settings = cast(Settings, vs_point.kernel.settings)
 
         suppress_all_solid_solutions = False
         suppress_named_solid_solutions = False
@@ -94,16 +94,16 @@ class Kernel(AbstractKernel):
             print('warning: all solid solutions are suppressed some are suppressed by name', file=sys.stderr)
 
         if not suppress_all_solid_solutions:
-            config.eq3_config.iopt_4 = IOPT_4.PERMIT_SOLID_SOLUTIONS
-            if config.eq6_config is not None:
-                config.eq6_config.iopt_4 = IOPT_4.PERMIT_SOLID_SOLUTIONS
+            settings.eq3_config.iopt_4 = IOPT_4.PERMIT_SOLID_SOLUTIONS
+            if settings.eq6_config is not None:
+                settings.eq6_config.iopt_4 = IOPT_4.PERMIT_SOLID_SOLUTIONS
 
-        if vs_point.has_reactants() and config.eq6_config is not None:
-            config.eq6_config.iopt_1 = IOPT_1.TITRATION_SYS
+        if vs_point.has_reactants() and settings.eq6_config is not None:
+            settings.eq6_config.iopt_1 = IOPT_1.TITRATION_SYS
 
-        vs_point.kernel = config
+        vs_point.kernel.settings = settings
 
-        return vs_point.kernel
+        return vs_point.kernel.settings
 
     def constrain(self, boatswain: Boatswain) -> Boatswain:
         boatswain.constraints.append(TemperatureRangeConstraint(
@@ -141,26 +141,26 @@ class Kernel(AbstractKernel):
         return d1s[0]
 
     def run(self, vs_point: vs.Point, *args, verbose: bool = False, **kwargs) -> list[es.Point]:
-        config = self.resolve_kernel_config(vs_point)
-        if config.data1_file is None:
+        settings = self.resolve_kernel_settings(vs_point)
+        if settings.data1_file is None:
             data1 = self.find_data1(vs_point, verbose=verbose)
-            config.data1_file = data1.filename
+            settings.data1_file = data1.filename
 
         start_date = datetime.now()
         eq3_input_path = self.write_eq3_input(vs_point, data1, verbose=verbose)
-        eq3(config.data1_file, eq3_input_path, timeout=config.timeout)
+        eq3(settings.data1_file, eq3_input_path, timeout=settings.timeout)
         eq3_results = self.read_eq3_output()
         complete_date = datetime.now()
         eq3_results.start_date, eq3_results.complete_date = start_date, complete_date
 
-        if config.eq6_config is None:
+        if settings.eq6_config is None:
             eq6_results: list[Eq6Point] = []
         else:
             start_date = datetime.now()
             pickup_lines = util.read_pickup_lines()
             eq6_input_path = self.write_eq6_input(vs_point, pickup_lines=pickup_lines, verbose=verbose)
-            eq6(config.data1_file, eq6_input_path, timeout=config.timeout)
-            eq6_results = self.read_eq6_output(track_path=config.track_path)
+            eq6(settings.data1_file, eq6_input_path, timeout=settings.timeout)
+            eq6_results = self.read_eq6_output(track_path=settings.track_path)
             complete_date = datetime.now()
             for point in eq6_results:
                 point.start_date, point.complete_date = start_date, complete_date
@@ -177,12 +177,12 @@ class Kernel(AbstractKernel):
         if not self._setup:
             raise EleanorKernelException('kernel is not setup; cannot write eq3 input file')
 
-        config = cast(Config, vs_point.kernel)
-        if not vs_point.has_species_constraint(config.redox_species):
-            if config.redox_species == 'fO2' and vs_point.has_species_constraint('O2(g)'):
+        settings = cast(Settings, vs_point.kernel.settings)
+        if not vs_point.has_species_constraint(settings.redox_species):
+            if settings.redox_species == 'fO2' and vs_point.has_species_constraint('O2(g)'):
                 pass
             else:
-                raise EleanorKernelException(f'eq3/6 redox species ({config.redox_species}) is unconstrained')
+                raise EleanorKernelException(f'eq3/6 redox species ({settings.redox_species}) is unconstrained')
 
         if file is None:
             file = 'problem.3i'
@@ -197,28 +197,28 @@ class Kernel(AbstractKernel):
 
         # Write basis switches
         print(f'* Special basis switches', file=file)
-        print(f'    nsbswt=   {len(config.basis_map)}', file=file)
-        for old, new in config.basis_map.items():
+        print(f'    nsbswt=   {len(settings.basis_map)}', file=file)
+        for old, new in settings.basis_map.items():
             print(f'species= {old}', file=file)
             print(f'  switch with= {new}', file=file)
 
         # Write general settings
         T = NumberFormat.SCIENTIFIC.fmt(vs_point.temperature, precision=5)
         P = NumberFormat.SCIENTIFIC.fmt(vs_point.pressure, precision=5)
-        charge_balance = config.charge_balance
+        charge_balance = settings.charge_balance
 
-        if config.redox_species == 'fO2' or config.redox_species == 'O2(g)':
+        if settings.redox_species == 'fO2' or settings.redox_species == 'O2(g)':
             use_other_species = 0
             fO2 = vs_point.get_species('O2(g)')
             if fO2 is None:
-                raise EleanorKernelException(f'cannot find redox species "{config.redox_species}"')
+                raise EleanorKernelException(f'cannot find redox species "{settings.redox_species}"')
 
             value = NumberFormat.SCIENTIFIC.fmt(fO2.value, precision=5)
             redox_species = 'None'
         else:
             use_other_species = 1
             value = NumberFormat.SCIENTIFIC.fmt(0, precision=5)
-            redox_species = config.redox_species
+            redox_species = settings.redox_species
 
         print(f'* General', file=file)
         print(f'     tempc=  {T}', file=file)
@@ -275,7 +275,7 @@ class Kernel(AbstractKernel):
             print(f'    option= -1              xlkmod=  0.00000E+00', file=file)
 
         # Write switches
-        self.write_switch_grid(file, config.eq3_config, verbose=verbose)
+        self.write_switch_grid(file, settings.eq3_config, verbose=verbose)
 
         # Write numeric parameters
         print('* Numerical parameters', file=file)
@@ -303,15 +303,15 @@ class Kernel(AbstractKernel):
         pickup_lines: Optional[list[str]] = None,
         verbose: bool = False,
     ) -> str:
-        config = cast(Config, vs_point.kernel)
-        if config.eq6_config is None:
+        settings = cast(Settings, vs_point.kernel.settings)
+        if settings.eq6_config is None:
             raise ValueError('no eq6_config provided')
 
-        if not vs_point.has_species_constraint(config.redox_species):
-            if config.redox_species == 'fO2' and vs_point.has_species_constraint('O2(g)'):
+        if not vs_point.has_species_constraint(settings.redox_species):
+            if settings.redox_species == 'fO2' and vs_point.has_species_constraint('O2(g)'):
                 pass
             else:
-                raise EleanorKernelException(f'eq3/6 redox species ({config.redox_species}) is unconstrained')
+                raise EleanorKernelException(f'eq3/6 redox species ({settings.redox_species}) is unconstrained')
 
         if file is None:
             file = 'problem.6i'
@@ -321,9 +321,9 @@ class Kernel(AbstractKernel):
                 return self.write_eq6_input(vs_point, file=handle, pickup_lines=pickup_lines, verbose=verbose)
 
         # Write Header
-        jtemp = config.eq6_config.jtemp
-        ttk1 = NumberFormat.SCIENTIFIC.fmt(config.eq6_config.ttk1, precision=5)
-        ttk2 = NumberFormat.SCIENTIFIC.fmt(config.eq6_config.ttk2, precision=5)
+        jtemp = settings.eq6_config.jtemp
+        ttk1 = NumberFormat.SCIENTIFIC.fmt(settings.eq6_config.ttk1, precision=5)
+        ttk2 = NumberFormat.SCIENTIFIC.fmt(settings.eq6_config.ttk2, precision=5)
 
         T = NumberFormat.SCIENTIFIC.fmt(vs_point.temperature, precision=5)
 
@@ -331,7 +331,7 @@ class Kernel(AbstractKernel):
 
         print(f'EQ3NR input file name= {os.path.basename(file.name)}', file=file)
         print(f'endit.', file=file)
-        print(f'     jtemp=  {config.eq6_config.jtemp}', file=file)
+        print(f'     jtemp=  {settings.eq6_config.jtemp}', file=file)
         print(f'    tempcb=  {T}', file=file)
         print(f'      ttk1={ttk1: >13}      ttk2={ttk2: >13}', file=file)
         print(f'    jpress=  0', file=file)
@@ -459,29 +459,29 @@ class Kernel(AbstractKernel):
             print(f'       rk1={rk1: >13}       rk2=  0.00000E+00       rk3=  0.00000E+00', file=file)
 
         # Write limits
-        xi_min = NumberFormat.SCIENTIFIC.fmt(config.eq6_config.xi_min, precision=5)
-        time_min = NumberFormat.SCIENTIFIC.fmt(config.eq6_config.time_min, precision=5)
-        ph_min = NumberFormat.SCIENTIFIC.fmt(config.eq6_config.ph_min, precision=5)
-        eh_min = NumberFormat.SCIENTIFIC.fmt(config.eq6_config.eh_min, precision=5)
-        log_fO2_min = NumberFormat.SCIENTIFIC.fmt(config.eq6_config.log_fO2_min, precision=5)
-        aw_min = NumberFormat.SCIENTIFIC.fmt(config.eq6_config.aw_min, precision=5)
+        xi_min = NumberFormat.SCIENTIFIC.fmt(settings.eq6_config.xi_min, precision=5)
+        time_min = NumberFormat.SCIENTIFIC.fmt(settings.eq6_config.time_min, precision=5)
+        ph_min = NumberFormat.SCIENTIFIC.fmt(settings.eq6_config.ph_min, precision=5)
+        eh_min = NumberFormat.SCIENTIFIC.fmt(settings.eq6_config.eh_min, precision=5)
+        log_fO2_min = NumberFormat.SCIENTIFIC.fmt(settings.eq6_config.log_fO2_min, precision=5)
+        aw_min = NumberFormat.SCIENTIFIC.fmt(settings.eq6_config.aw_min, precision=5)
 
-        xi_max = NumberFormat.SCIENTIFIC.fmt(config.eq6_config.xi_max, precision=5)
-        time_max = NumberFormat.SCIENTIFIC.fmt(config.eq6_config.time_max, precision=5)
-        ph_max = NumberFormat.SCIENTIFIC.fmt(config.eq6_config.ph_max, precision=5)
-        eh_max = NumberFormat.SCIENTIFIC.fmt(config.eq6_config.eh_max, precision=5)
-        log_fO2_max = NumberFormat.SCIENTIFIC.fmt(config.eq6_config.log_fO2_max, precision=5)
-        aw_max = NumberFormat.SCIENTIFIC.fmt(config.eq6_config.aw_max, precision=5)
+        xi_max = NumberFormat.SCIENTIFIC.fmt(settings.eq6_config.xi_max, precision=5)
+        time_max = NumberFormat.SCIENTIFIC.fmt(settings.eq6_config.time_max, precision=5)
+        ph_max = NumberFormat.SCIENTIFIC.fmt(settings.eq6_config.ph_max, precision=5)
+        eh_max = NumberFormat.SCIENTIFIC.fmt(settings.eq6_config.eh_max, precision=5)
+        log_fO2_max = NumberFormat.SCIENTIFIC.fmt(settings.eq6_config.log_fO2_max, precision=5)
+        aw_max = NumberFormat.SCIENTIFIC.fmt(settings.eq6_config.aw_max, precision=5)
 
-        xi_print_interval = NumberFormat.SCIENTIFIC.fmt(config.eq6_config.xi_print_interval, precision=5)
-        log_xi_print_interval = NumberFormat.SCIENTIFIC.fmt(config.eq6_config.log_xi_print_interval, precision=5)
-        time_print_interval = NumberFormat.SCIENTIFIC.fmt(config.eq6_config.time_print_interval, precision=5)
-        log_time_print_interval = NumberFormat.SCIENTIFIC.fmt(config.eq6_config.log_time_print_interval, precision=5)
-        ph_print_interval = NumberFormat.SCIENTIFIC.fmt(config.eq6_config.ph_print_interval, precision=5)
-        eh_print_interval = NumberFormat.SCIENTIFIC.fmt(config.eq6_config.eh_print_interval, precision=5)
-        log_fO2_print_interval = NumberFormat.SCIENTIFIC.fmt(config.eq6_config.log_fO2_print_interval, precision=5)
-        aw_print_interval = NumberFormat.SCIENTIFIC.fmt(config.eq6_config.aw_print_interval, precision=5)
-        steps_print_interval = config.eq6_config.steps_print_interval
+        xi_print_interval = NumberFormat.SCIENTIFIC.fmt(settings.eq6_config.xi_print_interval, precision=5)
+        log_xi_print_interval = NumberFormat.SCIENTIFIC.fmt(settings.eq6_config.log_xi_print_interval, precision=5)
+        time_print_interval = NumberFormat.SCIENTIFIC.fmt(settings.eq6_config.time_print_interval, precision=5)
+        log_time_print_interval = NumberFormat.SCIENTIFIC.fmt(settings.eq6_config.log_time_print_interval, precision=5)
+        ph_print_interval = NumberFormat.SCIENTIFIC.fmt(settings.eq6_config.ph_print_interval, precision=5)
+        eh_print_interval = NumberFormat.SCIENTIFIC.fmt(settings.eq6_config.eh_print_interval, precision=5)
+        log_fO2_print_interval = NumberFormat.SCIENTIFIC.fmt(settings.eq6_config.log_fO2_print_interval, precision=5)
+        aw_print_interval = NumberFormat.SCIENTIFIC.fmt(settings.eq6_config.aw_print_interval, precision=5)
+        steps_print_interval = settings.eq6_config.steps_print_interval
 
         print(f'*-----------------------------------------------------------------------------', file=file)
         print(f'    xistti={xi_min: >13}    ximaxi={xi_max: >13}', file=file)
@@ -503,7 +503,7 @@ class Kernel(AbstractKernel):
         print(f'    ksplmx=        10000', file=file)
 
         # Write the switch grid
-        self.write_switch_grid(file, config.eq6_config, verbose=verbose)
+        self.write_switch_grid(file, settings.eq6_config, verbose=verbose)
 
         # Write mineral suppressions
         exceptions: list[vs.SuppressionException] = []

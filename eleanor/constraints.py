@@ -128,7 +128,6 @@ class Boatswain(object):
             species = [
                 vs.Species(
                     name=s.name,
-                    unit=s.unit if s.unit is not None else 'log_molality',
                     value=valuation[self.registry.id(s)].value,
                 ) for s in self.order.species.values()
             ]

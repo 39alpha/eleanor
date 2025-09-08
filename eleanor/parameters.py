@@ -10,7 +10,6 @@ from eleanor.util import convert_to_number
 class Parameter(ABC):
     name: str
     type: Optional[str]
-    unit: Optional[str]
 
     @abstractmethod
     def in_domain(self, parameter) -> bool:
@@ -21,7 +20,7 @@ class Parameter(ABC):
         return (0, 0)
 
     def restrict(self, cls, *args, **kwargs):
-        new = cls(self.name, self.type, self.unit, *args, **kwargs)
+        new = cls(self.name, self.type, *args, **kwargs)
         return Parameter.refine(new)
 
     def fix(self, value: Number):
@@ -49,17 +48,13 @@ class Parameter(ABC):
         if not isinstance(param_type, (str, type(None))):
             raise EleanorException('parameter type must be a string or None')
 
-        unit = raw.get('unit')
-        if not isinstance(param_type, (str, type(None))):
-            raise EleanorException('parameter unit must be a string or None')
-
         match raw:
             case {'value': value}:
-                parameter: Parameter = ValueParameter(name, param_type, unit, convert_to_number(value))
+                parameter: Parameter = ValueParameter(name, param_type, convert_to_number(value))
             case {'min': min, 'max': max}:
-                parameter = RangeParameter(name, param_type, unit, convert_to_number(min), convert_to_number(max))
+                parameter = RangeParameter(name, param_type, convert_to_number(min), convert_to_number(max))
             case {'values': values}:
-                parameter = ListParameter(name, param_type, unit, [convert_to_number(v) for v in values])
+                parameter = ListParameter(name, param_type, [convert_to_number(v) for v in values])
             case _:
                 raise EleanorException('parameter must have value, values or min and max')
 
@@ -88,11 +83,10 @@ class RangeParameter(Parameter):
     min: Number
     max: Number
 
-    def __init__(self, name: str, type: Optional[str], unit: Optional[str], a: Number, b: Number):
+    def __init__(self, name: str, type: Optional[str], a: Number, b: Number):
         a, b = min(a, b), max(a, b)
         object.__setattr__(self, 'name', name)
         object.__setattr__(self, 'type', type)
-        object.__setattr__(self, 'unit', unit)
         object.__setattr__(self, 'min', a)
         object.__setattr__(self, 'max', b)
 
@@ -121,12 +115,11 @@ Parameter.register(RangeParameter)
 class ListParameter(Parameter):
     values: list[Number]
 
-    def __init__(self, name: str, type: Optional[str], unit: Optional[str], values: list[Number]):
+    def __init__(self, name: str, type: Optional[str], values: list[Number]):
         if not values:
             raise EleanorException(f'cannot create the empty ListParameter "{name}"')
         object.__setattr__(self, 'name', name)
         object.__setattr__(self, 'type', type)
-        object.__setattr__(self, 'unit', unit)
         object.__setattr__(self, 'values', sorted(values))
 
     @property

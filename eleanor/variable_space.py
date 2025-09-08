@@ -266,12 +266,10 @@ class Species(object):
         Column('id', Integer, primary_key=True),
         Column('variable_space_id', Integer, ForeignKey('variable_space.id', ondelete="CASCADE"), nullable=False),
         Column('name', String, nullable=False),
-        Column('unit', String, nullable=False),
         Column('value', Double, nullable=False),
     )
 
     name: str
-    unit: str
     value: float
     id: Optional[int] = None
     variable_space_id: Optional[int] = None

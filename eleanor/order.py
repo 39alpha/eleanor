@@ -161,14 +161,14 @@ class Order(object):
         kernel_module = import_kernel_module(self.raw['kernel']['type'])
         self.kernel = kernel_module.Config.from_dict(self.raw['kernel'])
 
-        self.temperature = Parameter.from_dict(self.raw['temperature'], 'temperature')
-        self.pressure = Parameter.from_dict(self.raw['pressure'], 'pressure')
+        self.temperature = Parameter.load(self.raw['temperature'], 'temperature')
+        self.pressure = Parameter.load(self.raw['pressure'], 'pressure')
         self.elements = {
-            name: Parameter.from_dict(value, name=name)
+            name: Parameter.load(value, name=name)
             for name, value in (self.raw.get('elements', {}) or {}).items()
         }
         self.species = {
-            name: Parameter.from_dict(value, name=name)
+            name: Parameter.load(value, name=name)
             for name, value in (self.raw.get('species', {}) or {}).items()
         }
 

@@ -60,6 +60,15 @@ class Parameter(ABC):
 
         return cls.refine(parameter)
 
+    @classmethod
+    def load(cls, raw: Any, name: Optional[str] = None):
+        if isinstance(raw, dict):
+            return cls.from_dict(raw, name=name)
+        elif isinstance(raw, list):
+            return cls.from_dict({'values': raw}, name=name)
+        else:
+            return cls.from_dict({'value': raw}, name=name)
+
 
 @dataclass
 class ValueParameter(Parameter):

@@ -61,8 +61,8 @@ class TitratedReactant(AbstractReactant):
             name = raw['name']
 
         reactant_type = ReactantType(raw['type'])
-        amount = Parameter.from_dict(raw['amount'], 'amount')
-        titration_rate = Parameter.from_dict(raw['titration_rate'], 'titration_rate')
+        amount = Parameter.load(raw['amount'], 'amount')
+        titration_rate = Parameter.load(raw['titration_rate'], 'titration_rate')
 
         return cls(name, reactant_type, amount, titration_rate)
 
@@ -129,8 +129,8 @@ class FixedGasReactant(AbstractReactant):
         if reactant_type != ReactantType.FIXED_GAS:
             raise EleanorException(f'cannot create a fixed gas reactant from config of type "{reactant_type}"')
 
-        amount = Parameter.from_dict(raw['amount'], 'amount')
-        fugacity = Parameter.from_dict(raw['fugacity'], 'fugacity')
+        amount = Parameter.load(raw['amount'], 'amount')
+        fugacity = Parameter.load(raw['fugacity'], 'fugacity')
 
         return FixedGasReactant(name, reactant_type, amount, fugacity)
 
@@ -182,7 +182,7 @@ class SolidSolutionReactant(TitratedReactant):
             raise EleanorException(f'cannot create a solid solution reactant from config of type "{base.type}"')
 
         end_members = {
-            end_member: Parameter.from_dict(param, 'fraction')
+            end_member: Parameter.load(param, 'fraction')
             for end_member, param in raw['end_members'].items()
         }
 

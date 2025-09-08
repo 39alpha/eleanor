@@ -2,9 +2,11 @@ import math
 from dataclasses import dataclass, field
 from datetime import datetime
 
+from sqlalchemy import Column, DateTime, Double, ForeignKey, Integer, String, Table
+from sqlalchemy.orm import declared_attr, relationship
+
 from .typing import Any, Optional
-from .yeoman import (Column, DateTime, Double, ForeignKey, Integer, String, Table, declared_attr, relationship,
-                     yeoman_registry)
+from .yeoman import JSONDict, yeoman_registry
 
 
 @yeoman_registry.mapped_as_dataclass
@@ -255,6 +257,7 @@ class Point(object):
         Column('solid_volume_destroyed', Double),
         Column('start_date', DateTime, nullable=False),
         Column('complete_date', DateTime, nullable=False),
+        Column('custom_properties', JSONDict, nullable=False),
     )
 
     __mapper_args__: dict[str, Any] = {
@@ -270,7 +273,6 @@ class Point(object):
     }
 
     stage: str
-
     temperature: float
     pressure: float
     pH: float
@@ -332,3 +334,5 @@ class Point(object):
     variable_space_id: Optional[int] = None
     start_date: Optional[datetime] = None
     complete_date: Optional[datetime] = None
+
+    custom_properties: dict = field(default_factory=dict)

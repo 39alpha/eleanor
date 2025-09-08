@@ -1,12 +1,11 @@
 import os
-import queue
 import time
 from datetime import datetime
-from multiprocessing import Manager, Pool, Process, Queue
+from multiprocessing import Manager, Pool, Process
+from queue import Queue
 from sys import exit, stderr
 
 from sqlalchemy import and_, select
-from tqdm import tqdm
 
 import eleanor.sailor as sailor
 import eleanor.variable_space as vs
@@ -18,9 +17,10 @@ from .kernel.interface import AbstractKernel
 from .navigator import AbstractNavigator, UniformNavigator
 from .order import HufferResult, Order, load_order
 from .typing import Any, Optional, Self, cast
-from .util import chunks
+from .util import Progress, chunks
 from .version import __version__
 from .yeoman import Yeoman
+from .yeoman_actor import YeomanActor
 
 
 def load_kernel(order: Order, kernel_args: list[Any], **kwargs) -> AbstractKernel:
@@ -93,16 +93,6 @@ def ignite(
     return order_id
 
 
-def display_progress(queue: queue.Queue[bool], samples: int):
-    progress = tqdm(total=samples, unit=' systems', colour='#ec5c29')
-    while samples > 0:
-        if not queue.get():
-            break
-        progress.update()
-        samples -= 1
-    progress.close()
-
-
 def count_successes(config: DatabaseConfig, order_id: int) -> int:
     with Yeoman(config) as yeoman:
         successes = yeoman.query(vs.Point).filter(
@@ -114,7 +104,7 @@ def count_successes(config: DatabaseConfig, order_id: int) -> int:
 
 
 def process_batch(pool,
-                  config: Config,
+                  config_or_queue: DatabaseConfig | Queue[Optional[vs.Point]],
                   kernel: AbstractKernel,
                   navigator: AbstractNavigator,
                   num_samples: int,
@@ -122,13 +112,13 @@ def process_batch(pool,
                   *args,
                   scratch: bool = False,
                   success_sampling: bool = False,
-                  progress: Optional[queue.Queue[bool]] = None,
+                  progress: Optional[Queue[bool]] = None,
                   **kwargs):
     vs_points = navigator.navigate(num_samples, order_id=order_id, max_attempts=1)
 
     futures = []
     for batch_num, batch in enumerate(chunks(vs_points, pool._processes)):  # type: ignore
-        future = pool.apply_async(sailor.sailor, (config.database, kernel, batch, *args), {
+        future = pool.apply_async(sailor.sailor, (config_or_queue, kernel, batch, *args), {
             **kwargs,
             'scratch': scratch,
             'progress': progress,
@@ -151,24 +141,31 @@ def Eleanor(
     show_progress: bool = False,
     scratch: bool = False,
     success_sampling: bool = False,
+    verbose: bool = False,
     **kwargs,
 ):
     config = load_config(config)
     order = load_order(order)
-    kernel = load_kernel(order, kernel_args, **kwargs)
+    kernel = load_kernel(order, kernel_args, verbose=verbose, **kwargs)
 
     navigator = UniformNavigator(order, kernel)
 
-    order_id = ignite(config, order, kernel, navigator, *args, **kwargs)
+    order_id = ignite(config, order, kernel, navigator, *args, verbose=verbose, **kwargs)
 
     manager = Manager()
 
-    progress: Optional[queue.Queue[bool]] = None
-    progress_proc: Optional[Process] = None
     if show_progress:
-        progress = manager.Queue()
-        progress_proc = Process(target=display_progress, args=(progress, num_samples))
-        progress_proc.start()
+        progress = Progress(manager, num_samples)
+
+    yeoman = None
+    if config.database.dialect == 'sqlite' or config.database.use_actor:
+        yeoman = YeomanActor(
+            manager,
+            config.database,
+            verbose=verbose,
+            progress=progress,
+            success_only_progress=success_sampling,
+        )
 
     if num_procs is not None and num_procs <= 0:
         num_procs = 1
@@ -180,7 +177,7 @@ def Eleanor(
 
             while successes < target_samples:
                 process_batch(pool,
-                              config,
+                              config.database if yeoman is None else yeoman.queue,
                               kernel,
                               navigator,
                               target_samples - successes,
@@ -188,13 +185,14 @@ def Eleanor(
                               *args,
                               scratch=scratch,
                               success_sampling=success_sampling,
-                              progress=progress,
+                              progress=progress.queue if yeoman is None else None,
+                              verbose=verbose,
                               **kwargs)
 
                 successes = count_successes(config.database, order_id)
         else:
             process_batch(pool,
-                          config,
+                          config.database if yeoman is None else yeoman.queue,
                           kernel,
                           navigator,
                           num_samples,
@@ -202,8 +200,13 @@ def Eleanor(
                           *args,
                           scratch=scratch,
                           success_sampling=success_sampling,
-                          progress=progress,
+                          progress=progress.queue if yeoman is None else None,
+                          verbose=verbose,
                           **kwargs)
 
-    if progress_proc is not None:
-        progress_proc.join()
+    if progress is not None:
+        progress.join()
+
+    if yeoman is not None:
+        yeoman.queue.put(None)
+        yeoman.join()

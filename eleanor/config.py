@@ -17,6 +17,7 @@ class DatabaseConfig(object):
     database: Optional[str] = 'campaign.sql'
     username: Optional[str] = None
     password: Optional[str] = None
+    use_actor: bool = False
 
     def __post_init__(self):
         if self.dialect not in ['sqlite', 'postgresql']:

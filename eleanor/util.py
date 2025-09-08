@@ -4,11 +4,41 @@ import os
 import re
 import sys
 from enum import IntEnum, StrEnum
+from multiprocessing import Manager, Pool, Process
+from multiprocessing.managers import SyncManager
+from queue import Queue
 
 import numpy as np
+from tqdm import tqdm
 
 from .exceptions import EleanorException
 from .typing import Any, NDArray, Number, Optional
+
+
+class Progress(object):
+    queue: Queue
+    process: Process
+    samples: int
+
+    def __init__(self, manager: SyncManager, num_samples: int):
+        self.samples = num_samples
+        self.queue = manager.Queue()
+        self.process = Process(target=self.listen)
+        self.process.start()
+
+    def listen(self):
+        progress = tqdm(total=self.samples, unit=' systems', colour='#ec5c29')
+        while self.samples > 0:
+            if not self.queue.get():
+                break
+            progress.update()
+            self.samples -= 1
+            self.queue.task_done()
+        progress.close()
+
+    def join(self):
+        self.queue.join()
+        self.process.join()
 
 
 # TODO: Use an enumeration for str_loc parameter

@@ -52,7 +52,7 @@ class AqueousSpecies(object):
 @yeoman_registry.mapped_as_dataclass(init=False)
 class PureSolid(object):
     __table__ = Table(
-        'equilibrium_pure_solid',
+        'equilibrium_pure_solids',
         yeoman_registry.metadata,
         Column('id', Integer, primary_key=True),
         Column('equilibrium_space_id', Integer, ForeignKey('equilibrium_space.id', ondelete="CASCADE"), nullable=False),
@@ -77,12 +77,12 @@ class PureSolid(object):
 @yeoman_registry.mapped_as_dataclass
 class EndMember(object):
     __table__ = Table(
-        'equilibrium_end_member',
+        'equilibrium_end_members',
         yeoman_registry.metadata,
         Column('id', Integer, primary_key=True),
         Column('equilibrium_solid_solution_id',
                Integer,
-               ForeignKey('equilibrium_solid_solution.id', ondelete="CASCADE"),
+               ForeignKey('equilibrium_solid_solutions.id', ondelete="CASCADE"),
                nullable=False),
         Column('name', String, nullable=False),
         Column('log_qk', Double, nullable=False),
@@ -105,7 +105,7 @@ class EndMember(object):
 @yeoman_registry.mapped_as_dataclass
 class SolidSolution(object):
     __table__ = Table(
-        'equilibrium_solid_solution',
+        'equilibrium_solid_solutions',
         yeoman_registry.metadata,
         Column('id', Integer, primary_key=True),
         Column('equilibrium_space_id', Integer, ForeignKey('equilibrium_space.id', ondelete="CASCADE"), nullable=False),
@@ -137,7 +137,7 @@ class SolidSolution(object):
 @yeoman_registry.mapped_as_dataclass
 class Gas(object):
     __table__ = Table(
-        'equilibrium_gas',
+        'equilibrium_gases',
         yeoman_registry.metadata,
         Column('id', Integer, primary_key=True),
         Column('equilibrium_space_id', Integer, ForeignKey('equilibrium_space.id', ondelete="CASCADE"), nullable=False),

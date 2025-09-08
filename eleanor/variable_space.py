@@ -133,7 +133,7 @@ class ElementReactant(object):
 @yeoman_registry.mapped_as_dataclass
 class SpecialReactantComposition(object):
     __table__ = Table(
-        'special_reactant_composition',
+        'special_reactant_compositions',
         yeoman_registry.metadata,
         Column('id', Integer, primary_key=True),
         Column('special_reactant_id', Integer, ForeignKey('special_reactants.id', ondelete="CASCADE"), nullable=False),

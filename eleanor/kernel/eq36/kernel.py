@@ -24,7 +24,6 @@ from . import util
 from .codes import RunCode
 from .constraints import TemperatureRangeConstraint, TPCurveConstraint
 from .data1 import Data1
-from .equilibrium_space import Eq3Point, Eq6Point
 from .exec import eq3, eq6
 from .parsers import OutputParser3, OutputParser6
 from .settings import IOPT_1, IOPT_4, Eq3Config, Eq6Config, Settings
@@ -154,7 +153,7 @@ class Kernel(AbstractKernel):
         eq3_results.start_date, eq3_results.complete_date = start_date, complete_date
 
         if settings.eq6_config is None:
-            eq6_results: list[Eq6Point] = []
+            eq6_results: list[es.Point] = []
         else:
             start_date = datetime.now()
             pickup_lines = util.read_pickup_lines()
@@ -592,7 +591,7 @@ class Kernel(AbstractKernel):
         print(' iodb11-20= {0: >5}{1: >5}{2: >5}{3: >5}{4: >5}{5: >5}{6: >5}{7: >5}{8: >5}{9: >5}'.format(*c.iodb[10:]),
               file=file)
 
-    def read_eq3_output(self, file: Optional[str | io.TextIOWrapper] = None) -> Eq3Point:
+    def read_eq3_output(self, file: Optional[str | io.TextIOWrapper] = None) -> es.Point:
         parser = OutputParser3().parse()
 
         data = {
@@ -735,12 +734,12 @@ class Kernel(AbstractKernel):
             ]
         }
 
-        return Eq3Point(**data)
+        return es.Point(kernel='eq3', **data)  # type: ignore
 
     def read_eq6_output(self,
                         file: Optional[str | io.TextIOWrapper] = None,
-                        track_path: bool = False) -> list[Eq6Point]:
-        path: list[Eq6Point] = []
+                        track_path: bool = False) -> list[es.Point]:
+        path: list[es.Point] = []
 
         steps = OutputParser6().parse().path
         if not track_path:
@@ -913,7 +912,7 @@ class Kernel(AbstractKernel):
                 ]
             }
 
-            path.append(Eq6Point(**data))
+            path.append(es.Point(kernel='eq6', **data))  # type: ignore
 
         return path
 

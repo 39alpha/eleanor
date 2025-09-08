@@ -5,7 +5,6 @@ from dataclasses import dataclass
 
 import numpy as np
 
-import eleanor.kernel.eq36.equilibrium_space as es
 from eleanor.exceptions import EleanorException, EleanorFileException, EleanorParserException
 from eleanor.typing import Any, Number, Optional, Species
 

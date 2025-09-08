@@ -1,5 +1,5 @@
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 
 from .typing import Any, Optional
@@ -199,7 +199,7 @@ class RedoxReaction(object):
     id: Optional[int] = None
 
 
-@yeoman_registry.mapped_as_dataclass
+@yeoman_registry.mapped_as_dataclass(kw_only=True)
 class Point(object):
     __table__ = Table(
         'equilibrium_space',
@@ -231,7 +231,7 @@ class Point(object):
         Column('charge_imbalance', Double, nullable=False),
         Column('expected_charge_imbalance', Double),
         Column('sigma', Double),
-        Column('charge_discrepency', Double),
+        Column('charge_discrepancy', Double),
         Column('anions', Double),
         Column('cations', Double),
         Column('total_charge', Double),
@@ -258,8 +258,6 @@ class Point(object):
     )
 
     __mapper_args__: dict[str, Any] = {
-        'polymorphic_identity': 'eleanor',
-        'polymorphic_on': 'kernel',
         'properties': {
             'elements': relationship(Element, cascade="all, delete"),
             'aqueous_species': relationship(AqueousSpecies, cascade="all, delete"),
@@ -271,8 +269,6 @@ class Point(object):
         }
     }
 
-    id: Optional[int]
-    variable_space_id: Optional[int]
     kernel: str
 
     temperature: float
@@ -307,7 +303,6 @@ class Point(object):
     pure_solids: list[PureSolid]
     solid_solutions: list[SolidSolution]
     gases: list[Gas]
-    reactants: list[Reactant]
     redox_reactions: list[RedoxReaction]
 
     log_xi: Optional[float] = None
@@ -315,7 +310,7 @@ class Point(object):
     solution_volume: Optional[float] = None
     expected_charge_imbalance: Optional[float] = None
     sigma: Optional[float] = None
-    charge_discrepency: Optional[float] = None
+    charge_discrepancy: Optional[float] = None
     anions: Optional[float] = None
     cations: Optional[float] = None
     total_charge: Optional[float] = None
@@ -331,5 +326,9 @@ class Point(object):
     solid_volume_created: Optional[float] = None
     solid_volume_destroyed: Optional[float] = None
 
+    reactants: list[Reactant] = field(default_factory=list)
+
+    id: Optional[int] = None
+    variable_space_id: Optional[int] = None
     start_date: Optional[datetime] = None
     complete_date: Optional[datetime] = None

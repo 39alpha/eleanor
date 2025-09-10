@@ -2,7 +2,8 @@ import hashlib
 import json
 import tomllib
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
+from copy import deepcopy
+from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from enum import StrEnum
 
@@ -17,7 +18,7 @@ from .exceptions import EleanorException
 from .kernel.config import Config as KernelConfig
 from .parameters import Parameter
 from .reactants import AbstractReactant, Reactant
-from .typing import Any, Callable, Optional, cast
+from .typing import Any, Callable, Optional, Self, cast
 from .util import is_list_of
 from .yeoman import Binary, JSONDict, yeoman_registry
 
@@ -89,8 +90,103 @@ class HufferResult(object):
         return cls(id=id, exit_code=exit_code, zip=zip)
 
 
+@dataclass
+class Suborder(object):
+    name: Optional[str] = None
+    notes: Optional[str] = None
+    creator: Optional[str] = None
+    kernel: Optional[KernelConfig] = None
+    temperature: Optional[Parameter] = None
+    pressure: Optional[Parameter] = None
+    elements: Optional[dict[str, Parameter]] = None
+    species: Optional[dict[str, Parameter]] = None
+    suppressions: Optional[list[Suppression]] = None
+    reactants: Optional[list[Reactant]] = None
+    constraints: Optional[list[ConstraintConfig]] = None
+    suborders = None
+    raw: dict[str, Any] = field(default_factory=dict)
+
+    @classmethod
+    def from_dict(cls, raw: dict[str, Any]) -> Self:
+        suborder = cls()
+
+        suborder.raw = raw
+
+        suborder.name = raw.get('name')
+        if suborder.name is not None and not isinstance(suborder.name, str):
+            raise EleanorException('name must be a string')
+
+        suborder.notes = raw.get('notes')
+        if suborder.notes is not None and not isinstance(suborder.notes, str):
+            raise EleanorException('notes must be a string')
+
+        suborder.creator = raw.get('creator')
+        if suborder.creator is not None and not isinstance(suborder.creator, str):
+            raise EleanorException('creator must be a string')
+
+        if 'kernel' in raw:
+            kernel_module = import_kernel_module(raw['kernel']['type'])
+            kernel_settings = kernel_module.Settings.from_dict(raw['kernel'])
+            suborder.kernel = KernelConfig(type=raw['kernel']['type'], settings=kernel_settings)  # type: ignore
+
+        if 'temperature' in raw:
+            suborder.temperature = Parameter.load(raw['temperature'], 'temperature')
+
+        if 'pressure' in raw:
+            suborder.pressure = Parameter.load(raw['pressure'], 'pressure')
+
+        if 'elements' in raw:
+            suborder.elements = {
+                name: Parameter.load(value, name=name)
+                for name, value in (raw.get('elements', {}) or {}).items()
+            }
+
+        if 'species' in raw:
+            suborder.species = {
+                name: Parameter.load(value, name=name)
+                for name, value in (raw.get('species', {}) or {}).items()
+            }
+
+        if 'suppressions' in raw:
+            suborder.suppressions = [
+                Suppression.from_dict({}, name=value) if isinstance(value, str) else Suppression.from_dict(value)
+                for value in raw.get('suppressions', []) or []
+            ]
+
+        if 'reactants' in raw:
+            suborder.reactants = [
+                AbstractReactant.from_dict(value, name=name)
+                for name, value in (raw.get('reactants', {}) or {}).items()
+            ]
+
+        if 'constraints' in raw:
+            suborder.constraints = []
+
+        if 'suborders' in raw:
+            suborder.suborders = Suborders(raw['suborders'])
+
+        return suborder
+
+    def has_suborders(self) -> bool:
+        return self.suborders is not None and len(self.suborders.suborders) != 0
+
+
+@dataclass(init=False)
+class Suborders(object):
+    combined: bool = False
+    suborders: list[Suborder] = field(default_factory=list)
+
+    def __init__(self, raw: dict[str, Any] | list[dict[str, Any]]):
+        if isinstance(raw, dict):
+            self.combined = raw.get('combined', False)
+            self.suborders = [Suborder.from_dict(suborder) for suborder in raw.get('suborders', [])]
+        else:
+            self.combined = False
+            self.suborders = [Suborder.from_dict(suborder) for suborder in raw]
+
+
 @yeoman_registry.mapped_as_dataclass(init=False)
-class Order(object):
+class Order(Suborder):
     __table__ = Table(
         'orders',
         yeoman_registry.metadata,
@@ -115,6 +211,7 @@ class Order(object):
     name: str
     notes: str
     creator: str
+
     kernel: KernelConfig
     temperature: Parameter
     pressure: Parameter
@@ -123,7 +220,9 @@ class Order(object):
     suppressions: list[Suppression]
     reactants: list[Reactant]
     constraints: list[ConstraintConfig]
-    raw: dict[str, Any]
+
+    suborders: Optional[Suborders] = None
+
     huffer_result: Optional[HufferResult] = None
     id: Optional[int] = None
     vs_points: list[vs.Point] = field(default_factory=list)
@@ -158,16 +257,22 @@ class Order(object):
         if not isinstance(self.creator, str):
             raise EleanorException('creator must be a string')
 
-        kernel_module = import_kernel_module(self.raw['kernel']['type'])
-        kernel_settings = kernel_module.Settings.from_dict(self.raw['kernel'])
-        self.kernel = KernelConfig(type=self.raw['kernel']['type'], settings=kernel_settings)
+        if 'kernel' in self.raw:
+            kernel_module = import_kernel_module(self.raw['kernel']['type'])
+            kernel_settings = kernel_module.Settings.from_dict(self.raw['kernel'])
+            self.kernel = KernelConfig(type=self.raw['kernel']['type'], settings=kernel_settings)  # type: ignore
 
-        self.temperature = Parameter.load(self.raw['temperature'], 'temperature')
-        self.pressure = Parameter.load(self.raw['pressure'], 'pressure')
+        if 'temperature' in self.raw:
+            self.temperature = Parameter.load(self.raw['temperature'], 'temperature')
+
+        if 'pressure' in self.raw:
+            self.pressure = Parameter.load(self.raw['pressure'], 'pressure')
+
         self.elements = {
             name: Parameter.load(value, name=name)
             for name, value in (self.raw.get('elements', {}) or {}).items()
         }
+
         self.species = {
             name: Parameter.load(value, name=name)
             for name, value in (self.raw.get('species', {}) or {}).items()
@@ -183,23 +288,76 @@ class Order(object):
             for name, value in (self.raw.get('reactants', {}) or {}).items()
         ]
 
-        self.constraints: list[ConstraintConfig] = []
+        self.constraints = []
+
+        if 'suborders' in self.raw:
+            self.suborders = Suborders(self.raw['suborders'])
+
+        self.rehash()
+
+    def rehash(self) -> str:
+        data = asdict(self)
+        for k in ['huffer_result', 'id', 'vs_points', 'create_date', 'eleanor_version']:
+            del data[k]
 
         hasher = hashlib.sha256()
-        content: bytes = bytes(json.dumps(self.raw, sort_keys=True, default=str), 'utf-8')
+        content: bytes = bytes(json.dumps(data, sort_keys=True, default=str), 'utf-8')
         hasher.update(content)
 
         self.hash = hasher.hexdigest()
 
+        return self.hash
+
     def parameters(self) -> list[Parameter]:
-        parameters: list[Parameter] = [self.temperature, self.pressure]
-        parameters.extend(self.kernel.parameters())
-        parameters.extend(e for e in self.elements.values())
-        parameters.extend(s for s in self.species.values())
-        for reactant in self.reactants:
-            parameters.extend(reactant.parameters())
+        parameters: list[Parameter] = []
+
+        if self.temperature is not None:
+            parameters.append(self.temperature)
+
+        if self.pressure is not None:
+            parameters.append(self.pressure)
+
+        if self.kernel is not None:
+            parameters.extend(self.kernel.parameters())
+
+        if self.elements is not None:
+            parameters.extend(e for e in self.elements.values())
+
+        if self.species is not None:
+            parameters.extend(s for s in self.species.values())
+
+        if self.reactants is not None:
+            for reactant in self.reactants:
+                parameters.extend(reactant.parameters())
 
         return parameters
+
+    def split_suborders(self) -> tuple[list[Self], bool]:
+        combined = False
+        orders: list[Self] = []
+        if self.suborders is not None:
+            combined = self.suborders.combined
+            for suborder in self.suborders.suborders:
+                order = deepcopy(self)
+                order.name = suborder.name if suborder.name is not None else order.name
+                order.notes = suborder.notes if suborder.notes is not None else order.notes
+                order.creator = suborder.creator if suborder.creator is not None else order.creator
+                order.temperature = suborder.temperature if suborder.temperature is not None else order.temperature
+                order.pressure = suborder.pressure if suborder.pressure is not None else order.pressure
+                order.elements = suborder.elements if suborder.elements is not None else order.elements
+                order.species = suborder.species if suborder.species is not None else order.species
+                order.suppressions = suborder.suppressions if suborder.suppressions is not None else order.suppressions
+                order.reactants = suborder.reactants if suborder.reactants is not None else order.reactants
+                order.constraints = suborder.constraints if suborder.constraints is not None else order.constraints
+                order.suborders = suborder.suborders
+
+                del order.raw['suborders']
+                order.raw.update(suborder.raw)
+                order.rehash()
+
+                orders.append(order)
+
+        return orders, combined
 
     @staticmethod
     def from_yaml(fname: str):

@@ -34,14 +34,13 @@ def load_kernel(order: Order, kernel_args: list[Any], **kwargs) -> AbstractKerne
 def ignite(
     config: Config,
     order: Order,
-    kernel: AbstractKernel,
-    navigator: AbstractNavigator,
     *args,
+    huffer_with: Optional[tuple[AbstractKernel, AbstractNavigator]] = None,
     verbose: bool = False,
-    no_huffer: bool = False,
     **kwargs,
 ) -> int:
-    if not no_huffer:
+    if huffer_with is not None:
+        kernel, navigator = huffer_with
         huffer_problem = navigator.select(max_attempts=1)
         huffer_point = sailor.__run(kernel, huffer_problem, *args, scratch=True, **kwargs)
         order.huffer_result = HufferResult.from_scratch(huffer_point.scratch, huffer_point.exit_code)
@@ -137,20 +136,59 @@ def Eleanor(
     kernel_args: list[Any],
     num_samples: int,
     *args,
+    no_huffer: bool = False,
     num_procs: int | None = None,
     show_progress: bool = False,
     scratch: bool = False,
     success_sampling: bool = False,
     verbose: bool = False,
+    order_id: Optional[int] = None,
+    combined: bool = False,
     **kwargs,
-):
-    config = load_config(config)
+) -> list[int]:
     order = load_order(order)
-    kernel = load_kernel(order, kernel_args, verbose=verbose, **kwargs)
 
+    if order.has_suborders():
+        order_ids: set[int] = set()
+
+        suborders, combined_suborders = order.split_suborders()
+        combined = combined or combined_suborders
+
+        order_id = None
+        if combined:
+            config = load_config(config)
+            order_id = ignite(config, order, *args, verbose=verbose, **kwargs)
+
+        for suborder in suborders:
+            suborder_ids = Eleanor(
+                config,
+                suborder,
+                kernel_args,
+                num_samples,
+                *args,
+                no_huffer=no_huffer,
+                num_procs=num_procs,
+                show_progress=show_progress,
+                scratch=scratch,
+                success_sampling=success_sampling,
+                verbose=verbose,
+                order_id=order_id,
+                combined=combined,
+                **kwargs,
+            )
+            order_ids.update(suborder_ids)
+
+        return sorted(order_ids)
+
+    config = load_config(config)
+    kernel = load_kernel(order, kernel_args, verbose=verbose, **kwargs)
     navigator = UniformNavigator(order, kernel)
 
-    order_id = ignite(config, order, kernel, navigator, *args, verbose=verbose, **kwargs)
+    if order_id is None:
+        huffer_with = None
+        if not no_huffer:
+            huffer_with = (kernel, navigator)
+        order_id = ignite(config, order, *args, verbose=verbose, huffer_with=huffer_with, **kwargs)
 
     manager = Manager()
 
@@ -210,3 +248,5 @@ def Eleanor(
     if yeoman is not None:
         yeoman.queue.put(None)
         yeoman.join()
+
+    return [order_id]

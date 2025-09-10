@@ -4,6 +4,7 @@ from datetime import datetime
 from multiprocessing import Manager, Pool, Process
 from queue import Queue
 from sys import exit, stderr
+from traceback import print_exception
 
 from sqlalchemy import and_, select
 
@@ -168,24 +169,28 @@ def Eleanor(
             if proportional_sampling:
                 suborder_samples = round(suborder_samples * suborder.volume() / volume)
 
-            suborder_ids = Eleanor(
-                config,
-                suborder,
-                kernel_args,
-                suborder_samples,
-                *args,
-                no_huffer=no_huffer,
-                num_procs=num_procs,
-                show_progress=show_progress,
-                scratch=scratch,
-                success_sampling=success_sampling,
-                verbose=verbose,
-                order_id=order_id,
-                combined=combined,
-                proportional_sampling=proportional_sampling,
-                **kwargs,
-            )
-            order_ids.update(suborder_ids)
+            try:
+                suborder_ids = Eleanor(
+                    config,
+                    suborder,
+                    kernel_args,
+                    suborder_samples,
+                    *args,
+                    no_huffer=no_huffer,
+                    num_procs=num_procs,
+                    show_progress=show_progress,
+                    scratch=scratch,
+                    success_sampling=success_sampling,
+                    verbose=verbose,
+                    order_id=order_id,
+                    combined=combined,
+                    proportional_sampling=proportional_sampling,
+                    **kwargs,
+                )
+                order_ids.update(suborder_ids)
+            except Exception as e:
+                print("Error: suborder failed", file=stderr)
+                print_exception(e, file=stderr)
 
         return sorted(order_ids)
 

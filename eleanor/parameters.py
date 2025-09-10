@@ -19,6 +19,10 @@ class Parameter(ABC):
     def range(self) -> tuple[Number, Number]:
         return (0, 0)
 
+    @abstractmethod
+    def volume(self) -> float:
+        return 1.0
+
     def restrict(self, cls, *args, **kwargs):
         new = cls(self.name, self.type, *args, **kwargs)
         return Parameter.refine(new)
@@ -83,6 +87,9 @@ class ValueParameter(Parameter):
     def range(self) -> tuple[Number, Number]:
         return self.value, self.value
 
+    def volume(self) -> float:
+        return 1.0
+
 
 Parameter.register(ValueParameter)
 
@@ -93,11 +100,9 @@ class RangeParameter(Parameter):
     max: Number
 
     def __init__(self, name: str, type: Optional[str], a: Number, b: Number):
-        a, b = min(a, b), max(a, b)
-        object.__setattr__(self, 'name', name)
-        object.__setattr__(self, 'type', type)
-        object.__setattr__(self, 'min', a)
-        object.__setattr__(self, 'max', b)
+        self.name = name
+        self.type = type
+        self.min, self.max = min(a, b), max(a, b)
 
     @property
     def bounds(self) -> tuple[ValueParameter, ValueParameter]:
@@ -116,6 +121,9 @@ class RangeParameter(Parameter):
     def range(self) -> tuple[Number, Number]:
         return self.min, self.max
 
+    def volume(self) -> float:
+        return self.max - self.min
+
 
 Parameter.register(RangeParameter)
 
@@ -127,9 +135,9 @@ class ListParameter(Parameter):
     def __init__(self, name: str, type: Optional[str], values: list[Number]):
         if not values:
             raise EleanorException(f'cannot create the empty ListParameter "{name}"')
-        object.__setattr__(self, 'name', name)
-        object.__setattr__(self, 'type', type)
-        object.__setattr__(self, 'values', sorted(values))
+        self.name = name
+        self.type = type
+        self.values = sorted(values)
 
     @property
     def elements(self) -> list[ValueParameter]:
@@ -148,6 +156,9 @@ class ListParameter(Parameter):
 
     def range(self) -> tuple[Number, Number]:
         return min(self.values), max(self.values)
+
+    def volume(self) -> float:
+        return len(self.values)
 
 
 Parameter.register(ListParameter)

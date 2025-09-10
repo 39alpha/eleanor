@@ -1,3 +1,4 @@
+import operator
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import StrEnum
@@ -5,6 +6,7 @@ from enum import StrEnum
 from .exceptions import EleanorException
 from .parameters import Parameter, ValueParameter
 from .typing import Optional
+from .util import mapreduce
 
 
 class ReactantType(StrEnum):
@@ -65,6 +67,9 @@ class TitratedReactant(AbstractReactant):
         titration_rate = Parameter.load(raw['titration_rate'], 'titration_rate')
 
         return cls(name, reactant_type, amount, titration_rate)
+
+    def volume(self) -> float:
+        return self.amount.volume() * self.titration_rate.volume()
 
 
 AbstractReactant.register(TitratedReactant)
@@ -133,6 +138,9 @@ class FixedGasReactant(AbstractReactant):
         fugacity = Parameter.load(raw['fugacity'], 'fugacity')
 
         return FixedGasReactant(name, reactant_type, amount, fugacity)
+
+    def volume(self) -> float:
+        return self.amount.volume() * self.fugacity.volume()
 
 
 AbstractReactant.register(FixedGasReactant)
@@ -203,6 +211,11 @@ class SolidSolutionReactant(TitratedReactant):
                 f'solid solution "{base.name}" end member fractions sum to {fraction}; must sum to 1.0')
 
         return cls(base.name, base.type, base.amount, base.titration_rate, end_members)
+
+    def volume(self) -> float:
+        volume = super(SolidSolutionReactant, self).volume()
+        volume += mapreduce(lambda em: em.volume(), operator.mul, self.end_members.values())
+        return volume
 
 
 TitratedReactant.register(SpecialReactant)

@@ -1,5 +1,6 @@
 import hashlib
 import json
+import operator
 import tomllib
 from abc import ABC, abstractmethod
 from copy import deepcopy
@@ -19,13 +20,16 @@ from .kernel.config import Config as KernelConfig
 from .parameters import Parameter
 from .reactants import AbstractReactant, Reactant
 from .typing import Any, Callable, Optional, Self, cast
-from .util import is_list_of
+from .util import is_list_of, mapreduce
 from .yeoman import Binary, JSONDict, yeoman_registry
 
 
 @dataclass
 class ConstraintConfig(object):
     type: str
+
+    def volume(self) -> float:
+        return 1.0
 
 
 @dataclass(init=False)
@@ -106,6 +110,30 @@ class Suborder(object):
     suborders = None
     raw: dict[str, Any] = field(default_factory=dict)
 
+    def volume(self):
+        volume = 1.0
+        if self.kernel is not None:
+            volume *= mapreduce(lambda p: p.volume(), operator.mul, self.kernel.parameters(), initial=1.0)
+        if self.temperature is not None:
+            volume *= self.temperature.volume()
+        if self.pressure is not None:
+            volume *= self.pressure.volume()
+        if self.elements is not None:
+            volume *= mapreduce(lambda p: p.volume(), operator.mul, self.elements.values(), initial=1.0)
+        if self.species is not None:
+            volume *= mapreduce(lambda p: p.volume(), operator.mul, self.species.values(), initial=1.0)
+        if self.reactants is not None:
+            volume *= mapreduce(lambda p: p.volume(), operator.mul, self.reactants, initial=1.0)
+        if self.reactants is not None:
+            volume *= mapreduce(lambda p: p.volume(), operator.mul, self.reactants, initial=1.0)
+        if self.constraints is not None:
+            volume *= mapreduce(lambda p: p.volume(), operator.mul, self.constraints, initial=1.0)
+
+        if self.suborders is not None:
+            volume *= self.suborders.volume()
+
+        return volume
+
     @classmethod
     def from_dict(cls, raw: dict[str, Any]) -> Self:
         suborder = cls()
@@ -167,22 +195,23 @@ class Suborder(object):
 
         return suborder
 
-    def has_suborders(self) -> bool:
-        return self.suborders is not None and len(self.suborders.suborders) != 0
-
 
 @dataclass(init=False)
 class Suborders(object):
     combined: bool = False
+    proportional_sampling: bool = True
     suborders: list[Suborder] = field(default_factory=list)
 
     def __init__(self, raw: dict[str, Any] | list[dict[str, Any]]):
         if isinstance(raw, dict):
             self.combined = raw.get('combined', False)
+            self.proportional_sampling = raw.get('proportional_sampling', True)
             self.suborders = [Suborder.from_dict(suborder) for suborder in raw.get('suborders', [])]
         else:
-            self.combined = False
             self.suborders = [Suborder.from_dict(suborder) for suborder in raw]
+
+    def volume(self) -> float:
+        return sum(map(lambda o: o.volume(), self.suborders))
 
 
 @yeoman_registry.mapped_as_dataclass(init=False)
@@ -332,11 +361,9 @@ class Order(Suborder):
 
         return parameters
 
-    def split_suborders(self) -> tuple[list[Self], bool]:
-        combined = False
+    def split_suborders(self) -> list[Self]:
         orders: list[Self] = []
         if self.suborders is not None:
-            combined = self.suborders.combined
             for suborder in self.suborders.suborders:
                 order = deepcopy(self)
                 order.name = suborder.name if suborder.name is not None else order.name
@@ -357,7 +384,7 @@ class Order(Suborder):
 
                 orders.append(order)
 
-        return orders, combined
+        return orders
 
     @staticmethod
     def from_yaml(fname: str):

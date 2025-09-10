@@ -4,6 +4,7 @@ import os
 import re
 import sys
 from enum import IntEnum, StrEnum
+from functools import reduce
 from multiprocessing import Manager, Pool, Process
 from multiprocessing.managers import SyncManager
 from queue import Queue
@@ -291,3 +292,7 @@ def chunks(indexable, n: int):
     while start < N:
         yield indexable[start:start + chunk_size]
         start += chunk_size
+
+
+def mapreduce(m, r, iter, initial=None):
+    return reduce(r, map(m, iter), initial)

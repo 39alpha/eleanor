@@ -144,27 +144,35 @@ def Eleanor(
     verbose: bool = False,
     order_id: Optional[int] = None,
     combined: bool = False,
+    proportional_sampling: bool = False,
     **kwargs,
 ) -> list[int]:
     order = load_order(order)
 
-    if order.has_suborders():
+    if order.suborders is not None and len(order.suborders.suborders) != 0:
         order_ids: set[int] = set()
 
-        suborders, combined_suborders = order.split_suborders()
-        combined = combined or combined_suborders
+        suborders = order.split_suborders()
+        combined = combined or order.suborders.combined
+        proportional_sampling = proportional_sampling or order.suborders.proportional_sampling
 
         order_id = None
         if combined:
             config = load_config(config)
             order_id = ignite(config, order, *args, verbose=verbose, **kwargs)
 
+        volume = order.volume()
+
         for suborder in suborders:
+            suborder_samples = num_samples
+            if proportional_sampling:
+                suborder_samples = round(suborder_samples * suborder.volume() / volume)
+
             suborder_ids = Eleanor(
                 config,
                 suborder,
                 kernel_args,
-                num_samples,
+                suborder_samples,
                 *args,
                 no_huffer=no_huffer,
                 num_procs=num_procs,
@@ -174,6 +182,7 @@ def Eleanor(
                 verbose=verbose,
                 order_id=order_id,
                 combined=combined,
+                proportional_sampling=proportional_sampling,
                 **kwargs,
             )
             order_ids.update(suborder_ids)

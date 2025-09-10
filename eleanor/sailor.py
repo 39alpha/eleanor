@@ -92,13 +92,13 @@ def sailor_with_config(
                 show_progress = not success_only_progress or vs_point.exit_code == 0
                 yeoman.write(vs_point)
                 if progress is not None and show_progress:
-                    progress.put_nowait(True)
+                    progress.put(True)
         else:
             vs_point = __run(kernel, points, *args, verbose=verbose, **kwargs)
             show_progress = not success_only_progress or vs_point.exit_code == 0
             yeoman.write(vs_point)
             if progress is not None and show_progress:
-                progress.put_nowait(True)
+                progress.put(True)
 
 
 def sailor_with_queue(
@@ -111,10 +111,10 @@ def sailor_with_queue(
     if isinstance(points, list):
         for point in points:
             vs_point = __run(kernel, point, *args, **kwargs)
-            yeoman.put_nowait(vs_point)
+            yeoman.put(vs_point)
     else:
         vs_point = __run(kernel, points, *args, **kwargs)
-        yeoman.put_nowait(vs_point)
+        yeoman.put(vs_point)
 
 
 def sailor(config_or_queue: DatabaseConfig | Queue[Optional[vs.Point]], *args, **kwargs):

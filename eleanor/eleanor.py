@@ -15,7 +15,7 @@ from .config import Config, DatabaseConfig, load_config
 from .exceptions import EleanorException
 from .kernel.discover import import_kernel_module
 from .kernel.interface import AbstractKernel
-from .navigator import AbstractNavigator, UniformNavigator
+from .navigator import AbstractNavigator
 from .order import HufferResult, Order, load_order
 from .typing import Any, Optional, Self, cast
 from .util import Progress, chunks
@@ -131,6 +131,15 @@ def process_batch(pool,
         future.get()
 
 
+def prepare(config, order, kernel_args, **kwargs):
+    config = load_config(config)
+    order = load_order(order)
+    kernel = load_kernel(order, kernel_args, **kwargs)
+    navigator = order.navigator.load()(order, kernel)
+
+    return config, order, kernel, navigator
+
+
 def Eleanor(
     config: str | Config,
     order: str | Order,
@@ -196,7 +205,7 @@ def Eleanor(
 
     config = load_config(config)
     kernel = load_kernel(order, kernel_args, verbose=verbose, **kwargs)
-    navigator = UniformNavigator(order, kernel)
+    navigator = order.navigator.load()(order, kernel)
 
     if order_id is None:
         huffer_with = None
@@ -207,7 +216,7 @@ def Eleanor(
     manager = Manager()
 
     if show_progress:
-        progress = Progress(manager, num_samples)
+        progress = Progress(manager, navigator.num_systems(num_samples))
 
     yeoman = None
     if config.database.dialect == 'sqlite' or config.database.use_actor:

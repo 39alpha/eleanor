@@ -7,6 +7,7 @@ from copy import deepcopy
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from enum import StrEnum
+from importlib import import_module
 
 import yaml
 from sqlalchemy import Column, DateTime, ForeignKey, Index, Integer, String, Table
@@ -30,6 +31,26 @@ class ConstraintConfig(object):
 
     def volume(self) -> float:
         return 1.0
+
+
+@dataclass(init=False)
+class NavigatorConfig(object):
+    type: str
+
+    def __init__(self, type: str = 'uniform'):
+        if '.' not in type:
+            type = 'eleanor.navigator.' + type.title()
+
+        self.type = type
+
+    def load(self):
+        parts = self.type.split('.')
+
+        module_name = '.'.join(parts[:-1])
+        navigator_name = parts[-1]
+
+        module = import_module(module_name)
+        return getattr(module, navigator_name)
 
 
 @dataclass(init=False)
@@ -100,6 +121,7 @@ class Suborder(object):
     notes: Optional[str] = None
     creator: Optional[str] = None
     kernel: Optional[KernelConfig] = None
+    navigator: Optional[NavigatorConfig] = None
     temperature: Optional[Parameter] = None
     pressure: Optional[Parameter] = None
     elements: Optional[dict[str, Parameter]] = None
@@ -156,6 +178,12 @@ class Suborder(object):
             kernel_module = import_kernel_module(raw['kernel']['type'])
             kernel_settings = kernel_module.Settings.from_dict(raw['kernel'])
             suborder.kernel = KernelConfig(type=raw['kernel']['type'], settings=kernel_settings)  # type: ignore
+
+        if 'navigator' in raw:
+            if isinstance(raw['navigator'], str):
+                suborder.navigator = NavigatorConfig(type=raw['navigator'])
+            else:
+                suborder.navigator = NavigatorConfig(**raw['navigator'])
 
         if 'temperature' in raw:
             suborder.temperature = Parameter.load(raw['temperature'], 'temperature')
@@ -242,6 +270,7 @@ class Order(Suborder):
     creator: str
 
     kernel: KernelConfig
+    navigator: NavigatorConfig
     temperature: Parameter
     pressure: Parameter
     elements: dict[str, Parameter]
@@ -290,6 +319,11 @@ class Order(Suborder):
             kernel_module = import_kernel_module(self.raw['kernel']['type'])
             kernel_settings = kernel_module.Settings.from_dict(self.raw['kernel'])
             self.kernel = KernelConfig(type=self.raw['kernel']['type'], settings=kernel_settings)  # type: ignore
+
+        if 'navigator' in self.raw and isinstance(self.raw['navigator'], str):
+            self.navigator = NavigatorConfig(type=self.raw['navigator'])
+        else:
+            self.navigator = NavigatorConfig(**self.raw.get('navigator', {}))
 
         if 'temperature' in self.raw:
             self.temperature = Parameter.load(self.raw['temperature'], 'temperature')

@@ -82,6 +82,9 @@ class Boatswain(object):
 
         self.valuations[parameter_id] = value
 
+    def hardset(self, parameter: Parameter, value: Parameter):
+        self.valuations[self.registry.id(parameter)] = value
+
     def constrain(self) -> list[Parameter]:
         unresolved_constraints: list[AbstractConstraint] = []
 

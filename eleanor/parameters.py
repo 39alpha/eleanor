@@ -124,6 +124,9 @@ class RangeParameter(Parameter):
     def volume(self) -> float:
         return self.max - self.min
 
+    def midpoint(self) -> float:
+        return (self.max + self.min) / 2
+
 
 Parameter.register(RangeParameter)
 

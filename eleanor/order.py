@@ -37,9 +37,9 @@ class ConstraintConfig(object):
 class NavigatorConfig(object):
     type: str
 
-    def __init__(self, type: str = 'uniform'):
+    def __init__(self, type: str = 'Random'):
         if '.' not in type:
-            type = 'eleanor.navigator.' + type.title()
+            type = 'eleanor.navigator.' + type
 
         self.type = type
 

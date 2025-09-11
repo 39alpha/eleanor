@@ -2,7 +2,6 @@ import random
 from abc import ABC, abstractmethod
 from copy import deepcopy
 from dataclasses import dataclass
-from itertools import cycle, islice
 
 import numpy as np
 
@@ -13,7 +12,7 @@ from .exceptions import EleanorException
 from .kernel.interface import AbstractKernel
 from .order import Order
 from .parameters import ListParameter, Parameter, RangeParameter, ValueParameter
-from .typing import Number, Optional, cast
+from .typing import Generator, Number, Optional, cast
 
 
 class AbstractNavigator(ABC):
@@ -24,65 +23,66 @@ class AbstractNavigator(ABC):
         self.order = order
         self.kernel = kernel
 
-    def navigate(self, n: int, order_id: Optional[int] = None, max_attempts: int = 1) -> list[vs.Point]:
-        return [self.select(order_id, max_attempts) for _ in range(n)]
-
-    def select(self, order_id: Optional[int] = None, max_attempts: int = 1) -> vs.Point:
-        last_exception: Optional[Exception] = None
-        attempt = 0
-
-        while attempt < max_attempts:
-            attempt += 1
-            try:
-                boatswain = Boatswain(self.order)
-                self.kernel.constrain(boatswain)
-
-                parameters = boatswain.constrain()
-                while parameters:
-                    for parameter in parameters:
-                        boatswain[parameter] = self.fix(boatswain[parameter])
-                    parameters = boatswain.constrain()
-
-                return boatswain.generate_vs(order_id)
-            except Exception as e:
-                last_exception = e
-
-        raise Exception('failed to select VS point') from last_exception
-
-    def num_systems(self, n: int) -> int:
-        return n
-
     @abstractmethod
-    def fix(self, parameter: Parameter) -> Parameter:
+    def navigate(self, scale: int, *args, **kwargs) -> list[vs.Point]:
         pass
 
-
-class Uniform(AbstractNavigator):
-
-    def fix(self, parameter: Parameter) -> ValueParameter:
-        return parameter.random()
+    def num_systems(self, scale: int) -> int:
+        return scale
 
 
-AbstractNavigator.register(Uniform)
+class Random(AbstractNavigator):
+
+    def navigate(self, scale: int, *args, **kwargs) -> list[vs.Point]:
+        return [self.generate(*args, **kwargs) for _ in range(scale)]
+
+    def generate(self, *args, order_id: Optional[int] = None, **kwargs) -> vs.Point:
+        try:
+            boatswain = Boatswain(self.order)
+            self.kernel.constrain(boatswain)
+
+            parameters = boatswain.constrain()
+            while parameters:
+                for parameter in parameters:
+                    boatswain[parameter] = boatswain[parameter].random()[0]
+                parameters = boatswain.constrain()
+
+            return boatswain.generate_vs(order_id)
+        except Exception as e:
+            raise Exception('failed to select VS point') from e
+
+    def num_systems(self, scale: int) -> int:
+        return scale
 
 
-class Lattice(AbstractNavigator):
+AbstractNavigator.register(Random)
 
-    def navigate(self, n: int, order_id: Optional[int] = None, max_attempts: int = 1) -> list[vs.Point]:
+
+class LatticeNavigator(AbstractNavigator):
+
+    def navigate(self, scale: int, *args, **kwargs) -> list[vs.Point]:
         boatswain = Boatswain(self.order)
         self.kernel.constrain(boatswain)
-        return list(self.iterate(boatswain, [], n, order_id=order_id))
+        return list(self.iterate(boatswain, [], scale, *args, **kwargs))
 
-    def iterate(self, boatswain: Boatswain, parameters: list[Parameter], steps: int, order_id: Optional[int] = None):
+    def iterate(
+        self,
+        boatswain: Boatswain,
+        parameters: list[Parameter],
+        scale: int,
+        *args,
+        order_id: Optional[int] = None,
+        **kwargs,
+    ) -> Generator[vs.Point, None, None]:
         if not parameters:
             parameters = boatswain.constrain()
 
         if parameters:
             parameter, *rest = parameters
             try:
-                for value in self.lattice(boatswain[parameter], steps):
+                for value in self.generate(boatswain[parameter], scale, *args, **kwargs):
                     boatswain[parameter] = value
-                    for point in self.iterate(boatswain, rest, steps, order_id=order_id):
+                    for point in self.iterate(boatswain, rest, scale, *args, order_id=order_id, **kwargs):
                         yield point
                     boatswain.hardset(parameter, parameter)
             except Exception:
@@ -90,32 +90,30 @@ class Lattice(AbstractNavigator):
         else:
             yield boatswain.generate_vs(order_id)
 
-    def fix(self, parameter: Parameter) -> ValueParameter:
-        if isinstance(parameter, ValueParameter):
-            return parameter
-        elif isinstance(parameter, RangeParameter):
-            value = random.uniform(parameter.min, parameter.max)
-            return parameter.fix(value)
-        elif isinstance(parameter, ListParameter):
-            value = random.choice(parameter.values)
-            return parameter.fix(value)
-        else:
-            raise EleanorException(f'unexpected parameter type "{type(parameter)}"')
+    @abstractmethod
+    def generate(self, parameter: Parameter, scale: int, *args, **kwargs) -> list[ValueParameter]:
+        pass
 
-    def lattice(self, parameter: Parameter, steps: int):
-        if isinstance(parameter, ValueParameter):
-            yield parameter
-        elif isinstance(parameter, RangeParameter):
-            for value in np.linspace(parameter.min, parameter.max, num=steps):
-                yield parameter.fix(float(value))
-        elif isinstance(parameter, ListParameter):
-            for value in islice(cycle(parameter.values), steps):
-                yield parameter.fix(value)
-        else:
-            raise EleanorException(f'unexpected parameter type "{type(parameter)}"')
-
-    def num_systems(self, n: int) -> int:
-        return n**len([1 for p in self.order.parameters() if not isinstance(p, ValueParameter)])
+    def num_systems(self, scale: int) -> int:
+        return scale**len([1 for p in self.order.parameters() if not isinstance(p, ValueParameter)])
 
 
-AbstractNavigator.register(Lattice)
+class RandomLattice(LatticeNavigator):
+
+    def generate(self, parameter: Parameter, scale: int, *args, **kwargs) -> list[ValueParameter]:
+        return parameter.random(size=scale)
+
+
+LatticeNavigator.register(RandomLattice)
+
+
+class Lattice(LatticeNavigator):
+
+    def generate(self, parameter: Parameter, scale: int, *args, **kwargs) -> list[ValueParameter]:
+        if scale < 1:
+            raise ValueError('')
+
+        return parameter.lattice(size=scale)
+
+
+LatticeNavigator.register(Lattice)

@@ -3,8 +3,10 @@ import random
 from abc import ABC, abstractmethod
 from copy import deepcopy
 from dataclasses import dataclass
+from itertools import cycle, islice
 
 import numpy as np
+import scipy.special
 import scipy.stats
 
 from eleanor.exceptions import EleanorException
@@ -30,7 +32,11 @@ class Parameter(ABC):
         return 1.0
 
     @abstractmethod
-    def random(self, size: Optional[int] = None):
+    def random(self, size: int = 1):
+        pass
+
+    @abstractmethod
+    def lattice(self, size: int = 2):
         pass
 
     def restrict(self, cls, *args, **kwargs):
@@ -105,11 +111,11 @@ class ValueParameter(Parameter):
     def volume(self) -> float:
         return 1.0
 
-    def random(self, size: Optional[int] = None) -> Self | list[Self]:
-        if size is None:
-            return deepcopy(self)
-        else:
-            return [deepcopy(self) for _ in range(size)]
+    def random(self, size: int = 1) -> list[Self]:
+        return [deepcopy(self) for _ in range(size)]
+
+    def lattice(self, size: int = 2) -> list[Self]:
+        return [deepcopy(self) for _ in range(size)]
 
 
 Parameter.register(ValueParameter)
@@ -145,14 +151,14 @@ class RangeParameter(Parameter):
     def volume(self) -> float:
         return self.max - self.min
 
-    def random(self, size: Optional[int] = None) -> ValueParameter | list[ValueParameter]:
-        if size is None:
-            return self.fix(float(scipy.stats.uniform.rvs(loc=self.min, scale=self.volume())))
-        else:
-            return [
-                self.fix(float(value))
-                for value in scipy.stats.uniform.rvs(loc=self.min, scale=self.volume(), size=size)  # type: ignore
-            ]
+    def random(self, size: int = 1) -> list[ValueParameter]:
+        return [
+            self.fix(float(value))
+            for value in scipy.stats.uniform.rvs(loc=self.min, scale=self.volume(), size=size)  # type: ignore
+        ]
+
+    def lattice(self, size: int = 2) -> list[ValueParameter]:
+        return [self.fix(float(value)) for value in np.linspace(self.min, self.max, num=size)]
 
 
 Parameter.register(RangeParameter)
@@ -190,12 +196,12 @@ class ListParameter(Parameter):
     def volume(self) -> float:
         return len(self.values)
 
-    def random(self, size: Optional[int] = None) -> ValueParameter | list[ValueParameter]:
-        if size is None:
-            return self.fix(self.values[scipy.stats.randint.rvs(0, len(self.values))])
-        else:
-            return [self.fix(self.values[i])
-                    for i in scipy.stats.randint.rvs(0, len(self.values), size=size)]  # type: ignore
+    def random(self, size: int = 1) -> list[ValueParameter]:
+        return [self.fix(self.values[i])
+                for i in scipy.stats.randint.rvs(0, len(self.values), size=size)]  # type: ignore
+
+    def lattice(self, size: int = 2) -> list[ValueParameter]:
+        return list(map(self.fix, islice(cycle(self.values), size)))
 
 
 Parameter.register(ListParameter)
@@ -239,29 +245,31 @@ class NormalParameter(Parameter):
     def volume(self) -> float:
         return 1.0
 
-    def random(self, size: Optional[int] = None) -> ValueParameter:
+    def random(self, size: int = 1) -> list[ValueParameter]:
         if np.isinf(self.min) and np.isinf(self.max):
-            if size is None:
-                return self.fix(float(scipy.stats.norm.rvs(loc=self.mean, scale=self.stddev)))
-            else:
-                return [self.fix(value)
-                        for value in scipy.stats.norm.rvs(loc=self.mean, scale=self.stddev, size=size)]  # type: ignore
+            values = scipy.stats.norm.rvs(loc=self.mean, scale=self.stddev, size=size)
         else:
             a = (self.min - self.mean) / self.stddev
             b = (self.max - self.mean) / self.stddev
 
-            if size is None:
-                return self.fix(float(scipy.stats.truncnorm.rvs(a, b, loc=self.mean, scale=self.stddev)))
-            else:
-                return [
-                    self.fix(value) for value in scipy.stats.truncnorm.rvs(
-                        a,
-                        b,
-                        loc=self.mean,
-                        scale=self.stddev,
-                        size=size,
-                    )  # type: ignore
-                ]
+            values = scipy.stats.truncnorm.rvs(a, b, loc=self.mean, scale=self.stddev, size=size)
+
+        return [self.fix(value) for value in values]  # type: ignore
+
+    def lattice(self, size: int = 2) -> list[ValueParameter]:
+        u = np.linspace(0, 1, num=size + 2)[1:-1]
+
+        if not np.isinf(self.min) or not np.isinf(self.max):
+            a = (self.min - self.mean) / self.stddev
+            b = (self.max - self.mean) / self.stddev
+
+            phi_alpha = scipy.stats.norm.cdf(a)
+            Z = scipy.stats.norm.cdf(b) - phi_alpha
+
+            u = Z * u + phi_alpha
+
+        values = self.stddev * np.sqrt(2) * scipy.special.erfinv(2 * u - 1) + self.mean
+        return [self.fix(float(value)) for value in values]
 
 
 Parameter.register(NormalParameter)

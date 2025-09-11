@@ -1,8 +1,14 @@
+import itertools
+import random
 from abc import ABC, abstractmethod
+from copy import deepcopy
 from dataclasses import dataclass
 
+import numpy as np
+import scipy.stats
+
 from eleanor.exceptions import EleanorException
-from eleanor.typing import Any, Number, Optional
+from eleanor.typing import Any, Number, Optional, Self
 from eleanor.util import convert_to_number
 
 
@@ -22,6 +28,10 @@ class Parameter(ABC):
     @abstractmethod
     def volume(self) -> float:
         return 1.0
+
+    @abstractmethod
+    def random(self, size: Optional[int] = None):
+        pass
 
     def restrict(self, cls, *args, **kwargs):
         new = cls(self.name, self.type, *args, **kwargs)
@@ -55,10 +65,15 @@ class Parameter(ABC):
         match raw:
             case {'value': value}:
                 parameter: Parameter = ValueParameter(name, param_type, convert_to_number(value))
-            case {'min': min, 'max': max}:
-                parameter = RangeParameter(name, param_type, convert_to_number(min), convert_to_number(max))
             case {'values': values}:
                 parameter = ListParameter(name, param_type, [convert_to_number(v) for v in values])
+            case {'mean': mean}:
+                stddev = convert_to_number(raw['stddev']) if 'stddev' in raw else None
+                a = convert_to_number(raw['min']) if 'min' in raw else float('-inf')
+                b = convert_to_number(raw['max']) if 'max' in raw else float('inf')
+                parameter = NormalParameter(name, param_type, convert_to_number(mean), stddev=stddev, a=a, b=b)
+            case {'min': min, 'max': max}:
+                parameter = RangeParameter(name, param_type, convert_to_number(min), convert_to_number(max))
             case _:
                 raise EleanorException('parameter must have value, values or min and max')
 
@@ -89,6 +104,12 @@ class ValueParameter(Parameter):
 
     def volume(self) -> float:
         return 1.0
+
+    def random(self, size: Optional[int] = None) -> Self | list[Self]:
+        if size is None:
+            return deepcopy(self)
+        else:
+            return [deepcopy(self) for _ in range(size)]
 
 
 Parameter.register(ValueParameter)
@@ -124,8 +145,14 @@ class RangeParameter(Parameter):
     def volume(self) -> float:
         return self.max - self.min
 
-    def midpoint(self) -> float:
-        return (self.max + self.min) / 2
+    def random(self, size: Optional[int] = None) -> ValueParameter | list[ValueParameter]:
+        if size is None:
+            return self.fix(float(scipy.stats.uniform.rvs(loc=self.min, scale=self.volume())))
+        else:
+            return [
+                self.fix(float(value))
+                for value in scipy.stats.uniform.rvs(loc=self.min, scale=self.volume(), size=size)  # type: ignore
+            ]
 
 
 Parameter.register(RangeParameter)
@@ -163,8 +190,81 @@ class ListParameter(Parameter):
     def volume(self) -> float:
         return len(self.values)
 
+    def random(self, size: Optional[int] = None) -> ValueParameter | list[ValueParameter]:
+        if size is None:
+            return self.fix(self.values[scipy.stats.randint.rvs(0, len(self.values))])
+        else:
+            return [self.fix(self.values[i])
+                    for i in scipy.stats.randint.rvs(0, len(self.values), size=size)]  # type: ignore
+
 
 Parameter.register(ListParameter)
+
+
+@dataclass
+class NormalParameter(Parameter):
+    mean: Number
+    stddev: Number
+    min: Number
+    max: Number
+
+    def __init__(
+            self,
+            name: str,
+            type: Optional[str],
+            mean: Number,
+            stddev: Optional[Number] = None,
+            a: Number = float('-inf'),
+            b: Number = float('inf'),
+    ):
+        self.name = name
+        self.type = type
+        self.mean = mean
+        self.min, self.max = min(a, b), max(a, b)
+
+        if stddev is None:
+            if np.isinf(self.min) or np.isinf(self.max):
+                self.stddev = 1.0
+            else:
+                self.stddev = (self.max - self.min) / 6
+        else:
+            self.stddev = stddev
+
+    def in_domain(self, parameter: Parameter) -> bool:
+        return True
+
+    def range(self) -> tuple[Number, Number]:
+        return -float('inf'), float('inf')
+
+    def volume(self) -> float:
+        return 1.0
+
+    def random(self, size: Optional[int] = None) -> ValueParameter:
+        if np.isinf(self.min) and np.isinf(self.max):
+            if size is None:
+                return self.fix(float(scipy.stats.norm.rvs(loc=self.mean, scale=self.stddev)))
+            else:
+                return [self.fix(value)
+                        for value in scipy.stats.norm.rvs(loc=self.mean, scale=self.stddev, size=size)]  # type: ignore
+        else:
+            a = (self.min - self.mean) / self.stddev
+            b = (self.max - self.mean) / self.stddev
+
+            if size is None:
+                return self.fix(float(scipy.stats.truncnorm.rvs(a, b, loc=self.mean, scale=self.stddev)))
+            else:
+                return [
+                    self.fix(value) for value in scipy.stats.truncnorm.rvs(
+                        a,
+                        b,
+                        loc=self.mean,
+                        scale=self.stddev,
+                        size=size,
+                    )  # type: ignore
+                ]
+
+
+Parameter.register(NormalParameter)
 
 Valuation = dict[int, Parameter]
 

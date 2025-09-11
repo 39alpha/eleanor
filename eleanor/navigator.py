@@ -60,16 +60,7 @@ class AbstractNavigator(ABC):
 class Uniform(AbstractNavigator):
 
     def fix(self, parameter: Parameter) -> ValueParameter:
-        if isinstance(parameter, ValueParameter):
-            return parameter
-        elif isinstance(parameter, RangeParameter):
-            value = random.uniform(parameter.min, parameter.max)
-            return parameter.fix(value)
-        elif isinstance(parameter, ListParameter):
-            value = random.choice(parameter.values)
-            return parameter.fix(value)
-        else:
-            raise EleanorException(f'unexpected parameter type "{type(parameter)}"')
+        return parameter.random()
 
 
 AbstractNavigator.register(Uniform)

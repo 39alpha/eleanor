@@ -4,7 +4,8 @@ from dataclasses import dataclass
 from eleanor.constraints import AbstractConstraint
 from eleanor.exceptions import EleanorException
 from eleanor.order import Order
-from eleanor.parameters import ListParameter, Parameter, ParameterRegistry, RangeParameter, Valuation, ValueParameter
+from eleanor.parameters import (ListParameter, NormalParameter, Parameter, ParameterRegistry, RangeParameter, Valuation,
+                                ValueParameter)
 from eleanor.typing import Number
 
 from .data1 import Data1
@@ -55,6 +56,20 @@ class TemperatureRangeConstraint(AbstractConstraint):
             elif isinstance(refined, ListParameter):
                 values = [t for t in refined.values if self.min_t <= t and t <= self.max_t]
                 return {temperature_id: refined.restrict(ListParameter, values)}
+            elif isinstance(refined, NormalParameter):
+                min_t = max(refined.min, self.min_t)
+                max_t = min(refined.max, self.max_t)
+
+                return {
+                    temperature_id:
+                    refined.restrict(
+                        NormalParameter,
+                        refined.mean,
+                        stddev=refined.stddev,
+                        a=min_t,
+                        b=max_t,
+                    )
+                }
         except EleanorException as e:
             raise EleanorException('temperature is incompatible with the data1 temperature range') from e
 

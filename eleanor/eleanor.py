@@ -107,14 +107,14 @@ def process_batch(pool,
                   config_or_queue: DatabaseConfig | Queue[Optional[vs.Point]],
                   kernel: AbstractKernel,
                   navigator: AbstractNavigator,
-                  num_samples: int,
+                  simulation_size: int,
                   order_id: int,
                   *args,
                   scratch: bool = False,
                   success_sampling: bool = False,
                   progress: Optional[Queue[bool]] = None,
                   **kwargs):
-    vs_points = navigator.navigate(num_samples, order_id=order_id, max_attempts=1)
+    vs_points = navigator.navigate(simulation_size, order_id=order_id, max_attempts=1)
 
     futures = []
     for batch_num, batch in enumerate(chunks(vs_points, pool._processes)):  # type: ignore
@@ -144,7 +144,7 @@ def Eleanor(
     config: str | Config,
     order: str | Order,
     kernel_args: list[Any],
-    num_samples: int,
+    simulation_size: int,
     *args,
     no_huffer: bool = False,
     num_procs: int | None = None,
@@ -174,7 +174,7 @@ def Eleanor(
         volume = order.volume()
 
         for suborder in suborders:
-            suborder_samples = num_samples
+            suborder_samples = simulation_size
             if proportional_sampling:
                 suborder_samples = round(suborder_samples * suborder.volume() / volume)
 
@@ -216,7 +216,7 @@ def Eleanor(
     manager = Manager()
 
     if show_progress:
-        progress = Progress(manager, navigator.num_systems(num_samples))
+        progress = Progress(manager, navigator.num_systems(simulation_size))
 
     yeoman = None
     if config.database.dialect == 'sqlite' or config.database.use_actor:
@@ -234,7 +234,7 @@ def Eleanor(
     with Pool(processes=num_procs) as pool:
         if success_sampling:
             successes = count_successes(config.database, order_id)
-            target_samples = successes + num_samples
+            target_samples = successes + simulation_size
 
             while successes < target_samples:
                 process_batch(pool,
@@ -256,7 +256,7 @@ def Eleanor(
                           config.database if yeoman is None else yeoman.queue,
                           kernel,
                           navigator,
-                          num_samples,
+                          simulation_size,
                           order_id,
                           *args,
                           scratch=scratch,

@@ -17,7 +17,7 @@ def main():
                             action="store_true",
                             help="sample size counts success only")
     arg_parser.add_argument("campaign", type=str, help="campaign file")
-    arg_parser.add_argument("samples", type=int, help="number of samples")
+    arg_parser.add_argument("simulation_size", type=int, help="the size of the simulation")
     arg_parser.add_argument('kernel_args', nargs='*')
 
     args = vars(arg_parser.parse_args())
@@ -28,7 +28,7 @@ def main():
     kernel_args = args['kernel_args']
     no_huffer = args['no_huffer']
     num_procs = args['num_procs']
-    num_samples = args['samples']
+    simulation_size = args['simulation_size']
     scratch = args['scratch']
     show_progress = args['progress']
     success_sampling = args['success_sampling']
@@ -38,7 +38,7 @@ def main():
         config,
         campaign,
         kernel_args,
-        num_samples,
+        simulation_size,
         batch_size=batch_size,
         no_huffer=no_huffer,
         num_procs=num_procs,

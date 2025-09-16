@@ -31,6 +31,10 @@ class AbstractNavigator(ABC):
         return scale
 
 
+    def huffer_problem(self, *args, **kwargs) -> vs.Point:
+        return self.navigate(1, *args, **kwargs)[0]
+
+
 class Random(AbstractNavigator):
 
     def navigate(self, scale: int, *args, **kwargs) -> list[vs.Point]:

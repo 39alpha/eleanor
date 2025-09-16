@@ -42,7 +42,7 @@ def ignite(
 ) -> int:
     if huffer_with is not None:
         kernel, navigator = huffer_with
-        huffer_problem = navigator.select(max_attempts=1)
+        huffer_problem = navigator.huffer_problem()
         huffer_point = sailor.__run(kernel, huffer_problem, *args, scratch=True, **kwargs)
         order.huffer_result = HufferResult.from_scratch(huffer_point.scratch, huffer_point.exit_code)
     else:

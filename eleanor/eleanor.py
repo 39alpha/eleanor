@@ -76,9 +76,7 @@ def ignite(
             yeoman.commit()
         else:
             order.eleanor_version = __version__
-            yeoman.add(order)
-            yeoman.commit()
-            yeoman.refresh(order)
+            yeoman.write(order, refresh=True)
             order_id = order.id
 
     if huffer_point is not None and not kernel.is_soft_exit(huffer_point.exit_code):

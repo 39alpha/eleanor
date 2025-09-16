@@ -59,7 +59,9 @@ class Yeoman(Session):
     def setup(self) -> None:
         yeoman_registry.metadata.create_all(self.engine)
 
-    def write(self, entity):
+    def write(self, entity, refresh: bool = False):
         with self as session:
             session.add(entity)
             session.commit()
+            if refresh:
+                session.refresh(entity)

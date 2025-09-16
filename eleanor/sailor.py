@@ -84,18 +84,26 @@ def sailor(
     verbose: bool = False,
     success_only_progress: bool = False,
     **kwargs,
-):
+) -> list[int]:
+    vs_point_ids: list[int] = []
     with Yeoman(config, verbose=verbose) as yeoman:
         if isinstance(points, list):
             for point in points:
                 vs_point = __run(kernel, point, *args, verbose=verbose, **kwargs)
                 show_progress = not success_only_progress or vs_point.exit_code == 0
-                yeoman.write(vs_point)
+                yeoman.write(vs_point, refresh=True)
+                if vs_point.id is None:
+                    raise EleanorException("variable space point does not have an id after insert")
+                vs_point_ids.append(vs_point.id)
                 if progress is not None and show_progress:
                     progress.put(True)
         else:
             vs_point = __run(kernel, points, *args, verbose=verbose, **kwargs)
             show_progress = not success_only_progress or vs_point.exit_code == 0
-            yeoman.write(vs_point)
+            yeoman.write(vs_point, refresh=True)
+            if vs_point.id is None:
+                raise EleanorException("variable space point does not have an id after insert")
+            vs_point_ids.append(vs_point.id)
             if progress is not None and show_progress:
                 progress.put(True)
+    return vs_point_ids

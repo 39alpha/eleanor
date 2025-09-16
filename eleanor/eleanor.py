@@ -121,6 +121,8 @@ def process_batch(pool,
         if progress is not None:
             progress.put(len(vs_points))
 
+        vs_point_ids: list[int] = []
+
         futures = []
         for batch_num, batch in enumerate(chunks(vs_points, pool._processes)):  # type: ignore
             future = pool.apply_async(sailor.sailor, (config, kernel, batch, *args), {
@@ -133,9 +135,9 @@ def process_batch(pool,
 
         while futures:
             future = futures.pop()
-            future.get()
+            vs_point_ids.extend(future.get())
 
-        if navigator.is_complete():
+        if navigator.is_complete(vs_point_ids):
             break
 
 

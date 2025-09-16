@@ -140,6 +140,92 @@ def prepare(config, order, kernel_args, **kwargs):
     return config, order, kernel, navigator
 
 
+def _run(
+    config: Config,
+    order: Order,
+    kernel: AbstractKernel,
+    navigator: AbstractNavigator,
+    simulation_size: int,
+    *args,
+    no_huffer: bool = False,
+    num_procs: int | None = None,
+    show_progress: bool = False,
+    scratch: bool = False,
+    success_sampling: bool = False,
+    verbose: bool = False,
+    order_id: Optional[int] = None,
+    combined: bool = False,
+    proportional_sampling: bool = False,
+    **kwargs,
+):
+    if order_id is None:
+        huffer_with = None
+        if not no_huffer:
+            huffer_with = (kernel, navigator)
+        order_id = ignite(config, order, *args, verbose=verbose, huffer_with=huffer_with, **kwargs)
+
+    manager = Manager()
+
+    if show_progress:
+        progress = Progress(manager, navigator.num_systems(simulation_size))
+
+    yeoman = None
+    if config.database.dialect == 'sqlite' or config.database.use_actor:
+        yeoman = YeomanActor(
+            manager,
+            config.database,
+            verbose=verbose,
+            progress=progress,
+            success_only_progress=success_sampling,
+        )
+
+    if num_procs is not None and num_procs <= 0:
+        num_procs = 1
+
+    with Pool(processes=num_procs) as pool:
+        if success_sampling:
+            successes = count_successes(config.database, order_id)
+            target_samples = successes + simulation_size
+
+            while successes < target_samples:
+                process_batch(pool,
+                              config.database if yeoman is None else yeoman.queue,
+                              kernel,
+                              navigator,
+                              target_samples - successes,
+                              order_id,
+                              *args,
+                              scratch=scratch,
+                              success_sampling=success_sampling,
+                              progress=progress.queue if yeoman is None else None,
+                              verbose=verbose,
+                              **kwargs)
+
+                successes = count_successes(config.database, order_id)
+        else:
+            process_batch(pool,
+                          config.database if yeoman is None else yeoman.queue,
+                          kernel,
+                          navigator,
+                          simulation_size,
+                          order_id,
+                          *args,
+                          scratch=scratch,
+                          success_sampling=success_sampling,
+                          progress=progress.queue if yeoman is None else None,
+                          verbose=verbose,
+                          **kwargs)
+
+    if progress is not None:
+        progress.join()
+
+    if yeoman is not None:
+        yeoman.queue.put(None)
+        yeoman.join()
+
+    return [order_id]
+
+
 def Eleanor(
     config: str | Config,
     order: str | Order,
@@ -207,69 +293,21 @@ def Eleanor(
     kernel = load_kernel(order, kernel_args, verbose=verbose, **kwargs)
     navigator = order.navigator.load()(order, kernel)
 
-    if order_id is None:
-        huffer_with = None
-        if not no_huffer:
-            huffer_with = (kernel, navigator)
-        order_id = ignite(config, order, *args, verbose=verbose, huffer_with=huffer_with, **kwargs)
-
-    manager = Manager()
-
-    if show_progress:
-        progress = Progress(manager, navigator.num_systems(simulation_size))
-
-    yeoman = None
-    if config.database.dialect == 'sqlite' or config.database.use_actor:
-        yeoman = YeomanActor(
-            manager,
-            config.database,
-            verbose=verbose,
-            progress=progress,
-            success_only_progress=success_sampling,
-        )
-
-    if num_procs is not None and num_procs <= 0:
-        num_procs = 1
-
-    with Pool(processes=num_procs) as pool:
-        if success_sampling:
-            successes = count_successes(config.database, order_id)
-            target_samples = successes + simulation_size
-
-            while successes < target_samples:
-                process_batch(pool,
-                              config.database if yeoman is None else yeoman.queue,
-                              kernel,
-                              navigator,
-                              target_samples - successes,
-                              order_id,
-                              *args,
-                              scratch=scratch,
-                              success_sampling=success_sampling,
-                              progress=progress.queue if yeoman is None else None,
-                              verbose=verbose,
-                              **kwargs)
-
-                successes = count_successes(config.database, order_id)
-        else:
-            process_batch(pool,
-                          config.database if yeoman is None else yeoman.queue,
-                          kernel,
-                          navigator,
-                          simulation_size,
-                          order_id,
-                          *args,
-                          scratch=scratch,
-                          success_sampling=success_sampling,
-                          progress=progress.queue if yeoman is None else None,
-                          verbose=verbose,
-                          **kwargs)
-
-    if progress is not None:
-        progress.join()
-
-    if yeoman is not None:
-        yeoman.queue.put(None)
-        yeoman.join()
-
-    return [order_id]
+    return _run(
+        config,
+        order,
+        kernel,
+        navigator,
+        simulation_size,
+        *args,
+        no_huffer=no_huffer,
+        num_procs=num_procs,
+        show_progress=show_progress,
+        scratch=scratch,
+        success_sampling=success_sampling,
+        verbose=verbose,
+        order_id=order_id,
+        combined=combined,
+        proportional_sampling=proportional_sampling,
+        **kwargs,
+    )

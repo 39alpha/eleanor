@@ -21,7 +21,6 @@ from .typing import Any, Optional, Self, cast
 from .util import Progress, chunks
 from .version import __version__
 from .yeoman import Yeoman
-from .yeoman_actor import YeomanActor
 
 
 def load_kernel(order: Order, kernel_args: list[Any], **kwargs) -> AbstractKernel:
@@ -104,7 +103,7 @@ def count_successes(config: DatabaseConfig, order_id: int) -> int:
 
 
 def process_batch(pool,
-                  config_or_queue: DatabaseConfig | Queue[Optional[vs.Point]],
+                  config: DatabaseConfig,
                   kernel: AbstractKernel,
                   navigator: AbstractNavigator,
                   simulation_size: int,
@@ -118,7 +117,7 @@ def process_batch(pool,
 
     futures = []
     for batch_num, batch in enumerate(chunks(vs_points, pool._processes)):  # type: ignore
-        future = pool.apply_async(sailor.sailor, (config_or_queue, kernel, batch, *args), {
+        future = pool.apply_async(sailor.sailor, (config, kernel, batch, *args), {
             **kwargs,
             'scratch': scratch,
             'progress': progress,
@@ -169,16 +168,6 @@ def _run(
     if show_progress:
         progress = Progress(manager, navigator.num_systems(simulation_size))
 
-    yeoman = None
-    if config.database.dialect == 'sqlite' or config.database.use_actor:
-        yeoman = YeomanActor(
-            manager,
-            config.database,
-            verbose=verbose,
-            progress=progress,
-            success_only_progress=success_sampling,
-        )
-
     if num_procs is not None and num_procs <= 0:
         num_procs = 1
 
@@ -189,7 +178,7 @@ def _run(
 
             while successes < target_samples:
                 process_batch(pool,
-                              config.database if yeoman is None else yeoman.queue,
+                              config.database,
                               kernel,
                               navigator,
                               target_samples - successes,
@@ -197,14 +186,14 @@ def _run(
                               *args,
                               scratch=scratch,
                               success_sampling=success_sampling,
-                              progress=progress.queue if yeoman is None else None,
+                              progress=progress.queue,
                               verbose=verbose,
                               **kwargs)
 
                 successes = count_successes(config.database, order_id)
         else:
             process_batch(pool,
-                          config.database if yeoman is None else yeoman.queue,
+                          config.database,
                           kernel,
                           navigator,
                           simulation_size,
@@ -212,16 +201,12 @@ def _run(
                           *args,
                           scratch=scratch,
                           success_sampling=success_sampling,
-                          progress=progress.queue if yeoman is None else None,
+                          progress=progress.queue,
                           verbose=verbose,
                           **kwargs)
 
     if progress is not None:
         progress.join()
-
-    if yeoman is not None:
-        yeoman.queue.put(None)
-        yeoman.join()
 
     return [order_id]
 

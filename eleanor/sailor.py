@@ -75,7 +75,7 @@ def __run(
             return vs_point
 
 
-def sailor_with_config(
+def sailor(
     config: DatabaseConfig,
     kernel: AbstractKernel,
     points: vs.Point | list[vs.Point],
@@ -99,26 +99,3 @@ def sailor_with_config(
             yeoman.write(vs_point)
             if progress is not None and show_progress:
                 progress.put(True)
-
-
-def sailor_with_queue(
-    yeoman: Queue[Optional[vs.Point]],
-    kernel: AbstractKernel,
-    points: vs.Point | list[vs.Point],
-    *args,
-    **kwargs,
-):
-    if isinstance(points, list):
-        for point in points:
-            vs_point = __run(kernel, point, *args, **kwargs)
-            yeoman.put(vs_point)
-    else:
-        vs_point = __run(kernel, points, *args, **kwargs)
-        yeoman.put(vs_point)
-
-
-def sailor(config_or_queue: DatabaseConfig | Queue[Optional[vs.Point]], *args, **kwargs):
-    if isinstance(config_or_queue, DatabaseConfig):
-        sailor_with_config(config_or_queue, *args, **kwargs)
-    else:
-        sailor_with_queue(config_or_queue, *args, **kwargs)

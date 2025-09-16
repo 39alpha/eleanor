@@ -10,30 +10,26 @@ from .typing import Any, Callable, Optional, cast
 
 @dataclass
 class DatabaseConfig(object):
-    dialect: str = 'sqlite'
-    dbapi: Optional[str] = None
+    dialect: str = 'postgresql'
+    dbapi: Optional[str] = 'psycopg'
     host: Optional[str] = 'localhost'
     port: Optional[int] = None
-    database: Optional[str] = 'campaign.sql'
+    database: Optional[str] = None
     username: Optional[str] = None
     password: Optional[str] = None
-    use_actor: bool = False
 
     def __post_init__(self):
-        if self.dialect not in ['sqlite', 'postgresql']:
-            msg = f'the "{self.dialect}" database dialect is not supported; choose either "sqlite" or "postgresql"'
+        if self.dialect not in ['postgresql']:
+            msg = f'the "{self.dialect}" database dialect is not supported; choose "postgresql"'
             raise EleanorConfigurationException(msg)
 
-        if self.dialect != 'sqlite' and any(x is None for x in [self.dbapi, self.username, self.password]):
+        if any(x is None for x in [self.dbapi, self.username, self.password]):
             msg = f'must provide a dbapi, username and password for {self.dialect} databases'
             raise EleanorConfigurationException(msg)
 
     def __str__(self) -> str:
-        if self.dialect == 'sqlite':
-            return f'sqlite:///{self.database}'
-        else:
-            port = f':{self.port}' if self.port is not None else ''
-            return f'{self.dialect}+{self.dbapi}://{self.username}:{self.password}@{self.host}{port}/{self.database}'
+        port = f':{self.port}' if self.port is not None else ''
+        return f'{self.dialect}+{self.dbapi}://{self.username}:{self.password}@{self.host}{port}/{self.database}'
 
 
 @dataclass(init=False)

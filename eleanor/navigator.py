@@ -30,9 +30,11 @@ class AbstractNavigator(ABC):
     def num_systems(self, scale: int) -> int:
         return scale
 
-
     def huffer_problem(self, *args, **kwargs) -> vs.Point:
         return self.navigate(1, *args, **kwargs)[0]
+
+    def supports_success_sampling(self) -> bool:
+        return True
 
 
 class Random(AbstractNavigator):
@@ -118,6 +120,9 @@ class Lattice(LatticeNavigator):
             raise ValueError('')
 
         return parameter.lattice(size=scale)
+
+    def supports_success_sampling(self) -> bool:
+        return False
 
 
 LatticeNavigator.register(Lattice)

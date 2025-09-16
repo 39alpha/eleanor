@@ -113,6 +113,11 @@ def process_batch(pool,
                   success_sampling: bool = False,
                   progress: Optional[Queue[bool]] = None,
                   **kwargs):
+
+    if success_sampling and not navigator.supports_success_sampling():
+        msg = f"{navigator.__class__.__module__}.{navigator.__class__.__name__} does not support success sampling"
+        raise EleanorException(msg)
+
     vs_points = navigator.navigate(simulation_size, order_id=order_id, max_attempts=1)
 
     futures = []
@@ -157,6 +162,10 @@ def _run(
     proportional_sampling: bool = False,
     **kwargs,
 ):
+    if success_sampling and not navigator.supports_success_sampling():
+        msg = f"{navigator.__class__.__module__}.{navigator.__class__.__name__} does not support success sampling"
+        raise EleanorException(msg)
+
     if order_id is None:
         huffer_with = None
         if not no_huffer:

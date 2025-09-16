@@ -20,24 +20,46 @@ class Progress(object):
     queue: Queue
     process: Process
     samples: int
+    no_total_update: bool
 
-    def __init__(self, manager: SyncManager, num_samples: int):
-        self.samples = num_samples
+    def __init__(self, manager: SyncManager, no_total_update: bool = False):
+        self.samples = 0
+        self.no_total_update = no_total_update
         self.queue = manager.Queue()
         self.process = Process(target=self.listen)
         self.process.start()
 
     def listen(self):
-        progress = tqdm(total=self.samples, unit=' systems', colour='#ec5c29')
-        while self.samples > 0:
-            if not self.queue.get():
-                break
-            progress.update()
-            self.samples -= 1
+        progress = None
+
+        first_total_update = True
+        while True:
+            msg = self.queue.get()
+            if isinstance(msg, bool):
+                if not msg:
+                    self.queue.task_done()
+                    break
+                if progress is None:
+                    progress = tqdm(total=self.samples, unit=' systems', colour='#ec5c29')
+                progress.update()
+            elif first_total_update:
+                self.samples = msg
+                progress = tqdm(total=self.samples, unit=' systems', colour='#ec5c29')
+                first_total_update = False
+            elif not self.no_total_update:
+                self.samples += msg
+                if progress is None:
+                    progress = tqdm(total=self.samples, unit=' systems', colour='#ec5c29')
+                else:
+                    progress.total += msg
+                    progress.refresh()
             self.queue.task_done()
-        progress.close()
+
+        if progress is not None:
+            progress.close()
 
     def join(self):
+        self.queue.put(False)
         self.queue.join()
         self.process.join()
 

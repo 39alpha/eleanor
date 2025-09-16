@@ -36,6 +36,9 @@ class AbstractNavigator(ABC):
     def supports_success_sampling(self) -> bool:
         return True
 
+    def is_complete(self) -> bool:
+        return True
+
 
 class Random(AbstractNavigator):
 

@@ -111,28 +111,34 @@ def process_batch(pool,
                   *args,
                   scratch: bool = False,
                   success_sampling: bool = False,
-                  progress: Optional[Queue[bool]] = None,
+                  progress: Optional[Queue[bool | int]] = None,
                   **kwargs):
 
     if success_sampling and not navigator.supports_success_sampling():
         msg = f"{navigator.__class__.__module__}.{navigator.__class__.__name__} does not support success sampling"
         raise EleanorException(msg)
 
-    vs_points = navigator.navigate(simulation_size, order_id=order_id, max_attempts=1)
+    while True:
+        vs_points = navigator.navigate(simulation_size, order_id=order_id, max_attempts=1)
+        if progress is not None:
+            progress.put(len(vs_points))
 
-    futures = []
-    for batch_num, batch in enumerate(chunks(vs_points, pool._processes)):  # type: ignore
-        future = pool.apply_async(sailor.sailor, (config, kernel, batch, *args), {
-            **kwargs,
-            'scratch': scratch,
-            'progress': progress,
-            'success_only_progress': success_sampling,
-        })
-        futures.append(future)
+        futures = []
+        for batch_num, batch in enumerate(chunks(vs_points, pool._processes)):  # type: ignore
+            future = pool.apply_async(sailor.sailor, (config, kernel, batch, *args), {
+                **kwargs,
+                'scratch': scratch,
+                'progress': progress,
+                'success_only_progress': success_sampling,
+            })
+            futures.append(future)
 
-    while futures:
-        future = futures.pop()
-        future.get()
+        while futures:
+            future = futures.pop()
+            future.get()
+
+        if navigator.is_complete():
+            break
 
 
 def prepare(config, order, kernel_args, **kwargs):
@@ -174,8 +180,9 @@ def _run(
 
     manager = Manager()
 
+    progress: Optional[Progress] = None
     if show_progress:
-        progress = Progress(manager, navigator.num_systems(simulation_size))
+        progress = Progress(manager, no_total_update=success_sampling)
 
     if num_procs is not None and num_procs <= 0:
         num_procs = 1
@@ -195,7 +202,7 @@ def _run(
                               *args,
                               scratch=scratch,
                               success_sampling=success_sampling,
-                              progress=progress.queue,
+                              progress=progress.queue if progress is not None else None,
                               verbose=verbose,
                               **kwargs)
 
@@ -210,7 +217,7 @@ def _run(
                           *args,
                           scratch=scratch,
                           success_sampling=success_sampling,
-                          progress=progress.queue,
+                          progress=progress.queue if progress is not None else None,
                           verbose=verbose,
                           **kwargs)
 

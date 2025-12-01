@@ -13,6 +13,7 @@ dependencies = [
   'scipy',
   'sqlalchemy==2.0.35',
   'tqdm',
+  'xdg-base-dirs',
 ]
 requires-python = ">= 3.11"
 dynamic = ["version"]

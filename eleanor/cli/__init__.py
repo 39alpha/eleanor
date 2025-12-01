@@ -4,6 +4,7 @@ import eleanor.cli.huffer as huffer
 import eleanor.cli.run as run
 import eleanor.cli.schema as schema
 import eleanor.cli.scratch as scratch
+import eleanor.cli.util as util
 
 
 def main():
@@ -22,7 +23,3 @@ def main():
 
     args = parser.parse_args()
     return args.func(args)
-
-
-if __name__ == '__main__':
-    main()

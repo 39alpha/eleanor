@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 import argparse
 import io
 import os
@@ -7,7 +5,7 @@ import sys
 from dataclasses import asdict
 from zipfile import ZipFile
 
-from eleanor.config import DatabaseConfig, load_config
+from eleanor.cli.util import add_config_args, config_from_args
 from eleanor.variable_space import Point
 from eleanor.yeoman import Yeoman, select
 
@@ -15,32 +13,18 @@ from eleanor.yeoman import Yeoman, select
 def init(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
     parser.description = 'Dump huffer results to a directory'
 
+    parser.add_argument('vs_id', type=int, help='the variable space id for the huffer entry')
     parser.add_argument(
-        '-c',
-        '--config',
+        '-o',
+        '--outdir',
         required=False,
         type=str,
-        default=os.path.expanduser('~/.config/eleanor/local.yaml'),
-        help='the database configuration file to use',
+        default='.',
+        help='path to the directory in which to extract the scratch files (default: "%(default)s")',
     )
-    parser.add_argument(
-        '-d',
-        '--database',
-        required=False,
-        type=str,
-        help='override the database from the configuration file',
-    )
-    parser.add_argument(
-        'vs_id',
-        type=int,
-        help='the variable space id for the huffer entry',
-    )
-    parser.add_argument(
-        'outdir',
-        type=str,
-        nargs='?',
-        help='path to the directory in which to extract the scratch files',
-    )
+
+    add_config_args(parser)
+
     parser.set_defaults(func=execute)
 
     return parser
@@ -49,26 +33,20 @@ def init(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
 def execute(ns: argparse.Namespace):
     args = vars(ns)
 
-    config_path = os.path.expanduser(args['config'])
     variable_space_id = args['vs_id']
-    directory = args['outdir'] if args['outdir'] else '.'
+    directory = args['outdir']
     database = args['database']
 
     print(f'Loading {args["config"]}')
-    config = load_config(config_path).database
-
-    if database is not None:
-        kwargs = asdict(config)
-        kwargs.update({'database': database})
-        config = DatabaseConfig(**kwargs)
+    config = config_from_args(args)
 
     try:
-        with Yeoman(config) as yeoman:
+        with Yeoman(config.database) as yeoman:
             result = yeoman.scalar(select(Point).where(Point.id == variable_space_id))
             if result is None:
                 raise Exception(f'no variable space point found with id {variable_space_id}')
 
-            print('Database:           ', config.database)
+            print('Database:           ', config.database.database)
             print('Variable Space ID:  ', result.id)
             print('Exit Code:          ', result.exit_code)
 

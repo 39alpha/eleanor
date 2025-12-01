@@ -1,6 +1,7 @@
 import argparse
 
 from eleanor import Eleanor
+from eleanor.cli.util import add_config_args, config_from_args
 
 
 def init(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
@@ -9,7 +10,6 @@ def init(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
     parser.add_argument('-n', '--num-procs', required=False, type=int, help='number of processes')
     parser.add_argument('-v', '--verbose', required=False, action='store_true', help='enable verbose output')
     parser.add_argument('-s', '--scratch', required=False, action='store_true', help='save scratch for all sailors')
-    parser.add_argument('-c', '--config', required=False, type=str, help='path to the configuration file')
     parser.add_argument('-k', '--kernel-args', required=False, action='append', help='arguments to pass to the kernel')
     parser.add_argument('--progress', required=False, action='store_true', help='enable progress bars')
     parser.add_argument('--no-huffer', required=False, action='store_true', help='disable the huffer')
@@ -19,6 +19,9 @@ def init(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
                         help='sample size counts success only')
     parser.add_argument('campaign', type=str, help='campaign file')
     parser.add_argument('simulation_size', type=int, help='the size of the simulation')
+
+    add_config_args(parser)
+
     parser.set_defaults(func=execute)
 
     return parser
@@ -28,7 +31,6 @@ def execute(ns: argparse.Namespace):
     args = vars(ns)
 
     campaign = args['campaign']
-    config = args['config']
     kernel_args = args['kernel_args']
     no_huffer = args['no_huffer']
     num_procs = args['num_procs']
@@ -37,6 +39,8 @@ def execute(ns: argparse.Namespace):
     show_progress = args['progress']
     success_sampling = args['success_sampling']
     verbose = args['verbose']
+
+    config = config_from_args(args)
 
     Eleanor(
         config,

@@ -12,9 +12,10 @@ from eleanor.order import HufferResult
 from eleanor.yeoman import Yeoman, select
 
 
-def main():
-    arg_parser = argparse.ArgumentParser()
-    arg_parser.add_argument(
+def init(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
+    parser.description = 'Dump scratch results to a directory'
+
+    parser.add_argument(
         '-c',
         '--config',
         required=False,
@@ -22,30 +23,35 @@ def main():
         default=os.path.expanduser('~/.config/eleanor/local.yaml'),
         help='the database configuration file to use',
     )
-    arg_parser.add_argument(
+    parser.add_argument(
         '-d',
         '--database',
         required=False,
         type=str,
         help='override the database from the configuration file',
     )
-    arg_parser.add_argument(
-        'order id',
+    parser.add_argument(
+        'order_id',
         type=int,
         help='the order id for the huffer entry',
     )
-    arg_parser.add_argument(
-        'output dir',
+    parser.add_argument(
+        'outdir',
         type=str,
         nargs='?',
         help='path to the directory in which to extract the huffer files',
     )
+    parser.set_defaults(func=execute)
 
-    args = vars(arg_parser.parse_args())
+    return parser
+
+
+def execute(ns: argparse.Namespace):
+    args = vars(ns)
 
     config_path = os.path.expanduser(args['config'])
-    order_id = args['order id']
-    directory = args['output dir'] if args['output dir'] else '.'
+    order_id = args['order_id']
+    directory = args['outdir'] if args['outdir'] else '.'
     database = args['database']
 
     print(f'Loading {args["config"]}')
@@ -74,7 +80,3 @@ def main():
     except Exception as err:
         print(f'Failed to fetch the huffer results: {err}', file=sys.stderr)
         sys.exit(1)
-
-
-if __name__ == '__main__':
-    main()

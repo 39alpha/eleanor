@@ -8,12 +8,18 @@ from eleanor.kernel.discover import import_all_kernels
 from eleanor.yeoman import yeoman_registry
 
 
-def main():
-    arg_parser = argparse.ArgumentParser()
-    arg_parser.add_argument("-c", "--config", required=True, type=str, help="path to the configuration file")
-    arg_parser.add_argument("-o", "--output", required=False, type=str, help="file to which to write the schema")
+def init(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
+    parser.description = 'Dump an Eleanor database schema'
 
-    args = vars(arg_parser.parse_args())
+    parser.add_argument("-c", "--config", required=True, type=str, help="path to the configuration file")
+    parser.add_argument("-o", "--output", required=False, type=str, help="file to which to write the schema")
+    parser.set_defaults(func=execute)
+
+    return parser
+
+
+def execute(ns: argparse.Namespace):
+    args = vars(ns)
 
     import_all_kernels()
 

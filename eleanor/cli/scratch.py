@@ -12,9 +12,10 @@ from eleanor.variable_space import Point
 from eleanor.yeoman import Yeoman, select
 
 
-def main():
-    arg_parser = argparse.ArgumentParser()
-    arg_parser.add_argument(
+def init(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
+    parser.description = 'Dump huffer results to a directory'
+
+    parser.add_argument(
         '-c',
         '--config',
         required=False,
@@ -22,30 +23,35 @@ def main():
         default=os.path.expanduser('~/.config/eleanor/local.yaml'),
         help='the database configuration file to use',
     )
-    arg_parser.add_argument(
+    parser.add_argument(
         '-d',
         '--database',
         required=False,
         type=str,
         help='override the database from the configuration file',
     )
-    arg_parser.add_argument(
-        'variable space id',
+    parser.add_argument(
+        'vs_id',
         type=int,
         help='the variable space id for the huffer entry',
     )
-    arg_parser.add_argument(
-        'output dir',
+    parser.add_argument(
+        'outdir',
         type=str,
         nargs='?',
         help='path to the directory in which to extract the scratch files',
     )
+    parser.set_defaults(func=execute)
 
-    args = vars(arg_parser.parse_args())
+    return parser
+
+
+def execute(ns: argparse.Namespace):
+    args = vars(ns)
 
     config_path = os.path.expanduser(args['config'])
-    variable_space_id = args['variable space id']
-    directory = args['output dir'] if args['output dir'] else '.'
+    variable_space_id = args['vs_id']
+    directory = args['outdir'] if args['outdir'] else '.'
     database = args['database']
 
     print(f'Loading {args["config"]}')
@@ -76,7 +82,3 @@ def main():
     except Exception as err:
         print(f'Failed to fetch the variable space scratch: {err}', file=sys.stderr)
         sys.exit(1)
-
-
-if __name__ == '__main__':
-    main()

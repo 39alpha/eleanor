@@ -23,12 +23,7 @@ Issues = "https://github.com/39alpha/eleanor/issues"
 Changelog = "https://github.com/39alpha/eleanor/blob/master/CHANGELOG.md"
 
 [project.scripts]
-eleanor = "eleanor.cli.run:main"
-eleanor-run = "eleanor.cli.run:main"
-eleanor-fetch = "eleanor.cli.fetch:main"
-eleanor-huffer = "eleanor.cli.huffer:main"
-eleanor-scratch = "eleanor.cli.scratch:main"
-eleanor-schema = "eleanor.cli.schema:main"
+eleanor = "eleanor.cli:main"
 
 [build-system]
 requires = ["hatchling", "hatch-vcs", "hatch-build-scripts"]

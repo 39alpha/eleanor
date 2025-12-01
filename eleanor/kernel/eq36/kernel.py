@@ -635,8 +635,8 @@ class Kernel(AbstractKernel):
             parser.data['solvent_fraction'],
             'solute_fraction':
             parser.data['solute_fraction'],
-            'tds_mass':
-            parser.data['tds_mass'],
+            'tds':
+            parser.data['tds'],
             'pH':
             parser.data['pH']['NBS pH scale']['pH'],
             'Eh':
@@ -797,8 +797,8 @@ class Kernel(AbstractKernel):
                 step['solvent_fraction'],
                 'solute_fraction':
                 step['solute_fraction'],
-                'tds_mass':
-                step['tds_mass'],
+                'tds':
+                step['tds'],
                 'charge_imbalance':
                 step['charge_imbalance'],
                 'expected_charge_imbalance':

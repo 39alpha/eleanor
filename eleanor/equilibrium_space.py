@@ -242,7 +242,7 @@ class Point(object):
         Column('solvent_mass', Double, nullable=False),
         Column('solution_mass', Double, nullable=False),
         Column('solution_volume', Double),
-        Column('tds_mass', Double, nullable=False),
+        Column('tds', Double, nullable=False),
         Column('solute_fraction', Double, nullable=False),
         Column('solvent_fraction', Double, nullable=False),
         Column('extended_alkalinity', Double),
@@ -296,7 +296,7 @@ class Point(object):
     solute_mass: float
     solvent_mass: float
     solution_mass: float
-    tds_mass: float
+    tds: float
     solute_fraction: float
     solvent_fraction: float
 

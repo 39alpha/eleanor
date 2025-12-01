@@ -1,6 +1,7 @@
 import hashlib
 import json
 import operator
+import os.path
 import tomllib
 from abc import ABC, abstractmethod
 from copy import deepcopy
@@ -455,23 +456,21 @@ class Order(Suborder):
 
     @staticmethod
     def from_file(fname: str):
-        parsers: dict[str, Callable[[str], Order]] = {
-            'toml': Order.from_toml,
-            'json': Order.from_json,
-            'yaml': Order.from_yaml,
-        }
-
-        for filetype, func in parsers.items():
-            try:
-                return func(fname)
-            except tomllib.TOMLDecodeError:
-                pass
-            except json.decoder.JSONDecodeError:
-                pass
-            except yaml.scanner.ScannerError:
-                pass
-
-        raise EleanorException(f'failed to parse "{fname}" as yaml, toml or json')
+        try:
+            _, ext = os.path.splitext(fname)
+            match ext:
+                case ".yaml":
+                    return Order.from_yaml(fname)
+                case ".yml":
+                    return Order.from_yaml(fname)
+                case ".toml":
+                    return Order.from_toml(fname)
+                case ".json":
+                    return Order.from_json(fname)
+                case _:
+                    raise RuntimeError(f'unsupported file extension "{ext}"')
+        except Exception as e:
+            raise EleanorException(f'failed to parse "{fname}" as yaml, toml or json') from e
 
 
 def load_order(order: str | Order) -> Order:

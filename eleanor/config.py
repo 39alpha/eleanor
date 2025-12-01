@@ -1,8 +1,10 @@
 import json
+import os.path
 import tomllib
 from dataclasses import asdict, dataclass
 
 import yaml
+from xdg_base_dirs import xdg_config_home
 
 from .exceptions import EleanorConfigurationException, EleanorException
 from .typing import Any, Callable, Optional, cast
@@ -63,19 +65,21 @@ class Config(object):
 
     @staticmethod
     def from_file(fname: str):
-        parsers: dict[str, Callable[[str], Order]] = {  # type: ignore
-            'yaml': Config.from_yaml,
-            'toml': Config.from_toml,
-            'json': Config.from_json
-        }
-
-        for filetype, func in parsers.items():
-            try:
-                return func(fname)
-            except Exception:
-                pass
-
-        raise EleanorException(f'failed to parse "{fname}" as yaml, toml or json')
+        try:
+            _, ext = os.path.splitext(fname)
+            match ext:
+                case ".yaml":
+                    return Config.from_yaml(fname)
+                case ".yml":
+                    return Config.from_yaml(fname)
+                case ".toml":
+                    return Config.from_toml(fname)
+                case ".json":
+                    return Config.from_json(fname)
+                case _:
+                    raise RuntimeError(f'unsupported file extension "{ext}"')
+        except Exception as e:
+            raise EleanorException(f'failed to parse "{fname}" as yaml, toml or json') from e
 
 
 def load_config(config: Optional[str | Config]) -> Config:

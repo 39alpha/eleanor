@@ -64,7 +64,7 @@ class TitratedReactant(AbstractReactant):
 
         reactant_type = ReactantType(raw['type'])
         amount = Parameter.load(raw['amount'], 'amount')
-        titration_rate = Parameter.load(raw['titration_rate'], 'titration_rate')
+        titration_rate = Parameter.load(raw.get('titration_rate', 1.0), 'titration_rate')
 
         return cls(name, reactant_type, amount, titration_rate)
 

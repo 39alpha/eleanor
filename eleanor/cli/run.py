@@ -42,10 +42,7 @@ def execute(ns: argparse.Namespace):
 
     config = config_from_args(args)
 
-    ids = Eleanor.run(
-        config,
-        order,
-        kernel_args,
+    ids = Eleanor(config, order, kernel_args).run(
         simulation_size,
         no_huffer=no_huffer,
         num_procs=num_procs,

@@ -24,12 +24,17 @@ from .yeoman import Yeoman
 
 
 class Eleanor(object):
+    config: Config
+    order: Order
+    kernel_args: list[Any]
 
-    @staticmethod
+    def __init__(self, config: str | Config, order: str | Order, kernel_args: list[Any]):
+        self.config = load_config(config)
+        self.order = load_order(order)
+        self.kernel_args = kernel_args
+
     def run(
-        config: str | Config,
-        order: str | Order,
-        kernel_args: list[Any],
+        self,
         simulation_size: int,
         *args,
         no_huffer: bool = False,
@@ -43,21 +48,18 @@ class Eleanor(object):
         proportional_sampling: bool = False,
         **kwargs,
     ) -> list[int]:
-        order = load_order(order)
-
-        if order.suborders is not None and len(order.suborders.suborders) != 0:
+        if self.order.suborders is not None and len(self.order.suborders.suborders) != 0:
             order_ids: set[int] = set()
 
-            suborders = order.split_suborders()
-            combined = combined or order.suborders.combined
-            proportional_sampling = proportional_sampling or order.suborders.proportional_sampling
+            suborders = self.order.split_suborders()
+            combined = combined or self.order.suborders.combined
+            proportional_sampling = proportional_sampling or self.order.suborders.proportional_sampling
 
             order_id = None
             if combined:
-                config = load_config(config)
-                order_id = Eleanor.ignite(config, order, *args, verbose=verbose, **kwargs)
+                order_id = self.ignite(*args, verbose=verbose, **kwargs)
 
-            volume = order.volume()
+            volume = self.order.volume()
 
             for suborder in suborders:
                 suborder_samples = simulation_size
@@ -65,10 +67,7 @@ class Eleanor(object):
                     suborder_samples = round(suborder_samples * suborder.volume() / volume)
 
                 try:
-                    suborder_ids = Eleanor.run(
-                        config,
-                        suborder,
-                        kernel_args,
+                    suborder_ids = Eleanor(self.config, suborder, self.kernel_args).run(
                         suborder_samples,
                         *args,
                         no_huffer=no_huffer,
@@ -89,15 +88,7 @@ class Eleanor(object):
 
             return sorted(order_ids)
 
-        config = load_config(config)
-        kernel = Eleanor.load_kernel(order, kernel_args, verbose=verbose, **kwargs)
-        navigator = order.navigator.load()(order, kernel)
-
-        return Eleanor._run(
-            config,
-            order,
-            kernel,
-            navigator,
+        return self.dispatch(
             simulation_size,
             *args,
             no_huffer=no_huffer,
@@ -112,18 +103,15 @@ class Eleanor(object):
             **kwargs,
         )
 
-    @staticmethod
-    def load_kernel(order: Order, kernel_args: list[Any], **kwargs) -> AbstractKernel:
-        kernel_module = import_kernel_module(order.kernel.type)
-        kernel = kernel_module.Kernel(order.kernel.settings, *kernel_args)
-        kernel.setup(order, **kwargs)
+    def load_kernel(self, **kwargs) -> AbstractKernel:
+        kernel_module = import_kernel_module(self.order.kernel.type)
+        kernel = kernel_module.Kernel(self.order.kernel.settings, *self.kernel_args)
+        kernel.setup(self.order, **kwargs)
 
         return kernel
 
-    @staticmethod
     def ignite(
-        config: Config,
-        order: Order,
+        self,
         *args,
         huffer_with: Optional[tuple[AbstractKernel, AbstractNavigator]] = None,
         verbose: bool = False,
@@ -133,12 +121,12 @@ class Eleanor(object):
             kernel, navigator = huffer_with
             huffer_problem = navigator.huffer_problem()
             huffer_point = Sailor(kernel).work(huffer_problem, *args, scratch=True, **kwargs)
-            order.huffer_result = HufferResult.from_scratch(huffer_point.scratch, huffer_point.exit_code)
+            self.order.huffer_result = HufferResult.from_scratch(huffer_point.scratch, huffer_point.exit_code)
         else:
             huffer_point = None
-            order.huffer_result = None
+            self.order.huffer_result = None
 
-        with Yeoman(config.database, verbose=verbose) as yeoman:
+        with Yeoman(self.config.database, verbose=verbose) as yeoman:
             yeoman.setup()
 
             if yeoman.scalar(select(Order).where(Order.eleanor_version != __version__)):  # type: ignore
@@ -147,27 +135,27 @@ class Eleanor(object):
             result = yeoman.scalar(
                 select(Order).where(
                     and_(
-                        Order.hash == order.hash,  # type: ignore
+                        Order.hash == self.order.hash,  # type: ignore
                         Order.eleanor_version == __version__,  # type: ignore
                     )))
 
             if result is not None:
-                order_id = order.id = result.id
-                order.eleanor_version = result.eleanor_version
+                order_id = self.order.id = result.id
+                self.order.eleanor_version = result.eleanor_version
 
-                if order.huffer_result is not None:
+                if self.order.huffer_result is not None:
                     if result.huffer_result is None:
-                        result.huffer_result = order.huffer_result
+                        result.huffer_result = self.order.huffer_result
                     else:
-                        result.huffer_result.exit_code = order.huffer_result.exit_code  # type: ignore
-                        result.huffer_result.zip = order.huffer_result.zip  # type: ignore
+                        result.huffer_result.exit_code = self.order.huffer_result.exit_code  # type: ignore
+                        result.huffer_result.zip = self.order.huffer_result.zip  # type: ignore
 
                 yeoman.merge(result)
                 yeoman.commit()
             else:
-                order.eleanor_version = __version__
-                yeoman.write(order, refresh=True)
-                order_id = order.id
+                self.order.eleanor_version = __version__
+                yeoman.write(self.order, refresh=True)
+                order_id = self.order.id
 
         if huffer_point is not None and not kernel.is_soft_exit(huffer_point.exit_code):
             raise EleanorException(
@@ -189,18 +177,19 @@ class Eleanor(object):
                 )).count()
             return successes
 
-    @staticmethod
-    def process_batch(pool,
-                      config: DatabaseConfig,
-                      kernel: AbstractKernel,
-                      navigator: AbstractNavigator,
-                      simulation_size: int,
-                      order_id: int,
-                      *args,
-                      scratch: bool = False,
-                      success_sampling: bool = False,
-                      progress: Optional[Queue[bool | int]] = None,
-                      **kwargs):
+    def process_batch(
+        self,
+        pool,
+        kernel: AbstractKernel,
+        navigator: AbstractNavigator,
+        simulation_size: int,
+        order_id: int,
+        *args,
+        scratch: bool = False,
+        success_sampling: bool = False,
+        progress: Optional[Queue[bool | int]] = None,
+        **kwargs,
+    ):
 
         if success_sampling and not navigator.supports_success_sampling():
             msg = f"{navigator.__class__.__module__}.{navigator.__class__.__name__} does not support success sampling"
@@ -216,7 +205,7 @@ class Eleanor(object):
             futures = []
             for batch_num, batch in enumerate(chunks(vs_points, pool._processes)):  # type: ignore
                 future = pool.apply_async(
-                    Sailor(kernel, config).dispatch,
+                    Sailor(kernel, self.config.database).dispatch,
                     (batch, *args),
                     {
                         **kwargs,
@@ -234,21 +223,8 @@ class Eleanor(object):
             if navigator.is_complete(vs_point_ids):
                 break
 
-    @staticmethod
-    def prepare(config, order, kernel_args, **kwargs):
-        config = load_config(config)
-        order = load_order(order)
-        kernel = Eleanor.load_kernel(order, kernel_args, **kwargs)
-        navigator = order.navigator.load()(order, kernel)
-
-        return config, order, kernel, navigator
-
-    @staticmethod
-    def _run(
-        config: Config,
-        order: Order,
-        kernel: AbstractKernel,
-        navigator: AbstractNavigator,
+    def dispatch(
+        self,
         simulation_size: int,
         *args,
         no_huffer: bool = False,
@@ -262,6 +238,9 @@ class Eleanor(object):
         proportional_sampling: bool = False,
         **kwargs,
     ):
+        kernel = self.load_kernel(verbose=verbose, **kwargs)
+        navigator = self.order.navigator.load()(self.order, kernel)
+
         if success_sampling and not navigator.supports_success_sampling():
             msg = f"{navigator.__class__.__module__}.{navigator.__class__.__name__} does not support success sampling"
             raise EleanorException(msg)
@@ -270,7 +249,7 @@ class Eleanor(object):
             huffer_with = None
             if not no_huffer:
                 huffer_with = (kernel, navigator)
-            order_id = Eleanor.ignite(config, order, *args, verbose=verbose, huffer_with=huffer_with, **kwargs)
+            order_id = self.ignite(*args, verbose=verbose, huffer_with=huffer_with, **kwargs)
 
         manager = Manager()
 
@@ -283,37 +262,39 @@ class Eleanor(object):
 
         with Pool(processes=num_procs) as pool:
             if success_sampling:
-                successes = Eleanor.count_successes(config.database, order_id)
+                successes = Eleanor.count_successes(self.config.database, order_id)
                 target_samples = successes + simulation_size
 
                 while successes < target_samples:
-                    Eleanor.process_batch(pool,
-                                          config.database,
-                                          kernel,
-                                          navigator,
-                                          target_samples - successes,
-                                          order_id,
-                                          *args,
-                                          scratch=scratch,
-                                          success_sampling=success_sampling,
-                                          progress=progress.queue if progress is not None else None,
-                                          verbose=verbose,
-                                          **kwargs)
+                    self.process_batch(
+                        pool,
+                        kernel,
+                        navigator,
+                        target_samples - successes,
+                        order_id,
+                        *args,
+                        scratch=scratch,
+                        success_sampling=success_sampling,
+                        progress=progress.queue if progress is not None else None,
+                        verbose=verbose,
+                        **kwargs,
+                    )
 
-                    successes = Eleanor.count_successes(config.database, order_id)
+                    successes = Eleanor.count_successes(self.config.database, order_id)
             else:
-                Eleanor.process_batch(pool,
-                                      config.database,
-                                      kernel,
-                                      navigator,
-                                      simulation_size,
-                                      order_id,
-                                      *args,
-                                      scratch=scratch,
-                                      success_sampling=success_sampling,
-                                      progress=progress.queue if progress is not None else None,
-                                      verbose=verbose,
-                                      **kwargs)
+                self.process_batch(
+                    pool,
+                    kernel,
+                    navigator,
+                    simulation_size,
+                    order_id,
+                    *args,
+                    scratch=scratch,
+                    success_sampling=success_sampling,
+                    progress=progress.queue if progress is not None else None,
+                    verbose=verbose,
+                    **kwargs,
+                )
 
         if progress is not None:
             progress.join()

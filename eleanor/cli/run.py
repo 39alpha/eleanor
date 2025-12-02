@@ -60,7 +60,7 @@ def execute(ns: argparse.Namespace):
 
     config = config_from_args(args)
 
-    ids = Eleanor(config, order, kernel_args).run(
+    order_ids = Eleanor(config, order, kernel_args).run(
         simulation_size,
         no_huffer=no_huffer,
         num_procs=num_procs,
@@ -71,4 +71,6 @@ def execute(ns: argparse.Namespace):
         success_sampling=success_sampling,
         verbose=verbose,
     )
-    print(ids)
+
+    if verbose:
+        print("Orders created or extended:", order_ids)

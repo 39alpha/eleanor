@@ -147,8 +147,6 @@ class Suborder(object):
             volume *= mapreduce(lambda p: p.volume(), operator.mul, self.species.values(), initial=1.0)
         if self.reactants is not None:
             volume *= mapreduce(lambda p: p.volume(), operator.mul, self.reactants, initial=1.0)
-        if self.reactants is not None:
-            volume *= mapreduce(lambda p: p.volume(), operator.mul, self.reactants, initial=1.0)
         if self.constraints is not None:
             volume *= mapreduce(lambda p: p.volume(), operator.mul, self.constraints, initial=1.0)
 
@@ -228,14 +226,14 @@ class Suborder(object):
 @dataclass(init=False)
 class Suborders(object):
     combined: bool = False
-    proportional_sampling: bool = True
+    proportional_sampling: bool = False
     suborders: list[Suborder] = field(default_factory=list)
 
     def __init__(self, raw: dict[str, Any] | list[dict[str, Any]]):
         if isinstance(raw, dict):
             self.combined = raw.get('combined', False)
-            self.proportional_sampling = raw.get('proportional_sampling', True)
-            self.suborders = [Suborder.from_dict(suborder) for suborder in raw.get('suborders', [])]
+            self.proportional_sampling = raw.get('proportional_sampling', False)
+            self.suborders = [Suborder.from_dict(suborder) for suborder in raw.get('orders', [])]
         else:
             self.suborders = [Suborder.from_dict(suborder) for suborder in raw]
 

@@ -42,7 +42,7 @@ def execute(ns: argparse.Namespace):
 
     config = config_from_args(args)
 
-    Eleanor(
+    ids = Eleanor.run(
         config,
         campaign,
         kernel_args,
@@ -54,3 +54,4 @@ def execute(ns: argparse.Namespace):
         success_sampling=success_sampling,
         verbose=verbose,
     )
+    print(ids)

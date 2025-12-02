@@ -30,7 +30,7 @@ def collect_scratch(dir: str) -> Optional[vs.Scratch]:
         return vs.Scratch(id=None, zip=bytes('\0', 'ascii'))
 
 
-def __run(
+def work(
     kernel: AbstractKernel,
     vs_point: vs.Point,
     *args,
@@ -89,7 +89,7 @@ def sailor(
     with Yeoman(config, verbose=verbose) as yeoman:
         if isinstance(points, list):
             for point in points:
-                vs_point = __run(kernel, point, *args, verbose=verbose, **kwargs)
+                vs_point = work(kernel, point, *args, verbose=verbose, **kwargs)
                 show_progress = not success_only_progress or vs_point.exit_code == 0
                 yeoman.write(vs_point, refresh=True)
                 if vs_point.id is None:
@@ -98,7 +98,7 @@ def sailor(
                 if progress is not None and show_progress:
                     progress.put(True)
         else:
-            vs_point = __run(kernel, points, *args, verbose=verbose, **kwargs)
+            vs_point = work(kernel, points, *args, verbose=verbose, **kwargs)
             show_progress = not success_only_progress or vs_point.exit_code == 0
             yeoman.write(vs_point, refresh=True)
             if vs_point.id is None:

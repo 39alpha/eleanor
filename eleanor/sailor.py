@@ -33,7 +33,7 @@ class Sailor(object):
         *args,
         progress: Optional[Queue[bool]] = None,
         verbose: bool = False,
-        success_only_progress: bool = False,
+        success_sampling: bool = False,
         **kwargs,
     ) -> list[int]:
         if self.config is None:
@@ -44,7 +44,7 @@ class Sailor(object):
             if isinstance(points, list):
                 for point in points:
                     vs_point = self.work(point, *args, verbose=verbose, **kwargs)
-                    show_progress = not success_only_progress or vs_point.exit_code == 0
+                    show_progress = not success_sampling or vs_point.exit_code == 0
                     yeoman.write(vs_point, refresh=True)
                     if vs_point.id is None:
                         raise EleanorException("variable space point does not have an id after insert")
@@ -53,7 +53,7 @@ class Sailor(object):
                         progress.put(True)
             else:
                 vs_point = self.work(points, *args, verbose=verbose, **kwargs)
-                show_progress = not success_only_progress or vs_point.exit_code == 0
+                show_progress = not success_sampling or vs_point.exit_code == 0
                 yeoman.write(vs_point, refresh=True)
                 if vs_point.id is None:
                     raise EleanorException("variable space point does not have an id after insert")

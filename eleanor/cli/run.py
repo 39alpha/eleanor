@@ -11,12 +11,28 @@ def init(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
     parser.add_argument('-v', '--verbose', required=False, action='store_true', help='enable verbose output')
     parser.add_argument('-s', '--scratch', required=False, action='store_true', help='save scratch for all sailors')
     parser.add_argument('-k', '--kernel-args', required=False, action='append', help='arguments to pass to the kernel')
-    parser.add_argument('--progress', required=False, action='store_true', help='enable progress bars')
+    parser.add_argument('-p', '--progress', required=False, action='store_true', help='enable progress bars')
     parser.add_argument('--no-huffer', required=False, action='store_true', help='disable the huffer')
-    parser.add_argument('--success-sampling',
-                        required=False,
-                        action='store_true',
-                        help='sample size counts success only')
+    parser.add_argument(
+        '-C',
+        '--combined',
+        required=False,
+        action='store_true',
+        help='store suborders as a single order',
+    )
+    parser.add_argument(
+        '-P',
+        '--proportional',
+        required=False,
+        action='store_true',
+        help='use proportional sampling',
+    )
+    parser.add_argument(
+        '--success-sampling',
+        required=False,
+        action='store_true',
+        help='sample size counts successes only',
+    )
     parser.add_argument('order', type=str, help='order file')
     parser.add_argument('simulation_size', type=int, help='the size of the simulation')
 
@@ -37,6 +53,8 @@ def execute(ns: argparse.Namespace):
     simulation_size = args['simulation_size']
     scratch = args['scratch']
     show_progress = args['progress']
+    combined = args['combined']
+    proportional_sampling = args['proportional']
     success_sampling = args['success_sampling']
     verbose = args['verbose']
 
@@ -48,6 +66,8 @@ def execute(ns: argparse.Namespace):
         num_procs=num_procs,
         scratch=scratch,
         show_progress=show_progress,
+        combined=combined,
+        proportional_sampling=proportional_sampling,
         success_sampling=success_sampling,
         verbose=verbose,
     )

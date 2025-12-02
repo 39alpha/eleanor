@@ -8,8 +8,8 @@ from traceback import print_exception
 
 from sqlalchemy import and_, select
 
-import eleanor.sailor as sailor
 import eleanor.variable_space as vs
+from eleanor.sailor import Sailor
 
 from .config import Config, DatabaseConfig, load_config
 from .exceptions import EleanorException
@@ -132,7 +132,7 @@ class Eleanor(object):
         if huffer_with is not None:
             kernel, navigator = huffer_with
             huffer_problem = navigator.huffer_problem()
-            huffer_point = sailor.work(kernel, huffer_problem, *args, scratch=True, **kwargs)
+            huffer_point = Sailor(kernel).work(huffer_problem, *args, scratch=True, **kwargs)
             order.huffer_result = HufferResult.from_scratch(huffer_point.scratch, huffer_point.exit_code)
         else:
             huffer_point = None
@@ -215,12 +215,16 @@ class Eleanor(object):
 
             futures = []
             for batch_num, batch in enumerate(chunks(vs_points, pool._processes)):  # type: ignore
-                future = pool.apply_async(sailor.sailor, (config, kernel, batch, *args), {
-                    **kwargs,
-                    'scratch': scratch,
-                    'progress': progress,
-                    'success_only_progress': success_sampling,
-                })
+                future = pool.apply_async(
+                    Sailor(kernel, config).dispatch,
+                    (batch, *args),
+                    {
+                        **kwargs,
+                        'scratch': scratch,
+                        'progress': progress,
+                        'success_only_progress': success_sampling,
+                    },
+                )
                 futures.append(future)
 
             while futures:

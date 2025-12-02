@@ -215,7 +215,7 @@ class Eleanor(object):
             huffer_point = None
             self.order.huffer_result = None
 
-        with Yeoman(self.config.database, verbose=verbose) as yeoman:
+        with Yeoman(self.config.database) as yeoman:
             yeoman.setup()
 
             if yeoman.scalar(select(Order).where(Order.eleanor_version != __version__)):  # type: ignore

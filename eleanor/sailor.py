@@ -40,7 +40,7 @@ class Sailor(object):
             raise EleanorException('cannot dispatch sailor without a config', code=-1)
 
         vs_point_ids: list[int] = []
-        with Yeoman(self.config, verbose=verbose) as yeoman:
+        with Yeoman(self.config) as yeoman:
             if isinstance(points, list):
                 for point in points:
                     vs_point = self.work(point, *args, verbose=verbose, **kwargs)

@@ -11,7 +11,13 @@ def init(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
     parser.add_argument('-v', '--verbose', required=False, action='store_true', help='enable verbose output')
     parser.add_argument('-s', '--scratch', required=False, action='store_true', help='save scratch for all sailors')
     parser.add_argument('-k', '--kernel-args', required=False, action='append', help='arguments to pass to the kernel')
-    parser.add_argument('-p', '--progress', required=False, action='store_true', help='enable progress bars')
+    parser.add_argument(
+        '-p',
+        '--progress',
+        required=False,
+        action='store_true',
+        help='enable progress bars (disabled by --verbose)',
+    )
     parser.add_argument('--no-huffer', required=False, action='store_true', help='disable the huffer')
     parser.add_argument(
         '-C',
@@ -57,6 +63,8 @@ def execute(ns: argparse.Namespace):
     proportional_sampling = args['proportional']
     success_sampling = args['success_sampling']
     verbose = args['verbose']
+
+    show_progress = show_progress and not verbose
 
     config = config_from_args(args)
 

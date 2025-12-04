@@ -28,10 +28,13 @@ class Eleanor(object):
     order: Order
     kernel_args: list[Any]
 
-    def __init__(self, config: str | Config, order: str | Order, kernel_args: list[Any]):
+    def __init__(self, config: str | Config, order: str | Order, kernel_args: list[Any], *args, **kwargs):
         self.config = load_config(config)
         self.order = load_order(order)
         self.kernel_args = kernel_args
+
+    def recur(self, *args, **kwargs) -> Self:
+        return self.__class__(*args, **kwargs)
 
     def run(
         self,
@@ -60,7 +63,7 @@ class Eleanor(object):
                     suborder_samples = round(suborder_samples * suborder.volume() / volume)
 
                 try:
-                    eleanor = Eleanor(self.config, suborder, self.kernel_args)
+                    eleanor = self.recur(self.config, suborder, self.kernel_args)
                     suborder_ids = eleanor.run(
                         suborder_samples,
                         *args,

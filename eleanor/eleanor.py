@@ -121,12 +121,12 @@ class Eleanor(object):
 
                 while successes < target_samples:
                     self.process(
-                        pool,
                         kernel,
                         navigator,
                         target_samples - successes,
                         order_id,
                         *args,
+                        pool=pool,
                         success_sampling=success_sampling,
                         progress=progress.queue if progress is not None else None,
                         **kwargs,
@@ -135,12 +135,12 @@ class Eleanor(object):
                     successes = Eleanor.count_successes(self.config.database, order_id)
             else:
                 self.process(
-                    pool,
                     kernel,
                     navigator,
                     simulation_size,
                     order_id,
                     *args,
+                    pool=pool,
                     success_sampling=success_sampling,
                     progress=progress.queue if progress is not None else None,
                     **kwargs,
@@ -153,19 +153,18 @@ class Eleanor(object):
 
     def process(
         self,
-        pool,
         kernel: AbstractKernel,
         navigator: AbstractNavigator,
         simulation_size: int,
         order_id: int,
         *args,
+        pool=None,
         success_sampling: bool = False,
         progress: Optional[Queue[bool | int]] = None,
         **kwargs,
     ):
-        if success_sampling and not navigator.supports_success_sampling():
-            msg = f"{navigator.__class__.__module__}.{navigator.__class__.__name__} does not support success sampling"
-            raise EleanorException(msg)
+        if pool is None:
+            raise EleanorException('no process pool created')
 
         while True:
             vs_points = navigator.navigate(simulation_size, order_id=order_id, max_attempts=1)

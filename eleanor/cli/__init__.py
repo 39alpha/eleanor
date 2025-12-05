@@ -14,7 +14,7 @@ def main():
         allow_abbrev=True,
     )
 
-    subparsers = parser.add_subparsers(required=True)
+    subparsers = parser.add_subparsers(required=True, dest='command')
 
     huffer.init(subparsers.add_parser('huffer'))
     run.init(subparsers.add_parser('run'))
@@ -22,4 +22,4 @@ def main():
     scratch.init(subparsers.add_parser('scratch'))
 
     args = parser.parse_args()
-    return args.func(args)
+    return args.func(subparsers.choices[args.command], args)

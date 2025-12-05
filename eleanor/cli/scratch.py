@@ -30,7 +30,7 @@ def init(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
     return parser
 
 
-def execute(ns: argparse.Namespace):
+def execute(parser: argparse.ArgumentParser, ns: argparse.Namespace):
     args = vars(ns)
 
     variable_space_id = args['vs_id']
@@ -38,7 +38,7 @@ def execute(ns: argparse.Namespace):
     database = args['database']
 
     print(f'Loading {args["config"]}')
-    config = config_from_args(args)
+    config = config_from_args(parser, args)
 
     try:
         with Yeoman(config.database) as yeoman:

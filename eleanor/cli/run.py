@@ -49,7 +49,7 @@ def init(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
     return parser
 
 
-def execute(ns: argparse.Namespace):
+def execute(parser: argparse.ArgumentParser, ns: argparse.Namespace):
     args = vars(ns)
 
     order = args['order']
@@ -66,7 +66,7 @@ def execute(ns: argparse.Namespace):
 
     show_progress = show_progress and not verbose
 
-    config = config_from_args(args)
+    config = config_from_args(parser, args)
 
     order_ids = Eleanor(config, order, kernel_args).run(
         simulation_size,

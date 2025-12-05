@@ -1,5 +1,6 @@
 import argparse
 import os.path
+import sys
 
 from xdg_base_dirs import xdg_config_home
 
@@ -11,10 +12,8 @@ def add_config_args(parser: argparse.ArgumentParser):
     try:
         config_path = str(xdg_config_home().joinpath('eleanor', 'config.yaml'))
         config = load_config(config_path)
-        database = config.database.database
     except Exception:
         config_path = None
-        database = None
 
     parser.add_argument(
         '-c',
@@ -27,14 +26,13 @@ def add_config_args(parser: argparse.ArgumentParser):
     parser.add_argument(
         '-d',
         '--database',
-        required=database is None,
+        required=False,
         type=str,
-        default=database,
-        help='override the database from the configuration file (default: "%(default)s")',
+        help='override the database from the configuration file (required if missing from config)',
     )
 
 
-def config_from_args(args: dict[str, Any]) -> Config:
+def config_from_args(parser: argparse.ArgumentParser, args: dict[str, Any]) -> Config:
     config_path = os.path.expanduser(str(args['config']))
     database = args['database']
 
@@ -42,5 +40,9 @@ def config_from_args(args: dict[str, Any]) -> Config:
     if database is not None:
         config.raw['database'].update({'database': database})
         config.database = DatabaseConfig(**config.raw['database'])
+    elif config.database.database is None:
+        print('error: no database provided\n', file=sys.stdout)
+        parser.print_help()
+        sys.exit(1)
 
     return config

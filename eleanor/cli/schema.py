@@ -26,12 +26,12 @@ def init(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
     return parser
 
 
-def execute(ns: argparse.Namespace):
+def execute(parser: argparse.ArgumentParser, ns: argparse.Namespace):
     args = vars(ns)
 
     import_all_kernels()
 
-    config = config_from_args(args)
+    config = config_from_args(parser, args)
 
     if args['output'] is None:
         file = sys.stdout
@@ -39,7 +39,7 @@ def execute(ns: argparse.Namespace):
         file = open(args["output"], 'w')
 
     def dump(sql, *multiparams, **params):
-        print(sql.compile(dialect=engine.dialect), file=file)
+        print(sql.compile(dialect=config.database.dialect), file=file)
 
     with file:
         engine = create_mock_engine(str(config.database), dump)

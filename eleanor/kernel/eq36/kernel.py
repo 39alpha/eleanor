@@ -148,7 +148,7 @@ class Kernel(AbstractKernel):
         start_date = datetime.now()
         eq3_input_path = self.write_eq3_input(vs_point, data1, verbose=verbose)
         eq3(settings.data1_file, eq3_input_path, timeout=settings.timeout)
-        eq3_results = self.read_eq3_output()
+        eq3_results = Kernel.read_eq3_output()
         complete_date = datetime.now()
         eq3_results.start_date, eq3_results.complete_date = start_date, complete_date
 
@@ -159,7 +159,7 @@ class Kernel(AbstractKernel):
             pickup_lines = util.read_pickup_lines()
             eq6_input_path = self.write_eq6_input(vs_point, pickup_lines=pickup_lines, verbose=verbose)
             eq6(settings.data1_file, eq6_input_path, timeout=settings.timeout)
-            eq6_results = self.read_eq6_output(track_path=settings.track_path)
+            eq6_results = Kernel.read_eq6_output(track_path=settings.track_path)
             complete_date = datetime.now()
             for point in eq6_results:
                 point.start_date, point.complete_date = start_date, complete_date
@@ -591,7 +591,8 @@ class Kernel(AbstractKernel):
         print(' iodb11-20= {0: >5}{1: >5}{2: >5}{3: >5}{4: >5}{5: >5}{6: >5}{7: >5}{8: >5}{9: >5}'.format(*c.iodb[10:]),
               file=file)
 
-    def read_eq3_output(self, file: Optional[str | io.TextIOWrapper] = None) -> es.Point:
+    @staticmethod
+    def read_eq3_output(file: Optional[str | io.TextIOWrapper] = None) -> es.Point:
         parser = OutputParser3().parse()
 
         data = {
@@ -736,9 +737,8 @@ class Kernel(AbstractKernel):
 
         return es.Point(stage='eq3', **data)  # type: ignore
 
-    def read_eq6_output(self,
-                        file: Optional[str | io.TextIOWrapper] = None,
-                        track_path: bool = False) -> list[es.Point]:
+    @staticmethod
+    def read_eq6_output(file: Optional[str | io.TextIOWrapper] = None, track_path: bool = False) -> list[es.Point]:
         path: list[es.Point] = []
 
         steps = OutputParser6().parse().path

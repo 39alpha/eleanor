@@ -178,6 +178,10 @@ class OutputParser(ABC):
             if name not in reactants:
                 raise EleanorParserException(f'found affinity for unexpected reactant at line {self.line_num}')
 
+            if '*' in affinity or '*' in relative_rate:
+                self.advance()
+                continue
+
             reactants[name].update({
                 'affinity': field_as_float(affinity),
                 'relative_rate': field_as_float(relative_rate),
@@ -235,6 +239,11 @@ class OutputParser(ABC):
         scales: dict[str, Any] = {}
         while not self.eof() and not self.is_blank():
             *scale, ph, eh, pe, ah = self.line().strip().split()
+
+            if '*' in ph or '*' in eh or '*' in pe or '*' in ah:
+                self.advance()
+                continue
+
             scales[' '.join(scale)] = {
                 'pH': field_as_float(ph),
                 'Eh': field_as_float(eh),
@@ -309,6 +318,10 @@ class OutputParser(ABC):
         aqueous: dict[str, Any] = {}
         while not self.eof() and not self.is_blank():
             species, molality, log_molality, log_gamma, log_activity = self.line().strip().split()
+            if '*' in molality or '*' in log_molality or '*' in log_gamma or '*' in log_activity:
+                self.advance()
+                continue
+
             aqueous[species] = {
                 'molality': field_as_float(molality),
                 'log_molality': field_as_float(log_molality),
@@ -327,6 +340,9 @@ class OutputParser(ABC):
         redox: dict[str, Any] = {}
         while not self.eof() and not self.is_blank():
             couple, eh, pe, log_fO2, ah = self.line().strip().split()
+            if '*' in eh or '*' in pe or '*' in log_fO2 or '*' in ah:
+                self.advance()
+                continue
             redox[couple] = {
                 'Eh': field_as_float(eh),
                 'pe-': field_as_float(pe),
@@ -346,6 +362,13 @@ class OutputParser(ABC):
         while not self.eof() and not self.is_blank():
             line, next_line = self.line(), self.peek()
             solid, log_moles, moles, mass, volume = self.line().strip().split()
+            if '*' in log_moles or '*' in moles or '*' in mass or '*' in volume:
+                if blank_line.match(next_line):
+                    self.advance(n=2)
+                else:
+                    self.advance(n=1)
+                continue
+
             if is_end_member(line):
                 if parent_phase is None:
                     raise EleanorParserException('unexpected end member')
@@ -541,6 +564,10 @@ class OutputParser(ABC):
         self.advance(n=2)
         while not self.eof() and not self.is_blank():
             end_member, x, log_x, log_lambda, log_activity = self.line().strip().split()
+            if '*' in x or '*' in log_x or '*' in log_lambda or '*' in log_activity:
+                self.advance()
+                continue
+
             props = {
                 'x': field_as_float(x),
                 'log_x': field_as_float(log_x),
@@ -552,6 +579,7 @@ class OutputParser(ABC):
                 end_members[end_member] = props
             else:
                 end_members[end_member].update(props)
+
             self.advance()
 
     def read_mineral(self, header, phases, expected_phase: Optional[str] = None):
@@ -563,6 +591,10 @@ class OutputParser(ABC):
             raise EleanorParserException(f'too many columns in {header} at {self.line_num}')
         elif len(state) != 0 and state[0] not in ['SATD', 'SSATD']:
             raise EleanorParserException(f'unexpected columns in {header} at line {self.line_num}')
+
+        if '*' in log_qk or '*' in affinity:
+            self.advance()
+            return
 
         phases[mineral].update({
             'log_qk': field_as_float(log_qk),
@@ -578,6 +610,10 @@ class OutputParser(ABC):
             elif len(state) != 0 and state[0] not in ['SATD', 'SSATD']:
                 raise EleanorParserException(
                     f'unexpected value in State column of {header} block at line {self.line_num}')
+
+            if '*' in log_qk or '*' in affinity or '*':
+                self.advance()
+                continue
 
             end_members[end_member].update({
                 'log_qk': field_as_float(log_qk),

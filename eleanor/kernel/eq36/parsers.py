@@ -611,7 +611,7 @@ class OutputParser(ABC):
                 raise EleanorParserException(
                     f'unexpected value in State column of {header} block at line {self.line_num}')
 
-            if '*' in log_qk or '*' in affinity or '*':
+            if '*' in log_qk or '*' in affinity:
                 self.advance()
                 continue
 

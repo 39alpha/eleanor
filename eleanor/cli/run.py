@@ -1,4 +1,5 @@
 import argparse
+from traceback import print_exception
 
 from eleanor import Eleanor
 from eleanor.cli.util import add_config_args, config_from_args
@@ -66,19 +67,25 @@ def execute(parser: argparse.ArgumentParser, ns: argparse.Namespace):
 
     show_progress = show_progress and not verbose
 
-    config = config_from_args(parser, args)
+    try:
+        config = config_from_args(parser, args)
 
-    order_ids = Eleanor(config, order, kernel_args).run(
-        simulation_size,
-        no_huffer=no_huffer,
-        num_procs=num_procs,
-        scratch=scratch,
-        show_progress=show_progress,
-        combined=combined,
-        proportional_sampling=proportional_sampling,
-        success_sampling=success_sampling,
-        verbose=verbose,
-    )
+        order_ids = Eleanor(config, order, kernel_args).run(
+            simulation_size,
+            no_huffer=no_huffer,
+            num_procs=num_procs,
+            scratch=scratch,
+            show_progress=show_progress,
+            combined=combined,
+            proportional_sampling=proportional_sampling,
+            success_sampling=success_sampling,
+            verbose=verbose,
+        )
 
-    if verbose:
-        print("Orders created or extended:", order_ids)
+        if verbose:
+            print("Orders created or extended:", order_ids)
+    except Exception as e:
+        if verbose:
+            print_exception(e)
+        else:
+            print(e)

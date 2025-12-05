@@ -43,6 +43,7 @@ class Eleanor(object):
         order_id: Optional[int] = None,
         combined: bool = False,
         proportional_sampling: bool = False,
+        verbose: bool = False,
         **kwargs,
     ) -> list[int]:
         if self.order.suborders is not None and len(self.order.suborders.suborders) != 0:
@@ -53,7 +54,7 @@ class Eleanor(object):
             proportional_sampling = proportional_sampling or self.order.suborders.proportional_sampling
 
             if combined and order_id is None:
-                order_id = self.ignite(*args, **kwargs)
+                order_id = self.ignite(*args, verbose=verbose, **kwargs)
 
             volume = self.order.volume()
 
@@ -62,24 +63,21 @@ class Eleanor(object):
                 if proportional_sampling:
                     suborder_samples = round(suborder_samples * suborder.volume() / volume)
 
-                try:
-                    eleanor = self.recur(self.config, suborder, self.kernel_args)
-                    suborder_ids = eleanor.run(
-                        suborder_samples,
-                        *args,
-                        order_id=order_id,
-                        combined=combined,
-                        proportional_sampling=proportional_sampling,
-                        **kwargs,
-                    )
-                    order_ids.update(suborder_ids)
-                except Exception as e:
-                    print("Error: suborder failed", file=stderr)
-                    print_exception(e, file=stderr)
+                eleanor = self.recur(self.config, suborder, self.kernel_args)
+                suborder_ids = eleanor.run(
+                    suborder_samples,
+                    *args,
+                    order_id=order_id,
+                    combined=combined,
+                    proportional_sampling=proportional_sampling,
+                    verbose=verbose,
+                    **kwargs,
+                )
+                order_ids.update(suborder_ids)
 
             return sorted(order_ids)
 
-        return self.dispatch(simulation_size, *args, order_id=order_id, **kwargs)
+        return self.dispatch(simulation_size, *args, order_id=order_id, verbose=verbose, **kwargs)
 
     def dispatch(
         self,

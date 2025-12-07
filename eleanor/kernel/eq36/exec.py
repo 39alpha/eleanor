@@ -59,6 +59,9 @@ def run(cmd: str, *args, timeout: Optional[int] = None, **kwargs) -> tuple[bytes
             raise Eq36Exception(f'{cmd} timed out with errors', code=RunCode.EQ36_TIMEOUT) from e
         raise Eq36Exception(f'{cmd} timed out without errors', code=RunCode.EQ36_TIMEOUT)
 
+    if process.returncode != 0:
+        raise Eq36Exception(f'{cmd} exited with an unexpected error', code=process.returncode)
+
     return stdout, stderr
 
 

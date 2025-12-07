@@ -362,7 +362,7 @@ class OutputParser(ABC):
         while not self.eof() and not self.is_blank():
             line, next_line = self.line(), self.peek()
             solid, log_moles, moles, mass, volume = self.line().strip().split()
-            if '*' in log_moles or '*' in moles or '*' in mass or '*' in volume:
+            if solid.startswith('fix_f') or '*' in log_moles or '*' in moles or '*' in mass or '*' in volume:
                 if blank_line.match(next_line):
                     self.advance(n=2)
                 else:

@@ -536,7 +536,7 @@ class Kernel(AbstractKernel):
             print(f'    nxopex={len(exceptions): >3}', file=file)
 
         # Write fixed gases
-        print(f'      nffg=  {len(vs_point.fixed_gas_reactants)}', file=file)
+        print(f'      nffg={len(vs_point.fixed_gas_reactants): >3}', file=file)
         for fgr in vs_point.fixed_gas_reactants:
             if not isinstance(fgr, vs.FixedGasReactant):
                 raise EleanorKernelException(f'attempted to write {type(fgr)} reactant in fixed gas reactant block')
@@ -544,8 +544,7 @@ class Kernel(AbstractKernel):
             xlkffg = NumberFormat.SCIENTIFIC.fmt(fgr.log_fugacity, precision=5)
 
             print(f'   species= {fgr.name}', file=file)
-            print(f'     moffg=  {moffg}', file=file)
-            print(f'    xlkffg= {xlkffg}', file=file)
+            print(f'     moffg={moffg: >13}    xlkffg={xlkffg: >13}', file=file)
 
         # Write the rest
         print('    nordmx=   6', file=file)

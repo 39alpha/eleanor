@@ -159,6 +159,9 @@ class Suborder(object):
     def from_dict(cls, raw: dict[str, Any]) -> Self:
         suborder = cls()
 
+        if raw is None:
+            raw = {}
+
         suborder.raw = raw
 
         suborder.name = raw.get('name')

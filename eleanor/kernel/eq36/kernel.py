@@ -140,31 +140,36 @@ class Kernel(AbstractKernel):
         return d1s[0]
 
     def run(self, vs_point: vs.Point, *args, verbose: bool = False, **kwargs) -> list[es.Point]:
-        settings = self.resolve_kernel_settings(vs_point)
-        if settings.data1_file is None:
-            data1 = self.find_data1(vs_point, verbose=verbose)
-            settings.data1_file = data1.filename
+        try:
+            settings = self.resolve_kernel_settings(vs_point)
+            if settings.data1_file is None:
+                data1 = self.find_data1(vs_point, verbose=verbose)
+                settings.data1_file = data1.filename
 
-        start_date = datetime.now()
-        eq3_input_path = self.write_eq3_input(vs_point, data1, verbose=verbose)
-        eq3(settings.data1_file, eq3_input_path, timeout=settings.timeout)
-        eq3_results = Kernel.read_eq3_output()
-        complete_date = datetime.now()
-        eq3_results.start_date, eq3_results.complete_date = start_date, complete_date
-
-        if settings.eq6_config is None:
-            eq6_results: list[es.Point] = []
-        else:
             start_date = datetime.now()
-            pickup_lines = util.read_pickup_lines()
-            eq6_input_path = self.write_eq6_input(vs_point, pickup_lines=pickup_lines, verbose=verbose)
-            eq6(settings.data1_file, eq6_input_path, timeout=settings.timeout)
-            eq6_results = Kernel.read_eq6_output(track_path=settings.track_path)
+            eq3_input_path = self.write_eq3_input(vs_point, data1, verbose=verbose)
+            eq3(settings.data1_file, eq3_input_path, timeout=settings.timeout)
+            eq3_results = Kernel.read_eq3_output()
             complete_date = datetime.now()
-            for point in eq6_results:
-                point.start_date, point.complete_date = start_date, complete_date
+            eq3_results.start_date, eq3_results.complete_date = start_date, complete_date
 
-        return [eq3_results, *eq6_results]
+            if settings.eq6_config is None:
+                eq6_results: list[es.Point] = []
+            else:
+                start_date = datetime.now()
+                pickup_lines = util.read_pickup_lines()
+                eq6_input_path = self.write_eq6_input(vs_point, pickup_lines=pickup_lines, verbose=verbose)
+                eq6(settings.data1_file, eq6_input_path, timeout=settings.timeout)
+                eq6_results = Kernel.read_eq6_output(track_path=settings.track_path)
+                complete_date = datetime.now()
+                for point in eq6_results:
+                    point.start_date, point.complete_date = start_date, complete_date
+
+            return [eq3_results, *eq6_results]
+        except EleanorException:
+            raise
+        except Exception as e:
+            raise EleanorException("an unexpected error occured") from e
 
     def write_eq3_input(
         self,

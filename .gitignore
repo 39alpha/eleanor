@@ -3,11 +3,10 @@
 *.xlsx
 .DS_Store
 .mypy_cache
-CSS0
 __pycache__
-docs/build
 eleanor/version.py
 config.yaml
 campaign.yaml
 *.so
 *.dylib
+uv.lock

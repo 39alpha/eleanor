@@ -1,0 +1,19 @@
+---
+title: Eleanor Documentation
+---
+
+## A warning
+The goal of this code is to make running geochemical models at scale easier. Running those models
+and getting an answer without an error does not mean you've set up a physically meaningful model.
+This software is not a substitute for a principled understanding of the underlying chemistry.
+While we hope other scientists can use this software to help answer questions about their system of
+interest, we also recognize that there are likely more ways to use this software incorrectly than
+correctly. We aim to protect against these cases but that attempt will always be incomplete.
+
+All of this is to say - we hope this project helps you do science faster. But faster doesn't mean
+correct.
+
+## Setting up a problem
+
+
+## Command line tools

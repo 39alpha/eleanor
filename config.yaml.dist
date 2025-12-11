@@ -1,6 +1,4 @@
 database:
-  dialect: postgresql
-  dbapi: psycopg
   username:
   password:
   database:

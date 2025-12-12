@@ -6,7 +6,7 @@ website:
   navbar:
     search: true
     left:
-      - href: about.qmd
+      - href: getting-started.qmd
         text: Getting Started
       - href: docs.qmd
         text: Docs

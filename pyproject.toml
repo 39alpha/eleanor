@@ -1,10 +1,10 @@
 [project]
 name = "eleanor"
 authors = [
-  {name = "39 Alpha Research, Team 0", email = "39alpha@39alpharesearch.org"},
+  {name = "39 Alpha Research, Team Zero", email = "39alpha@39alpharesearch.org"},
 ]
-description = "Large-scale, aqueous geochemical modeling"
-readme = "README.rst"
+description = "Large-scale, aqueous speciation modeling"
+readme = "README.md"
 license = {file = "LICENSE"}
 dependencies = [
   'numpy',

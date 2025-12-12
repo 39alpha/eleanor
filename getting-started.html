@@ -20,41 +20,6 @@ ul.task-list li input[type="checkbox"] {
   margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
   vertical-align: middle;
 }
-/* CSS for syntax highlighting */
-html { -webkit-text-size-adjust: 100%; }
-pre > code.sourceCode { white-space: pre; position: relative; }
-pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
-pre > code.sourceCode > span:empty { height: 1.2em; }
-.sourceCode { overflow: visible; }
-code.sourceCode > span { color: inherit; text-decoration: inherit; }
-div.sourceCode { margin: 1em 0; }
-pre.sourceCode { margin: 0; }
-@media screen {
-div.sourceCode { overflow: auto; }
-}
-@media print {
-pre > code.sourceCode { white-space: pre-wrap; }
-pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
-}
-pre.numberSource code
-  { counter-reset: source-line 0; }
-pre.numberSource code > span
-  { position: relative; left: -4em; counter-increment: source-line; }
-pre.numberSource code > span > a:first-child::before
-  { content: counter(source-line);
-    position: relative; left: -1em; text-align: right; vertical-align: baseline;
-    border: none; display: inline-block;
-    -webkit-touch-callout: none; -webkit-user-select: none;
-    -khtml-user-select: none; -moz-user-select: none;
-    -ms-user-select: none; user-select: none;
-    padding: 0 4px; width: 4em;
-  }
-pre.numberSource { margin-left: 3em;  padding-left: 4px; }
-div.sourceCode
-  {   }
-@media screen {
-pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
-}
 </style>
 
 
@@ -104,35 +69,6 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   }
 }</script>
 
-  <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
-  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
-
-<script type="text/javascript">
-const typesetMath = (el) => {
-  if (window.MathJax) {
-    // MathJax Typeset
-    window.MathJax.typeset([el]);
-  } else if (window.katex) {
-    // KaTeX Render
-    var mathElements = el.getElementsByClassName("math");
-    var macros = [];
-    for (var i = 0; i < mathElements.length; i++) {
-      var texText = mathElements[i].firstChild;
-      if (mathElements[i].tagName == "SPAN" && texText && texText.data) {
-        window.katex.render(texText.data, mathElements[i], {
-          displayMode: mathElements[i].classList.contains('display'),
-          throwOnError: false,
-          macros: macros,
-          fleqn: false
-        });
-      }
-    }
-  }
-}
-window.Quarto = {
-  typesetMath
-};
-</script>
 
 <link rel="stylesheet" href="styles.css">
 </head>
@@ -155,7 +91,7 @@ window.Quarto = {
           <div class="collapse navbar-collapse" id="navbarCollapse">
             <ul class="navbar-nav navbar-nav-scroll me-auto">
   <li class="nav-item">
-    <a class="nav-link active" href="./about.html" aria-current="page"> 
+    <a class="nav-link active" href="./getting-started.html" aria-current="page"> 
 <span class="menu-text">Getting Started</span></a>
   </li>  
   <li class="nav-item">
@@ -184,7 +120,6 @@ window.Quarto = {
   <ul>
   <li><a href="#dependencies" id="toc-dependencies" class="nav-link active" data-scroll-target="#dependencies">Dependencies</a></li>
   <li><a href="#install" id="toc-install" class="nav-link" data-scroll-target="#install">Install</a></li>
-  <li><a href="#user-notes" id="toc-user-notes" class="nav-link" data-scroll-target="#user-notes">User Notes</a></li>
   </ul>
 </nav>
     </div>
@@ -213,35 +148,11 @@ window.Quarto = {
 <p>Eleanor is a package for large scale aqueous geochemical modelling. It is based on the thermodynamic modelling software EQ3/6. Eleanor provides a means to generate huge volumes of simulated thermodynamic data by defining a specific type of problems that are automatically deployed to EQ3/6. The goal of this tool is to allow users to focus on problem specification. Notably, Eleanor is only designed to employ specific subsets of the eq36 family, and is not suitable for handling some EQ3/6 functionality. The example problem that deploys with Eleanor describes and exemplifies the type of geochemical problem Eleanor was built to evaluate.</p>
 <section id="dependencies" class="level2">
 <h2 class="anchored" data-anchor-id="dependencies">Dependencies</h2>
-<p>Eleanor requires Python3, pip, and EQ3/6 as dependencies. Eleanor is only supported on macOS and Unix systems. Windows users are encouraged to checkout the Windows Subsystem for Linux to use Eleanor.</p>
-<p>Eleanor requires the version of <a href="https://github.com/39alpha/eq3_6">EQ3/6 hosted by 39 Alpha</a>, which has been slightly modified to handle input/output files slightly differently, but is otherwise identical to v8.0 released by Lawrence Livermore National Lab. That version can be found on github here, it requires <code>gfortran</code> to build.</p>
-<ul>
-<li>macOS or Unix</li>
-<li>Python 3.12 (or later)</li>
-<li><code>pip</code></li>
-<li><code>gfortran</code> (v9.3.0 or later)</li>
-<li><a href="https://github.com/39alpha/eq3_6%3E">EQ3/6</a></li>
-</ul>
+<p><strong>Comming Soon</strong></p>
 </section>
 <section id="install" class="level2">
 <h2 class="anchored" data-anchor-id="install">Install</h2>
-<p>With those dependencies installed Eleanor can be installed by cloning <code>the repository &lt;https://github.com/39alpha/eleanor&gt;</code>_, and installing via pip::</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="ex">$</span> git clone https://github.com/39alpha/eleanor</span>
-<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="ex">$</span> cd eleanor</span>
-<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="ex">$</span> pip install .</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-</section>
-<section id="user-notes" class="level2">
-<h2 class="anchored" data-anchor-id="user-notes">User Notes</h2>
-<p>Eleanor is designed to use specific (and limited) functionality within EQ3/6 to inform on a specific type of geochemical problem. We wanted to know, what are all of the fluid compositions that are consistent with very limited environmental signals, specific if we know that a given mineral or mineral/s is equilibrium with the fluid. Eleanor allows a user to consider uncertainty in unknown variables by setting them to ranges, instead of leaving them out or setting them to arbitrary values. We walk through an example use case in Example_0 provided with Eleanor where we explore the fluids the care derived from calcite and aragonite on the seafloor, when the water column sets ranges on total element abundances for example, instead of picking a specific values for a basis species. As such, a large number of user controls in EQ3/6 do not port though to Eleanor.</p>
-<p>A few notable limitation, for those familiar with EQ3/6:</p>
-<ol type="1">
-<li>Eleanor does not allow you to set basis species to homogeneous or heterogeneous equilibrium (except for <span class="math inline">\(f_{O2}\)</span>).</li>
-<li>Special basis switching is enabled, but general basis switching is not.</li>
-<li>Ion exchangers are not used.</li>
-<li>Special reactants are not allowed in EQ6, only minerals and gases for the time being.</li>
-<li>Fluid mixing is not currently enabled.</li>
-<li>In EQ6, Eleanor only populates the SQL database with the data from the last Xi step in the 6o file, the final step in the reaction path. Therefore the SQL databases associated with a given campaign contain the initial constraints (VS, or variable space table), the data retrieved from the 3o files (ES3, or Equilibrium Space 3o table), and the data retrieved form the last Xi step in the 6o files (ES6, or, Equilibrium Space 6o table).</li>
-</ol>
+<p><strong>Comming Soon</strong></p>
 
 
 </section>

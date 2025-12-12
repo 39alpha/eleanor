@@ -19,6 +19,8 @@ requires-python = ">= 3.11"
 dynamic = ["version"]
 
 [project.urls]
+Homepage = "https://39alpha.github.io/eleanor"
+Documentation = "https://39alpha.github.io/eleanor"
 Repository = "https://github.com/39alpha/eleanor.git"
 Issues = "https://github.com/39alpha/eleanor/issues"
 Changelog = "https://github.com/39alpha/eleanor/blob/master/CHANGELOG.md"

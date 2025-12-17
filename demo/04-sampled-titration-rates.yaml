@@ -1,0 +1,112 @@
+name: Sampled Titration Rates
+creator: 39 Alpha Research, Team 1
+date: 2025-12-08
+notes: Track paths for a realistic rock and fluid with sampled titration rates
+
+kernel:
+  type: eq36
+  model: b-dot
+  timeout: 5
+  eq6_config:
+    xi_max: 100
+    steps_print_interval: 1
+  track_path: true
+  charge_balance: Cl-
+
+temperature: 100
+
+pressure: 100
+
+elements:
+  C: -12
+  K: -3.69
+  N: -2.74
+  S: -12
+  Ca: -2.52
+  Cl: -1.73
+  Fe: -12
+  Mg: -3.52
+  Na: -2
+  Si: -12
+
+species:
+  H+: -10
+  O2(g): -2
+
+suppressions:
+  - METHANE
+  - antigorite
+
+reactants:
+  brucite:
+    type: mineral
+    amount: -0.8573
+    titration_rate:
+      max: 1
+      min: 0.01
+  diopside:
+    type: mineral
+    amount: -0.9599
+    titration_rate:
+      max: 1
+      min: 0.01
+  fayalite:
+    type: mineral
+    amount: -0.9657
+    titration_rate:
+      max: 1
+      min: 0.01
+  enstatite:
+    type: mineral
+    amount: -0.2551
+    titration_rate:
+      max: 1
+      min: 0.01
+  magnetite:
+    type: mineral
+    amount: -2.0636
+    titration_rate:
+      max: 1
+      min: 0.01
+  chrysotile:
+    type: mineral
+    amount: -0.0223
+    titration_rate:
+      max: 1
+      min: 0.01
+  fe-brucite:
+    type: mineral
+    amount: -1.9993
+    titration_rate:
+      max: 1
+      min: 0.01
+  forsterite:
+    type: mineral
+    amount: 0.3185
+    titration_rate:
+      max: 1
+      min: 0.01
+  greenalite:
+    type: mineral
+    amount: -1.7265
+    titration_rate:
+      max: 1
+      min: 0.01
+  ferrosilite:
+    type: mineral
+    amount: -1.2332
+    titration_rate:
+      max: 1
+      min: 0.01
+  hedenbergite:
+    type: mineral
+    amount: -2.2977
+    titration_rate:
+      max: 1
+      min: 0.01
+  cronstedtite,7a:
+    type: mineral
+    amount: -0.102
+    titration_rate:
+      max: 1
+      min: 0.01

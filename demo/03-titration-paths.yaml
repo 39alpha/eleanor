@@ -1,0 +1,68 @@
+name: Tracking Titration Paths
+creator: 39 Alpha Research, Team 1
+date: 2025-12-08
+notes: Exhibit path tracking, special reactants and the Lattice Navigator
+
+kernel:
+  type: eq36
+  model: b-dot
+  charge_balance: H+
+  track_path: true
+  eq6_config:
+    xi_max: 100
+    steps_print_interval: 1
+
+navigator:
+  type: Lattice
+
+temperature:
+  min: 1
+  max: 220
+
+pressure: 25
+
+species:
+  H+: -7
+  O2(g): -1
+
+elements:
+  C:  -9.0
+  Ca: -9.0
+  Cl: -9.0
+  Fe: -9.0
+  S:  -9.0
+  Si: -9.0
+
+reactants:
+  Ca(OH)2:
+    type: special
+    amount: 0
+    composition:
+      H: 2
+      O: 2
+      Ca: 1
+    titration_rate: 1e-2
+  quartz:
+    type: mineral
+    amount: -1.234693
+    titration_rate: 100
+  siderite:
+    type: mineral
+    amount: -1.519851
+    titration_rate: 100
+  magnetite:
+    type: mineral
+    amount: -2.0424041
+    titration_rate: 10
+  hematite:
+    type: mineral
+    amount: -2.358186
+    titration_rate: 10
+  pyrite:
+    type: mineral
+    amount: -2.233964
+    titration_rate: 10
+
+suppressions:
+  - METHANE
+  - antigorite

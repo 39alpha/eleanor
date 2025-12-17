@@ -1,0 +1,55 @@
+name: H2 Generation from Olivine, Ortho and Clino
+creator: 39 Alpha Research, Team 1
+date: 2025-12-08
+notes: React olivine, ortho and clino drawn from Gaussians
+
+kernel:
+  type: eq36
+  model: b-dot
+  charge_balance: H+
+
+temperature:
+  min: 220
+  max: 280
+
+pressure:
+  min: 75
+  max: 100
+
+elements:
+  Ca: -9
+  Fe: -9
+  Mg: -9
+  Na: -9
+  Si: -9
+  Cl: -9
+
+species:
+  H+: -7
+  O2(g): -1
+
+reactants:
+  olivine-ss:
+    type: solid solution
+    amount:
+      mean: -1
+      stddev: 0.1
+    end_members:
+      fayalite: 0.6
+      forsterite: 0.4
+  orthopyroxene-ss:
+    type: solid solution
+    amount:
+      mean: -1
+      stddev: 0.1
+    end_members:
+      enstatite: 0.4
+      ferrosilite: 0.6
+  clinopyroxene-ss:
+    type: solid solution
+    amount:
+      mean: -1
+      stddev: 0.1
+    end_members:
+      diopside: 0.4
+      hedenbergite: 0.6

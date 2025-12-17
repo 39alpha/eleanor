@@ -1,0 +1,51 @@
+name: Simulated Kinetic Barriers with Suppressions
+creator: 39 Alpha Research, Team 1
+date: 2025-12-08
+notes: Show the effects of suppressions
+
+kernel:
+  type: eq36
+  model: b-dot
+  track_path: false
+  charge_balance: H+
+
+temperature:
+  max: 40
+  min: 100
+
+pressure: 50
+
+species:
+  H+: -7
+  O2(g): -2
+
+elements:
+  Cl: -1
+  Na: -1
+  C:
+    max: -2
+    min: -12
+  Ca: -6
+  Fe: -12
+  Mg: -12
+  Si: -12
+
+reactants:
+  forsterite:
+    type: mineral
+    amount:
+      mean: 0
+      stddev: 0.05
+
+  fayalite:
+    type: mineral
+    amount:
+      mean: -1
+      stddev: 0.05
+
+suborders:
+  - suppressions: null
+  - suppressions:
+      - METHANE
+      - graphite
+      - antigorite

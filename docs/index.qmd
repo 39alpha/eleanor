@@ -2,12 +2,14 @@
 title: "Eleanor"
 ---
 
-Eleanor is a package for large scale aqueous geochemical modelling. It is based
-on the thermodynamic modelling software EQ3/6. Eleanor provides a means to
-generate huge volumes of simulated thermodynamic data by defining a specific
-type of problems that are automatically deployed to EQ3/6. The goal of this
-tool is to allow users to focus on problem specification. Notably, Eleanor is
-only designed to employ specific subsets of the eq36 family, and is not
-suitable for handling some EQ3/6 functionality. The example problem that
-deploys with Eleanor describes and exemplifies the type of geochemical problem
-Eleanor was built to evaluate.
+
+Aqueous speciation modeling has historically focused on specific, well defined systems, and is ideal for laboratory
+settings or the study of a small number of real-world systems. Standard tools such as Geochemist's Workbench and EQ3/6
+exist to fill this niche, alongside more recent additions such as the WORM Portal. However, existing tools are not ideal
+for the study of systems that are underspecified (e.g. have incomplete composition), have high degrees of uncertainty
+(e.g. imprecise characterization), or for understanding the broader equilibrium landscape of systems of interest (e.g.
+serpentinizing systems in general). Eleanor is a powerful open-source modeling framework based on EQ3/6 which fills
+this gap, providing the process and data orchestration features necessary to facilitate large-scale aqueous speciation
+modeling. Eleanor includes a standalone executable which accepts a problem specification in YAML, TOML or JSON format,
+samples fully-defined systems for speciation via the EQ3/6-based "kernel", validates the results, and stores the data
+in a Postgres. Eleanor’s modular design allows the user to swap the EQ3/6-based kernel with one of their own.

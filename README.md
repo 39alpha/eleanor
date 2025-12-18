@@ -1,3 +1,8 @@
+> **AGU25 Attendees:** We're not naming names (**cough** Doug **cough**), but someone copied the wrong example order
+> into their poster. If you would like to see the correct version, you can find it here:
+>
+> [$H_2$ Generation from Olvine, Ortho and Clino](https://github.com/39alpha/eleanor/blob/main/demo/01-h2-generation.yaml)
+
 # Eleanor
 
 Aqueous speciation modeling has historically focused on specific, well defined systems, and is ideal for laboratory
@@ -20,7 +25,8 @@ Eleanor requires `python>=3.11` an two external runtime dependencies:
 
 1. A slightly modified version of EQ3/6 found at [39alpha/eq3_6](https://github.com/39alpha/eq3_6). Future versions will
 likely add other kernels based on other speciation tools, but EQ3/6 is what we have now.
-2. A [PostgreSQL](https://www.postgresql.org/) server. This is honestly the most odious dependency to install, but the PostgreSQL docs are pretty good.
+2. A [PostgreSQL](https://www.postgresql.org/) server. This is honestly the most odious dependency to install, but the
+PostgreSQL docs are pretty good.
 
 There are two dev dependencies required for installation:
 

@@ -2,4 +2,10 @@
 title: Examples
 ---
 
-This will be a list of examples
+We are working on fleshing this out, so stay tuned. In the meantime, check out
+the order files provided in Github repository:
+
+1. [$H_2$ Generation from Olvine, Ortho and Clino](https://github.com/39alpha/eleanor/blob/main/demo/01-h2-generation.yaml)
+2. [Simulated Kinetic Barriers with Suppressions](https://github.com/39alpha/eleanor/blob/main/demo/02-suppressions.yaml)
+3. [Tracking Titration Paths](https://github.com/39alpha/eleanor/blob/main/demo/03-titration-paths.yaml)
+4. [Sampled Titration Rates](https://github.com/39alpha/eleanor/blob/main/demo/04-sampled-titration-rates.yaml)

@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>https://39alpha.github.io/eleanor/getting-started.html</loc>
-    <lastmod>2025-12-12T21:15:26.164Z</lastmod>
+    <loc>https://39alpha.github.io/eleanor/examples.html</loc>
+    <lastmod>2025-12-18T14:54:22.176Z</lastmod>
   </url>
   <url>
-    <loc>https://39alpha.github.io/eleanor/examples.html</loc>
-    <lastmod>2025-12-11T22:25:15.857Z</lastmod>
+    <loc>https://39alpha.github.io/eleanor/getting-started.html</loc>
+    <lastmod>2025-12-18T14:48:16.265Z</lastmod>
   </url>
   <url>
     <loc>https://39alpha.github.io/eleanor/docs.html</loc>
@@ -14,6 +14,6 @@
   </url>
   <url>
     <loc>https://39alpha.github.io/eleanor/index.html</loc>
-    <lastmod>2025-12-11T22:25:15.857Z</lastmod>
+    <lastmod>2025-12-18T14:48:32.192Z</lastmod>
   </url>
 </urlset>

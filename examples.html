@@ -69,6 +69,35 @@ ul.task-list li input[type="checkbox"] {
   }
 }</script>
 
+  <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN" && texText && texText.data) {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
 
 <link rel="stylesheet" href="styles.css">
 </head>
@@ -138,7 +167,13 @@ ul.task-list li input[type="checkbox"] {
 </header>
 
 
-<p>This will be a list of examples</p>
+<p>We are working on fleshing this out, so stay tuned. In the meantime, check out the order files provided in Github repository:</p>
+<ol type="1">
+<li><a href="https://github.com/39alpha/eleanor/blob/main/demo/01-h2-generation.yaml"><span class="math inline">\(H_2\)</span> Generation from Olvine, Ortho and Clino</a></li>
+<li><a href="https://github.com/39alpha/eleanor/blob/main/demo/02-suppressions.yaml">Simulated Kinetic Barriers with Suppressions</a></li>
+<li><a href="https://github.com/39alpha/eleanor/blob/main/demo/03-titration-paths.yaml">Tracking Titration Paths</a></li>
+<li><a href="https://github.com/39alpha/eleanor/blob/main/demo/04-sampled-titration-rates.yaml">Sampled Titration Rates</a></li>
+</ol>
 
 
 

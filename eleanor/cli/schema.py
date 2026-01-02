@@ -39,7 +39,7 @@ def execute(parser: argparse.ArgumentParser, ns: argparse.Namespace):
         file = open(args["output"], 'w')
 
     def dump(sql, *multiparams, **params):
-        print(sql.compile(dialect=config.database.dialect), file=file)
+        print(sql.compile(), file=file)
 
     with file:
         engine = create_mock_engine(str(config.database), dump)

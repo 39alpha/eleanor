@@ -2,21 +2,49 @@ project:
   type: website
 
 website:
-  title: "Eleanor"
+  title: Eleanor
+  page-navigation: true
+  back-to-top-navigation: true
+  repo-url: https://github.com/39alpha/eleanor
+  repo-actions: [edit, source, issue]
+  announcement:
+    icon: exclamation-triangle
+    dismissable: false
+    content: |
+      **User discretion is advised.** This site is under active development. The
+      content may change rapidly, and its validity may be questionable.
+    type: danger
+    position: below-navbar
   navbar:
     search: true
     left:
-      - href: getting-started.qmd
-        text: Getting Started
-      - href: docs.qmd
-        text: Docs
-      - href: examples.qmd
-        text: Examples
+      - text: Getting Started
+        href: getting-started.qmd
+      - text: Docs
+        href: docs.qmd
+      - text: Examples
+        href: examples.qmd
+  sidebar:
+    - title: Docs
+      style: docked
+      contents:
+        - text: Docs
+          href: docs.qmd
+        - text: Database
+          href: database.qmd
 
 format:
   html:
     theme:
-      - sandstone
-      - brand
+      light:
+        - sandstone
+        - brand
+      dark:
+        - superhero
+        - brand
+    respect-user-color-scheme: true
     css: styles.css
     toc: true
+    grid:
+      body-width: 1200px
+  typst: default

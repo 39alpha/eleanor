@@ -17,7 +17,7 @@ There are two dev dependencies required for installation:
 
 1. [`gfortran`](https://fortran-lang.org/learn/os_setup/install_gfortran/) - you should be able to install `gfortran`
 with your system's package manager (e.g. homebrew)
-2. [`meson`](https://mesonbuild.com/) - I recommend installing this via `uv`. See [Install](#install) below.
+2. [`meson`](https://mesonbuild.com/) - I recommend installing this via `uv`. See [Installation](#installation) below.
 
 # Installation
 

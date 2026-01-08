@@ -45,7 +45,7 @@ format:
     respect-user-color-scheme: true
     css: styles.css
     toc: true
-    toc-depth: 5
+    toc-depth: 10
     grid:
       body-width: 1200px
   typst: default

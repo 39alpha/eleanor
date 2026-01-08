@@ -8,10 +8,18 @@ format:
       x: 0.5in
       y: 0.5in
     toc: true
-    toc-depth: 5
+    toc-depth: 10
     include-in-header:
       - text: |
           #set page(flipped: true)
+          #set list(indent: 2em)
+          #set enum(indent: 2em)
+          #show heading.where(level: 1): set text(size: 16pt)
+          #show heading.where(level: 2): set text(size: 15pt)
+          #show heading.where(level: 3): set text(size: 14pt)
+          #show heading.where(level: 4): set text(size: 13pt)
+          #show heading.where(level: 5): set text(size: 12pt)
+          #show heading.where(level: 6): set text(size: 11pt)
           #show link: set text(fill: rgb("#0000ff"))
           #show link: underline
 ---
@@ -90,12 +98,44 @@ representing "absent" or "missing", e.g. `-Infinity`. Columns that are nullable
 |:-: |:-: |:-:|---------------------------                                      |---------   |------------------------------------------------------------                                                                                                  |---------      |
 | ✔  |    |   | `id`                                                            | `INTEGER`  | The order identifier                                                                                                                                         |               |
 |    |    |   | `name`                                                          | `VARCHAR`  | The name of the order                                                                                                                                        |               |
-|    |    |   | `hash`                                                          | `VARCHAR`  | A hash of the order file contents                                                                                                                            |               |
+|    |    |   | `hash`                                                          | `VARCHAR`  | A SHA-256 hash of the order file contents                                                                                                                    |               |
 |    |    |   | `eleanor_version`                                               | `VARCHAR`  | The version of eleanor used to run the order                                                                                                                 |               |
 |    |    |   | `raw`                                                           | `JSON`     | The raw, JSON-encoded contents of the order                                                                                                                  |               |
 |    |    |   | `create_date`                                                   | `DATETIME` | The datetime at which the order was created                                                                                                                  |               |
 
 : {.striped .bordered}
+
+When the user runs an order, **Eleanor** stores an entry in the `orders` table
+which includes the autoincremented `id`, the name of the order (extracted from
+the YAML/TOML/JSON file), a SHA-256 hash of the normalized content of the order,
+and the version of **Eleanor** used to execute the order.
+
+A entry in the `orders` table is created if:
+
+1. The hash of the order is not in the table (i.e. a new order), or
+2. The version of **Eleanor** used to run the order changes, or
+3. The user specifies that they want a disctinct order created.
+
+Otherwise, any [variable space](#variable_space) points generated for the
+order will be associated with an existing order with the same `hash` and
+`eleanor_version`. This allows the user to run small batches for initial testing
+and subsequent batches to more fully sample the variable space, an "extension
+run".
+
+The `create_date` value is the datetime at which the order was initially created.
+Subsequent extension runs do not update the `create_date`.
+
+**Example**:
+
+```sql
+example=# SELECT * FROM mineral_reactants WHERE variable_space_id = 1;
++----+-------------------+------------+-----------+----------------+
+| id | variable_space_id | name       | log_moles | titration_rate |
+|----+-------------------+------------+-----------+----------------|
+| 1  | 1                 | fayalite   | 1.02329   | 1.0            |
+| 2  | 1                 | forsterite | 1.02329   | 1.0            |
++----+-------------------+------------+-----------+----------------+
+```
 
 ### huffer
 
@@ -106,6 +146,27 @@ representing "absent" or "missing", e.g. `-Infinity`. Columns that are nullable
 |    |    |   | `zip`                                                           | `BLOB`     | A zip archive of the input files used and output files generated when running the huffer. This includes a traceback when an error occurs                     |               |
 
 : {.striped .bordered}
+
+The user may opt to run the `huffer` to check the validity of the order they
+have submitted before generating [variable space](#variable_space) data. The
+huffer chooses a single variable space point consistent with the order and fully
+speciates it. The exit code generated by the kernel (non-zero for failure) is
+stored along with a `zip` archive of the kernel input and output files and a
+traceback if an error occurred.
+
+This table is primarily useful for debugging.
+
+**Example**:
+
+```sql
+example=# SELECT * FROM mineral_reactants WHERE variable_space_id = 1;
++----+-------------------+------------+-----------+----------------+
+| id | variable_space_id | name       | log_moles | titration_rate |
+|----+-------------------+------------+-----------+----------------|
+| 1  | 1                 | fayalite   | 1.02329   | 1.0            |
+| 2  | 1                 | forsterite | 1.02329   | 1.0            |
++----+-------------------+------------+-----------+----------------+
+```
 
 ### variable_space
 
@@ -122,6 +183,49 @@ representing "absent" or "missing", e.g. `-Infinity`. Columns that are nullable
 
 : {.striped .bordered}
 
+When the user runs **Eleanor** on an order a specified number of variable space
+points are selected based on the constraints provided by that order. Each point
+represents the unspeciated initial state of a system and includes such
+information as.
+
+- Temperature
+- Pressure
+- Kernel Settings ([`kernel`](#kernel))
+- Elemental Composition ([`elements`](#elements))
+- Species Constraints ([`species`](#species))
+- [Reactant Specifications](#reactants), including:
+  - Aqueous Reactants ([`aqueous_reactants`](#aqueous_reactants))
+  - Element Reactants ([`element_reactants`](#element_reactants))
+  - Fixed Gas Reactants ([`fixed_gas_reactants`](#fixed_gas_reactants))
+  - Gas Reactants ([`gas_reactants`](#gas_reactants))
+  - Mineral Reactants ([`mineral_reactants`](#mineral_reactants))
+  - Solid Solution Reactants
+    ([`solid_solution_reactants`](#solid_solution_reactants))
+  - Special Reactants ([`special_reactants`](#special_reactants))
+- Suppressions ([`suppressions`](#suppressions))
+
+The `variable_space` table stores the core information about the variable space
+point per row. This includes an autoincremented `id` and the `temperature` and
+`pressure` of the system, and the datetime at which it was generated. Each point
+refers back to the order to which it belongs via the `order_id`.
+
+After generating the variable space point, **Eleanor** proceeds to speciate the
+system using the user-specified kernel. The `exit_code` generated by the kernel
+as well as the datetimes of when the speciation started and completed are stored
+alongside in the `variable_space` table as well.
+
+**Example**:
+
+```sql
+example=# SELECT * FROM mineral_reactants WHERE variable_space_id = 1;
++----+-------------------+------------+-----------+----------------+
+| id | variable_space_id | name       | log_moles | titration_rate |
+|----+-------------------+------------+-----------+----------------|
+| 1  | 1                 | fayalite   | 1.02329   | 1.0            |
+| 2  | 1                 | forsterite | 1.02329   | 1.0            |
++----+-------------------+------------+-----------+----------------+
+```
+
 #### scratch
 
 | PK | FK | N | Column Name                                                     | Type       | Description                                                                                                                                                  | Unit          |
@@ -130,6 +234,31 @@ representing "absent" or "missing", e.g. `-Infinity`. Columns that are nullable
 |    |    |   | `zip`                                                           | `BLOB`     | A zip archive of the input files used and output files generated when equilibrating the variable space point. This includes a traceback when an error occurs |               |
 
 : {.striped .bordered}
+
+The input files used and output files generated by the kernel when speciating a
+["variable space"](#variable_space) point are stored in a `zip` archive in the
+`scratch` table. The `scratch` row will have the same `id` as the associated
+variable space point.
+
+By default, **Eleanor** only stores scratch entries if an error occurs while
+speciating the variable space point, as signified by a non-zero exit code from
+the kernel. In such a case a `traceback.txt` file is included in the `zip`
+archive detailing the error.
+
+The user may specify, at runtime, that scratch be collected for all variable
+space speciations.
+
+**Example**:
+
+```sql
+example=# SELECT * FROM mineral_reactants WHERE variable_space_id = 1;
++----+-------------------+------------+-----------+----------------+
+| id | variable_space_id | name       | log_moles | titration_rate |
+|----+-------------------+------------+-----------+----------------|
+| 1  | 1                 | fayalite   | 1.02329   | 1.0            |
+| 2  | 1                 | forsterite | 1.02329   | 1.0            |
++----+-------------------+------------+-----------+----------------+
+```
 
 #### kernel
 
@@ -140,6 +269,41 @@ representing "absent" or "missing", e.g. `-Infinity`. Columns that are nullable
 |    |    |   | `settings`                                                      | `JSON`     | A json-encoded object of the settings passed to the kernel                                                                                                   |               |
 
 : {.striped .bordered}
+
+**Eleanor** is designed to support user-provided kernels which may require
+specific configuration or settings. These are provided inside of the order
+file via the `kernel` block, e.g.
+
+```yaml
+kernel:
+  type: eq36
+  model: b-dot
+  charge_balance: H+
+```
+
+Those settings are stored in the `kernel` table, one row for each [variable
+space](#variable_space) point. The kernel settings row will have the same `id`
+as the variable space point to which it belongs. The `type` of the kernel is
+stored alongside a JSON encodedded `settings` object, the form of which is
+kernel-specific.
+
+While, at the moment, only the `eleanor.kernel.eq36` kernel is provided
+out-of-the-box, future versions may include other kernel implentations or
+the user may design and implement their own. It is then difficult to design a
+schema for storing the settings. Using a JSON object makes things simpler given
+PostgreSQL's native JSON support.
+
+**Example**:
+
+```sql
+example=# SELECT * FROM mineral_reactants WHERE variable_space_id = 1;
++----+-------------------+------------+-----------+----------------+
+| id | variable_space_id | name       | log_moles | titration_rate |
+|----+-------------------+------------+-----------+----------------|
+| 1  | 1                 | fayalite   | 1.02329   | 1.0            |
+| 2  | 1                 | forsterite | 1.02329   | 1.0            |
++----+-------------------+------------+-----------+----------------+
+```
 
 #### elements
 
@@ -152,6 +316,41 @@ representing "absent" or "missing", e.g. `-Infinity`. Columns that are nullable
 
 : {.striped .bordered}
 
+The elemental composition of the system's fluid must be provided as part of the
+specification of a variable space point. Within the order specification, this
+is done in the `elements` block, e.g.
+
+```yaml
+elements:
+  C: -9
+  Na: [-2, -3]
+  Si:
+    min: -9
+    max: -6
+  Ca:
+    mean: -4
+    stddev: 0.01
+    min: -5
+    max: -3
+```
+
+Each element in the fluid is stored in the `elements` table with a unique,
+autoincremented `id`, the name of the element, and the `log_molality`
+that was chosen when the variable space was generated). Each element references
+the variable space point it is associated with by the `variable_space_id`.
+
+**Example**:
+
+```sql
+example=# SELECT * FROM mineral_reactants WHERE variable_space_id = 1;
++----+-------------------+------------+-----------+----------------+
+| id | variable_space_id | name       | log_moles | titration_rate |
+|----+-------------------+------------+-----------+----------------|
+| 1  | 1                 | fayalite   | 1.02329   | 1.0            |
+| 2  | 1                 | forsterite | 1.02329   | 1.0            |
++----+-------------------+------------+-----------+----------------+
+```
+
 #### species
 
 | PK | FK | N | Column Name                                                     | Type       | Description                                                                                                                                                  | Unit          |
@@ -163,7 +362,61 @@ representing "absent" or "missing", e.g. `-Infinity`. Columns that are nullable
 
 : {.striped .bordered}
 
-#### aqueous_reactants
+Constraints on the aqueous and gaceous species in the system may, though in some
+cases must, be provided as part of the specification of a variable space point,
+such as the $pH$ and $fO_2$ of the system. Within the order specification, this
+is done in the `species` block, e.g.
+
+```yaml
+species:
+  H+: -7     # pH ~ -log activity H+
+  O2(g): -1  # log fO2
+```
+
+Each species constraint is stored in the `species` table with a unique,
+autoincremented `id`, the name of the species, and the `value` of the constraint
+(log molality, log activity or log fugacity as appropriate) that was chosen when
+the variable space was generated). Each element references the variable space
+point it is associated with by the `variable_space_id`.
+
+**Example**:
+
+```sql
+example=# SELECT * FROM mineral_reactants WHERE variable_space_id = 1;
++----+-------------------+------------+-----------+----------------+
+| id | variable_space_id | name       | log_moles | titration_rate |
+|----+-------------------+------------+-----------+----------------|
+| 1  | 1                 | fayalite   | 1.02329   | 1.0            |
+| 2  | 1                 | forsterite | 1.02329   | 1.0            |
++----+-------------------+------------+-----------+----------------+
+```
+
+#### Reactants
+
+Several types of reactant can be specified in an order, facilitating the
+simulation of a wide variety of systems. These types are
+
+- Aqueous Reactants ([`aqueous_reactants`](#aqueous_reactants))
+- Element Reactants ([`element_reactants`](#element_reactants))
+- Fixed Gas Reactants ([`fixed_gas_reactants`](#fixed_gas_reactants))
+- Gas Reactants ([`gas_reactants`](#gas_reactants))
+- Mineral Reactants ([`mineral_reactants`](#mineral_reactants))
+- Solid Solution Reactants
+  ([`solid_solution_reactants`](#solid_solution_reactants))
+- Special Reactants ([`special_reactants`](#special_reactants))
+
+and each the details of reactants are stored in tables by type. However, they
+mostly follow the same basic form:
+
+1. Each table has an autoincrementing `id`,
+2. Each table has a `variable_space_id` that associates the entry with the
+   [variable space](#variable_space) point,
+3. The `name` of the reactant,
+4. The molar amount of the reactant, `log_moles`, and
+5. Either a `titration_rate` or `log_fugacity` as appropriate for the reactant
+   type.
+
+##### aqueous_reactants
 
 | PK | FK | N | Column Name                                                     | Type       | Description                                                                                                                                                  | Unit          |
 |:-: |:-: |:-:|---------------------------                                      |---------   |------------------------------------------------------------                                                                                                  |---------      |
@@ -175,7 +428,33 @@ representing "absent" or "missing", e.g. `-Infinity`. Columns that are nullable
 
 : {.striped .bordered}
 
-#### element_reactants
+An aqueous reactant models the addition (or removal) of a fixed molar
+quantity (`amount`) of an aqueous species into the system at a $\xi$-rate
+(`titration_rate`).
+
+Within the order specification, this is done in the `reactants` block, e.g.
+
+```yaml
+reactants:
+  CaCl2:
+    type: aqueous
+    amount: -3.0        # log moles of CaCl2 titrated into the system
+    titration_rate: 1.0 # moles of CaCl2 titrated into the system by ξ=1
+```
+
+**Example**:
+
+```sql
+example=# SELECT * FROM mineral_reactants WHERE variable_space_id = 1;
++----+-------------------+------------+-----------+----------------+
+| id | variable_space_id | name       | log_moles | titration_rate |
+|----+-------------------+------------+-----------+----------------|
+| 1  | 1                 | fayalite   | 1.02329   | 1.0            |
+| 2  | 1                 | forsterite | 1.02329   | 1.0            |
++----+-------------------+------------+-----------+----------------+
+```
+
+##### element_reactants
 
 | PK | FK | N | Column Name                                                     | Type       | Description                                                                                                                                                  | Unit          |
 |:-: |:-: |:-:|---------------------------                                      |---------   |------------------------------------------------------------                                                                                                  |---------      |
@@ -187,7 +466,34 @@ representing "absent" or "missing", e.g. `-Infinity`. Columns that are nullable
 
 : {.striped .bordered}
 
-#### fixed_gas_reactants
+An element reactant is just a special case of [`special
+reactant`](#special_reactants) in which a fixed molar quantity (`amount`) of a
+single (unionized) element is added to the bulk composition of the fluid at some
+$\xi$-rate (`titration_rate`).
+
+Within the order specification, this is done in the `reactants` block, e.g.
+
+```yaml
+reactants:
+  Na:
+    type: element
+    amount: -4.0         # log moles of Na added into the system
+    titration_rate: 1.0  # moles of Na added into the system by ξ=1
+```
+
+**Example**:
+
+```sql
+example=# SELECT * FROM mineral_reactants WHERE variable_space_id = 1;
++----+-------------------+------------+-----------+----------------+
+| id | variable_space_id | name       | log_moles | titration_rate |
+|----+-------------------+------------+-----------+----------------|
+| 1  | 1                 | fayalite   | 1.02329   | 1.0            |
+| 2  | 1                 | forsterite | 1.02329   | 1.0            |
++----+-------------------+------------+-----------+----------------+
+```
+
+##### fixed_gas_reactants
 
 | PK | FK | N | Column Name                                                     | Type       | Description                                                                                                                                                  | Unit          |
 |:-: |:-: |:-:|---------------------------                                      |---------   |------------------------------------------------------------                                                                                                  |---------      |
@@ -199,7 +505,37 @@ representing "absent" or "missing", e.g. `-Infinity`. Columns that are nullable
 
 : {.striped .bordered}
 
-#### gas_reactants
+A fixed gas reactant models gas exchange with a large, external gas reservoir at
+a fixed fugacity. Rather than the gas being "titrated" in, the `log_fugacity` is
+enforced through mass exchange with a buffer with initial size `amount`.
+
+Within the order specification, this is done in the `reactants` block, e.g.
+
+```yaml
+reactants:
+  CO2(g):
+    type: fixed gas
+    amount: -0.3  # log moles of CO2(g) in the buffer
+    log_fugacity: -3.5
+  O2(g):
+    type: fixed gas
+    amount: -0.3  # log moles of O2(g) in the buffer
+    log_fugacity: -0.7
+```
+
+**Example**:
+
+```sql
+example=# SELECT * FROM mineral_reactants WHERE variable_space_id = 1;
++----+-------------------+------------+-----------+----------------+
+| id | variable_space_id | name       | log_moles | titration_rate |
+|----+-------------------+------------+-----------+----------------|
+| 1  | 1                 | fayalite   | 1.02329   | 1.0            |
+| 2  | 1                 | forsterite | 1.02329   | 1.0            |
++----+-------------------+------------+-----------+----------------+
+```
+
+##### gas_reactants
 
 | PK | FK | N | Column Name                                                     | Type       | Description                                                                                                                                                  | Unit          |
 |:-: |:-: |:-:|---------------------------                                      |---------   |------------------------------------------------------------                                                                                                  |---------      |
@@ -211,7 +547,32 @@ representing "absent" or "missing", e.g. `-Infinity`. Columns that are nullable
 
 : {.striped .bordered}
 
-#### mineral_reactants
+A gas reactant models reacting a fixed molar quantity (`amount`) of a gas with
+the fluid at some $\xi$-rate (`titration_rate`).
+
+Within the order specification, this is done in the `reactants` block, e.g.
+
+```yaml
+reactants:
+  N2(g):
+    type: gas
+    amount: -0.3
+    titration_rate: 1.0
+```
+
+**Example**:
+
+```sql
+example=# SELECT * FROM mineral_reactants WHERE variable_space_id = 1;
++----+-------------------+------------+-----------+----------------+
+| id | variable_space_id | name       | log_moles | titration_rate |
+|----+-------------------+------------+-----------+----------------|
+| 1  | 1                 | fayalite   | 1.02329   | 1.0            |
+| 2  | 1                 | forsterite | 1.02329   | 1.0            |
++----+-------------------+------------+-----------+----------------+
+```
+
+##### mineral_reactants
 
 | PK | FK | N | Column Name                                                     | Type       | Description                                                                                                                                                  | Unit          |
 |:-: |:-: |:-:|---------------------------                                      |---------   |------------------------------------------------------------                                                                                                  |---------      |
@@ -223,7 +584,32 @@ representing "absent" or "missing", e.g. `-Infinity`. Columns that are nullable
 
 : {.striped .bordered}
 
-#### solid_solution_reactants
+A mineral reactant models reacting a fixed molar quantity (`amount`) of a pure
+mineral with the fluid at some $\xi$-rate (`titration_rate`).
+
+Within the order specification, this is done in the `reactants` block, e.g.
+
+```yaml
+reactants:
+  fayalite:
+    type: mineral
+    amount: -0.3
+    titration_rate: 1.0
+```
+
+**Example**:
+
+```sql
+example=# SELECT * FROM mineral_reactants WHERE variable_space_id = 1;
++----+-------------------+------------+-----------+----------------+
+| id | variable_space_id | name       | log_moles | titration_rate |
+|----+-------------------+------------+-----------+----------------|
+| 1  | 1                 | fayalite   | 1.02329   | 1.0            |
+| 2  | 1                 | forsterite | 1.02329   | 1.0            |
++----+-------------------+------------+-----------+----------------+
+```
+
+##### solid_solution_reactants
 
 | PK | FK | N | Column Name                                                     | Type       | Description                                                                                                                                                  | Unit          |
 |:-: |:-: |:-:|---------------------------                                      |---------   |------------------------------------------------------------                                                                                                  |---------      |
@@ -235,7 +621,39 @@ representing "absent" or "missing", e.g. `-Infinity`. Columns that are nullable
 
 : {.striped .bordered}
 
-##### solid_solution_reactant_end_members
+A solid solution reactant models reacting a fixed molar quantity (`amount`) of
+a solid solution with the fluid at some $\xi$-rate (`titration_rate`).
+Each such solid solution must include the molar fraction of each
+of its end members. The end member data is stored separately in the
+[`solid_solution_reactant_end_members`](#solid_solution_reactant_end_members)
+table.
+
+Within the order specification, this is done in the `reactants` block, e.g.
+
+```yaml
+reactants:
+  olivine-ss:
+    type: solid solution
+    amount: -0.3
+    titration_rate: 1.0
+    end_members:
+      fayalite: 0.6
+      forsterite: 0.4
+```
+
+**Example**:
+
+```sql
+example=# SELECT * FROM mineral_reactants WHERE variable_space_id = 1;
++----+-------------------+------------+-----------+----------------+
+| id | variable_space_id | name       | log_moles | titration_rate |
+|----+-------------------+------------+-----------+----------------|
+| 1  | 1                 | fayalite   | 1.02329   | 1.0            |
+| 2  | 1                 | forsterite | 1.02329   | 1.0            |
++----+-------------------+------------+-----------+----------------+
+```
+
+###### solid_solution_reactant_end_members
 
 | PK | FK | N | Column Name                                                     | Type       | Description                                                                                                                                                  | Unit          |
 |:-: |:-: |:-:|---------------------------                                      |---------   |------------------------------------------------------------                                                                                                  |---------      |
@@ -248,7 +666,23 @@ representing "absent" or "missing", e.g. `-Infinity`. Columns that are nullable
 
 - `CONSTRAINT fraction_in_range CHECK (0.0 <= fraction AND fraction <= 1.0)`
 
-#### special_reactants
+Each [solid solution reactant](#solid_solution_reactants) has a fixed
+distribution of end members, represented by the mole fraction of the total
+solid solution.
+
+**Example**:
+
+```sql
+example=# SELECT * FROM mineral_reactants WHERE variable_space_id = 1;
++----+-------------------+------------+-----------+----------------+
+| id | variable_space_id | name       | log_moles | titration_rate |
+|----+-------------------+------------+-----------+----------------|
+| 1  | 1                 | fayalite   | 1.02329   | 1.0            |
+| 2  | 1                 | forsterite | 1.02329   | 1.0            |
++----+-------------------+------------+-----------+----------------+
+```
+
+##### special_reactants
 
 | PK | FK | N | Column Name                                                     | Type       | Description                                                                                                                                                  | Unit          |
 |:-: |:-: |:-:|---------------------------                                      |---------   |------------------------------------------------------------                                                                                                  |---------      |
@@ -260,7 +694,39 @@ representing "absent" or "missing", e.g. `-Infinity`. Columns that are nullable
 
 : {.striped .bordered}
 
-##### special_reactant_compositions
+A special reactant models reacting a fixed molar quantity (`amount`)
+of a user-specified molecular composition with the fluid at some
+$\xi$-rate (`titration_rate`). Each special reactant must have include
+its stoichiometric composition, which is stored separately in the
+[`special_reactant_compositions`](#special_reactant_compositions) table.
+
+Within the order specification, this is done in the `reactants` block, e.g.
+
+```yaml
+reactants:
+  CalciumHydroxide:
+    type: special
+    amount: -0.3
+    titration_rate: 1.0
+    composition:
+      Ca: 1
+      O: 2
+      H: 2
+```
+
+**Example**:
+
+```sql
+example=# SELECT * FROM mineral_reactants WHERE variable_space_id = 1;
++----+-------------------+------------+-----------+----------------+
+| id | variable_space_id | name       | log_moles | titration_rate |
+|----+-------------------+------------+-----------+----------------|
+| 1  | 1                 | fayalite   | 1.02329   | 1.0            |
+| 2  | 1                 | forsterite | 1.02329   | 1.0            |
++----+-------------------+------------+-----------+----------------+
+```
+
+###### special_reactant_compositions
 
 | PK | FK | N | Column Name                                                     | Type       | Description                                                                                                                                                  | Unit          |
 |:-: |:-: |:-:|---------------------------                                      |---------   |------------------------------------------------------------                                                                                                  |---------      |
@@ -270,6 +736,22 @@ representing "absent" or "missing", e.g. `-Infinity`. Columns that are nullable
 |    |    |   | `count`                                                         | `INTEGER`  | The stoichiometric count of the element in the special reactant                                                                                              |               |
 
 : {.striped .bordered}
+
+Each [special reactant](#special_reactants) has a fixed stoichiometric
+composition. Each `element` and its occurrence (`count`) in the reactant is
+stored in a row of the `special_reactant_composition` table.
+
+**Example**:
+
+```sql
+example=# SELECT * FROM mineral_reactants WHERE variable_space_id = 1;
++----+-------------------+------------+-----------+----------------+
+| id | variable_space_id | name       | log_moles | titration_rate |
+|----+-------------------+------------+-----------+----------------|
+| 1  | 1                 | fayalite   | 1.02329   | 1.0            |
+| 2  | 1                 | forsterite | 1.02329   | 1.0            |
++----+-------------------+------------+-----------+----------------+
+```
 
 #### suppressions
 
@@ -284,6 +766,35 @@ representing "absent" or "missing", e.g. `-Infinity`. Columns that are nullable
 
 - `CONSTRAINT suppressions_well_defined CHECK (name is not null or type is not null)`
 
+Users can specify, within an order, that some species or entire phase
+type should be suppressed from forming. When a phase type is specified,
+exceptions can be provided. Those exceptions are stored separately in the
+[`suppression_exceptions`](#suppression_exceptions) table.
+
+Within the order specification, this is done in the `suppressions` block, e.g.
+
+```yaml
+suppressions:
+  - METHANE                # suppress methane formation
+  - antigorite             # suppress antigorite precipitation
+  - type: solid solutions  # suppress precipitation of all solid solutions
+  - type: mineral          # suppress all mineral precipitation *except* magnetite
+    except:
+      - magnetite
+```
+
+**Example**:
+
+```sql
+example=# SELECT * FROM mineral_reactants WHERE variable_space_id = 1;
++----+-------------------+------------+-----------+----------------+
+| id | variable_space_id | name       | log_moles | titration_rate |
+|----+-------------------+------------+-----------+----------------|
+| 1  | 1                 | fayalite   | 1.02329   | 1.0            |
+| 2  | 1                 | forsterite | 1.02329   | 1.0            |
++----+-------------------+------------+-----------+----------------+
+```
+
 ##### suppression_exceptions
 
 | PK | FK | N | Column Name                                                     | Type       | Description                                                                                                                                                  | Unit          |
@@ -293,6 +804,22 @@ representing "absent" or "missing", e.g. `-Infinity`. Columns that are nullable
 |    | ✔  |   | [`suppression_id`](#suppressions)                               | `INTEGER`  | The id of the suppression for which to except                                                                                                                |               |
 
 : {.striped .bordered}
+
+Each exception to a [suppression constraint](#suppressions) is stored as a row
+in the `suppression_exceptions` table, referring back to the suppression by the
+`suppression_id` value.
+
+**Example**:
+
+```sql
+example=# SELECT * FROM mineral_reactants WHERE variable_space_id = 1;
++----+-------------------+------------+-----------+----------------+
+| id | variable_space_id | name       | log_moles | titration_rate |
+|----+-------------------+------------+-----------+----------------|
+| 1  | 1                 | fayalite   | 1.02329   | 1.0            |
+| 2  | 1                 | forsterite | 1.02329   | 1.0            |
++----+-------------------+------------+-----------+----------------+
+```
 
 #### equilibrium_space
 

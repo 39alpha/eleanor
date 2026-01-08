@@ -20,6 +20,41 @@ ul.task-list li input[type="checkbox"] {
   margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
   vertical-align: middle;
 }
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
 </style>
 
 
@@ -356,33 +391,52 @@ window.Quarto = {
     <h2 id="toc-title">On this page</h2>
    
   <ul>
-  <li><a href="#orders" id="toc-orders" class="nav-link active" data-scroll-target="#orders">orders</a>
-  <ul class="collapse">
+  <li><a href="#overview" id="toc-overview" class="nav-link active" data-scroll-target="#overview">Overview</a></li>
+  <li><a href="#tables" id="toc-tables" class="nav-link" data-scroll-target="#tables">Tables</a>
+  <ul>
+  <li><a href="#orders" id="toc-orders" class="nav-link" data-scroll-target="#orders">orders</a>
+  <ul>
   <li><a href="#huffer" id="toc-huffer" class="nav-link" data-scroll-target="#huffer">huffer</a></li>
   <li><a href="#variable_space" id="toc-variable_space" class="nav-link" data-scroll-target="#variable_space">variable_space</a>
-  <ul class="collapse">
+  <ul>
   <li><a href="#scratch" id="toc-scratch" class="nav-link" data-scroll-target="#scratch">scratch</a></li>
   <li><a href="#kernel" id="toc-kernel" class="nav-link" data-scroll-target="#kernel">kernel</a></li>
   <li><a href="#elements" id="toc-elements" class="nav-link" data-scroll-target="#elements">elements</a></li>
   <li><a href="#species" id="toc-species" class="nav-link" data-scroll-target="#species">species</a></li>
+  <li><a href="#reactants" id="toc-reactants" class="nav-link" data-scroll-target="#reactants">Reactants</a>
+  <ul>
   <li><a href="#aqueous_reactants" id="toc-aqueous_reactants" class="nav-link" data-scroll-target="#aqueous_reactants">aqueous_reactants</a></li>
   <li><a href="#element_reactants" id="toc-element_reactants" class="nav-link" data-scroll-target="#element_reactants">element_reactants</a></li>
   <li><a href="#fixed_gas_reactants" id="toc-fixed_gas_reactants" class="nav-link" data-scroll-target="#fixed_gas_reactants">fixed_gas_reactants</a></li>
   <li><a href="#gas_reactants" id="toc-gas_reactants" class="nav-link" data-scroll-target="#gas_reactants">gas_reactants</a></li>
   <li><a href="#mineral_reactants" id="toc-mineral_reactants" class="nav-link" data-scroll-target="#mineral_reactants">mineral_reactants</a></li>
-  <li><a href="#special_reactants" id="toc-special_reactants" class="nav-link" data-scroll-target="#special_reactants">special_reactants</a></li>
-  <li><a href="#solid_solution_reactants" id="toc-solid_solution_reactants" class="nav-link" data-scroll-target="#solid_solution_reactants">solid_solution_reactants</a></li>
-  <li><a href="#suppressions" id="toc-suppressions" class="nav-link" data-scroll-target="#suppressions">suppressions</a></li>
+  <li><a href="#solid_solution_reactants" id="toc-solid_solution_reactants" class="nav-link" data-scroll-target="#solid_solution_reactants">solid_solution_reactants</a>
+  <ul>
+  <li><a href="#solid_solution_reactant_end_members" id="toc-solid_solution_reactant_end_members" class="nav-link" data-scroll-target="#solid_solution_reactant_end_members">solid_solution_reactant_end_members</a></li>
+  </ul></li>
+  <li><a href="#special_reactants" id="toc-special_reactants" class="nav-link" data-scroll-target="#special_reactants">special_reactants</a>
+  <ul>
+  <li><a href="#special_reactant_compositions" id="toc-special_reactant_compositions" class="nav-link" data-scroll-target="#special_reactant_compositions">special_reactant_compositions</a></li>
+  </ul></li>
+  </ul></li>
+  <li><a href="#suppressions" id="toc-suppressions" class="nav-link" data-scroll-target="#suppressions">suppressions</a>
+  <ul>
+  <li><a href="#suppression_exceptions" id="toc-suppression_exceptions" class="nav-link" data-scroll-target="#suppression_exceptions">suppression_exceptions</a></li>
   </ul></li>
   <li><a href="#equilibrium_space" id="toc-equilibrium_space" class="nav-link" data-scroll-target="#equilibrium_space">equilibrium_space</a>
-  <ul class="collapse">
+  <ul>
   <li><a href="#equilibrium_reactants" id="toc-equilibrium_reactants" class="nav-link" data-scroll-target="#equilibrium_reactants">equilibrium_reactants</a></li>
   <li><a href="#equilibrium_elements" id="toc-equilibrium_elements" class="nav-link" data-scroll-target="#equilibrium_elements">equilibrium_elements</a></li>
   <li><a href="#equilibrium_aqueous_species" id="toc-equilibrium_aqueous_species" class="nav-link" data-scroll-target="#equilibrium_aqueous_species">equilibrium_aqueous_species</a></li>
   <li><a href="#equilibrium_gases" id="toc-equilibrium_gases" class="nav-link" data-scroll-target="#equilibrium_gases">equilibrium_gases</a></li>
   <li><a href="#equilibrium_pure_solids" id="toc-equilibrium_pure_solids" class="nav-link" data-scroll-target="#equilibrium_pure_solids">equilibrium_pure_solids</a></li>
-  <li><a href="#equilibrium_solid_solutions" id="toc-equilibrium_solid_solutions" class="nav-link" data-scroll-target="#equilibrium_solid_solutions">equilibrium_solid_solutions</a></li>
+  <li><a href="#equilibrium_solid_solutions" id="toc-equilibrium_solid_solutions" class="nav-link" data-scroll-target="#equilibrium_solid_solutions">equilibrium_solid_solutions</a>
+  <ul>
+  <li><a href="#equilibrium_end_members" id="toc-equilibrium_end_members" class="nav-link" data-scroll-target="#equilibrium_end_members">equilibrium_end_members</a></li>
+  </ul></li>
   <li><a href="#equilibrium_redox_reactions" id="toc-equilibrium_redox_reactions" class="nav-link" data-scroll-target="#equilibrium_redox_reactions">equilibrium_redox_reactions</a></li>
+  </ul></li>
+  </ul></li>
   </ul></li>
   </ul></li>
   </ul>
@@ -411,1987 +465,2526 @@ window.Quarto = {
 </header>
 
 
-<p><strong>NOTE:</strong> Unless otherwise noted, columns are <code>NOT NULL</code>.</p>
-<section id="orders" class="level1">
-<h1>orders</h1>
+<div style="page-break-after: always;"></div>
+<section id="overview" class="level1">
+<h1>Overview</h1>
+<p>The primary function of <strong>Eleanor</strong> is to accept a problem detailing how to select fully-specified aqueous speciation problems, referred to as an <a href="#orders">“order”</a>, equilibrate them, and curate the resulting data.</p>
+<p>Each such selected problem corresponds to a point (row) in the “variable space” (<a href="#variable_space"><code>variable_space</code></a> table). Each order may then have any number of associated variable space rows. The properties of the variable space points are broken out over a number of tables, e.g.&nbsp;the <a href="#elements"><code>elements</code></a> table contains the elemental composition of the fluid before speciation, the <a href="#mineral_reactants"><code>mineral_reactants</code></a> table contains the amount and titration rate of each mineral to be reacted with the system, etc…</p>
+<p>Speciation is then handled by the kernel specified in the order, which may produce zero or more points (rows) in the “equilibrium space” (<a href="#equilibrium_space"><code>equilibrium_space</code></a> table). Each row for a given variable space point represents some form or degree of equilibration. For example, the <code>eq36</code> kernel performs the equilibration in two stages, first speciating the fluid alone (the <code>"eq3"</code> stage) and then equilibrating the fluid with the reactants (the <code>"eq6"</code> stage). As such, any variable space point equilibrated with the <code>eq36</code> kernel will have at least two equilibrium points associated with it (more on this below). As with variable space points, several tables contain detailed information about the equilibrium space points, e.g.&nbsp;the <a href="#equilibrium_elements"><code>equilibrium_elements</code></a> table contains the elemental composition of the fluid after the given speciation, the <a href="#equilibrium_reactants"><code>equilibrium_reactants</code></a> table contains information about how much of each reactant has been, and how much remains to be, reacted, etc…</p>
+</section>
+<section id="tables" class="level1">
+<h1>Tables</h1>
+<p>This document describes each table in the schema and its relationship to the other tables. For brevity we use a few abbreviations as follows:</p>
 <table class="caption-top table">
+<thead>
+<tr class="header">
+<th><strong>Key</strong></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>PK</td>
+<td>Primary Key</td>
+</tr>
+<tr class="even">
+<td>FK</td>
+<td>Foreign Key</td>
+</tr>
+<tr class="odd">
+<td>N</td>
+<td>Nullable</td>
+</tr>
+</tbody>
+</table>
+<p>Every table a has single primary key (<strong>PK</strong>)—<code>id</code>—without exception, though that my change in subsequent versions of <strong>Eleanor</strong> (but probably not).</p>
+<p>As described in <a href="#overview">Overview</a>, the <strong>Eleanor</strong> database is somewhat hierarchical with the <a href="#orders"><code>orders</code></a> table as the root, zero or more entries in the <a href="#variable_space"><code>variable_space</code></a> table referring to an entry in <a href="#orders"><code>orders</code></a>, and with zero or more entries in the <a href="#equilibrium_space"><code>equilibrium_space</code></a> table referring to an entry in the <a href="#variable_space"><code>variable_space</code></a> table. These relationships are reflected in two ways in this document:</p>
+<ol type="1">
+<li>The document headings are structured such that each table refers to the table one-level above it.</li>
+<li>The foreign keys (<strong>FK</strong>) are noted in the tables, and the associated column name links to the referenced table. These column names are generally of the form <code>*_id</code>. The only exceptions to this form rule are for tables with a one-to-one, rather than many-to-one, relationship, e.g.&nbsp;there is at most one <a href="#huffer"><code>huffer</code></a> entry for each <a href="#orders"><code>orders</code></a>, so the <strong>FK</strong> is simply <code>id</code>.</li>
+</ol>
+<p>Most columns in the <strong>Eleanor</strong> database are <code>NOT NULL</code>, meaning they are guaranteed to have a value, though that value may be some standard value representing “absent” or “missing”, e.g.&nbsp;<code>-Infinity</code>. Columns that are nullable (<strong>N</strong>) are denoted as such.</p>
+<section id="orders" class="level2">
+<h2 class="anchored" data-anchor-id="orders">orders</h2>
+<table class="table-striped table-bordered caption-top table">
 <colgroup>
-<col style="width: 3%">
-<col style="width: 18%">
-<col style="width: 12%">
-<col style="width: 66%">
+<col style="width: 2%">
+<col style="width: 2%">
+<col style="width: 2%">
+<col style="width: 23%">
+<col style="width: 7%">
+<col style="width: 52%">
+<col style="width: 7%">
 </colgroup>
 <thead>
 <tr class="header">
-<th>PK</th>
+<th style="text-align: center;">PK</th>
+<th style="text-align: center;">FK</th>
+<th style="text-align: center;">N</th>
 <th>Column Name</th>
 <th>Type</th>
 <th>Description</th>
+<th>Unit</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd">
-<td>✔</td>
+<td style="text-align: center;">✔</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td><code>id</code></td>
 <td><code>INTEGER</code></td>
 <td>The order identifier</td>
+<td></td>
 </tr>
 <tr class="even">
-<td></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td><code>name</code></td>
 <td><code>VARCHAR</code></td>
 <td>The name of the order</td>
+<td></td>
 </tr>
 <tr class="odd">
-<td></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td><code>hash</code></td>
 <td><code>VARCHAR</code></td>
-<td>A hash of the order file contents</td>
+<td>A SHA-256 hash of the order file contents</td>
+<td></td>
 </tr>
 <tr class="even">
-<td></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td><code>eleanor_version</code></td>
 <td><code>VARCHAR</code></td>
 <td>The version of eleanor used to run the order</td>
+<td></td>
 </tr>
 <tr class="odd">
-<td></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td><code>raw</code></td>
 <td><code>JSON</code></td>
 <td>The raw, JSON-encoded contents of the order</td>
+<td></td>
 </tr>
 <tr class="even">
-<td></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td><code>create_date</code></td>
 <td><code>DATETIME</code></td>
 <td>The datetime at which the order was created</td>
+<td></td>
 </tr>
 </tbody>
 </table>
-<section id="huffer" class="level2">
-<h2 class="anchored" data-anchor-id="huffer">huffer</h2>
-<table class="caption-top table">
+<p>When the user runs an order, <strong>Eleanor</strong> stores an entry in the <code>orders</code> table which includes the autoincremented <code>id</code>, the name of the order (extracted from the YAML/TOML/JSON file), a SHA-256 hash of the normalized content of the order, and the version of <strong>Eleanor</strong> used to execute the order.</p>
+<p>A entry in the <code>orders</code> table is created if:</p>
+<ol type="1">
+<li>The hash of the order is not in the table (i.e.&nbsp;a new order), or</li>
+<li>The version of <strong>Eleanor</strong> used to run the order changes, or</li>
+<li>The user specifies that they want a disctinct order created.</li>
+</ol>
+<p>Otherwise, any <a href="#variable_space">variable space</a> points generated for the order will be associated with an existing order with the same <code>hash</code> and <code>eleanor_version</code>. This allows the user to run small batches for initial testing and subsequent batches to more fully sample the variable space, an “extension run”.</p>
+<p>The <code>create_date</code> value is the datetime at which the order was initially created. Subsequent extension runs do not update the <code>create_date</code>.</p>
+<p><strong>Example</strong>:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>example<span class="op">=</span># <span class="kw">SELECT</span> <span class="op">*</span> <span class="kw">FROM</span> mineral_reactants <span class="kw">WHERE</span> variable_space_id <span class="op">=</span> <span class="dv">1</span>;</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="op">+</span><span class="co">----+-------------------+------------+-----------+----------------+</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>| <span class="kw">id</span> | variable_space_id | name       | log_moles | titration_rate |</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>|<span class="co">----+-------------------+------------+-----------+----------------|</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>| <span class="dv">1</span>  | <span class="dv">1</span>                 | fayalite   | <span class="fl">1.02329</span>   | <span class="fl">1.0</span>            |</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>| <span class="dv">2</span>  | <span class="dv">1</span>                 | forsterite | <span class="fl">1.02329</span>   | <span class="fl">1.0</span>            |</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="op">+</span><span class="co">----+-------------------+------------+-----------+----------------+</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<section id="huffer" class="level3">
+<h3 class="anchored" data-anchor-id="huffer">huffer</h3>
+<table class="table-striped table-bordered caption-top table">
 <thead>
 <tr class="header">
-<th>PK</th>
+<th style="text-align: center;">PK</th>
+<th style="text-align: center;">FK</th>
+<th style="text-align: center;">N</th>
 <th>Column Name</th>
 <th>Type</th>
-<th>References</th>
 <th>Description</th>
+<th>Unit</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd">
-<td>✔</td>
-<td><code>id</code></td>
+<td style="text-align: center;">✔</td>
+<td style="text-align: center;">✔</td>
+<td style="text-align: center;"></td>
+<td><a href="#orders"><code>id</code></a></td>
 <td><code>INTEGER</code></td>
-<td><a href="#orders"><code>orders.id</code></a></td>
 <td>The huffer entry identifier corresponds to the order id</td>
+<td></td>
 </tr>
 <tr class="even">
-<td></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td><code>exit_code</code></td>
 <td><code>INTEGER</code></td>
-<td></td>
 <td>The exit code generated by the huffer (non-zero for failure)</td>
+<td></td>
 </tr>
 <tr class="odd">
-<td></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td><code>zip</code></td>
 <td><code>BLOB</code></td>
-<td></td>
 <td>A zip archive of the input files used and output files generated when running the huffer. This includes a traceback when an error occurs</td>
+<td></td>
 </tr>
 </tbody>
 </table>
+<p>The user may opt to run the <code>huffer</code> to check the validity of the order they have submitted before generating <a href="#variable_space">variable space</a> data. The huffer chooses a single variable space point consistent with the order and fully speciates it. The exit code generated by the kernel (non-zero for failure) is stored along with a <code>zip</code> archive of the kernel input and output files and a traceback if an error occurred.</p>
+<p>This table is primarily useful for debugging.</p>
+<p><strong>Example</strong>:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb2"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>example<span class="op">=</span># <span class="kw">SELECT</span> <span class="op">*</span> <span class="kw">FROM</span> mineral_reactants <span class="kw">WHERE</span> variable_space_id <span class="op">=</span> <span class="dv">1</span>;</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="op">+</span><span class="co">----+-------------------+------------+-----------+----------------+</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>| <span class="kw">id</span> | variable_space_id | name       | log_moles | titration_rate |</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>|<span class="co">----+-------------------+------------+-----------+----------------|</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>| <span class="dv">1</span>  | <span class="dv">1</span>                 | fayalite   | <span class="fl">1.02329</span>   | <span class="fl">1.0</span>            |</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>| <span class="dv">2</span>  | <span class="dv">1</span>                 | forsterite | <span class="fl">1.02329</span>   | <span class="fl">1.0</span>            |</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="op">+</span><span class="co">----+-------------------+------------+-----------+----------------+</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </section>
-<section id="variable_space" class="level2">
-<h2 class="anchored" data-anchor-id="variable_space">variable_space</h2>
-<table class="caption-top table">
+<section id="variable_space" class="level3">
+<h3 class="anchored" data-anchor-id="variable_space">variable_space</h3>
+<table class="table-striped table-bordered caption-top table">
 <thead>
 <tr class="header">
-<th>PK</th>
+<th style="text-align: center;">PK</th>
+<th style="text-align: center;">FK</th>
+<th style="text-align: center;">N</th>
 <th>Column Name</th>
 <th>Type</th>
-<th>References</th>
-<th>Unit</th>
 <th>Description</th>
+<th>Unit</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd">
-<td>✔</td>
+<td style="text-align: center;">✔</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td><code>id</code></td>
 <td><code>INTEGER</code></td>
-<td></td>
-<td></td>
 <td>The variable space point identifier</td>
+<td></td>
 </tr>
 <tr class="even">
-<td></td>
-<td><code>order_id</code></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">✔</td>
+<td style="text-align: center;"></td>
+<td><a href="#orders"><code>order_id</code></a></td>
 <td><code>INTEGER</code></td>
-<td><a href="#orders"><code>orders.id</code></a></td>
-<td></td>
 <td>The order id for which the point was generated</td>
+<td></td>
 </tr>
 <tr class="odd">
-<td></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td><code>temperature</code></td>
 <td><code>DOUBLE</code></td>
-<td></td>
-<td><span class="math inline">\(^\circ C\)</span></td>
 <td>The temperature</td>
+<td><span class="math inline">\(^\circ C\)</span></td>
 </tr>
 <tr class="even">
-<td></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td><code>pressure</code></td>
 <td><code>DOUBLE</code></td>
-<td></td>
-<td><span class="math inline">\(bar\)</span></td>
 <td>The pressure</td>
+<td><span class="math inline">\(bar\)</span></td>
 </tr>
 <tr class="odd">
-<td></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td><code>exit_code</code></td>
 <td><code>INTEGER</code></td>
-<td></td>
-<td></td>
 <td>The exit code generated by the kernel (non-zero for failure)</td>
+<td></td>
 </tr>
 <tr class="even">
-<td></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td><code>create_date</code></td>
 <td><code>DATETIME</code></td>
-<td></td>
-<td></td>
 <td>The datetime when variable space was created</td>
+<td></td>
 </tr>
 <tr class="odd">
-<td></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td><code>start_date</code></td>
 <td><code>DATETIME</code></td>
-<td></td>
-<td></td>
 <td>The datetime when the equilibration started</td>
+<td></td>
 </tr>
 <tr class="even">
-<td></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td><code>complete_date</code></td>
 <td><code>DATETIME</code></td>
-<td></td>
-<td></td>
 <td>The datetime when the equilibration completed</td>
+<td></td>
 </tr>
 </tbody>
 </table>
-<section id="scratch" class="level3">
-<h3 class="anchored" data-anchor-id="scratch">scratch</h3>
-<table class="caption-top table">
+<p>When the user runs <strong>Eleanor</strong> on an order a specified number of variable space points are selected based on the constraints provided by that order. Each point represents the unspeciated initial state of a system and includes such information as.</p>
+<ul>
+<li>Temperature</li>
+<li>Pressure</li>
+<li>Kernel Settings (<a href="#kernel"><code>kernel</code></a>)</li>
+<li>Elemental Composition (<a href="#elements"><code>elements</code></a>)</li>
+<li>Species Constraints (<a href="#species"><code>species</code></a>)</li>
+<li><a href="#reactants">Reactant Specifications</a>, including:
+<ul>
+<li>Aqueous Reactants (<a href="#aqueous_reactants"><code>aqueous_reactants</code></a>)</li>
+<li>Element Reactants (<a href="#element_reactants"><code>element_reactants</code></a>)</li>
+<li>Fixed Gas Reactants (<a href="#fixed_gas_reactants"><code>fixed_gas_reactants</code></a>)</li>
+<li>Gas Reactants (<a href="#gas_reactants"><code>gas_reactants</code></a>)</li>
+<li>Mineral Reactants (<a href="#mineral_reactants"><code>mineral_reactants</code></a>)</li>
+<li>Solid Solution Reactants (<a href="#solid_solution_reactants"><code>solid_solution_reactants</code></a>)</li>
+<li>Special Reactants (<a href="#special_reactants"><code>special_reactants</code></a>)</li>
+</ul></li>
+<li>Suppressions (<a href="#suppressions"><code>suppressions</code></a>)</li>
+</ul>
+<p>The <code>variable_space</code> table stores the core information about the variable space point per row. This includes an autoincremented <code>id</code> and the <code>temperature</code> and <code>pressure</code> of the system, and the datetime at which it was generated. Each point refers back to the order to which it belongs via the <code>order_id</code>.</p>
+<p>After generating the variable space point, <strong>Eleanor</strong> proceeds to speciate the system using the user-specified kernel. The <code>exit_code</code> generated by the kernel as well as the datetimes of when the speciation started and completed are stored alongside in the <code>variable_space</code> table as well.</p>
+<p><strong>Example</strong>:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb3"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>example<span class="op">=</span># <span class="kw">SELECT</span> <span class="op">*</span> <span class="kw">FROM</span> mineral_reactants <span class="kw">WHERE</span> variable_space_id <span class="op">=</span> <span class="dv">1</span>;</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="op">+</span><span class="co">----+-------------------+------------+-----------+----------------+</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>| <span class="kw">id</span> | variable_space_id | name       | log_moles | titration_rate |</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>|<span class="co">----+-------------------+------------+-----------+----------------|</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>| <span class="dv">1</span>  | <span class="dv">1</span>                 | fayalite   | <span class="fl">1.02329</span>   | <span class="fl">1.0</span>            |</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>| <span class="dv">2</span>  | <span class="dv">1</span>                 | forsterite | <span class="fl">1.02329</span>   | <span class="fl">1.0</span>            |</span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a><span class="op">+</span><span class="co">----+-------------------+------------+-----------+----------------+</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<section id="scratch" class="level4">
+<h4 class="anchored" data-anchor-id="scratch">scratch</h4>
+<table class="table-striped table-bordered caption-top table">
 <thead>
 <tr class="header">
-<th>PK</th>
+<th style="text-align: center;">PK</th>
+<th style="text-align: center;">FK</th>
+<th style="text-align: center;">N</th>
 <th>Column Name</th>
 <th>Type</th>
-<th>References</th>
 <th>Description</th>
+<th>Unit</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd">
-<td>✔</td>
-<td><code>id</code></td>
+<td style="text-align: center;">✔</td>
+<td style="text-align: center;">✔</td>
+<td style="text-align: center;"></td>
+<td><a href="#variable_space"><code>id</code></a></td>
 <td><code>INTEGER</code></td>
-<td><a href="#variable_space"><code>variable_space.id</code></a></td>
 <td>The scratch entry identifier corresponds to the variable space id</td>
+<td></td>
 </tr>
 <tr class="even">
-<td></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td><code>zip</code></td>
 <td><code>BLOB</code></td>
-<td></td>
 <td>A zip archive of the input files used and output files generated when equilibrating the variable space point. This includes a traceback when an error occurs</td>
+<td></td>
 </tr>
 </tbody>
 </table>
+<p>The input files used and output files generated by the kernel when speciating a <a href="#variable_space">“variable space”</a> point are stored in a <code>zip</code> archive in the <code>scratch</code> table. The <code>scratch</code> row will have the same <code>id</code> as the associated variable space point.</p>
+<p>By default, <strong>Eleanor</strong> only stores scratch entries if an error occurs while speciating the variable space point, as signified by a non-zero exit code from the kernel. In such a case a <code>traceback.txt</code> file is included in the <code>zip</code> archive detailing the error.</p>
+<p>The user may specify, at runtime, that scratch be collected for all variable space speciations.</p>
+<p><strong>Example</strong>:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb4"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>example<span class="op">=</span># <span class="kw">SELECT</span> <span class="op">*</span> <span class="kw">FROM</span> mineral_reactants <span class="kw">WHERE</span> variable_space_id <span class="op">=</span> <span class="dv">1</span>;</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="op">+</span><span class="co">----+-------------------+------------+-----------+----------------+</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>| <span class="kw">id</span> | variable_space_id | name       | log_moles | titration_rate |</span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>|<span class="co">----+-------------------+------------+-----------+----------------|</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>| <span class="dv">1</span>  | <span class="dv">1</span>                 | fayalite   | <span class="fl">1.02329</span>   | <span class="fl">1.0</span>            |</span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>| <span class="dv">2</span>  | <span class="dv">1</span>                 | forsterite | <span class="fl">1.02329</span>   | <span class="fl">1.0</span>            |</span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a><span class="op">+</span><span class="co">----+-------------------+------------+-----------+----------------+</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </section>
-<section id="kernel" class="level3">
-<h3 class="anchored" data-anchor-id="kernel">kernel</h3>
-<table class="caption-top table">
+<section id="kernel" class="level4">
+<h4 class="anchored" data-anchor-id="kernel">kernel</h4>
+<table class="table-striped table-bordered caption-top table">
 <thead>
 <tr class="header">
-<th>PK</th>
+<th style="text-align: center;">PK</th>
+<th style="text-align: center;">FK</th>
+<th style="text-align: center;">N</th>
 <th>Column Name</th>
 <th>Type</th>
-<th>References</th>
 <th>Description</th>
+<th>Unit</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd">
-<td>✔</td>
-<td><code>id</code></td>
+<td style="text-align: center;">✔</td>
+<td style="text-align: center;">✔</td>
+<td style="text-align: center;"></td>
+<td><a href="#variable_space"><code>id</code></a></td>
 <td><code>INTEGER</code></td>
-<td><a href="#variable_space"><code>variable_space.id</code></a></td>
 <td>The kernel entry identifier corresponds to the variable space point</td>
+<td></td>
 </tr>
 <tr class="even">
-<td></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td><code>type</code></td>
 <td><code>VARCHAR</code></td>
-<td></td>
 <td>The type of the kernel used, e.g.&nbsp;<code>eq36</code></td>
+<td></td>
 </tr>
 <tr class="odd">
-<td></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td><code>settings</code></td>
 <td><code>JSON</code></td>
-<td></td>
 <td>A json-encoded object of the settings passed to the kernel</td>
+<td></td>
 </tr>
 </tbody>
 </table>
+<p><strong>Eleanor</strong> is designed to support user-provided kernels which may require specific configuration or settings. These are provided inside of the order file via the <code>kernel</code> block, e.g.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb5"><pre class="sourceCode yaml code-with-copy"><code class="sourceCode yaml"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="fu">kernel</span><span class="kw">:</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">type</span><span class="kw">:</span><span class="at"> eq36</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">model</span><span class="kw">:</span><span class="at"> b-dot</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">charge_balance</span><span class="kw">:</span><span class="at"> H+</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>Those settings are stored in the <code>kernel</code> table, one row for each <a href="#variable_space">variable space</a> point. The kernel settings row will have the same <code>id</code> as the variable space point to which it belongs. The <code>type</code> of the kernel is stored alongside a JSON encodedded <code>settings</code> object, the form of which is kernel-specific.</p>
+<p>While, at the moment, only the <code>eleanor.kernel.eq36</code> kernel is provided out-of-the-box, future versions may include other kernel implentations or the user may design and implement their own. It is then difficult to design a schema for storing the settings. Using a JSON object makes things simpler given PostgreSQL’s native JSON support.</p>
+<p><strong>Example</strong>:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb6"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>example<span class="op">=</span># <span class="kw">SELECT</span> <span class="op">*</span> <span class="kw">FROM</span> mineral_reactants <span class="kw">WHERE</span> variable_space_id <span class="op">=</span> <span class="dv">1</span>;</span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="op">+</span><span class="co">----+-------------------+------------+-----------+----------------+</span></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>| <span class="kw">id</span> | variable_space_id | name       | log_moles | titration_rate |</span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>|<span class="co">----+-------------------+------------+-----------+----------------|</span></span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>| <span class="dv">1</span>  | <span class="dv">1</span>                 | fayalite   | <span class="fl">1.02329</span>   | <span class="fl">1.0</span>            |</span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>| <span class="dv">2</span>  | <span class="dv">1</span>                 | forsterite | <span class="fl">1.02329</span>   | <span class="fl">1.0</span>            |</span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a><span class="op">+</span><span class="co">----+-------------------+------------+-----------+----------------+</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </section>
-<section id="elements" class="level3">
-<h3 class="anchored" data-anchor-id="elements">elements</h3>
-<table class="caption-top table">
+<section id="elements" class="level4">
+<h4 class="anchored" data-anchor-id="elements">elements</h4>
+<table class="table-striped table-bordered caption-top table">
 <thead>
 <tr class="header">
-<th>PK</th>
+<th style="text-align: center;">PK</th>
+<th style="text-align: center;">FK</th>
+<th style="text-align: center;">N</th>
 <th>Column Name</th>
 <th>Type</th>
-<th>References</th>
-<th>Unit</th>
 <th>Description</th>
+<th>Unit</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd">
-<td>✔</td>
+<td style="text-align: center;">✔</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td><code>id</code></td>
 <td><code>INTEGER</code></td>
-<td></td>
-<td></td>
 <td>The element identifier, specific to the variable space point</td>
+<td></td>
 </tr>
 <tr class="even">
-<td></td>
-<td><code>variable_space_id</code></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">✔</td>
+<td style="text-align: center;"></td>
+<td><a href="#variable_space"><code>variable_space_id</code></a></td>
 <td><code>INTEGER</code></td>
-<td><a href="#variable_space"><code>variable_space.id</code></a></td>
-<td></td>
 <td>The id of the variable space point for which elemental molality was generated</td>
+<td></td>
 </tr>
 <tr class="odd">
-<td></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td><code>name</code></td>
 <td><code>VARCHAR</code></td>
-<td></td>
-<td></td>
 <td>The name of the element (atomic symbol)</td>
+<td></td>
 </tr>
 <tr class="even">
-<td></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td><code>log_molality</code></td>
 <td><code>DOUBLE</code></td>
-<td></td>
-<td><span class="math inline">\(\log{molal}\)</span></td>
 <td>The log molality of the element in the variable space solution</td>
+<td><span class="math inline">\(\log{molal}\)</span></td>
 </tr>
 </tbody>
 </table>
+<p>The elemental composition of the system’s fluid must be provided as part of the specification of a variable space point. Within the order specification, this is done in the <code>elements</code> block, e.g.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb7"><pre class="sourceCode yaml code-with-copy"><code class="sourceCode yaml"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="fu">elements</span><span class="kw">:</span></span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">C</span><span class="kw">:</span><span class="at"> </span><span class="dv">-9</span></span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">Na</span><span class="kw">:</span><span class="at"> </span><span class="kw">[</span><span class="dv">-2</span><span class="kw">,</span><span class="at"> </span><span class="dv">-3</span><span class="kw">]</span></span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">Si</span><span class="kw">:</span></span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">min</span><span class="kw">:</span><span class="at"> </span><span class="dv">-9</span></span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">max</span><span class="kw">:</span><span class="at"> </span><span class="dv">-6</span></span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">Ca</span><span class="kw">:</span></span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">mean</span><span class="kw">:</span><span class="at"> </span><span class="dv">-4</span></span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">stddev</span><span class="kw">:</span><span class="at"> </span><span class="fl">0.01</span></span>
+<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">min</span><span class="kw">:</span><span class="at"> </span><span class="dv">-5</span></span>
+<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">max</span><span class="kw">:</span><span class="at"> </span><span class="dv">-3</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>Each element in the fluid is stored in the <code>elements</code> table with a unique, autoincremented <code>id</code>, the name of the element, and the <code>log_molality</code> that was chosen when the variable space was generated). Each element references the variable space point it is associated with by the <code>variable_space_id</code>.</p>
+<p><strong>Example</strong>:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb8"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a>example<span class="op">=</span># <span class="kw">SELECT</span> <span class="op">*</span> <span class="kw">FROM</span> mineral_reactants <span class="kw">WHERE</span> variable_space_id <span class="op">=</span> <span class="dv">1</span>;</span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a><span class="op">+</span><span class="co">----+-------------------+------------+-----------+----------------+</span></span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>| <span class="kw">id</span> | variable_space_id | name       | log_moles | titration_rate |</span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a>|<span class="co">----+-------------------+------------+-----------+----------------|</span></span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a>| <span class="dv">1</span>  | <span class="dv">1</span>                 | fayalite   | <span class="fl">1.02329</span>   | <span class="fl">1.0</span>            |</span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a>| <span class="dv">2</span>  | <span class="dv">1</span>                 | forsterite | <span class="fl">1.02329</span>   | <span class="fl">1.0</span>            |</span>
+<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a><span class="op">+</span><span class="co">----+-------------------+------------+-----------+----------------+</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </section>
-<section id="species" class="level3">
-<h3 class="anchored" data-anchor-id="species">species</h3>
-<table class="caption-top table">
+<section id="species" class="level4">
+<h4 class="anchored" data-anchor-id="species">species</h4>
+<table class="table-striped table-bordered caption-top table">
 <thead>
 <tr class="header">
-<th>PK</th>
+<th style="text-align: center;">PK</th>
+<th style="text-align: center;">FK</th>
+<th style="text-align: center;">N</th>
 <th>Column Name</th>
 <th>Type</th>
-<th>References</th>
-<th>Unit</th>
 <th>Description</th>
+<th>Unit</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd">
-<td>✔</td>
+<td style="text-align: center;">✔</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td><code>id</code></td>
 <td><code>INTEGER</code></td>
-<td></td>
-<td></td>
 <td>The species identifier, specific to the variable space point</td>
+<td></td>
 </tr>
 <tr class="even">
-<td></td>
-<td><code>variable_space_id</code></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">✔</td>
+<td style="text-align: center;"></td>
+<td><a href="#variable_space"><code>variable_space_id</code></a></td>
 <td><code>INTEGER</code></td>
-<td><a href="#variable_space"><code>variable_space.id</code></a></td>
-<td></td>
 <td>The id of the variable space point for which the species molality/activity/fugacity was generated</td>
+<td></td>
 </tr>
 <tr class="odd">
-<td></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td><code>name</code></td>
 <td><code>VARCHAR</code></td>
-<td></td>
-<td></td>
 <td>The name of the species (formula)</td>
+<td></td>
 </tr>
 <tr class="even">
-<td></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td><code>value</code></td>
 <td><code>DOUBLE</code></td>
-<td></td>
-<td>variable</td>
 <td>The log molality/activity/fugacity of the species in the variable space solution</td>
+<td>variable</td>
 </tr>
 </tbody>
 </table>
+<p>Constraints on the aqueous and gaceous species in the system may, though in some cases must, be provided as part of the specification of a variable space point, such as the <span class="math inline">\(pH\)</span> and <span class="math inline">\(fO_2\)</span> of the system. Within the order specification, this is done in the <code>species</code> block, e.g.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb9"><pre class="sourceCode yaml code-with-copy"><code class="sourceCode yaml"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="fu">species</span><span class="kw">:</span></span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">H+</span><span class="kw">:</span><span class="at"> </span><span class="dv">-7</span><span class="co">     # pH ~ -log activity H+</span></span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">O2(g)</span><span class="kw">:</span><span class="at"> </span><span class="dv">-1</span><span class="co">  # log fO2</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>Each species constraint is stored in the <code>species</code> table with a unique, autoincremented <code>id</code>, the name of the species, and the <code>value</code> of the constraint (log molality, log activity or log fugacity as appropriate) that was chosen when the variable space was generated). Each element references the variable space point it is associated with by the <code>variable_space_id</code>.</p>
+<p><strong>Example</strong>:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb10"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a>example<span class="op">=</span># <span class="kw">SELECT</span> <span class="op">*</span> <span class="kw">FROM</span> mineral_reactants <span class="kw">WHERE</span> variable_space_id <span class="op">=</span> <span class="dv">1</span>;</span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a><span class="op">+</span><span class="co">----+-------------------+------------+-----------+----------------+</span></span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>| <span class="kw">id</span> | variable_space_id | name       | log_moles | titration_rate |</span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a>|<span class="co">----+-------------------+------------+-----------+----------------|</span></span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a>| <span class="dv">1</span>  | <span class="dv">1</span>                 | fayalite   | <span class="fl">1.02329</span>   | <span class="fl">1.0</span>            |</span>
+<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a>| <span class="dv">2</span>  | <span class="dv">1</span>                 | forsterite | <span class="fl">1.02329</span>   | <span class="fl">1.0</span>            |</span>
+<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a><span class="op">+</span><span class="co">----+-------------------+------------+-----------+----------------+</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </section>
-<section id="aqueous_reactants" class="level3">
-<h3 class="anchored" data-anchor-id="aqueous_reactants">aqueous_reactants</h3>
-<table class="caption-top table">
+<section id="reactants" class="level4">
+<h4 class="anchored" data-anchor-id="reactants">Reactants</h4>
+<p>Several types of reactant can be specified in an order, facilitating the simulation of a wide variety of systems. These types are</p>
+<ul>
+<li>Aqueous Reactants (<a href="#aqueous_reactants"><code>aqueous_reactants</code></a>)</li>
+<li>Element Reactants (<a href="#element_reactants"><code>element_reactants</code></a>)</li>
+<li>Fixed Gas Reactants (<a href="#fixed_gas_reactants"><code>fixed_gas_reactants</code></a>)</li>
+<li>Gas Reactants (<a href="#gas_reactants"><code>gas_reactants</code></a>)</li>
+<li>Mineral Reactants (<a href="#mineral_reactants"><code>mineral_reactants</code></a>)</li>
+<li>Solid Solution Reactants (<a href="#solid_solution_reactants"><code>solid_solution_reactants</code></a>)</li>
+<li>Special Reactants (<a href="#special_reactants"><code>special_reactants</code></a>)</li>
+</ul>
+<p>and each the details of reactants are stored in tables by type. However, they mostly follow the same basic form:</p>
+<ol type="1">
+<li>Each table has an autoincrementing <code>id</code>,</li>
+<li>Each table has a <code>variable_space_id</code> that associates the entry with the <a href="#variable_space">variable space</a> point,</li>
+<li>The <code>name</code> of the reactant,</li>
+<li>The molar amount of the reactant, <code>log_moles</code>, and</li>
+<li>Either a <code>titration_rate</code> or <code>log_fugacity</code> as appropriate for the reactant type.</li>
+</ol>
+<section id="aqueous_reactants" class="level5">
+<h5 class="anchored" data-anchor-id="aqueous_reactants">aqueous_reactants</h5>
+<table class="table-striped table-bordered caption-top table">
 <thead>
 <tr class="header">
-<th>PK</th>
+<th style="text-align: center;">PK</th>
+<th style="text-align: center;">FK</th>
+<th style="text-align: center;">N</th>
 <th>Column Name</th>
 <th>Type</th>
-<th>References</th>
-<th>Unit</th>
 <th>Description</th>
+<th>Unit</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd">
-<td>✔</td>
+<td style="text-align: center;">✔</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td><code>id</code></td>
 <td><code>INTEGER</code></td>
-<td></td>
-<td></td>
 <td>The aqueous reactant identifier, specific to the variable space point</td>
+<td></td>
 </tr>
 <tr class="even">
-<td></td>
-<td><code>variable_space_id</code></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">✔</td>
+<td style="text-align: center;"></td>
+<td><a href="#variable_space"><code>variable_space_id</code></a></td>
 <td><code>INTEGER</code></td>
-<td><a href="#variable_space"><code>variable_space.id</code></a></td>
-<td></td>
 <td>The id of the variable space point for which the aqueous reactant amount and titration rate were generated</td>
+<td></td>
 </tr>
 <tr class="odd">
-<td></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td><code>name</code></td>
 <td><code>VARCHAR</code></td>
-<td></td>
-<td></td>
 <td>The name of the aqueous reactant</td>
+<td></td>
 </tr>
 <tr class="even">
-<td></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td><code>log_moles</code></td>
 <td><code>DOUBLE</code></td>
-<td></td>
-<td><span class="math inline">\(\log{mole}\)</span></td>
 <td>The log amount of the reactant to be reacted with the fluid</td>
+<td><span class="math inline">\(\log{mol}\)</span></td>
 </tr>
 <tr class="odd">
-<td></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td><code>titration_rate</code></td>
 <td><code>DOUBLE</code></td>
-<td></td>
-<td><span class="math inline">\(mole/\xi\)</span></td>
 <td>The rate (in <span class="math inline">\(\xi\)</span>) at which the reactant will be titrated into the fluid</td>
+<td><span class="math inline">\(mol/\xi\)</span></td>
 </tr>
 </tbody>
 </table>
+<p>An aqueous reactant models the addition (or removal) of a fixed molar quantity (<code>amount</code>) of an aqueous species into the system at a <span class="math inline">\(\xi\)</span>-rate (<code>titration_rate</code>).</p>
+<p>Within the order specification, this is done in the <code>reactants</code> block, e.g.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb11"><pre class="sourceCode yaml code-with-copy"><code class="sourceCode yaml"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="fu">reactants</span><span class="kw">:</span></span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">CaCl2</span><span class="kw">:</span></span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">type</span><span class="kw">:</span><span class="at"> aqueous</span></span>
+<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">amount</span><span class="kw">:</span><span class="at"> </span><span class="fl">-3.0</span><span class="co">        # log moles of CaCl2 titrated into the system</span></span>
+<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">titration_rate</span><span class="kw">:</span><span class="at"> </span><span class="fl">1.0</span><span class="co"> # moles of CaCl2 titrated into the system by ξ=1</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><strong>Example</strong>:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb12"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a>example<span class="op">=</span># <span class="kw">SELECT</span> <span class="op">*</span> <span class="kw">FROM</span> mineral_reactants <span class="kw">WHERE</span> variable_space_id <span class="op">=</span> <span class="dv">1</span>;</span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a><span class="op">+</span><span class="co">----+-------------------+------------+-----------+----------------+</span></span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a>| <span class="kw">id</span> | variable_space_id | name       | log_moles | titration_rate |</span>
+<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a>|<span class="co">----+-------------------+------------+-----------+----------------|</span></span>
+<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a>| <span class="dv">1</span>  | <span class="dv">1</span>                 | fayalite   | <span class="fl">1.02329</span>   | <span class="fl">1.0</span>            |</span>
+<span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a>| <span class="dv">2</span>  | <span class="dv">1</span>                 | forsterite | <span class="fl">1.02329</span>   | <span class="fl">1.0</span>            |</span>
+<span id="cb12-7"><a href="#cb12-7" aria-hidden="true" tabindex="-1"></a><span class="op">+</span><span class="co">----+-------------------+------------+-----------+----------------+</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </section>
-<section id="element_reactants" class="level3">
-<h3 class="anchored" data-anchor-id="element_reactants">element_reactants</h3>
-<table class="caption-top table">
+<section id="element_reactants" class="level5">
+<h5 class="anchored" data-anchor-id="element_reactants">element_reactants</h5>
+<table class="table-striped table-bordered caption-top table">
 <thead>
 <tr class="header">
-<th>PK</th>
+<th style="text-align: center;">PK</th>
+<th style="text-align: center;">FK</th>
+<th style="text-align: center;">N</th>
 <th>Column Name</th>
 <th>Type</th>
-<th>References</th>
-<th>Unit</th>
 <th>Description</th>
+<th>Unit</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd">
-<td>✔</td>
+<td style="text-align: center;">✔</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td><code>id</code></td>
 <td><code>INTEGER</code></td>
-<td></td>
-<td></td>
 <td>The element reactant identifier, specific to the variable space point</td>
+<td></td>
 </tr>
 <tr class="even">
-<td></td>
-<td><code>variable_space_id</code></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">✔</td>
+<td style="text-align: center;"></td>
+<td><a href="#variable_space"><code>variable_space_id</code></a></td>
 <td><code>INTEGER</code></td>
-<td><a href="#variable_space"><code>variable_space.id</code></a></td>
-<td></td>
 <td>The id of the variable space point for which the element reactant amount and titration rate were generated</td>
+<td></td>
 </tr>
 <tr class="odd">
-<td></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td><code>name</code></td>
 <td><code>VARCHAR</code></td>
-<td></td>
-<td></td>
 <td>The name of the element reactant</td>
+<td></td>
 </tr>
 <tr class="even">
-<td></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td><code>log_moles</code></td>
 <td><code>DOUBLE</code></td>
-<td></td>
-<td><span class="math inline">\(\log{mole}\)</span></td>
 <td>The log amount of the reactant to be reacted with the fluid</td>
+<td><span class="math inline">\(\log{mol}\)</span></td>
 </tr>
 <tr class="odd">
-<td></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td><code>titration_rate</code></td>
 <td><code>DOUBLE</code></td>
-<td></td>
-<td><span class="math inline">\(mole/\xi\)</span></td>
 <td>The rate (in <span class="math inline">\(\xi\)</span>) at which the reactant will be titrated into the fluid</td>
+<td><span class="math inline">\(mol/\xi\)</span></td>
 </tr>
 </tbody>
 </table>
+<p>An element reactant is just a special case of <a href="#special_reactants"><code>special reactant</code></a> in which a fixed molar quantity (<code>amount</code>) of a single (unionized) element is added to the bulk composition of the fluid at some <span class="math inline">\(\xi\)</span>-rate (<code>titration_rate</code>).</p>
+<p>Within the order specification, this is done in the <code>reactants</code> block, e.g.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb13"><pre class="sourceCode yaml code-with-copy"><code class="sourceCode yaml"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="fu">reactants</span><span class="kw">:</span></span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">Na</span><span class="kw">:</span></span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">type</span><span class="kw">:</span><span class="at"> element</span></span>
+<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">amount</span><span class="kw">:</span><span class="at"> </span><span class="fl">-4.0</span><span class="co">         # log moles of Na added into the system</span></span>
+<span id="cb13-5"><a href="#cb13-5" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">titration_rate</span><span class="kw">:</span><span class="at"> </span><span class="fl">1.0</span><span class="co">  # moles of Na added into the system by ξ=1</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><strong>Example</strong>:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb14"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a>example<span class="op">=</span># <span class="kw">SELECT</span> <span class="op">*</span> <span class="kw">FROM</span> mineral_reactants <span class="kw">WHERE</span> variable_space_id <span class="op">=</span> <span class="dv">1</span>;</span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a><span class="op">+</span><span class="co">----+-------------------+------------+-----------+----------------+</span></span>
+<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a>| <span class="kw">id</span> | variable_space_id | name       | log_moles | titration_rate |</span>
+<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a>|<span class="co">----+-------------------+------------+-----------+----------------|</span></span>
+<span id="cb14-5"><a href="#cb14-5" aria-hidden="true" tabindex="-1"></a>| <span class="dv">1</span>  | <span class="dv">1</span>                 | fayalite   | <span class="fl">1.02329</span>   | <span class="fl">1.0</span>            |</span>
+<span id="cb14-6"><a href="#cb14-6" aria-hidden="true" tabindex="-1"></a>| <span class="dv">2</span>  | <span class="dv">1</span>                 | forsterite | <span class="fl">1.02329</span>   | <span class="fl">1.0</span>            |</span>
+<span id="cb14-7"><a href="#cb14-7" aria-hidden="true" tabindex="-1"></a><span class="op">+</span><span class="co">----+-------------------+------------+-----------+----------------+</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </section>
-<section id="fixed_gas_reactants" class="level3">
-<h3 class="anchored" data-anchor-id="fixed_gas_reactants">fixed_gas_reactants</h3>
-<table class="caption-top table">
+<section id="fixed_gas_reactants" class="level5">
+<h5 class="anchored" data-anchor-id="fixed_gas_reactants">fixed_gas_reactants</h5>
+<table class="table-striped table-bordered caption-top table">
 <thead>
 <tr class="header">
-<th>PK</th>
+<th style="text-align: center;">PK</th>
+<th style="text-align: center;">FK</th>
+<th style="text-align: center;">N</th>
 <th>Column Name</th>
 <th>Type</th>
-<th>References</th>
-<th>Unit</th>
 <th>Description</th>
+<th>Unit</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd">
-<td>✔</td>
+<td style="text-align: center;">✔</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td><code>id</code></td>
 <td><code>INTEGER</code></td>
-<td></td>
-<td></td>
 <td>The fixed gas reactant identifier, specific to the variable space point</td>
+<td></td>
 </tr>
 <tr class="even">
-<td></td>
-<td><code>variable_space_id</code></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">✔</td>
+<td style="text-align: center;"></td>
+<td><a href="#variable_space"><code>variable_space_id</code></a></td>
 <td><code>INTEGER</code></td>
-<td><a href="#variable_space"><code>variable_space.id</code></a></td>
-<td></td>
 <td>The id of the variable space point for which the fixed gas reactant amount and fugacity were generated</td>
+<td></td>
 </tr>
 <tr class="odd">
-<td></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td><code>name</code></td>
 <td><code>VARCHAR</code></td>
-<td></td>
-<td></td>
 <td>The name of the fixed gas reactant</td>
+<td></td>
 </tr>
 <tr class="even">
-<td></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td><code>log_moles</code></td>
 <td><code>DOUBLE</code></td>
-<td></td>
-<td><span class="math inline">\(\log{mole}\)</span></td>
 <td>The log amount of the reactant to be reacted with the fluid</td>
+<td><span class="math inline">\(\log{mol}\)</span></td>
 </tr>
 <tr class="odd">
-<td></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td><code>log_fugacity</code></td>
 <td><code>DOUBLE</code></td>
-<td></td>
-<td><span class="math inline">\(mole/\xi\)</span></td>
 <td>The log fugacity of will be titrated into the fluid</td>
+<td><span class="math inline">\(mol/\xi\)</span></td>
 </tr>
 </tbody>
 </table>
+<p>A fixed gas reactant models gas exchange with a large, external gas reservoir at a fixed fugacity. Rather than the gas being “titrated” in, the <code>log_fugacity</code> is enforced through mass exchange with a buffer with initial size <code>amount</code>.</p>
+<p>Within the order specification, this is done in the <code>reactants</code> block, e.g.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb15"><pre class="sourceCode yaml code-with-copy"><code class="sourceCode yaml"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="fu">reactants</span><span class="kw">:</span></span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">CO2(g)</span><span class="kw">:</span></span>
+<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">type</span><span class="kw">:</span><span class="at"> fixed gas</span></span>
+<span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">amount</span><span class="kw">:</span><span class="at"> </span><span class="fl">-0.3</span><span class="co">  # log moles of CO2(g) in the buffer</span></span>
+<span id="cb15-5"><a href="#cb15-5" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">log_fugacity</span><span class="kw">:</span><span class="at"> </span><span class="fl">-3.5</span></span>
+<span id="cb15-6"><a href="#cb15-6" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">O2(g)</span><span class="kw">:</span></span>
+<span id="cb15-7"><a href="#cb15-7" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">type</span><span class="kw">:</span><span class="at"> fixed gas</span></span>
+<span id="cb15-8"><a href="#cb15-8" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">amount</span><span class="kw">:</span><span class="at"> </span><span class="fl">-0.3</span><span class="co">  # log moles of O2(g) in the buffer</span></span>
+<span id="cb15-9"><a href="#cb15-9" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">log_fugacity</span><span class="kw">:</span><span class="at"> </span><span class="fl">-0.7</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><strong>Example</strong>:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb16"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a>example<span class="op">=</span># <span class="kw">SELECT</span> <span class="op">*</span> <span class="kw">FROM</span> mineral_reactants <span class="kw">WHERE</span> variable_space_id <span class="op">=</span> <span class="dv">1</span>;</span>
+<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a><span class="op">+</span><span class="co">----+-------------------+------------+-----------+----------------+</span></span>
+<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a>| <span class="kw">id</span> | variable_space_id | name       | log_moles | titration_rate |</span>
+<span id="cb16-4"><a href="#cb16-4" aria-hidden="true" tabindex="-1"></a>|<span class="co">----+-------------------+------------+-----------+----------------|</span></span>
+<span id="cb16-5"><a href="#cb16-5" aria-hidden="true" tabindex="-1"></a>| <span class="dv">1</span>  | <span class="dv">1</span>                 | fayalite   | <span class="fl">1.02329</span>   | <span class="fl">1.0</span>            |</span>
+<span id="cb16-6"><a href="#cb16-6" aria-hidden="true" tabindex="-1"></a>| <span class="dv">2</span>  | <span class="dv">1</span>                 | forsterite | <span class="fl">1.02329</span>   | <span class="fl">1.0</span>            |</span>
+<span id="cb16-7"><a href="#cb16-7" aria-hidden="true" tabindex="-1"></a><span class="op">+</span><span class="co">----+-------------------+------------+-----------+----------------+</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </section>
-<section id="gas_reactants" class="level3">
-<h3 class="anchored" data-anchor-id="gas_reactants">gas_reactants</h3>
-<table class="caption-top table">
+<section id="gas_reactants" class="level5">
+<h5 class="anchored" data-anchor-id="gas_reactants">gas_reactants</h5>
+<table class="table-striped table-bordered caption-top table">
 <thead>
 <tr class="header">
-<th>PK</th>
+<th style="text-align: center;">PK</th>
+<th style="text-align: center;">FK</th>
+<th style="text-align: center;">N</th>
 <th>Column Name</th>
 <th>Type</th>
-<th>References</th>
-<th>Unit</th>
 <th>Description</th>
+<th>Unit</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd">
-<td>✔</td>
+<td style="text-align: center;">✔</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td><code>id</code></td>
 <td><code>INTEGER</code></td>
-<td></td>
-<td></td>
 <td>The gas reactant identifier, specific to the variable space point</td>
+<td></td>
 </tr>
 <tr class="even">
-<td></td>
-<td><code>variable_space_id</code></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">✔</td>
+<td style="text-align: center;"></td>
+<td><a href="#variable_space"><code>variable_space_id</code></a></td>
 <td><code>INTEGER</code></td>
-<td><a href="#variable_space"><code>variable_space.id</code></a></td>
-<td></td>
 <td>The id of the variable space point for which the gas reactant amount and titration rate were generated</td>
+<td></td>
 </tr>
 <tr class="odd">
-<td></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td><code>name</code></td>
 <td><code>VARCHAR</code></td>
-<td></td>
-<td></td>
 <td>The name of the gas reactant</td>
+<td></td>
 </tr>
 <tr class="even">
-<td></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td><code>log_moles</code></td>
 <td><code>DOUBLE</code></td>
-<td></td>
-<td><span class="math inline">\(\log{mole}\)</span></td>
 <td>The log amount of the reactant to be reacted with the fluid</td>
+<td><span class="math inline">\(\log{mol}\)</span></td>
 </tr>
 <tr class="odd">
-<td></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td><code>titration_rate</code></td>
 <td><code>DOUBLE</code></td>
-<td></td>
-<td><span class="math inline">\(mole/\xi\)</span></td>
 <td>The rate (in <span class="math inline">\(\xi\)</span>) at which the reactant will be titrated into the fluid</td>
+<td><span class="math inline">\(mol/\xi\)</span></td>
 </tr>
 </tbody>
 </table>
+<p>A gas reactant models reacting a fixed molar quantity (<code>amount</code>) of a gas with the fluid at some <span class="math inline">\(\xi\)</span>-rate (<code>titration_rate</code>).</p>
+<p>Within the order specification, this is done in the <code>reactants</code> block, e.g.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb17"><pre class="sourceCode yaml code-with-copy"><code class="sourceCode yaml"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="fu">reactants</span><span class="kw">:</span></span>
+<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">N2(g)</span><span class="kw">:</span></span>
+<span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">type</span><span class="kw">:</span><span class="at"> gas</span></span>
+<span id="cb17-4"><a href="#cb17-4" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">amount</span><span class="kw">:</span><span class="at"> </span><span class="fl">-0.3</span></span>
+<span id="cb17-5"><a href="#cb17-5" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">titration_rate</span><span class="kw">:</span><span class="at"> </span><span class="fl">1.0</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><strong>Example</strong>:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb18"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a>example<span class="op">=</span># <span class="kw">SELECT</span> <span class="op">*</span> <span class="kw">FROM</span> mineral_reactants <span class="kw">WHERE</span> variable_space_id <span class="op">=</span> <span class="dv">1</span>;</span>
+<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a><span class="op">+</span><span class="co">----+-------------------+------------+-----------+----------------+</span></span>
+<span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a>| <span class="kw">id</span> | variable_space_id | name       | log_moles | titration_rate |</span>
+<span id="cb18-4"><a href="#cb18-4" aria-hidden="true" tabindex="-1"></a>|<span class="co">----+-------------------+------------+-----------+----------------|</span></span>
+<span id="cb18-5"><a href="#cb18-5" aria-hidden="true" tabindex="-1"></a>| <span class="dv">1</span>  | <span class="dv">1</span>                 | fayalite   | <span class="fl">1.02329</span>   | <span class="fl">1.0</span>            |</span>
+<span id="cb18-6"><a href="#cb18-6" aria-hidden="true" tabindex="-1"></a>| <span class="dv">2</span>  | <span class="dv">1</span>                 | forsterite | <span class="fl">1.02329</span>   | <span class="fl">1.0</span>            |</span>
+<span id="cb18-7"><a href="#cb18-7" aria-hidden="true" tabindex="-1"></a><span class="op">+</span><span class="co">----+-------------------+------------+-----------+----------------+</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </section>
-<section id="mineral_reactants" class="level3">
-<h3 class="anchored" data-anchor-id="mineral_reactants">mineral_reactants</h3>
-<table class="caption-top table">
+<section id="mineral_reactants" class="level5">
+<h5 class="anchored" data-anchor-id="mineral_reactants">mineral_reactants</h5>
+<table class="table-striped table-bordered caption-top table">
 <thead>
 <tr class="header">
-<th>PK</th>
+<th style="text-align: center;">PK</th>
+<th style="text-align: center;">FK</th>
+<th style="text-align: center;">N</th>
 <th>Column Name</th>
 <th>Type</th>
-<th>References</th>
-<th>Unit</th>
 <th>Description</th>
+<th>Unit</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd">
-<td>✔</td>
+<td style="text-align: center;">✔</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td><code>id</code></td>
 <td><code>INTEGER</code></td>
-<td></td>
-<td></td>
 <td>The mineral reactant identifier, specific to the variable space point</td>
+<td></td>
 </tr>
 <tr class="even">
-<td></td>
-<td><code>variable_space_id</code></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">✔</td>
+<td style="text-align: center;"></td>
+<td><a href="#variable_space"><code>variable_space_id</code></a></td>
 <td><code>INTEGER</code></td>
-<td><a href="#variable_space"><code>variable_space.id</code></a></td>
-<td></td>
 <td>The id of the variable space point for which the mineral reactant amount and titration rate were generated</td>
+<td></td>
 </tr>
 <tr class="odd">
-<td></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td><code>name</code></td>
 <td><code>VARCHAR</code></td>
-<td></td>
-<td></td>
 <td>The name of the mineral reactant</td>
+<td></td>
 </tr>
 <tr class="even">
-<td></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td><code>log_moles</code></td>
 <td><code>DOUBLE</code></td>
-<td></td>
-<td><span class="math inline">\(\log{mole}\)</span></td>
 <td>The log amount of the reactant to be reacted with the fluid</td>
+<td><span class="math inline">\(\log{mol}\)</span></td>
 </tr>
 <tr class="odd">
-<td></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td><code>titration_rate</code></td>
 <td><code>DOUBLE</code></td>
-<td></td>
-<td><span class="math inline">\(mole/\xi\)</span></td>
 <td>The rate (in <span class="math inline">\(\xi\)</span>) at which the reactant will be titrated into the fluid</td>
+<td><span class="math inline">\(mol/\xi\)</span></td>
 </tr>
 </tbody>
 </table>
+<p>A mineral reactant models reacting a fixed molar quantity (<code>amount</code>) of a pure mineral with the fluid at some <span class="math inline">\(\xi\)</span>-rate (<code>titration_rate</code>).</p>
+<p>Within the order specification, this is done in the <code>reactants</code> block, e.g.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb19"><pre class="sourceCode yaml code-with-copy"><code class="sourceCode yaml"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a><span class="fu">reactants</span><span class="kw">:</span></span>
+<span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">fayalite</span><span class="kw">:</span></span>
+<span id="cb19-3"><a href="#cb19-3" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">type</span><span class="kw">:</span><span class="at"> mineral</span></span>
+<span id="cb19-4"><a href="#cb19-4" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">amount</span><span class="kw">:</span><span class="at"> </span><span class="fl">-0.3</span></span>
+<span id="cb19-5"><a href="#cb19-5" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">titration_rate</span><span class="kw">:</span><span class="at"> </span><span class="fl">1.0</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><strong>Example</strong>:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb20"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a>example<span class="op">=</span># <span class="kw">SELECT</span> <span class="op">*</span> <span class="kw">FROM</span> mineral_reactants <span class="kw">WHERE</span> variable_space_id <span class="op">=</span> <span class="dv">1</span>;</span>
+<span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a><span class="op">+</span><span class="co">----+-------------------+------------+-----------+----------------+</span></span>
+<span id="cb20-3"><a href="#cb20-3" aria-hidden="true" tabindex="-1"></a>| <span class="kw">id</span> | variable_space_id | name       | log_moles | titration_rate |</span>
+<span id="cb20-4"><a href="#cb20-4" aria-hidden="true" tabindex="-1"></a>|<span class="co">----+-------------------+------------+-----------+----------------|</span></span>
+<span id="cb20-5"><a href="#cb20-5" aria-hidden="true" tabindex="-1"></a>| <span class="dv">1</span>  | <span class="dv">1</span>                 | fayalite   | <span class="fl">1.02329</span>   | <span class="fl">1.0</span>            |</span>
+<span id="cb20-6"><a href="#cb20-6" aria-hidden="true" tabindex="-1"></a>| <span class="dv">2</span>  | <span class="dv">1</span>                 | forsterite | <span class="fl">1.02329</span>   | <span class="fl">1.0</span>            |</span>
+<span id="cb20-7"><a href="#cb20-7" aria-hidden="true" tabindex="-1"></a><span class="op">+</span><span class="co">----+-------------------+------------+-----------+----------------+</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </section>
-<section id="special_reactants" class="level3">
-<h3 class="anchored" data-anchor-id="special_reactants">special_reactants</h3>
-<table class="caption-top table">
+<section id="solid_solution_reactants" class="level5">
+<h5 class="anchored" data-anchor-id="solid_solution_reactants">solid_solution_reactants</h5>
+<table class="table-striped table-bordered caption-top table">
 <thead>
 <tr class="header">
-<th>PK</th>
+<th style="text-align: center;">PK</th>
+<th style="text-align: center;">FK</th>
+<th style="text-align: center;">N</th>
 <th>Column Name</th>
 <th>Type</th>
-<th>References</th>
-<th>Unit</th>
 <th>Description</th>
+<th>Unit</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd">
-<td>✔</td>
+<td style="text-align: center;">✔</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td><code>id</code></td>
 <td><code>INTEGER</code></td>
-<td></td>
-<td></td>
-<td>The special reactant identifier, specific to the variable space point</td>
-</tr>
-<tr class="even">
-<td></td>
-<td><code>variable_space_id</code></td>
-<td><code>INTEGER</code></td>
-<td><a href="#variable_space"><code>variable_space.id</code></a></td>
-<td></td>
-<td>The id of the variable space point for which the special reactant amount and titration rate were generated</td>
-</tr>
-<tr class="odd">
-<td></td>
-<td><code>name</code></td>
-<td><code>VARCHAR</code></td>
-<td></td>
-<td></td>
-<td>The name of the special reactant</td>
-</tr>
-<tr class="even">
-<td></td>
-<td><code>log_moles</code></td>
-<td><code>DOUBLE</code></td>
-<td></td>
-<td><span class="math inline">\(\log{mole}\)</span></td>
-<td>The log amount of the reactant to be reacted with the fluid</td>
-</tr>
-<tr class="odd">
-<td></td>
-<td><code>titration_rate</code></td>
-<td><code>DOUBLE</code></td>
-<td></td>
-<td><span class="math inline">\(mole/\xi\)</span></td>
-<td>The rate (in <span class="math inline">\(\xi\)</span>) at which the reactant will be titrated into the fluid</td>
-</tr>
-</tbody>
-</table>
-</section>
-<section id="solid_solution_reactants" class="level3">
-<h3 class="anchored" data-anchor-id="solid_solution_reactants">solid_solution_reactants</h3>
-<table class="caption-top table">
-<thead>
-<tr class="header">
-<th>PK</th>
-<th>Column Name</th>
-<th>Type</th>
-<th>References</th>
-<th>Unit</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td>✔</td>
-<td><code>id</code></td>
-<td><code>INTEGER</code></td>
-<td></td>
-<td></td>
 <td>The solid solution identifier, specific to the variable space point</td>
+<td></td>
 </tr>
 <tr class="even">
-<td></td>
-<td><code>variable_space_id</code></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">✔</td>
+<td style="text-align: center;"></td>
+<td><a href="#variable_space"><code>variable_space_id</code></a></td>
 <td><code>INTEGER</code></td>
-<td><a href="#variable_space"><code>variable_space.id</code></a></td>
-<td></td>
 <td>The id of the variable space point for which the solid solution amount and titration rate were generated</td>
+<td></td>
 </tr>
 <tr class="odd">
-<td></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td><code>name</code></td>
 <td><code>VARCHAR</code></td>
-<td></td>
-<td></td>
 <td>The name of the solid solution</td>
+<td></td>
 </tr>
 <tr class="even">
-<td></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td><code>log_moles</code></td>
 <td><code>DOUBLE</code></td>
-<td></td>
-<td><span class="math inline">\(\log{mole}\)</span></td>
 <td>The log amount of the reactant to be reacted with the fluid</td>
+<td><span class="math inline">\(\log{mol}\)</span></td>
 </tr>
 <tr class="odd">
-<td></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td><code>titration_rate</code></td>
 <td><code>DOUBLE</code></td>
-<td></td>
-<td><span class="math inline">\(mole/\xi\)</span></td>
 <td>The rate (in <span class="math inline">\(\xi\)</span>) at which the reactant will be titrated into the fluid</td>
+<td><span class="math inline">\(mol/\xi\)</span></td>
 </tr>
 </tbody>
 </table>
-<section id="solid_solution_reactant_end_members" class="level4">
-<h4 class="anchored" data-anchor-id="solid_solution_reactant_end_members">solid_solution_reactant_end_members</h4>
-<table class="caption-top table">
+<p>A solid solution reactant models reacting a fixed molar quantity (<code>amount</code>) of a solid solution with the fluid at some <span class="math inline">\(\xi\)</span>-rate (<code>titration_rate</code>). Each such solid solution must include the molar fraction of each of its end members. The end member data is stored separately in the <a href="#solid_solution_reactant_end_members"><code>solid_solution_reactant_end_members</code></a> table.</p>
+<p>Within the order specification, this is done in the <code>reactants</code> block, e.g.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb21"><pre class="sourceCode yaml code-with-copy"><code class="sourceCode yaml"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a><span class="fu">reactants</span><span class="kw">:</span></span>
+<span id="cb21-2"><a href="#cb21-2" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">olivine-ss</span><span class="kw">:</span></span>
+<span id="cb21-3"><a href="#cb21-3" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">type</span><span class="kw">:</span><span class="at"> solid solution</span></span>
+<span id="cb21-4"><a href="#cb21-4" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">amount</span><span class="kw">:</span><span class="at"> </span><span class="fl">-0.3</span></span>
+<span id="cb21-5"><a href="#cb21-5" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">titration_rate</span><span class="kw">:</span><span class="at"> </span><span class="fl">1.0</span></span>
+<span id="cb21-6"><a href="#cb21-6" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">end_members</span><span class="kw">:</span></span>
+<span id="cb21-7"><a href="#cb21-7" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="fu">fayalite</span><span class="kw">:</span><span class="at"> </span><span class="fl">0.6</span></span>
+<span id="cb21-8"><a href="#cb21-8" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="fu">forsterite</span><span class="kw">:</span><span class="at"> </span><span class="fl">0.4</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><strong>Example</strong>:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb22"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a>example<span class="op">=</span># <span class="kw">SELECT</span> <span class="op">*</span> <span class="kw">FROM</span> mineral_reactants <span class="kw">WHERE</span> variable_space_id <span class="op">=</span> <span class="dv">1</span>;</span>
+<span id="cb22-2"><a href="#cb22-2" aria-hidden="true" tabindex="-1"></a><span class="op">+</span><span class="co">----+-------------------+------------+-----------+----------------+</span></span>
+<span id="cb22-3"><a href="#cb22-3" aria-hidden="true" tabindex="-1"></a>| <span class="kw">id</span> | variable_space_id | name       | log_moles | titration_rate |</span>
+<span id="cb22-4"><a href="#cb22-4" aria-hidden="true" tabindex="-1"></a>|<span class="co">----+-------------------+------------+-----------+----------------|</span></span>
+<span id="cb22-5"><a href="#cb22-5" aria-hidden="true" tabindex="-1"></a>| <span class="dv">1</span>  | <span class="dv">1</span>                 | fayalite   | <span class="fl">1.02329</span>   | <span class="fl">1.0</span>            |</span>
+<span id="cb22-6"><a href="#cb22-6" aria-hidden="true" tabindex="-1"></a>| <span class="dv">2</span>  | <span class="dv">1</span>                 | forsterite | <span class="fl">1.02329</span>   | <span class="fl">1.0</span>            |</span>
+<span id="cb22-7"><a href="#cb22-7" aria-hidden="true" tabindex="-1"></a><span class="op">+</span><span class="co">----+-------------------+------------+-----------+----------------+</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<section id="solid_solution_reactant_end_members" class="level6">
+<h6 class="anchored" data-anchor-id="solid_solution_reactant_end_members">solid_solution_reactant_end_members</h6>
+<table class="table-striped table-bordered caption-top table">
 <thead>
 <tr class="header">
-<th>PK</th>
+<th style="text-align: center;">PK</th>
+<th style="text-align: center;">FK</th>
+<th style="text-align: center;">N</th>
 <th>Column Name</th>
 <th>Type</th>
-<th>References</th>
 <th>Description</th>
+<th>Unit</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd">
-<td>✔</td>
+<td style="text-align: center;">✔</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td><code>id</code></td>
 <td><code>INTEGER</code></td>
-<td></td>
 <td>The solid solution end member id, specific to the solid solution</td>
+<td></td>
 </tr>
 <tr class="even">
-<td></td>
-<td><code>solid_solution_reactant_id</code></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">✔</td>
+<td style="text-align: center;"></td>
+<td><a href="#solid_solution_reactants"><code>solid_solution_reactant_id</code></a></td>
 <td><code>INTEGER</code></td>
-<td><a href="`#solid_solution_reactants`"><code>solid_solution_reactants.id</code></a></td>
 <td>The id of the solid solution for which this is an end member</td>
+<td></td>
 </tr>
 <tr class="odd">
-<td></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td><code>name</code></td>
 <td><code>VARCHAR</code></td>
-<td></td>
 <td>The name of the end member</td>
+<td></td>
 </tr>
 <tr class="even">
-<td></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td><code>fraction</code></td>
 <td><code>DOUBLE</code></td>
-<td></td>
 <td>The mole-fraction of the end member in the solid solution</td>
+<td>unitless</td>
 </tr>
 </tbody>
 </table>
 <ul>
 <li><code>CONSTRAINT fraction_in_range CHECK (0.0 &lt;= fraction AND fraction &lt;= 1.0)</code></li>
 </ul>
-</section>
-<section id="special_reactant_compositions" class="level4">
-<h4 class="anchored" data-anchor-id="special_reactant_compositions">special_reactant_compositions</h4>
-<table class="caption-top table">
-<thead>
-<tr class="header">
-<th>PK</th>
-<th>Column Name</th>
-<th>Type</th>
-<th>References</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td>✔</td>
-<td><code>id</code></td>
-<td><code>INTEGER</code></td>
-<td></td>
-<td>The special reactant composition identifier</td>
-</tr>
-<tr class="even">
-<td></td>
-<td><code>special_reactant_id</code></td>
-<td><code>INTEGER</code></td>
-<td><a href="#special_reactants"><code>special_reactants.id</code></a></td>
-<td>The id of the special reactant</td>
-</tr>
-<tr class="odd">
-<td></td>
-<td><code>element</code></td>
-<td><code>VARCHAR</code></td>
-<td></td>
-<td>The name of the element in the special reactant</td>
-</tr>
-<tr class="even">
-<td></td>
-<td><code>count</code></td>
-<td><code>INTEGER</code></td>
-<td></td>
-<td>The stoichiometric count of the element in the special reactant</td>
-</tr>
-</tbody>
-</table>
+<p>Each <a href="#solid_solution_reactants">solid solution reactant</a> has a fixed distribution of end members, represented by the mole fraction of the total solid solution.</p>
+<p><strong>Example</strong>:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb23"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a>example<span class="op">=</span># <span class="kw">SELECT</span> <span class="op">*</span> <span class="kw">FROM</span> mineral_reactants <span class="kw">WHERE</span> variable_space_id <span class="op">=</span> <span class="dv">1</span>;</span>
+<span id="cb23-2"><a href="#cb23-2" aria-hidden="true" tabindex="-1"></a><span class="op">+</span><span class="co">----+-------------------+------------+-----------+----------------+</span></span>
+<span id="cb23-3"><a href="#cb23-3" aria-hidden="true" tabindex="-1"></a>| <span class="kw">id</span> | variable_space_id | name       | log_moles | titration_rate |</span>
+<span id="cb23-4"><a href="#cb23-4" aria-hidden="true" tabindex="-1"></a>|<span class="co">----+-------------------+------------+-----------+----------------|</span></span>
+<span id="cb23-5"><a href="#cb23-5" aria-hidden="true" tabindex="-1"></a>| <span class="dv">1</span>  | <span class="dv">1</span>                 | fayalite   | <span class="fl">1.02329</span>   | <span class="fl">1.0</span>            |</span>
+<span id="cb23-6"><a href="#cb23-6" aria-hidden="true" tabindex="-1"></a>| <span class="dv">2</span>  | <span class="dv">1</span>                 | forsterite | <span class="fl">1.02329</span>   | <span class="fl">1.0</span>            |</span>
+<span id="cb23-7"><a href="#cb23-7" aria-hidden="true" tabindex="-1"></a><span class="op">+</span><span class="co">----+-------------------+------------+-----------+----------------+</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </section>
 </section>
-<section id="suppressions" class="level3">
-<h3 class="anchored" data-anchor-id="suppressions">suppressions</h3>
-<table class="caption-top table">
+<section id="special_reactants" class="level5">
+<h5 class="anchored" data-anchor-id="special_reactants">special_reactants</h5>
+<table class="table-striped table-bordered caption-top table">
 <thead>
 <tr class="header">
 <th style="text-align: center;">PK</th>
+<th style="text-align: center;">FK</th>
+<th style="text-align: center;">N</th>
 <th>Column Name</th>
 <th>Type</th>
-<th style="text-align: center;">Nullable</th>
-<th style="text-align: left;">References</th>
 <th>Description</th>
+<th>Unit</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd">
 <td style="text-align: center;">✔</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td><code>id</code></td>
 <td><code>INTEGER</code></td>
-<td style="text-align: center;"></td>
-<td style="text-align: left;"></td>
-<td>The suprression identifier</td>
+<td>The special reactant identifier, specific to the variable space point</td>
+<td></td>
 </tr>
 <tr class="even">
 <td style="text-align: center;"></td>
-<td><code>variable_space_id</code></td>
-<td><code>INTEGER</code></td>
+<td style="text-align: center;">✔</td>
 <td style="text-align: center;"></td>
-<td style="text-align: left;"><a href="#variable_space"><code>variable_space.id</code></a></td>
-<td>The id of the variable space point</td>
+<td><a href="#variable_space"><code>variable_space_id</code></a></td>
+<td><code>INTEGER</code></td>
+<td>The id of the variable space point for which the special reactant amount and titration rate were generated</td>
+<td></td>
 </tr>
 <tr class="odd">
 <td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td><code>name</code></td>
 <td><code>VARCHAR</code></td>
-<td style="text-align: center;">✔</td>
-<td style="text-align: left;"></td>
-<td>The name of the species/phase to suppress, e.g.&nbsp;H2O2, methane, olivine</td>
+<td>The name of the special reactant</td>
+<td></td>
 </tr>
 <tr class="even">
 <td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td><code>log_moles</code></td>
+<td><code>DOUBLE</code></td>
+<td>The log amount of the reactant to be reacted with the fluid</td>
+<td><span class="math inline">\(\log{mol}\)</span></td>
+</tr>
+<tr class="odd">
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td><code>titration_rate</code></td>
+<td><code>DOUBLE</code></td>
+<td>The rate (in <span class="math inline">\(\xi\)</span>) at which the reactant will be titrated into the fluid</td>
+<td><span class="math inline">\(mol/\xi\)</span></td>
+</tr>
+</tbody>
+</table>
+<p>A special reactant models reacting a fixed molar quantity (<code>amount</code>) of a user-specified molecular composition with the fluid at some <span class="math inline">\(\xi\)</span>-rate (<code>titration_rate</code>). Each special reactant must have include its stoichiometric composition, which is stored separately in the <a href="#special_reactant_compositions"><code>special_reactant_compositions</code></a> table.</p>
+<p>Within the order specification, this is done in the <code>reactants</code> block, e.g.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb24"><pre class="sourceCode yaml code-with-copy"><code class="sourceCode yaml"><span id="cb24-1"><a href="#cb24-1" aria-hidden="true" tabindex="-1"></a><span class="fu">reactants</span><span class="kw">:</span></span>
+<span id="cb24-2"><a href="#cb24-2" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">CalciumHydroxide</span><span class="kw">:</span></span>
+<span id="cb24-3"><a href="#cb24-3" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">type</span><span class="kw">:</span><span class="at"> special</span></span>
+<span id="cb24-4"><a href="#cb24-4" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">amount</span><span class="kw">:</span><span class="at"> </span><span class="fl">-0.3</span></span>
+<span id="cb24-5"><a href="#cb24-5" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">titration_rate</span><span class="kw">:</span><span class="at"> </span><span class="fl">1.0</span></span>
+<span id="cb24-6"><a href="#cb24-6" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">composition</span><span class="kw">:</span></span>
+<span id="cb24-7"><a href="#cb24-7" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="fu">Ca</span><span class="kw">:</span><span class="at"> </span><span class="dv">1</span></span>
+<span id="cb24-8"><a href="#cb24-8" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="fu">O</span><span class="kw">:</span><span class="at"> </span><span class="dv">2</span></span>
+<span id="cb24-9"><a href="#cb24-9" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="fu">H</span><span class="kw">:</span><span class="at"> </span><span class="dv">2</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><strong>Example</strong>:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb25"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a>example<span class="op">=</span># <span class="kw">SELECT</span> <span class="op">*</span> <span class="kw">FROM</span> mineral_reactants <span class="kw">WHERE</span> variable_space_id <span class="op">=</span> <span class="dv">1</span>;</span>
+<span id="cb25-2"><a href="#cb25-2" aria-hidden="true" tabindex="-1"></a><span class="op">+</span><span class="co">----+-------------------+------------+-----------+----------------+</span></span>
+<span id="cb25-3"><a href="#cb25-3" aria-hidden="true" tabindex="-1"></a>| <span class="kw">id</span> | variable_space_id | name       | log_moles | titration_rate |</span>
+<span id="cb25-4"><a href="#cb25-4" aria-hidden="true" tabindex="-1"></a>|<span class="co">----+-------------------+------------+-----------+----------------|</span></span>
+<span id="cb25-5"><a href="#cb25-5" aria-hidden="true" tabindex="-1"></a>| <span class="dv">1</span>  | <span class="dv">1</span>                 | fayalite   | <span class="fl">1.02329</span>   | <span class="fl">1.0</span>            |</span>
+<span id="cb25-6"><a href="#cb25-6" aria-hidden="true" tabindex="-1"></a>| <span class="dv">2</span>  | <span class="dv">1</span>                 | forsterite | <span class="fl">1.02329</span>   | <span class="fl">1.0</span>            |</span>
+<span id="cb25-7"><a href="#cb25-7" aria-hidden="true" tabindex="-1"></a><span class="op">+</span><span class="co">----+-------------------+------------+-----------+----------------+</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<section id="special_reactant_compositions" class="level6">
+<h6 class="anchored" data-anchor-id="special_reactant_compositions">special_reactant_compositions</h6>
+<table class="table-striped table-bordered caption-top table">
+<thead>
+<tr class="header">
+<th style="text-align: center;">PK</th>
+<th style="text-align: center;">FK</th>
+<th style="text-align: center;">N</th>
+<th>Column Name</th>
+<th>Type</th>
+<th>Description</th>
+<th>Unit</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: center;">✔</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td><code>id</code></td>
+<td><code>INTEGER</code></td>
+<td>The special reactant composition identifier</td>
+<td></td>
+</tr>
+<tr class="even">
+<td style="text-align: center;"></td>
+<td style="text-align: center;">✔</td>
+<td style="text-align: center;"></td>
+<td><a href="#special_reactants"><code>special_reactant_id</code></a></td>
+<td><code>INTEGER</code></td>
+<td>The id of the special reactant</td>
+<td></td>
+</tr>
+<tr class="odd">
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td><code>element</code></td>
+<td><code>VARCHAR</code></td>
+<td>The name of the element in the special reactant</td>
+<td></td>
+</tr>
+<tr class="even">
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td><code>count</code></td>
+<td><code>INTEGER</code></td>
+<td>The stoichiometric count of the element in the special reactant</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p>Each <a href="#special_reactants">special reactant</a> has a fixed stoichiometric composition. Each <code>element</code> and its occurrence (<code>count</code>) in the reactant is stored in a row of the <code>special_reactant_composition</code> table.</p>
+<p><strong>Example</strong>:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb26"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb26-1"><a href="#cb26-1" aria-hidden="true" tabindex="-1"></a>example<span class="op">=</span># <span class="kw">SELECT</span> <span class="op">*</span> <span class="kw">FROM</span> mineral_reactants <span class="kw">WHERE</span> variable_space_id <span class="op">=</span> <span class="dv">1</span>;</span>
+<span id="cb26-2"><a href="#cb26-2" aria-hidden="true" tabindex="-1"></a><span class="op">+</span><span class="co">----+-------------------+------------+-----------+----------------+</span></span>
+<span id="cb26-3"><a href="#cb26-3" aria-hidden="true" tabindex="-1"></a>| <span class="kw">id</span> | variable_space_id | name       | log_moles | titration_rate |</span>
+<span id="cb26-4"><a href="#cb26-4" aria-hidden="true" tabindex="-1"></a>|<span class="co">----+-------------------+------------+-----------+----------------|</span></span>
+<span id="cb26-5"><a href="#cb26-5" aria-hidden="true" tabindex="-1"></a>| <span class="dv">1</span>  | <span class="dv">1</span>                 | fayalite   | <span class="fl">1.02329</span>   | <span class="fl">1.0</span>            |</span>
+<span id="cb26-6"><a href="#cb26-6" aria-hidden="true" tabindex="-1"></a>| <span class="dv">2</span>  | <span class="dv">1</span>                 | forsterite | <span class="fl">1.02329</span>   | <span class="fl">1.0</span>            |</span>
+<span id="cb26-7"><a href="#cb26-7" aria-hidden="true" tabindex="-1"></a><span class="op">+</span><span class="co">----+-------------------+------------+-----------+----------------+</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</section>
+</section>
+</section>
+<section id="suppressions" class="level4">
+<h4 class="anchored" data-anchor-id="suppressions">suppressions</h4>
+<table class="table-striped table-bordered caption-top table">
+<thead>
+<tr class="header">
+<th style="text-align: center;">PK</th>
+<th style="text-align: center;">FK</th>
+<th style="text-align: center;">N</th>
+<th>Column Name</th>
+<th>Type</th>
+<th>Description</th>
+<th>Unit</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: center;">✔</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td><code>id</code></td>
+<td><code>INTEGER</code></td>
+<td>The suprression identifier</td>
+<td></td>
+</tr>
+<tr class="even">
+<td style="text-align: center;"></td>
+<td style="text-align: center;">✔</td>
+<td style="text-align: center;"></td>
+<td><a href="#variable_space"><code>variable_space_id</code></a></td>
+<td><code>INTEGER</code></td>
+<td>The id of the variable space point</td>
+<td></td>
+</tr>
+<tr class="odd">
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">✔</td>
+<td><code>name</code></td>
+<td><code>VARCHAR</code></td>
+<td>The name of the species/phase to suppress, e.g.&nbsp;<span class="math inline">\(H_2O_2\)</span>, methane, olivine</td>
+<td></td>
+</tr>
+<tr class="even">
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">✔</td>
 <td><code>type</code></td>
 <td><code>VARCHAR</code></td>
-<td style="text-align: center;">✔</td>
-<td style="text-align: left;"></td>
 <td>The type of species/phase to suppress, e.g.&nbsp;“solid solutions”</td>
+<td></td>
 </tr>
 </tbody>
 </table>
 <ul>
 <li><code>CONSTRAINT suppressions_well_defined CHECK (name is not null or type is not null)</code></li>
 </ul>
-<section id="suppression_exceptions" class="level4">
-<h4 class="anchored" data-anchor-id="suppression_exceptions">suppression_exceptions</h4>
-<table class="caption-top table">
+<p>Users can specify, within an order, that some species or entire phase type should be suppressed from forming. When a phase type is specified, exceptions can be provided. Those exceptions are stored separately in the <a href="#suppression_exceptions"><code>suppression_exceptions</code></a> table.</p>
+<p>Within the order specification, this is done in the <code>suppressions</code> block, e.g.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb27"><pre class="sourceCode yaml code-with-copy"><code class="sourceCode yaml"><span id="cb27-1"><a href="#cb27-1" aria-hidden="true" tabindex="-1"></a><span class="fu">suppressions</span><span class="kw">:</span></span>
+<span id="cb27-2"><a href="#cb27-2" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> METHANE</span><span class="co">                # suppress methane formation</span></span>
+<span id="cb27-3"><a href="#cb27-3" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> antigorite</span><span class="co">             # suppress antigorite precipitation</span></span>
+<span id="cb27-4"><a href="#cb27-4" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">type</span><span class="kw">:</span><span class="at"> solid solutions</span><span class="co">  # suppress precipitation of all solid solutions</span></span>
+<span id="cb27-5"><a href="#cb27-5" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">type</span><span class="kw">:</span><span class="at"> mineral</span><span class="co">          # suppress all mineral precipitation *except* magnetite</span></span>
+<span id="cb27-6"><a href="#cb27-6" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">except</span><span class="kw">:</span></span>
+<span id="cb27-7"><a href="#cb27-7" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="kw">-</span><span class="at"> magnetite</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><strong>Example</strong>:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb28"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb28-1"><a href="#cb28-1" aria-hidden="true" tabindex="-1"></a>example<span class="op">=</span># <span class="kw">SELECT</span> <span class="op">*</span> <span class="kw">FROM</span> mineral_reactants <span class="kw">WHERE</span> variable_space_id <span class="op">=</span> <span class="dv">1</span>;</span>
+<span id="cb28-2"><a href="#cb28-2" aria-hidden="true" tabindex="-1"></a><span class="op">+</span><span class="co">----+-------------------+------------+-----------+----------------+</span></span>
+<span id="cb28-3"><a href="#cb28-3" aria-hidden="true" tabindex="-1"></a>| <span class="kw">id</span> | variable_space_id | name       | log_moles | titration_rate |</span>
+<span id="cb28-4"><a href="#cb28-4" aria-hidden="true" tabindex="-1"></a>|<span class="co">----+-------------------+------------+-----------+----------------|</span></span>
+<span id="cb28-5"><a href="#cb28-5" aria-hidden="true" tabindex="-1"></a>| <span class="dv">1</span>  | <span class="dv">1</span>                 | fayalite   | <span class="fl">1.02329</span>   | <span class="fl">1.0</span>            |</span>
+<span id="cb28-6"><a href="#cb28-6" aria-hidden="true" tabindex="-1"></a>| <span class="dv">2</span>  | <span class="dv">1</span>                 | forsterite | <span class="fl">1.02329</span>   | <span class="fl">1.0</span>            |</span>
+<span id="cb28-7"><a href="#cb28-7" aria-hidden="true" tabindex="-1"></a><span class="op">+</span><span class="co">----+-------------------+------------+-----------+----------------+</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<section id="suppression_exceptions" class="level5">
+<h5 class="anchored" data-anchor-id="suppression_exceptions">suppression_exceptions</h5>
+<table class="table-striped table-bordered caption-top table">
 <thead>
 <tr class="header">
 <th style="text-align: center;">PK</th>
+<th style="text-align: center;">FK</th>
+<th style="text-align: center;">N</th>
 <th>Column Name</th>
 <th>Type</th>
-<th style="text-align: left;">References</th>
 <th>Description</th>
+<th>Unit</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd">
 <td style="text-align: center;">✔</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td><code>id</code></td>
 <td><code>INTEGER</code></td>
-<td style="text-align: left;"></td>
 <td>The suppression exception identifier</td>
+<td></td>
 </tr>
 <tr class="even">
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
 <td><code>name</code></td>
 <td><code>VARCHAR</code></td>
-<td style="text-align: left;"></td>
 <td>The name the species/phase to except, e.g.&nbsp;H2O2, methane, olivine</td>
+<td></td>
 </tr>
 <tr class="odd">
 <td style="text-align: center;"></td>
-<td><code>suppression_id</code></td>
+<td style="text-align: center;">✔</td>
+<td style="text-align: center;"></td>
+<td><a href="#suppressions"><code>suppression_id</code></a></td>
 <td><code>INTEGER</code></td>
-<td style="text-align: left;"><a href="#suppressions"><code>suppressions.id</code></a></td>
 <td>The id of the suppression for which to except</td>
+<td></td>
 </tr>
 </tbody>
 </table>
+<p>Each exception to a <a href="#suppressions">suppression constraint</a> is stored as a row in the <code>suppression_exceptions</code> table, referring back to the suppression by the <code>suppression_id</code> value.</p>
+<p><strong>Example</strong>:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb29"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb29-1"><a href="#cb29-1" aria-hidden="true" tabindex="-1"></a>example<span class="op">=</span># <span class="kw">SELECT</span> <span class="op">*</span> <span class="kw">FROM</span> mineral_reactants <span class="kw">WHERE</span> variable_space_id <span class="op">=</span> <span class="dv">1</span>;</span>
+<span id="cb29-2"><a href="#cb29-2" aria-hidden="true" tabindex="-1"></a><span class="op">+</span><span class="co">----+-------------------+------------+-----------+----------------+</span></span>
+<span id="cb29-3"><a href="#cb29-3" aria-hidden="true" tabindex="-1"></a>| <span class="kw">id</span> | variable_space_id | name       | log_moles | titration_rate |</span>
+<span id="cb29-4"><a href="#cb29-4" aria-hidden="true" tabindex="-1"></a>|<span class="co">----+-------------------+------------+-----------+----------------|</span></span>
+<span id="cb29-5"><a href="#cb29-5" aria-hidden="true" tabindex="-1"></a>| <span class="dv">1</span>  | <span class="dv">1</span>                 | fayalite   | <span class="fl">1.02329</span>   | <span class="fl">1.0</span>            |</span>
+<span id="cb29-6"><a href="#cb29-6" aria-hidden="true" tabindex="-1"></a>| <span class="dv">2</span>  | <span class="dv">1</span>                 | forsterite | <span class="fl">1.02329</span>   | <span class="fl">1.0</span>            |</span>
+<span id="cb29-7"><a href="#cb29-7" aria-hidden="true" tabindex="-1"></a><span class="op">+</span><span class="co">----+-------------------+------------+-----------+----------------+</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </section>
 </section>
-</section>
-<section id="equilibrium_space" class="level2">
-<h2 class="anchored" data-anchor-id="equilibrium_space">equilibrium_space</h2>
-<table class="caption-top table">
+<section id="equilibrium_space" class="level4">
+<h4 class="anchored" data-anchor-id="equilibrium_space">equilibrium_space</h4>
+<table class="table-striped table-bordered caption-top table">
 <thead>
 <tr class="header">
 <th style="text-align: center;">PK</th>
+<th style="text-align: center;">FK</th>
+<th style="text-align: center;">N</th>
 <th>Column Name</th>
 <th>Type</th>
-<th style="text-align: center;">Nullable</th>
-<th style="text-align: left;">References</th>
-<th>Unit</th>
 <th>Description</th>
+<th>Unit</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd">
 <td style="text-align: center;">✔</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td><code>id</code></td>
 <td><code>INTEGER</code></td>
-<td style="text-align: center;"></td>
-<td style="text-align: left;"></td>
-<td></td>
 <td>The equilibrium space point identifier</td>
+<td></td>
 </tr>
 <tr class="even">
 <td style="text-align: center;"></td>
-<td><code>variable_space_id</code></td>
-<td><code>INTEGER</code></td>
 <td style="text-align: center;">✔</td>
-<td style="text-align: left;"><a href="#variable_space"><code>variable_space.id</code></a></td>
-<td></td>
+<td style="text-align: center;">✔</td>
+<td><a href="#variable_space"><code>variable_space_id</code></a></td>
+<td><code>INTEGER</code></td>
 <td>The id of the variable space point for which the equilibrium was found</td>
+<td></td>
 </tr>
 <tr class="odd">
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
 <td><code>stage</code></td>
 <td><code>VARCHAR</code></td>
-<td style="text-align: center;"></td>
-<td style="text-align: left;"></td>
-<td></td>
 <td>The stage of the equilibration, e.g.&nbsp;eq3, eq6</td>
+<td></td>
 </tr>
 <tr class="even">
 <td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">✔</td>
 <td><code>log_xi</code></td>
 <td><code>DOUBLE</code></td>
-<td style="text-align: center;">✔</td>
-<td style="text-align: left;"></td>
-<td>unitless</td>
 <td>The logarithm of the <span class="math inline">\(\xi\)</span>-step at which this equilibrium was found</td>
+<td>unitless</td>
 </tr>
 <tr class="odd">
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
 <td><code>temperature</code></td>
 <td><code>DOUBLE</code></td>
-<td style="text-align: center;"></td>
-<td style="text-align: left;"></td>
-<td>C</td>
 <td>The temperature</td>
+<td><span class="math inline">\(^\circ C\)</span></td>
 </tr>
 <tr class="even">
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
 <td><code>pressure</code></td>
 <td><code>DOUBLE</code></td>
-<td style="text-align: center;"></td>
-<td style="text-align: left;"></td>
-<td>bar</td>
 <td>The pressure</td>
+<td><span class="math inline">\(bar\)</span></td>
 </tr>
 <tr class="odd">
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
 <td><code>"pH"</code></td>
 <td><code>DOUBLE</code></td>
-<td style="text-align: center;"></td>
-<td style="text-align: left;"></td>
-<td>unitless</td>
 <td>The pH on the NBS scale</td>
+<td>unitless</td>
 </tr>
 <tr class="even">
 <td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td><code>"log_fO2"</code></td>
 <td><code>DOUBLE</code></td>
-<td style="text-align: center;"></td>
-<td style="text-align: left;"></td>
-<td>log bar</td>
 <td>The logarithm of the oxygen (<span class="math inline">\(O_2\)</span>) fugacity</td>
+<td><span class="math inline">\(\log{bar}\)</span></td>
 </tr>
 <tr class="odd">
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
 <td><code>log_activity_water</code></td>
 <td><code>DOUBLE</code></td>
-<td style="text-align: center;"></td>
-<td style="text-align: left;"></td>
-<td>unitless</td>
 <td>The logarithm of the activity of water</td>
+<td>unitless</td>
 </tr>
 <tr class="even">
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
 <td><code>mole_fraction_water</code></td>
 <td><code>DOUBLE</code></td>
-<td style="text-align: center;"></td>
-<td style="text-align: left;"></td>
-<td>unitless</td>
 <td>The mole fraction of the fluid that is water</td>
+<td>unitless</td>
 </tr>
 <tr class="odd">
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
 <td><code>log_gamma_water</code></td>
 <td><code>DOUBLE</code></td>
-<td style="text-align: center;"></td>
-<td style="text-align: left;"></td>
-<td>unitless</td>
 <td>The logarithm of the activity coefficient of water</td>
+<td>unitless</td>
 </tr>
 <tr class="even">
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
 <td><code>"Eh"</code></td>
 <td><code>DOUBLE</code></td>
-<td style="text-align: center;"></td>
-<td style="text-align: left;"></td>
-<td>volt</td>
 <td>The redox potential</td>
+<td><span class="math inline">\(V\)</span></td>
 </tr>
 <tr class="odd">
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
 <td><code>pe</code></td>
 <td><code>DOUBLE</code></td>
-<td style="text-align: center;"></td>
-<td style="text-align: left;"></td>
-<td>unitless</td>
 <td>The negative logarithm of the hypothetical electron activity</td>
+<td>unitless</td>
 </tr>
 <tr class="even">
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
 <td><code>"Ah"</code></td>
 <td><code>DOUBLE</code></td>
-<td style="text-align: center;"></td>
-<td style="text-align: left;"></td>
-<td>kcal</td>
 <td>The redox affinity</td>
+<td><span class="math inline">\(kcal\)</span></td>
 </tr>
 <tr class="odd">
 <td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">✔</td>
 <td><code>"pcH"</code></td>
 <td><code>DOUBLE</code></td>
-<td style="text-align: center;">✔</td>
-<td style="text-align: left;"></td>
-<td>unitless</td>
 <td>The pH based on the molarity of the hydrogen ion (H+)</td>
+<td>unitless</td>
 </tr>
 <tr class="even">
 <td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">✔</td>
 <td><code>"pHCl"</code></td>
 <td><code>DOUBLE</code></td>
-<td style="text-align: center;">✔</td>
-<td style="text-align: left;"></td>
-<td>unitless</td>
 <td>The pHCl = pH + pCl, the sum of the negative logarithms of the activity of H+ and Cl- respectively</td>
+<td>unitless</td>
 </tr>
 <tr class="odd">
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
 <td><code>log_ionic_strength</code></td>
 <td><code>DOUBLE</code></td>
-<td style="text-align: center;"></td>
-<td style="text-align: left;"></td>
-<td>log molal</td>
 <td>The logarithm of the ionic strength of the solution</td>
+<td><span class="math inline">\(\log{molal}\)</span></td>
 </tr>
 <tr class="even">
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
 <td><code>log_stoichiometric_ionic_strength</code></td>
 <td><code>DOUBLE</code></td>
-<td style="text-align: center;"></td>
-<td style="text-align: left;"></td>
-<td>log molal</td>
 <td>The logarithm of the stoichiometric ionic strength of the solution</td>
+<td><span class="math inline">\(\log{molal}\)</span></td>
 </tr>
 <tr class="odd">
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
 <td><code>log_ionic_asymmetry</code></td>
 <td><code>DOUBLE</code></td>
-<td style="text-align: center;"></td>
-<td style="text-align: left;"></td>
-<td>log molal</td>
 <td>The logarithm of the ionic asymmetry</td>
+<td><span class="math inline">\(\log{molal}\)</span></td>
 </tr>
 <tr class="even">
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
 <td><code>log_stoichiometric_ionic_asymmetry</code></td>
 <td><code>DOUBLE</code></td>
-<td style="text-align: center;"></td>
-<td style="text-align: left;"></td>
-<td>log molal</td>
 <td>The logarithm of the stoichiometric ionic asymmetry</td>
+<td><span class="math inline">\(\log{molal}\)</span></td>
 </tr>
 <tr class="odd">
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
 <td><code>osmotic_coefficient</code></td>
 <td><code>DOUBLE</code></td>
-<td style="text-align: center;"></td>
-<td style="text-align: left;"></td>
-<td>unitless</td>
 <td>The osmotic coefficient of the solution</td>
+<td>unitless</td>
 </tr>
 <tr class="even">
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
 <td><code>stoichiometric_osmotic_coefficient</code></td>
 <td><code>DOUBLE</code></td>
-<td style="text-align: center;"></td>
-<td style="text-align: left;"></td>
-<td>unitless</td>
 <td>The stoichiometric osmotic coefficient of the solution</td>
+<td>unitless</td>
 </tr>
 <tr class="odd">
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
 <td><code>log_sum_molalities</code></td>
 <td><code>DOUBLE</code></td>
-<td style="text-align: center;"></td>
-<td style="text-align: left;"></td>
-<td>molal</td>
 <td>The logarithm of the sum of the molalities of all non-water species in the solution</td>
+<td><span class="math inline">\(molal\)</span></td>
 </tr>
 <tr class="even">
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
 <td><code>log_sum_stoichiometric_molalities</code></td>
 <td><code>DOUBLE</code></td>
-<td style="text-align: center;"></td>
-<td style="text-align: left;"></td>
-<td>molal</td>
 <td>The logarithm of the sum of the stoichiometric molalities of all non-water species in the solution</td>
+<td><span class="math inline">\(molal\)</span></td>
 </tr>
 <tr class="odd">
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
 <td><code>charge_imbalance</code></td>
 <td><code>DOUBLE</code></td>
-<td style="text-align: center;"></td>
-<td style="text-align: left;"></td>
-<td>eq</td>
 <td>The charge imbalance of the solution</td>
+<td><span class="math inline">\(eq\)</span></td>
 </tr>
 <tr class="even">
 <td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">✔</td>
 <td><code>expected_charge_imbalance</code></td>
 <td><code>DOUBLE</code></td>
-<td style="text-align: center;">✔</td>
-<td style="text-align: left;"></td>
-<td>eq</td>
 <td>The charge imbalance of the solution before mass transfer</td>
+<td><span class="math inline">\(eq\)</span></td>
 </tr>
 <tr class="odd">
 <td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">✔</td>
 <td><code>sigma</code></td>
 <td><code>DOUBLE</code></td>
-<td style="text-align: center;">✔</td>
-<td style="text-align: left;"></td>
-<td>eq</td>
-<td></td>
+<td>The total unsigned charge of the solution</td>
+<td><span class="math inline">\(eq\)</span></td>
 </tr>
 <tr class="even">
 <td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">✔</td>
 <td><code>charge_discrepancy</code></td>
 <td><code>DOUBLE</code></td>
-<td style="text-align: center;">✔</td>
-<td style="text-align: left;"></td>
-<td>eq</td>
 <td>The charge discrepancy of the solution</td>
+<td><span class="math inline">\(eq\)</span></td>
 </tr>
 <tr class="odd">
 <td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">✔</td>
 <td><code>anions</code></td>
 <td><code>DOUBLE</code></td>
-<td style="text-align: center;">✔</td>
-<td style="text-align: left;"></td>
-<td>eq/kg H2O</td>
-<td>The total charge of anions per kilogram of water (<span class="math inline">\(z_+\)</span>)</td>
+<td>The total unsigned charge of anions per kilogram of water (<span class="math inline">\(\sigma_-\)</span>)</td>
+<td><span class="math inline">\(eq/kg\)</span></td>
 </tr>
 <tr class="even">
 <td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">✔</td>
 <td><code>cations</code></td>
 <td><code>DOUBLE</code></td>
-<td style="text-align: center;">✔</td>
-<td style="text-align: left;"></td>
-<td>eq/kg H2O</td>
-<td>the total charge of cations per kilogram of water (<span class="math inline">\(z_-\)</span>)</td>
+<td>the total unsigned charge of cations per kilogram of water (<span class="math inline">\(\sigma_+\)</span>)</td>
+<td><span class="math inline">\(eq/kg\)</span></td>
 </tr>
 <tr class="odd">
 <td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">✔</td>
 <td><code>total_charge</code></td>
 <td><code>DOUBLE</code></td>
-<td style="text-align: center;">✔</td>
-<td style="text-align: left;"></td>
-<td>eq/kg H2O</td>
-<td>The total charge of the solution per kilogram of water (<span class="math inline">\(z_\pm = z_+ - z_-\)</span>)</td>
+<td>The total unsigned charge of the solution per kilogram of water (<span class="math inline">\(\sigma = \sigma_+ - \sigma_-\)</span>)</td>
+<td><span class="math inline">\(eq/kg\)</span></td>
 </tr>
 <tr class="even">
 <td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">✔</td>
 <td><code>mean_charge</code></td>
 <td><code>DOUBLE</code></td>
-<td style="text-align: center;">✔</td>
-<td style="text-align: left;"></td>
-<td>eq/kg H2O</td>
-<td>The mean charge of the solution per kilogram of water (<span class="math inline">\(0.5z_\pm\)</span>)</td>
+<td>The mean charge of the solution per kilogram of water (<span class="math inline">\(0.5\sigma_\pm\)</span>)</td>
+<td><span class="math inline">\(eq/kg\)</span></td>
 </tr>
 <tr class="odd">
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
 <td><code>solute_mass</code></td>
 <td><code>DOUBLE</code></td>
-<td style="text-align: center;"></td>
-<td style="text-align: left;"></td>
-<td></td>
 <td>The total mass of all dissolved species</td>
+<td><span class="math inline">\(g\)</span></td>
 </tr>
 <tr class="even">
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
 <td><code>solvent_mass</code></td>
 <td><code>DOUBLE</code></td>
-<td style="text-align: center;"></td>
-<td style="text-align: left;"></td>
-<td></td>
 <td>The mass of the solvent (water)</td>
+<td><span class="math inline">\(g\)</span></td>
 </tr>
 <tr class="odd">
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
 <td><code>solution_mass</code></td>
 <td><code>DOUBLE</code></td>
-<td style="text-align: center;"></td>
-<td style="text-align: left;"></td>
-<td></td>
 <td>The mass of the solution</td>
+<td><span class="math inline">\(g\)</span></td>
 </tr>
 <tr class="even">
 <td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">✔</td>
 <td><code>solution_volume</code></td>
 <td><code>DOUBLE</code></td>
-<td style="text-align: center;">✔</td>
-<td style="text-align: left;"></td>
-<td></td>
 <td>The volume of the solution</td>
+<td><span class="math inline">\(L\)</span></td>
 </tr>
 <tr class="odd">
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
 <td><code>tds</code></td>
 <td><code>DOUBLE</code></td>
-<td style="text-align: center;"></td>
-<td style="text-align: left;"></td>
-<td>mg/kg sol</td>
-<td>The total dissolved solute (TDS)</td>
+<td>The total dissolved solute (TDS); dissolved solute mass per kilogram of solution</td>
+<td><span class="math inline">\(mg/kg\)</span></td>
 </tr>
 <tr class="even">
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
 <td><code>solute_fraction</code></td>
 <td><code>DOUBLE</code></td>
-<td style="text-align: center;"></td>
-<td style="text-align: left;"></td>
-<td></td>
 <td>The fraction of the solution mass from dissolved species</td>
+<td>unitless</td>
 </tr>
 <tr class="odd">
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
 <td><code>solvent_fraction</code></td>
 <td><code>DOUBLE</code></td>
-<td style="text-align: center;"></td>
-<td style="text-align: left;"></td>
-<td></td>
 <td>The fraction of the solution mass from the solvent (water)</td>
+<td>unitless</td>
 </tr>
 <tr class="even">
 <td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">✔</td>
 <td><code>extended_alkalinity</code></td>
 <td><code>DOUBLE</code></td>
-<td style="text-align: center;">✔</td>
-<td style="text-align: left;"></td>
-<td></td>
-<td></td>
+<td>The extended alkalinity in units of electric charge per kilogram of <span class="math inline">\(H_2O\)</span></td>
+<td><span class="math inline">\(eq/kg\)</span></td>
 </tr>
 <tr class="odd">
 <td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">✔</td>
 <td><code>overall_affinity</code></td>
 <td><code>DOUBLE</code></td>
-<td style="text-align: center;">✔</td>
-<td style="text-align: left;"></td>
-<td></td>
-<td></td>
+<td>The sum of the molar affinities of all reactants</td>
+<td><span class="math inline">\(kcal/mol\)</span></td>
 </tr>
 <tr class="even">
 <td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">✔</td>
 <td><code>reactant_mass_reacted</code></td>
 <td><code>DOUBLE</code></td>
-<td style="text-align: center;">✔</td>
-<td style="text-align: left;"></td>
-<td></td>
 <td>The total mass reacted into the system up to this <span class="math inline">\(\xi\)</span> step</td>
+<td><span class="math inline">\(g\)</span></td>
 </tr>
 <tr class="odd">
 <td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">✔</td>
 <td><code>reactant_mass_remaining</code></td>
 <td><code>DOUBLE</code></td>
-<td style="text-align: center;">✔</td>
-<td style="text-align: left;"></td>
-<td></td>
 <td>The total mass remaining to be reacted</td>
+<td><span class="math inline">\(g\)</span></td>
 </tr>
 <tr class="even">
 <td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">✔</td>
 <td><code>solid_mass_change</code></td>
 <td><code>DOUBLE</code></td>
-<td style="text-align: center;">✔</td>
-<td style="text-align: left;"></td>
-<td></td>
 <td>The change of the solid mass of the system up to this <span class="math inline">\(\xi\)</span> step</td>
+<td><span class="math inline">\(g\)</span></td>
 </tr>
 <tr class="odd">
 <td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">✔</td>
 <td><code>solid_mass_created</code></td>
 <td><code>DOUBLE</code></td>
-<td style="text-align: center;">✔</td>
-<td style="text-align: left;"></td>
-<td></td>
 <td>The solid mass created up to this <span class="math inline">\(\xi\)</span> step</td>
+<td><span class="math inline">\(g\)</span></td>
 </tr>
 <tr class="even">
 <td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">✔</td>
 <td><code>solid_mass_destroyed</code></td>
 <td><code>DOUBLE</code></td>
-<td style="text-align: center;">✔</td>
-<td style="text-align: left;"></td>
-<td></td>
 <td>The solid mass destroyed up to this <span class="math inline">\(\xi\)</span> step</td>
+<td><span class="math inline">\(g\)</span></td>
 </tr>
 <tr class="odd">
 <td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">✔</td>
 <td><code>solid_volume_change</code></td>
 <td><code>DOUBLE</code></td>
-<td style="text-align: center;">✔</td>
-<td style="text-align: left;"></td>
-<td></td>
 <td>The change of the solid volume of the system up to this <span class="math inline">\(\xi\)</span> step</td>
+<td><span class="math inline">\(cm^3\)</span></td>
 </tr>
 <tr class="even">
 <td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">✔</td>
 <td><code>solid_volume_created</code></td>
 <td><code>DOUBLE</code></td>
-<td style="text-align: center;">✔</td>
-<td style="text-align: left;"></td>
-<td></td>
 <td>The solid volume created up to this <span class="math inline">\(\xi\)</span> step</td>
+<td><span class="math inline">\(cm^3\)</span></td>
 </tr>
 <tr class="odd">
 <td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">✔</td>
 <td><code>solid_volume_destroyed</code></td>
 <td><code>DOUBLE</code></td>
-<td style="text-align: center;">✔</td>
-<td style="text-align: left;"></td>
-<td></td>
 <td>The solid volume destroyed up to this <span class="math inline">\(\xi\)</span> step</td>
+<td><span class="math inline">\(cm^3\)</span></td>
 </tr>
 <tr class="even">
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
 <td><code>start_date</code></td>
 <td><code>DATETIME</code></td>
-<td style="text-align: center;"></td>
-<td style="text-align: left;"></td>
-<td></td>
 <td>The datetime when the equilibration started</td>
+<td></td>
 </tr>
 <tr class="odd">
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
 <td><code>complete_date</code></td>
 <td><code>DATETIME</code></td>
-<td style="text-align: center;"></td>
-<td style="text-align: left;"></td>
-<td></td>
 <td>The datetime when the equilibration completed</td>
+<td></td>
 </tr>
 <tr class="even">
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
 <td><code>custom_properties</code></td>
 <td><code>JSON</code></td>
-<td style="text-align: center;"></td>
-<td style="text-align: left;"></td>
-<td></td>
 <td>A json-encoded field for equilibrium properties computed by the kernel</td>
+<td></td>
 </tr>
 </tbody>
 </table>
-<section id="equilibrium_reactants" class="level3">
-<h3 class="anchored" data-anchor-id="equilibrium_reactants">equilibrium_reactants</h3>
-<table class="caption-top table">
+<section id="equilibrium_reactants" class="level5">
+<h5 class="anchored" data-anchor-id="equilibrium_reactants">equilibrium_reactants</h5>
+<table class="table-striped table-bordered caption-top table">
 <thead>
 <tr class="header">
 <th style="text-align: center;">PK</th>
+<th style="text-align: center;">FK</th>
+<th style="text-align: center;">N</th>
 <th>Column Name</th>
 <th>Type</th>
-<th style="text-align: left;">References</th>
-<th>Unit</th>
 <th>Description</th>
+<th>Unit</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd">
 <td style="text-align: center;">✔</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td><code>id</code></td>
 <td><code>INTEGER</code></td>
-<td style="text-align: left;"></td>
-<td></td>
 <td>The equilibrium reactant identifier</td>
+<td></td>
 </tr>
 <tr class="even">
 <td style="text-align: center;"></td>
-<td><code>equilibrium_space_id</code></td>
+<td style="text-align: center;">✔</td>
+<td style="text-align: center;"></td>
+<td><a href="#equilibrium_space"><code>equilibrium_space_id</code></a></td>
 <td><code>INTEGER</code></td>
-<td style="text-align: left;"><a href="#equilibrium_space"><code>equilibrium_space.id</code></a></td>
-<td></td>
 <td>The id of the equilibrium space point</td>
+<td></td>
 </tr>
 <tr class="odd">
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
 <td><code>name</code></td>
 <td><code>VARCHAR</code></td>
-<td style="text-align: left;"></td>
-<td></td>
 <td>The name of the reactant</td>
+<td></td>
 </tr>
 <tr class="even">
 <td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td><code>affinity</code></td>
 <td><code>DOUBLE</code></td>
-<td style="text-align: left;"></td>
-<td></td>
 <td>The affinity of the reactant</td>
+<td></td>
 </tr>
 <tr class="odd">
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
 <td><code>relative_rate</code></td>
 <td><code>DOUBLE</code></td>
-<td style="text-align: left;"></td>
-<td>mole/mole</td>
 <td>The molar rate of reactant titration relative to the total molar quantity of all reactants</td>
+<td><span class="math inline">\(mol/mol\)</span></td>
 </tr>
 <tr class="even">
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
 <td><code>log_moles_reacted</code></td>
 <td><code>DOUBLE</code></td>
-<td style="text-align: left;"></td>
-<td>log mole</td>
 <td>The moles of reactant that have been reacted up to this <span class="math inline">\(\xi\)</span> step</td>
+<td><span class="math inline">\(\log{mol}\)</span></td>
 </tr>
 <tr class="odd">
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
 <td><code>log_moles_remaining</code></td>
 <td><code>DOUBLE</code></td>
-<td style="text-align: left;"></td>
-<td>log mole</td>
 <td>The moles of reactant that remain to be reacted</td>
+<td><span class="math inline">\(\log{mol}\)</span></td>
 </tr>
 <tr class="even">
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
 <td><code>log_mass_reacted</code></td>
 <td><code>DOUBLE</code></td>
-<td style="text-align: left;"></td>
-<td>log kg</td>
 <td>The mass of the reactant that have been reacted up to this <span class="math inline">\(\xi\)</span> step</td>
+<td><span class="math inline">\(\log{kg}\)</span></td>
 </tr>
 <tr class="odd">
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
 <td><code>log_mass_remaining</code></td>
 <td><code>DOUBLE</code></td>
-<td style="text-align: left;"></td>
-<td>log kg</td>
 <td>The mass of the reactant that remain to be reacted</td>
+<td><span class="math inline">\(\log{kg}\)</span></td>
 </tr>
 </tbody>
 </table>
 </section>
-<section id="equilibrium_elements" class="level3">
-<h3 class="anchored" data-anchor-id="equilibrium_elements">equilibrium_elements</h3>
-<table class="caption-top table">
+<section id="equilibrium_elements" class="level5">
+<h5 class="anchored" data-anchor-id="equilibrium_elements">equilibrium_elements</h5>
+<table class="table-striped table-bordered caption-top table">
 <thead>
 <tr class="header">
 <th style="text-align: center;">PK</th>
+<th style="text-align: center;">FK</th>
+<th style="text-align: center;">N</th>
 <th>Column Name</th>
 <th>Type</th>
-<th style="text-align: left;">References</th>
-<th>Unit</th>
 <th>Description</th>
+<th>Unit</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd">
 <td style="text-align: center;">✔</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td><code>id</code></td>
 <td><code>INTEGER</code></td>
-<td style="text-align: left;"></td>
-<td></td>
 <td>The equilibrium element identifier</td>
+<td></td>
 </tr>
 <tr class="even">
 <td style="text-align: center;"></td>
-<td><code>equilibrium_space_id</code></td>
+<td style="text-align: center;">✔</td>
+<td style="text-align: center;"></td>
+<td><a href="#equilibrium_elements"><code>equilibrium_space_id</code></a></td>
 <td><code>INTEGER</code></td>
-<td style="text-align: left;"><a href="#equilibrium_space"><code>equilibrium_space.id</code></a></td>
-<td></td>
 <td>The id of the equilibrium space point</td>
+<td></td>
 </tr>
 <tr class="odd">
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
 <td><code>name</code></td>
 <td><code>VARCHAR</code></td>
-<td style="text-align: left;"></td>
-<td></td>
 <td>The name of the element (atomic symbol)</td>
+<td></td>
 </tr>
 <tr class="even">
 <td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td><code>log_molality</code></td>
 <td><code>DOUBLE</code></td>
-<td style="text-align: left;"></td>
-<td>log molal</td>
 <td>The molality of the element in solution</td>
+<td><span class="math inline">\(\log{molal}\)</span></td>
 </tr>
 <tr class="odd">
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
 <td><code>mass_fraction</code></td>
 <td><code>DOUBLE</code></td>
-<td style="text-align: left;"></td>
-<td>unit less</td>
 <td>The fraction of solution mass accounted for by ths element</td>
+<td>unitless</td>
 </tr>
 </tbody>
 </table>
 </section>
-<section id="equilibrium_aqueous_species" class="level3">
-<h3 class="anchored" data-anchor-id="equilibrium_aqueous_species">equilibrium_aqueous_species</h3>
-<table class="caption-top table">
+<section id="equilibrium_aqueous_species" class="level5">
+<h5 class="anchored" data-anchor-id="equilibrium_aqueous_species">equilibrium_aqueous_species</h5>
+<table class="table-striped table-bordered caption-top table">
 <thead>
 <tr class="header">
 <th style="text-align: center;">PK</th>
+<th style="text-align: center;">FK</th>
+<th style="text-align: center;">N</th>
 <th>Column Name</th>
 <th>Type</th>
-<th style="text-align: left;">References</th>
-<th>Unit</th>
 <th>Description</th>
+<th>Unit</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd">
 <td style="text-align: center;">✔</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td><code>id</code></td>
 <td><code>INTEGER</code></td>
-<td style="text-align: left;"></td>
-<td></td>
 <td>The equilibrium aqueous species identifier</td>
+<td></td>
 </tr>
 <tr class="even">
 <td style="text-align: center;"></td>
-<td><code>equilibrium_space_id</code></td>
+<td style="text-align: center;">✔</td>
+<td style="text-align: center;"></td>
+<td><a href="#equilibrium_space"><code>equilibrium_space_id</code></a></td>
 <td><code>INTEGER</code></td>
-<td style="text-align: left;"><a href="#equilibrium_space"><code>equilibrium_space.id</code></a></td>
-<td></td>
 <td>The id of the equilibrium space point</td>
+<td></td>
 </tr>
 <tr class="odd">
 <td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td><code>name</code></td>
 <td><code>VARCHAR</code></td>
-<td style="text-align: left;"></td>
-<td></td>
 <td>The name of the aqueous species, e.g.&nbsp;“H2O2”</td>
+<td></td>
 </tr>
 <tr class="even">
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
 <td><code>log_molality</code></td>
 <td><code>DOUBLE</code></td>
-<td style="text-align: left;"></td>
-<td>log molal</td>
 <td>The logarithm of the molality of that species in solution</td>
+<td><span class="math inline">\(\log{molal}\)</span></td>
 </tr>
 <tr class="odd">
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
 <td><code>log_activity</code></td>
 <td><code>DOUBLE</code></td>
-<td style="text-align: left;"></td>
-<td>unitless</td>
 <td>The logarithm of the activity of that species in solution</td>
+<td>unitless</td>
 </tr>
 <tr class="even">
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
 <td><code>log_gamma</code></td>
 <td><code>DOUBLE</code></td>
-<td style="text-align: left;"></td>
-<td>unitless</td>
 <td>The logarithm of the activity coefficient of that species in solution</td>
+<td>unitless</td>
 </tr>
 </tbody>
 </table>
 </section>
-<section id="equilibrium_gases" class="level3">
-<h3 class="anchored" data-anchor-id="equilibrium_gases">equilibrium_gases</h3>
-<table class="caption-top table">
+<section id="equilibrium_gases" class="level5">
+<h5 class="anchored" data-anchor-id="equilibrium_gases">equilibrium_gases</h5>
+<table class="table-striped table-bordered caption-top table">
 <thead>
 <tr class="header">
 <th style="text-align: center;">PK</th>
+<th style="text-align: center;">FK</th>
+<th style="text-align: center;">N</th>
 <th>Column Name</th>
 <th>Type</th>
-<th style="text-align: left;">References</th>
-<th>Unit</th>
 <th>Description</th>
+<th>Unit</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd">
 <td style="text-align: center;">✔</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td><code>id</code></td>
 <td><code>INTEGER</code></td>
-<td style="text-align: left;"></td>
-<td></td>
 <td>The equilibrium gas identifier</td>
+<td></td>
 </tr>
 <tr class="even">
 <td style="text-align: center;"></td>
-<td><code>equilibrium_space_id</code></td>
+<td style="text-align: center;">✔</td>
+<td style="text-align: center;"></td>
+<td><a href="#equilibrium_space"><code>equilibrium_space_id</code></a></td>
 <td><code>INTEGER</code></td>
-<td style="text-align: left;"><a href="#equilibrium_space"><code>equilibrium_space.id</code></a></td>
-<td></td>
 <td>The id of the equilibrium space point</td>
+<td></td>
 </tr>
 <tr class="odd">
 <td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td><code>name</code></td>
 <td><code>VARCHAR</code></td>
-<td style="text-align: left;"></td>
-<td></td>
 <td>The name of the gas, e.g.&nbsp;“H2(g)”</td>
+<td></td>
 </tr>
 <tr class="even">
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
 <td><code>log_fugacity</code></td>
 <td><code>DOUBLE</code></td>
-<td style="text-align: left;"></td>
-<td>log bar</td>
 <td>The logarithm of the fugacity of the gas at this <span class="math inline">\(\xi\)</span> step</td>
+<td><span class="math inline">\(\log{bar}\)</span></td>
 </tr>
 </tbody>
 </table>
 </section>
-<section id="equilibrium_pure_solids" class="level3">
-<h3 class="anchored" data-anchor-id="equilibrium_pure_solids">equilibrium_pure_solids</h3>
-<table class="caption-top table">
-<thead>
-<tr class="header">
-<th>PK</th>
-<th>Column Name</th>
-<th>Type</th>
-<th>References</th>
-<th>Unit</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td>✔</td>
-<td><code>id</code></td>
-<td><code>INTEGER</code></td>
-<td></td>
-<td></td>
-<td>The equilibrium pure solid id</td>
-</tr>
-<tr class="even">
-<td></td>
-<td><code>equilibrium_space_id</code></td>
-<td><code>INTEGER</code></td>
-<td><a href="#equilibrium_space"><code>equilibrium_space.id</code></a></td>
-<td></td>
-<td>The id of the equilibrium space point</td>
-</tr>
-<tr class="odd">
-<td></td>
-<td><code>name</code></td>
-<td><code>VARCHAR</code></td>
-<td></td>
-<td></td>
-<td>The name of the pure solid, e.g.&nbsp;“fayalite”</td>
-</tr>
-<tr class="even">
-<td></td>
-<td><code>log_qk</code></td>
-<td><code>DOUBLE</code></td>
-<td></td>
-<td></td>
-<td>The saturation index of the pure solid phase</td>
-</tr>
-<tr class="odd">
-<td></td>
-<td><code>affinity</code></td>
-<td><code>DOUBLE</code></td>
-<td></td>
-<td>kcal</td>
-<td>the affinity of the pure solid</td>
-</tr>
-<tr class="even">
-<td></td>
-<td><code>log_moles</code></td>
-<td><code>DOUBLE</code></td>
-<td></td>
-<td>log mole</td>
-<td>The logarithm of the net moles of the solid that have precipitated up to this <span class="math inline">\(\xi\)</span> step</td>
-</tr>
-<tr class="odd">
-<td></td>
-<td><code>log_mass</code></td>
-<td><code>DOUBLE</code></td>
-<td></td>
-<td>log mass</td>
-<td>The logarithm of the net mass of the solid that has precipitated up to this <span class="math inline">\(\xi\)</span> step</td>
-</tr>
-<tr class="even">
-<td></td>
-<td><code>log_volume</code></td>
-<td><code>DOUBLE</code></td>
-<td></td>
-<td>log <span class="math inline">\(cm^3\)</span></td>
-<td>The logarithm of the volume of the solid that has precipitated</td>
-</tr>
-</tbody>
-</table>
-</section>
-<section id="equilibrium_solid_solutions" class="level3">
-<h3 class="anchored" data-anchor-id="equilibrium_solid_solutions">equilibrium_solid_solutions</h3>
-<table class="caption-top table">
-<thead>
-<tr class="header">
-<th>PK</th>
-<th>Column Name</th>
-<th>Type</th>
-<th>References</th>
-<th>Unit</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td>✔</td>
-<td><code>id</code></td>
-<td><code>INTEGER</code></td>
-<td></td>
-<td></td>
-<td>The equilibrium solid solution identifier</td>
-</tr>
-<tr class="even">
-<td></td>
-<td><code>equilibrium_space_id</code></td>
-<td><code>INTEGER</code></td>
-<td><a href="#equilibrium_space"><code>equilibrium_space.id</code></a></td>
-<td></td>
-<td>The id of the equilibrium space point</td>
-</tr>
-<tr class="odd">
-<td></td>
-<td><code>name</code></td>
-<td><code>VARCHAR</code></td>
-<td></td>
-<td></td>
-<td>The name of the solid solution, e.g.&nbsp;“olivine”</td>
-</tr>
-<tr class="even">
-<td></td>
-<td><code>log_qk</code></td>
-<td><code>DOUBLE</code></td>
-<td></td>
-<td></td>
-<td>The saturation index of the solid solution</td>
-</tr>
-<tr class="odd">
-<td></td>
-<td><code>affinity</code></td>
-<td><code>DOUBLE</code></td>
-<td></td>
-<td>kcal</td>
-<td>The affinity of the solid solution</td>
-</tr>
-<tr class="even">
-<td></td>
-<td><code>log_moles</code></td>
-<td><code>DOUBLE</code></td>
-<td></td>
-<td>log mole</td>
-<td>The logarithm of the net moles of the solid solution that have precipitated up to this <span class="math inline">\(\xi\)</span> step</td>
-</tr>
-<tr class="odd">
-<td></td>
-<td><code>log_mass</code></td>
-<td><code>DOUBLE</code></td>
-<td></td>
-<td>log mass</td>
-<td>The logarithm of the net mass of the solid solution that has precipitated up to this <span class="math inline">\(\xi\)</span> step</td>
-</tr>
-<tr class="even">
-<td></td>
-<td><code>log_volume</code></td>
-<td><code>DOUBLE</code></td>
-<td></td>
-<td>log <span class="math inline">\(cm^3\)</span></td>
-<td>The logarithm of the volume of the solid solution that has precipitated</td>
-</tr>
-</tbody>
-</table>
-<section id="equilibrium_end_members" class="level4">
-<h4 class="anchored" data-anchor-id="equilibrium_end_members">equilibrium_end_members</h4>
-<table class="caption-top table">
-<thead>
-<tr class="header">
-<th>PK</th>
-<th>Column Name</th>
-<th>Type</th>
-<th>References</th>
-<th>Unit</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td>✔</td>
-<td><code>id</code></td>
-<td><code>INTEGER</code></td>
-<td></td>
-<td></td>
-<td>The equilibrium solid solution end member identifier</td>
-</tr>
-<tr class="even">
-<td></td>
-<td><code>equilibrium_solid_solution_id</code></td>
-<td><code>INTEGER</code></td>
-<td><a href="#equilibrium_solid_solutions"><code>equilibrium_solid_solution.id</code></a></td>
-<td></td>
-<td>The id of the equilibrium solid solution</td>
-</tr>
-<tr class="odd">
-<td></td>
-<td><code>name</code></td>
-<td><code>VARCHAR</code></td>
-<td></td>
-<td></td>
-<td>The name of the end member, e.g.&nbsp;“fayalite”</td>
-</tr>
-<tr class="even">
-<td></td>
-<td><code>log_qk</code></td>
-<td><code>DOUBLE</code></td>
-<td></td>
-<td></td>
-<td>The saturation index of the end member</td>
-</tr>
-<tr class="odd">
-<td></td>
-<td><code>affinity</code></td>
-<td><code>DOUBLE</code></td>
-<td></td>
-<td></td>
-<td></td>
-</tr>
-<tr class="even">
-<td></td>
-<td><code>log_moles</code></td>
-<td><code>DOUBLE</code></td>
-<td></td>
-<td>log mole</td>
-<td>The logarithm of the net moles of the end member that have precipitated up to this <span class="math inline">\(\xi\)</span> step</td>
-</tr>
-<tr class="odd">
-<td></td>
-<td><code>log_mass</code></td>
-<td><code>DOUBLE</code></td>
-<td></td>
-<td>log mass</td>
-<td>The logarithm of the net mass of the end member that has precipitated up to this <span class="math inline">\(\xi\)</span> step</td>
-</tr>
-<tr class="even">
-<td></td>
-<td><code>log_volume</code></td>
-<td><code>DOUBLE</code></td>
-<td></td>
-<td>log <span class="math inline">\(cm^3\)</span></td>
-<td>The logarithm of the volume of the end member that has precipitated</td>
-</tr>
-</tbody>
-</table>
-</section>
-</section>
-<section id="equilibrium_redox_reactions" class="level3">
-<h3 class="anchored" data-anchor-id="equilibrium_redox_reactions">equilibrium_redox_reactions</h3>
-<table class="caption-top table">
+<section id="equilibrium_pure_solids" class="level5">
+<h5 class="anchored" data-anchor-id="equilibrium_pure_solids">equilibrium_pure_solids</h5>
+<table class="table-striped table-bordered caption-top table">
 <thead>
 <tr class="header">
 <th style="text-align: center;">PK</th>
+<th style="text-align: center;">FK</th>
+<th style="text-align: center;">N</th>
 <th>Column Name</th>
 <th>Type</th>
-<th style="text-align: left;">References</th>
-<th>Unit</th>
 <th>Description</th>
+<th>Unit</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd">
 <td style="text-align: center;">✔</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td><code>id</code></td>
 <td><code>INTEGER</code></td>
-<td style="text-align: left;"></td>
+<td>The equilibrium pure solid id</td>
 <td></td>
-<td>The equilibrium redox reaction identifier</td>
 </tr>
 <tr class="even">
 <td style="text-align: center;"></td>
-<td><code>equilibrium_space_id</code></td>
+<td style="text-align: center;">✔</td>
+<td style="text-align: center;"></td>
+<td><a href="#equilibrium_space"><code>equilibrium_space_id</code></a></td>
 <td><code>INTEGER</code></td>
-<td style="text-align: left;"><a href="#equilibrium_space"><code>equilibrium_space.id</code></a></td>
-<td></td>
 <td>The id of the equilibrium space point</td>
+<td></td>
 </tr>
 <tr class="odd">
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td><code>name</code></td>
+<td><code>VARCHAR</code></td>
+<td>The name of the pure solid, e.g.&nbsp;“fayalite”</td>
+<td></td>
+</tr>
+<tr class="even">
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td><code>log_qk</code></td>
+<td><code>DOUBLE</code></td>
+<td>The saturation index of the pure solid phase</td>
+<td>unitless</td>
+</tr>
+<tr class="odd">
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td><code>affinity</code></td>
+<td><code>DOUBLE</code></td>
+<td>the affinity of the pure solid</td>
+<td><span class="math inline">\(kcal\)</span></td>
+</tr>
+<tr class="even">
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td><code>log_moles</code></td>
+<td><code>DOUBLE</code></td>
+<td>The logarithm of the net moles of the solid that have precipitated up to this <span class="math inline">\(\xi\)</span> step</td>
+<td><span class="math inline">\(\log{mol}\)</span></td>
+</tr>
+<tr class="odd">
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td><code>log_mass</code></td>
+<td><code>DOUBLE</code></td>
+<td>The logarithm of the net mass of the solid that has precipitated up to this <span class="math inline">\(\xi\)</span> step</td>
+<td><span class="math inline">\(\log{g}\)</span></td>
+</tr>
+<tr class="even">
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td><code>log_volume</code></td>
+<td><code>DOUBLE</code></td>
+<td>The logarithm of the volume of the solid that has precipitated</td>
+<td><span class="math inline">\(\log{cm^3}\)</span></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="equilibrium_solid_solutions" class="level5">
+<h5 class="anchored" data-anchor-id="equilibrium_solid_solutions">equilibrium_solid_solutions</h5>
+<table class="table-striped table-bordered caption-top table">
+<thead>
+<tr class="header">
+<th style="text-align: center;">PK</th>
+<th style="text-align: center;">FK</th>
+<th style="text-align: center;">N</th>
+<th>Column Name</th>
+<th>Type</th>
+<th>Description</th>
+<th>Unit</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: center;">✔</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td><code>id</code></td>
+<td><code>INTEGER</code></td>
+<td>The equilibrium solid solution identifier</td>
+<td></td>
+</tr>
+<tr class="even">
+<td style="text-align: center;"></td>
+<td style="text-align: center;">✔</td>
+<td style="text-align: center;"></td>
+<td><a href="#equilibrium_space"><code>equilibrium_space_id</code></a></td>
+<td><code>INTEGER</code></td>
+<td>The id of the equilibrium space point</td>
+<td></td>
+</tr>
+<tr class="odd">
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td><code>name</code></td>
+<td><code>VARCHAR</code></td>
+<td>The name of the solid solution, e.g.&nbsp;“olivine”</td>
+<td></td>
+</tr>
+<tr class="even">
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td><code>log_qk</code></td>
+<td><code>DOUBLE</code></td>
+<td>The saturation index of the solid solution</td>
+<td>unitless</td>
+</tr>
+<tr class="odd">
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td><code>affinity</code></td>
+<td><code>DOUBLE</code></td>
+<td>The affinity of the solid solution</td>
+<td><span class="math inline">\(kcal\)</span></td>
+</tr>
+<tr class="even">
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td><code>log_moles</code></td>
+<td><code>DOUBLE</code></td>
+<td>The logarithm of the net moles of the solid solution that have precipitated up to this <span class="math inline">\(\xi\)</span> step</td>
+<td><span class="math inline">\(\log{mol}\)</span></td>
+</tr>
+<tr class="odd">
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td><code>log_mass</code></td>
+<td><code>DOUBLE</code></td>
+<td>The logarithm of the net mass of the solid solution that has precipitated up to this <span class="math inline">\(\xi\)</span> step</td>
+<td><span class="math inline">\(\log{g}\)</span></td>
+</tr>
+<tr class="even">
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td><code>log_volume</code></td>
+<td><code>DOUBLE</code></td>
+<td>The logarithm of the volume of the solid solution that has precipitated</td>
+<td><span class="math inline">\(\log{cm^3}\)</span></td>
+</tr>
+</tbody>
+</table>
+<section id="equilibrium_end_members" class="level6">
+<h6 class="anchored" data-anchor-id="equilibrium_end_members">equilibrium_end_members</h6>
+<table class="table-striped table-bordered caption-top table">
+<thead>
+<tr class="header">
+<th style="text-align: center;">PK</th>
+<th style="text-align: center;">FK</th>
+<th style="text-align: center;">N</th>
+<th>Column Name</th>
+<th>Type</th>
+<th>Description</th>
+<th>Unit</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: center;">✔</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td><code>id</code></td>
+<td><code>INTEGER</code></td>
+<td>The equilibrium solid solution end member identifier</td>
+<td></td>
+</tr>
+<tr class="even">
+<td style="text-align: center;"></td>
+<td style="text-align: center;">✔</td>
+<td style="text-align: center;"></td>
+<td><a href="#equilibrium_solid_solutions"><code>equilibrium_solid_solution_id</code></a></td>
+<td><code>INTEGER</code></td>
+<td>The id of the equilibrium solid solution</td>
+<td></td>
+</tr>
+<tr class="odd">
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td><code>name</code></td>
+<td><code>VARCHAR</code></td>
+<td>The name of the end member, e.g.&nbsp;“fayalite”</td>
+<td></td>
+</tr>
+<tr class="even">
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td><code>log_qk</code></td>
+<td><code>DOUBLE</code></td>
+<td>The saturation index of the end member</td>
+<td>unitless</td>
+</tr>
+<tr class="odd">
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td><code>affinity</code></td>
+<td><code>DOUBLE</code></td>
+<td>The affinity of the end member</td>
+<td><span class="math inline">\(kcal\)</span></td>
+</tr>
+<tr class="even">
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td><code>log_moles</code></td>
+<td><code>DOUBLE</code></td>
+<td>The logarithm of the net moles of the end member that have precipitated up to this <span class="math inline">\(\xi\)</span> step</td>
+<td><span class="math inline">\(\log{mol}\)</span></td>
+</tr>
+<tr class="odd">
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td><code>log_mass</code></td>
+<td><code>DOUBLE</code></td>
+<td>The logarithm of the net mass of the end member that has precipitated up to this <span class="math inline">\(\xi\)</span> step</td>
+<td><span class="math inline">\(\log{g}\)</span></td>
+</tr>
+<tr class="even">
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td><code>log_volume</code></td>
+<td><code>DOUBLE</code></td>
+<td>The logarithm of the volume of the end member that has precipitated</td>
+<td><span class="math inline">\(\log{cm^3}\)</span></td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+<section id="equilibrium_redox_reactions" class="level5">
+<h5 class="anchored" data-anchor-id="equilibrium_redox_reactions">equilibrium_redox_reactions</h5>
+<table class="table-striped table-bordered caption-top table">
+<thead>
+<tr class="header">
+<th style="text-align: center;">PK</th>
+<th style="text-align: center;">FK</th>
+<th style="text-align: center;">N</th>
+<th>Column Name</th>
+<th>Type</th>
+<th>Description</th>
+<th>Unit</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: center;">✔</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td><code>id</code></td>
+<td><code>INTEGER</code></td>
+<td>The equilibrium redox reaction identifier</td>
+<td></td>
+</tr>
+<tr class="even">
+<td style="text-align: center;"></td>
+<td style="text-align: center;">✔</td>
+<td style="text-align: center;"></td>
+<td><a href="#equilibrium_space"><code>equilibrium_space_id</code></a></td>
+<td><code>INTEGER</code></td>
+<td>The id of the equilibrium space point</td>
+<td></td>
+</tr>
+<tr class="odd">
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
 <td><code>couple</code></td>
 <td><code>VARCHAR</code></td>
-<td style="text-align: left;"></td>
-<td></td>
 <td>The name of the redox couple</td>
+<td></td>
 </tr>
 <tr class="even">
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
 <td><code>"Eh"</code></td>
 <td><code>DOUBLE</code></td>
-<td style="text-align: left;"></td>
-<td>volt</td>
 <td>The redox potential</td>
+<td><span class="math inline">\(V\)</span></td>
 </tr>
 <tr class="odd">
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td style="text-align: center;"></td>
 <td><code>pe</code></td>
 <td><code>DOUBLE</code></td>
-<td style="text-align: left;"></td>
-<td>unitless</td>
 <td>The negative logarithm of the hypothetical electron activity</td>
+<td>unitless</td>
 </tr>
 <tr class="even">
 <td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td><code>"log_fO2"</code></td>
 <td><code>DOUBLE</code></td>
-<td style="text-align: left;"></td>
-<td>log bar</td>
 <td>The logarithm of the oxygen (<span class="math inline">\(O_2\)</span>) fugacity</td>
+<td><span class="math inline">\(\log{bar}\)</span></td>
 </tr>
 <tr class="odd">
 <td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;"></td>
 <td><code>"Ah"</code></td>
 <td><code>DOUBLE</code></td>
-<td style="text-align: left;"></td>
-<td>kcal</td>
 <td>The redox affinity</td>
+<td><span class="math inline">\(kcal\)</span></td>
 </tr>
 </tbody>
 </table>
 
 
+</section>
+</section>
 </section>
 </section>
 </section>

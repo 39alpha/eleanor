@@ -420,7 +420,7 @@ class Kernel(AbstractKernel):
             print(f'     jcode=  2               jreac=  0', file=file)
             print(f'      morr={morr: >13}      modr=  0.00000E+00', file=file)
             print(f'     vreac=  0.00000E+00', file=file)
-            print(f'   {0: <2}          1.00000E+00'.format(er.name), file=file)
+            print('   {element: <2}          1.00000E+00'.format(element=er.name), file=file)
             print(f'   endit.', file=file)
             print(f'* Reaction', file=file)
             print(f'   endit.', file=file)

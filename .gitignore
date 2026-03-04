@@ -10,3 +10,4 @@ campaign.yaml
 *.so
 *.dylib
 uv.lock
+todo.txt

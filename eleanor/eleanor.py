@@ -1,10 +1,5 @@
-import os
-import time
-from datetime import datetime
-from multiprocessing import Manager, Pool, Process
+from multiprocessing import Manager, Pool
 from queue import Queue
-from sys import exit, stderr
-from traceback import print_exception
 
 from sqlalchemy import and_, select
 
@@ -17,7 +12,8 @@ from .kernel.discover import import_kernel_module
 from .kernel.interface import AbstractKernel
 from .navigator import AbstractNavigator
 from .order import HufferResult, Order, load_order
-from .typing import Any, Optional, Self, cast
+from .transformers import transform
+from .typing import Any, Optional, Self
 from .util import Progress, chunks
 from .version import __version__
 from .yeoman import Yeoman
@@ -46,6 +42,22 @@ class Eleanor(object):
         verbose: bool = False,
         **kwargs,
     ) -> list[int]:
+        if len(self.order.transformers) != 0:
+            kernel = self.load_kernel(verbose=verbose, **kwargs)
+            self.order = transform(self.order, kernel)
+
+        return self._run(simulation_size, *args, order_id=order_id, combined=combined, proportional_sampling=proportional_sampling, verbose=verbose, **kwargs)
+
+    def _run(
+        self,
+        simulation_size: int,
+        *args,
+        order_id: Optional[int] = None,
+        combined: bool = False,
+        proportional_sampling: bool = False,
+        verbose: bool = False,
+        **kwargs,
+    ) -> list[int]:
         if self.order.suborders is not None and len(self.order.suborders.suborders) != 0:
             order_ids: set[int] = set()
 
@@ -64,7 +76,7 @@ class Eleanor(object):
                     suborder_samples = round(suborder_samples * suborder.volume() / volume)
 
                 eleanor = self.recur(self.config, suborder, self.kernel_args)
-                suborder_ids = eleanor.run(
+                suborder_ids = eleanor._run(
                     suborder_samples,
                     *args,
                     order_id=order_id,

@@ -8,6 +8,7 @@ readme = "README.md"
 license = {file = "LICENSE"}
 dependencies = [
   'numpy',
+  "pandas>=3.0.1",
   'psycopg[binary]',
   'pyyaml',
   'scipy',
@@ -50,8 +51,18 @@ exclude = "(docs/source/conf\\.py)"
 
 [dependency-groups]
 dev = [
-    "pytest>=9.0.2",
+    "basedpyright>=1.38.2",
+    "ipython>=9.10.0",
+    "mccabe>=0.7.0",
+    "mypy>=1.19.1",
+    "pandas-stubs>=3.0.0.260204",
+    "pycodestyle>=2.14.0",
+    "pylsp-mypy>=0.7.1",
     "pytest-cov>=7.0.0",
+    "pytest>=9.0.2",
+    "python-lsp-isort>=0.2.1",
+    "python-lsp-server>=1.14.0",
+    "yapf>=0.43.0",
 ]
 
 [[tool.hatch.build.targets.wheel.hooks.build-scripts.scripts]]

@@ -24,3 +24,6 @@ class AbstractKernel(ABC):
 
     def copy_data(self, vs_point: vs.Point, *args, dir: str = '.', **kwargs):
         pass
+
+    def get_atomic_weight(self, element: str) -> float | None:
+        pass

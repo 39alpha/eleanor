@@ -55,6 +55,28 @@ class NavigatorConfig(object):
 
 
 @dataclass(init=False)
+class TransformerConfig(object):
+    type: str
+    args: dict[str, Any]  # pyright: ignore[reportExplicitAny]
+
+    def __init__(self, type: str = 'Random', args: dict[str, Any] | None = None):  # pyright: ignore[reportExplicitAny]
+        if '.' not in type:
+            type = 'eleanor.transformers.' + type
+
+        self.type = type
+        self.args = args if args is not None else {}
+
+    def load(self):  # pyright: ignore[reportAny]
+        parts = self.type.split('.')
+
+        module_name = '.'.join(parts[:-1])
+        transformer_name = parts[-1]
+
+        module = import_module(module_name)
+        return getattr(module, transformer_name)  # pyright: ignore[reportAny]
+
+
+@dataclass(init=False)
 class Suppression(object):
     name: Optional[str]
     type: Optional[str]
@@ -118,20 +140,20 @@ class HufferResult(object):
 
 @dataclass
 class Suborder(object):
-    name: Optional[str] = None
-    notes: Optional[str] = None
-    creator: Optional[str] = None
-    kernel: Optional[KernelConfig] = None
-    navigator: Optional[NavigatorConfig] = None
-    temperature: Optional[Parameter] = None
-    pressure: Optional[Parameter] = None
-    elements: Optional[dict[str, Parameter]] = None
-    species: Optional[dict[str, Parameter]] = None
-    suppressions: Optional[list[Suppression]] = None
-    reactants: Optional[list[Reactant]] = None
-    constraints: Optional[list[ConstraintConfig]] = None
-    suborders = None
-    raw: dict[str, Any] = field(default_factory=dict)
+    name: str | None = None
+    notes: str | None = None
+    creator: str | None = None
+    kernel: KernelConfig | None = None
+    navigator: NavigatorConfig | None = None
+    temperature: Parameter | None = None
+    pressure: Parameter | None = None
+    elements: dict[str, Parameter] | None = None
+    species: dict[str, Parameter] | None = None
+    suppressions: list[Suppression] | None = None
+    reactants: list[Reactant] | None = None
+    constraints: list[ConstraintConfig] | None = None
+    suborders: Suborders | None = None
+    raw: dict[str, Any] = field(default_factory=dict)  # pyright: ignore[reportExplicitAny]
 
     def volume(self):
         volume = 1.0
@@ -280,8 +302,9 @@ class Order(Suborder):
     suppressions: list[Suppression]
     reactants: list[Reactant]
     constraints: list[ConstraintConfig]
+    transformers: list[TransformerConfig]
 
-    suborders: Optional[Suborders] = None
+    suborders: Suborders | None = None
 
     huffer_result: Optional[HufferResult] = None
     id: Optional[int] = None
@@ -355,6 +378,17 @@ class Order(Suborder):
 
         self.constraints = []
 
+        self.transformers = []
+        for transformer_config in self.raw.get('transformers', []):  # pyright: ignore[reportAny]
+            if isinstance(transformer_config, str):
+                transformer = TransformerConfig(type=transformer_config)
+            elif isinstance(transformer_config, dict):
+                transformer = TransformerConfig(**transformer_config)  # pyright: ignore[reportUnknownArgumentType]
+            else:
+                raise EleanorException(f'invalid transformer config "{transformer_config}"')
+
+            self.transformers.append(transformer)
+
         if 'suborders' in self.raw:
             self.suborders = Suborders(self.raw['suborders'])
 
@@ -414,7 +448,8 @@ class Order(Suborder):
                 order.constraints = suborder.constraints if suborder.constraints is not None else order.constraints
                 order.suborders = suborder.suborders
 
-                del order.raw['suborders']
+                if 'suborders' in order.raw:
+                    del order.raw['suborders']
                 order.raw.update(suborder.raw)
                 order.rehash()
 
@@ -470,6 +505,8 @@ class Order(Suborder):
                     return Order.from_json(fname)
                 case _:
                     raise RuntimeError(f'unsupported file extension "{ext}"')
+        except EleanorException as e:
+            raise
         except Exception as e:
             raise EleanorException(f'failed to parse "{fname}" as yaml, toml or json') from e
 

@@ -17,6 +17,7 @@ class ReactantType(StrEnum):
     ELEMENT = 'element'
     SOLID_SOLUTION = 'solid solution'
     AQUEOUS = 'aqueous'
+    GLASS = 'glass'
 
 
 @dataclass
@@ -31,22 +32,25 @@ class AbstractReactant(ABC):
     @staticmethod
     def from_dict(raw: dict, name: Optional[str] = None):
         reactant_type = ReactantType(raw['type'])
-        if reactant_type == ReactantType.MINERAL:
-            return MineralReactant.from_dict(raw, name)
-        elif reactant_type == ReactantType.AQUEOUS:
-            return AqueousReactant.from_dict(raw, name)
-        elif reactant_type == ReactantType.GAS:
-            return GasReactant.from_dict(raw, name)
-        elif reactant_type == ReactantType.FIXED_GAS:
-            return FixedGasReactant.from_dict(raw, name)
-        elif reactant_type == ReactantType.SPECIAL:
-            return SpecialReactant.from_dict(raw, name)
-        elif reactant_type == ReactantType.ELEMENT:
-            return ElementReactant.from_dict(raw, name)
-        elif reactant_type == ReactantType.SOLID_SOLUTION:
-            return SolidSolutionReactant.from_dict(raw, name)
-
-        raise EleanorException(f'unexpected reactant type "{reactant_type}"')
+        match reactant_type:
+            case ReactantType.MINERAL:
+                return MineralReactant.from_dict(raw, name)
+            case ReactantType.AQUEOUS:
+                return AqueousReactant.from_dict(raw, name)
+            case ReactantType.GAS:
+                return GasReactant.from_dict(raw, name)
+            case ReactantType.FIXED_GAS:
+                return FixedGasReactant.from_dict(raw, name)
+            case ReactantType.SPECIAL:
+                return SpecialReactant.from_dict(raw, name)
+            case ReactantType.ELEMENT:
+                return ElementReactant.from_dict(raw, name)
+            case ReactantType.SOLID_SOLUTION:
+                return SolidSolutionReactant.from_dict(raw, name)
+            case ReactantType.GLASS:
+                return GlassReactant.from_dict(raw, name)
+            case _:  # pyright: ignore[reportUnnecessaryComparison]
+                raise EleanorException(f'unexpected reactant type "{reactant_type}"')  # pyright: ignore[reportUnreachable]
 
 
 @dataclass
@@ -228,6 +232,63 @@ class SolidSolutionReactant(TitratedReactant):
         return volume
 
 
-TitratedReactant.register(SpecialReactant)
+TitratedReactant.register(SolidSolutionReactant)
 
-Reactant = MineralReactant | AqueousReactant | GasReactant | FixedGasReactant | SpecialReactant | ElementReactant
+
+@dataclass
+class GlassReactantOxide(object):
+    name: str
+    composition: dict[str, int]
+    fraction: float
+
+    @classmethod
+    def from_dict(cls, raw: dict[str, str | dict[str, int] | float], name: str | None = None):
+        if name is None:
+            name = str(raw['name'])
+
+        if not isinstance(raw['composition'], dict):
+            raise EleanorException(f'oxide "{name}" has an invalid composition specification; it should be a dictionary')
+
+        composition: dict[str, int] = raw['composition']
+
+        if not isinstance(raw['fraction'], float):
+            raise EleanorException(f'oxide "{name}" has an invalid fraction specification; it should be a floating-point number')
+        fraction: float = raw['fraction']
+
+        if not (0.0 < fraction and fraction < 1.0):
+            raise EleanorException(
+                f'oxide "{name}" has a value {fraction}; must be between 0 and 1 exclusive'
+            )
+
+        return cls(name, composition, fraction)
+
+
+@dataclass
+class GlassReactant(TitratedReactant):
+    oxides: dict[str, GlassReactantOxide]
+
+    @classmethod
+    def from_dict(cls, raw: dict, name: Optional[str] = None):
+        oxides: dict[str, GlassReactantOxide] = {
+            oxide: GlassReactantOxide.from_dict(data, oxide)
+            for oxide, data in raw['oxides'].items()
+        }
+
+        base = TitratedReactant.from_dict(raw, name)
+        if base.type != ReactantType.GLASS:
+            raise EleanorException(f'cannot create a glass reactant from config of type "{base.type}"')
+
+        if len(oxides) == 0:
+            raise EleanorException(f'glass "{base.name}" has no oxides; consider removing it')
+        elif len(oxides) == 1:
+            raise EleanorException(f'glass "{base.name}" has only one oxide; consider replacing it with a special reactant')
+
+        fraction = mapreduce(lambda o: o.fraction, operator.add, oxides.values(), 0.0)
+        if fraction != 1.0:
+            raise EleanorException(
+                f'glass "{base.name}" oxide fractions sum to {fraction}; must sum to 1.0')
+
+        return cls(base.name, base.type, base.amount, base.titration_rate, oxides)
+
+
+Reactant = MineralReactant | AqueousReactant | GasReactant | FixedGasReactant | SpecialReactant | ElementReactant | SolidSolutionReactant | GlassReactant

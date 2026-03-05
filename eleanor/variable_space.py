@@ -1,3 +1,4 @@
+import operator
 from dataclasses import dataclass, field
 from datetime import datetime
 
@@ -7,8 +8,8 @@ from sqlalchemy.orm import relationship
 import eleanor.equilibrium_space as es
 
 from .kernel.config import Config as KernelConfig
-from .reactants import ReactantType
-from .typing import Any, Optional
+from .typing import Optional
+from .util import mapreduce
 from .yeoman import Binary, yeoman_registry
 
 
@@ -169,8 +170,79 @@ class SpecialReactant(object):
     log_moles: float
     titration_rate: float
     composition: list[SpecialReactantComposition]
-    id: Optional[int]
-    variable_space_id: Optional[int]
+    id: Optional[int] = None
+    variable_space_id: Optional[int] = None
+
+
+@yeoman_registry.mapped_as_dataclass
+class GlassReactantOxideComposition(object):
+    __table__ = Table(
+        'glass_reactant_oxide_compositions',
+        yeoman_registry.metadata,
+        Column('id', Integer, primary_key=True),
+        Column('glass_reactant_oxide_id', Integer, ForeignKey('glass_reactant_oxides.id', ondelete='CASCADE'), nullable=False),
+        Column('element', String, nullable=False),
+        Column('count', Integer, nullable=False),
+    )
+
+    element: str
+    count: int
+    id: Optional[int] = None
+    glass_reactant_oxide_id: Optional[int] = None
+
+
+@yeoman_registry.mapped_as_dataclass
+class GlassReactantOxide(object):
+    __table__ = Table(
+        'glass_reactant_oxides',
+        yeoman_registry.metadata,
+        Column('id', Integer, primary_key=True),
+        Column('glass_reactant_id', Integer, ForeignKey('glass_reactants.id', ondelete='CASCADE'), nullable=False),
+        Column('name', String, nullable=False),
+        Column('fraction', Double, nullable=False),
+        Column('log_moles', Double, nullable=False),
+        Column('titration_rate', Double, nullable=False),
+    )
+
+    __mapper_args__ = {
+        'properties': {
+            'composition': relationship(GlassReactantOxideComposition, cascade='all, delete'),
+        }
+    }
+
+    name: str
+    fraction: float
+    log_moles: float
+    titration_rate: float
+    composition: list[GlassReactantOxideComposition]
+    id: Optional[int] = None
+    glass_reactant_id: Optional[int] = None
+
+
+@yeoman_registry.mapped_as_dataclass
+class GlassReactant(object):
+    __table__ = Table(
+        'glass_reactants',
+        yeoman_registry.metadata,
+        Column('id', Integer, primary_key=True),
+        Column('variable_space_id', Integer, ForeignKey('variable_space.id', ondelete="CASCADE"), nullable=False),
+        Column('name', String, nullable=False),
+        Column('log_moles', Double, nullable=False),
+        Column('titration_rate', Double, nullable=False),
+    )
+
+    __mapper_args__ = {
+        'properties': {
+            'oxides': relationship(GlassReactantOxide, cascade="all, delete"),
+        }
+    }
+
+    name: str
+    log_moles: float
+    titration_rate: float
+    oxides: list[GlassReactantOxide]
+    id: Optional[int] = None
+    variable_space_id: Optional[int] = None
 
 
 @yeoman_registry.mapped_as_dataclass
@@ -318,6 +390,7 @@ class Point(object):
             'special_reactants': relationship(SpecialReactant, cascade="all, delete"),
             'fixed_gas_reactants': relationship(FixedGasReactant, cascade="all, delete"),
             'solid_solution_reactants': relationship(SolidSolutionReactant, cascade="all, delete"),
+            'glass_reactants': relationship(GlassReactant, cascade="all, delete"),
             'es_points': relationship(es.Point, cascade="all, delete"),
             'scratch': relationship(Scratch, cascade="all, delete", uselist=False)
         }
@@ -336,6 +409,7 @@ class Point(object):
     special_reactants: list[SpecialReactant]
     fixed_gas_reactants: list[FixedGasReactant]
     solid_solution_reactants: list[SolidSolutionReactant]
+    glass_reactants: list[GlassReactant]
     id: Optional[int] = None
     order_id: Optional[int] = None
     es_points: list[es.Point] = field(default_factory=list)
@@ -356,7 +430,7 @@ class Point(object):
         return None
 
     def reactant_count(self) -> int:
-        return sum(
+        nrct = sum(
             map(lambda rs: len(rs), [
                 self.mineral_reactants,
                 self.aqueous_reactants,
@@ -366,6 +440,8 @@ class Point(object):
                 self.fixed_gas_reactants,
                 self.solid_solution_reactants,
             ]))
+
+        return mapreduce(lambda g: len(g.oxides), operator.add, self.glass_reactants, nrct)
 
     def has_reactants(self) -> bool:
         return self.reactant_count() != 0

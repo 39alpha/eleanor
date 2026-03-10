@@ -2,10 +2,10 @@ import io
 import math
 import os.path
 import sys
-from typing import override
 import warnings
 from datetime import datetime
 from shutil import copyfile
+from typing import override
 
 import numpy as np
 
@@ -58,12 +58,16 @@ class Kernel(AbstractKernel):
     def get_atomic_weight(self, element: str) -> float | None:
         if not self._setup or len(self._data1s) == 0:
             raise EleanorException('cannot get atomic masses untilt the kernel is setup')
-        return self._data1s[0].elements.get(bytes(element, 'ascii'))
+        return self._data1s[0].elements.get(element)
 
     # TODO: Return basic setup information, e.g. species, etc...
     def setup(self, order: Order, *args, verbose: bool = False, **kwargs):
-        Trange = order.temperature.range()
-        Prange = order.pressure.range()
+        Tmin, Tmax = order.temperature.range()
+        Trange = (np.float64(Tmin), np.float64(Tmax))
+
+        Pmin, Pmax = order.pressure.range()
+        Prange = (np.float64(Pmin), np.float64(Pmax))
+
         with tool_room.WorkingDirectory(self.data1_dir):
             _, data1_files, *_ = tool_room.find_files('.d1')
             for file in data1_files:

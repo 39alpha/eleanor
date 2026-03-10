@@ -1,8 +1,12 @@
-from types import *
-from typing import *
+from types import *  # pyright: ignore[reportWildcardImportFromLibrary]
+from typing import *  # pyright: ignore[reportWildcardImportFromLibrary]
 
-from numpy.typing import *
+import numpy as np
+from numpy.typing import *  # pyright: ignore[reportWildcardImportFromLibrary]
 
-Number = int | float
+Number: TypeAlias = int | float
 
-Species = tuple[list[str], list[str], list[str], list[str], list[str], list[str]]
+type Array1D[ScalarT: np.generic] = np.ndarray[tuple[int], np.dtype[ScalarT]]
+type Array2D[ScalarT: np.generic] = np.ndarray[tuple[int, int], np.dtype[ScalarT]]
+
+Species: TypeAlias = tuple[list[str], list[str], list[str], list[str], list[str], list[str]]

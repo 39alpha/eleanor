@@ -1,8 +1,10 @@
-from ctypes import *
+from ctypes import CDLL, POINTER, byref, c_bool, c_char_p, c_double, c_int, c_long
+from dataclasses import dataclass
 
 import numpy as np
 
 from eleanor.kernel.exceptions import EleanorKernelException
+from eleanor.typing import *
 
 
 def get_libpath():
@@ -11,13 +13,15 @@ def get_libpath():
     """
     from os.path import dirname, join, realpath
     from platform import system
+
     platform_name = system()
-    if platform_name == 'Linux':
-        library = 'libeq36.so'
-    elif platform_name == 'Darwin':
-        library = 'libeq36.dylib'
-    else:
-        raise RuntimeError(f'{platform_name} is not supported')
+    match platform_name:
+        case 'Linux':
+            library = 'libeq36.so'
+        case 'Darwin':
+            library = 'libeq36.dylib'
+        case _:
+            raise RuntimeError(f'{platform_name} is not supported')
 
     return realpath(join(dirname(__file__), 'lib', library))
 
@@ -191,7 +195,26 @@ read_body.argtypes = [
 read_body.restype = None
 
 
-def read_data1(filename: str):
+# TODO: Can we specialize the element_names and species_names property types?
+@dataclass
+class Data(object):
+    min_temperature: np.float64
+    max_temperature_range: Array1D[np.float64]
+    pressure_coefficients: Array2D[np.float64]
+    element_names: Array1D[Any]  # pyright: ignore[reportExplicitAny]
+    atomic_weights: Array1D[np.float64]
+    species_names: Array1D[Any]  # pyright: ignore[reportExplicitAny]
+    cdrsa: Array1D[np.float64]
+    charges: Array1D[np.float64]
+    volumes: Array1D[np.float64]
+    nessra: Array2D[np.int32]
+    nessa: Array1D[np.int32]
+    cessa: Array1D[np.float64]
+    nxrn1a: np.int32
+    nxrn2a: np.int32
+
+
+def read_data1(filename: str) -> Data:
     fname = bytes(filename, 'ascii')
     data1 = c_int(0)
     errno = c_int(0)
@@ -295,10 +318,6 @@ def read_data1(filename: str):
 
         if errno.value != 0:
             raise Exception('failed to read data1 header')
-
-        iet_par = 10
-        jet_par = 4
-        net_par = 12
 
         iapxa_asv = c_int(30)
         ibpxa_asv = c_int(10)
@@ -521,19 +540,19 @@ def read_data1(filename: str):
     finally:
         close_data1(data1)
 
-    return [
-        tdamin.value,
-        [float(T) for T in tempcu],
-        apresg,
-        uelema,
-        [float(w) for w in atwta],
-        uspeca,
-        cdrsa,
-        [float(z) for z in zchara],
-        [float(v) for v in vosp0a],
-        nessra,
-        nessa,
-        cessa,
-        nxrn1a.value,
-        nxrn2a.value,
-    ]
+    return Data(
+        min_temperature=np.float64(tdamin.value),
+        max_temperature_range=tempcu,
+        pressure_coefficients=apresg,
+        element_names=uelema,
+        atomic_weights=atwta,
+        species_names=uspeca,
+        cdrsa=cdrsa,
+        charges=zchara,
+        volumes=vosp0a,
+        nessra=nessra,
+        nessa=nessa,
+        cessa=cessa,
+        nxrn1a=np.int32(nxrn1a.value),
+        nxrn2a=np.int32(nxrn2a.value),
+    )

@@ -534,8 +534,8 @@ class Eq6Config(object):
     log_fO2_max: float = 1e38
     aw_min: float = -1e38
     aw_max: float = 1e38
-    xi_print_interval: float = 1e0
-    log_xi_print_interval: float = 1e0
+    xi_print_interval: float = 1e38
+    log_xi_print_interval: float = 1e38
     time_print_interval: float = 1e38
     log_time_print_interval: float = 1e38
     ph_print_interval: float = 1e38

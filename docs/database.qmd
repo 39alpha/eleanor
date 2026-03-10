@@ -201,6 +201,7 @@ the unspeciated initial state of a system and includes such information as:
   - Element Reactants ([`element_reactants`](#element_reactants))
   - Fixed Gas Reactants ([`fixed_gas_reactants`](#fixed_gas_reactants))
   - Gas Reactants ([`gas_reactants`](#gas_reactants))
+  - Glass Reactants ([`glass_reactants`](#glass_reactants))
   - Mineral Reactants ([`mineral_reactants`](#mineral_reactants))
   - Solid Solution Reactants
     ([`solid_solution_reactants`](#solid_solution_reactants))
@@ -386,6 +387,7 @@ simulation of a wide variety of systems. These types are:
 - Element Reactants ([`element_reactants`](#element_reactants))
 - Fixed Gas Reactants ([`fixed_gas_reactants`](#fixed_gas_reactants))
 - Gas Reactants ([`gas_reactants`](#gas_reactants))
+- Glass Reactants ([`glass_reactants`](#glass_reactants))
 - Mineral Reactants ([`mineral_reactants`](#mineral_reactants))
 - Solid Solution Reactants
   ([`solid_solution_reactants`](#solid_solution_reactants))
@@ -528,6 +530,109 @@ SELECT *
 |----+-------------------+-------+-----------+----------------|
 | 1  | 1                 | N2(g) | -0.3      | 1.0            |
 +----+-------------------+-------+-----------+----------------+
+```
+
+##### glass_reactants
+
+| PK | FK | N | Column Name                                                     | Type       | Description                                                                                                                                                  | Unit          |
+|:-: |:-: |:-:|---------------------------                                      |---------   |------------------------------------------------------------                                                                                                  |---------      |
+| ✔  |    |   | `id`                                                            | `INTEGER`  | The glass reactant identifier, specific to the variable space point                                                                                          |               |
+|    | ✔  |   | [`variable_space_id`](#variable_space)                          | `INTEGER`  | The id of the variable space point for which the glass reactant amount and titration rate were generated                                                     |               |
+|    |    |   | `name`                                                          | `VARCHAR`  | The name of the glass reactant                                                                                                                               |               |
+|    |    |   | `log_moles`                                                     | `DOUBLE`   | The log amount of the bulk glass reactant to be reacted with the fluid                                                                                       | $\log{mol}$   |
+|    |    |   | `titration_rate`                                                | `DOUBLE`   | The rate (in $\xi$) at which the glass reactant will be titrated into the fluid                                                                              | $mol/\xi$     |
+
+: {.striped .bordered}
+
+A glass reactant models reacting a fixed molar quantity (`amount`)
+of a multi-oxide glass composition with the fluid at some $\xi$-rate
+(`titration_rate`). The oxide-specific decomposition of each glass reactant
+is stored separately in the [`glass_reactant_oxides`](#glass_reactant_oxides)
+table.
+
+**Example**:
+
+```sql
+SELECT *
+ FROM glass_reactants
+ WHERE variable_space_id = 1
+ ORDER BY name;
+
++----+-------------------+----------------+-----------+----------------+
+| id | variable_space_id | name           | log_moles | titration_rate |
+|----+-------------------+----------------+-----------+----------------|
+| 1  | 1                 | basaltic-glass | -0.3      | 1.0            |
++----+-------------------+----------------+-----------+----------------+
+```
+
+###### glass_reactant_oxides
+
+| PK | FK | N | Column Name                                                     | Type       | Description                                                                                                                                                  | Unit          |
+|:-: |:-: |:-:|---------------------------                                      |---------   |------------------------------------------------------------                                                                                                  |---------      |
+| ✔  |    |   | `id`                                                            | `INTEGER`  | The glass reactant oxide identifier, specific to the glass reactant                                                                                          |               |
+|    | ✔  |   | [`glass_reactant_id`](#glass_reactants)                         | `INTEGER`  | The id of the glass reactant for which this oxide is defined                                                                                                 |               |
+|    |    |   | `name`                                                          | `VARCHAR`  | The name of the oxide                                                                                                                                        |               |
+|    |    |   | `fraction`                                                      | `DOUBLE`   | The mole-fraction of this oxide in the parent glass reactant                                                                                                 | unitless      |
+|    |    |   | `log_moles`                                                     | `DOUBLE`   | The log amount of this oxide reacted with the fluid                                                                                                          | $\log{mol}$   |
+|    |    |   | `titration_rate`                                                | `DOUBLE`   | The rate (in $\xi$) at which this oxide-equivalent reactant is titrated                                                                                      | $mol/\xi$     |
+
+: {.striped .bordered}
+
+Each [glass reactant](#glass_reactants) is represented by one or more oxide
+entries in the `glass_reactant_oxides` table. The `fraction` values define
+the oxide composition of the parent glass reactant, and `log_moles` stores the
+oxide-specific amount after decomposition of the bulk glass amount.
+
+**Example**:
+
+```sql
+SELECT o.*
+ FROM glass_reactant_oxides AS o
+ JOIN glass_reactants AS g ON g.id = o.glass_reactant_id AND g.variable_space_id = 1
+ ORDER BY o.name;
+
++----+-------------------+-------+----------+-----------+----------------+
+| id | glass_reactant_id | name  | fraction | log_moles | titration_rate |
+|----+-------------------+-------+----------+-----------+----------------|
+| 1  | 1                 | SiO2  | 0.50     | -0.6010   | 1.0            |
+| 2  | 1                 | Al2O3 | 0.30     | -0.8239   | 1.0            |
+| 3  | 1                 | CaO   | 0.20     | -1.0000   | 1.0            |
++----+-------------------+-------+----------+-----------+----------------+
+```
+
+###### glass_reactant_oxide_compositions
+
+| PK | FK | N | Column Name                                                     | Type       | Description                                                                                                                                                  | Unit          |
+|:-: |:-: |:-:|---------------------------                                      |---------   |------------------------------------------------------------                                                                                                  |---------      |
+| ✔  |    |   | `id`                                                            | `INTEGER`  | The glass reactant oxide composition identifier                                                                                                              |               |
+|    | ✔  |   | [`glass_reactant_oxide_id`](#glass_reactant_oxides)             | `INTEGER`  | The id of the glass reactant oxide for which this elemental stoichiometry entry is defined                                                                   |               |
+|    |    |   | `element`                                                       | `VARCHAR`  | The name of the element in the oxide                                                                                                                         |               |
+|    |    |   | `count`                                                         | `INTEGER`  | The stoichiometric count of the element in the oxide                                                                                                         |               |
+
+: {.striped .bordered}
+
+The `glass_reactant_oxide_compositions` table stores the elemental stoichiometry
+for each oxide listed in [`glass_reactant_oxides`](#glass_reactant_oxides).
+
+**Example**:
+
+```sql
+SELECT c.*
+ FROM glass_reactant_oxide_compositions AS c
+ JOIN glass_reactant_oxides AS o ON o.id = c.glass_reactant_oxide_id
+ JOIN glass_reactants AS g ON g.id = o.glass_reactant_id AND g.variable_space_id = 1
+ ORDER BY o.name, c.element;
+
++----+-------------------------+---------+-------+
+| id | glass_reactant_oxide_id | element | count |
+|----+-------------------------+---------+-------|
+| 3  | 2                       | Al      | 2     |
+| 4  | 2                       | O       | 3     |
+| 5  | 3                       | Ca      | 1     |
+| 6  | 3                       | O       | 1     |
+| 1  | 1                       | O       | 2     |
+| 2  | 1                       | Si      | 1     |
++----+-------------------------+---------+-------+
 ```
 
 ##### mineral_reactants

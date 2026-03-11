@@ -91,7 +91,7 @@ class Sailor(object):
                     if isinstance(e, EleanorException):
                         vs_point.exit_code = e.code if e.code is not None else -1
                     else:
-                        vs_point.exit_code - 1
+                        vs_point.exit_code = -1
 
                 vs_point.es_points = es_points
                 vs_point.complete_date = datetime.now()

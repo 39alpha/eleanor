@@ -224,7 +224,7 @@ class SolidSolutionReactant(TitratedReactant):
 
     def volume(self) -> float:
         volume = super(SolidSolutionReactant, self).volume()
-        volume += mapreduce(lambda em: em.volume(), operator.mul, self.end_members.values())
+        volume += mapreduce(lambda em: em.volume(), operator.mul, self.end_members.values(), 1.0)
         return volume
 
 

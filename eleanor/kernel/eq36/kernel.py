@@ -513,34 +513,34 @@ class Kernel(AbstractKernel):
 
         # Write mineral suppressions
         exceptions: list[vs.SuppressionException] = []
-        suppressions: list[vs.Suppression] = []
-        suppress_minerals = False
+        suppress_all_minerals = False
         for suppression in vs_point.suppressions:
+            if suppression.type is None and suppression.name is None:
+                raise EleanorKernelException("suppressions must have a type, a name or both")
+
+            if suppression.name is not None and suppression.exceptions:
+                raise EleanorKernelException("cannot add suppression exceptions for a named suppression")
+
             if suppression.type is None:
-                suppressions.append(suppression)
+                pass
             elif suppression.type in ['mineral', 'minerals']:
                 if suppression.name is None:
-                    suppress_minerals = True
-                else:
-                    suppressions.append(suppression)
+                    suppress_all_minerals = True
                 exceptions.extend(suppression.exceptions)
             elif suppression.type in ['solid solution', 'solid solutions']:
                 pass
             else:
                 raise EleanorKernelException(f'unsupported suppression type {suppression.type}')
 
-        if suppress_minerals:
+        if suppress_all_minerals:
             print('     nxopt=  1', file=file)
             print('    option= All', file=file)
         else:
             print('     nxopt=  0', file=file)
 
-        if exceptions:
-            print(f'    nxopex={len(exceptions): >3}', file=file)
-            for species in exceptions:
-                print(f'   species= {species.name}', file=file)
-        elif suppress_minerals:
-            print(f'    nxopex={len(exceptions): >3}', file=file)
+        print(f'    nxopex={len(exceptions): >3}', file=file)
+        for species in exceptions:
+            print(f'   species= {species.name}', file=file)
 
         # Write fixed gases
         print(f'      nffg={len(vs_point.fixed_gas_reactants): >3}', file=file)

@@ -1086,14 +1086,14 @@ class OutputParser6(OutputParser):
                                  key='expected_charge_imbalance_per_unit_solution',
                                  units=['eq/kg.solu'])
         self.data['expected_charge_imbalance_per_unit_solution'] *= 1e-3
-        self.read_basic_property('Charge discrepancy', key='charge_discrepency_per_unit_solution', units=['eq/kg.solu'])
-        self.data['charge_discrepency_per_unit_solution'] *= 1e-3
+        self.read_basic_property('Charge discrepancy', key='charge_discrepancy_per_unit_solution', units=['eq/kg.solu'])
+        self.data['charge_discrepancy_per_unit_solution'] *= 1e-3
         self.read_basic_property('Sigma |equivalents|', key='sigma_per_unit_solution', units=['eq/kg.solu'])
         self.data['sigma_per_unit_solution'] *= 1e-3
 
         self.advance()
 
-        self.read_basic_property('Relative charge discrepancy', key='relative_charge_discrepency')
+        self.read_basic_property('Relative charge discrepancy', key='relative_charge_discrepancy')
 
     def parse_step(self):
         try:
@@ -1104,7 +1104,7 @@ class OutputParser6(OutputParser):
                 warnings.filterwarnings('ignore', category=RuntimeWarning)
                 self.data['log_xi'] = float(np.log10(self.data['xi']))
             self.consume_blank_lines()
-            self.read_basic_property('Temperature', key='temperature', units=['celcius', 'c'])
+            self.read_basic_property('Temperature', key='temperature', units=['celsius', 'c'])
             self.consume_blank_lines()
             self.read_basic_property('Pressure', key='pressure', units=['bars', 'bar'])
             self.read_reactants()

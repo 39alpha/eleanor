@@ -9,13 +9,13 @@ def get_libpath():
     """
     from os.path import dirname, join, realpath
     from platform import system
-
-    if system() == 'Linux':
+    platform_name = system()
+    if platform_name == 'Linux':
         library = 'libeq36.so'
-    elif system() == 'Darwin':
+    elif platform_name == 'Darwin':
         library = 'libeq36.dylib'
-    elif system() == 'Windows':
-        raise RuntimeError('Windows is not supported')
+    else:
+        raise RuntimeError(f'{platform_name} is not supported')
 
     return realpath(join(dirname(__file__), 'lib', library))
 

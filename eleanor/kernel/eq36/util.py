@@ -151,7 +151,7 @@ def determine_species(file: Optional[str | io.TextIOWrapper] = None) -> Species:
     elements = [element for element in elements if element not in suppress]
     aqueous_species = [species for species in aqueous_species if species not in suppress]
     solids = [solid for solid in solids if solid not in suppress]
-    solid_solutions = [solid_solution for solid_solution in solid_solutions if solid_solutions not in suppress]
+    solid_solutions = [solid_solution for solid_solution in solid_solutions if solid_solution not in suppress]
     gases = [gas for gas in gases if gas not in suppress]
 
     return elements, aqueous_species, solids, solid_solutions, [], gases

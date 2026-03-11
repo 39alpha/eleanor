@@ -39,11 +39,6 @@ class TPCurve(object):
         self.T = T
         self.domain = []
 
-        if len(self.P) == 0:
-            raise RuntimeError('interpolation coefficients for pressure not found')
-        elif len(self.T) == 0:
-            raise RuntimeError('interpolation coefficients for termperature not found')
-
         self.reset_domain()
 
         [coeff_left, coeff_right] = self.P

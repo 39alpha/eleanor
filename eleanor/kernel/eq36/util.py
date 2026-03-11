@@ -41,8 +41,11 @@ def read_pickup_lines(file: Optional[str | io.TextIOWrapper] = None) -> list[str
         return read_pickup_lines('problem.3p')
 
     if isinstance(file, str):
-        with open(file, 'r') as handle:
-            return read_pickup_lines(handle)
+        try:
+            with open(file, 'r') as handle:
+                return read_pickup_lines(handle)
+        except FileNotFoundError as e:
+            raise EleanorFileException(e, code=RunCode.FILE_ERROR_3P)
 
     try:
         lines = file.readlines()

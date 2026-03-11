@@ -2,6 +2,8 @@ from ctypes import *
 
 import numpy as np
 
+from eleanor.kernel.exceptions import EleanorKernelException
+
 
 def get_libpath():
     """
@@ -194,11 +196,14 @@ def read_data1(filename: str):
     data1 = c_int(0)
     errno = c_int(0)
 
-    open_data1(fname, byref(data1), byref(errno), len(fname))
+    try:
+        open_data1(fname, byref(data1), byref(errno), len(fname))
+    except Exception as e:
+        raise EleanorKernelException('failed to open data1 file') from e
 
     try:
         if errno.value != 0:
-            raise Exception('failed to open file')
+            raise EleanorKernelException('failed to open data1 file')
 
         ikta_asv = c_int(-1)
         ipbt_asv = c_int(-1)

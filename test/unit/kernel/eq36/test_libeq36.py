@@ -73,7 +73,7 @@ class TestEq36Libeq36(TestCase):
             mock.patch("eleanor.kernel.eq36.libeq36.read_header") as header_mock,
             mock.patch("eleanor.kernel.eq36.libeq36.close_data1") as close_mock,
         ):
-            with self.assertRaisesRegex(Exception, "failed to open file"):
+            with self.assertRaisesRegex(Exception, "failed to open data1 file"):
                 read_data1("fake.d1")
 
         self.assertEqual(open_mock.call_args[0][0], b"fake.d1")
@@ -94,7 +94,7 @@ class TestEq36Libeq36(TestCase):
             mock.patch("eleanor.kernel.eq36.libeq36.read_header") as header_mock,
             mock.patch("eleanor.kernel.eq36.libeq36.close_data1") as close_mock,
         ):
-            with self.assertRaisesRegex(Exception, "failed to open file") as cm:
+            with self.assertRaisesRegex(Exception, "failed to open data1 file") as cm:
                 read_data1("broken-open.d1")
 
         open_mock.assert_called_once()
@@ -115,7 +115,7 @@ class TestEq36Libeq36(TestCase):
             mock.patch("eleanor.kernel.eq36.libeq36.read_header") as header_mock,
             mock.patch("eleanor.kernel.eq36.libeq36.close_data1") as close_mock,
         ):
-            with self.assertRaisesRegex(Exception, "failed to open file") as cm:
+            with self.assertRaisesRegex(Exception, "failed to open data1 file") as cm:
                 read_data1("broken-open-oserror.d1")
 
         open_mock.assert_called_once()

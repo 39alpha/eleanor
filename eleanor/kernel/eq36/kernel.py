@@ -145,6 +145,8 @@ class Kernel(AbstractKernel):
             if settings.data1_file is None:
                 data1 = self.find_data1(vs_point, verbose=verbose)
                 settings.data1_file = data1.filename
+            else:
+                data1 = Data1.from_file(settings.data1_file)
 
             start_date = datetime.now()
             eq3_input_path = self.write_eq3_input(vs_point, data1, verbose=verbose)

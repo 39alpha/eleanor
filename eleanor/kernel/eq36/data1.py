@@ -241,7 +241,7 @@ class Data1(object):
         P = [pressure_coefficients[:, 0], pressure_coefficients[:, 1]]
         tp_curve = TPCurve(T, P)
 
-        elements = dict(zip(map(lambda e: e.strip(), element_names), atomic_weights))
+        elements = dict(zip(map(lambda e: str(e.strip(), 'ascii'), element_names), atomic_weights))
 
         basis_species: dict[str, BasisSpecies] = dict()
         for i, (name, c, charge, volume) in enumerate(zip(species_names, cdrsa, charges, volumes)):

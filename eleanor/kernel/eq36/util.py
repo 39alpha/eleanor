@@ -28,7 +28,10 @@ def field_as_float(field: str) -> float:
 
     match = re.findall(r'[0-9Ee\+\.-]+', field)
     if match:
-        return float(match[0])
+        try:
+            return float(match[0])
+        except ValueError:
+            pass
 
     raise EleanorParserException(f'failed to read "{field}" as float')
 

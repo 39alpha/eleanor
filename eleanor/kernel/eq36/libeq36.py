@@ -264,31 +264,34 @@ def read_data1(filename: str):
         iaqsla = c_int(-1)
         udatfi = bytes(8)
 
-        read_header(
-            data1,
-            byref(ikta_asv),
-            byref(ipbt_asv),
-            byref(ipch_asv),
-            byref(ipcv_asv),
-            byref(jpfc_asv),
-            byref(napa_asv),
-            byref(narx_asv),
-            byref(nata_asv),
-            byref(nbta_asv),
-            byref(ncta_asv),
-            byref(ngta_asv),
-            byref(nlta_asv),
-            byref(nmta_asv),
-            byref(npta_asv),
-            byref(nmuta_asv),
-            byref(nslta_asv),
-            byref(nsta_asv),
-            byref(ntid_asv),
-            byref(ntpr_asv),
-            byref(nxta_asv),
-            udakey,
-            byref(errno),
-        )
+        try:
+            read_header(
+                data1,
+                byref(ikta_asv),
+                byref(ipbt_asv),
+                byref(ipch_asv),
+                byref(ipcv_asv),
+                byref(jpfc_asv),
+                byref(napa_asv),
+                byref(narx_asv),
+                byref(nata_asv),
+                byref(nbta_asv),
+                byref(ncta_asv),
+                byref(ngta_asv),
+                byref(nlta_asv),
+                byref(nmta_asv),
+                byref(npta_asv),
+                byref(nmuta_asv),
+                byref(nslta_asv),
+                byref(nsta_asv),
+                byref(ntid_asv),
+                byref(ntpr_asv),
+                byref(nxta_asv),
+                udakey,
+                byref(errno),
+            )
+        except Exception as e:
+            raise Exception('failed to read data1 header') from e
 
         if errno.value != 0:
             raise Exception('failed to read data1 header')

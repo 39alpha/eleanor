@@ -169,11 +169,10 @@ class TestEq36Libeq36(TestCase):
         header_mock.assert_called_once()
         body_mock.assert_called_once()
         close_mock.assert_called_once()
-        self.assertEqual(len(data), 14)
-        self.assertEqual(data[0], 0.0)
-        self.assertEqual(data[1], [0.0, 0.0])
-        self.assertEqual(data[12], -1)
-        self.assertEqual(data[13], -1)
+        self.assertEqual(float(data.min_temperature), 0.0)
+        self.assertEqual(data.max_temperature_range.tolist(), [0.0, 0.0])
+        self.assertEqual(int(data.nxrn1a), -1)
+        self.assertEqual(int(data.nxrn2a), -1)
 
     def test_read_data1_wraps_header_exception_and_closes_file(self):
         """

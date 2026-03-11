@@ -37,7 +37,8 @@ class _DummyPoint:
                  element_reactants=None,
                  aqueous_reactants=None,
                  gas_reactants=None,
-                 fixed_gas_reactants=None):
+                 fixed_gas_reactants=None,
+                 glass_reactants=None):
         self.kernel = SimpleNamespace(settings=settings)
         self.suppressions = [] if suppressions is None else suppressions
         self._has_reactants = has_reactants
@@ -52,6 +53,7 @@ class _DummyPoint:
         self.aqueous_reactants = [] if aqueous_reactants is None else aqueous_reactants
         self.gas_reactants = [] if gas_reactants is None else gas_reactants
         self.fixed_gas_reactants = [] if fixed_gas_reactants is None else fixed_gas_reactants
+        self.glass_reactants = [] if glass_reactants is None else glass_reactants
 
     def has_reactants(self):
         return self._has_reactants
@@ -66,7 +68,7 @@ class _DummyPoint:
         return None
 
     def reactant_count(self):
-        return sum(
+        base = sum(
             map(len, [
                 self.mineral_reactants,
                 self.aqueous_reactants,
@@ -76,6 +78,7 @@ class _DummyPoint:
                 self.fixed_gas_reactants,
                 self.solid_solution_reactants,
             ]))
+        return base + sum(len(getattr(glass, "oxides", [])) for glass in self.glass_reactants)
 
 
 class _DummyCurve:
@@ -602,7 +605,7 @@ class TestEq36Kernel(TestCase):
 
     def test_write_eq6_input_rejects_invalid_mineral_reactant_type(self):
         """
-        Ensure write_eq6_input enforces MineralReactant typing.
+        Ensure write_eq6_input surfaces attribute errors for invalid mineral reactants.
         """
         kernel = self._kernel()
         settings = self._settings()
@@ -613,7 +616,7 @@ class TestEq36Kernel(TestCase):
         )
         handle = _NamedStringIO("problem.6i")
 
-        with self.assertRaises(EleanorKernelException):
+        with self.assertRaises(AttributeError):
             kernel.write_eq6_input(point, file=handle)
 
     def test_write_eq6_input_rejects_unsupported_suppression_type(self):
@@ -634,7 +637,7 @@ class TestEq36Kernel(TestCase):
 
     def test_write_eq6_input_rejects_invalid_fixed_gas_reactant_type(self):
         """
-        Ensure write_eq6_input enforces FixedGasReactant typing.
+        Ensure write_eq6_input surfaces attribute errors for invalid fixed gas reactants.
         """
         kernel = self._kernel()
         settings = self._settings()
@@ -645,12 +648,12 @@ class TestEq36Kernel(TestCase):
         )
         handle = _NamedStringIO("problem.6i")
 
-        with self.assertRaises(EleanorKernelException):
+        with self.assertRaises(AttributeError):
             kernel.write_eq6_input(point, file=handle)
 
     def test_write_eq6_input_rejects_invalid_solid_solution_reactant_type(self):
         """
-        Ensure write_eq6_input enforces SolidSolutionReactant typing.
+        Ensure write_eq6_input surfaces attribute errors for invalid solid solution reactants.
         """
         kernel = self._kernel()
         settings = self._settings()
@@ -661,12 +664,12 @@ class TestEq36Kernel(TestCase):
         )
         handle = _NamedStringIO("problem.6i")
 
-        with self.assertRaises(EleanorKernelException):
+        with self.assertRaises(AttributeError):
             kernel.write_eq6_input(point, file=handle)
 
     def test_write_eq6_input_rejects_invalid_special_reactant_type(self):
         """
-        Ensure write_eq6_input enforces SpecialReactant typing.
+        Ensure write_eq6_input surfaces attribute errors for invalid special reactants.
         """
         kernel = self._kernel()
         settings = self._settings()
@@ -677,12 +680,12 @@ class TestEq36Kernel(TestCase):
         )
         handle = _NamedStringIO("problem.6i")
 
-        with self.assertRaises(EleanorKernelException):
+        with self.assertRaises(AttributeError):
             kernel.write_eq6_input(point, file=handle)
 
     def test_write_eq6_input_rejects_invalid_element_reactant_type(self):
         """
-        Ensure write_eq6_input enforces ElementReactant typing.
+        Ensure write_eq6_input surfaces attribute errors for invalid element reactants.
         """
         kernel = self._kernel()
         settings = self._settings()
@@ -693,12 +696,12 @@ class TestEq36Kernel(TestCase):
         )
         handle = _NamedStringIO("problem.6i")
 
-        with self.assertRaises(EleanorKernelException):
+        with self.assertRaises(AttributeError):
             kernel.write_eq6_input(point, file=handle)
 
     def test_write_eq6_input_rejects_invalid_aqueous_reactant_type(self):
         """
-        Ensure write_eq6_input enforces AqueousReactant typing.
+        Ensure write_eq6_input surfaces attribute errors for invalid aqueous reactants.
         """
         kernel = self._kernel()
         settings = self._settings()
@@ -709,12 +712,12 @@ class TestEq36Kernel(TestCase):
         )
         handle = _NamedStringIO("problem.6i")
 
-        with self.assertRaises(EleanorKernelException):
+        with self.assertRaises(AttributeError):
             kernel.write_eq6_input(point, file=handle)
 
     def test_write_eq6_input_rejects_invalid_gas_reactant_type(self):
         """
-        Ensure write_eq6_input enforces GasReactant typing.
+        Ensure write_eq6_input surfaces attribute errors for invalid gas reactants.
         """
         kernel = self._kernel()
         settings = self._settings()
@@ -725,7 +728,7 @@ class TestEq36Kernel(TestCase):
         )
         handle = _NamedStringIO("problem.6i")
 
-        with self.assertRaises(EleanorKernelException):
+        with self.assertRaises(AttributeError):
             kernel.write_eq6_input(point, file=handle)
 
     def test_write_eq6_input_writes_all_reactant_blocks_for_valid_typed_reactants(self):

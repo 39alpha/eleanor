@@ -2,6 +2,7 @@ import numpy as np
 from unittest import mock
 
 from eleanor.kernel.eq36.data1 import BasisSpecies, Data1, TPCurve
+from eleanor.kernel.eq36.libeq36 import Data
 
 from ...common import TestCase
 
@@ -12,7 +13,7 @@ class TestEq36Data1(TestCase):
     """
 
     def _curve(self):
-        return TPCurve({"min": 0.0, "mid": 5.0, "max": 10.0}, [np.array([1.0]), np.array([1.0])])
+        return TPCurve({"min": 0.0, "mid": 5.0, "max": 10.0}, (np.array([1.0]), np.array([1.0])))
 
     def test_tpcurve_init_validation_errors(self):
         """
@@ -55,7 +56,7 @@ class TestEq36Data1(TestCase):
             c = self._curve()
 
             self.assertTrue(c.set_domain((-1.0, 11.0), (0.0, 2.0)))
-            self.assertEqual(c.domain, [[0.0, 10.0]])
+            self.assertEqual(c.domain, [(0.0, 10.0)])
 
     def test_tpcurve_set_domain_one_and_multiple_intersections(self):
         """
@@ -65,11 +66,11 @@ class TestEq36Data1(TestCase):
         with mock.patch.object(TPCurve, "find_boundary_intersections", return_value=[(5.0, 1.0)]):
             c = self._curve()
             self.assertTrue(c.set_domain((5.0, 5.0), (0.0, 2.0)))
-            self.assertEqual(c.domain, [[5.0, 5.0]])
+            self.assertEqual(c.domain, [(5.0, 5.0)])
             c = self._curve()
 
             self.assertTrue(c.set_domain((0.0, 10.0), (0.0, 2.0)))
-            self.assertEqual(c.domain, [[0.0, 5.0], [5.0, 10.0]])
+            self.assertEqual(c.domain, [(0.0, 5.0), (5.0, 10.0)])
 
         with mock.patch.object(
             TPCurve,
@@ -78,7 +79,7 @@ class TestEq36Data1(TestCase):
         ):
             c = self._curve()
             self.assertTrue(c.set_domain((0.0, 10.0), (0.0, 2.0)))
-            self.assertEqual(c.domain, [[1.0, 3.0], [3.0, 8.0]])
+            self.assertEqual(c.domain, [(1.0, 3.0), (3.0, 8.0)])
 
     def test_tpcurve_find_intersections_union_and_sample(self):
         """
@@ -89,21 +90,21 @@ class TestEq36Data1(TestCase):
         self.assertTrue((0.0, 1.0) in intersections and (10.0, 1.0) in intersections)
 
         c1 = self._curve()
-        c1.domain = [[0.0, 2.0], [3.0, 4.0]]
+        c1.domain = [(0.0, 2.0), (3.0, 4.0)]
         c2 = self._curve()
-        c2.domain = [[1.0, 3.5]]
+        c2.domain = [(1.0, 3.5)]
         self.assertEqual(TPCurve.union_domains([]), [])
-        self.assertEqual(TPCurve.union_domains([c1, c2]), [[0.0, 4.0]])
+        self.assertEqual(TPCurve.union_domains([c1, c2]), [(0.0, 4.0)])
 
         c3 = self._curve()
-        c3.domain = [[0.0, 2.0]]
+        c3.domain = [(0.0, 2.0)]
         with (
             mock.patch("numpy.random.uniform", return_value=np.array([0.5, 1.5])),
             mock.patch("numpy.random.randint", side_effect=[0, 0]),
         ):
             Ts, Ps, selected = TPCurve.sample([c3], 2)
         self.assertEqual(list(Ts), [0.5, 1.5])
-        self.assertEqual(Ps, [1.0, 1.0])
+        self.assertEqual(list(Ps), [1.0, 1.0])
         self.assertEqual(len(selected), 2)
 
     def test_tpcurve_find_intersections_skips_temperatures_outside_domain(self):
@@ -111,7 +112,7 @@ class TestEq36Data1(TestCase):
         Ensure find_boundary_intersections skips candidate temperatures outside the active curve domain.
         """
         c = self._curve()
-        c.domain = [[1.0, 2.0]]
+        c.domain = [(1.0, 2.0)]
         intersections = c.find_boundary_intersections((0.0, 2.0), (1.0, 1.0))
         self.assertFalse(any(t == 0.0 for t, _ in intersections))
 
@@ -120,26 +121,26 @@ class TestEq36Data1(TestCase):
         Ensure union_domains preserves separated intervals when subdomains do not overlap.
         """
         c1 = self._curve()
-        c1.domain = [[0.0, 1.0]]
+        c1.domain = [(0.0, 1.0)]
         c2 = self._curve()
-        c2.domain = [[3.0, 4.0]]
-        self.assertEqual(TPCurve.union_domains([c1, c2]), [[0.0, 1.0], [3.0, 4.0]])
+        c2.domain = [(3.0, 4.0)]
+        self.assertEqual(TPCurve.union_domains([c1, c2]), [(0.0, 1.0), (3.0, 4.0)])
 
     def test_tpcurve_sample_adjusts_across_domain_steps(self):
         """
         Ensure sample shifts candidate temperatures across gaps between disjoint domain intervals.
         """
         c1 = self._curve()
-        c1.domain = [[0.0, 1.0]]
+        c1.domain = [(0.0, 1.0)]
         c2 = self._curve()
-        c2.domain = [[3.0, 4.0]]
+        c2.domain = [(3.0, 4.0)]
         with (
             mock.patch("numpy.random.uniform", return_value=np.array([0.2, 1.8])),
             mock.patch("numpy.random.randint", side_effect=[0, 0]),
         ):
             Ts, Ps, selected = TPCurve.sample([c1, c2], 2)
         self.assertEqual(list(Ts), [0.2, 3.8])
-        self.assertEqual(Ps, [1.0, 1.0])
+        self.assertEqual(list(Ps), [1.0, 1.0])
         self.assertEqual(selected[0], c1)
         self.assertEqual(selected[1], c2)
 
@@ -152,22 +153,22 @@ class TestEq36Data1(TestCase):
             ],
             dtype="|S48",
         )
-        return [
-            0.0,  # min_temperature
-            np.array([5.0, 10.0]),  # max_temperature_by_range
-            np.array([[1.0, 1.0]]),  # pressure_coefficients
-            np.array([b"H", b"O"]),  # element_names
-            np.array([1.0, 16.0]),  # atomic_weights
-            species,  # species_names
-            np.array([0, 1, 1]),  # cdrsa
-            np.array([1, 0, 0]),  # charges
-            np.array([0.0, 0.0, 0.0]),  # volumes
-            np.array([[1, 0, 0], [2, 0, 0]]),  # nessra
-            np.array([1, 2]),  # nessa
-            np.array([2, 1]),  # cessa
-            2,  # nxrn1a
-            3,  # nxrn2a
-        ]
+        return Data(
+            min_temperature=np.float64(0.0),
+            max_temperature_range=np.array([5.0, 10.0]),
+            pressure_coefficients=np.array([[1.0, 1.0]]),
+            element_names=np.array([b"H", b"O"]),
+            atomic_weights=np.array([1.0, 16.0]),
+            species_names=species,
+            cdrsa=np.array([0, 1, 1]),
+            charges=np.array([1, 0, 0]),
+            volumes=np.array([0.0, 0.0, 0.0]),
+            nessra=np.array([[1, 0, 0], [2, 0, 0]]),
+            nessa=np.array([1, 2]),
+            cessa=np.array([2.0, 1.0]),
+            nxrn1a=np.int32(2),
+            nxrn2a=np.int32(3),
+        )
 
     def test_data1_get_basis_species_and_from_file(self):
         """

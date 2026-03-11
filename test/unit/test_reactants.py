@@ -79,6 +79,7 @@ class TestReactants(TestCase):
             SPECIAL = "special"
             ELEMENT = "element"
             SOLID_SOLUTION = "solid solution"
+            GLASS = "glass"
 
             def __new__(cls, *_args, **_kwargs):
                 return "mystery"

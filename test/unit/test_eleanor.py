@@ -78,7 +78,7 @@ class TestEleanor(TestCase):
         eleanor = Eleanor.__new__(Eleanor)
         eleanor.kernel_args = ["arg1"]
         eleanor.config = SimpleNamespace(database="db-config")
-        eleanor.order = SimpleNamespace()
+        eleanor.order = SimpleNamespace(transformers=[])
         return eleanor
 
     def test_init_loads_config_and_order(self):
@@ -136,17 +136,17 @@ class TestEleanor(TestCase):
         eleanor.ignite = mock.Mock(return_value=99)
 
         child1 = mock.Mock()
-        child1.run.return_value = [4, 2]
+        child1._run.return_value = [4, 2]
         child2 = mock.Mock()
-        child2.run.return_value = [2, 3]
+        child2._run.return_value = [2, 3]
         eleanor.recur = mock.Mock(side_effect=[child1, child2])
 
         out = eleanor.run(8)
 
         self.assertEqual(out, [2, 3, 4])
         eleanor.ignite.assert_called_once()
-        child1.run.assert_called_once()
-        child2.run.assert_called_once()
+        child1._run.assert_called_once()
+        child2._run.assert_called_once()
 
     def test_dispatch_rejects_unsupported_success_sampling(self):
         """

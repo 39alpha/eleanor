@@ -73,6 +73,7 @@ class TestVariableSpace(TestCase):
             special_reactants=special,
             fixed_gas_reactants=fixed_gas,
             solid_solution_reactants=solid_solution,
+            glass_reactants=[],
         )
 
     def test_species_helpers(self):

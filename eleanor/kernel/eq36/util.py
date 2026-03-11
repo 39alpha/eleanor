@@ -64,7 +64,7 @@ def determine_species(file: Optional[str | io.TextIOWrapper] = None) -> Species:
 
     if isinstance(file, str):
         with open(file, 'r') as handle:
-            return determine_species(file)
+            return determine_species(handle)
 
     suppress = []
     elements = []

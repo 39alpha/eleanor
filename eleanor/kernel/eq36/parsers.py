@@ -154,6 +154,7 @@ class OutputParser(ABC):
         self.consume_blank_lines()
 
         if self.line().strip() == 'None':
+            self.data['reactants'] = {}
             return
 
         reactants: dict[str, Any] = {}

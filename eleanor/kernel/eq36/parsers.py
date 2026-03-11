@@ -84,11 +84,16 @@ class OutputParser(ABC):
         if self.eof():
             return False
 
+        found_separator = False
         while not self.eof():
             if path_separator.match(self.line()):
                 self.advance()
+                found_separator = True
                 break
             self.advance()
+
+        if not found_separator:
+            raise EleanorParserException('expected path separator after Stepping to Xi')
 
         return True
 
@@ -130,6 +135,9 @@ class OutputParser(ABC):
             self.advance()
 
     def read_log_property(self, name, key=None, units=None):
+        if not isinstance(key, str) or len(key) == 0:
+            raise EleanorParserException('expected key to be a non-empty string')
+
         log_name = 'Log ' + name.lower()
         log_key = 'log_' + key
         self.consume_to_pattern(rf'\s*{name}')
@@ -206,6 +214,10 @@ class OutputParser(ABC):
         while not self.eof() and not self.is_blank():
             name, *columns = self.line().strip().split()
             if row_names is not None:
+                if len(table) >= len(row_names):
+                    raise EleanorParserException(
+                        f'expected {len(row_names)} rows, got more at line {self.line_num}')
+
                 name = row_names[len(table)]
 
             if len(column_names) != len(columns):
@@ -217,6 +229,10 @@ class OutputParser(ABC):
                 map(field_as_float, columns),
             ))
             self.advance()
+
+        if row_names is not None and len(table) != len(row_names):
+            raise EleanorParserException(
+                f'expected {len(row_names)} rows, got {len(table)} at line {self.line_num}')
 
         return table
 
@@ -361,7 +377,10 @@ class OutputParser(ABC):
         parent_phase: str | None = None
         while not self.eof() and not self.is_blank():
             line, next_line = self.line(), self.peek()
-            solid, log_moles, moles, mass, volume = self.line().strip().split()
+            try:
+                solid, log_moles, moles, mass, volume = self.line().strip().split()
+            except ValueError as e:
+                raise EleanorParserException(f'unexpected solid phase row format at line {self.line_num}', e)
             if '*' in log_moles or '*' in moles or '*' in mass or '*' in volume:
                 if blank_line.match(next_line):
                     self.advance(n=2)
@@ -590,7 +609,10 @@ class OutputParser(ABC):
         self.consume_to_pattern(r'^\s*Mineral\s+Log Q/K\s+Aff, kcal\s+State\s*$')
         self.advance(n=2)
         mineral, log_qk, affinity, *state = self.line().strip().split()
-        assert expected_phase is None or expected_phase == mineral
+        if expected_phase is not None and expected_phase != mineral:
+            raise EleanorParserException(
+                f'expected phase ({expected_phase}) and mineral ({mineral}) to match in {header} at line {self.line_num}'
+            )
         if len(state) > 1:
             raise EleanorParserException(f'too many columns in {header} at {self.line_num}')
         elif len(state) != 0 and state[0] not in ['SATD', 'SSATD']:
@@ -618,6 +640,9 @@ class OutputParser(ABC):
             if '*' in log_qk or '*' in affinity:
                 self.advance()
                 continue
+            if end_member not in end_members:
+                raise EleanorParserException(
+                    f'unexpected end member ({end_member}) in {header} block at line {self.line_num}')
 
             end_members[end_member].update({
                 'log_qk': field_as_float(log_qk),
@@ -627,6 +652,8 @@ class OutputParser(ABC):
 
     def read_product_phases(self, header):
         self.consume_to_header(header)
+        if self.eof():
+            raise EleanorParserException(f'expected {header} block at line {self.line_num}')
         self.advance(n=2)
 
         if 'solids' not in self.data:

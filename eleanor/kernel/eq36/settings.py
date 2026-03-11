@@ -629,9 +629,9 @@ class Settings(KernelSettings):
             model = IOPG_1(model)
         elif isinstance(model, str):
             model = EQ36_MODEL_EXTENSIONS.get(model, model)
-            if model not in ['pitzer', 'davies', 'b-dot']:
+            if model not in ['pitzer', 'davies', 'b-dot', 'hc_dh']:
                 raise EleanorException(
-                    'kernel.model must be "pitzer", "davies", "b-dot" or a standard EQ3/6 file extension')
+                    'kernel.model must be \"pitzer\", \"davies\", \"b-dot\", \"hc_dh\" or a standard EQ3/6 file extension')
 
             match model:
                 case "davies":
@@ -642,8 +642,6 @@ class Settings(KernelSettings):
                     model = IOPG_1.HC_DH
                 case "pitzer":
                     model = IOPG_1.PITZER
-                case _:
-                    model = IOPG_1.B_DOT
         else:
             raise EleanorException('kernel.model must be a string or integer')
 

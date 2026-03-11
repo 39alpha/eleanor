@@ -209,7 +209,7 @@ class Data1(object):
             if element in species.composition:
                 basis_species.append(species)
 
-        if len(basis_species) == 0:
+        if len(basis_species) > 1:
             raise Exception(f'data1 file contains multiple basis species with element {element}')
 
         return None if not basis_species else basis_species[0]

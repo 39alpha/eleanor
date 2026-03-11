@@ -189,6 +189,16 @@ class SolidSolutionReactant(TitratedReactant):
         if base.type != ReactantType.SOLID_SOLUTION:
             raise EleanorException(f'cannot create a solid solution reactant from config of type "{base.type}"')
 
+        for end_member, raw_param in raw['end_members'].items():
+            if isinstance(raw_param, list):
+                raise EleanorException(
+                    f'solid solution \"{base.name}\" end member \"{end_member}\" has a non-value parameter; list parameters are not supported yet'
+                )
+            elif isinstance(raw_param, dict):
+                raise EleanorException(
+                    f'solid solution \"{base.name}\" end member \"{end_member}\" has a non-value parameter; range parameters are not supported yet'
+                )
+
         end_members = {
             end_member: Parameter.load(param, 'fraction')
             for end_member, param in raw['end_members'].items()

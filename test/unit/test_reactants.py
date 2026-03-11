@@ -210,6 +210,21 @@ class TestReactants(TestCase):
                 }
             )
 
+    def test_solid_solution_rejects_loaded_non_value_parameter(self):
+        """
+        Ensure that loaded non-value end-member parameters trigger the explicit runtime type check.
+        """
+        with mock.patch("eleanor.reactants.Parameter.load", return_value=object()):
+            with self.assertRaises(EleanorException):
+                SolidSolutionReactant.from_dict(
+                    {
+                        "name": "ss",
+                        "type": "solid solution",
+                        "amount": 1.0,
+                        "end_members": {"em1": 0.5, "em2": 0.5},
+                    }
+                )
+
     def test_solid_solution_rejects_wrong_type(self):
         """
         Ensure that :class:`SolidSolutionReactant` rejects configs with non-solid-solution types.

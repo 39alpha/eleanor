@@ -135,7 +135,7 @@ class Kernel(AbstractKernel):
         elif len(d1s) > 1 and verbose:
             # DGM: For now we just take the first data1, but we could randomly choose. Ideally, all of the thermodynamic
             #      parameters in the files should be identical.
-            print('warning: multiple data1 files pass through temperature {T} and pressure {P}; choosing first')
+            print(f'warning: multiple data1 files pass through temperature {T} and pressure {P}; choosing first')
 
         return d1s[0]
 

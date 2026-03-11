@@ -1,0 +1,221 @@
+import numpy as np
+from unittest import mock
+
+from eleanor.kernel.eq36.data1 import BasisSpecies, Data1, TPCurve
+
+from ...common import TestCase
+
+
+class TestEq36Data1(TestCase):
+    """
+    Tests of the eleanor.kernel.eq36.data1 module.
+    """
+
+    def _curve(self):
+        return TPCurve({"min": 0.0, "mid": 5.0, "max": 10.0}, [np.array([1.0]), np.array([1.0])])
+
+    def test_tpcurve_init_validation_errors(self):
+        """
+        Ensure TPCurve validates input temperature metadata and polynomial shape/content.
+        """
+        with self.assertRaises(ValueError):
+            TPCurve({"min": 0.0, "max": 10.0}, [np.array([1.0]), np.array([1.0])])
+        with self.assertRaises(ValueError):
+            TPCurve({"min": 0.0, "mid": 5.0, "max": 10.0}, [np.array([1.0])])
+        with self.assertRaises(ValueError):
+            TPCurve({"min": 0.0, "mid": 5.0, "max": 10.0}, [np.array([]), np.array([1.0])])
+        with self.assertRaises(ValueError):
+            TPCurve({"min": 0.0, "mid": 5.0, "max": 10.0}, [np.array([1.0]), np.array([2.0])])
+
+    def test_tpcurve_domain_and_call(self):
+        """
+        Ensure domain helpers and polynomial evaluation dispatch behave as expected.
+        """
+        c = TPCurve({"min": 0.0, "mid": 5.0, "max": 10.0}, [np.array([2.0, 1.0]), np.array([2.0, 1.0])])
+        self.assertIs(c.reset_domain(), c)
+        self.assertTrue(c.temperature_in_domain(1.0))
+        self.assertFalse(c.temperature_in_domain(20.0))
+        self.assertEqual(float(c(0.0)), 2.0)
+        self.assertEqual(float(c(10.0)), 12.0)
+        with self.assertRaises(ValueError):
+            c(99.0)
+
+    def test_tpcurve_set_domain_zero_intersections_branches(self):
+        """
+        Ensure zero-intersection branches handle empty, inconsistent, and full-domain outcomes.
+        """
+        with mock.patch.object(TPCurve, "find_boundary_intersections", return_value=[]):
+            c = self._curve()
+            self.assertFalse(c.set_domain((20.0, 30.0), (0.0, 2.0)))
+            self.assertEqual(c.domain, [])
+            c = self._curve()
+
+            with self.assertRaises(Exception):
+                c.set_domain((0.0, 3.0), (0.0, 2.0))
+            c = self._curve()
+
+            self.assertTrue(c.set_domain((-1.0, 11.0), (0.0, 2.0)))
+            self.assertEqual(c.domain, [[0.0, 10.0]])
+
+    def test_tpcurve_set_domain_one_and_multiple_intersections(self):
+        """
+        Ensure one-intersection and multi-intersection branches build expected subdomains.
+        """
+        c = self._curve()
+        with mock.patch.object(TPCurve, "find_boundary_intersections", return_value=[(5.0, 1.0)]):
+            c = self._curve()
+            self.assertTrue(c.set_domain((5.0, 5.0), (0.0, 2.0)))
+            self.assertEqual(c.domain, [[5.0, 5.0]])
+            c = self._curve()
+
+            self.assertTrue(c.set_domain((0.0, 10.0), (0.0, 2.0)))
+            self.assertEqual(c.domain, [[0.0, 5.0], [5.0, 10.0]])
+
+        with mock.patch.object(
+            TPCurve,
+            "find_boundary_intersections",
+            return_value=[(1.0, 1.0), (3.0, 1.0), (8.0, 1.0)],
+        ):
+            c = self._curve()
+            self.assertTrue(c.set_domain((0.0, 10.0), (0.0, 2.0)))
+            self.assertEqual(c.domain, [[1.0, 3.0], [3.0, 8.0]])
+
+    def test_tpcurve_find_intersections_union_and_sample(self):
+        """
+        Ensure intersection detection, domain unioning, and sampling flow execute as expected.
+        """
+        c = self._curve()
+        intersections = c.find_boundary_intersections((0.0, 10.0), (1.0, 2.0))
+        self.assertTrue((0.0, 1.0) in intersections and (10.0, 1.0) in intersections)
+
+        c1 = self._curve()
+        c1.domain = [[0.0, 2.0], [3.0, 4.0]]
+        c2 = self._curve()
+        c2.domain = [[1.0, 3.5]]
+        self.assertEqual(TPCurve.union_domains([]), [])
+        self.assertEqual(TPCurve.union_domains([c1, c2]), [[0.0, 4.0]])
+
+        c3 = self._curve()
+        c3.domain = [[0.0, 2.0]]
+        with (
+            mock.patch("numpy.random.uniform", return_value=np.array([0.5, 1.5])),
+            mock.patch("numpy.random.randint", side_effect=[0, 0]),
+        ):
+            Ts, Ps, selected = TPCurve.sample([c3], 2)
+        self.assertEqual(list(Ts), [0.5, 1.5])
+        self.assertEqual(Ps, [1.0, 1.0])
+        self.assertEqual(len(selected), 2)
+
+    def test_tpcurve_find_intersections_skips_temperatures_outside_domain(self):
+        """
+        Ensure find_boundary_intersections skips candidate temperatures outside the active curve domain.
+        """
+        c = self._curve()
+        c.domain = [[1.0, 2.0]]
+        intersections = c.find_boundary_intersections((0.0, 2.0), (1.0, 1.0))
+        self.assertFalse(any(t == 0.0 for t, _ in intersections))
+
+    def test_tpcurve_union_domains_disjoint_subdomains(self):
+        """
+        Ensure union_domains preserves separated intervals when subdomains do not overlap.
+        """
+        c1 = self._curve()
+        c1.domain = [[0.0, 1.0]]
+        c2 = self._curve()
+        c2.domain = [[3.0, 4.0]]
+        self.assertEqual(TPCurve.union_domains([c1, c2]), [[0.0, 1.0], [3.0, 4.0]])
+
+    def test_tpcurve_sample_adjusts_across_domain_steps(self):
+        """
+        Ensure sample shifts candidate temperatures across gaps between disjoint domain intervals.
+        """
+        c1 = self._curve()
+        c1.domain = [[0.0, 1.0]]
+        c2 = self._curve()
+        c2.domain = [[3.0, 4.0]]
+        with (
+            mock.patch("numpy.random.uniform", return_value=np.array([0.2, 1.8])),
+            mock.patch("numpy.random.randint", side_effect=[0, 0]),
+        ):
+            Ts, Ps, selected = TPCurve.sample([c1, c2], 2)
+        self.assertEqual(list(Ts), [0.2, 3.8])
+        self.assertEqual(Ps, [1.0, 1.0])
+        self.assertEqual(selected[0], c1)
+        self.assertEqual(selected[1], c2)
+
+    def _read_data1_payload(self, duplicate_end_member=False):
+        species = np.array(
+            [
+                b"H+                      ",
+                b"EM1                     SOLID1",
+                (b"EM1                     SOLID1" if duplicate_end_member else b"EM2                     SOLID1"),
+            ],
+            dtype="|S48",
+        )
+        return [
+            0.0,  # min_temperature
+            np.array([5.0, 10.0]),  # max_temperature_by_range
+            np.array([[1.0, 1.0]]),  # pressure_coefficients
+            np.array([b"H", b"O"]),  # element_names
+            np.array([1.0, 16.0]),  # atomic_weights
+            species,  # species_names
+            np.array([0, 1, 1]),  # cdrsa
+            np.array([1, 0, 0]),  # charges
+            np.array([0.0, 0.0, 0.0]),  # volumes
+            np.array([[1, 0, 0], [2, 0, 0]]),  # nessra
+            np.array([1, 2]),  # nessa
+            np.array([2, 1]),  # cessa
+            2,  # nxrn1a
+            3,  # nxrn2a
+        ]
+
+    def test_data1_get_basis_species_and_from_file(self):
+        """
+        Ensure Data1 basis-species lookup and from_file parser wiring work for normal payloads.
+        """
+        d = Data1(
+            filename="x",
+            elements={"H": 1.0},
+            basis_species={"H+": BasisSpecies("H+", {"H": 1}, 1, None)},
+            solid_solutions={},
+            tp_curve=None,
+        )
+        self.assertEqual(d.get_basis_species("H").name, "H+")
+        self.assertIsNone(d.get_basis_species("Na"))
+
+        with mock.patch("eleanor.kernel.eq36.data1.read_data1", return_value=self._read_data1_payload()):
+            parsed = Data1.from_file("fake.d1")
+        self.assertEqual(parsed.filename, "fake.d1")
+        self.assertIn("H", parsed.elements)
+        self.assertIn("H+", parsed.basis_species)
+        self.assertIn("SOLID1", parsed.solid_solutions)
+        self.assertEqual(parsed.solid_solutions["SOLID1"].end_members, {"EM1", "EM2"})
+        self.assertIsNotNone(parsed.tp_curve)
+
+    def test_data1_from_file_duplicate_end_member_raises(self):
+        """
+        Ensure duplicate solid-solution end members in read_data1 payload are rejected.
+        """
+        with mock.patch(
+            "eleanor.kernel.eq36.data1.read_data1",
+            return_value=self._read_data1_payload(duplicate_end_member=True),
+        ):
+            with self.assertRaises(RuntimeError):
+                Data1.from_file("dup.d1")
+
+    def test_data1_get_basis_species_raises_on_multiple_matches(self):
+        """
+        Ensure get_basis_species rejects ambiguous element mappings with multiple matches.
+        """
+        d = Data1(
+            filename="x",
+            elements={"H": 1.0},
+            basis_species={
+                "H+": BasisSpecies("H+", {"H": 1}, 1, None),
+                "H2+": BasisSpecies("H2+", {"H": 2}, 2, None),
+            },
+            solid_solutions={},
+            tp_curve=None,
+        )
+        with self.assertRaises(Exception):
+            d.get_basis_species("H")

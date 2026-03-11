@@ -11,3 +11,4 @@ campaign.yaml
 *.dylib
 uv.lock
 todo.txt
+.coverage

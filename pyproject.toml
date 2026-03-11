@@ -48,6 +48,12 @@ line_length = 120
 check_untyped_defs = true
 exclude = "(docs/source/conf\\.py)"
 
+[dependency-groups]
+dev = [
+    "pytest>=9.0.2",
+    "pytest-cov>=7.0.0",
+]
+
 [[tool.hatch.build.targets.wheel.hooks.build-scripts.scripts]]
 commands = [
   'meson setup --wipe build',

@@ -124,6 +124,19 @@ class TestEq36Kernel(TestCase):
         self.assertTrue(kernel.is_soft_exit(60))
         self.assertFalse(kernel.is_soft_exit(2))
 
+    def test_get_atomic_weight_requires_setup_and_reads_first_data1(self):
+        """
+        Ensure get_atomic_weight fails before setup and then reads from the first loaded data1 element map.
+        """
+        kernel = self._kernel()
+        with self.assertRaises(EleanorException):
+            kernel.get_atomic_weight("Na")
+
+        kernel._setup = True
+        kernel._data1s = [SimpleNamespace(elements={"Na": 22.99})]
+        self.assertEqual(kernel.get_atomic_weight("Na"), 22.99)
+        self.assertIsNone(kernel.get_atomic_weight("Cl"))
+
     def test_resolve_kernel_settings_permits_solids_and_sets_titration_when_reactants_present(self):
         """
         Ensure unsuppressed solid-solution runs permit solids and switch EQ6 to titration mode when reactants exist.
@@ -759,6 +772,18 @@ class TestEq36Kernel(TestCase):
         aqueous = AqueousReactant(name="Na+", log_moles=0.0, titration_rate=1.0, id=None, variable_space_id=None)
         gas = GasReactant(name="CO2(g)", log_moles=0.0, titration_rate=1.0, id=None, variable_space_id=None)
         fixed_gas = FixedGasReactant(name="O2(g)", log_moles=0.0, log_fugacity=-50.0, id=None, variable_space_id=None)
+        glass = SimpleNamespace(
+            oxides=[
+                SimpleNamespace(
+                    name="SiO2",
+                    log_moles=0.0,
+                    titration_rate=1.0,
+                    composition=[
+                        SimpleNamespace(element="Si", count=1),
+                        SimpleNamespace(element="O", count=2),
+                    ],
+                )
+            ])
 
         point = _DummyPoint(
             settings,
@@ -771,6 +796,7 @@ class TestEq36Kernel(TestCase):
             aqueous_reactants=[aqueous],
             gas_reactants=[gas],
             fixed_gas_reactants=[fixed_gas],
+            glass_reactants=[glass],
         )
         handle = _NamedStringIO("problem.6i")
 
@@ -785,6 +811,7 @@ class TestEq36Kernel(TestCase):
         self.assertIn("reactant=  Na", output)
         self.assertIn("reactant= Na+", output)
         self.assertIn("reactant= CO2(g)", output)
+        self.assertIn("reactant=  SiO2", output)
         self.assertIn("species= O2(g)", output)
         self.assertIn("nxopt=  1", output)
         self.assertIn("nxopex=  1", output)

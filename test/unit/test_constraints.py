@@ -10,6 +10,8 @@ from eleanor.reactants import (
     ElementReactant,
     FixedGasReactant,
     GasReactant,
+    GlassReactant,
+    GlassReactantOxide,
     MineralReactant,
     ReactantType,
     SolidSolutionReactant,
@@ -247,8 +249,18 @@ class TestConstraints(TestCase):
             ValueParameter("titration_rate", None, 1.0),
             {"em1": ValueParameter("fraction", None, 0.25), "em2": ValueParameter("fraction", None, 0.75)},
         )
+        glass = GlassReactant(
+            "glassmix",
+            ReactantType.GLASS,
+            ValueParameter("amount", None, -1.0),
+            ValueParameter("titration_rate", None, 1.0),
+            {
+                "SiO2": GlassReactantOxide("SiO2", {"Si": 1, "O": 2}, 0.5),
+                "Na2O": GlassReactantOxide("Na2O", {"Na": 2, "O": 1}, 0.5),
+            },
+        )
 
-        reactants = [mineral, aqueous, gas, element, special, fixed_gas, solid]
+        reactants = [mineral, aqueous, gas, element, special, fixed_gas, solid, glass]
         params = [temperature, pressure, na, cl, species]
         for reactant in reactants:
             params.extend(reactant.parameters())
@@ -277,6 +289,7 @@ class TestConstraints(TestCase):
         self.assertEqual(len(point.special_reactants), 1)
         self.assertEqual(len(point.fixed_gas_reactants), 1)
         self.assertEqual(len(point.solid_solution_reactants), 1)
+        self.assertEqual(len(point.glass_reactants), 1)
 
     def test_generate_vs_wraps_unexpected_reactant_and_unrefined_errors(self):
         """

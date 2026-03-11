@@ -13,6 +13,7 @@ from eleanor.order import (
     Suborder,
     Suborders,
     Suppression,
+    TransformerConfig,
     load_order,
 )
 from eleanor.parameters import ValueParameter
@@ -41,6 +42,21 @@ class TestOrder(TestCase):
             loaded = nav2.load()
         m.assert_called_once_with("foo.bar")
         self.assertIs(loaded, fake_module.MyNavigator)
+
+    def test_transformer_config_init_and_load(self):
+        """
+        Ensure transformer config parsing normalizes short names and resolves classes dynamically.
+        """
+        tf = TransformerConfig("GlassReactantEmbedder")
+        self.assertEqual(tf.type, "eleanor.transformers.GlassReactantEmbedder")
+        self.assertEqual(tf.args, {})
+
+        fake_module = SimpleNamespace(MyTransformer=object())
+        with mock.patch("eleanor.order.import_module", return_value=fake_module) as m:
+            tf2 = TransformerConfig("pkg.mod.MyTransformer", args={"x": 1})
+            loaded = tf2.load()
+        m.assert_called_once_with("pkg.mod")
+        self.assertIs(loaded, fake_module.MyTransformer)
 
     def test_suppression(self):
         """
@@ -220,6 +236,28 @@ class TestOrder(TestCase):
         self.assertIsNotNone(order.kernel)
         self.assertEqual(order.navigator.type, "eleanor.navigator.Random")
 
+    def test_order_transformer_configs_parse_and_validate(self):
+        """
+        Ensure order transformer configs support string/dict forms and reject invalid entries.
+        """
+        order = Order(
+            {
+                "name": "o",
+                "creator": "u",
+                "transformers": [
+                    "GlassReactantEmbedder",
+                    {"type": "pkg.mod.MyTransformer", "args": {"filename": "x.csv"}},
+                ],
+            }
+        )
+        self.assertEqual(len(order.transformers), 2)
+        self.assertEqual(order.transformers[0].type, "eleanor.transformers.GlassReactantEmbedder")
+        self.assertEqual(order.transformers[1].type, "pkg.mod.MyTransformer")
+        self.assertEqual(order.transformers[1].args, {"filename": "x.csv"})
+
+        with self.assertRaises(EleanorException):
+            Order({"name": "bad", "creator": "u", "transformers": [123]})
+
     def test_order_parameters_includes_kernel_and_reactant_parameters(self):
         """
         Ensure :meth:`Order.parameters` includes kernel and reactant-derived parameter lists.
@@ -275,3 +313,11 @@ class TestOrder(TestCase):
 
         o = Order({"name": "x", "creator": "u"})
         self.assertIs(load_order(o), o)
+
+    def test_order_from_file_re_raises_eleanor_exception(self):
+        """
+        Ensure Order.from_file re-raises EleanorException from parser branches without wrapping.
+        """
+        with mock.patch("eleanor.order.Order.from_yaml", side_effect=EleanorException("boom")):
+            with self.assertRaisesRegex(EleanorException, "boom"):
+                Order.from_file("test.yaml")

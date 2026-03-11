@@ -34,3 +34,4 @@ class TestKernelInterface(TestCase):
         self.assertIsNone(AbstractKernel.setup(object()))
         self.assertIsNone(AbstractKernel.run(object(), object()))
         self.assertIsNone(AbstractKernel.copy_data(object(), object()))
+        self.assertIsNone(AbstractKernel.get_atomic_weight(object(), "Na"))

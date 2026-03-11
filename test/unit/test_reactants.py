@@ -8,6 +8,8 @@ from eleanor.reactants import (
     ElementReactant,
     FixedGasReactant,
     GasReactant,
+    GlassReactant,
+    GlassReactantOxide,
     MineralReactant,
     ReactantType,
     SolidSolutionReactant,
@@ -46,6 +48,7 @@ class TestReactants(TestCase):
             ("special", "eleanor.reactants.SpecialReactant.from_dict"),
             ("element", "eleanor.reactants.ElementReactant.from_dict"),
             ("solid solution", "eleanor.reactants.SolidSolutionReactant.from_dict"),
+            ("glass", "eleanor.reactants.GlassReactant.from_dict"),
         ]
         for reactant_type, target in cases:
             raw = {"name": "r", "type": reactant_type, "amount": 1.0}
@@ -55,6 +58,11 @@ class TestReactants(TestCase):
                 raw["fugacity"] = 0.1
             if reactant_type == "solid solution":
                 raw["end_members"] = {"em1": 0.5, "em2": 0.5}
+            if reactant_type == "glass":
+                raw["oxides"] = {
+                    "SiO2": {"name": "SiO2", "composition": {"Si": 1, "O": 2}, "fraction": 0.5},
+                    "Al2O3": {"name": "Al2O3", "composition": {"Al": 2, "O": 3}, "fraction": 0.5},
+                }
             with self.subTest(reactant_type=reactant_type):
                 with mock.patch(target, return_value=f"{reactant_type}-reactant") as m:
                     out = AbstractReactant.from_dict(raw)
@@ -278,3 +286,81 @@ class TestReactants(TestCase):
         reactant = TitratedReactant.from_dict({"name": "x", "type": "gas", "amount": 1.0})
         self.assertIsInstance(reactant.amount, ValueParameter)
         self.assertIsInstance(reactant.titration_rate, ValueParameter)
+
+    def test_glass_oxide_from_dict_validation(self):
+        """
+        Ensure GlassReactantOxide.from_dict validates composition and fraction requirements.
+        """
+        oxide = GlassReactantOxide.from_dict(
+            {"name": "SiO2", "composition": {"Si": 1, "O": 2}, "fraction": 0.5}
+        )
+        self.assertEqual(oxide.name, "SiO2")
+        self.assertEqual(oxide.composition, {"Si": 1, "O": 2})
+        self.assertEqual(oxide.fraction, 0.5)
+
+        with self.assertRaises(EleanorException):
+            GlassReactantOxide.from_dict({"name": "x", "composition": "invalid", "fraction": 0.5})
+        with self.assertRaises(EleanorException):
+            GlassReactantOxide.from_dict({"name": "x", "composition": {"Si": 1}, "fraction": 1})
+        with self.assertRaises(EleanorException):
+            GlassReactantOxide.from_dict({"name": "x", "composition": {"Si": 1}, "fraction": 1.0})
+
+    def test_glass_reactant_from_dict_success_and_failures(self):
+        """
+        Ensure GlassReactant.from_dict parses valid configs and rejects invalid glass definitions.
+        """
+        reactant = GlassReactant.from_dict(
+            {
+                "name": "glass",
+                "type": "glass",
+                "amount": 1.0,
+                "titration_rate": 2.0,
+                "oxides": {
+                    "SiO2": {"name": "SiO2", "composition": {"Si": 1, "O": 2}, "fraction": 0.4},
+                    "Na2O": {"name": "Na2O", "composition": {"Na": 2, "O": 1}, "fraction": 0.6},
+                },
+            }
+        )
+        self.assertEqual(reactant.type, ReactantType.GLASS)
+        self.assertEqual(set(reactant.oxides.keys()), {"SiO2", "Na2O"})
+
+        with self.assertRaises(EleanorException):
+            GlassReactant.from_dict(
+                {
+                    "name": "bad",
+                    "type": "mineral",
+                    "amount": 1.0,
+                    "oxides": {
+                        "SiO2": {"name": "SiO2", "composition": {"Si": 1, "O": 2}, "fraction": 0.5},
+                        "Al2O3": {"name": "Al2O3", "composition": {"Al": 2, "O": 3}, "fraction": 0.5},
+                    },
+                }
+            )
+
+        with self.assertRaises(EleanorException):
+            GlassReactant.from_dict({"name": "empty", "type": "glass", "amount": 1.0, "oxides": {}})
+
+        with self.assertRaises(EleanorException):
+            GlassReactant.from_dict(
+                {
+                    "name": "single",
+                    "type": "glass",
+                    "amount": 1.0,
+                    "oxides": {
+                        "SiO2": {"name": "SiO2", "composition": {"Si": 1, "O": 2}, "fraction": 0.5}
+                    },
+                }
+            )
+
+        with self.assertRaises(EleanorException):
+            GlassReactant.from_dict(
+                {
+                    "name": "sum",
+                    "type": "glass",
+                    "amount": 1.0,
+                    "oxides": {
+                        "SiO2": {"name": "SiO2", "composition": {"Si": 1, "O": 2}, "fraction": 0.5},
+                        "Na2O": {"name": "Na2O", "composition": {"Na": 2, "O": 1}, "fraction": 0.4},
+                    },
+                }
+            )

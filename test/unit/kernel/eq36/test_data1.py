@@ -28,6 +28,18 @@ class TestEq36Data1(TestCase):
         with self.assertRaises(ValueError):
             TPCurve({"min": 0.0, "mid": 5.0, "max": 10.0}, [np.array([1.0]), np.array([2.0])])
 
+    def test_tpcurve_init_requires_float64_dot_results(self):
+        """
+        Ensure TPCurve constructor rejects non-np.float64 polynomial evaluations.
+        """
+        with mock.patch("numpy.dot", side_effect=[1.0, np.float64(1.0)]):
+            with self.assertRaises(TypeError):
+                TPCurve({"min": 0.0, "mid": 5.0, "max": 10.0}, (np.array([1.0]), np.array([1.0])))
+
+        with mock.patch("numpy.dot", side_effect=[np.float64(1.0), 1.0]):
+            with self.assertRaises(TypeError):
+                TPCurve({"min": 0.0, "mid": 5.0, "max": 10.0}, (np.array([1.0]), np.array([1.0])))
+
     def test_tpcurve_domain_and_call(self):
         """
         Ensure domain helpers and polynomial evaluation dispatch behave as expected.
@@ -40,6 +52,15 @@ class TestEq36Data1(TestCase):
         self.assertEqual(float(c(10.0)), 12.0)
         with self.assertRaises(ValueError):
             c(99.0)
+
+    def test_tpcurve_call_requires_float64_dot_result(self):
+        """
+        Ensure TPCurve.__call__ rejects non-np.float64 dot-product outputs.
+        """
+        c = self._curve()
+        with mock.patch("numpy.dot", return_value=1.0):
+            with self.assertRaises(TypeError):
+                c(1.0)
 
     def test_tpcurve_set_domain_zero_intersections_branches(self):
         """
@@ -115,6 +136,15 @@ class TestEq36Data1(TestCase):
         c.domain = [(1.0, 2.0)]
         intersections = c.find_boundary_intersections((0.0, 2.0), (1.0, 1.0))
         self.assertFalse(any(t == 0.0 for t, _ in intersections))
+
+    def test_tpcurve_find_intersections_includes_right_polynomial_roots(self):
+        """
+        Ensure find_boundary_intersections includes roots from the right-hand polynomial branch.
+        """
+        c = self._curve()
+        with mock.patch("numpy.roots", return_value=np.array([8.0])):
+            intersections = c.find_boundary_intersections((0.0, 10.0), (1.0, 1.0))
+        self.assertIn((8.0, 1.0), intersections)
 
     def test_tpcurve_union_domains_disjoint_subdomains(self):
         """
@@ -203,6 +233,62 @@ class TestEq36Data1(TestCase):
         ):
             with self.assertRaises(RuntimeError):
                 Data1.from_file("dup.d1")
+
+    def test_data1_from_file_rejects_non_bytes_element_names(self):
+        """
+        Ensure Data1.from_file rejects element names that are not bytes.
+        """
+        payload = self._read_data1_payload()
+        payload.element_names = np.array(["H", b"O"], dtype=object)
+        with mock.patch("eleanor.kernel.eq36.data1.read_data1", return_value=payload):
+            with self.assertRaises(TypeError):
+                Data1.from_file("bad-elements.d1")
+
+    def test_data1_from_file_rejects_non_bytes_species_names(self):
+        """
+        Ensure Data1.from_file rejects basis-species names that are not bytes.
+        """
+        payload = self._read_data1_payload()
+        payload.species_names = np.array(
+            [123, b"EM1                     SOLID1", b"EM2                     SOLID1"],
+            dtype=object,
+        )
+        with mock.patch("eleanor.kernel.eq36.data1.read_data1", return_value=payload):
+            with self.assertRaises(TypeError):
+                Data1.from_file("bad-species-name.d1")
+
+    def test_data1_from_file_rejects_non_float64_composition_counts(self):
+        """
+        Ensure Data1.from_file rejects composition counts that are not np.float64.
+        """
+        payload = self._read_data1_payload()
+        payload.cessa = np.array([2, 1])
+        with mock.patch("eleanor.kernel.eq36.data1.read_data1", return_value=payload):
+            with self.assertRaises(TypeError):
+                Data1.from_file("bad-counts.d1")
+
+    def test_data1_from_file_preserves_nonzero_basis_species_volume(self):
+        """
+        Ensure Data1.from_file preserves nonzero basis-species volume values.
+        """
+        payload = self._read_data1_payload()
+        payload.volumes = np.array([1.5, 0.0, 0.0])
+        with mock.patch("eleanor.kernel.eq36.data1.read_data1", return_value=payload):
+            parsed = Data1.from_file("with-volume.d1")
+        self.assertEqual(parsed.basis_species["H+"].volume, 1.5)
+
+    def test_data1_from_file_rejects_non_bytes_solid_solution_lines(self):
+        """
+        Ensure Data1.from_file rejects solid-solution lines that are not bytes.
+        """
+        payload = self._read_data1_payload()
+        payload.species_names = np.array(
+            [b"H+                      ", b"EM1                     SOLID1", 456],
+            dtype=object,
+        )
+        with mock.patch("eleanor.kernel.eq36.data1.read_data1", return_value=payload):
+            with self.assertRaises(TypeError):
+                Data1.from_file("bad-solid-solution-line.d1")
 
     def test_data1_get_basis_species_raises_on_multiple_matches(self):
         """

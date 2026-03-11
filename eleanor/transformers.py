@@ -48,7 +48,7 @@ class GlassReactantEmbedder(AbstractTransformer):
             if titration_rate is None:
                 self.titration_rate = ValueParameter(name='titration_rate', type=None, value=1.0)
             else:
-                self.titration_rate = Parameter.load(amount, name='titration_rate')
+                self.titration_rate = Parameter.load(titration_rate, name='titration_rate')
         except Exception as e:
             raise EleanorException('failed to construct the GlassReactantEmbedder') from e
 
@@ -104,7 +104,7 @@ class GlassReactantEmbedder(AbstractTransformer):
 
             for oxide_name, fraction in row.items():  # pyright: ignore[reportAny]
                 oxide_name = str(oxide_name)
-                if isinstance(fraction, float) and fraction > 0:
+                if oxide_name in compositions and isinstance(fraction, float) and fraction > 0:
                     oxide_names.append(oxide_name)
                     fractions = np.append(fractions, fraction)
 

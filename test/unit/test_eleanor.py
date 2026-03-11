@@ -124,6 +124,33 @@ class TestEleanor(TestCase):
         self.assertEqual(out, [7])
         eleanor.dispatch.assert_called_once_with(5, order_id=3, verbose=True)
 
+    def test_run_applies_transformers_before_recursing(self):
+        """
+        Ensure run loads the kernel and applies configured transformers before delegating to _run.
+        """
+        eleanor = self._make_eleanor()
+        eleanor.order = SimpleNamespace(transformers=[SimpleNamespace(type="x")], suborders=None)
+        original_order = eleanor.order
+        transformed = SimpleNamespace(transformers=[], suborders=None)
+        kernel = mock.Mock()
+        eleanor.load_kernel = mock.Mock(return_value=kernel)
+        eleanor._run = mock.Mock(return_value=[12])
+
+        with mock.patch("eleanor.eleanor.transform", return_value=transformed) as transform_fn:
+            out = eleanor.run(4, order_id=2, verbose=True)
+
+        self.assertEqual(out, [12])
+        eleanor.load_kernel.assert_called_once_with(verbose=True)
+        transform_fn.assert_called_once_with(original_order, kernel)
+        self.assertIs(eleanor.order, transformed)
+        eleanor._run.assert_called_once_with(
+            4,
+            order_id=2,
+            combined=False,
+            proportional_sampling=False,
+            verbose=True,
+        )
+
     def test_run_recurse_with_suborders_and_proportional_sampling(self):
         """
         Ensure run recurses over suborders and aggregates sorted unique order ids.

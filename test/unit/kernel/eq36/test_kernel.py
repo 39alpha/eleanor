@@ -996,7 +996,7 @@ class TestEq36Kernel(TestCase):
         self.assertEqual(path, "problem.6i")
         self.assertIn("nxopt=  0", output)
         self.assertNotIn("option= All", output)
-        self.assertIn("nxopex=  0", output)
+        self.assertNotIn("nxopex=  0", output)
 
     def test_write_eq6_input_suppress_all_minerals_without_exceptions_prints_empty_nxopex(self):
         """

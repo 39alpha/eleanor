@@ -560,9 +560,12 @@ class Kernel(AbstractKernel):
         else:
             print('     nxopt=  0', file=file)
 
-        print(f'    nxopex={len(exceptions): >3}', file=file)
-        for species in exceptions:
-            print(f'   species= {species.name}', file=file)
+        if exceptions:
+            print(f'    nxopex={len(exceptions): >3}', file=file)
+            for species in exceptions:
+                print(f'   species= {species.name}', file=file)
+        elif suppress_all_minerals:
+            print(f'    nxopex={len(exceptions): >3}', file=file)
 
         # Write fixed gases
         print(f'      nffg={len(vs_point.fixed_gas_reactants): >3}', file=file)

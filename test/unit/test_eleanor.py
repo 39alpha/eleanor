@@ -102,15 +102,17 @@ class TestEleanor(TestCase):
         """
 
         class Child(Eleanor):
-            def __init__(self, *args, **kwargs):
-                self.args = args
-                self.kwargs = kwargs
+            def __init__(self, config, order, kernel_args):
+                self.config = config
+                self.order = order
+                self.kernel_args = kernel_args
 
         child = Child.__new__(Child)
-        out = child.recur(1, 2, x=3)
+        out = child.recur("cfg", "ord", ["k"])
         self.assertIsInstance(out, Child)
-        self.assertEqual(out.args, (1, 2))
-        self.assertEqual(out.kwargs, {"x": 3})
+        self.assertEqual(out.config, "cfg")
+        self.assertEqual(out.order, "ord")
+        self.assertEqual(out.kernel_args, ["k"])
 
     def test_run_dispatches_without_suborders(self):
         """

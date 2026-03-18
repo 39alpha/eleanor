@@ -24,13 +24,13 @@ class Eleanor(object):
     order: Order
     kernel_args: list[Any]
 
-    def __init__(self, config: str | Config, order: str | Order, kernel_args: list[Any], *args, **kwargs):
+    def __init__(self, config: str | Config, order: str | Order, kernel_args: list[Any]):
         self.config = load_config(config)
         self.order = load_order(order)
         self.kernel_args = kernel_args
 
-    def recur(self, *args, **kwargs) -> Self:
-        return self.__class__(*args, **kwargs)
+    def recur(self, config: str | Config, order: str | Order, kernel_args: list[Any]) -> Self:
+        return self.__class__(config, order, kernel_args)
 
     def run(
         self,

@@ -26,13 +26,12 @@ class DatabaseConfig(object):
             msg = f'the "{self.dialect}" database dialect is not supported; choose "postgresql"'
             raise EleanorConfigurationException(msg)
 
-        if any(x is None for x in [self.dbapi, self.username, self.password]):
-            msg = f'must provide a dbapi, username and password for {self.dialect} databases'
-            raise EleanorConfigurationException(msg)
-
     def __str__(self) -> str:
+        identity = self.username if self.username is not None else ''
+        if self.password is not None and self.password != "":
+            identity = identity + ':' + self.password
         port = f':{self.port}' if self.port is not None else ''
-        return f'{self.dialect}+{self.dbapi}://{self.username}:{self.password}@{self.host}{port}/{self.database}'
+        return f'{self.dialect}+{self.dbapi}://{identity}@{self.host}{port}/{self.database}'
 
 
 @dataclass(init=False)

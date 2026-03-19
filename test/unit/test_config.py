@@ -41,25 +41,30 @@ class TestConfig(TestCase):
         with self.assertRaises(EleanorConfigurationException):
             DatabaseConfig(dialect='sqlite', username='alice', password='secret')
 
-    def test_database_config_requires_credentials(self):
+    def test_database_config_allows_missing_credentials(self):
         """
-        Ensure that required database credential fields are validated at construction time.
+        Ensure that missing credential fields are allowed at construction time.
         """
-        with self.assertRaises(EleanorConfigurationException):
-            DatabaseConfig(database='main', username=None, password='secret')
+        cfg = DatabaseConfig(database='main', username=None, password='secret')
+        self.assertIsNone(cfg.username)
+        self.assertEqual(cfg.password, 'secret')
 
-        with self.assertRaises(EleanorConfigurationException):
-            DatabaseConfig(database='main', username='alice', password=None)
+        cfg = DatabaseConfig(database='main', username='alice', password=None)
+        self.assertEqual(cfg.username, 'alice')
+        self.assertIsNone(cfg.password)
 
-        with self.assertRaises(EleanorConfigurationException):
-            DatabaseConfig(database='main', dbapi=None, username='alice', password='secret')
+        cfg = DatabaseConfig(database='main', dbapi=None, username='alice', password='secret')
+        self.assertIsNone(cfg.dbapi)
+        self.assertEqual(cfg.username, 'alice')
+        self.assertEqual(cfg.password, 'secret')
 
-    def test_config_defaults_raise_without_credentials(self):
+    def test_config_defaults_allow_missing_credentials(self):
         """
-        Ensure that :class:`Config` default construction raises without required credentials.
+        Ensure that :class:`Config` default construction allows missing credentials.
         """
-        with self.assertRaises(EleanorConfigurationException):
-            Config()
+        cfg = Config()
+        self.assertIsNone(cfg.database.username)
+        self.assertIsNone(cfg.database.password)
 
     def test_config_from_yaml(self):
         """
@@ -213,8 +218,10 @@ class TestConfig(TestCase):
         """
         Ensure that :func:`load_config` handles None, file paths, and Config objects.
         """
-        with self.assertRaises(EleanorConfigurationException):
-            load_config(None)
+        default_cfg = load_config(None)
+        self.assertIsInstance(default_cfg, Config)
+        self.assertIsNone(default_cfg.database.username)
+        self.assertIsNone(default_cfg.database.password)
 
         with TemporaryDirectory() as tmp:
             path = join(tmp, 'config.json')

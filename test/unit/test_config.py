@@ -76,6 +76,7 @@ class TestConfig(TestCase):
                   database: sample
                   username: alice
                   password: secret
+                  sslmode: require
             """)
             with open(path, 'w') as f:
                 f.write(content)
@@ -83,6 +84,7 @@ class TestConfig(TestCase):
             cfg = Config.from_yaml(path)
             self.assertEqual(cfg.database.database, 'sample')
             self.assertEqual(cfg.database.port, 5432)
+            self.assertEqual(cfg.database.sslmode, 'require')
 
     def test_config_from_toml(self):
         """
@@ -99,6 +101,7 @@ class TestConfig(TestCase):
                 database = "sample"
                 username = "alice"
                 password = "secret"
+                sslmode = "require"
             """)
             with open(path, 'w') as f:
                 f.write(content)
@@ -106,6 +109,7 @@ class TestConfig(TestCase):
             cfg = Config.from_toml(path)
             self.assertEqual(cfg.database.database, 'sample')
             self.assertEqual(cfg.database.port, 5432)
+            self.assertEqual(cfg.database.sslmode, 'require')
 
     def test_config_from_json(self):
         """
@@ -122,6 +126,7 @@ class TestConfig(TestCase):
                     'database': 'sample',
                     'username': 'alice',
                     'password': 'secret',
+                    'sslmode': 'require',
                 }
             }
             with open(path, 'w') as f:
@@ -130,6 +135,7 @@ class TestConfig(TestCase):
             cfg = Config.from_json(path)
             self.assertEqual(cfg.database.database, 'sample')
             self.assertEqual(cfg.database.port, 5432)
+            self.assertEqual(cfg.database.sslmode, 'require')
 
     def test_config_from_file_dispatches_by_extension(self):
         """

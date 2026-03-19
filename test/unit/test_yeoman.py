@@ -78,6 +78,27 @@ class TestYeoman(TestCase):
         session_init_mock.assert_called_once_with(engine)
         self.assertIs(session.engine, engine)
 
+    def test_yeoman_init_with_sslmode(self):
+        """
+        Ensure that :class:`Yeoman` forwards sslmode via connect_args when configured.
+        """
+        engine = mock.Mock()
+        cfg = DatabaseConfig(database='main', username='alice', password='secret', sslmode='verify-full')
+
+        with (
+            mock.patch('eleanor.yeoman.create_engine', return_value=engine) as create_engine_mock,
+            mock.patch.object(Session, '__init__', return_value=None) as session_init_mock,
+        ):
+            session = Yeoman(cfg)
+
+        create_engine_mock.assert_called_once_with(
+            str(cfg),
+            connect_args={'sslmode': 'verify-full'},
+            echo=False,
+        )
+        session_init_mock.assert_called_once_with(engine)
+        self.assertIs(session.engine, engine)
+
     def test_yeoman_exit_disposes_engine(self):
         """
         Ensure that :meth:`Yeoman.__exit__` delegates to Session and disposes the engine.

@@ -19,6 +19,7 @@ class DatabaseConfig(object):
     database: Optional[str] = None
     username: Optional[str] = None
     password: Optional[str] = None
+    sslmode: Optional[str] = None
 
     def __post_init__(self):
         if self.dialect not in ['postgresql']:

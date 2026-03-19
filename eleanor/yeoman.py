@@ -49,7 +49,10 @@ class Yeoman(Session):
     engine: Engine
 
     def __init__(self, config: DatabaseConfig, *args, verbose: bool = False, **kwargs):
-        self.engine = create_engine(str(config), echo=verbose)
+        if config.sslmode is not None:
+            self.engine = create_engine(str(config), connect_args={'sslmode': config.sslmode}, echo=verbose)
+        else:
+            self.engine = create_engine(str(config), echo=verbose)
         super().__init__(self.engine, *args, **kwargs)
 
     def __exit__(self, *args, **kwargs):

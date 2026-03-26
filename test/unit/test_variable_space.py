@@ -61,6 +61,7 @@ class TestVariableSpace(TestCase):
         ]
         return Point(
             kernel=KernelConfig(type="eq36", settings=Settings(timeout=1)),
+            water_mass=1.0,
             temperature=25.0,
             pressure=1.0,
             elements=[],

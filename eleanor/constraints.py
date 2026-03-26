@@ -258,6 +258,7 @@ class Boatswain(object):
             return vs.Point(
                 order_id=order_id,
                 kernel=deepcopy(self.order.kernel),
+                water_mass=valuation[self.registry.id(self.order.water_mass)].value,
                 temperature=valuation[self.registry.id(self.order.temperature)].value,
                 pressure=valuation[self.registry.id(self.order.pressure)].value,
                 elements=elements,

@@ -369,6 +369,7 @@ class Point(object):
         yeoman_registry.metadata,
         Column('id', Integer, primary_key=True),
         Column('order_id', Integer, ForeignKey('orders.id', ondelete="CASCADE"), nullable=False),
+        Column('water_mass', Double, nullable=False),
         Column('temperature', Double, nullable=False),
         Column('pressure', Double, nullable=False),
         Column('exit_code', Integer, nullable=False),
@@ -397,6 +398,7 @@ class Point(object):
     }
 
     kernel: KernelConfig
+    water_mass: float
     temperature: float
     pressure: float
     elements: list[Element]

@@ -27,6 +27,7 @@ class _DummyPoint:
                  settings,
                  suppressions=None,
                  has_reactants=False,
+                 water_mass=1.0,
                  temperature=25.0,
                  pressure=10.0,
                  species=None,
@@ -42,6 +43,7 @@ class _DummyPoint:
         self.kernel = SimpleNamespace(settings=settings)
         self.suppressions = [] if suppressions is None else suppressions
         self._has_reactants = has_reactants
+        self.water_mass = water_mass
         self.temperature = temperature
         self.pressure = pressure
         self.species = [] if species is None else species
@@ -576,6 +578,25 @@ class TestEq36Kernel(TestCase):
         self.assertIn("irdxc3=   0", output)
         self.assertIn("uredox= None", output)
         self.assertIn("species= H+", output)
+
+    def test_write_eq3_input_emits_custom_water_mass_in_scamas_field(self):
+        """
+        Ensure write_eq3_input writes the correct scamas line when water_mass is not the default 1kg.
+        """
+        kernel = self._kernel()
+        kernel._setup = True
+        settings = self._settings()
+        settings.redox_species = "fO2"
+        point = _DummyPoint(settings,
+                            water_mass=0.5,
+                            species=[SimpleNamespace(name="O2(g)", value=-60.0)])
+        handle = _NamedStringIO("problem.3i")
+
+        kernel.write_eq3_input(point, data1=SimpleNamespace(get_basis_species=lambda _x: None), file=handle)
+        output = handle.getvalue()
+
+        self.assertIn("scamas=  5.00000E-01", output)
+        self.assertNotIn("scamas=  1.00000E+00", output)
 
     def test_write_eq3_input_raises_when_element_has_no_basis_species(self):
         """

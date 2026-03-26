@@ -145,6 +145,7 @@ class Suborder(object):
     creator: str | None = None
     kernel: KernelConfig | None = None
     navigator: NavigatorConfig | None = None
+    water_mass: Parameter | None = None
     temperature: Parameter | None = None
     pressure: Parameter | None = None
     elements: dict[str, Parameter] | None = None
@@ -159,6 +160,8 @@ class Suborder(object):
         volume = 1.0
         if self.kernel is not None:
             volume *= mapreduce(lambda p: p.volume(), operator.mul, self.kernel.parameters(), initial=1.0)
+        if self.water_mass is not None:
+            volume *= self.water_mass.volume()
         if self.temperature is not None:
             volume *= self.temperature.volume()
         if self.pressure is not None:
@@ -208,6 +211,9 @@ class Suborder(object):
                 suborder.navigator = NavigatorConfig(type=raw['navigator'])
             else:
                 suborder.navigator = NavigatorConfig(**raw['navigator'])
+
+        if 'water_mass' in raw:
+            suborder.water_mass = Parameter.load(raw['water_mass'], 'water_mass')
 
         if 'temperature' in raw:
             suborder.temperature = Parameter.load(raw['temperature'], 'temperature')
@@ -295,6 +301,7 @@ class Order(Suborder):
 
     kernel: KernelConfig
     navigator: NavigatorConfig
+    water_mass: Parameter
     temperature: Parameter
     pressure: Parameter
     elements: dict[str, Parameter]
@@ -349,6 +356,8 @@ class Order(Suborder):
             self.navigator = NavigatorConfig(type=self.raw['navigator'])
         else:
             self.navigator = NavigatorConfig(**self.raw.get('navigator', {}))
+
+        self.water_mass = Parameter.load(self.raw.get('water_mass', 1.0), 'water_mass')
 
         if 'temperature' in self.raw:
             self.temperature = Parameter.load(self.raw['temperature'], 'temperature')
@@ -410,6 +419,9 @@ class Order(Suborder):
     def parameters(self) -> list[Parameter]:
         parameters: list[Parameter] = []
 
+        if self.water_mass is not None:
+            parameters.append(self.water_mass)
+
         if self.temperature is not None:
             parameters.append(self.temperature)
 
@@ -439,6 +451,7 @@ class Order(Suborder):
                 order.name = suborder.name if suborder.name is not None else order.name
                 order.notes = suborder.notes if suborder.notes is not None else order.notes
                 order.creator = suborder.creator if suborder.creator is not None else order.creator
+                order.water_mass = suborder.water_mass if suborder.water_mass is not None else order.water_mass
                 order.temperature = suborder.temperature if suborder.temperature is not None else order.temperature
                 order.pressure = suborder.pressure if suborder.pressure is not None else order.pressure
                 order.elements = suborder.elements if suborder.elements is not None else order.elements

@@ -100,6 +100,7 @@ class TestOrder(TestCase):
         """
         sub = Suborder(
             kernel=SimpleNamespace(parameters=lambda: [SimpleNamespace(volume=lambda: 2.0)]),
+            water_mass=SimpleNamespace(volume=lambda: 23.0),
             temperature=SimpleNamespace(volume=lambda: 3.0),
             pressure=SimpleNamespace(volume=lambda: 5.0),
             elements={"Na": SimpleNamespace(volume=lambda: 7.0)},
@@ -108,7 +109,7 @@ class TestOrder(TestCase):
             constraints=[SimpleNamespace(volume=lambda: 17.0)],
         )
         sub.suborders = SimpleNamespace(volume=lambda: 19.0)
-        self.assertEqual(sub.volume(), 2.0 * 3.0 * 5.0 * 7.0 * 11.0 * 13.0 * 17.0 * 19.0)
+        self.assertEqual(sub.volume(), 2.0 * 23.0 * 3.0 * 5.0 * 7.0 * 11.0 * 13.0 * 17.0 * 19.0)
 
         raw = {"orders": [{"name": "a", "creator": "u"}, {"name": "b", "creator": "u"}], "combined": True}
         subs = Suborders(raw)

@@ -307,9 +307,10 @@ class Kernel(AbstractKernel):
         print('* Saturation flag tolerance', file=file)
         print('    tolspf=  0.00000E+00', file=file)
 
-        # Write saturation tolerance
+        # Write aqueous phase scale factor (the mass of water, default: 1kg)
+        scamas = NumberFormat.SCIENTIFIC.fmt(vs_point.water_mass, precision=5)
         print('* Aqueous phase scale factor', file=file)
-        print('    scamas=  1.00000E+00', file=file)
+        print(f'    scamas=  {scamas}', file=file)
 
         return file.name
 

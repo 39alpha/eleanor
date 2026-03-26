@@ -55,9 +55,10 @@ class DummyOrder:
     Minimal order-like object used to exercise Boatswain logic.
     """
 
-    def __init__(self, *, parameters, temperature, pressure, elements, species, suppressions, reactants):
+    def __init__(self, *, parameters, water_mass=None, temperature, pressure, elements, species, suppressions, reactants):
         self._parameters = parameters
         self.constraints = []
+        self.water_mass = water_mass
         self.temperature = temperature
         self.pressure = pressure
         self.elements = elements
@@ -230,6 +231,7 @@ class TestConstraints(TestCase):
         """
         Ensure generate_vs materializes a variable-space Point for each supported reactant mapping branch.
         """
+        water_mass = ValueParameter("water_mass", None, 1.0)
         temperature = ValueParameter("temperature", None, 25.0)
         pressure = ValueParameter("pressure", None, 1.0)
         na = ValueParameter("Na", None, -1.0)
@@ -261,12 +263,13 @@ class TestConstraints(TestCase):
         )
 
         reactants = [mineral, aqueous, gas, element, special, fixed_gas, solid, glass]
-        params = [temperature, pressure, na, cl, species]
+        params = [water_mass, temperature, pressure, na, cl, species]
         for reactant in reactants:
             params.extend(reactant.parameters())
 
         order = DummyOrder(
             parameters=params,
+            water_mass=water_mass,
             temperature=temperature,
             pressure=pressure,
             elements={"Na": na, "Cl": cl},
@@ -291,10 +294,34 @@ class TestConstraints(TestCase):
         self.assertEqual(len(point.solid_solution_reactants), 1)
         self.assertEqual(len(point.glass_reactants), 1)
 
+    def test_generate_vs_propagates_non_default_water_mass(self):
+        """
+        Ensure generate_vs passes a non-default water_mass value through to the resulting Point.
+        """
+        water_mass = ValueParameter("water_mass", None, 0.5)
+        temperature = ValueParameter("temperature", None, 25.0)
+        pressure = ValueParameter("pressure", None, 1.0)
+
+        order = DummyOrder(
+            parameters=[water_mass, temperature, pressure],
+            water_mass=water_mass,
+            temperature=temperature,
+            pressure=pressure,
+            elements={},
+            species={},
+            suppressions=[],
+            reactants=[],
+        )
+        boatswain = Boatswain(order)
+        point = boatswain.generate_vs()
+
+        self.assertEqual(point.water_mass, 0.5)
+
     def test_generate_vs_glass_per_oxide_relative_rates(self):
         """
         Ensure generate_vs computes per-oxide absolute titration rates as base_rate * relative_rate.
         """
+        water_mass = ValueParameter("water_mass", None, 1.0)
         temperature = ValueParameter("temperature", None, 25.0)
         pressure = ValueParameter("pressure", None, 1.0)
 
@@ -311,11 +338,12 @@ class TestConstraints(TestCase):
             },
         )
 
-        params = [temperature, pressure]
+        params = [water_mass, temperature, pressure]
         params.extend(glass.parameters())
 
         order = DummyOrder(
             parameters=params,
+            water_mass=water_mass,
             temperature=temperature,
             pressure=pressure,
             elements={},
@@ -338,12 +366,14 @@ class TestConstraints(TestCase):
         """
         Ensure generate_vs wraps internal errors for unknown reactants and unrefined parameters.
         """
+        water_mass = ValueParameter("water_mass", None, 1.0)
         temperature = ValueParameter("temperature", None, 25.0)
         pressure = ValueParameter("pressure", None, 1.0)
         na = ValueParameter("Na", None, -1.0)
 
         order_bad_reactant = DummyOrder(
-            parameters=[temperature, pressure, na],
+            parameters=[water_mass, temperature, pressure, na],
+            water_mass=water_mass,
             temperature=temperature,
             pressure=pressure,
             elements={"Na": na},
@@ -357,7 +387,8 @@ class TestConstraints(TestCase):
 
         p_unrefined = RangeParameter("unrefined", None, 0.0, 1.0)
         order_unrefined = DummyOrder(
-            parameters=[temperature, pressure, p_unrefined],
+            parameters=[water_mass, temperature, pressure, p_unrefined],
+            water_mass=water_mass,
             temperature=temperature,
             pressure=pressure,
             elements={"u": p_unrefined},

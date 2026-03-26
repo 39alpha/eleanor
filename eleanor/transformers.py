@@ -47,8 +47,18 @@ class GlassReactantEmbedder(AbstractTransformer):
             self.amount = Parameter.load(amount, name='amount')
             if titration_rate is None:
                 self.titration_rate = ValueParameter(name='titration_rate', type=None, value=1.0)
+                self.oxide_rates: dict[str, Parameter] = {}
+            elif isinstance(titration_rate, dict) and 'base_rate' in titration_rate:
+                self.titration_rate = Parameter.load(titration_rate['base_rate'], name='titration_rate')
+                self.oxide_rates = {
+                    name: Parameter.load(rate, name=f'oxide_rate_{name}')
+                    for name, rate in titration_rate.get('oxide_rates', {}).items()
+                }
             else:
                 self.titration_rate = Parameter.load(titration_rate, name='titration_rate')
+                self.oxide_rates = {}
+        except EleanorException:
+            raise
         except Exception as e:
             raise EleanorException('failed to construct the GlassReactantEmbedder') from e
 
@@ -97,6 +107,13 @@ class GlassReactantEmbedder(AbstractTransformer):
                 compositions[name] = composition
                 molar_masses[name] = molar_mass
 
+        if self.oxide_rates:
+            for rate_name in self.oxide_rates:
+                if rate_name not in names:
+                    raise EleanorException(
+                        f'oxide rate "{rate_name}" does not match any oxide column in "{self.filename}"'
+                    )
+
         order.suborders = Suborders({'combined': self.combined, 'proportional_sampling': self.proportional_sampling})
         for n, (_, row) in enumerate(data.iterrows()):
             oxide_names: list[str] = []
@@ -108,6 +125,13 @@ class GlassReactantEmbedder(AbstractTransformer):
                     oxide_names.append(oxide_name)
                     fractions = np.append(fractions, fraction)
 
+            if self.oxide_rates:
+                for oxide_name in oxide_names:
+                    if oxide_name not in self.oxide_rates:
+                        raise EleanorException(
+                            f'oxide "{oxide_name}" has a positive quantity but no relative rate was specified'
+                        )
+
             if self.assume_mass_fraction:
                 for (i, oxide_name) in enumerate(oxide_names):
                     fractions[i] /= molar_masses[oxide_name]
@@ -116,10 +140,15 @@ class GlassReactantEmbedder(AbstractTransformer):
 
             oxides: dict[str, GlassReactantOxide] = {}
             for (i, oxide_name) in enumerate(oxide_names):
+                relative_rate = self.oxide_rates.get(
+                    oxide_name,
+                    ValueParameter(name='relative_rate', type=None, value=1.0),
+                )
                 oxide = GlassReactantOxide(
                     oxide_name,
                     compositions[oxide_name],
                     float(fractions[i]),  # pyright: ignore[reportAny]
+                    relative_rate,
                 )
                 oxides[oxide_name] = oxide
 

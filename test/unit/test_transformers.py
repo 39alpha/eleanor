@@ -60,6 +60,13 @@ class TestTransformers(TestCase):
         with self.assertRaises(EleanorException):
             GlassReactantEmbedder(filename="x.csv", reactant_name="glass", amount="not-a-number")
 
+    def test_glass_embedder_init_reraises_eleanor_exception(self):
+        """
+        Ensure GlassReactantEmbedder re-raises EleanorException directly without wrapping.
+        """
+        with self.assertRaisesRegex(EleanorException, 'cannot create the empty ListParameter'):
+            GlassReactantEmbedder(filename="x.csv", reactant_name="glass", amount=[])
+
     def test_read_oxide_composition(self):
         """
         Ensure oxide composition parser returns parsed stoichiometry or None for invalid names.
@@ -177,6 +184,123 @@ class TestTransformers(TestCase):
         self.assertIs(out, order)
         reactant = order.suborders.suborders[0].reactants[0]
         self.assertEqual(set(reactant.oxides.keys()), {"SiO2", "Na2O"})
+
+    def test_glass_embedder_init_base_rate_with_oxide_rates(self):
+        """
+        Ensure GlassReactantEmbedder parses dict-form titration_rate with base_rate and oxide_rates.
+        """
+        embedder = GlassReactantEmbedder(
+            filename="x.csv",
+            reactant_name="glass",
+            amount=1.0,
+            titration_rate={
+                "base_rate": 2.0,
+                "oxide_rates": {"SiO2": 1.5, "Na2O": {"min": 0.5, "max": 2.0}},
+            },
+        )
+        self.assertEqual(embedder.titration_rate.value, 2.0)
+        self.assertEqual(len(embedder.oxide_rates), 2)
+        self.assertEqual(embedder.oxide_rates["SiO2"].value, 1.5)
+
+    def test_glass_embedder_init_base_rate_only(self):
+        """
+        Ensure GlassReactantEmbedder parses dict-form titration_rate with base_rate but no oxide_rates.
+        """
+        embedder = GlassReactantEmbedder(
+            filename="x.csv",
+            reactant_name="glass",
+            amount=1.0,
+            titration_rate={"base_rate": 3.0},
+        )
+        self.assertEqual(embedder.titration_rate.value, 3.0)
+        self.assertEqual(embedder.oxide_rates, {})
+
+    def test_glass_embedder_transform_validates_oxide_rate_names(self):
+        """
+        Ensure transform raises when oxide_rates reference oxides not in the CSV.
+        """
+        embedder = GlassReactantEmbedder(
+            filename="x.csv",
+            reactant_name="glass",
+            amount=1.0,
+            titration_rate={
+                "base_rate": 1.0,
+                "oxide_rates": {"SiO2": 1.5, "FeO": 2.0},
+            },
+        )
+        order = SimpleNamespace(transformers=[], suborders=None)
+        kernel = _Kernel({"Si": 28.0, "O": 16.0, "Na": 23.0})
+        data = pd.DataFrame([{"SiO2": 0.6, "Na2O": 0.4}])
+
+        with mock.patch.object(embedder, "read_csv", return_value=data):
+            with self.assertRaises(EleanorException):
+                embedder.transform(order, kernel)
+
+    def test_glass_embedder_transform_validates_missing_oxide_rate(self):
+        """
+        Ensure transform raises when a positive-quantity oxide has no relative rate specified.
+        """
+        embedder = GlassReactantEmbedder(
+            filename="x.csv",
+            reactant_name="glass",
+            amount=1.0,
+            titration_rate={
+                "base_rate": 1.0,
+                "oxide_rates": {"SiO2": 1.5},
+            },
+        )
+        order = SimpleNamespace(transformers=[], suborders=None)
+        kernel = _Kernel({"Si": 28.0, "O": 16.0, "Na": 23.0})
+        data = pd.DataFrame([{"SiO2": 0.6, "Na2O": 0.4}])
+
+        with mock.patch.object(embedder, "read_csv", return_value=data):
+            with self.assertRaises(EleanorException):
+                embedder.transform(order, kernel)
+
+    def test_glass_embedder_transform_applies_oxide_rates(self):
+        """
+        Ensure transform assigns per-oxide relative rates to the created GlassReactantOxide objects.
+        """
+        embedder = GlassReactantEmbedder(
+            filename="x.csv",
+            reactant_name="glass",
+            amount=1.0,
+            titration_rate={
+                "base_rate": 2.0,
+                "oxide_rates": {"SiO2": 1.5, "Na2O": 0.8},
+            },
+        )
+        order = SimpleNamespace(transformers=[], suborders=None)
+        kernel = _Kernel({"Si": 28.0, "O": 16.0, "Na": 23.0})
+        data = pd.DataFrame([{"SiO2": 0.6, "Na2O": 0.4}])
+
+        with mock.patch.object(embedder, "read_csv", return_value=data):
+            embedder.transform(order, kernel)
+
+        reactant = order.suborders.suborders[0].reactants[0]
+        self.assertEqual(reactant.oxides["SiO2"].relative_rate.value, 1.5)
+        self.assertEqual(reactant.oxides["Na2O"].relative_rate.value, 0.8)
+
+    def test_glass_embedder_transform_default_oxide_rates(self):
+        """
+        Ensure transform assigns default relative_rate of 1.0 when no oxide_rates are specified.
+        """
+        embedder = GlassReactantEmbedder(
+            filename="x.csv",
+            reactant_name="glass",
+            amount=1.0,
+            titration_rate=2.0,
+        )
+        order = SimpleNamespace(transformers=[], suborders=None)
+        kernel = _Kernel({"Si": 28.0, "O": 16.0, "Na": 23.0})
+        data = pd.DataFrame([{"SiO2": 0.6, "Na2O": 0.4}])
+
+        with mock.patch.object(embedder, "read_csv", return_value=data):
+            embedder.transform(order, kernel)
+
+        reactant = order.suborders.suborders[0].reactants[0]
+        self.assertEqual(reactant.oxides["SiO2"].relative_rate.value, 1.0)
+        self.assertEqual(reactant.oxides["Na2O"].relative_rate.value, 1.0)
 
     def test_module_transform_applies_and_clears_transformers(self):
         """

@@ -240,6 +240,7 @@ class GlassReactantOxide(object):
     name: str
     composition: dict[str, int]
     fraction: float
+    relative_rate: Parameter
 
     @classmethod
     def from_dict(cls, raw: dict[str, str | dict[str, int] | float], name: str | None = None):
@@ -260,12 +261,20 @@ class GlassReactantOxide(object):
                 f'oxide "{name}" has a value {fraction}; must be between 0 and 1 exclusive'
             )
 
-        return cls(name, composition, fraction)
+        relative_rate = Parameter.load(raw.get('relative_rate', 1.0), name='relative_rate')
+
+        return cls(name, composition, fraction, relative_rate)
 
 
 @dataclass
 class GlassReactant(TitratedReactant):
     oxides: dict[str, GlassReactantOxide]
+
+    def parameters(self) -> list[Parameter]:
+        params = super().parameters()
+        for oxide in self.oxides.values():
+            params.append(oxide.relative_rate)
+        return params
 
     @classmethod
     def from_dict(cls, raw: dict, name: Optional[str] = None):

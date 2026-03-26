@@ -297,6 +297,8 @@ class TestReactants(TestCase):
         self.assertEqual(oxide.name, "SiO2")
         self.assertEqual(oxide.composition, {"Si": 1, "O": 2})
         self.assertEqual(oxide.fraction, 0.5)
+        self.assertIsInstance(oxide.relative_rate, ValueParameter)
+        self.assertEqual(oxide.relative_rate.value, 1.0)
 
         with self.assertRaises(EleanorException):
             GlassReactantOxide.from_dict({"name": "x", "composition": "invalid", "fraction": 0.5})
@@ -304,6 +306,42 @@ class TestReactants(TestCase):
             GlassReactantOxide.from_dict({"name": "x", "composition": {"Si": 1}, "fraction": 1})
         with self.assertRaises(EleanorException):
             GlassReactantOxide.from_dict({"name": "x", "composition": {"Si": 1}, "fraction": 1.0})
+
+    def test_glass_oxide_from_dict_with_relative_rate(self):
+        """
+        Ensure GlassReactantOxide.from_dict parses an explicit relative_rate.
+        """
+        oxide = GlassReactantOxide.from_dict(
+            {"name": "SiO2", "composition": {"Si": 1, "O": 2}, "fraction": 0.5, "relative_rate": 2.5}
+        )
+        self.assertIsInstance(oxide.relative_rate, ValueParameter)
+        self.assertEqual(oxide.relative_rate.value, 2.5)
+
+        oxide_range = GlassReactantOxide.from_dict(
+            {"name": "SiO2", "composition": {"Si": 1, "O": 2}, "fraction": 0.5, "relative_rate": {"min": 0.5, "max": 2.0}}
+        )
+        self.assertEqual(oxide_range.relative_rate.name, "relative_rate")
+
+    def test_glass_reactant_parameters_includes_oxide_rates(self):
+        """
+        Ensure GlassReactant.parameters() includes base amount, titration_rate, and per-oxide relative rates.
+        """
+        sio2_rate = ValueParameter("relative_rate", None, 2.0)
+        na2o_rate = ValueParameter("relative_rate", None, 0.5)
+        reactant = GlassReactant(
+            "glass",
+            ReactantType.GLASS,
+            ValueParameter("amount", None, 1.0),
+            ValueParameter("titration_rate", None, 1.0),
+            {
+                "SiO2": GlassReactantOxide("SiO2", {"Si": 1, "O": 2}, 0.5, sio2_rate),
+                "Na2O": GlassReactantOxide("Na2O", {"Na": 2, "O": 1}, 0.5, na2o_rate),
+            },
+        )
+        params = reactant.parameters()
+        self.assertEqual(len(params), 4)  # amount, titration_rate, sio2_rate, na2o_rate
+        self.assertIn(sio2_rate, params)
+        self.assertIn(na2o_rate, params)
 
     def test_glass_reactant_from_dict_success_and_failures(self):
         """

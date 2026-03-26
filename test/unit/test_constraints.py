@@ -255,8 +255,8 @@ class TestConstraints(TestCase):
             ValueParameter("amount", None, -1.0),
             ValueParameter("titration_rate", None, 1.0),
             {
-                "SiO2": GlassReactantOxide("SiO2", {"Si": 1, "O": 2}, 0.5),
-                "Na2O": GlassReactantOxide("Na2O", {"Na": 2, "O": 1}, 0.5),
+                "SiO2": GlassReactantOxide("SiO2", {"Si": 1, "O": 2}, 0.5, ValueParameter("relative_rate", None, 1.0)),
+                "Na2O": GlassReactantOxide("Na2O", {"Na": 2, "O": 1}, 0.5, ValueParameter("relative_rate", None, 1.0)),
             },
         )
 
@@ -290,6 +290,49 @@ class TestConstraints(TestCase):
         self.assertEqual(len(point.fixed_gas_reactants), 1)
         self.assertEqual(len(point.solid_solution_reactants), 1)
         self.assertEqual(len(point.glass_reactants), 1)
+
+    def test_generate_vs_glass_per_oxide_relative_rates(self):
+        """
+        Ensure generate_vs computes per-oxide absolute titration rates as base_rate * relative_rate.
+        """
+        temperature = ValueParameter("temperature", None, 25.0)
+        pressure = ValueParameter("pressure", None, 1.0)
+
+        sio2_rate = ValueParameter("relative_rate", None, 2.0)
+        na2o_rate = ValueParameter("relative_rate", None, 0.5)
+        glass = GlassReactant(
+            "glassmix",
+            ReactantType.GLASS,
+            ValueParameter("amount", None, -1.0),
+            ValueParameter("titration_rate", None, 3.0),
+            {
+                "SiO2": GlassReactantOxide("SiO2", {"Si": 1, "O": 2}, 0.5, sio2_rate),
+                "Na2O": GlassReactantOxide("Na2O", {"Na": 2, "O": 1}, 0.5, na2o_rate),
+            },
+        )
+
+        params = [temperature, pressure]
+        params.extend(glass.parameters())
+
+        order = DummyOrder(
+            parameters=params,
+            temperature=temperature,
+            pressure=pressure,
+            elements={},
+            species={},
+            suppressions=[],
+            reactants=[glass],
+        )
+        boatswain = Boatswain(order)
+        point = boatswain.generate_vs()
+
+        self.assertEqual(len(point.glass_reactants), 1)
+        gl = point.glass_reactants[0]
+        self.assertEqual(gl.titration_rate, 3.0)
+
+        oxide_rates = {o.name: o.titration_rate for o in gl.oxides}
+        self.assertAlmostEqual(oxide_rates["SiO2"], 3.0 * 2.0)
+        self.assertAlmostEqual(oxide_rates["Na2O"], 3.0 * 0.5)
 
     def test_generate_vs_wraps_unexpected_reactant_and_unrefined_errors(self):
         """

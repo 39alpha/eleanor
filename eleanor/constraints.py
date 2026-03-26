@@ -243,7 +243,7 @@ class Boatswain(object):
                                         name=name,
                                         fraction=oxide.fraction,
                                         log_moles=float(np.log10(oxide.fraction)) + log_moles,
-                                        titration_rate=titration_rate,
+                                        titration_rate=titration_rate * valuation[self.registry.id(oxide.relative_rate)].value,
                                         composition=[
                                             vs.GlassReactantOxideComposition(element=k, count=v)
                                             for k, v in oxide.composition.items()

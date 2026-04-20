@@ -3,6 +3,7 @@ from unittest import mock
 
 from eleanor.eleanor import Eleanor
 from eleanor.exceptions import EleanorException
+from eleanor.output import ComputeResult, WriteOutcome
 from eleanor.order import HufferResult
 
 from .common import TestCase
@@ -77,8 +78,8 @@ class TestEleanor(TestCase):
     def _make_eleanor(self):
         eleanor = Eleanor.__new__(Eleanor)
         eleanor.kernel_args = ["arg1"]
-        eleanor.config = SimpleNamespace(database="db-config")
-        eleanor.order = SimpleNamespace(transformers=[])
+        eleanor.config = SimpleNamespace(database="db-config", output=SimpleNamespace(type="postgres"))
+        eleanor.order = SimpleNamespace(transformers=[], huffer_result=None)
         return eleanor
 
     def test_init_loads_config_and_order(self):
@@ -204,7 +205,11 @@ class TestEleanor(TestCase):
         eleanor.order.navigator = mock.Mock()
         eleanor.order.navigator.load.return_value = lambda *_args: navigator
         eleanor.ignite = mock.Mock(return_value=5)
-        eleanor.process = mock.Mock()
+        eleanor.process = mock.Mock(return_value=[
+            WriteOutcome(point_id=10, exit_code=0, committed=True)
+        ])
+        sink = mock.Mock()
+        eleanor.load_output_sink = mock.Mock(return_value=sink)
 
         with mock.patch("eleanor.eleanor.Pool", _Pool):
             out = eleanor.dispatch(6, num_procs=0, show_progress=False, no_huffer=True)
@@ -212,6 +217,8 @@ class TestEleanor(TestCase):
         self.assertEqual(out, [5])
         eleanor.ignite.assert_called_once()
         eleanor.process.assert_called_once()
+        sink.begin_run.assert_called_once()
+        sink.finalize.assert_called_once()
         self.assertEqual(eleanor.ignite.call_args.kwargs["huffer_with"], None)
 
     def test_dispatch_sets_huffer_with_when_enabled(self):
@@ -226,17 +233,25 @@ class TestEleanor(TestCase):
         eleanor.order.navigator = mock.Mock()
         eleanor.order.navigator.load.return_value = lambda *_args: navigator
         eleanor.ignite = mock.Mock(return_value=6)
-        eleanor.process = mock.Mock()
+        eleanor.process = mock.Mock(return_value=[
+            WriteOutcome(point_id=10, exit_code=0, committed=True)
+        ])
+        sink = mock.Mock()
+        eleanor.load_output_sink = mock.Mock(return_value=sink)
 
         with mock.patch("eleanor.eleanor.Pool", _Pool):
             out = eleanor.dispatch(3, no_huffer=False, show_progress=False)
 
         self.assertEqual(out, [6])
+        sink.begin_run.assert_called_once()
+        sink.finalize.assert_called_once()
         self.assertEqual(eleanor.ignite.call_args.kwargs["huffer_with"], (kernel, navigator))
 
     def test_dispatch_success_sampling_with_progress(self):
         """
         Ensure dispatch loops in success-sampling mode and joins progress.
+        Each call targets exactly simulation_size new successes; pre-existing
+        DB successes are not counted toward the target.
         """
         eleanor = self._make_eleanor()
         kernel = mock.Mock()
@@ -245,19 +260,25 @@ class TestEleanor(TestCase):
         eleanor.load_kernel = mock.Mock(return_value=kernel)
         eleanor.order.navigator = mock.Mock()
         eleanor.order.navigator.load.return_value = lambda *_args: navigator
-        eleanor.process = mock.Mock()
+        eleanor.process = mock.Mock(return_value=[
+            WriteOutcome(point_id=10, exit_code=0, committed=True),
+            WriteOutcome(point_id=11, exit_code=0, committed=True),
+        ])
+        sink = mock.Mock()
+        eleanor.load_output_sink = mock.Mock(return_value=sink)
 
         progress = SimpleNamespace(queue=mock.Mock(), join=mock.Mock())
         with (
             mock.patch("eleanor.eleanor.Pool", _Pool),
             mock.patch("eleanor.eleanor.Manager", return_value=object()),
             mock.patch("eleanor.eleanor.Progress", return_value=progress),
-            mock.patch("eleanor.eleanor.Eleanor.count_successes", side_effect=[1, 3]),
         ):
             out = eleanor.dispatch(2, show_progress=True, success_sampling=True, order_id=11)
 
         self.assertEqual(out, [11])
         eleanor.process.assert_called_once()
+        sink.begin_run.assert_called_once()
+        sink.finalize.assert_called_once()
         progress.join.assert_called_once()
 
     def test_process_requires_pool(self):
@@ -265,8 +286,9 @@ class TestEleanor(TestCase):
         Ensure process raises if no process pool is provided.
         """
         eleanor = self._make_eleanor()
+        sink = mock.Mock()
         with self.assertRaises(EleanorException):
-            eleanor.process(mock.Mock(), mock.Mock(), 1, 1, pool=None)
+            eleanor.process(mock.Mock(), mock.Mock(), 1, 1, pool=None, sink=sink)
 
     def test_process_batches_and_breaks_when_complete(self):
         """
@@ -279,13 +301,64 @@ class TestEleanor(TestCase):
         navigator.is_complete.return_value = True
         pool = _Pool()
         progress = mock.Mock()
+        compute_results = [
+            ComputeResult(point=SimpleNamespace(exit_code=0)),
+            ComputeResult(point=SimpleNamespace(exit_code=0)),
+        ]
+        pool.apply_async = mock.Mock(side_effect=[_Future(compute_results), _Future([])])
+        sink = mock.Mock()
+        sink.write_batch.return_value = [
+            WriteOutcome(point_id=10, exit_code=0, committed=True),
+            WriteOutcome(point_id=11, exit_code=0, committed=True),
+        ]
 
-        eleanor.process(kernel, navigator, 2, 9, pool=pool, progress=progress, success_sampling=True)
+        eleanor.process(kernel, navigator, 2, 9, pool=pool, sink=sink, progress=progress, success_sampling=True)
 
-        progress.put.assert_called_once_with(2)
+        progress.put.assert_any_call(2)
         self.assertEqual(pool.apply_async.call_count, 2)
+        sink.write_batch.assert_called_once_with(9, compute_results)
         is_complete_args = navigator.is_complete.call_args[0][0]
         self.assertEqual(sorted(is_complete_args), [10, 11])
+
+    def test_process_routes_worker_results_through_sink(self):
+        """
+        Ensure process writes worker results through OutputSink in the parent process.
+        """
+        from eleanor.output import ComputeResult, WriteOutcome
+
+        eleanor = self._make_eleanor()
+        kernel = mock.Mock()
+        navigator = mock.Mock()
+        navigator.navigate.return_value = ["a", "b"]
+        navigator.is_complete.return_value = True
+
+        point_a = SimpleNamespace(exit_code=0, exception=None)
+        point_b = SimpleNamespace(exit_code=1, exception=None)
+        worker_results = [
+            ComputeResult(point=point_a),
+            ComputeResult(point=point_b),
+        ]
+
+        pool = _Pool()
+        pool.apply_async = mock.Mock(side_effect=[_Future(worker_results), _Future([])])
+        sink = mock.Mock()
+        sink.write_batch.return_value = [
+            WriteOutcome(point_id=101, exit_code=0, committed=True),
+            WriteOutcome(point_id=102, exit_code=1, committed=True),
+        ]
+
+        eleanor.process(
+            kernel,
+            navigator,
+            2,
+            9,
+            pool=pool,
+            sink=sink,
+            progress=None,
+            success_sampling=True,
+        )
+
+        sink.write_batch.assert_called_once_with(9, worker_results)
 
     def test_load_kernel_constructs_and_sets_up_kernel(self):
         """
@@ -438,11 +511,3 @@ class TestEleanor(TestCase):
         self.assertIsNotNone(existing.huffer_result)
         self.assertEqual(existing.huffer_result.exit_code, 2)
 
-    def test_count_successes_queries_zero_exit_code(self):
-        """
-        Ensure count_successes executes the expected query/count flow.
-        """
-        yeoman = _Yeoman(count_value=12)
-        with mock.patch("eleanor.eleanor.Yeoman", return_value=yeoman):
-            out = Eleanor.count_successes("db", 42)
-        self.assertEqual(out, 12)

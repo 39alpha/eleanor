@@ -4,14 +4,14 @@ from queue import Queue
 
 from sqlalchemy import and_, select
 
-import eleanor.variable_space as vs
 from eleanor.sailor import Sailor
 
-from .config import Config, DatabaseConfig, load_config
+from .config import Config, load_config
 from .exceptions import EleanorException
 from .kernel.discover import import_kernel_module
 from .kernel.interface import AbstractKernel
 from .order import HufferResult, NavigatorProtocol, Order, load_order
+from .output import ComputeResult, OutputSink, PostgresSink, RunStats, WriteOutcome
 from .transformers import transform
 from .typing import Callable, EleanorKwargs, Self, Unpack, cast
 from .util import Progress, chunks
@@ -106,6 +106,7 @@ class Eleanor(object):
         num_procs = kwargs.get('num_procs', None)
         show_progress = kwargs.get('show_progress', False)
         success_sampling = kwargs.get('success_sampling', False)
+        verbose = kwargs.get('verbose', False)
 
         kernel = self.load_kernel(**kwargs)
         if self.order.navigator is None:
@@ -121,6 +122,7 @@ class Eleanor(object):
             if not no_huffer:
                 huffer_with = (kernel, navigator)
             order_id = self.ignite(*args, huffer_with=huffer_with, **kwargs)
+        self.order.id = order_id
 
         manager = Manager()
 
@@ -131,36 +133,44 @@ class Eleanor(object):
         if num_procs is not None and num_procs <= 0:
             num_procs = 1
 
+        output_sink = self.load_output_sink(verbose=bool(verbose))
+        output_sink.begin_run(self.order, self.order.huffer_result)
+
+        stats = RunStats()
+
         with Pool(processes=num_procs) as pool:
             if success_sampling:
-                successes = Eleanor.count_successes(self.config.database, order_id)
-                target_samples = successes + simulation_size
-
-                while successes < target_samples:
-                    self.process(
+                # Each call to dispatch targets exactly simulation_size new successful
+                # points. Pre-existing successes already in the database are not counted.
+                while stats.succeeded < simulation_size:
+                    outcomes = self.process(
                         kernel,
                         navigator,
-                        target_samples - successes,
+                        simulation_size - stats.succeeded,
                         order_id,
                         *args,
                         pool=pool,
+                        sink=output_sink,
                         progress=progress.queue if progress is not None else None,
                         **kwargs,
                     )
 
-                    successes = Eleanor.count_successes(self.config.database, order_id)
+                    stats.update(outcomes)
             else:
-                self.process(
+                outcomes = self.process(
                     kernel,
                     navigator,
                     simulation_size,
                     order_id,
                     *args,
                     pool=pool,
+                    sink=output_sink,
                     progress=progress.queue if progress is not None else None,
                     **kwargs,
                 )
+                stats.update(outcomes)
 
+        output_sink.finalize()
         if progress is not None:
             progress.join()
 
@@ -174,13 +184,15 @@ class Eleanor(object):
         order_id: int,
         *args: object,
         pool: ProcessPool | None = None,
+        sink: OutputSink,
         progress: Queue[bool | int] | None = None,
         **kwargs: Unpack[EleanorKwargs],
-    ) -> None:
+    ) -> list[WriteOutcome]:
         if pool is None:
             raise EleanorException('no process pool created')
 
         success_sampling = kwargs.get('success_sampling', False)
+        outcomes: list[WriteOutcome] = []
 
         while True:
             vs_points = navigator.navigate(simulation_size, order_id=order_id, max_attempts=1)
@@ -189,24 +201,42 @@ class Eleanor(object):
 
             vs_point_ids: list[int] = []
 
-            futures: list[AsyncResult[list[int]]] = []
+            futures: list[AsyncResult[list[ComputeResult]]] = []
             process_count = cast(int, getattr(pool, '_processes', 1))
-            sailor = Sailor(kernel, self.config.database)
             for batch in list(chunks(vs_points, process_count)):
-                sailor_kwargs: EleanorKwargs = {**kwargs, 'success_sampling': success_sampling}
+                sailor_kwargs: EleanorKwargs = {**kwargs}
                 future = pool.apply_async(
-                    sailor.dispatch,
+                    Sailor(kernel).dispatch,
                     (batch, *args),
-                    {**sailor_kwargs, 'progress': progress},
+                    sailor_kwargs,
                 )
                 futures.append(future)
 
+            compute_results: list[ComputeResult] = []
             while futures:
                 future = futures.pop()
-                vs_point_ids.extend(future.get())
+                compute_results.extend(future.get())
+
+            batch_outcomes = sink.write_batch(order_id, compute_results)
+            outcomes.extend(batch_outcomes)
+
+            for outcome in batch_outcomes:
+                if outcome.point_id is not None:
+                    vs_point_ids.append(outcome.point_id)
+                if progress is not None and (not success_sampling or outcome.exit_code == 0):
+                    progress.put(True)
 
             if navigator.is_complete(vs_point_ids):
                 break
+
+        return outcomes
+
+    def load_output_sink(self, verbose: bool = False) -> OutputSink:
+        match self.config.output.type:
+            case 'postgres':
+                return PostgresSink(self.config.database, verbose=verbose)
+            case _:
+                raise EleanorException(f'unsupported output sink type "{self.config.output.type}"')
 
     def load_kernel(self, **kwargs: Unpack[EleanorKwargs]) -> AbstractKernel:
         if self.order.kernel is None:
@@ -279,13 +309,3 @@ class Eleanor(object):
             raise EleanorException(f'Error: failed to create the order')
 
         return order_id
-
-    @staticmethod
-    def count_successes(config: DatabaseConfig, order_id: int) -> int:
-        with Yeoman(config) as yeoman:
-            successes = yeoman.query(vs.Point).filter(
-                and_(
-                    column_expr(vs.Point.exit_code == 0),
-                    column_expr(vs.Point.order_id == order_id),
-                )).count()
-            return successes

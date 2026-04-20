@@ -4,63 +4,53 @@ import sys
 import zipfile
 from datetime import datetime
 from os.path import join
-from queue import Queue
 from tempfile import TemporaryDirectory
 from traceback import print_exception
 
 import eleanor.equilibrium_space as es
 import eleanor.variable_space as vs
 
-from .config import DatabaseConfig
 from .exceptions import EleanorException
 from .kernel.interface import AbstractKernel
+from .output import ComputeResult, ErrorInfo
 from .typing import EleanorKwargs, Unpack
 from .util import WorkingDirectory
-from .yeoman import Yeoman
 
 
 class Sailor(object):
     kernel: AbstractKernel
-    config: DatabaseConfig | None
 
-    def __init__(self, kernel: AbstractKernel, config: DatabaseConfig | None = None):
+    def __init__(self, kernel: AbstractKernel):
         self.kernel = kernel
-        self.config = config
 
     def dispatch(
         self,
         points: vs.Point | list[vs.Point],
         *args: object,
-        progress: Queue[bool] | None = None,
         **kwargs: Unpack[EleanorKwargs],
-    ) -> list[int]:
-        if self.config is None:
-            raise EleanorException('cannot dispatch sailor without a config', code=-1)
+    ) -> list[ComputeResult]:
+        compute_results: list[ComputeResult] = []
 
-        success_sampling = kwargs.get('success_sampling', False)
+        point_list: list[vs.Point]
+        if isinstance(points, list):
+            point_list = points
+        else:
+            point_list = [points]
 
-        vs_point_ids: list[int] = []
-        with Yeoman(self.config) as yeoman:
-            if isinstance(points, list):
-                for point in points:
-                    vs_point = self.work(point, *args, **kwargs)
-                    show_progress = not success_sampling or vs_point.exit_code == 0
-                    yeoman.write(vs_point, refresh=True)
-                    if vs_point.id is None:
-                        raise EleanorException("variable space point does not have an id after insert")
-                    vs_point_ids.append(vs_point.id)
-                    if progress is not None and show_progress:
-                        progress.put(True)
-            else:
-                vs_point = self.work(points, *args, **kwargs)
-                show_progress = not success_sampling or vs_point.exit_code == 0
-                yeoman.write(vs_point, refresh=True)
-                if vs_point.id is None:
-                    raise EleanorException("variable space point does not have an id after insert")
-                vs_point_ids.append(vs_point.id)
-                if progress is not None and show_progress:
-                    progress.put(True)
-        return vs_point_ids
+        for point in point_list:
+            vs_point = self.work(point, *args, **kwargs)
+            exception: Exception | None = getattr(vs_point, 'exception', None)
+            error = None if exception is None else ErrorInfo.from_exception(exception)
+            if exception is not None:
+                vs_point.exception = None
+
+            compute_results.append(
+                ComputeResult(
+                    point=vs_point,
+                    error=error,
+                ))
+
+        return compute_results
 
     def work(
         self,

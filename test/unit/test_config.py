@@ -3,7 +3,7 @@ import textwrap
 from os.path import join
 from tempfile import TemporaryDirectory
 
-from eleanor.config import Config, DatabaseConfig, load_config
+from eleanor.config import Config, DatabaseConfig, OutputConfig, load_config
 from eleanor.exceptions import EleanorConfigurationException, EleanorException
 
 from .common import TestCase
@@ -244,3 +244,21 @@ class TestConfig(TestCase):
         cfg = Config(raw={'database': {'username': 'alice', 'password': 'secret'}})
         same = load_config(cfg)
         self.assertIs(same, cfg)
+
+    def test_config_has_default_output_target(self):
+        """
+        Ensure Config provides an explicit default output target for sink selection.
+        """
+        cfg = Config()
+        self.assertEqual(cfg.output.type, 'postgres')
+
+    def test_output_config_rejects_unsupported_type(self):
+        """
+        Ensure OutputConfig raises with a message that names the unsupported type
+        and lists all valid options, so the message stays aligned with _VALID_OUTPUT_TYPES.
+        """
+        with self.assertRaises(EleanorConfigurationException) as ctx:
+            OutputConfig(type='csv')
+        msg = str(ctx.exception)
+        self.assertIn('csv', msg)
+        self.assertIn('postgres', msg)

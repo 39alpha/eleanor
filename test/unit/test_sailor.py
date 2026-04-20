@@ -1,9 +1,8 @@
-from collections import deque
 from types import SimpleNamespace
 from unittest import mock
 
-from eleanor.config import DatabaseConfig
 from eleanor.exceptions import EleanorException
+from eleanor.output import ComputeResult
 from eleanor.sailor import Sailor
 
 from .common import TestCase
@@ -14,160 +13,51 @@ class TestSailor(TestCase):
     Tests of the eleanor.sailor module.
     """
 
-    def test_dispatch_requires_config(self):
+    def test_dispatch_returns_one_compute_result_per_point(self):
         """
-        Ensure that :meth:`Sailor.dispatch` rejects missing database configuration.
+        Ensure that list dispatch returns one ComputeResult per input point.
         """
-        sailor = Sailor(kernel=mock.Mock(), config=None)
-        with self.assertRaises(EleanorException):
-            sailor.dispatch([])
+        sailor = Sailor(kernel=mock.Mock())
+        points = [SimpleNamespace(exit_code=0), SimpleNamespace(exit_code=0)]
 
-    def test_dispatch_list_points_writes_ids_and_progress(self):
-        """
-        Ensure that list dispatch writes all points and reports progress for each successful point.
-        """
-        cfg = DatabaseConfig(database="db", username="u", password="p")
-        sailor = Sailor(kernel=mock.Mock(), config=cfg)
+        with mock.patch.object(Sailor, "work", side_effect=points) as work_mock:
+            results = sailor.dispatch([object(), object()])
 
-        points = [SimpleNamespace(id=10, exit_code=0), SimpleNamespace(id=11, exit_code=0)]
-        progress = mock.Mock()
-
-        class FakeYeoman:
-            def __init__(self, _config):
-                self.write = mock.Mock()
-
-            def __enter__(self):
-                return self
-
-            def __exit__(self, *args):
-                return None
-
-        yeoman = FakeYeoman(cfg)
-        with (
-            mock.patch("eleanor.sailor.Yeoman", return_value=yeoman),
-            mock.patch.object(Sailor, "work", side_effect=points) as work_mock,
-        ):
-            ids = sailor.dispatch([object(), object()], progress=progress, success_sampling=False)
-
-        self.assertEqual(ids, [10, 11])
+        self.assertEqual(len(results), 2)
+        self.assertTrue(all(isinstance(result, ComputeResult) for result in results))
+        self.assertIs(results[0].point, points[0])
+        self.assertIs(results[1].point, points[1])
         self.assertEqual(work_mock.call_count, 2)
-        self.assertEqual(yeoman.write.call_count, 2)
-        progress.put.assert_has_calls([mock.call(True), mock.call(True)])
 
-    def test_dispatch_success_sampling_filters_progress(self):
+    def test_dispatch_single_point_returns_compute_result(self):
         """
-        Ensure that success-sampling mode only reports progress for zero exit-code points.
+        Ensure single-point dispatch returns a single ComputeResult.
         """
-        cfg = DatabaseConfig(database="db", username="u", password="p")
-        sailor = Sailor(kernel=mock.Mock(), config=cfg)
+        sailor = Sailor(kernel=mock.Mock())
 
-        points = [SimpleNamespace(id=1, exit_code=0), SimpleNamespace(id=2, exit_code=1)]
-        progress = mock.Mock()
+        point = SimpleNamespace(exit_code=0)
+        with mock.patch.object(Sailor, "work", return_value=point):
+            results = sailor.dispatch(object())
 
-        class FakeYeoman:
-            def __init__(self, _config):
-                self.write = mock.Mock()
+        self.assertEqual(len(results), 1)
+        self.assertIsInstance(results[0], ComputeResult)
+        self.assertIs(results[0].point, point)
 
-            def __enter__(self):
-                return self
-
-            def __exit__(self, *args):
-                return None
-
-        yeoman = FakeYeoman(cfg)
-        with (
-            mock.patch("eleanor.sailor.Yeoman", return_value=yeoman),
-            mock.patch.object(Sailor, "work", side_effect=points),
-        ):
-            ids = sailor.dispatch([object(), object()], progress=progress, success_sampling=True)
-
-        self.assertEqual(ids, [1, 2])
-        progress.put.assert_called_once_with(True)
-
-    def test_dispatch_single_point_and_missing_id_error(self):
+    def test_dispatch_serializes_error_metadata_and_clears_exception(self):
         """
-        Ensure that single-point dispatch returns one id and fails if inserted id is missing.
+        Ensure dispatch converts exceptions into ErrorInfo and clears non-pickleable exception payloads.
         """
-        cfg = DatabaseConfig(database="db", username="u", password="p")
-        sailor = Sailor(kernel=mock.Mock(), config=cfg)
+        sailor = Sailor(kernel=mock.Mock())
 
-        class FakeYeoman:
-            def __init__(self, _config):
-                self.write = mock.Mock()
+        point = SimpleNamespace(exit_code=1, exception=RuntimeError("boom"))
+        with mock.patch.object(Sailor, "work", return_value=point):
+            results = sailor.dispatch([object()])
 
-            def __enter__(self):
-                return self
-
-            def __exit__(self, *args):
-                return None
-
-        good = SimpleNamespace(id=7, exit_code=0)
-        bad = SimpleNamespace(id=None, exit_code=0)
-
-        with (
-            mock.patch("eleanor.sailor.Yeoman", return_value=FakeYeoman(cfg)),
-            mock.patch.object(Sailor, "work", return_value=good),
-        ):
-            self.assertEqual(sailor.dispatch(object()), [7])
-
-        with (
-            mock.patch("eleanor.sailor.Yeoman", return_value=FakeYeoman(cfg)),
-            mock.patch.object(Sailor, "work", return_value=bad),
-        ):
-            with self.assertRaises(EleanorException):
-                sailor.dispatch(object())
-
-    def test_dispatch_list_missing_id_raises(self):
-        """
-        Ensure that list dispatch raises when any inserted point is missing an id.
-        """
-        cfg = DatabaseConfig(database="db", username="u", password="p")
-        sailor = Sailor(kernel=mock.Mock(), config=cfg)
-
-        class FakeYeoman:
-            def __init__(self, _config):
-                self.write = mock.Mock()
-
-            def __enter__(self):
-                return self
-
-            def __exit__(self, *args):
-                return None
-
-        bad = SimpleNamespace(id=None, exit_code=0)
-        with (
-            mock.patch("eleanor.sailor.Yeoman", return_value=FakeYeoman(cfg)),
-            mock.patch.object(Sailor, "work", return_value=bad),
-        ):
-            with self.assertRaises(EleanorException):
-                sailor.dispatch([object()])
-
-    def test_dispatch_single_point_reports_progress(self):
-        """
-        Ensure that single-point dispatch reports progress when requested.
-        """
-        cfg = DatabaseConfig(database="db", username="u", password="p")
-        sailor = Sailor(kernel=mock.Mock(), config=cfg)
-        progress = mock.Mock()
-
-        class FakeYeoman:
-            def __init__(self, _config):
-                self.write = mock.Mock()
-
-            def __enter__(self):
-                return self
-
-            def __exit__(self, *args):
-                return None
-
-        good = SimpleNamespace(id=8, exit_code=0)
-        with (
-            mock.patch("eleanor.sailor.Yeoman", return_value=FakeYeoman(cfg)),
-            mock.patch.object(Sailor, "work", return_value=good),
-        ):
-            ids = sailor.dispatch(object(), progress=progress)
-        self.assertEqual(ids, [8])
-        progress.put.assert_called_once_with(True)
+        self.assertEqual(len(results), 1)
+        self.assertIsNotNone(results[0].error)
+        self.assertEqual(results[0].error.type_name, "RuntimeError")  # type: ignore[union-attr]
+        self.assertEqual(results[0].error.message, "boom")  # type: ignore[union-attr]
+        self.assertIsNone(point.exception)
 
     def test_work_success_and_scratch(self):
         """
@@ -175,7 +65,7 @@ class TestSailor(TestCase):
         """
         kernel = mock.Mock()
         kernel.run.return_value = ["eq"]
-        sailor = Sailor(kernel=kernel, config=None)
+        sailor = Sailor(kernel=kernel)
 
         vs_point = SimpleNamespace()
         out = sailor.work(vs_point, scratch=False)
@@ -199,7 +89,7 @@ class TestSailor(TestCase):
         Ensure that work captures exceptions and sets exit codes for Eleanor and non-Eleanor errors.
         """
         kernel = mock.Mock()
-        sailor = Sailor(kernel=kernel, config=None)
+        sailor = Sailor(kernel=kernel)
 
         kernel.run.side_effect = EleanorException("boom", code=9)
         vs_point = SimpleNamespace()
@@ -223,7 +113,7 @@ class TestSailor(TestCase):
         """
         kernel = mock.Mock()
         kernel.run.side_effect = RuntimeError("oops")
-        sailor = Sailor(kernel=kernel, config=None)
+        sailor = Sailor(kernel=kernel)
         vs_point = SimpleNamespace(exit_code=0)
 
         with mock.patch("eleanor.sailor.print_exception") as print_mock:

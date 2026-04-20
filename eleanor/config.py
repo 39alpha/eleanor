@@ -22,9 +22,15 @@ class DatabaseRaw(TypedDict, total=False):
     sslmode: str | None
 
 
+class OutputRaw(TypedDict, total=False):
+    """Schema for the ``output`` section of a raw config document."""
+    type: str
+
+
 class ConfigRaw(TypedDict, total=False):
     """Schema for a raw config document loaded from YAML/TOML/JSON."""
     database: DatabaseRaw
+    output: OutputRaw
 
 
 @dataclass
@@ -65,17 +71,38 @@ class DatabaseConfig(object):
         )
 
 
+_VALID_OUTPUT_TYPES = {'postgres'}
+
+
+@dataclass
+class OutputConfig(object):
+    type: str = 'postgres'
+
+    def __post_init__(self):
+        if self.type not in _VALID_OUTPUT_TYPES:
+            valid = ', '.join(f'"{t}"' for t in sorted(_VALID_OUTPUT_TYPES))
+            msg = f'the "{self.type}" output type is not supported; choose one of {valid}'
+            raise EleanorConfigurationException(msg)
+
+    @staticmethod
+    def from_raw(raw: OutputRaw) -> "OutputConfig":
+        return OutputConfig(type=raw.get('type', 'postgres'))
+
+
 @dataclass(init=False)
 class Config(object):
     database: DatabaseConfig
+    output: OutputConfig
     raw: ConfigRaw
 
     def __init__(self, raw: ConfigRaw | None = None):
         if raw is None:
-            raw = ConfigRaw(database=DatabaseRaw())
+            raw = ConfigRaw(database=DatabaseRaw(), output=OutputRaw())
         object.__setattr__(self, 'raw', raw)
         raw_database = self.raw.get('database', DatabaseRaw())
+        raw_output = self.raw.get('output', OutputRaw())
         object.__setattr__(self, 'database', DatabaseConfig.from_raw(raw_database))
+        object.__setattr__(self, 'output', OutputConfig.from_raw(raw_output))
 
     @staticmethod
     def from_yaml(fname: str) -> "Config":

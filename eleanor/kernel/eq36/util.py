@@ -1,12 +1,9 @@
 import io
 import re
-import warnings
-from dataclasses import dataclass
+from typing import cast
 
-import numpy as np
-
-from eleanor.exceptions import EleanorException, EleanorFileException, EleanorParserException
-from eleanor.typing import Any, Number, Optional, Species
+from eleanor.exceptions import EleanorFileException, EleanorParserException
+from eleanor.typing import Species
 
 from .codes import RunCode
 
@@ -22,21 +19,20 @@ def field_as_float(field: str) -> float:
     """
     Parse a string from an EQ3/6 output file as a `float`
     """
-    match: re.Match[str] | list[Any] | None = re.match(r'([-\+]?\d+(\.\d+)?)([-\+]\d+)', field)
+    match = re.match(r'([-\+]?\d+(\.\d+)?)([-\+]\d+)', field)
     if match:
         return float(match[1] + 'e' + match[3])
-
-    match = re.findall(r'[0-9Ee\+\.-]+', field)
-    if match:
+    matches = cast(list[str], re.findall(r'[0-9Ee\+\.-]+', field))
+    if matches:
         try:
-            return float(match[0])
+            return float(matches[0])
         except ValueError:
             pass
 
     raise EleanorParserException(f'failed to read "{field}" as float')
 
 
-def read_pickup_lines(file: Optional[str | io.TextIOWrapper] = None) -> list[str]:
+def read_pickup_lines(file: str | io.TextIOWrapper | None = None) -> list[str]:
     if file is None:
         return read_pickup_lines('problem.3p')
 
@@ -58,7 +54,7 @@ def read_pickup_lines(file: Optional[str | io.TextIOWrapper] = None) -> list[str
 
 
 # DGM: I believe we can replace this with `read_eq6_output`
-def determine_species(file: Optional[str | io.TextIOWrapper] = None) -> Species:
+def determine_species(file: str | io.TextIOWrapper | None = None) -> Species:
     if file is None:
         return determine_species('problem.3o')
 
@@ -66,12 +62,13 @@ def determine_species(file: Optional[str | io.TextIOWrapper] = None) -> Species:
         with open(file, 'r') as handle:
             return determine_species(handle)
 
-    suppress = []
-    elements = []
-    aqueous_species = []
-    solids = []
-    solid_solutions = []
-    gases = []
+    suppress: list[str] = []
+    elements: list[str] = []
+    aqueous_species: list[str] = []
+    solids: list[str] = []
+    solid_solutions: list[str] = []
+    redox: list[str] = []
+    gases: list[str] = []
 
     lines = file.readlines()
 
@@ -86,12 +83,15 @@ def determine_species(file: Optional[str | io.TextIOWrapper] = None) -> Species:
             break
 
     # search for all other info from teh bottom of the file
+    start_idx = 0
     for i in range(len(lines) - 1, 0, -1):
         # find the beginning of the print section for the final system composition.
         if ' Done. Hybrid Newton-Raphson iteration converged in ' in lines[i]:
+            start_idx = i
             break
 
     # now count forward in lines against to read the system composition
+    i = start_idx
     while i < len(lines):
         if re.findall('^\n', lines[i]):
             i += 1
@@ -154,4 +154,4 @@ def determine_species(file: Optional[str | io.TextIOWrapper] = None) -> Species:
     solid_solutions = [solid_solution for solid_solution in solid_solutions if solid_solution not in suppress]
     gases = [gas for gas in gases if gas not in suppress]
 
-    return elements, aqueous_species, solids, solid_solutions, [], gases
+    return elements, aqueous_species, solids, solid_solutions, redox, gases

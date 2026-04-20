@@ -1,13 +1,18 @@
 import argparse
+from typing import Callable, Protocol, cast
 
 import eleanor.cli.huffer as huffer
 import eleanor.cli.run as run
 import eleanor.cli.schema as schema
 import eleanor.cli.scratch as scratch
-import eleanor.cli.util as util
 
 
-def main():
+class CLIArgs(Protocol):
+    command: str
+    func: Callable[[argparse.ArgumentParser, argparse.Namespace], object]
+
+
+def main() -> object:
     parser = argparse.ArgumentParser(
         prog='eleanor',
         description='Run eleanor or interact with a generated dataset',
@@ -16,10 +21,12 @@ def main():
 
     subparsers = parser.add_subparsers(required=True, dest='command')
 
-    huffer.init(subparsers.add_parser('huffer'))
-    run.init(subparsers.add_parser('run'))
-    schema.init(subparsers.add_parser('schema'))
-    scratch.init(subparsers.add_parser('scratch'))
+    _ = huffer.init(subparsers.add_parser('huffer'))
+    _ = run.init(subparsers.add_parser('run'))
+    _ = schema.init(subparsers.add_parser('schema'))
+    _ = scratch.init(subparsers.add_parser('scratch'))
 
-    args = parser.parse_args()
-    return args.func(subparsers.choices[args.command], args)
+    args_ns = parser.parse_args()
+    args = cast(CLIArgs, cast(object, args_ns))
+    command_parser = subparsers.choices[args.command]
+    return args.func(command_parser, args_ns)

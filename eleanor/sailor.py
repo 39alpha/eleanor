@@ -14,36 +14,36 @@ import eleanor.variable_space as vs
 from .config import DatabaseConfig
 from .exceptions import EleanorException
 from .kernel.interface import AbstractKernel
-from .typing import Optional
+from .typing import EleanorKwargs, Unpack
 from .util import WorkingDirectory
 from .yeoman import Yeoman
 
 
 class Sailor(object):
     kernel: AbstractKernel
-    config: Optional[DatabaseConfig]
+    config: DatabaseConfig | None
 
-    def __init__(self, kernel: AbstractKernel, config: Optional[DatabaseConfig] = None):
+    def __init__(self, kernel: AbstractKernel, config: DatabaseConfig | None = None):
         self.kernel = kernel
         self.config = config
 
     def dispatch(
         self,
         points: vs.Point | list[vs.Point],
-        *args,
-        progress: Optional[Queue[bool]] = None,
-        verbose: bool = False,
-        success_sampling: bool = False,
-        **kwargs,
+        *args: object,
+        progress: Queue[bool] | None = None,
+        **kwargs: Unpack[EleanorKwargs],
     ) -> list[int]:
         if self.config is None:
             raise EleanorException('cannot dispatch sailor without a config', code=-1)
+
+        success_sampling = kwargs.get('success_sampling', False)
 
         vs_point_ids: list[int] = []
         with Yeoman(self.config) as yeoman:
             if isinstance(points, list):
                 for point in points:
-                    vs_point = self.work(point, *args, verbose=verbose, **kwargs)
+                    vs_point = self.work(point, *args, **kwargs)
                     show_progress = not success_sampling or vs_point.exit_code == 0
                     yeoman.write(vs_point, refresh=True)
                     if vs_point.id is None:
@@ -52,7 +52,7 @@ class Sailor(object):
                     if progress is not None and show_progress:
                         progress.put(True)
             else:
-                vs_point = self.work(points, *args, verbose=verbose, **kwargs)
+                vs_point = self.work(points, *args, **kwargs)
                 show_progress = not success_sampling or vs_point.exit_code == 0
                 yeoman.write(vs_point, refresh=True)
                 if vs_point.id is None:
@@ -65,11 +65,12 @@ class Sailor(object):
     def work(
         self,
         vs_point: vs.Point,
-        *args,
-        scratch: bool = False,
-        verbose: bool = False,
-        **kwargs,
+        *args: object,
+        **kwargs: Unpack[EleanorKwargs],
     ) -> vs.Point:
+        scratch = kwargs.get('scratch', False)
+        verbose = kwargs.get('verbose', False)
+
         with TemporaryDirectory(prefix="eleanor_") as tempdir:
             with WorkingDirectory(tempdir):
                 vs_point.start_date = datetime.now()
@@ -89,7 +90,8 @@ class Sailor(object):
                     vs_point.scratch = Sailor.collect_scratch(tempdir)
                     vs_point.exception = e
                     if isinstance(e, EleanorException):
-                        vs_point.exit_code = e.code if e.code is not None else -1
+                        code = getattr(e, 'code', None)
+                        vs_point.exit_code = code if isinstance(code, int) else -1
                     else:
                         vs_point.exit_code = -1
 
@@ -99,12 +101,12 @@ class Sailor(object):
                 return vs_point
 
     @staticmethod
-    def collect_scratch(dir: str) -> Optional[vs.Scratch]:
+    def collect_scratch(dir: str) -> vs.Scratch | None:
         try:
             buffer = io.BytesIO()
             with zipfile.ZipFile(buffer, 'w', compression=zipfile.ZIP_BZIP2, allowZip64=True, compresslevel=9) as zip:
                 for filename in os.listdir(dir):
                     zip.write(join(dir, filename), filename)
             return vs.Scratch(id=None, zip=buffer.getvalue())
-        except Exception as e:
+        except Exception:
             return vs.Scratch(id=None, zip=bytes('\0', 'ascii'))

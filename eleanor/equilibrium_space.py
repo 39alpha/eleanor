@@ -1,14 +1,18 @@
 import math
-from dataclasses import dataclass, field
+from dataclasses import field
 from datetime import datetime
+from typing import final
 
 from sqlalchemy import Column, DateTime, Double, ForeignKey, Integer, String, Table
-from sqlalchemy.orm import declared_attr, relationship
+from sqlalchemy.orm import relationship
+from sqlalchemy.sql.schema import SchemaItem
 
-from .typing import Any, Optional
+from .typing import Callable, ClassVar, cast
 from .yeoman import JSONDict, yeoman_registry
+Column = cast(Callable[..., SchemaItem], Column)
 
 
+@final
 @yeoman_registry.mapped_as_dataclass
 class Element(object):
     __table__ = Table(
@@ -24,10 +28,11 @@ class Element(object):
     name: str
     log_molality: float
     mass_fraction: float
-    equilibrium_space_id: Optional[int] = None
-    id: Optional[int] = None
+    equilibrium_space_id: int | None = None
+    id: int | None = None
 
 
+@final
 @yeoman_registry.mapped_as_dataclass
 class AqueousSpecies(object):
     __table__ = Table(
@@ -45,10 +50,11 @@ class AqueousSpecies(object):
     log_molality: float
     log_activity: float
     log_gamma: float
-    equilibrium_space_id: Optional[int] = None
-    id: Optional[int] = None
+    equilibrium_space_id: int | None = None
+    id: int | None = None
 
 
+@final
 @yeoman_registry.mapped_as_dataclass(init=False)
 class PureSolid(object):
     __table__ = Table(
@@ -67,13 +73,14 @@ class PureSolid(object):
     name: str
     log_qk: float
     affinity: float
-    log_moles: Optional[float] = None
-    log_mass: Optional[float] = None
-    log_volume: Optional[float] = None
-    equilibrium_space_id: Optional[int] = None
-    id: Optional[int] = None
+    log_moles: float | None = None
+    log_mass: float | None = None
+    log_volume: float | None = None
+    equilibrium_space_id: int | None = None
+    id: int | None = None
 
 
+@final
 @yeoman_registry.mapped_as_dataclass
 class EndMember(object):
     __table__ = Table(
@@ -95,13 +102,14 @@ class EndMember(object):
     name: str
     log_qk: float
     affinity: float
-    log_moles: Optional[float] = None
-    log_mass: Optional[float] = None
-    log_volume: Optional[float] = None
-    equilibrium_space_id: Optional[int] = None
-    id: Optional[int] = None
+    log_moles: float | None = None
+    log_mass: float | None = None
+    log_volume: float | None = None
+    equilibrium_space_id: int | None = None
+    id: int | None = None
 
 
+@final
 @yeoman_registry.mapped_as_dataclass
 class SolidSolution(object):
     __table__ = Table(
@@ -117,7 +125,7 @@ class SolidSolution(object):
         Column('log_volume', Double, nullable=False, default=-math.inf),
     )
 
-    __mapper_args__: dict[str, Any] = {
+    __mapper_args__: ClassVar[dict[str, object]] = {
         'properties': {
             'end_members': relationship(EndMember, cascade="all, delete"),
         }
@@ -127,13 +135,14 @@ class SolidSolution(object):
     log_qk: float
     affinity: float
     end_members: list[EndMember]
-    log_moles: Optional[float] = None
-    log_mass: Optional[float] = None
-    log_volume: Optional[float] = None
-    equilibrium_space_id: Optional[int] = None
-    id: Optional[int] = None
+    log_moles: float | None = None
+    log_mass: float | None = None
+    log_volume: float | None = None
+    equilibrium_space_id: int | None = None
+    id: int | None = None
 
 
+@final
 @yeoman_registry.mapped_as_dataclass
 class Gas(object):
     __table__ = Table(
@@ -147,10 +156,11 @@ class Gas(object):
 
     name: str
     log_fugacity: float
-    equilibrium_space_id: Optional[int] = None
-    id: Optional[int] = None
+    equilibrium_space_id: int | None = None
+    id: int | None = None
 
 
+@final
 @yeoman_registry.mapped_as_dataclass
 class Reactant(object):
     __table__ = Table(
@@ -174,10 +184,11 @@ class Reactant(object):
     log_moles_remaining: float
     log_mass_reacted: float
     log_mass_remaining: float
-    equilibrium_space_id: Optional[int] = None
-    id: Optional[int] = None
+    equilibrium_space_id: int | None = None
+    id: int | None = None
 
 
+@final
 @yeoman_registry.mapped_as_dataclass
 class RedoxReaction(object):
     __table__ = Table(
@@ -197,10 +208,11 @@ class RedoxReaction(object):
     pe: float
     log_fO2: float
     Ah: float
-    equilibrium_space_id: Optional[int] = None
-    id: Optional[int] = None
+    equilibrium_space_id: int | None = None
+    id: int | None = None
 
 
+@final
 @yeoman_registry.mapped_as_dataclass(kw_only=True)
 class Point(object):
     __table__ = Table(
@@ -260,7 +272,7 @@ class Point(object):
         Column('custom_properties', JSONDict, nullable=False),
     )
 
-    __mapper_args__: dict[str, Any] = {
+    __mapper_args__: ClassVar[dict[str, object]] = {
         'properties': {
             'elements': relationship(Element, cascade="all, delete"),
             'aqueous_species': relationship(AqueousSpecies, cascade="all, delete"),
@@ -283,7 +295,6 @@ class Point(object):
     Eh: float
     pe: float
     Ah: float
-    pHCl: float
     log_ionic_strength: float
     log_stoichiometric_ionic_strength: float
     log_ionic_asymmetry: float
@@ -307,32 +318,33 @@ class Point(object):
     gases: list[Gas]
     redox_reactions: list[RedoxReaction]
 
-    log_xi: Optional[float] = None
-    pcH: Optional[float] = None
-    solution_volume: Optional[float] = None
-    expected_charge_imbalance: Optional[float] = None
-    sigma: Optional[float] = None
-    charge_discrepancy: Optional[float] = None
-    anions: Optional[float] = None
-    cations: Optional[float] = None
-    total_charge: Optional[float] = None
-    mean_charge: Optional[float] = None
-    extended_alkalinity: Optional[float] = None
-    overall_affinity: Optional[float] = None
-    reactant_mass_reacted: Optional[float] = None
-    reactant_mass_remaining: Optional[float] = None
-    solid_mass_change: Optional[float] = None
-    solid_mass_created: Optional[float] = None
-    solid_mass_destroyed: Optional[float] = None
-    solid_volume_change: Optional[float] = None
-    solid_volume_created: Optional[float] = None
-    solid_volume_destroyed: Optional[float] = None
+    log_xi: float | None = None
+    pcH: float | None = None
+    pHCl: float | None = None
+    solution_volume: float | None = None
+    expected_charge_imbalance: float | None = None
+    sigma: float | None = None
+    charge_discrepancy: float | None = None
+    anions: float | None = None
+    cations: float | None = None
+    total_charge: float | None = None
+    mean_charge: float | None = None
+    extended_alkalinity: float | None = None
+    overall_affinity: float | None = None
+    reactant_mass_reacted: float | None = None
+    reactant_mass_remaining: float | None = None
+    solid_mass_change: float | None = None
+    solid_mass_created: float | None = None
+    solid_mass_destroyed: float | None = None
+    solid_volume_change: float | None = None
+    solid_volume_created: float | None = None
+    solid_volume_destroyed: float | None = None
 
-    reactants: list[Reactant] = field(default_factory=list)
+    reactants: list[Reactant] = field(default_factory=lambda: cast(list[Reactant], []))
 
-    id: Optional[int] = None
-    variable_space_id: Optional[int] = None
-    start_date: Optional[datetime] = None
-    complete_date: Optional[datetime] = None
+    id: int | None = None
+    variable_space_id: int | None = None
+    start_date: datetime | None = None
+    complete_date: datetime | None = None
 
-    custom_properties: dict = field(default_factory=dict)
+    custom_properties: dict[str, object] = field(default_factory=lambda: cast(dict[str, object], {}))

@@ -2,23 +2,28 @@ import argparse
 import io
 import os
 import sys
-from dataclasses import asdict
 from zipfile import ZipFile
+from sqlalchemy import select
 
-from eleanor.cli.util import add_config_args, config_from_args
+from eleanor.cli.util import ConfigArgs, add_config_args, config_from_args, typed_args
 from eleanor.order import HufferResult
-from eleanor.yeoman import Yeoman, select
+from eleanor.yeoman import Yeoman
+
+
+class HufferArgs(ConfigArgs):
+    """Argparse fields accepted by the ``huffer`` command."""
+    order_id: int
+    outdir: str
 
 
 def init(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
     parser.description = 'Dump scratch results to a directory'
-
-    parser.add_argument(
+    _ = parser.add_argument(
         'order_id',
         type=int,
         help='the order id for the huffer entry',
     )
-    parser.add_argument(
+    _ = parser.add_argument(
         '-o',
         '--outdir',
         required=False,
@@ -34,20 +39,18 @@ def init(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
     return parser
 
 
-def execute(parser: argparse.ArgumentParser, ns: argparse.Namespace):
-    args = vars(ns)
+def execute(parser: argparse.ArgumentParser, ns: argparse.Namespace) -> None:
+    args = typed_args(HufferArgs, ns)
 
-    config_path = os.path.expanduser(str(args['config']))
+    print(f"Loading {args['config']}")
+    config = config_from_args(parser, args)
+
     order_id = args['order_id']
     directory = args['outdir']
-    database = args['database']
-
-    print(f'Loading {args["config"]}')
-    config = config_from_args(parser, args)
 
     try:
         with Yeoman(config.database) as yeoman:
-            result = yeoman.scalar(select(HufferResult).where(HufferResult.id == order_id))
+            result = yeoman.scalar(select(HufferResult).filter_by(id=order_id))
             if result is None:
                 raise Exception('no huffer result found')
 

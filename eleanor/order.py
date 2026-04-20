@@ -3,27 +3,147 @@ import json
 import operator
 import os.path
 import tomllib
-from abc import ABC, abstractmethod
 from copy import deepcopy
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
-from enum import StrEnum
 from importlib import import_module
+from typing import Protocol, TypedDict, final
 
 import yaml
 from sqlalchemy import Column, DateTime, ForeignKey, Index, Integer, String, Table
-from sqlalchemy.orm import reconstructor, relationship
+from sqlalchemy.orm import relationship
 
 import eleanor.variable_space as vs
 from eleanor.kernel.discover import import_kernel_module
+from eleanor.variable_space import Point as VSPoint
 
 from .exceptions import EleanorException
 from .kernel.config import Config as KernelConfig
-from .parameters import Parameter
-from .reactants import AbstractReactant, Reactant
-from .typing import Any, Callable, Optional, Self, cast
+from .kernel.config import Settings as KernelSettings
+from .parameters import Parameter, ParameterSource
+from .reactants import AbstractReactant, ReactantRaw
+from .typing import Callable, Self, cast
 from .util import is_list_of, mapreduce
-from .yeoman import Binary, JSONDict, yeoman_registry
+from .yeoman import Binary, JSONDict, reconstructor, yeoman_registry
+
+type RawMap = dict[str, object]
+
+
+# ``KernelRaw`` is intentionally an alias of ``RawMap``. The order parser only
+# knows the ``type`` key; the rest of the kernel block is kernel-specific and
+# validated inside ``<kernel_module>.Settings.from_dict``.
+type KernelRaw = RawMap
+
+
+class NavigatorRaw(TypedDict, total=False):
+    type: str
+
+
+class TransformerRaw(TypedDict, total=False):
+    type: str
+    args: RawMap
+
+
+# ``except`` is a Python keyword, so the functional TypedDict syntax is used.
+SuppressionRaw = TypedDict(
+    'SuppressionRaw',
+    {
+        'name': str | None,
+        'type': str | None,
+        'except': list[str],
+    },
+    total=False,
+)
+
+
+class SuborderRaw(TypedDict, total=False):
+    """Schema for a raw suborder document (also used for the top-level order).
+
+    All keys are optional at the schema level; runtime validation enforces
+    which are required in each concrete context.
+    """
+    name: str | None
+    notes: str | None
+    creator: str | None
+    kernel: KernelRaw
+    navigator: str | NavigatorRaw
+    water_mass: ParameterSource
+    temperature: ParameterSource
+    pressure: ParameterSource
+    elements: dict[str, ParameterSource]
+    species: dict[str, ParameterSource]
+    suppressions: list[str | SuppressionRaw]
+    reactants: dict[str, ReactantRaw]
+    constraints: list[RawMap]
+    suborders: 'SubordersRaw | list[SuborderRaw]'
+    transformers: list[str | TransformerRaw]
+
+
+class SubordersRaw(TypedDict, total=False):
+    combined: bool
+    proportional_sampling: bool
+    orders: list[SuborderRaw]
+
+
+class KernelSettingsClass(Protocol):
+    @staticmethod
+    def from_dict(raw: RawMap) -> KernelSettings:
+        ...
+
+
+def _require_opt_str(value: object, field_name: str) -> str | None:
+    """Validate that ``value`` is a string or ``None`` at runtime.
+
+    Used at the boundary between untrusted raw-dict input (YAML/TOML/JSON)
+    and the typed dataclass-backed suborder/order model. Taking ``object``
+    here (rather than the TypedDict's narrower ``str | None``) is deliberate:
+    it forces the ``isinstance`` check to be meaningful even when the caller
+    reads a field whose ``TypedDict`` declaration promises the right type.
+    """
+    if value is not None and not isinstance(value, str):
+        raise EleanorException(f'{field_name} must be a string')
+    return value
+
+
+def _require_str(value: object, field_name: str) -> str:
+    if not isinstance(value, str):
+        raise EleanorException(f'{field_name} must be a string')
+    return value
+
+
+def _build_transformer(value: object) -> 'TransformerConfig':
+    """Construct a :class:`TransformerConfig` from its raw string/dict form.
+
+    Accepting ``object`` rather than ``str | TransformerRaw`` keeps the
+    ``isinstance`` checks meaningful to the type checker: the TypedDict
+    declaration is aspirational, so a raw ``123`` from YAML still has to
+    be rejected at runtime.
+    """
+    if isinstance(value, str):
+        return TransformerConfig(type=value)
+    if isinstance(value, dict):
+        return TransformerConfig(**cast(TransformerRaw, cast(object, value)))
+    raise EleanorException(f'invalid transformer config "{value}"')
+
+
+def load_kernel_settings(kernel_raw: KernelRaw) -> tuple[str, KernelSettings]:
+    kernel_type = _require_str(kernel_raw.get('type'), 'kernel.type')
+    kernel_module = import_kernel_module(kernel_type)
+    settings_cls = cast(KernelSettingsClass, getattr(kernel_module, 'Settings'))
+    return kernel_type, settings_cls.from_dict(kernel_raw)
+
+
+class NavigatorProtocol(Protocol):
+    def navigate(self, scale: int, *args: object, **kwargs: object) -> list[vs.Point]:
+        ...
+    def huffer_problem(self, *args: object, **kwargs: object) -> vs.Point:
+        ...
+
+    def supports_success_sampling(self) -> bool:
+        ...
+
+    def is_complete(self, batch: list[int]) -> bool:
+        ...
 
 
 @dataclass
@@ -44,45 +164,45 @@ class NavigatorConfig(object):
 
         self.type = type
 
-    def load(self):
+    def load(self) -> Callable[..., NavigatorProtocol]:
         parts = self.type.split('.')
 
         module_name = '.'.join(parts[:-1])
         navigator_name = parts[-1]
 
         module = import_module(module_name)
-        return getattr(module, navigator_name)
+        return cast(Callable[..., NavigatorProtocol], getattr(module, navigator_name))
 
 
 @dataclass(init=False)
 class TransformerConfig(object):
     type: str
-    args: dict[str, Any]  # pyright: ignore[reportExplicitAny]
+    args: RawMap
 
-    def __init__(self, type: str = 'Random', args: dict[str, Any] | None = None):  # pyright: ignore[reportExplicitAny]
+    def __init__(self, type: str = 'Random', args: RawMap | None = None):
         if '.' not in type:
             type = 'eleanor.transformers.' + type
 
         self.type = type
         self.args = args if args is not None else {}
 
-    def load(self):  # pyright: ignore[reportAny]
+    def load(self) -> Callable[..., object]:
         parts = self.type.split('.')
 
         module_name = '.'.join(parts[:-1])
         transformer_name = parts[-1]
 
         module = import_module(module_name)
-        return getattr(module, transformer_name)  # pyright: ignore[reportAny]
+        return cast(Callable[..., object], getattr(module, transformer_name))
 
 
 @dataclass(init=False)
 class Suppression(object):
-    name: Optional[str]
-    type: Optional[str]
+    name: str | None
+    type: str | None
     exceptions: list[str]
 
-    def __init__(self, name: Optional[str], type: Optional[str], exceptions: list[str]):
+    def __init__(self, name: str | None, type: str | None, exceptions: list[str]):
         if name is None and type is None:
             raise EleanorException(f'suppression must have a name or a type')
 
@@ -91,24 +211,20 @@ class Suppression(object):
         self.exceptions = exceptions
 
     @staticmethod
-    def from_dict(raw: dict, name: Optional[str] = None):
+    def from_dict(raw: SuppressionRaw, name: str | None = None) -> "Suppression":
         if name is None:
-            name = raw.get('name')
+            name = _require_opt_str(raw.get('name'), 'suppression.name')
 
-        if not isinstance(name, (str, type(None))):
-            raise EleanorException(f'suppression name must be a string')
+        suppression_type = _require_opt_str(raw.get('type'), 'suppression.type')
 
-        suppression_type = raw.get('type')
-        if not isinstance(suppression_type, (str, type(None))):
-            raise EleanorException(f'supression type must be a string')
+        exceptions_raw = raw.get('except', [])
+        if not is_list_of(exceptions_raw, str, allowNone=False):
+            raise EleanorException(f'suppression exceptions must be a list of strings')
 
-        exceptions = raw.get('except', [])
-        if not is_list_of(exceptions, (str), allowNone=False):
-            raise EleanorException(f'suppression exceptions must be a list of int or float')
-
-        return Suppression(name, suppression_type, exceptions)
+        return Suppression(name, suppression_type, exceptions_raw)
 
 
+@final
 @yeoman_registry.mapped_as_dataclass(init=False)
 class HufferResult(object):
     __table__ = Table(
@@ -119,17 +235,17 @@ class HufferResult(object):
         Column('zip', Binary, nullable=False),
     )
 
-    id: Optional[int]
-    exit_code: Optional[int]
+    id: int | None
+    exit_code: int | None
     zip: bytes
 
-    def __init__(self, zip: bytes, exit_code: int, id: Optional[int] = None):
+    def __init__(self, zip: bytes, exit_code: int, id: int | None = None):
         self.id = id
         self.exit_code = exit_code
         self.zip = zip
 
     @classmethod
-    def from_scratch(cls, scratch: Optional[vs.Scratch], exit_code: int, id: Optional[int] = None):
+    def from_scratch(cls, scratch: vs.Scratch | None, exit_code: int, id: int | None = None):
         if scratch is None:
             zip = bytes('\0', 'ascii')
         else:
@@ -151,10 +267,10 @@ class Suborder(object):
     elements: dict[str, Parameter] | None = None
     species: dict[str, Parameter] | None = None
     suppressions: list[Suppression] | None = None
-    reactants: list[Reactant] | None = None
+    reactants: list[AbstractReactant] | None = None
     constraints: list[ConstraintConfig] | None = None
     suborders: Suborders | None = None
-    raw: dict[str, Any] = field(default_factory=dict)  # pyright: ignore[reportExplicitAny]
+    raw: SuborderRaw = field(default_factory=SuborderRaw)
 
     def volume(self):
         volume = 1.0
@@ -181,36 +297,28 @@ class Suborder(object):
         return volume
 
     @classmethod
-    def from_dict(cls, raw: dict[str, Any]) -> Self:
+    def from_dict(cls, raw: SuborderRaw | None) -> Self:
         suborder = cls()
 
         if raw is None:
-            raw = {}
+            raw = SuborderRaw()
 
         suborder.raw = raw
 
-        suborder.name = raw.get('name')
-        if suborder.name is not None and not isinstance(suborder.name, str):
-            raise EleanorException('name must be a string')
-
-        suborder.notes = raw.get('notes')
-        if suborder.notes is not None and not isinstance(suborder.notes, str):
-            raise EleanorException('notes must be a string')
-
-        suborder.creator = raw.get('creator')
-        if suborder.creator is not None and not isinstance(suborder.creator, str):
-            raise EleanorException('creator must be a string')
+        suborder.name = _require_opt_str(raw.get('name'), 'name')
+        suborder.notes = _require_opt_str(raw.get('notes'), 'notes')
+        suborder.creator = _require_opt_str(raw.get('creator'), 'creator')
 
         if 'kernel' in raw:
-            kernel_module = import_kernel_module(raw['kernel']['type'])
-            kernel_settings = kernel_module.Settings.from_dict(raw['kernel'])
-            suborder.kernel = KernelConfig(type=raw['kernel']['type'], settings=kernel_settings)  # type: ignore
+            kernel_type, kernel_settings = load_kernel_settings(raw['kernel'])
+            suborder.kernel = KernelConfig(type=kernel_type, settings=kernel_settings)
 
         if 'navigator' in raw:
-            if isinstance(raw['navigator'], str):
-                suborder.navigator = NavigatorConfig(type=raw['navigator'])
+            navigator_raw = raw['navigator']
+            if isinstance(navigator_raw, str):
+                suborder.navigator = NavigatorConfig(type=navigator_raw)
             else:
-                suborder.navigator = NavigatorConfig(**raw['navigator'])
+                suborder.navigator = NavigatorConfig(**navigator_raw)
 
         if 'water_mass' in raw:
             suborder.water_mass = Parameter.load(raw['water_mass'], 'water_mass')
@@ -222,27 +330,33 @@ class Suborder(object):
             suborder.pressure = Parameter.load(raw['pressure'], 'pressure')
 
         if 'elements' in raw:
+            elements_raw = raw.get('elements') or {}
             suborder.elements = {
                 name: Parameter.load(value, name=name)
-                for name, value in (raw.get('elements', {}) or {}).items()
+                for name, value in elements_raw.items()
             }
 
         if 'species' in raw:
+            species_raw = raw.get('species') or {}
             suborder.species = {
                 name: Parameter.load(value, name=name)
-                for name, value in (raw.get('species', {}) or {}).items()
+                for name, value in species_raw.items()
             }
 
         if 'suppressions' in raw:
+            suppressions_raw = raw.get('suppressions') or []
             suborder.suppressions = [
-                Suppression.from_dict({}, name=value) if isinstance(value, str) else Suppression.from_dict(value)
-                for value in raw.get('suppressions', []) or []
+                Suppression.from_dict(SuppressionRaw(), name=value)
+                if isinstance(value, str)
+                else Suppression.from_dict(value)
+                for value in suppressions_raw
             ]
 
         if 'reactants' in raw:
+            reactants_raw = raw.get('reactants') or {}
             suborder.reactants = [
                 AbstractReactant.from_dict(value, name=name)
-                for name, value in (raw.get('reactants', {}) or {}).items()
+                for name, value in reactants_raw.items()
             ]
 
         if 'constraints' in raw:
@@ -260,21 +374,22 @@ class Suborders(object):
     proportional_sampling: bool = False
     suborders: list[Suborder] = field(default_factory=list)
 
-    def __init__(self, raw: dict[str, Any] | list[dict[str, Any]]):
+    def __init__(self, raw: SubordersRaw | list[SuborderRaw]):
         if isinstance(raw, dict):
             self.combined = raw.get('combined', False)
             self.proportional_sampling = raw.get('proportional_sampling', False)
-            self.suborders = [Suborder.from_dict(suborder) for suborder in raw.get('orders', [])]
+            self.suborders = [Suborder.from_dict(s) for s in raw.get('orders', [])]
         else:
-            self.suborders = [Suborder.from_dict(suborder) for suborder in raw]
+            self.suborders = [Suborder.from_dict(s) for s in raw]
 
     def volume(self) -> float:
         return sum(map(lambda o: o.volume(), self.suborders))
 
 
+@final
 @yeoman_registry.mapped_as_dataclass(init=False)
 class Order(Suborder):
-    __table__ = Table(
+    __table__: Table = Table(
         'orders',
         yeoman_registry.metadata,
         Column('id', Integer, primary_key=True),
@@ -285,47 +400,38 @@ class Order(Suborder):
         Column('create_date', DateTime, nullable=False),
     )
 
-    __table_args__ = (Index('hash_version', 'hash', 'eleanor_version', unique=True), )
+    __table_args__: tuple[Index] = (Index('hash_version', 'hash', 'eleanor_version', unique=True), )
 
-    __mapper_args__ = {
+    __mapper_args__: dict[str, object] = {
         'properties': {
             'vs_points': relationship(vs.Point, cascade="all, delete"),
             'huffer_result': relationship(HufferResult, cascade="all, delete", uselist=False),
         }
     }
 
-    hash: str
-    name: str
-    notes: str
-    creator: str
-
-    kernel: KernelConfig
-    navigator: NavigatorConfig
-    water_mass: Parameter
-    temperature: Parameter
-    pressure: Parameter
-    elements: dict[str, Parameter]
-    species: dict[str, Parameter]
-    suppressions: list[Suppression]
-    reactants: list[Reactant]
-    constraints: list[ConstraintConfig]
+    hash: str = ''
     transformers: list[TransformerConfig]
 
     suborders: Suborders | None = None
 
-    huffer_result: Optional[HufferResult] = None
-    id: Optional[int] = None
-    vs_points: list[vs.Point] = field(default_factory=list)
+    huffer_result: HufferResult | None = None
+    id: int | None = None
+    vs_points: list[VSPoint] = field(default_factory=lambda: [])
     create_date: datetime = field(default_factory=datetime.now)
-    eleanor_version: Optional[str] = None
+    eleanor_version: str | None = None
 
     def __init__(
         self,
-        raw: dict,
-        huffer_result: Optional[HufferResult] = None,
-        vs_points: Optional[list[vs.Point]] = None,
-        create_date: Optional[datetime] = None,
+        raw: SuborderRaw,
+        huffer_result: HufferResult | None = None,
+        vs_points: list[VSPoint] | None = None,
+        create_date: datetime | None = None,
     ):
+        # Delegate to ``Suborder``'s dataclass-generated ``__init__`` so every
+        # inherited field is initialized to its declared default before
+        # ``__post_init__`` populates them from ``raw``. This also keeps
+        # basedpyright's ``reportMissingSuperCall`` check happy.
+        super().__init__()
         self.raw = raw
         self.huffer_result = huffer_result
         self.vs_points = [] if vs_points is None else vs_points
@@ -335,27 +441,19 @@ class Order(Suborder):
 
     @reconstructor
     def __post_init__(self):
-        self.name = self.raw['name']
-        if not isinstance(self.name, str):
-            raise EleanorException('name must be a string')
-
-        self.notes = self.raw.get('notes', '')
-        if not isinstance(self.notes, str):
-            raise EleanorException('notes must be a string')
-
-        self.creator = self.raw['creator']
-        if not isinstance(self.creator, str):
-            raise EleanorException('creator must be a string')
+        self.name = _require_str(self.raw.get('name'), 'name')
+        self.notes = _require_str(self.raw.get('notes', ''), 'notes')
+        self.creator = _require_str(self.raw.get('creator'), 'creator')
 
         if 'kernel' in self.raw:
-            kernel_module = import_kernel_module(self.raw['kernel']['type'])
-            kernel_settings = kernel_module.Settings.from_dict(self.raw['kernel'])
-            self.kernel = KernelConfig(type=self.raw['kernel']['type'], settings=kernel_settings)  # type: ignore
+            kernel_type, kernel_settings = load_kernel_settings(self.raw['kernel'])
+            self.kernel = KernelConfig(type=kernel_type, settings=kernel_settings)
 
-        if 'navigator' in self.raw and isinstance(self.raw['navigator'], str):
-            self.navigator = NavigatorConfig(type=self.raw['navigator'])
+        navigator_raw = self.raw.get('navigator', NavigatorRaw())
+        if isinstance(navigator_raw, str):
+            self.navigator = NavigatorConfig(type=navigator_raw)
         else:
-            self.navigator = NavigatorConfig(**self.raw.get('navigator', {}))
+            self.navigator = NavigatorConfig(**navigator_raw)
 
         self.water_mass = Parameter.load(self.raw.get('water_mass', 1.0), 'water_mass')
 
@@ -365,43 +463,40 @@ class Order(Suborder):
         if 'pressure' in self.raw:
             self.pressure = Parameter.load(self.raw['pressure'], 'pressure')
 
+        elements_raw = self.raw.get('elements') or {}
         self.elements = {
             name: Parameter.load(value, name=name)
-            for name, value in (self.raw.get('elements', {}) or {}).items()
+            for name, value in elements_raw.items()
         }
 
+        species_raw = self.raw.get('species') or {}
         self.species = {
             name: Parameter.load(value, name=name)
-            for name, value in (self.raw.get('species', {}) or {}).items()
+            for name, value in species_raw.items()
         }
 
+        suppressions_raw = self.raw.get('suppressions') or []
         self.suppressions = [
-            Suppression.from_dict({}, name=value) if isinstance(value, str) else Suppression.from_dict(value)
-            for value in self.raw.get('suppressions', []) or []
+            Suppression.from_dict(SuppressionRaw(), name=value)
+            if isinstance(value, str)
+            else Suppression.from_dict(value)
+            for value in suppressions_raw
         ]
 
+        reactants_raw = self.raw.get('reactants') or {}
         self.reactants = [
             AbstractReactant.from_dict(value, name=name)
-            for name, value in (self.raw.get('reactants', {}) or {}).items()
+            for name, value in reactants_raw.items()
         ]
 
         self.constraints = []
 
-        self.transformers = []
-        for transformer_config in self.raw.get('transformers', []):  # pyright: ignore[reportAny]
-            if isinstance(transformer_config, str):
-                transformer = TransformerConfig(type=transformer_config)
-            elif isinstance(transformer_config, dict):
-                transformer = TransformerConfig(**transformer_config)  # pyright: ignore[reportUnknownArgumentType]
-            else:
-                raise EleanorException(f'invalid transformer config "{transformer_config}"')
-
-            self.transformers.append(transformer)
+        transformers_raw = self.raw.get('transformers') or []
+        self.transformers = [_build_transformer(t) for t in transformers_raw]
 
         if 'suborders' in self.raw:
             self.suborders = Suborders(self.raw['suborders'])
-
-        self.rehash()
+        _ = self.rehash()
 
     def rehash(self) -> str:
         data = asdict(self)
@@ -464,7 +559,7 @@ class Order(Suborder):
                 if 'suborders' in order.raw:
                     del order.raw['suborders']
                 order.raw.update(suborder.raw)
-                order.rehash()
+                _ = order.rehash()
 
                 orders.append(order)
 
@@ -473,35 +568,29 @@ class Order(Suborder):
     @staticmethod
     def from_yaml(fname: str):
         with open(fname, 'rb') as handle:
-            raw = yaml.safe_load(handle)
-            return Order(raw)
+            return Order(cast(SuborderRaw, cast(object, yaml.safe_load(handle))))
 
     @staticmethod
     def from_yamls(content: str):
-        raw = yaml.safe_load(content)
-        return Order(raw)
+        return Order(cast(SuborderRaw, cast(object, yaml.safe_load(content))))
 
     @staticmethod
     def from_toml(fname: str):
         with open(fname, 'rb') as handle:
-            raw = tomllib.load(handle)
-            return Order(raw)
+            return Order(cast(SuborderRaw, cast(object, tomllib.load(handle))))
 
     @staticmethod
     def from_tomls(content: str):
-        raw = tomllib.loads(content)
-        return Order(raw)
+        return Order(cast(SuborderRaw, cast(object, tomllib.loads(content))))
 
     @staticmethod
     def from_json(fname: str):
         with open(fname, 'rb') as handle:
-            raw = json.load(handle)
-            return Order(raw)
+            return Order(cast(SuborderRaw, cast(object, json.load(handle))))
 
     @staticmethod
     def from_jsons(content: str):
-        raw = json.loads(content)
-        return Order(raw)
+        return Order(cast(SuborderRaw, cast(object, json.loads(content))))
 
     @staticmethod
     def from_file(fname: str):
@@ -518,7 +607,7 @@ class Order(Suborder):
                     return Order.from_json(fname)
                 case _:
                     raise RuntimeError(f'unsupported file extension "{ext}"')
-        except EleanorException as e:
+        except EleanorException:
             raise
         except Exception as e:
             raise EleanorException(f'failed to parse "{fname}" as yaml, toml or json') from e
@@ -527,5 +616,4 @@ class Order(Suborder):
 def load_order(order: str | Order) -> Order:
     if isinstance(order, str):
         order = Order.from_file(order)
-
-    return cast(Order, order)
+    return order

@@ -1,18 +1,22 @@
 import operator
 from dataclasses import dataclass, field
 from datetime import datetime
+from typing import final
 
 from sqlalchemy import CheckConstraint, Column, DateTime, Double, ForeignKey, Integer, String, Table
 from sqlalchemy.orm import relationship
+from sqlalchemy.sql.schema import SchemaItem
 
 import eleanor.equilibrium_space as es
 
 from .kernel.config import Config as KernelConfig
-from .typing import Optional
+from .typing import Callable, cast
 from .util import mapreduce
 from .yeoman import Binary, yeoman_registry
+Column = cast(Callable[..., SchemaItem], Column)
 
 
+@final
 @yeoman_registry.mapped
 @dataclass
 class SuppressionException(object):
@@ -25,10 +29,11 @@ class SuppressionException(object):
     )
 
     name: str
-    id: Optional[int] = None
-    suppression_id: Optional[int] = None
+    id: int | None = None
+    suppression_id: int | None = None
 
 
+@final
 @yeoman_registry.mapped
 @dataclass
 class Suppression(object):
@@ -48,13 +53,14 @@ class Suppression(object):
         }
     }
 
-    name: Optional[str]
-    type: Optional[str]
+    name: str | None
+    type: str | None
     exceptions: list[SuppressionException]
-    id: Optional[int] = None
-    variable_space_id: Optional[int] = None
+    id: int | None = None
+    variable_space_id: int | None = None
 
 
+@final
 @yeoman_registry.mapped_as_dataclass
 class MineralReactant(object):
     __table__ = Table(
@@ -70,10 +76,11 @@ class MineralReactant(object):
     name: str
     log_moles: float
     titration_rate: float
-    id: Optional[int]
-    variable_space_id: Optional[int]
+    id: int | None
+    variable_space_id: int | None
 
 
+@final
 @yeoman_registry.mapped_as_dataclass
 class AqueousReactant(object):
     __table__ = Table(
@@ -89,10 +96,11 @@ class AqueousReactant(object):
     name: str
     log_moles: float
     titration_rate: float
-    id: Optional[int]
-    variable_space_id: Optional[int]
+    id: int | None
+    variable_space_id: int | None
 
 
+@final
 @yeoman_registry.mapped_as_dataclass
 class GasReactant(object):
     __table__ = Table(
@@ -108,10 +116,11 @@ class GasReactant(object):
     name: str
     log_moles: float
     titration_rate: float
-    id: Optional[int]
-    variable_space_id: Optional[int]
+    id: int | None
+    variable_space_id: int | None
 
 
+@final
 @yeoman_registry.mapped_as_dataclass
 class ElementReactant(object):
     __table__ = Table(
@@ -127,10 +136,11 @@ class ElementReactant(object):
     name: str
     log_moles: float
     titration_rate: float
-    id: Optional[int]
-    variable_space_id: Optional[int]
+    id: int | None
+    variable_space_id: int | None
 
 
+@final
 @yeoman_registry.mapped_as_dataclass
 class SpecialReactantComposition(object):
     __table__ = Table(
@@ -144,10 +154,11 @@ class SpecialReactantComposition(object):
 
     element: str
     count: int
-    id: Optional[int] = None
-    special_reactant_id: Optional[int] = None
+    id: int | None = None
+    special_reactant_id: int | None = None
 
 
+@final
 @yeoman_registry.mapped_as_dataclass
 class SpecialReactant(object):
     __table__ = Table(
@@ -170,10 +181,11 @@ class SpecialReactant(object):
     log_moles: float
     titration_rate: float
     composition: list[SpecialReactantComposition]
-    id: Optional[int] = None
-    variable_space_id: Optional[int] = None
+    id: int | None = None
+    variable_space_id: int | None = None
 
 
+@final
 @yeoman_registry.mapped_as_dataclass
 class GlassReactantOxideComposition(object):
     __table__ = Table(
@@ -187,10 +199,11 @@ class GlassReactantOxideComposition(object):
 
     element: str
     count: int
-    id: Optional[int] = None
-    glass_reactant_oxide_id: Optional[int] = None
+    id: int | None = None
+    glass_reactant_oxide_id: int | None = None
 
 
+@final
 @yeoman_registry.mapped_as_dataclass
 class GlassReactantOxide(object):
     __table__ = Table(
@@ -215,10 +228,11 @@ class GlassReactantOxide(object):
     log_moles: float
     titration_rate: float
     composition: list[GlassReactantOxideComposition]
-    id: Optional[int] = None
-    glass_reactant_id: Optional[int] = None
+    id: int | None = None
+    glass_reactant_id: int | None = None
 
 
+@final
 @yeoman_registry.mapped_as_dataclass
 class GlassReactant(object):
     __table__ = Table(
@@ -241,10 +255,11 @@ class GlassReactant(object):
     log_moles: float
     titration_rate: float
     oxides: list[GlassReactantOxide]
-    id: Optional[int] = None
-    variable_space_id: Optional[int] = None
+    id: int | None = None
+    variable_space_id: int | None = None
 
 
+@final
 @yeoman_registry.mapped_as_dataclass
 class FixedGasReactant(object):
     __table__ = Table(
@@ -260,10 +275,11 @@ class FixedGasReactant(object):
     name: str
     log_moles: float
     log_fugacity: float
-    id: Optional[int]
-    variable_space_id: Optional[int]
+    id: int | None
+    variable_space_id: int | None
 
 
+@final
 @yeoman_registry.mapped_as_dataclass
 class SolidSolutionReactantEndMembers(object):
     __table__ = Table(
@@ -281,10 +297,11 @@ class SolidSolutionReactantEndMembers(object):
 
     name: str
     fraction: float
-    id: Optional[int] = None
-    solid_solution_reactant_id: Optional[int] = None
+    id: int | None = None
+    solid_solution_reactant_id: int | None = None
 
 
+@final
 @yeoman_registry.mapped_as_dataclass
 class SolidSolutionReactant(object):
     __table__ = Table(
@@ -307,10 +324,11 @@ class SolidSolutionReactant(object):
     log_moles: float
     titration_rate: float
     end_members: list[SolidSolutionReactantEndMembers]
-    id: Optional[int]
-    variable_space_id: Optional[int]
+    id: int | None
+    variable_space_id: int | None
 
 
+@final
 @yeoman_registry.mapped
 @dataclass
 class Element(object):
@@ -325,10 +343,11 @@ class Element(object):
 
     name: str
     log_molality: float
-    id: Optional[int] = None
-    variable_space_id: Optional[int] = None
+    id: int | None = None
+    variable_space_id: int | None = None
 
 
+@final
 @yeoman_registry.mapped
 @dataclass
 class Species(object):
@@ -343,10 +362,11 @@ class Species(object):
 
     name: str
     value: float
-    id: Optional[int] = None
-    variable_space_id: Optional[int] = None
+    id: int | None = None
+    variable_space_id: int | None = None
 
 
+@final
 @yeoman_registry.mapped
 @dataclass
 class Scratch(object):
@@ -357,10 +377,11 @@ class Scratch(object):
         Column('zip', Binary, nullable=False),
     )
 
-    id: Optional[int]
+    id: int | None
     zip: bytes
 
 
+@final
 @yeoman_registry.mapped
 @dataclass
 class Point(object):
@@ -412,20 +433,20 @@ class Point(object):
     fixed_gas_reactants: list[FixedGasReactant]
     solid_solution_reactants: list[SolidSolutionReactant]
     glass_reactants: list[GlassReactant]
-    id: Optional[int] = None
-    order_id: Optional[int] = None
+    id: int | None = None
+    order_id: int | None = None
     es_points: list[es.Point] = field(default_factory=list)
-    scratch: Optional[Scratch] = None
+    scratch: Scratch | None = None
     exit_code: int = 0
     create_date: datetime = field(default_factory=datetime.now)
-    exception: Optional[Exception] = None
-    start_date: Optional[datetime] = None
-    complete_date: Optional[datetime] = None
+    exception: Exception | None = None
+    start_date: datetime | None = None
+    complete_date: datetime | None = None
 
     def has_species_constraint(self, name: str) -> bool:
         return any(s.name == name for s in self.species)
 
-    def get_species(self, name: str) -> Optional[Species]:
+    def get_species(self, name: str) -> Species | None:
         for species in self.species:
             if species.name == name:
                 return species

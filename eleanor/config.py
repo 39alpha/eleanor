@@ -1,31 +1,49 @@
 import json
 import os.path
 import tomllib
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
+from typing import TypedDict, override
 
 import yaml
-from xdg_base_dirs import xdg_config_home
 
 from .exceptions import EleanorConfigurationException, EleanorException
-from .typing import Any, Callable, Optional, cast
+from .typing import cast
+
+
+class DatabaseRaw(TypedDict, total=False):
+    """Schema for the ``database`` section of a raw config document."""
+    dialect: str
+    dbapi: str | None
+    host: str | None
+    port: int | None
+    database: str | None
+    username: str | None
+    password: str | None
+    sslmode: str | None
+
+
+class ConfigRaw(TypedDict, total=False):
+    """Schema for a raw config document loaded from YAML/TOML/JSON."""
+    database: DatabaseRaw
 
 
 @dataclass
 class DatabaseConfig(object):
     dialect: str = 'postgresql'
-    dbapi: Optional[str] = 'psycopg'
-    host: Optional[str] = 'localhost'
-    port: Optional[int] = None
-    database: Optional[str] = None
-    username: Optional[str] = None
-    password: Optional[str] = None
-    sslmode: Optional[str] = None
+    dbapi: str | None = 'psycopg'
+    host: str | None = 'localhost'
+    port: int | None = None
+    database: str | None = None
+    username: str | None = None
+    password: str | None = None
+    sslmode: str | None = None
 
     def __post_init__(self):
         if self.dialect not in ['postgresql']:
             msg = f'the "{self.dialect}" database dialect is not supported; choose "postgresql"'
             raise EleanorConfigurationException(msg)
 
+    @override
     def __str__(self) -> str:
         identity = self.username if self.username is not None else ''
         if self.password is not None and self.password != "":
@@ -33,38 +51,52 @@ class DatabaseConfig(object):
         port = f':{self.port}' if self.port is not None else ''
         return f'{self.dialect}+{self.dbapi}://{identity}@{self.host}{port}/{self.database}'
 
+    @staticmethod
+    def from_raw(raw: DatabaseRaw) -> "DatabaseConfig":
+        return DatabaseConfig(
+            dialect=raw.get('dialect', 'postgresql'),
+            dbapi=raw.get('dbapi', 'psycopg'),
+            host=raw.get('host', 'localhost'),
+            port=raw.get('port'),
+            database=raw.get('database'),
+            username=raw.get('username'),
+            password=raw.get('password'),
+            sslmode=raw.get('sslmode'),
+        )
+
 
 @dataclass(init=False)
 class Config(object):
     database: DatabaseConfig
-    raw: dict[str, Any]
+    raw: ConfigRaw
 
-    def __init__(self, raw: Optional[dict[str, Any]] = None):
+    def __init__(self, raw: ConfigRaw | None = None):
         if raw is None:
-            raw = {'database': asdict(DatabaseConfig())}
+            raw = ConfigRaw(database=DatabaseRaw())
         object.__setattr__(self, 'raw', raw)
-        object.__setattr__(self, 'database', DatabaseConfig(**self.raw.get('database', {})))
+        raw_database = self.raw.get('database', DatabaseRaw())
+        object.__setattr__(self, 'database', DatabaseConfig.from_raw(raw_database))
 
     @staticmethod
-    def from_yaml(fname: str):
+    def from_yaml(fname: str) -> "Config":
         with open(fname, 'rb') as handle:
-            raw = yaml.safe_load(handle)
+            raw = cast(ConfigRaw, cast(object, yaml.safe_load(handle)))
             return Config(raw)
 
     @staticmethod
-    def from_toml(fname: str):
+    def from_toml(fname: str) -> "Config":
         with open(fname, 'rb') as handle:
-            raw = tomllib.load(handle)
+            raw = cast(ConfigRaw, cast(object, tomllib.load(handle)))
             return Config(raw)
 
     @staticmethod
-    def from_json(fname: str):
+    def from_json(fname: str) -> "Config":
         with open(fname, 'rb') as handle:
-            raw = json.load(handle)
+            raw = cast(ConfigRaw, cast(object, json.load(handle)))
             return Config(raw)
 
     @staticmethod
-    def from_file(fname: str):
+    def from_file(fname: str) -> "Config":
         try:
             _, ext = os.path.splitext(fname)
             match ext:
@@ -82,10 +114,9 @@ class Config(object):
             raise EleanorException(f'failed to parse "{fname}" as yaml, toml or json') from e
 
 
-def load_config(config: Optional[str | Config]) -> Config:
+def load_config(config: str | Config | None) -> Config:
     if config is None:
-        config = Config()
-    elif isinstance(config, str):
-        config = Config.from_file(config)
-
-    return cast(Config, config)
+        return Config()
+    if isinstance(config, str):
+        return Config.from_file(config)
+    return config

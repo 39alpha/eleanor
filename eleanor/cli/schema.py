@@ -1,17 +1,28 @@
 import argparse
 import sys
+from typing import Protocol
 
 from sqlalchemy import create_mock_engine
 
-from eleanor.cli.util import add_config_args, config_from_args
+from eleanor.cli.util import ConfigArgs, add_config_args, config_from_args, typed_args
 from eleanor.kernel.discover import import_all_kernels
 from eleanor.yeoman import yeoman_registry
+
+
+class SchemaArgs(ConfigArgs):
+    """Argparse fields accepted by the ``schema`` command."""
+    output: str | None
+
+
+class _Compilable(Protocol):
+    def compile(self) -> object:
+        ...
 
 
 def init(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
     parser.description = 'Dump an Eleanor database schema'
 
-    parser.add_argument(
+    _ = parser.add_argument(
         "-o",
         "--output",
         required=False,
@@ -26,21 +37,22 @@ def init(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
     return parser
 
 
-def execute(parser: argparse.ArgumentParser, ns: argparse.Namespace):
-    args = vars(ns)
+def execute(parser: argparse.ArgumentParser, ns: argparse.Namespace) -> None:
+    args = typed_args(SchemaArgs, ns)
 
-    import_all_kernels()
+    _ = import_all_kernels()
 
     config = config_from_args(parser, args)
 
-    if args['output'] is None:
-        file = sys.stdout
+    output = args['output']
+    if output is None:
+        stream = sys.stdout
     else:
-        file = open(args["output"], 'w')
+        stream = open(output, 'w')
 
-    def dump(sql, *multiparams, **params):
-        print(sql.compile(), file=file)
+    def dump(sql: _Compilable, *_multiparams: object, **_params: object) -> None:
+        print(sql.compile(), file=stream)
 
-    with file:
+    with stream:
         engine = create_mock_engine(str(config.database), dump)
         yeoman_registry.metadata.create_all(engine)

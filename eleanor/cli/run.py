@@ -2,46 +2,61 @@ import argparse
 from traceback import print_exception
 
 from eleanor import Eleanor
-from eleanor.cli.util import add_config_args, config_from_args
+from eleanor.cli.util import ConfigArgs, add_config_args, config_from_args, typed_args
+
+
+class RunArgs(ConfigArgs):
+    """Argparse fields accepted by the ``run`` command."""
+    order: str
+    simulation_size: int
+    num_procs: int | None
+    verbose: bool
+    scratch: bool
+    kernel_args: list[str] | None
+    progress: bool
+    no_huffer: bool
+    combined: bool
+    proportional: bool
+    success_sampling: bool
 
 
 def init(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
     parser.description = 'Run eleanor'
 
-    parser.add_argument('-n', '--num-procs', required=False, type=int, help='number of processes')
-    parser.add_argument('-v', '--verbose', required=False, action='store_true', help='enable verbose output')
-    parser.add_argument('-s', '--scratch', required=False, action='store_true', help='save scratch for all sailors')
-    parser.add_argument('-k', '--kernel-args', required=False, action='append', help='arguments to pass to the kernel')
-    parser.add_argument(
+    _ = parser.add_argument('-n', '--num-procs', required=False, type=int, help='number of processes')
+    _ = parser.add_argument('-v', '--verbose', required=False, action='store_true', help='enable verbose output')
+    _ = parser.add_argument('-s', '--scratch', required=False, action='store_true', help='save scratch for all sailors')
+    _ = parser.add_argument('-k', '--kernel-args', required=False, action='append', help='arguments to pass to the kernel')
+    _ = parser.add_argument(
         '-p',
         '--progress',
         required=False,
         action='store_true',
         help='enable progress bars (disabled by --verbose)',
     )
-    parser.add_argument('--no-huffer', required=False, action='store_true', help='disable the huffer')
-    parser.add_argument(
+    _ = parser.add_argument('--no-huffer', required=False, action='store_true', help='disable the huffer')
+    _ = parser.add_argument(
         '-C',
         '--combined',
         required=False,
         action='store_true',
         help='store suborders as a single order',
     )
-    parser.add_argument(
+    _ = parser.add_argument(
         '-P',
         '--proportional',
         required=False,
         action='store_true',
         help='use proportional sampling',
     )
-    parser.add_argument(
+    _ = parser.add_argument(
         '--success-sampling',
         required=False,
         action='store_true',
         help='sample size counts successes only',
     )
-    parser.add_argument('order', type=str, help='order file')
-    parser.add_argument('simulation_size', type=int, help='the size of the simulation')
+    _ = parser.add_argument('order', type=str, help='order file')
+    _ = parser.add_argument('simulation_size', type=int, help='the size of the simulation')
 
     add_config_args(parser)
 
@@ -50,42 +65,31 @@ def init(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
     return parser
 
 
-def execute(parser: argparse.ArgumentParser, ns: argparse.Namespace):
-    args = vars(ns)
+def execute(parser: argparse.ArgumentParser, ns: argparse.Namespace) -> None:
+    args = typed_args(RunArgs, ns)
 
-    order = args['order']
-    kernel_args = args['kernel_args']
-    no_huffer = args['no_huffer']
-    num_procs = args['num_procs']
-    simulation_size = args['simulation_size']
-    scratch = args['scratch']
-    show_progress = args['progress']
-    combined = args['combined']
-    proportional_sampling = args['proportional']
-    success_sampling = args['success_sampling']
-    verbose = args['verbose']
-
-    show_progress = show_progress and not verbose
+    kernel_args: list[object] = list(args['kernel_args'] or [])
+    show_progress = args['progress'] and not args['verbose']
 
     try:
         config = config_from_args(parser, args)
 
-        order_ids = Eleanor(config, order, kernel_args).run(
-            simulation_size,
-            no_huffer=no_huffer,
-            num_procs=num_procs,
-            scratch=scratch,
+        order_ids = Eleanor(config, args['order'], kernel_args).run(
+            args['simulation_size'],
+            no_huffer=args['no_huffer'],
+            num_procs=args['num_procs'],
+            scratch=args['scratch'],
             show_progress=show_progress,
-            combined=combined,
-            proportional_sampling=proportional_sampling,
-            success_sampling=success_sampling,
-            verbose=verbose,
+            combined=args['combined'],
+            proportional_sampling=args['proportional'],
+            success_sampling=args['success_sampling'],
+            verbose=args['verbose'],
         )
 
-        if verbose:
+        if args['verbose']:
             print("Orders created or extended:", order_ids)
     except Exception as e:
-        if verbose:
+        if args['verbose']:
             print_exception(e)
         else:
             print(e)

@@ -1,26 +1,62 @@
-import itertools
-import random
 from abc import ABC, abstractmethod
 from copy import deepcopy
 from dataclasses import dataclass
 from itertools import cycle, islice
+from typing import TypedDict, override
 
 import numpy as np
+import numpy.typing as npt
 import scipy.special
 import scipy.stats
 
 from eleanor.exceptions import EleanorException
-from eleanor.typing import Any, Number, Optional, Self
+from eleanor.typing import Number, Self, cast
 from eleanor.util import convert_to_number
+
+type RawParameter = dict[str, object]
+
+type ParameterScalar = Number | str | bool
+
+
+class ParameterRaw(TypedDict, total=False):
+    """Raw schema for a parameter dict accepted by :meth:`Parameter.from_dict`.
+
+    All fields are optional because a raw parameter may take any of four
+    shapes (``value``, ``values``, ``mean[/stddev/min/max]``, ``min+max``);
+    the runtime validator below dispatches on which keys are present.
+    """
+    name: str | None
+    type: object  # validated at runtime as ``str | None``
+    value: ParameterScalar
+    values: list[ParameterScalar]
+    mean: ParameterScalar
+    stddev: ParameterScalar
+    min: ParameterScalar
+    max: ParameterScalar
+
+
+# ``ParameterSource`` captures every shape :meth:`Parameter.load` accepts.
+type ParameterSource = ParameterRaw | list[ParameterScalar] | ParameterScalar
+
+
+def _as_float(value: object) -> float:
+    return float(convert_to_number(cast(Number | str, value)))
+
+def _as_float_array(values: object) -> npt.NDArray[np.float64]:
+    return np.atleast_1d(np.asarray(values, dtype=np.float64))
+
+
+def _as_int_array(values: object) -> npt.NDArray[np.int_]:
+    return np.atleast_1d(np.asarray(values, dtype=np.int_))
 
 
 @dataclass
 class Parameter(ABC):
     name: str
-    type: Optional[str]
+    type: str | None
 
     @abstractmethod
-    def in_domain(self, parameter) -> bool:
+    def in_domain(self, parameter: "Parameter") -> bool:
         return False
 
     @abstractmethod
@@ -32,22 +68,22 @@ class Parameter(ABC):
         return 1.0
 
     @abstractmethod
-    def random(self, size: int = 1):
+    def random(self, size: int = 1) -> list["ValueParameter"]:
         pass
 
     @abstractmethod
-    def lattice(self, size: int = 2):
+    def lattice(self, size: int = 2) -> list["ValueParameter"]:
         pass
 
-    def restrict(self, cls, *args, **kwargs):
+    def restrict(self, cls: type["Parameter"], *args: object, **kwargs: object) -> "Parameter":
         new = cls(self.name, self.type, *args, **kwargs)
         return Parameter.refine(new)
 
-    def fix(self, value: Number):
+    def fix(self, value: Number) -> "Parameter":
         return self.restrict(ValueParameter, value)
 
     @staticmethod
-    def refine(parameter):
+    def refine(parameter: "Parameter") -> "Parameter":
         if isinstance(parameter, RangeParameter) and parameter.min == parameter.max:
             return parameter.fix(parameter.min)
         elif isinstance(parameter, ListParameter):
@@ -58,67 +94,75 @@ class Parameter(ABC):
         return parameter
 
     @classmethod
-    def from_dict(cls, raw: dict[str, Any], name: Optional[str] = None):
+    def from_dict(cls, raw: ParameterRaw, name: str | None = None) -> "Parameter":
         if name is None:
-            name = raw['name']
+            name = raw.get('name')
         if not isinstance(name, str):
             raise EleanorException('parameter name must be a string')
 
         param_type = raw.get('type')
-        if not isinstance(param_type, (str, type(None))):
+        if param_type is not None and not isinstance(param_type, str):
             raise EleanorException('parameter type must be a string or None')
 
-        match raw:
-            case {'value': value}:
-                parameter: Parameter = ValueParameter(name, param_type, convert_to_number(value))
-            case {'values': values}:
-                parameter = ListParameter(name, param_type, [convert_to_number(v) for v in values])
-            case {'mean': mean}:
-                stddev = convert_to_number(raw['stddev']) if 'stddev' in raw else None
-                a = convert_to_number(raw['min']) if 'min' in raw else float('-inf')
-                b = convert_to_number(raw['max']) if 'max' in raw else float('inf')
-                parameter = NormalParameter(name, param_type, convert_to_number(mean), stddev=stddev, a=a, b=b)
-            case {'min': min, 'max': max}:
-                parameter = RangeParameter(name, param_type, convert_to_number(min), convert_to_number(max))
-            case _:
-                raise EleanorException('parameter must have value, values or min and max')
+        if 'value' in raw:
+            parameter: Parameter = ValueParameter(name, param_type, _as_float(raw['value']))
+        elif 'values' in raw:
+            parameter = ListParameter(name, param_type, [_as_float(v) for v in raw['values']])
+        elif 'mean' in raw:
+            mean = _as_float(raw['mean'])
+            stddev = _as_float(raw['stddev']) if 'stddev' in raw else None
+            a = _as_float(raw['min']) if 'min' in raw else -np.inf
+            b = _as_float(raw['max']) if 'max' in raw else np.inf
+            parameter = NormalParameter(name, param_type, mean, stddev=stddev, a=a, b=b)
+        elif 'min' in raw and 'max' in raw:
+            parameter = RangeParameter(name, param_type, _as_float(raw['min']), _as_float(raw['max']))
+        else:
+            raise EleanorException('parameter must have value, values or min and max')
 
         return cls.refine(parameter)
 
     @classmethod
-    def load(cls, raw: Any, name: Optional[str] = None):
+    def load(cls, raw: object, name: str | None = None) -> "Parameter":
         if isinstance(raw, dict):
-            return cls.from_dict(raw, name=name)
+            return cls.from_dict(cast(ParameterRaw, cast(object, raw)), name=name)
         elif isinstance(raw, list):
-            return cls.from_dict({'values': raw}, name=name)
+            return cls.from_dict(
+                ParameterRaw(values=cast(list[ParameterScalar], cast(object, raw))),
+                name=name,
+            )
         else:
-            return cls.from_dict({'value': raw}, name=name)
+            return cls.from_dict(ParameterRaw(value=cast(ParameterScalar, raw)), name=name)
 
 
 @dataclass
 class ValueParameter(Parameter):
     value: Number
 
+    @override
     def in_domain(self, parameter: Parameter) -> bool:
         if not isinstance(parameter, ValueParameter):
             return False
 
         return parameter.value == self.value
 
+    @override
     def range(self) -> tuple[Number, Number]:
         return self.value, self.value
 
+    @override
     def volume(self) -> float:
         return 1.0
 
+    @override
     def random(self, size: int = 1) -> list[Self]:
         return [deepcopy(self) for _ in range(size)]
 
+    @override
     def lattice(self, size: int = 2) -> list[Self]:
         return [deepcopy(self) for _ in range(size)]
 
 
-Parameter.register(ValueParameter)
+_ = Parameter.register(ValueParameter)
 
 
 @dataclass(init=False)
@@ -126,15 +170,15 @@ class RangeParameter(Parameter):
     min: Number
     max: Number
 
-    def __init__(self, name: str, type: Optional[str], a: Number, b: Number):
-        self.name = name
-        self.type = type
+    def __init__(self, name: str, type: str | None, a: Number, b: Number):
+        super().__init__(name, type)
         self.min, self.max = min(a, b), max(a, b)
 
     @property
     def bounds(self) -> tuple[ValueParameter, ValueParameter]:
-        return self.fix(self.min), self.fix(self.max)
+        return ValueParameter(self.name, self.type, self.min), ValueParameter(self.name, self.type, self.max)
 
+    @override
     def in_domain(self, parameter: Parameter) -> bool:
         if isinstance(parameter, ValueParameter):
             return self.min <= parameter.value and parameter.value <= self.max
@@ -145,40 +189,43 @@ class RangeParameter(Parameter):
 
         return False
 
+    @override
     def range(self) -> tuple[Number, Number]:
         return self.min, self.max
 
+    @override
     def volume(self) -> float:
         return self.max - self.min
 
+    @override
     def random(self, size: int = 1) -> list[ValueParameter]:
-        return [
-            self.fix(float(value))
-            for value in scipy.stats.uniform.rvs(loc=self.min, scale=self.volume(), size=size)  # type: ignore
-        ]
+        values = _as_float_array(cast(object, scipy.stats.uniform.rvs(loc=self.min, scale=self.volume(), size=size)))
+        return [ValueParameter(self.name, self.type, float(cast(Number, values.item(i)))) for i in range(values.size)]
 
+    @override
     def lattice(self, size: int = 2) -> list[ValueParameter]:
-        return [self.fix(float(value)) for value in np.linspace(self.min, self.max, num=size)]
+        values = _as_float_array(np.linspace(self.min, self.max, num=size))
+        return [ValueParameter(self.name, self.type, float(cast(Number, values.item(i)))) for i in range(values.size)]
 
 
-Parameter.register(RangeParameter)
+_ = Parameter.register(RangeParameter)
 
 
 @dataclass
 class ListParameter(Parameter):
     values: list[Number]
 
-    def __init__(self, name: str, type: Optional[str], values: list[Number]):
+    def __init__(self, name: str, type: str | None, values: list[Number]):
         if not values:
-            raise EleanorException(f'cannot create the empty ListParameter "{name}"')
-        self.name = name
-        self.type = type
+            raise EleanorException(f'cannot create the empty ListParameter \"{name}\"')
+        super().__init__(name, type)
         self.values = sorted(values)
 
     @property
     def elements(self) -> list[ValueParameter]:
-        return [self.fix(v) for v in self.values]
+        return [ValueParameter(self.name, self.type, v) for v in self.values]
 
+    @override
     def in_domain(self, parameter: Parameter) -> bool:
         if isinstance(parameter, ValueParameter):
             return parameter.value in self.values
@@ -190,21 +237,25 @@ class ListParameter(Parameter):
 
         return False
 
+    @override
     def range(self) -> tuple[Number, Number]:
         return min(self.values), max(self.values)
 
+    @override
     def volume(self) -> float:
         return len(self.values)
 
+    @override
     def random(self, size: int = 1) -> list[ValueParameter]:
-        return [self.fix(self.values[i])
-                for i in scipy.stats.randint.rvs(0, len(self.values), size=size)]  # type: ignore
+        indices = _as_int_array(cast(object, scipy.stats.randint.rvs(0, len(self.values), size=size)))
+        return [ValueParameter(self.name, self.type, self.values[int(cast(Number, indices.item(i)))]) for i in range(indices.size)]
 
+    @override
     def lattice(self, size: int = 2) -> list[ValueParameter]:
-        return list(map(self.fix, islice(cycle(self.values), size)))
+        return [ValueParameter(self.name, self.type, value) for value in islice(cycle(self.values), size)]
 
 
-Parameter.register(ListParameter)
+_ = Parameter.register(ListParameter)
 
 
 @dataclass
@@ -217,14 +268,13 @@ class NormalParameter(Parameter):
     def __init__(
             self,
             name: str,
-            type: Optional[str],
+            type: str | None,
             mean: Number,
-            stddev: Optional[Number] = None,
-            a: Number = float('-inf'),
-            b: Number = float('inf'),
+            stddev: Number | None = None,
+            a: Number = -np.inf,
+            b: Number = np.inf,
     ):
-        self.name = name
-        self.type = type
+        super().__init__(name, type)
         self.mean = mean
         self.min, self.max = min(a, b), max(a, b)
 
@@ -236,43 +286,48 @@ class NormalParameter(Parameter):
         else:
             self.stddev = stddev
 
+    @override
     def in_domain(self, parameter: Parameter) -> bool:
         return True
 
+    @override
     def range(self) -> tuple[Number, Number]:
         return -float('inf'), float('inf')
 
+    @override
     def volume(self) -> float:
         return 1.0
 
+    @override
     def random(self, size: int = 1) -> list[ValueParameter]:
         if np.isinf(self.min) and np.isinf(self.max):
-            values = scipy.stats.norm.rvs(loc=self.mean, scale=self.stddev, size=size)
+            draws = cast(object, scipy.stats.norm.rvs(loc=self.mean, scale=self.stddev, size=size))
         else:
             a = (self.min - self.mean) / self.stddev
             b = (self.max - self.mean) / self.stddev
+            draws = cast(object, scipy.stats.truncnorm.rvs(a, b, loc=self.mean, scale=self.stddev, size=size))
 
-            values = scipy.stats.truncnorm.rvs(a, b, loc=self.mean, scale=self.stddev, size=size)
+        samples = _as_float_array(draws)
+        return [ValueParameter(self.name, self.type, float(cast(Number, samples.item(i)))) for i in range(samples.size)]
 
-        return [self.fix(value) for value in values]  # type: ignore
-
+    @override
     def lattice(self, size: int = 2) -> list[ValueParameter]:
-        u = np.linspace(0, 1, num=size + 2)[1:-1]
+        u = _as_float_array(np.linspace(0, 1, num=size + 2)[1:-1])
 
         if not np.isinf(self.min) or not np.isinf(self.max):
             a = (self.min - self.mean) / self.stddev
             b = (self.max - self.mean) / self.stddev
 
-            phi_alpha = scipy.stats.norm.cdf(a)
-            Z = scipy.stats.norm.cdf(b) - phi_alpha
+            phi_alpha = _as_float(cast(object, scipy.stats.norm.cdf(a)))
+            Z = _as_float(cast(object, scipy.stats.norm.cdf(b))) - phi_alpha
 
             u = Z * u + phi_alpha
 
-        values = self.stddev * np.sqrt(2) * scipy.special.erfinv(2 * u - 1) + self.mean
-        return [self.fix(float(value)) for value in values]
+        values = _as_float_array(cast(object, self.stddev * np.sqrt(2) * scipy.special.erfinv(2 * u - 1) + self.mean))
+        return [ValueParameter(self.name, self.type, float(cast(Number, values.item(i)))) for i in range(values.size)]
 
 
-Parameter.register(NormalParameter)
+_ = Parameter.register(NormalParameter)
 
 Valuation = dict[int, Parameter]
 

@@ -5,22 +5,42 @@ from enum import IntEnum
 from eleanor.exceptions import EleanorException
 from eleanor.kernel.config import Settings as KernelSettings
 from eleanor.kernel.exceptions import EleanorKernelException
-from eleanor.typing import Number, Optional, Self
+from eleanor.typing import Number, Self, TypeVar, cast
 
 
-def get_setting(cfg: dict[str, int], setting, default=None):
+SettingT = TypeVar('SettingT', bound=IntEnum)
+
+
+def _get_float(cfg: dict[str, object], key: str, default: float) -> float:
+    """Read ``key`` from ``cfg`` and coerce to ``float``, using ``default`` if missing.
+
+    Consolidates the ``float(cast(Number | str, cfg.get(key, default)))``
+    pattern so the numeric-cast boilerplate lives in a single place.
+    """
+    return float(cast(Number | str, cfg.get(key, default)))
+
+
+def _get_int(cfg: dict[str, object], key: str, default: int) -> int:
+    """Read ``key`` from ``cfg`` and coerce to ``int``, using ``default`` if missing."""
+    return int(cast(Number | str, cfg.get(key, default)))
+
+
+def get_setting(cfg: dict[str, object], setting: type[SettingT], default: SettingT | None = None) -> SettingT:
     key: str = setting.__name__.lower()
-    value: Optional[Number | str] = cfg.get(key, default)
+    value: object | None = cfg.get(key, default)
     if value is None:
         raise EleanorKernelException(f'config option {key} is required')
 
     try:
+        if isinstance(value, setting):
+            return value
         if isinstance(value, str):
             return setting[value]
-        else:
+        if isinstance(value, int):
             return setting(value)
     except Exception as e:
         raise EleanorKernelException(f'unexpected value for option {key}') from e
+    raise EleanorKernelException(f'unexpected value for option {key}')
 
 
 class JTEMP(IntEnum):
@@ -429,7 +449,7 @@ EQ36_MODEL_EXTENSIONS: dict[str, str] = {
 
 @dataclass
 class Eq3Config(object):
-    id: Optional[int] = None
+    id: int | None = None
     iopt_1: IOPT_1 = IOPT_1.CLOSED_SYS
     iopt_2: IOPT_2 = IOPT_2.ARBITRARY_KINETICS
     iopt_3: IOPT_3 = IOPT_3.STEP_SIZE_BY_PHASE_BOUNDARIES
@@ -518,7 +538,7 @@ class Eq3Config(object):
 
 @dataclass
 class Eq6Config(object):
-    id: Optional[int] = None
+    id: int | None = None
     jtemp: JTEMP = JTEMP.CONSTANT_T
     ttk1: float = 0
     ttk2: float = 0
@@ -613,27 +633,27 @@ class Eq6Config(object):
 
 @dataclass(kw_only=True)
 class Settings(KernelSettings):
-    model: str
+    model: IOPG_1
     charge_balance: str
     eq3_config: Eq3Config
-    eq6_config: Optional[Eq6Config] = None
-    data1_file: Optional[str] = None
+    eq6_config: Eq6Config | None = None
+    data1_file: str | None = None
     track_path: bool = False
     basis_map: dict[str, str] = field(default_factory=dict)
     redox_species: str = 'fO2'
 
     @classmethod
-    def from_dict(cls, raw: dict):
-        model = raw['model']
-        if isinstance(model, int):
-            model = IOPG_1(model)
-        elif isinstance(model, str):
-            model = EQ36_MODEL_EXTENSIONS.get(model, model)
-            if model not in ['pitzer', 'davies', 'b-dot', 'hc_dh']:
+    def from_dict(cls, raw: dict[str, object]):
+        model_raw = raw['model']
+        model: IOPG_1
+        if isinstance(model_raw, int):
+            model = IOPG_1(model_raw)
+        elif isinstance(model_raw, str):
+            model_name = EQ36_MODEL_EXTENSIONS.get(model_raw, model_raw)
+            if model_name not in ['pitzer', 'davies', 'b-dot', 'hc_dh']:
                 raise EleanorException(
                     'kernel.model must be \"pitzer\", \"davies\", \"b-dot\", \"hc_dh\" or a standard EQ3/6 file extension')
-
-            match model:
+            match model_name:
                 case "davies":
                     model = IOPG_1.DAVIES
                 case "b-dot":
@@ -642,6 +662,8 @@ class Settings(KernelSettings):
                     model = IOPG_1.HC_DH
                 case "pitzer":
                     model = IOPG_1.PITZER
+                case _:
+                    raise EleanorException('kernel.model has an unsupported value')
         else:
             raise EleanorException('kernel.model must be a string or integer')
 
@@ -667,7 +689,7 @@ class Settings(KernelSettings):
         if not isinstance(track_path, bool):
             raise EleanorException('kernel.track_path must be a boolean')
 
-        raw_eq3_config: dict[str, int] = raw.get('eq3_config', dict())
+        raw_eq3_config: dict[str, object] = cast(dict[str, object], raw.get('eq3_config', {}))
 
         eq3_config = Eq3Config(
             iopt_2=get_setting(raw_eq3_config, IOPT_2, IOPT_2.ARBITRARY_KINETICS),
@@ -702,32 +724,32 @@ class Settings(KernelSettings):
         if not raw.get('eq6_config', True):
             eq6_config = None
         else:
-            raw_eq6_config: dict[str, int] = raw.get('eq6_config', dict())
+            raw_eq6_config: dict[str, object] = cast(dict[str, object], raw.get('eq6_config', {}))
             eq6_config = Eq6Config(
                 jtemp=get_setting(raw_eq6_config, JTEMP, JTEMP.CONSTANT_T),
-                ttk1=float(raw_eq6_config.get('ttk1', 0)),
-                ttk2=float(raw_eq6_config.get('ttk2', 0)),
-                xi_min=float(raw_eq6_config.get('xi_min', 0)),
-                xi_max=float(raw_eq6_config.get('xi_max', 100)),
-                time_min=float(raw_eq6_config.get('time_min', 0)),
-                time_max=float(raw_eq6_config.get('time_max', 1e38)),
-                ph_min=float(raw_eq6_config.get('pH_min', -1e38)),
-                ph_max=float(raw_eq6_config.get('pH_max', 1e38)),
-                eh_min=float(raw_eq6_config.get('Eh_min', -1e38)),
-                eh_max=float(raw_eq6_config.get('Eh_max', 1e38)),
-                log_fO2_min=float(raw_eq6_config.get('log_fO2_min', -1e38)),
-                log_fO2_max=float(raw_eq6_config.get('log_fO2_max', 1e38)),
-                aw_min=float(raw_eq6_config.get('aw_min', -1e38)),
-                aw_max=float(raw_eq6_config.get('aw_max', 1e38)),
-                xi_print_interval=float(raw_eq6_config.get('xi_print_interval', 1e0)),
-                log_xi_print_interval=float(raw_eq6_config.get('log_xi_print_interval', 1e0)),
-                time_print_interval=float(raw_eq6_config.get('time_print_interval', 1e38)),
-                log_time_print_interval=float(raw_eq6_config.get('log_time_print_interval', 1e38)),
-                ph_print_interval=float(raw_eq6_config.get('pH_print_interval', 1e38)),
-                eh_print_interval=float(raw_eq6_config.get('Eh_print_interval', 1e38)),
-                log_fO2_print_interval=float(raw_eq6_config.get('log_fO2_print_interval', 1e38)),
-                aw_print_interval=float(raw_eq6_config.get('aw_print_interval', 1e38)),
-                steps_print_interval=int(raw_eq6_config.get('steps_print_interval', 10000)),
+                ttk1=_get_float(raw_eq6_config, 'ttk1', 0),
+                ttk2=_get_float(raw_eq6_config, 'ttk2', 0),
+                xi_min=_get_float(raw_eq6_config, 'xi_min', 0),
+                xi_max=_get_float(raw_eq6_config, 'xi_max', 100),
+                time_min=_get_float(raw_eq6_config, 'time_min', 0),
+                time_max=_get_float(raw_eq6_config, 'time_max', 1e38),
+                ph_min=_get_float(raw_eq6_config, 'pH_min', -1e38),
+                ph_max=_get_float(raw_eq6_config, 'pH_max', 1e38),
+                eh_min=_get_float(raw_eq6_config, 'Eh_min', -1e38),
+                eh_max=_get_float(raw_eq6_config, 'Eh_max', 1e38),
+                log_fO2_min=_get_float(raw_eq6_config, 'log_fO2_min', -1e38),
+                log_fO2_max=_get_float(raw_eq6_config, 'log_fO2_max', 1e38),
+                aw_min=_get_float(raw_eq6_config, 'aw_min', -1e38),
+                aw_max=_get_float(raw_eq6_config, 'aw_max', 1e38),
+                xi_print_interval=_get_float(raw_eq6_config, 'xi_print_interval', 1e0),
+                log_xi_print_interval=_get_float(raw_eq6_config, 'log_xi_print_interval', 1e0),
+                time_print_interval=_get_float(raw_eq6_config, 'time_print_interval', 1e38),
+                log_time_print_interval=_get_float(raw_eq6_config, 'log_time_print_interval', 1e38),
+                ph_print_interval=_get_float(raw_eq6_config, 'pH_print_interval', 1e38),
+                eh_print_interval=_get_float(raw_eq6_config, 'Eh_print_interval', 1e38),
+                log_fO2_print_interval=_get_float(raw_eq6_config, 'log_fO2_print_interval', 1e38),
+                aw_print_interval=_get_float(raw_eq6_config, 'aw_print_interval', 1e38),
+                steps_print_interval=_get_int(raw_eq6_config, 'steps_print_interval', 10000),
                 iopt_1=get_setting(raw_eq6_config, IOPT_1, IOPT_1.CLOSED_SYS),
                 iopt_2=get_setting(raw_eq6_config, IOPT_2, IOPT_2.ARBITRARY_KINETICS),
                 iopt_3=get_setting(raw_eq6_config, IOPT_3, IOPT_3.STEP_SIZE_BY_PHASE_BOUNDARIES),
@@ -768,13 +790,12 @@ class Settings(KernelSettings):
             )
 
         return cls(
-            **{
-                'model': model,
-                'timeout': timeout,
-                'charge_balance': charge_balance,
-                'eq3_config': eq3_config,
-                'eq6_config': eq6_config,
-                'basis_map': basis_map,
-                'redox_species': redox_species,
-                'track_path': track_path,
-            })
+            model=model,
+            timeout=timeout,
+            charge_balance=charge_balance,
+            eq3_config=eq3_config,
+            eq6_config=eq6_config,
+            basis_map=cast(dict[str, str], basis_map),
+            redox_species=redox_species,
+            track_path=track_path,
+        )

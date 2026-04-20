@@ -1,11 +1,9 @@
 import io
+import math
 import re
-import sys
 import warnings
 from abc import ABC, abstractmethod
-from typing import Any, Optional
-
-import numpy as np
+from typing import Self, cast, override
 
 from eleanor.exceptions import EleanorException, EleanorFileException, EleanorParserException
 from eleanor.kernel.eq36.codes import RunCode
@@ -13,12 +11,24 @@ from eleanor.kernel.eq36.util import field_as_float
 
 path_separator = re.compile('^( -)+$')
 blank_line = re.compile(r'^\s*$')
+type NumericProps = dict[str, float]
+type NumericTable = dict[str, NumericProps]
+type SolidSolutionProps = dict[str, object]
+type SolidSolutionTable = dict[str, SolidSolutionProps]
+
+
+def _safe_log10(value: float) -> float:
+    if value > 0:
+        return math.log10(value)
+    if value == 0:
+        return float('-inf')
+    return float('nan')
 
 
 class OutputParser(ABC):
     line_num: int
     lines: list[str]
-    data: dict[str, Any]
+    data: dict[str, object]
 
     def __init__(self, file: io.TextIOWrapper):
         self.line_num = 0
@@ -40,16 +50,16 @@ class OutputParser(ABC):
     def peek(self) -> str:
         return self.lines[self.line_num + 1]
 
-    def is_blank(self):
-        return blank_line.match(self.line())
+    def is_blank(self) -> bool:
+        return blank_line.match(self.line()) is not None
 
-    def match_pattern(self, pattern: str | re.Pattern):
+    def match_pattern(self, pattern: str | re.Pattern[str]) -> re.Match[str] | None:
         if isinstance(pattern, str):
             pattern = re.compile(pattern)
 
         return pattern.match(self.line())
 
-    def unconsume_to_pattern(self, pattern: str | re.Pattern):
+    def unconsume_to_pattern(self, pattern: str | re.Pattern[str]) -> None:
         if isinstance(pattern, str):
             pattern = re.compile(pattern)
 
@@ -59,26 +69,24 @@ class OutputParser(ABC):
         while not self.eof() and not pattern.match(self.line()):
             self.retreat()
 
-    def consume_to_pattern(self, pattern: str | re.Pattern):
+    def consume_to_pattern(self, pattern: str | re.Pattern[str]) -> None:
         if isinstance(pattern, str):
             pattern = re.compile(pattern)
 
         while not self.eof() and not pattern.match(self.line()):
             self.advance()
 
-    def consume_while_pattern(self, pattern: str | re.Pattern):
+    def consume_while_pattern(self, pattern: str | re.Pattern[str]) -> None:
         if isinstance(pattern, str):
             pattern = re.compile(pattern)
         while not self.eof() and pattern.match(self.line()):
             self.advance()
 
-    def consume_blank_lines(self):
+    def consume_blank_lines(self) -> None:
         self.consume_while_pattern(blank_line)
-
-    def consume_to_header(self, header):
+    def consume_to_header(self, header: str) -> None:
         self.consume_to_pattern(rf'^\s*---\s+{header}\s+---\s*$')
-
-    def advance_to_xi_step(self):
+    def advance_to_xi_step(self) -> bool:
         self.consume_to_pattern(r'\s*Stepping to Xi')
 
         if self.eof():
@@ -108,10 +116,10 @@ class OutputParser(ABC):
 
     def read_basic_property(self,
                             name: str,
-                            units: Optional[list[str]] = None,
+                            units: list[str] | None = None,
                             advance: bool = True,
-                            data: Optional[dict[str, Any]] = None,
-                            key: Optional[str] = None):
+                            data: dict[str, object] | None = None,
+                            key: str | None = None) -> None:
         line = self.line().strip()
         if not line.startswith(f'{name}='):
             raise EleanorParserException(f'expected {name} entry')
@@ -134,7 +142,7 @@ class OutputParser(ABC):
         if advance:
             self.advance()
 
-    def read_log_property(self, name, key=None, units=None):
+    def read_log_property(self, name: str, key: str | None = None, units: list[str] | None = None) -> None:
         if not isinstance(key, str) or len(key) == 0:
             raise EleanorParserException('expected key to be a non-empty string')
 
@@ -144,8 +152,8 @@ class OutputParser(ABC):
         self.read_basic_property(name, key=key, units=units)
         self.read_basic_property(log_name, key=log_key)
 
-    def read_reactants(self):
-        summary: dict[str, Any] = {}
+    def read_reactants(self) -> None:
+        summary: dict[str, object] = {}
 
         self.consume_to_header('Reactant Summary')
         self.consume_to_pattern(r'^\s+Reactant\s+Moles\s+Delta moles\s+Mass, g\s+Delta mass, g\s*$')
@@ -157,7 +165,7 @@ class OutputParser(ABC):
             self.data['reactants'] = {}
             return
 
-        reactants: dict[str, Any] = {}
+        reactants: NumericTable = {}
         while not self.eof() and not self.is_blank():
             name, moles, delta_moles, mass, delta_mass = self.line().strip().split()
             reactants[name] = {
@@ -169,7 +177,7 @@ class OutputParser(ABC):
             with warnings.catch_warnings():
                 warnings.filterwarnings('ignore', category=RuntimeWarning)
                 for key, value in list(reactants[name].items()):
-                    reactants[name][f'log_{key}'] = float(np.log10(value))
+                    reactants[name][f'log_{key}'] = _safe_log10(value)
 
             self.advance()
 
@@ -210,8 +218,8 @@ class OutputParser(ABC):
         summary['reactants'] = reactants
         self.data['reactants'] = summary
 
-    def read_basic_table(self, *column_names, row_names=None, **kwargs):
-        table: dict[str, Any] = {}
+    def read_basic_table(self, *column_names: str, row_names: list[str] | None = None) -> NumericTable:
+        table: NumericTable = {}
         while not self.eof() and not self.is_blank():
             name, *columns = self.line().strip().split()
             if row_names is not None:
@@ -238,22 +246,21 @@ class OutputParser(ABC):
         return table
 
     @abstractmethod
-    def read_elemental_composition(self):
+    def read_elemental_composition(self) -> None:
         pass
 
     @abstractmethod
-    def read_numerical_composition(self):
+    def read_numerical_composition(self) -> None:
         pass
 
     @abstractmethod
-    def read_sensible_composition(self):
+    def read_sensible_composition(self) -> None:
         pass
 
-    def read_pH_like(self):
+    def read_pH_like(self) -> None:
         self.consume_to_header('The pH, Eh, pe-, and Ah on various pH scales')
         self.advance(n=4)
-
-        scales: dict[str, Any] = {}
+        scales: NumericTable = {}
         while not self.eof() and not self.is_blank():
             *scale, ph, eh, pe, ah = self.line().strip().split()
 
@@ -284,14 +291,14 @@ class OutputParser(ABC):
             pass
 
     @abstractmethod
-    def read_bulk_properties(self):
+    def read_bulk_properties(self) -> None:
         pass
 
     @abstractmethod
-    def read_charge_balance(self):
+    def read_charge_balance(self) -> None:
         pass
 
-    def read_alkalinity(self):
+    def read_alkalinity(self) -> None:
 
         self.consume_to_pattern(r'^.*Alkalinity.*$')
         if 'is not defined' in self.line():
@@ -327,12 +334,12 @@ class OutputParser(ABC):
 
                 self.advance()
 
-    def read_aqueous_solute(self):
+    def read_aqueous_solute(self) -> None:
         self.consume_to_header('Distribution of Aqueous Solute Species')
         self.consume_to_pattern(r'\s*Species\s+Molality\s+Log Molality\s+Log Gamma\s+Log Activity\s*')
         self.advance(n=2)
 
-        aqueous: dict[str, Any] = {}
+        aqueous: NumericTable = {}
         while not self.eof() and not self.is_blank():
             species, molality, log_molality, log_gamma, log_activity = self.line().strip().split()
             if '*' in molality or '*' in log_molality or '*' in log_gamma or '*' in log_activity:
@@ -349,12 +356,12 @@ class OutputParser(ABC):
 
         self.data['aqueous'] = aqueous
 
-    def read_redox_reactions(self):
+    def read_redox_reactions(self) -> None:
         self.consume_to_header('Aqueous Redox Reactions')
         self.consume_to_pattern(r'\s*Couple\s+Eh, volts\s+pe-\s+log fO2\s+Ah, kcal\s*')
         self.advance(n=2)
 
-        redox: dict[str, Any] = {}
+        redox: NumericTable = {}
         while not self.eof() and not self.is_blank():
             couple, eh, pe, log_fO2, ah = self.line().strip().split()
             if '*' in eh or '*' in pe or '*' in log_fO2 or '*' in ah:
@@ -370,9 +377,9 @@ class OutputParser(ABC):
 
         self.data['redox'] = redox
 
-    def read_solid_blocks(self, pure_solids, solid_solutions):
+    def read_solid_blocks(self, pure_solids: NumericTable, solid_solutions: SolidSolutionTable) -> None:
 
-        def is_end_member(s):
+        def is_end_member(s: str) -> bool:
             return s.startswith('   ')
 
         parent_phase: str | None = None
@@ -394,7 +401,7 @@ class OutputParser(ABC):
                     raise EleanorParserException('unexpected end member')
 
                 # This line is an end member
-                datum: dict[str, Any] = {
+                end_member_props: NumericProps = {
                     'moles': field_as_float(moles),
                     'log_moles': field_as_float(log_moles),
                     'mass': field_as_float(mass),
@@ -403,33 +410,38 @@ class OutputParser(ABC):
 
                 with warnings.catch_warnings():
                     warnings.filterwarnings('ignore', category=RuntimeWarning)
-                    datum['log_mass'] = float(np.log10(datum['mass']))
-                    datum['log_volume'] = float(np.log10(datum['volume']))
+                    end_member_props['log_mass'] = _safe_log10(end_member_props['mass'])
+                    end_member_props['log_volume'] = _safe_log10(end_member_props['volume'])
 
-                if solid not in solid_solutions[parent_phase]['end_members']:
-                    solid_solutions[parent_phase]['end_members'][solid] = datum
+                end_members = cast(NumericTable, solid_solutions[parent_phase]['end_members'])
+                if solid not in end_members:
+                    end_members[solid] = end_member_props
             elif is_end_member(next_line) and not blank_line.match(next_line):
                 # This line is a solid solution
                 parent_phase = solid
+                moles_value = field_as_float(moles)
+                log_moles_value = field_as_float(log_moles)
+                mass_value = field_as_float(mass)
+                volume_value = field_as_float(volume)
 
-                datum = {
-                    'moles': field_as_float(moles),
-                    'log_moles': field_as_float(log_moles),
-                    'mass': field_as_float(mass),
-                    'volume': field_as_float(volume),
+                solid_solution_props: SolidSolutionProps = {
+                    'moles': moles_value,
+                    'log_moles': log_moles_value,
+                    'mass': mass_value,
+                    'volume': volume_value,
                     'end_members': {},
                 }
 
                 with warnings.catch_warnings():
                     warnings.filterwarnings('ignore', category=RuntimeWarning)
-                    datum['log_mass'] = float(np.log10(datum['mass']))
-                    datum['log_volume'] = float(np.log10(datum['volume']))
+                    solid_solution_props['log_mass'] = _safe_log10(mass_value)
+                    solid_solution_props['log_volume'] = _safe_log10(volume_value)
 
                 if solid not in solid_solutions:
-                    solid_solutions[solid] = datum
+                    solid_solutions[solid] = solid_solution_props
             else:
-                # This line is a pure_phase
-                datum = {
+                # This line is a pure phase
+                pure_phase_props: NumericProps = {
                     'moles': field_as_float(moles),
                     'log_moles': field_as_float(log_moles),
                     'mass': field_as_float(mass),
@@ -437,16 +449,16 @@ class OutputParser(ABC):
                 }
 
                 if solid.startswith('fix_f'):
-                    datum['log_qk'] = 0.0
-                    datum['affinity'] = 0.0
+                    pure_phase_props['log_qk'] = 0.0
+                    pure_phase_props['affinity'] = 0.0
 
                 with warnings.catch_warnings():
                     warnings.filterwarnings('ignore', category=RuntimeWarning)
-                    datum['log_mass'] = float(np.log10(datum['mass']))
-                    datum['log_volume'] = float(np.log10(datum['volume']))
+                    pure_phase_props['log_mass'] = _safe_log10(pure_phase_props['mass'])
+                    pure_phase_props['log_volume'] = _safe_log10(pure_phase_props['volume'])
 
                 if solid not in pure_solids:
-                    pure_solids[solid] = datum
+                    pure_solids[solid] = pure_phase_props
 
                 parent_phase = None
 
@@ -455,11 +467,11 @@ class OutputParser(ABC):
             else:
                 self.advance(n=1)
 
-    def read_solid_phases(self):
-        solids: dict[str, Any] = {}
+    def read_solid_phases(self) -> None:
+        solids: dict[str, object] = {}
 
-        pure_solids: dict[str, Any] = {}
-        solid_solutions: dict[str, Any] = {}
+        pure_solids: NumericTable = {}
+        solid_solutions: SolidSolutionTable = {}
 
         self.consume_to_header(r'Summary of Solid Phases \(ES\)')
         self.consume_to_pattern(r'\s*Phase/End-member\s+Log moles\s+Moles\s+Grams\s+Volume, cm3\s*')
@@ -489,7 +501,7 @@ class OutputParser(ABC):
         solids['solid_solutions'] = solid_solutions
         self.data['solids'] = solids
 
-    def read_aqueous_saturation_states(self):
+    def read_aqueous_saturation_states(self) -> None:
         self.consume_to_header('Saturation States of Aqueous Reactions Not Fixed at Equilibrium')
         self.consume_to_pattern(r'\s*Reaction\s+Log Q/K\s+Affinity, kcal\s*')
         self.advance(n=2)
@@ -498,7 +510,7 @@ class OutputParser(ABC):
             # TODO: Handle this section
             self.advance()
 
-    def read_saturation_states(self, header, phases):
+    def read_saturation_states(self, header: str, phases: dict[str, dict[str, object]]) -> None:
         self.consume_to_header(header)
         self.consume_to_pattern(r'\s*Phase\s+Log Q/K\s+Affinity, kcal\s*')
         self.advance(n=2)
@@ -528,21 +540,20 @@ class OutputParser(ABC):
 
             self.advance()
 
-    def read_pure_solid_saturation_states(self):
+    def read_pure_solid_saturation_states(self) -> None:
         if 'solids' not in self.data:
             self.data['solids'] = {}
+        solids = cast(dict[str, object], self.data['solids'])
+        if 'pure_solids' not in solids:
+            solids['pure_solids'] = {}
+        pure_solids = cast(dict[str, dict[str, object]], solids['pure_solids'])
+        self.read_saturation_states('Saturation States of Pure Solids', pure_solids)
 
-        if 'pure_solids' not in self.data['solids']:
-            self.data['solids']['pure_solids'] = {}
-
-        self.read_saturation_states('Saturation States of Pure Solids', self.data['solids']['pure_solids'])
-
-    def read_liquid_saturation_states(self):
+    def read_liquid_saturation_states(self) -> None:
         self.consume_to_header('Saturation States of Pure Liquids')
         self.consume_to_pattern(r'\s*Phase\s+Log Q/K\s+Affinity, kcal\s*')
         self.advance(n=2)
-
-        liquids: dict[str, Any] = {}
+        liquids: NumericTable = {}
         while not self.eof() and not self.is_blank():
             phase, log_qk, affinity, *rest = self.line().strip().split()
             if len(rest) > 1:
@@ -565,25 +576,24 @@ class OutputParser(ABC):
 
         self.data['liquids'] = liquids
 
-    def read_solid_solution_saturation_states(self):
+    def read_solid_solution_saturation_states(self) -> None:
         if 'solids' not in self.data:
             self.data['solids'] = {}
-
-        if 'solid_solutions' not in self.data['solids']:
-            self.data['solids']['solid_solutions'] = {}
-
-        self.read_saturation_states('Saturation States of Solid Solutions', self.data['solids']['solid_solutions'])
-
-        pure_solids = self.data['solids']['pure_solids']
-        for name, props in self.data['solids']['solid_solutions'].items():
-            for end_member, em_props in props.get('end_members', {}).items():
+        solids = cast(dict[str, object], self.data['solids'])
+        if 'solid_solutions' not in solids:
+            solids['solid_solutions'] = {}
+        solid_solutions = cast(SolidSolutionTable, solids['solid_solutions'])
+        self.read_saturation_states('Saturation States of Solid Solutions', solid_solutions)
+        pure_solids = cast(NumericTable, solids['pure_solids'])
+        for props in solid_solutions.values():
+            for end_member, em_props in cast(NumericTable, props.get('end_members', {})).items():
                 if em_props.get('log_qk') is None:
                     em_props['log_qk'] = pure_solids[end_member]['log_qk']
 
                 if em_props.get('affinity') is None:
                     em_props['affinity'] = pure_solids[end_member]['affinity']
 
-    def read_end_members(self, end_members):
+    def read_end_members(self, end_members: NumericTable) -> None:
         self.consume_to_pattern(r'^\s*Component\s+x\s+Log x\s+ Log lambda\s+Log activity\s*$')
         self.advance(n=2)
         while not self.eof() and not self.is_blank():
@@ -592,7 +602,7 @@ class OutputParser(ABC):
                 self.advance()
                 continue
 
-            props = {
+            props: NumericProps = {
                 'x': field_as_float(x),
                 'log_x': field_as_float(log_x),
                 'log_lambda': field_as_float(log_lambda),
@@ -606,7 +616,7 @@ class OutputParser(ABC):
 
             self.advance()
 
-    def read_mineral(self, header, phases, expected_phase: Optional[str] = None):
+    def read_mineral(self, header: str, phases: SolidSolutionTable, expected_phase: str | None = None) -> None:
         self.consume_to_pattern(r'^\s*Mineral\s+Log Q/K\s+Aff, kcal\s+State\s*$')
         self.advance(n=2)
         mineral, log_qk, affinity, *state = self.line().strip().split()
@@ -629,7 +639,7 @@ class OutputParser(ABC):
         })
         self.advance()
 
-    def read_end_member_saturations(self, header, end_members):
+    def read_end_member_saturations(self, header: str, end_members: NumericTable) -> None:
         while not self.eof() and not self.is_blank():
             end_member, log_qk, affinity, *state = self.line().strip().split()
             if len(state) > 1:
@@ -651,7 +661,7 @@ class OutputParser(ABC):
             })
             self.advance()
 
-    def read_product_phases(self, header):
+    def read_product_phases(self, header: str) -> None:
         self.consume_to_header(header)
         if self.eof():
             raise EleanorParserException(f'expected {header} block at line {self.line_num}')
@@ -659,11 +669,10 @@ class OutputParser(ABC):
 
         if 'solids' not in self.data:
             self.data['solids'] = {}
-
-        if 'solid_solutions' not in self.data['solids']:
-            self.data['solids']['solid_solutions'] = {}
-
-        solid_solutions = self.data['solids']['solid_solutions']
+        solids = cast(dict[str, object], self.data['solids'])
+        if 'solid_solutions' not in solids:
+            solids['solid_solutions'] = {}
+        solid_solutions = cast(SolidSolutionTable, solids['solid_solutions'])
         while not self.eof():
             match = re.match(r'^\s+---\s(.*)\s---\s*$', self.line())
             if match and match[1] == 'Fugacities':
@@ -677,7 +686,7 @@ class OutputParser(ABC):
                 elif 'end_members' not in solid_solutions[phase]:
                     solid_solutions[phase]['end_members'] = {}
 
-                end_members = solid_solutions[phase]['end_members']
+                end_members = cast(NumericTable, solid_solutions[phase]['end_members'])
 
                 self.read_end_members(end_members)
                 self.read_mineral(header, solid_solutions, phase)
@@ -685,12 +694,12 @@ class OutputParser(ABC):
 
             self.advance()
 
-    def read_fugacities(self):
+    def read_fugacities(self) -> None:
         self.consume_to_header('Fugacities')
         self.consume_to_pattern(r'\s*Gas\s+Log Fugacity\s+Fugacity\s*')
         self.advance(n=2)
 
-        gases: dict[str, Any] = {}
+        gases: NumericTable = {}
         while not self.eof() and not self.is_blank():
             gas, log_fugacity, fugacity = self.line().strip().split()
             if '*' in log_fugacity or '*' in fugacity:
@@ -705,15 +714,15 @@ class OutputParser(ABC):
 
         self.data['gases'] = gases
 
-    def pretty_print(self, obj):
+    def pretty_print(self, obj: dict[str, object]) -> None:
 
-        def recprint(key, props, indent=0):
+        def recprint(key: str, props: object, indent: int = 0) -> None:
             if isinstance(props, dict):
                 if indent == 0:
                     print(key)
                 else:
                     print(' ' * (indent - 1), key)
-                for subkey, subprops in props.items():
+                for subkey, subprops in cast(dict[str, object], props).items():
                     recprint(subkey, subprops, indent + 4)
             else:
                 if indent == 0:
@@ -725,13 +734,13 @@ class OutputParser(ABC):
             recprint(key, props)
 
     @abstractmethod
-    def parse(self):
+    def parse(self) -> Self:
         pass
 
 
 class OutputParser3(OutputParser):
 
-    def __init__(self, file: Optional[str | io.TextIOWrapper] = None):
+    def __init__(self, file: str | io.TextIOWrapper | None = None):
         if file is None:
             file = 'problem.3o'
 
@@ -744,7 +753,8 @@ class OutputParser3(OutputParser):
         except FileNotFoundError as e:
             raise EleanorFileException(e, code=RunCode.NO_3O_FILE)
 
-    def read_elemental_composition(self):
+    @override
+    def read_elemental_composition(self) -> None:
         self.consume_to_header('Elemental Composition of the Aqueous Solution')
         self.consume_to_pattern(r'\s*Element\s+mg/L\s+mg/kg\.sol\s+Molarity\s+Molality\s*')
         self.advance(n=2)
@@ -752,14 +762,15 @@ class OutputParser3(OutputParser):
         elements = self.read_basic_table('concentration', 'mass_fraction', 'molarity', 'molality')
         with warnings.catch_warnings():
             warnings.filterwarnings('ignore', category=RuntimeWarning)
-            for element, properties in elements.items():
+            for properties in elements.values():
                 properties['concentration'] *= 1e-3
                 properties['mass_fraction'] *= 1e-6
-                properties['log_molarity'] = float(np.log10(properties['molarity']))
-                properties['log_molality'] = float(np.log10(properties['molality']))
+                properties['log_molarity'] = _safe_log10(properties['molarity'])
+                properties['log_molality'] = _safe_log10(properties['molality'])
         self.data['elements'] = elements
 
-    def read_numerical_composition(self):
+    @override
+    def read_numerical_composition(self) -> None:
         self.consume_to_header('Numerical Composition of the Aqueous Solution')
         self.consume_to_pattern(r'\s*Species\s+mg/L\s+mg/kg\.sol\s+Molarity\s+Molality\s*')
         self.advance(n=2)
@@ -767,14 +778,15 @@ class OutputParser3(OutputParser):
         composition = self.read_basic_table('concentration', 'mass_fraction', 'molarity', 'molality')
         with warnings.catch_warnings():
             warnings.filterwarnings('ignore', category=RuntimeWarning)
-            for species, properties in composition.items():
+            for properties in composition.values():
                 properties['concentration'] *= 1e-3
                 properties['mass_fraction'] *= 1e-6
-                properties['log_molarity'] = float(np.log10(properties['molarity']))
-                properties['log_molality'] = float(np.log10(properties['molality']))
+                properties['log_molarity'] = _safe_log10(properties['molarity'])
+                properties['log_molality'] = _safe_log10(properties['molality'])
         self.data['numerical_composition'] = composition
 
-    def read_sensible_composition(self):
+    @override
+    def read_sensible_composition(self) -> None:
         self.consume_to_header('Sensible Composition of the Aqueous Solution')
         self.consume_to_pattern(r'\s*Species\s+mg/L\s+mg/kg\.sol\s+Molarity\s+Molality\s*')
         self.advance(n=2)
@@ -782,14 +794,15 @@ class OutputParser3(OutputParser):
         composition = self.read_basic_table('concentration', 'mass_fraction', 'molarity', 'molality')
         with warnings.catch_warnings():
             warnings.filterwarnings('ignore', category=RuntimeWarning)
-            for species, properties in composition.items():
+            for properties in composition.values():
                 properties['concentration'] *= 1e-3
                 properties['mass_fraction'] *= 1e-6
-                properties['log_molarity'] = float(np.log10(properties['molarity']))
-                properties['log_molality'] = float(np.log10(properties['molality']))
+                properties['log_molarity'] = _safe_log10(properties['molarity'])
+                properties['log_molality'] = _safe_log10(properties['molality'])
         self.data['sensible_composition'] = composition
 
-    def read_bulk_properties(self):
+    @override
+    def read_bulk_properties(self) -> None:
         self.read_log_property('Oxygen fugacity', key='fO2', units=['bars', 'bar'])
         self.read_log_property('Activity of water', key='activity_water')
         self.read_log_property('Mole fraction of water', key='mole_fraction_water')
@@ -838,9 +851,12 @@ class OutputParser3(OutputParser):
                     'stoichiometric_ionic_asymmetry', 'sum_molalities', 'sum_stoichiometric_molalities', 'solvent_mass',
                     'solute_mass', 'solution_mass'
             ]:
-                self.data[f'log_{key}'] = float(np.log10(self.data[key]))
+                value = cast(float, self.data[key])
+                self.data[f'log_{key}'] = _safe_log10(value)
 
-    def read_charge_balance(self):
+
+    @override
+    def read_charge_balance(self) -> None:
         self.consume_to_header('Electrical Balance Totals')
 
         self.advance(n=4)
@@ -853,11 +869,11 @@ class OutputParser3(OutputParser):
 
         self.advance(4)
 
-        percent_total_charge, *rest = self.line().strip().split()
+        percent_total_charge, *_rest = self.line().strip().split()
         self.data['charge_imbalance_percent_total'] = field_as_float(percent_total_charge)
         self.advance()
 
-        percent_mean_charge, *rest = self.line().strip().split()
+        percent_mean_charge, *_rest = self.line().strip().split()
         self.data['charge_imbalance_percent_mean'] = field_as_float(percent_mean_charge)
         self.advance(3)
 
@@ -874,7 +890,7 @@ class OutputParser3(OutputParser):
         try:
             table = self.read_basic_table('concentration', 'mass_fraction', 'molality')
 
-            for phase, props in table.items():
+            for props in table.values():
                 props['concentration'] *= 1e-3
                 props['mass_fraction'] *= 1e-6
 
@@ -884,7 +900,8 @@ class OutputParser3(OutputParser):
 
         self.data['charge_balance'] = charge_balance
 
-    def parse(self):
+    @override
+    def parse(self) -> Self:
         try:
             self.consume_to_pattern(r'\s*\* General\s*$')
             self.advance()
@@ -917,9 +934,10 @@ class OutputParser3(OutputParser):
 
 
 class OutputParser6(OutputParser):
-    path: list[dict[str, Any]]
+    path: list[dict[str, object]]
+    data: dict[str, object]
 
-    def __init__(self, file: Optional[str | io.TextIOWrapper] = None):
+    def __init__(self, file: str | io.TextIOWrapper | None = None):
         self.path = []
 
         if file is None:
@@ -934,7 +952,8 @@ class OutputParser6(OutputParser):
         except FileNotFoundError as e:
             raise EleanorFileException(e, code=RunCode.NO_6O_FILE)
 
-    def read_elemental_composition(self):
+    @override
+    def read_elemental_composition(self) -> None:
         self.consume_to_header('Elemental Composition of the Aqueous Solution')
         self.advance(n=2)
 
@@ -949,18 +968,21 @@ class OutputParser6(OutputParser):
 
         with warnings.catch_warnings():
             warnings.filterwarnings('ignore', category=RuntimeWarning)
-            for element, properties in elements.items():
+            for properties in elements.values():
                 properties['mass_fraction'] *= 1e-6
-                properties['log_molality'] = float(np.log10(properties['molality']))
+                properties['log_molality'] = _safe_log10(properties['molality'])
 
                 if 'mass_per_volume' in properties:
                     properties['mass_per_volume'] *= 1e-6
                 if 'molarity' in properties:
-                    properties['log_molarity'] = float(np.log10(properties['molarity']))
+                    properties['log_molarity'] = _safe_log10(properties['molarity'])
+
+
 
         self.data['elements'] = elements
 
-    def read_numerical_composition(self):
+    @override
+    def read_numerical_composition(self) -> None:
         self.consume_to_header('Numerical Composition of the Aqueous Solution')
         self.advance(n=2)
 
@@ -975,18 +997,21 @@ class OutputParser6(OutputParser):
 
         with warnings.catch_warnings():
             warnings.filterwarnings('ignore', category=RuntimeWarning)
-            for species, properties in composition.items():
+            for properties in composition.values():
                 properties['mass_fraction'] *= 1e-6
-                properties['log_molality'] = float(np.log10(properties['molality']))
+                properties['log_molality'] = _safe_log10(properties['molality'])
+
 
                 if 'mass_per_volume' in properties:
                     properties['mass_per_volume'] *= 1e-6
                 if 'molarity' in properties:
-                    properties['log_molarity'] = float(np.log10(properties['molarity']))
+                    properties['log_molarity'] = _safe_log10(properties['molarity'])
+
 
         self.data['numerical_composition'] = composition
 
-    def read_sensible_composition(self):
+    @override
+    def read_sensible_composition(self) -> None:
         self.consume_to_header('Sensible Composition of the Aqueous Solution')
         self.advance(n=2)
 
@@ -1001,18 +1026,19 @@ class OutputParser6(OutputParser):
 
         with warnings.catch_warnings():
             warnings.filterwarnings('ignore', category=RuntimeWarning)
-            for species, properties in composition.items():
+            for properties in composition.values():
                 properties['mass_fraction'] *= 1e-6
-                properties['log_molality'] = float(np.log10(properties['molality']))
+                properties['log_molality'] = _safe_log10(properties['molality'])
 
                 if 'mass_per_volume' in properties:
                     properties['mass_per_volume'] *= 1e-6
                 if 'molarity' in properties:
-                    properties['log_molarity'] = float(np.log10(properties['molarity']))
+                    properties['log_molarity'] = _safe_log10(properties['molarity'])
 
         self.data['sensible_composition'] = composition
 
-    def read_bulk_properties(self):
+    @override
+    def read_bulk_properties(self) -> None:
         self.read_log_property('Oxygen fugacity', key='fO2', units=['bars', 'bar'])
         self.read_log_property('Activity of water', key='activity_water')
         self.read_log_property('Mole fraction of water', key='mole_fraction_water')
@@ -1062,11 +1088,13 @@ class OutputParser6(OutputParser):
                     'stoichiometric_ionic_asymmetry', 'sum_molalities', 'sum_stoichiometric_molalities', 'solvent_mass',
                     'solute_mass', 'solution_mass'
             ]:
-                self.data[f'log_{key}'] = float(np.log10(self.data[key]))
+                value = cast(float, self.data[key])
+                self.data[f'log_{key}'] = _safe_log10(value)
 
         self.read_alkalinity()
 
-    def read_charge_balance(self):
+    @override
+    def read_charge_balance(self) -> None:
         self.consume_to_header('Aqueous Solution Charge Balance')
 
         self.advance(n=2)
@@ -1081,28 +1109,32 @@ class OutputParser6(OutputParser):
         self.read_basic_property('Actual Charge imbalance',
                                  key='charge_imbalance_per_unit_solution',
                                  units=['eq/kg.solu'])
-        self.data['charge_imbalance_per_unit_solution'] *= 1e-3
+        self.data['charge_imbalance_per_unit_solution'] = cast(
+            float, self.data['charge_imbalance_per_unit_solution']) * 1e-3
         self.read_basic_property('Expected Charge imbalance',
                                  key='expected_charge_imbalance_per_unit_solution',
                                  units=['eq/kg.solu'])
-        self.data['expected_charge_imbalance_per_unit_solution'] *= 1e-3
+        self.data['expected_charge_imbalance_per_unit_solution'] = cast(
+            float, self.data['expected_charge_imbalance_per_unit_solution']) * 1e-3
         self.read_basic_property('Charge discrepancy', key='charge_discrepancy_per_unit_solution', units=['eq/kg.solu'])
-        self.data['charge_discrepancy_per_unit_solution'] *= 1e-3
+        self.data['charge_discrepancy_per_unit_solution'] = cast(
+            float, self.data['charge_discrepancy_per_unit_solution']) * 1e-3
         self.read_basic_property('Sigma |equivalents|', key='sigma_per_unit_solution', units=['eq/kg.solu'])
-        self.data['sigma_per_unit_solution'] *= 1e-3
+        self.data['sigma_per_unit_solution'] = cast(float, self.data['sigma_per_unit_solution']) * 1e-3
 
         self.advance()
 
         self.read_basic_property('Relative charge discrepancy', key='relative_charge_discrepancy')
 
-    def parse_step(self):
+    def parse_step(self) -> Self:
         try:
             self.consume_blank_lines()
             self.read_basic_property('Xi', key="xi")
             self.advance()
             with warnings.catch_warnings():
                 warnings.filterwarnings('ignore', category=RuntimeWarning)
-                self.data['log_xi'] = float(np.log10(self.data['xi']))
+                xi = cast(float, self.data['xi'])
+                self.data['log_xi'] = _safe_log10(xi)
             self.consume_blank_lines()
             self.read_basic_property('Temperature', key='temperature', units=['celsius', 'c'])
             self.consume_blank_lines()
@@ -1147,14 +1179,15 @@ class OutputParser6(OutputParser):
             else:
                 raise EleanorException('eq6 reaction path terminated early', code=RunCode.EQ6_EARLY_TERMINATION)
 
-    def parse(self):
+    @override
+    def parse(self) -> Self:
         while self.advance_to_xi_step():
-            self.parse_step()
+            _ = self.parse_step()
 
         self.check_path_termination()
 
         return self
 
 
-OutputParser.register(OutputParser3)
-OutputParser.register(OutputParser6)
+_ = OutputParser.register(OutputParser3)
+_ = OutputParser.register(OutputParser6)

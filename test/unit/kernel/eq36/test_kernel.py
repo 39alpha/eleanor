@@ -266,7 +266,7 @@ class TestEq36Kernel(TestCase):
             mock.patch("eleanor.kernel.eq36.kernel.eq3") as eq3_mock,
             mock.patch("eleanor.kernel.eq36.kernel.Kernel.read_eq3_output", return_value=eq3_result) as read_eq3_output,
             mock.patch("eleanor.kernel.eq36.kernel.eq6") as eq6_mock,
-            mock.patch("eleanor.kernel.eq36.kernel.util.read_pickup_lines") as read_pickup_lines,
+            mock.patch("eleanor.kernel.eq36.kernel.read_pickup_lines") as read_pickup_lines,
             mock.patch("eleanor.kernel.eq36.kernel.Kernel.read_eq6_output") as read_eq6_output,
             mock.patch("eleanor.kernel.eq36.kernel.Data1.from_file") as from_file,
         ):
@@ -305,7 +305,7 @@ class TestEq36Kernel(TestCase):
             mock.patch.object(kernel, "write_eq3_input", return_value="problem.3i") as write_eq3_input,
             mock.patch("eleanor.kernel.eq36.kernel.eq3") as eq3_mock,
             mock.patch("eleanor.kernel.eq36.kernel.Kernel.read_eq3_output", return_value=eq3_result) as read_eq3_output,
-            mock.patch("eleanor.kernel.eq36.kernel.util.read_pickup_lines", return_value=pickup_lines) as read_pickup_lines,
+            mock.patch("eleanor.kernel.eq36.kernel.read_pickup_lines", return_value=pickup_lines) as read_pickup_lines,
             mock.patch.object(kernel, "write_eq6_input", return_value="problem.6i") as write_eq6_input,
             mock.patch("eleanor.kernel.eq36.kernel.eq6") as eq6_mock,
             mock.patch("eleanor.kernel.eq36.kernel.Kernel.read_eq6_output", return_value=eq6_results) as read_eq6_output,

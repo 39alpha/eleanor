@@ -195,15 +195,14 @@ read_body.argtypes = [
 read_body.restype = None
 
 
-# TODO: Can we specialize the element_names and species_names property types?
 @dataclass
 class Data(object):
     min_temperature: np.float64
     max_temperature_range: Array1D[np.float64]
     pressure_coefficients: Array2D[np.float64]
-    element_names: Array1D[Any]  # pyright: ignore[reportExplicitAny]
+    element_names: Array1D[np.bytes_]
     atomic_weights: Array1D[np.float64]
-    species_names: Array1D[Any]  # pyright: ignore[reportExplicitAny]
+    species_names: Array1D[np.bytes_]
     cdrsa: Array1D[np.float64]
     charges: Array1D[np.float64]
     volumes: Array1D[np.float64]

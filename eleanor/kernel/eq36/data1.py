@@ -1,8 +1,9 @@
+# pyright: reportConstantRedefinition=false
 from dataclasses import dataclass
 
 import numpy as np
 
-from eleanor.typing import Array1D
+from eleanor.typing import Array1D, cast
 
 from .libeq36 import read_data1
 
@@ -34,30 +35,26 @@ class TPCurve(object):
         if not ('min' in T and 'mid' in T and 'max' in T):
             raise ValueError('temperature dictionary must have min, mid and max keys')
 
-        if len(P) != 2:
-            raise ValueError('expected exactly two polynomials')  # pyright: ignore[reportUnreachable]
-        elif any(len(coeffs) == 0 for coeffs in P):
+        if any(len(coeffs) == 0 for coeffs in P):
             raise ValueError('polynomial has no coefficients')
 
-        self.P = P  # pyright: ignore[reportConstantRedefinition]
-        self.T = T  # pyright: ignore[reportConstantRedefinition]
+        self.P = P
+        self.T = T
         self.domain = []
 
         _ = self.reset_domain()
 
         [coeff_left, coeff_right] = self.P
 
-        tmp = np.dot(coeff_left, self.T['mid']**np.arange(len(coeff_left)))  # pyright: ignore[reportAny]
-        if not isinstance(tmp, np.float64):
-            raise TypeError(tmp)  # pyright: ignore[reportAny]
-        else:
-            left = np.float64(tmp)
+        tmp_left = cast(object, np.dot(coeff_left, self.T['mid']**np.arange(len(coeff_left))))
+        if not isinstance(tmp_left, np.float64):
+            raise TypeError(tmp_left)
+        left = np.float64(tmp_left)
 
-        tmp = np.dot(coeff_right, self.T['mid']**np.arange(len(coeff_right)))  # pyright: ignore[reportAny]
-        if not isinstance(tmp, np.float64):
-            raise TypeError(tmp)  # pyright: ignore[reportAny]
-        else:
-            right = np.float64(tmp)
+        tmp_right = cast(object, np.dot(coeff_right, self.T['mid']**np.arange(len(coeff_right))))
+        if not isinstance(tmp_right, np.float64):
+            raise TypeError(tmp_right)
+        right = np.float64(tmp_right)
 
         if not np.isclose(left, right):
             raise ValueError('provided polynomials differ at the common temperature')
@@ -78,9 +75,9 @@ class TPCurve(object):
             raise ValueError(msg)
 
         coefficients = self.P[0] if T <= self.T['mid'] else self.P[1]
-        value = np.dot(coefficients, T**np.arange(len(coefficients)))  # pyright: ignore[reportAny]
+        value = cast(object, np.dot(coefficients, T**np.arange(len(coefficients))))
         if not isinstance(value, np.float64):
-            raise TypeError(value)  # pyright: ignore[reportAny]
+            raise TypeError(value)
         return np.float64(value)
 
     def set_domain(self, temperature_range: FloatRange, pressure_range: FloatRange):
@@ -108,11 +105,11 @@ class TPCurve(object):
         elif len(intersections) == 1:
             (Tint, _), = intersections
             is_single_point = True
-            for T in [self.T['min'], self.T['mid'], self.T['max']]:  # pyright: ignore[reportConstantRedefinition]
+            for T in [self.T['min'], self.T['mid'], self.T['max']]:
                 if T == Tint or Tmax < T or T < Tmin:
                     continue
 
-                P = self(T)  # pyright: ignore[reportConstantRedefinition]
+                P = self(T)
                 if Pmin <= P and P <= Pmax:
                     domain.append((min(T, Tint), max(T, Tint)))
                     is_single_point = False
@@ -123,7 +120,7 @@ class TPCurve(object):
             for i in range(len(intersections) - 1):
                 T1, _ = intersections[i]
                 T2, _ = intersections[i + 1]
-                P = self((T1 + T2) / 2)  # pyright: ignore[reportConstantRedefinition]
+                P = self((T1 + T2) / 2)
                 if Pmin <= P and P <= Pmax:
                     domain.append((T1, T2))
 
@@ -144,13 +141,13 @@ class TPCurve(object):
             if Pmin <= P and P <= Pmax:
                 intersections.append((T, P))
 
-        for P in pressure_range:  # pyright: ignore[reportConstantRedefinition]
+        for P in pressure_range:
             for i, coefficients in enumerate(self.P):
                 coefficients = np.copy(coefficients)
                 coefficients[0] -= P
                 roots = np.roots(coefficients[::-1])
                 real_roots: Array1D[np.float64] = np.asarray(np.real(roots[np.isreal(roots)]), dtype=np.float64)
-                for T in real_roots:  # pyright: ignore[reportConstantRedefinition]
+                for T in real_roots:
                     if Tmin <= T and T <= Tmax and (i == 0 and self.T['min'] <= T and T <= self.T['mid']) or (i == 1 and self.T['mid'] <= T and T <= self.T['max']):
                         intersections.append((T, self(T)))
 
@@ -195,7 +192,7 @@ class TPCurve(object):
                 if subdomain[1] >= T:
                     break
                 else:
-                    T += steps[j]  # pyright: ignore[reportConstantRedefinition]
+                    T += steps[j]
 
             Ts[i] = T
 
@@ -244,27 +241,31 @@ class Data1(object):
 
         element_names: list[str] = []
         elements: dict[str, np.float64] = {}
-        for name, weight in zip(data.element_names, data.atomic_weights):  # pyright: ignore[reportAny]
-            if not isinstance(name, bytes):
-                raise TypeError(name)  # pyright: ignore[reportAny]
-            name = str(name.strip(), 'ascii')
+        for raw_name_obj, weight in zip(cast(list[object], list(data.element_names)), data.atomic_weights):
+            if not isinstance(raw_name_obj, bytes):
+                raise TypeError(raw_name_obj)
+            name = str(raw_name_obj.strip(), 'ascii')
             element_names.append(name)
             elements[name] = weight
 
         basis_species: dict[str, BasisSpecies] = dict()
-        for i, (name, c, charge, volume) in enumerate(zip(data.species_names, data.cdrsa, data.charges, data.volumes)):  # pyright: ignore[reportAny]
-            if not isinstance(name, bytes):
-                raise TypeError(name)  # pyright: ignore[reportAny]
+        for i, (raw_species_name_obj, c, charge, volume) in enumerate(
+                zip(cast(list[object], list(data.species_names)), data.cdrsa, data.charges, data.volumes)):
+            if not isinstance(raw_species_name_obj, bytes):
+                raise TypeError(raw_species_name_obj)
 
             if c != 0:
                 break
-            name = str(name[0:24].strip(), 'ascii')
-            a, b = data.nessra[:, i]  # pyright: ignore[reportAny]
-            indices = data.nessa[a - 1:b]
+            name = str(raw_species_name_obj[0:24].strip(), 'ascii')
+            a = int(cast(np.int32, data.nessra[0, i]))
+            b = int(cast(np.int32, data.nessra[1, i]))
+            indices = cast(Array1D[np.int32], data.nessa[a - 1:b])
             composition: dict[str, int] = dict()
-            for element, count in zip(np.array(element_names)[indices - 1], data.cessa[a - 1:b]):  # pyright: ignore[reportAny]
+            selected_elements = [element_names[int(idx) - 1] for idx in indices]
+            counts = cast(list[object], list(data.cessa[a - 1:b]))
+            for element, count in zip(selected_elements, counts):
                 if not isinstance(count, np.float64):
-                    raise TypeError(count)  # pyright: ignore[reportAny]
+                    raise TypeError(count)
                 # TODO: Is this conversion correct? Can the compositions be non-integers?
                 composition[element] = int(count)
             if volume == 0.0:
@@ -274,9 +275,9 @@ class Data1(object):
 
         solid_solutions: dict[str, SolidSolution] = dict()
         for i in range(data.nxrn1a - 1, data.nxrn2a):
-            line = data.species_names[i]  # pyright: ignore[reportAny]
+            line = cast(object, data.species_names[i])
             if not isinstance(line, bytes):
-                raise TypeError(line)  # pyright: ignore[reportAny]
+                raise TypeError(line)
 
             end_member = str(line[:24].strip(), 'ascii')
             solid_solution = str(line[24:].strip(), 'ascii')

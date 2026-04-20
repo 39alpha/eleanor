@@ -32,14 +32,14 @@ class GlassReactantEmbedder(AbstractTransformer):
         self,
         filename: str,
         reactant_name: str,
-        amount,  # pyright: ignore[reportUnknownParameterType, reportMissingParameterType]
-        *args,  # pyright: ignore[reportUnknownParameterType, reportMissingParameterType]
+        amount: object,
+        *_args: object,
         assume_mass_fraction: bool = False,
         combined: bool = False,
         proportional_sampling: bool = False,
-        titration_rate=None,  # pyright: ignore[reportUnknownParameterType, reportMissingParameterType]
+        titration_rate: object | None = None,
         limit: int | None = None,
-        **kwargs,  # pyright: ignore[reportUnknownParameterType, reportMissingParameterType]
+        **_kwargs: object,
     ):
         self.filename = filename
         self.reactant_name = reactant_name
@@ -49,13 +49,15 @@ class GlassReactantEmbedder(AbstractTransformer):
                 self.titration_rate = ValueParameter(name='titration_rate', type=None, value=1.0)
                 self.oxide_rates: dict[str, Parameter] = {}
             elif isinstance(titration_rate, dict) and 'base_rate' in titration_rate:
-                self.titration_rate = Parameter.load(titration_rate['base_rate'], name='titration_rate')
+                titration_rate_map = cast(dict[str, object], titration_rate)
+                self.titration_rate = Parameter.load(titration_rate_map['base_rate'], name='titration_rate')
+                oxide_rates_raw = cast(dict[str, object], titration_rate_map.get('oxide_rates', {}))
                 self.oxide_rates = {
                     name: Parameter.load(rate, name=f'oxide_rate_{name}')
-                    for name, rate in titration_rate.get('oxide_rates', {}).items()
+                    for name, rate in oxide_rates_raw.items()
                 }
             else:
-                self.titration_rate = Parameter.load(titration_rate, name='titration_rate')
+                self.titration_rate = Parameter.load(cast(object, titration_rate), name='titration_rate')
                 self.oxide_rates = {}
         except EleanorException:
             raise
@@ -74,7 +76,8 @@ class GlassReactantEmbedder(AbstractTransformer):
         if not pattern.match(name):
             return None
         composition: dict[str, int] = {}
-        for element, count in pattern.findall(name):  # pyright: ignore[reportAny]
+        matches = cast(list[tuple[object, object]], pattern.findall(name))
+        for element, count in matches:
             if not isinstance(element, str) or not isinstance(count, str):
                 return None
             composition[element] = int(count) if count != '' else 1
@@ -119,8 +122,9 @@ class GlassReactantEmbedder(AbstractTransformer):
             oxide_names: list[str] = []
             fractions = np.empty(0)
 
-            for oxide_name, fraction in row.items():  # pyright: ignore[reportAny]
-                oxide_name = str(oxide_name)
+            row_items = cast(list[tuple[object, object]], list(row.items()))
+            for oxide_name_raw, fraction in row_items:
+                oxide_name = str(oxide_name_raw)
                 if oxide_name in compositions and isinstance(fraction, float) and fraction > 0:
                     oxide_names.append(oxide_name)
                     fractions = np.append(fractions, fraction)
@@ -147,7 +151,7 @@ class GlassReactantEmbedder(AbstractTransformer):
                 oxide = GlassReactantOxide(
                     oxide_name,
                     compositions[oxide_name],
-                    float(fractions[i]),  # pyright: ignore[reportAny]
+                    float(cast(float, fractions[i])),
                     relative_rate,
                 )
                 oxides[oxide_name] = oxide

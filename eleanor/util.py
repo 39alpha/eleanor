@@ -1,23 +1,36 @@
 import datetime
 import hashlib
 import os
-import re
 import sys
-from enum import IntEnum, StrEnum
+from collections.abc import Callable, Generator, Iterable, Sequence
+from enum import StrEnum
 from functools import reduce
-from multiprocessing import Manager, Pool, Process
+from multiprocessing import Process
 from multiprocessing.managers import SyncManager
 from queue import Queue
+from typing import Protocol, TypeVar, cast
 
 import numpy as np
 from tqdm import tqdm
 
 from .exceptions import EleanorException
-from .typing import Any, NDArray, Number, Optional
+from .typing import NDArray, Number
+
+MapInputT = TypeVar('MapInputT')
+ReduceT = TypeVar('ReduceT')
+ChunkInputT = TypeVar('ChunkInputT')
+
+
+class HashLike(Protocol):
+    def update(self, obj: bytes, /) -> object:
+        ...
+
+    def hexdigest(self) -> str:
+        ...
 
 
 class Progress(object):
-    queue: Queue
+    queue: Queue[bool | int]
     process: Process
     samples: int
     no_total_update: bool
@@ -29,7 +42,7 @@ class Progress(object):
         self.process = Process(target=self.listen)
         self.process.start()
 
-    def listen(self):
+    def listen(self) -> None:
         progress = None
 
         first_total_update = True
@@ -37,11 +50,11 @@ class Progress(object):
             msg = self.queue.get()
             if isinstance(msg, bool):
                 if not msg:
-                    self.queue.task_done()
+                    _ = self.queue.task_done()
                     break
                 if progress is None:
                     progress = tqdm(total=self.samples, unit=' systems', colour='#ec5c29')
-                progress.update()
+                _ = progress.update()
             elif first_total_update:
                 self.samples = msg
                 progress = tqdm(total=self.samples, unit=' systems', colour='#ec5c29')
@@ -51,14 +64,15 @@ class Progress(object):
                 if progress is None:
                     progress = tqdm(total=self.samples, unit=' systems', colour='#ec5c29')
                 else:
-                    progress.total += msg
+                    total = cast(int, progress.total)
+                    progress.total = total + msg
                     progress.refresh()
-            self.queue.task_done()
+            _ = self.queue.task_done()
 
         if progress is not None:
             progress.close()
 
-    def join(self):
+    def join(self) -> None:
         self.queue.put(False)
         self.queue.join()
         self.process.join()
@@ -81,9 +95,9 @@ def find_files(match: str, location: str = '.', str_loc: str = 'suffix') -> tupl
     :return: list containing file names, list containing file paths
     :rtype: list, list
     """
-    file_names = []
-    file_paths = []
-    for root, dirs, files in os.walk(location):
+    file_names: list[str] = []
+    file_paths: list[str] = []
+    for root, _dirs, files in os.walk(location):
         for file in files:
             if str_loc == 'suffix':
                 if file.endswith(match):
@@ -190,6 +204,8 @@ class WorkingDirectory(object):
     :type path: str
     """
 
+    path: str
+    cwd: str
     def __init__(self, path: str):
         self.path = os.path.realpath(path)
         self.cwd = os.getcwd()
@@ -205,7 +221,7 @@ class WorkingDirectory(object):
         self.cwd, self.path = self.path, self.cwd
         return self.cwd
 
-    def __exit__(self, *args):
+    def __exit__(self, *args: object) -> None:
         """
         Change back to the original current working directory.
         """
@@ -213,7 +229,7 @@ class WorkingDirectory(object):
         self.cwd, self.path = self.path, self.cwd
 
 
-def hash_file(path: str, hasher=None) -> str:
+def hash_file(path: str, hasher: HashLike | None = None) -> str:
     """
     Hash the contents of a file
 
@@ -229,12 +245,12 @@ def hash_file(path: str, hasher=None) -> str:
     if hasher is None:
         hasher = hashlib.sha256()
     with open(path, 'rb') as handle:
-        for bytes in iter(lambda: handle.read(4096), b''):
-            hasher.update(bytes)
+        for chunk in iter(lambda: handle.read(4096), b''):
+            _ = hasher.update(chunk)
     return hasher.hexdigest()
 
 
-def hash_dir(path: str, hasher=None) -> str:
+def hash_dir(path: str, hasher: HashLike | None = None) -> str:
     """
     Compute the hash of a named directory (sha256 by default). The hash is computed in a
     depth-first fashion. For a given directory, this function is called on each subdirectory in
@@ -254,35 +270,49 @@ def hash_dir(path: str, hasher=None) -> str:
     contents = list(map(lambda f: os.path.join(path, f), os.listdir(path)))
 
     for dir in sorted(filter(os.path.isdir, contents)):
-        hash_dir(dir, hasher)
+        _ = hash_dir(dir, hasher)
 
     for filename in sorted(filter(os.path.isfile, contents)):
-        hash_file(filename, hasher)
+        _ = hash_file(filename, hasher)
 
     return hasher.hexdigest()
 
 
-def convert_to_number(value: Number | str, types: Optional[list[type]] = None):
+def convert_to_number(value: Number | str, types: list[type[object]] | None = None) -> Number:
+    def _as_number(v: object) -> Number:
+        """Widen a numeric-like value (including numpy scalars) to ``Number``.
+
+        ``np.int64`` is not a subclass of Python's ``int`` and ``np.integer``
+        therefore isn't assignable to ``Number``; this helper hides the
+        required cast at a single point instead of duplicating it at every
+        call site.
+        """
+        return cast(Number, v)
+
     if types is None:
         return convert_to_number(value, [int, np.integer, float, np.floating])
-    elif len(types) == 0:
+    if len(types) == 0:
         raise EleanorException('could not convert string to numeric type')
-    elif isinstance(value, tuple(types)):
-        return value
+    if isinstance(value, tuple(types)):
+        return _as_number(value)
 
+    remaining: list[type[object]] = []
     try:
-        t, *types = types
+        t, *remaining = types
         if t is np.floating:
-            return np.float64(value)
-        elif t is np.integer:
-            return np.int64(value)
-        else:
-            return t(value)
+            return _as_number(np.float64(value))
+        if t is np.integer:
+            return _as_number(np.int64(value))
+        if t is int:
+            return int(value)
+        if t is float:
+            return float(value)
+        raise EleanorException('could not convert string to numeric type')
     except ValueError:
-        return convert_to_number(value, types)
+        return convert_to_number(value, remaining)
 
 
-def is_list_of(value: Any, types: type | tuple, allowNone: bool = False) -> bool:
+def is_list_of(value: object, types: type | tuple[type, ...], allowNone: bool = False) -> bool:
     if allowNone:
         if isinstance(types, tuple):
             types = (*types, type(None))
@@ -292,7 +322,10 @@ def is_list_of(value: Any, types: type | tuple, allowNone: bool = False) -> bool
     if value is None:
         return allowNone
 
-    return isinstance(value, list) and all(isinstance(x, types) for x in value)
+    if not isinstance(value, list):
+        return False
+    items = cast(list[object], value)
+    return all(isinstance(item, types) for item in items)
 
 
 def parse_date(date: str) -> datetime.date | datetime.datetime:
@@ -302,7 +335,7 @@ def parse_date(date: str) -> datetime.date | datetime.datetime:
         return datetime.datetime.fromisoformat(date)
 
 
-def chunks(indexable, n: int):
+def chunks(indexable: Sequence[ChunkInputT], n: int) -> Generator[Sequence[ChunkInputT], None, None]:
     N = len(indexable)
     chunk_size = N // n
     residual = N - n * chunk_size
@@ -316,5 +349,10 @@ def chunks(indexable, n: int):
         start += chunk_size
 
 
-def mapreduce(m, r, iter, initial=None):
-    return reduce(r, map(m, iter), initial)
+def mapreduce(
+    mapper: Callable[[MapInputT], ReduceT],
+    reducer: Callable[[ReduceT, ReduceT], ReduceT],
+    values: Iterable[MapInputT],
+    initial: ReduceT,
+) -> ReduceT:
+    return reduce(reducer, map(mapper, values), initial)

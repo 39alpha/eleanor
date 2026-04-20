@@ -5,13 +5,11 @@ Provide a simple API for running EQ3/6.
 """
 import re
 from subprocess import PIPE, Popen, TimeoutExpired
-from eleanor.typing import Optional
 
 from .codes import RunCode
 from .exceptions import Eq36Exception
 
-
-def error_guard(output, cmd, code, fname=None):
+def error_guard(output: bytes | str, cmd: str, code: int, fname: str | None = None) -> None:
     """
     Parse EQ3/6 standard output content for error messages and raise an
     :class:`Eq36Exception` if any are found.
@@ -36,7 +34,13 @@ def error_guard(output, cmd, code, fname=None):
                     raise Eq36Exception(f'{message} in file "{fname}"', code=code)
 
 
-def run(cmd: str, *args, timeout: Optional[int] = None, **kwargs) -> tuple[bytes, bytes]:
+def run(
+    cmd: str,
+    *args: str,
+    timeout: int | None = None,
+    code: int,
+    fname: str | None = None,
+) -> tuple[bytes, bytes]:
     """
     Create and run a subprocess with command :code:`cmd` with arguments
     :code:`args`, capture the standard input and output, and return them.
@@ -49,12 +53,12 @@ def run(cmd: str, *args, timeout: Optional[int] = None, **kwargs) -> tuple[bytes
     process = Popen([cmd, *args], stdout=PIPE, stderr=PIPE)
     try:
         stdout, stderr = process.communicate(timeout=timeout)
-        error_guard(stdout, cmd, **kwargs)
+        error_guard(stdout, cmd, code=code, fname=fname)
     except TimeoutExpired:
         process.kill()
         stdout, stderr = process.communicate()
         try:
-            error_guard(stdout, cmd, **kwargs)
+            error_guard(stdout, cmd, code=code, fname=fname)
         except Eq36Exception as e:
             raise Eq36Exception(f'{cmd} timed out with errors', code=RunCode.EQ36_TIMEOUT) from e
         raise Eq36Exception(f'{cmd} timed out without errors', code=RunCode.EQ36_TIMEOUT)
@@ -65,7 +69,7 @@ def run(cmd: str, *args, timeout: Optional[int] = None, **kwargs) -> tuple[bytes
     return stdout, stderr
 
 
-def eqpt(data0):
+def eqpt(data0: str) -> tuple[bytes, bytes]:
     """
     Run eqpt on a data0, writing output files to the current working directory.
 
@@ -85,7 +89,7 @@ def eqpt(data0):
     return run('eqpt', data0, fname=data0, code=RunCode.EQPT_ERROR)
 
 
-def eq3(data1: str, threei: str, timeout: Optional[int] = None) -> tuple[bytes, bytes]:
+def eq3(data1: str, threei: str, timeout: int | None = None) -> tuple[bytes, bytes]:
     """
     Run eq3nr on a data1 and 3i file, writing output files to the current
     working directory.
@@ -101,10 +105,11 @@ def eq3(data1: str, threei: str, timeout: Optional[int] = None) -> tuple[bytes, 
     :return: the standard output and error that results from eq3nr on the data1
              and 3i files.
     """
+    _ = timeout
     return run('eq3nr', data1, threei, timeout=None, fname=threei, code=RunCode.EQ3_ERROR)
 
 
-def eq6(data1, sixi, timeout: Optional[int] = None):
+def eq6(data1: str, sixi: str, timeout: int | None = None) -> tuple[bytes, bytes]:
     """
     Run eq6 on a data1 and 6i file, writing output files to the current working
     directory.

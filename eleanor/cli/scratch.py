@@ -2,19 +2,25 @@ import argparse
 import io
 import os
 import sys
-from dataclasses import asdict
 from zipfile import ZipFile
+from sqlalchemy import select
 
-from eleanor.cli.util import add_config_args, config_from_args
+from eleanor.cli.util import ConfigArgs, add_config_args, config_from_args, typed_args
 from eleanor.variable_space import Point
-from eleanor.yeoman import Yeoman, select
+from eleanor.yeoman import Yeoman
+
+
+class ScratchArgs(ConfigArgs):
+    """Argparse fields accepted by the ``scratch`` command."""
+    vs_id: int
+    outdir: str
 
 
 def init(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
     parser.description = 'Dump huffer results to a directory'
 
-    parser.add_argument('vs_id', type=int, help='the variable space id for the huffer entry')
-    parser.add_argument(
+    _ = parser.add_argument('vs_id', type=int, help='the variable space id for the huffer entry')
+    _ = parser.add_argument(
         '-o',
         '--outdir',
         required=False,
@@ -30,19 +36,18 @@ def init(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
     return parser
 
 
-def execute(parser: argparse.ArgumentParser, ns: argparse.Namespace):
-    args = vars(ns)
+def execute(parser: argparse.ArgumentParser, ns: argparse.Namespace) -> None:
+    args = typed_args(ScratchArgs, ns)
 
     variable_space_id = args['vs_id']
     directory = args['outdir']
-    database = args['database']
 
-    print(f'Loading {args["config"]}')
+    print(f"Loading {args['config']}")
     config = config_from_args(parser, args)
 
     try:
         with Yeoman(config.database) as yeoman:
-            result = yeoman.scalar(select(Point).where(Point.id == variable_space_id))
+            result = yeoman.scalar(select(Point).where(Point.__table__.c.id == variable_space_id))
             if result is None:
                 raise Exception(f'no variable space point found with id {variable_space_id}')
 

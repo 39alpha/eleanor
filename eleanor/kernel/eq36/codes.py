@@ -1,4 +1,5 @@
 from enum import IntEnum
+from typing import override
 
 
 class RunCode(IntEnum):
@@ -15,12 +16,13 @@ class RunCode(IntEnum):
     EQ6_ERROR = 60
     NO_6O_FILE = 61
     FILE_ERROR_6O = 62
-    OUTSIDE_SALINITY_WINDOW = 63,
+    OUTSIDE_SALINITY_WINDOW = 63
     EQ6_EARLY_TERMINATION = 70
     EQ36_TIMEOUT = 90
 
-    def __str__(self):
-        return {
+    @override
+    def __str__(self) -> str:
+        message = {
             RunCode.NOT_RUN: 'not run',
             RunCode.UNKNOWN: 'an unrecognized error occured',
             RunCode.SUCCESS: 'success',
@@ -38,3 +40,6 @@ class RunCode(IntEnum):
             RunCode.EQ6_EARLY_TERMINATION: 'eq6 reaction path terminated early',
             RunCode.EQ36_TIMEOUT: 'eq36 timed out',
         }.get(self)
+        if message is None:
+            raise TypeError(f'missing string mapping for {self.__class__.__name__}.{self.name}')
+        return message

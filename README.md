@@ -45,3 +45,19 @@ uv tool install meson # If you haven't installed meson already
 ```bash
 uv tool install git+https://github.com/39alpha/eleanor
 ```
+
+## MPI backend (optional)
+
+MPI support is provided by the separately-distributed [`eleanor_mpi`](https://github.com/39alpha/eleanor) plugin package. Installing it registers the `mpi` backend with Eleanor's executor registry; no configuration changes are required.
+
+```bash
+pip install 'eleanor[mpi]'   # convenience alias for eleanor_mpi
+```
+
+or install the plugin directly:
+
+```bash
+pip install eleanor_mpi
+```
+
+See the `eleanor_mpi` README for launcher details, worker-count semantics, and progress-reporting caveats.

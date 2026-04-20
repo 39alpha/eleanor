@@ -12,20 +12,27 @@ from .common import TestCase
 class _Future:
     def __init__(self, value):
         self._value = value
+    def result(self):
+        return self._value
 
     def get(self):
-        return self._value
+        return self.result()
 
 
 class _Pool:
     def __init__(self, processes=None):
-        self._processes = 2 if processes is None else processes
-        self.apply_async = mock.Mock(side_effect=[_Future([10]), _Future([11])])
+        workers = 2 if processes is None else processes
+        if workers <= 0:
+            workers = 1
+        self.num_workers = workers
+        self.submit = mock.Mock(side_effect=[_Future([10]), _Future([11])])
+        self.shutdown = mock.Mock()
 
     def __enter__(self):
         return self
 
     def __exit__(self, *_args):
+        self.shutdown()
         return None
 
 
@@ -78,7 +85,11 @@ class TestEleanor(TestCase):
     def _make_eleanor(self):
         eleanor = Eleanor.__new__(Eleanor)
         eleanor.kernel_args = ["arg1"]
-        eleanor.config = SimpleNamespace(database="db-config", output=SimpleNamespace(type="postgres"))
+        eleanor.config = SimpleNamespace(
+            database="db-config",
+            output=SimpleNamespace(type="postgres"),
+            parallel=SimpleNamespace(backend='multiprocessing', chunks_per_worker=1),
+        )
         eleanor.order = SimpleNamespace(transformers=[], huffer_result=None)
         return eleanor
 
@@ -122,10 +133,19 @@ class TestEleanor(TestCase):
         eleanor = self._make_eleanor()
         eleanor.order.suborders = None
         eleanor.dispatch = mock.Mock(return_value=[7])
-
-        out = eleanor.run(5, order_id=3, verbose=True)
+        executor = _Pool()
+        with mock.patch("eleanor.eleanor.build_executor", return_value=executor) as build_executor:
+            out = eleanor.run(5, order_id=3, verbose=True)
         self.assertEqual(out, [7])
-        eleanor.dispatch.assert_called_once_with(5, order_id=3, verbose=True)
+        build_executor.assert_called_once_with(kind='multiprocessing', num_workers=None)
+        eleanor.dispatch.assert_called_once_with(
+            5,
+            order_id=3,
+            verbose=True,
+            parallel='multiprocessing',
+            chunks_per_worker=1,
+            executor=executor,
+        )
 
     def test_run_applies_transformers_before_recursing(self):
         """
@@ -138,11 +158,15 @@ class TestEleanor(TestCase):
         kernel = mock.Mock()
         eleanor.load_kernel = mock.Mock(return_value=kernel)
         eleanor._run = mock.Mock(return_value=[12])
-
-        with mock.patch("eleanor.eleanor.transform", return_value=transformed) as transform_fn:
+        executor = _Pool()
+        with (
+            mock.patch("eleanor.eleanor.transform", return_value=transformed) as transform_fn,
+            mock.patch("eleanor.eleanor.build_executor", return_value=executor) as build_executor,
+        ):
             out = eleanor.run(4, order_id=2, verbose=True)
 
         self.assertEqual(out, [12])
+        build_executor.assert_called_once_with(kind='multiprocessing', num_workers=None)
         eleanor.load_kernel.assert_called_once_with(verbose=True)
         transform_fn.assert_called_once_with(original_order, kernel)
         self.assertIs(eleanor.order, transformed)
@@ -152,6 +176,9 @@ class TestEleanor(TestCase):
             combined=False,
             proportional_sampling=False,
             verbose=True,
+            parallel='multiprocessing',
+            chunks_per_worker=1,
+            executor=executor,
         )
 
     def test_run_recurse_with_suborders_and_proportional_sampling(self):
@@ -170,13 +197,21 @@ class TestEleanor(TestCase):
         child2 = mock.Mock()
         child2._run.return_value = [2, 3]
         eleanor.recur = mock.Mock(side_effect=[child1, child2])
-
-        out = eleanor.run(8)
+        executor = _Pool()
+        with mock.patch("eleanor.eleanor.build_executor", return_value=executor) as build_executor:
+            out = eleanor.run(8)
 
         self.assertEqual(out, [2, 3, 4])
+        build_executor.assert_called_once_with(kind='multiprocessing', num_workers=None)
         eleanor.ignite.assert_called_once()
         child1._run.assert_called_once()
         child2._run.assert_called_once()
+        self.assertIs(child1._run.call_args.kwargs["executor"], executor)
+        self.assertIs(child2._run.call_args.kwargs["executor"], executor)
+        self.assertEqual(child1._run.call_args.kwargs["parallel"], 'multiprocessing')
+        self.assertEqual(child2._run.call_args.kwargs["parallel"], 'multiprocessing')
+        self.assertEqual(child1._run.call_args.kwargs["chunks_per_worker"], 1)
+        self.assertEqual(child2._run.call_args.kwargs["chunks_per_worker"], 1)
 
     def test_dispatch_rejects_unsupported_success_sampling(self):
         """
@@ -210,15 +245,17 @@ class TestEleanor(TestCase):
         ])
         sink = mock.Mock()
         eleanor.load_output_sink = mock.Mock(return_value=sink)
-
-        with mock.patch("eleanor.eleanor.Pool", _Pool):
+        executor = _Pool()
+        with mock.patch("eleanor.eleanor.build_executor", return_value=executor) as build_executor:
             out = eleanor.dispatch(6, num_procs=0, show_progress=False, no_huffer=True)
 
         self.assertEqual(out, [5])
+        build_executor.assert_called_once_with(kind='multiprocessing', num_workers=0)
         eleanor.ignite.assert_called_once()
         eleanor.process.assert_called_once()
         sink.begin_run.assert_called_once()
         sink.finalize.assert_called_once()
+        self.assertIs(eleanor.process.call_args.kwargs["executor"], executor)
         self.assertEqual(eleanor.ignite.call_args.kwargs["huffer_with"], None)
 
     def test_dispatch_sets_huffer_with_when_enabled(self):
@@ -238,13 +275,15 @@ class TestEleanor(TestCase):
         ])
         sink = mock.Mock()
         eleanor.load_output_sink = mock.Mock(return_value=sink)
-
-        with mock.patch("eleanor.eleanor.Pool", _Pool):
+        executor = _Pool()
+        with mock.patch("eleanor.eleanor.build_executor", return_value=executor) as build_executor:
             out = eleanor.dispatch(3, no_huffer=False, show_progress=False)
 
         self.assertEqual(out, [6])
+        build_executor.assert_called_once_with(kind='multiprocessing', num_workers=None)
         sink.begin_run.assert_called_once()
         sink.finalize.assert_called_once()
+        self.assertIs(eleanor.process.call_args.kwargs["executor"], executor)
         self.assertEqual(eleanor.ignite.call_args.kwargs["huffer_with"], (kernel, navigator))
 
     def test_dispatch_success_sampling_with_progress(self):
@@ -266,29 +305,33 @@ class TestEleanor(TestCase):
         ])
         sink = mock.Mock()
         eleanor.load_output_sink = mock.Mock(return_value=sink)
+        executor = _Pool()
+        manager = mock.Mock()
 
         progress = SimpleNamespace(queue=mock.Mock(), join=mock.Mock())
         with (
-            mock.patch("eleanor.eleanor.Pool", _Pool),
-            mock.patch("eleanor.eleanor.Manager", return_value=object()),
+            mock.patch("eleanor.eleanor.build_executor", return_value=executor) as build_executor,
+            mock.patch("eleanor.eleanor.Manager", return_value=manager),
             mock.patch("eleanor.eleanor.Progress", return_value=progress),
         ):
             out = eleanor.dispatch(2, show_progress=True, success_sampling=True, order_id=11)
 
         self.assertEqual(out, [11])
+        build_executor.assert_called_once_with(kind='multiprocessing', num_workers=None)
         eleanor.process.assert_called_once()
         sink.begin_run.assert_called_once()
         sink.finalize.assert_called_once()
         progress.join.assert_called_once()
+        manager.shutdown.assert_called_once()
 
-    def test_process_requires_pool(self):
+    def test_process_requires_executor(self):
         """
-        Ensure process raises if no process pool is provided.
+        Ensure process raises if no process executor is provided.
         """
         eleanor = self._make_eleanor()
         sink = mock.Mock()
         with self.assertRaises(EleanorException):
-            eleanor.process(mock.Mock(), mock.Mock(), 1, 1, pool=None, sink=sink)
+            eleanor.process(mock.Mock(), mock.Mock(), 1, 1, executor=None, sink=sink)
 
     def test_process_batches_and_breaks_when_complete(self):
         """
@@ -299,23 +342,23 @@ class TestEleanor(TestCase):
         navigator = mock.Mock()
         navigator.navigate.return_value = ["a", "b"]
         navigator.is_complete.return_value = True
-        pool = _Pool()
+        executor = _Pool()
         progress = mock.Mock()
         compute_results = [
             ComputeResult(point=SimpleNamespace(exit_code=0)),
             ComputeResult(point=SimpleNamespace(exit_code=0)),
         ]
-        pool.apply_async = mock.Mock(side_effect=[_Future(compute_results), _Future([])])
+        executor.submit = mock.Mock(side_effect=[_Future(compute_results), _Future([])])
         sink = mock.Mock()
         sink.write_batch.return_value = [
             WriteOutcome(point_id=10, exit_code=0, committed=True),
             WriteOutcome(point_id=11, exit_code=0, committed=True),
         ]
 
-        eleanor.process(kernel, navigator, 2, 9, pool=pool, sink=sink, progress=progress, success_sampling=True)
+        eleanor.process(kernel, navigator, 2, 9, executor=executor, sink=sink, progress=progress, success_sampling=True)
 
         progress.put.assert_any_call(2)
-        self.assertEqual(pool.apply_async.call_count, 2)
+        self.assertEqual(executor.submit.call_count, 2)
         sink.write_batch.assert_called_once_with(9, compute_results)
         is_complete_args = navigator.is_complete.call_args[0][0]
         self.assertEqual(sorted(is_complete_args), [10, 11])
@@ -339,8 +382,8 @@ class TestEleanor(TestCase):
             ComputeResult(point=point_b),
         ]
 
-        pool = _Pool()
-        pool.apply_async = mock.Mock(side_effect=[_Future(worker_results), _Future([])])
+        executor = _Pool()
+        executor.submit = mock.Mock(side_effect=[_Future(worker_results), _Future([])])
         sink = mock.Mock()
         sink.write_batch.return_value = [
             WriteOutcome(point_id=101, exit_code=0, committed=True),
@@ -352,7 +395,7 @@ class TestEleanor(TestCase):
             navigator,
             2,
             9,
-            pool=pool,
+            executor=executor,
             sink=sink,
             progress=None,
             success_sampling=True,

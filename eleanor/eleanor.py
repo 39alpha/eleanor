@@ -1,5 +1,5 @@
-from multiprocessing import Manager, Pool
-from multiprocessing.pool import AsyncResult, Pool as ProcessPool
+from contextlib import AbstractContextManager, nullcontext
+from multiprocessing import Manager
 from queue import Queue
 
 from sqlalchemy import and_, select
@@ -7,6 +7,7 @@ from sqlalchemy import and_, select
 from eleanor.sailor import Sailor
 
 from .config import Config, load_config
+from .executor import AbstractExecutor, build_executor
 from .exceptions import EleanorException
 from .kernel.discover import import_kernel_module
 from .kernel.interface import AbstractKernel
@@ -32,6 +33,26 @@ class Eleanor(object):
     def recur(self, config: str | Config, order: str | Order, kernel_args: list[object]) -> Self:
         return self.__class__(config, order, kernel_args)
 
+    def _parallel_defaults(self) -> tuple[str, int]:
+        return self.config.parallel.backend, self.config.parallel.chunks_per_worker
+
+    @staticmethod
+    def _executor_context(
+        executor: AbstractExecutor | None,
+        *,
+        parallel: str,
+        num_workers: int | None,
+    ) -> AbstractContextManager[AbstractExecutor]:
+        """Return a context manager yielding an :class:`AbstractExecutor`.
+
+        When an externally-owned ``executor`` is supplied, wrap it in a
+        :func:`contextlib.nullcontext` so the caller retains ownership of its
+        lifetime. Otherwise, build a fresh executor via :func:`build_executor`.
+        """
+        if executor is not None:
+            return nullcontext(executor)
+        return build_executor(kind=parallel, num_workers=num_workers)
+
     def run(
         self,
         simulation_size: int,
@@ -39,20 +60,39 @@ class Eleanor(object):
         order_id: int | None = None,
         combined: bool = False,
         proportional_sampling: bool = False,
+        parallel: str | None = None,
+        chunks_per_worker: int | None = None,
+        executor: AbstractExecutor | None = None,
         **kwargs: Unpack[EleanorKwargs],
     ) -> list[int]:
         if len(self.order.transformers) != 0:
             kernel = self.load_kernel(**kwargs)
             self.order = transform(self.order, kernel)
 
-        return self._run(
-            simulation_size,
-            *args,
-            order_id=order_id,
-            combined=combined,
-            proportional_sampling=proportional_sampling,
-            **kwargs,
+        default_parallel, default_chunks_per_worker = self._parallel_defaults()
+        if parallel is None:
+            parallel = default_parallel
+        if chunks_per_worker is None:
+            chunks_per_worker = default_chunks_per_worker
+
+        executor_context = self._executor_context(
+            executor,
+            parallel=parallel,
+            num_workers=kwargs.get('num_procs'),
         )
+
+        with executor_context as run_executor:
+            return self._run(
+                simulation_size,
+                *args,
+                order_id=order_id,
+                combined=combined,
+                proportional_sampling=proportional_sampling,
+                parallel=parallel,
+                chunks_per_worker=chunks_per_worker,
+                executor=run_executor,
+                **kwargs,
+            )
 
     def _run(
         self,
@@ -61,8 +101,17 @@ class Eleanor(object):
         order_id: int | None = None,
         combined: bool = False,
         proportional_sampling: bool = False,
+        parallel: str | None = None,
+        chunks_per_worker: int | None = None,
+        executor: AbstractExecutor | None = None,
         **kwargs: Unpack[EleanorKwargs],
     ) -> list[int]:
+        default_parallel, default_chunks_per_worker = self._parallel_defaults()
+        if parallel is None:
+            parallel = default_parallel
+        if chunks_per_worker is None:
+            chunks_per_worker = default_chunks_per_worker
+
         if self.order.suborders is not None and len(self.order.suborders.suborders) != 0:
             order_ids: set[int] = set()
 
@@ -87,19 +136,33 @@ class Eleanor(object):
                     order_id=order_id,
                     combined=combined,
                     proportional_sampling=proportional_sampling,
+                    parallel=parallel,
+                    chunks_per_worker=chunks_per_worker,
+                    executor=executor,
                     **kwargs,
                 )
                 order_ids.update(suborder_ids)
 
             return sorted(order_ids)
 
-        return self.dispatch(simulation_size, *args, order_id=order_id, **kwargs)
+        return self.dispatch(
+            simulation_size,
+            *args,
+            order_id=order_id,
+            parallel=parallel,
+            chunks_per_worker=chunks_per_worker,
+            executor=executor,
+            **kwargs,
+        )
 
     def dispatch(
         self,
         simulation_size: int,
         *args: object,
         order_id: int | None = None,
+        parallel: str | None = None,
+        chunks_per_worker: int | None = None,
+        executor: AbstractExecutor | None = None,
         **kwargs: Unpack[EleanorKwargs],
     ) -> list[int]:
         no_huffer = kwargs.get('no_huffer', False)
@@ -107,6 +170,12 @@ class Eleanor(object):
         show_progress = kwargs.get('show_progress', False)
         success_sampling = kwargs.get('success_sampling', False)
         verbose = kwargs.get('verbose', False)
+
+        default_parallel, default_chunks_per_worker = self._parallel_defaults()
+        if parallel is None:
+            parallel = default_parallel
+        if chunks_per_worker is None:
+            chunks_per_worker = default_chunks_per_worker
 
         kernel = self.load_kernel(**kwargs)
         if self.order.navigator is None:
@@ -124,55 +193,63 @@ class Eleanor(object):
             order_id = self.ignite(*args, huffer_with=huffer_with, **kwargs)
         self.order.id = order_id
 
-        manager = Manager()
-
         progress: Progress | None = None
+        manager = None
         if show_progress:
+            manager = Manager()
             progress = Progress(manager, no_total_update=success_sampling)
 
-        if num_procs is not None and num_procs <= 0:
-            num_procs = 1
+        executor_context = self._executor_context(
+            executor,
+            parallel=parallel,
+            num_workers=num_procs,
+        )
 
         output_sink = self.load_output_sink(verbose=bool(verbose))
         output_sink.begin_run(self.order, self.order.huffer_result)
 
         stats = RunStats()
 
-        with Pool(processes=num_procs) as pool:
-            if success_sampling:
-                # Each call to dispatch targets exactly simulation_size new successful
-                # points. Pre-existing successes already in the database are not counted.
-                while stats.succeeded < simulation_size:
+        try:
+            with executor_context as dispatch_executor:
+                if success_sampling:
+                    # Each call to dispatch targets exactly simulation_size new successful
+                    # points. Pre-existing successes already in the database are not counted.
+                    while stats.succeeded < simulation_size:
+                        outcomes = self.process(
+                            kernel,
+                            navigator,
+                            simulation_size - stats.succeeded,
+                            order_id,
+                            *args,
+                            executor=dispatch_executor,
+                            chunks_per_worker=chunks_per_worker,
+                            sink=output_sink,
+                            progress=progress.queue if progress is not None else None,
+                            **kwargs,
+                        )
+                        stats.update(outcomes)
+                else:
                     outcomes = self.process(
                         kernel,
                         navigator,
-                        simulation_size - stats.succeeded,
+                        simulation_size,
                         order_id,
                         *args,
-                        pool=pool,
+                        executor=dispatch_executor,
+                        chunks_per_worker=chunks_per_worker,
                         sink=output_sink,
                         progress=progress.queue if progress is not None else None,
                         **kwargs,
                     )
-
                     stats.update(outcomes)
-            else:
-                outcomes = self.process(
-                    kernel,
-                    navigator,
-                    simulation_size,
-                    order_id,
-                    *args,
-                    pool=pool,
-                    sink=output_sink,
-                    progress=progress.queue if progress is not None else None,
-                    **kwargs,
-                )
-                stats.update(outcomes)
 
-        output_sink.finalize()
-        if progress is not None:
-            progress.join()
+            output_sink.finalize()
+        finally:
+            if progress is not None:
+                progress.join()
+            if manager is not None:
+                manager.shutdown()
 
         return [order_id]
 
@@ -183,13 +260,18 @@ class Eleanor(object):
         simulation_size: int,
         order_id: int,
         *args: object,
-        pool: ProcessPool | None = None,
+        executor: AbstractExecutor | None = None,
+        chunks_per_worker: int = 1,
         sink: OutputSink,
         progress: Queue[bool | int] | None = None,
         **kwargs: Unpack[EleanorKwargs],
     ) -> list[WriteOutcome]:
-        if pool is None:
-            raise EleanorException('no process pool created')
+        if executor is None:
+            raise EleanorException('no process executor created')
+        if executor.num_workers <= 0:
+            raise EleanorException('executor num_workers must be >= 1')
+        if chunks_per_worker <= 0:
+            raise EleanorException('chunks_per_worker must be >= 1')
 
         success_sampling = kwargs.get('success_sampling', False)
         outcomes: list[WriteOutcome] = []
@@ -201,21 +283,25 @@ class Eleanor(object):
 
             vs_point_ids: list[int] = []
 
-            futures: list[AsyncResult[list[ComputeResult]]] = []
-            process_count = cast(int, getattr(pool, '_processes', 1))
-            for batch in list(chunks(vs_points, process_count)):
+            futures = []
+            # Cap chunk count at the number of points so we never produce
+            # empty batches when num_workers * chunks_per_worker exceeds
+            # len(vs_points).
+            chunk_count = min(len(vs_points), executor.num_workers * chunks_per_worker)
+            for batch in chunks(vs_points, chunk_count):
                 sailor_kwargs: EleanorKwargs = {**kwargs}
-                future = pool.apply_async(
+                future = executor.submit(
                     Sailor(kernel).dispatch,
-                    (batch, *args),
-                    sailor_kwargs,
+                    batch,
+                    *args,
+                    **sailor_kwargs,
                 )
                 futures.append(future)
 
             compute_results: list[ComputeResult] = []
             while futures:
                 future = futures.pop()
-                compute_results.extend(future.get())
+                compute_results.extend(future.result())
 
             batch_outcomes = sink.write_batch(order_id, compute_results)
             outcomes.extend(batch_outcomes)

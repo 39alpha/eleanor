@@ -3,6 +3,8 @@ from traceback import print_exception
 
 from eleanor import Eleanor
 from eleanor.cli.util import ConfigArgs, add_config_args, config_from_args, typed_args
+from eleanor.exceptions import EleanorException
+from eleanor.executor.backends import supported_backends
 
 
 class RunArgs(ConfigArgs):
@@ -18,6 +20,8 @@ class RunArgs(ConfigArgs):
     combined: bool
     proportional: bool
     success_sampling: bool
+    parallel: str | None
+    chunks_per_worker: int | None
 
 
 def init(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
@@ -55,6 +59,23 @@ def init(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
         action='store_true',
         help='sample size counts successes only',
     )
+    _ = parser.add_argument(
+        '--parallel',
+        required=False,
+        metavar='BACKEND',
+        help=(
+            'parallel backend (overrides configuration). Built-in backends are '
+            'serial and multiprocessing; additional backends (including mpi, '
+            'provided by the eleanor_mpi package) may be contributed by '
+            'third-party packages via the "eleanor.executors" entry-point group.'
+        ),
+    )
+    _ = parser.add_argument(
+        '--chunks-per-worker',
+        required=False,
+        type=int,
+        help='number of chunks per worker (overrides configuration)',
+    )
     _ = parser.add_argument('order', type=str, help='order file')
     _ = parser.add_argument('simulation_size', type=int, help='the size of the simulation')
 
@@ -70,9 +91,22 @@ def execute(parser: argparse.ArgumentParser, ns: argparse.Namespace) -> None:
 
     kernel_args: list[object] = list(args['kernel_args'] or [])
     show_progress = args['progress'] and not args['verbose']
+    parallel = args['parallel']
+    chunks_per_worker = args['chunks_per_worker']
 
     try:
         config = config_from_args(parser, args)
+        if parallel is None:
+            parallel = config.parallel.backend
+        else:
+            backends = supported_backends()
+            if parallel not in backends:
+                choices = ', '.join(sorted(backends))
+                raise EleanorException(
+                    f'unsupported executor backend "{parallel}"; choose from {choices}',
+                )
+        if chunks_per_worker is None:
+            chunks_per_worker = config.parallel.chunks_per_worker
 
         order_ids = Eleanor(config, args['order'], kernel_args).run(
             args['simulation_size'],
@@ -84,6 +118,8 @@ def execute(parser: argparse.ArgumentParser, ns: argparse.Namespace) -> None:
             proportional_sampling=args['proportional'],
             success_sampling=args['success_sampling'],
             verbose=args['verbose'],
+            parallel=parallel,
+            chunks_per_worker=chunks_per_worker,
         )
 
         if args['verbose']:

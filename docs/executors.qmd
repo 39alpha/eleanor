@@ -1,0 +1,149 @@
+---
+title: Executors
+---
+
+Eleanor dispatches work through an `AbstractExecutor` interface. Two
+implementations ship with the distribution — `serial` and `multiprocessing` —
+and additional backends (including the `mpi` backend, distributed as the
+separate `eleanor_mpi` package) are contributed by third-party Python
+packages.
+
+## The executor contract
+
+An executor must subclass `eleanor.executor.AbstractExecutor` and provide:
+
+- `num_workers` *(property)* — the number of parallel workers the executor can
+  run. Must return a value `>= 1`. Callers use this to choose a chunk count
+  when fanning out work.
+- `submit(fn, *args, **kwargs) -> AbstractFuture` — schedule `fn(*args, **kwargs)`
+  and return a future whose `.result()` yields the return value.
+- `shutdown(wait: bool = True) -> None` — release any worker resources. The
+  base class calls this automatically when used as a context manager.
+- `supports_worker_progress` *(class attribute, default `True`)* — whether
+  workers can reach the parent process's `multiprocessing.Manager`-backed
+  progress queue. Backends whose workers live outside the parent's
+  multiprocessing domain (for example MPI, as implemented in
+  `eleanor_mpi`) must set this to `False`.
+
+`submit` returns an `AbstractFuture[T]` whose only required method is
+`result() -> T`.
+
+## Num-workers semantics
+
+Factories receive a single `int | None` argument:
+
+- `None` means "use the backend's natural default" (e.g. `os.cpu_count()` for
+  multiprocessing, the MPI world size for the `eleanor_mpi` backend).
+- Any `int` value is the user's requested worker count. Callers of
+  `build_executor` normalize non-positive values to `1` via
+  `_normalize_num_workers` before invoking the factory; plugins are free to
+  re-normalize.
+
+## Picklability
+
+Any callable or argument passed to `submit` must survive the backend's
+serialization mechanism. For multiprocessing-style executors this means the
+function and its arguments must be picklable. Plugin authors are responsible
+for documenting any additional constraints (for example, Ray and Dask both
+have their own serialization requirements).
+
+## Distributing a third-party executor
+
+Third-party executors register themselves through a Python
+[entry point](https://packaging.python.org/en/latest/specifications/entry-points/)
+in the `eleanor.executors` group. Each entry point must resolve to a factory
+callable with the signature `Callable[[int | None], AbstractExecutor]`.
+
+A minimal plugin layout:
+
+```
+eleanor-dask/
+├── pyproject.toml
+└── eleanor_dask/
+    ├── __init__.py
+    └── executor.py
+```
+
+`pyproject.toml`:
+
+```toml
+[project]
+name = "eleanor-dask"
+version = "0.1.0"
+dependencies = ["eleanor", "dask[distributed]"]
+
+[project.entry-points."eleanor.executors"]
+dask = "eleanor_dask.executor:build"
+```
+
+`eleanor_dask/executor.py`:
+
+```python
+from collections.abc import Callable
+from typing import TypeVar
+
+from eleanor.executor import AbstractExecutor, AbstractFuture
+
+T = TypeVar("T")
+
+
+class DaskFuture(AbstractFuture[T]):
+    def __init__(self, future):
+        self._future = future
+
+    def result(self) -> T:
+        return self._future.result()
+
+
+class DaskExecutor(AbstractExecutor):
+    def __init__(self, num_workers: int | None = None):
+        from dask.distributed import Client
+        self._client = Client(n_workers=num_workers or 1)
+        self._num_workers = num_workers or 1
+
+    @property
+    def num_workers(self) -> int:
+        return self._num_workers
+
+    def submit(self, fn: Callable[..., T], *args, **kwargs) -> AbstractFuture[T]:
+        return DaskFuture(self._client.submit(fn, *args, **kwargs))
+
+    def shutdown(self, wait: bool = True) -> None:
+        self._client.close()
+
+
+def build(num_workers: int | None) -> AbstractExecutor:
+    return DaskExecutor(num_workers=num_workers)
+```
+
+Once installed (`pip install eleanor-dask`), users select the backend with
+`eleanor run --parallel dask …` or by setting `parallel.backend = "dask"` in
+their configuration file.
+
+## Discovery and collision policy
+
+Entry-point discovery runs lazily on the first call to
+`eleanor.executor.available_backends()` or `build_executor()`. If a plugin
+fails to import, Eleanor emits a `RuntimeWarning` and skips that plugin
+rather than aborting.
+
+Built-in backend names are reserved: attempts by a plugin to register under
+`serial` or `multiprocessing` are ignored with a warning. Collisions between
+two plugins are resolved in favour of whichever plugin is discovered first.
+Advanced users can force an override by setting the
+`ELEANOR_EXECUTOR_OVERRIDES` environment variable to a truthy value; this is
+intended for development and debugging only.
+
+## Programmatic registration
+
+Library consumers who want to register a backend without publishing a
+distribution can call `register_backend`:
+
+```python
+from eleanor.executor import register_backend
+from my_project.executors import build_my_executor
+
+register_backend("my-executor", build_my_executor)
+```
+
+This uses the same collision policy as entry-point discovery.

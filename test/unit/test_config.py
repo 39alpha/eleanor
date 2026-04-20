@@ -3,7 +3,7 @@ import textwrap
 from os.path import join
 from tempfile import TemporaryDirectory
 
-from eleanor.config import Config, DatabaseConfig, OutputConfig, load_config
+from eleanor.config import Config, DatabaseConfig, OutputConfig, ParallelConfig, load_config
 from eleanor.exceptions import EleanorConfigurationException, EleanorException
 
 from .common import TestCase
@@ -58,6 +58,23 @@ class TestConfig(TestCase):
         self.assertEqual(cfg.username, 'alice')
         self.assertEqual(cfg.password, 'secret')
 
+    def test_parallel_config_defaults(self):
+        """
+        Ensure that :class:`ParallelConfig` defaults to multiprocessing with one chunk per worker.
+        """
+        cfg = ParallelConfig()
+        self.assertEqual(cfg.backend, 'multiprocessing')
+        self.assertEqual(cfg.chunks_per_worker, 1)
+
+    def test_parallel_config_validation(self):
+        """
+        Ensure invalid backend names and chunk values raise configuration errors.
+        """
+        with self.assertRaises(EleanorConfigurationException):
+            ParallelConfig(backend='bogus')
+        with self.assertRaises(EleanorConfigurationException):
+            ParallelConfig(chunks_per_worker=0)
+
     def test_config_defaults_allow_missing_credentials(self):
         """
         Ensure that :class:`Config` default construction allows missing credentials.
@@ -65,6 +82,8 @@ class TestConfig(TestCase):
         cfg = Config()
         self.assertIsNone(cfg.database.username)
         self.assertIsNone(cfg.database.password)
+        self.assertEqual(cfg.parallel.backend, 'multiprocessing')
+        self.assertEqual(cfg.parallel.chunks_per_worker, 1)
 
     def test_config_from_yaml(self):
         """
@@ -107,6 +126,9 @@ class TestConfig(TestCase):
                 username = "alice"
                 password = "secret"
                 sslmode = "require"
+                [parallel]
+                backend = "serial"
+                chunks_per_worker = 3
             """)
             with open(path, 'w') as f:
                 f.write(content)
@@ -115,6 +137,8 @@ class TestConfig(TestCase):
             self.assertEqual(cfg.database.database, 'sample')
             self.assertEqual(cfg.database.port, 5432)
             self.assertEqual(cfg.database.sslmode, 'require')
+            self.assertEqual(cfg.parallel.backend, 'serial')
+            self.assertEqual(cfg.parallel.chunks_per_worker, 3)
 
     def test_config_from_json(self):
         """
@@ -132,7 +156,11 @@ class TestConfig(TestCase):
                     'username': 'alice',
                     'password': 'secret',
                     'sslmode': 'require',
-                }
+                },
+                'parallel': {
+                    'backend': 'serial',
+                    'chunks_per_worker': 8,
+                },
             }
             with open(path, 'w') as f:
                 json.dump(raw, f)
@@ -141,6 +169,8 @@ class TestConfig(TestCase):
             self.assertEqual(cfg.database.database, 'sample')
             self.assertEqual(cfg.database.port, 5432)
             self.assertEqual(cfg.database.sslmode, 'require')
+            self.assertEqual(cfg.parallel.backend, 'serial')
+            self.assertEqual(cfg.parallel.chunks_per_worker, 8)
 
     def test_config_from_file_dispatches_by_extension(self):
         """
@@ -262,3 +292,11 @@ class TestConfig(TestCase):
         msg = str(ctx.exception)
         self.assertIn('csv', msg)
         self.assertIn('postgres', msg)
+
+    def test_config_parallel_raw_defaults_when_missing(self):
+        """
+        Ensure parallel defaults are applied when raw config omits the parallel section.
+        """
+        cfg = Config(raw={'database': {'database': 'sample'}})
+        self.assertEqual(cfg.parallel.backend, 'multiprocessing')
+        self.assertEqual(cfg.parallel.chunks_per_worker, 1)

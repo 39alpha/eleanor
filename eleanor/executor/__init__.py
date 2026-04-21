@@ -4,7 +4,6 @@ from .registry import (
     ENTRY_POINT_GROUP,
     OVERRIDE_ENV_VAR,
     ExecutorFactory,
-    _normalize_num_workers,
     available_backends,
     get_factory,
     register_backend,
@@ -29,8 +28,8 @@ def build_executor(kind: str = 'multiprocessing', *, num_workers: int | None = N
     """Construct an :class:`AbstractExecutor` for the given backend name.
 
     :param kind: the backend name. Must be one of :func:`available_backends`,
-        which includes the built-in backends (``serial``, ``multiprocessing``,
-        ``mpi``) and any third-party backends discovered via the
+        which includes the built-in backends (``serial``, ``multiprocessing``)
+        and any third-party backends discovered via the
         :data:`ENTRY_POINT_GROUP` entry-point group.
     :param num_workers: the requested worker count. Backends are free to
         normalize or ignore this value; see the individual backend classes.

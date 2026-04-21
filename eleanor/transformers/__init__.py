@@ -192,8 +192,13 @@ def transform(
 
     if len(order.transformers) != 0:
         for transformer_config in order.transformers:
-            transformer = cast(AbstractTransformer, transformer_config.load()(**transformer_config.args))
-            order = transformer.transform(order, kernel)
+            built = get_factory(transformer_config.type)(**transformer_config.args)
+            if not isinstance(built, AbstractTransformer):
+                raise EleanorException(
+                    f'transformer plugin "{transformer_config.type}" returned '
+                    + f'{type(built).__name__}, expected an AbstractTransformer',
+                )
+            order = built.transform(order, kernel)
         order.transformers = []
     return order
 
@@ -207,6 +212,52 @@ from .registry import (  # noqa: E402
     get_factory,
     register_transformer,
 )
+
+
+def _require_str(transformer: str, args: dict[str, object], name: str) -> str:
+    value = args.get(name)
+    if not isinstance(value, str):
+        raise EleanorException(
+            f'transformer "{transformer}" requires a string "{name}" argument',
+        )
+    return value
+
+
+def _optional_bool(transformer: str, args: dict[str, object], name: str, default: bool = False) -> bool:
+    value = args.get(name, default)
+    if not isinstance(value, bool):
+        raise EleanorException(
+            f'transformer "{transformer}" argument "{name}" must be a bool',
+        )
+    return value
+
+
+def _optional_int(transformer: str, args: dict[str, object], name: str) -> int | None:
+    value = args.get(name)
+    if value is None:
+        return None
+    if not isinstance(value, int) or isinstance(value, bool):
+        raise EleanorException(
+            f'transformer "{transformer}" argument "{name}" must be an int',
+        )
+    return value
+
+
+def _build_glass_reactant_embedder(**args: object) -> AbstractTransformer:
+    t = 'glass_reactant_embedder'
+    return GlassReactantEmbedder(
+        filename=_require_str(t, args, 'filename'),
+        reactant_name=_require_str(t, args, 'reactant_name'),
+        amount=args.get('amount'),
+        assume_mass_fraction=_optional_bool(t, args, 'assume_mass_fraction'),
+        combined=_optional_bool(t, args, 'combined'),
+        proportional_sampling=_optional_bool(t, args, 'proportional_sampling'),
+        titration_rate=args.get('titration_rate'),
+        limit=_optional_int(t, args, 'limit'),
+    )
+
+
+register_transformer('glass_reactant_embedder', _build_glass_reactant_embedder)
 
 __all__ = [
     'AbstractTransformer',

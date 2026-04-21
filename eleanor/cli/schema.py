@@ -4,9 +4,18 @@ from typing import Protocol
 
 from sqlalchemy import create_mock_engine
 
+import eleanor.kernel.eq36 as _eq36
 from eleanor.cli.util import ConfigArgs, add_config_args, config_from_args, typed_args
-from eleanor.kernel import registry as _kernel_registry  # noqa: F401  (seeds yeoman_registry)
 from eleanor.yeoman import yeoman_registry
+
+# Import eq36 so that its ORM tables are registered against
+# :data:`yeoman_registry.metadata` before we emit the schema.
+# The attribute access on ``_eq36.Settings`` is intentional: it makes the
+# import "used" from basedpyright's perspective (suppressing
+# ``reportUnusedImport``) while being explicit about which class triggers
+# the side-effect.  A bare ``# noqa: F401`` comment would be ignored by
+# basedpyright.
+_ = _eq36.Settings
 
 
 class SchemaArgs(ConfigArgs):

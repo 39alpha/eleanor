@@ -221,30 +221,36 @@ class TestEleanor(TestCase):
         """
         Ensure dispatch raises if success_sampling is requested with unsupported navigator.
         """
+        from eleanor.navigator import AbstractNavigator
+
         eleanor = self._make_eleanor()
         kernel = mock.Mock()
-        navigator = mock.Mock()
+        navigator = mock.Mock(spec=AbstractNavigator)
         navigator.supports_success_sampling.return_value = False
         eleanor.load_kernel = mock.Mock(return_value=kernel)
-        eleanor.order.navigator = mock.Mock()
-        eleanor.order.navigator.args = {}
-        eleanor.order.navigator.load.return_value = lambda *_args, **_kw: navigator
+        eleanor.order.navigator = SimpleNamespace(type="random", args={})
 
-        with self.assertRaises(EleanorException):
+        with (
+            mock.patch(
+                "eleanor.navigator.registry.get_factory",
+                return_value=lambda *_args, **_kw: navigator,
+            ),
+            self.assertRaises(EleanorException),
+        ):
             eleanor.dispatch(2, success_sampling=True)
 
     def test_dispatch_processes_without_success_sampling(self):
         """
         Ensure dispatch ignites as needed and calls process once in standard mode.
         """
+        from eleanor.navigator import AbstractNavigator
+
         eleanor = self._make_eleanor()
         kernel = mock.Mock()
-        navigator = mock.Mock()
+        navigator = mock.Mock(spec=AbstractNavigator)
         navigator.supports_success_sampling.return_value = True
         eleanor.load_kernel = mock.Mock(return_value=kernel)
-        eleanor.order.navigator = mock.Mock()
-        eleanor.order.navigator.args = {}
-        eleanor.order.navigator.load.return_value = lambda *_args, **_kw: navigator
+        eleanor.order.navigator = SimpleNamespace(type="random", args={})
         eleanor.ignite = mock.Mock(return_value=5)
         eleanor.process = mock.Mock(return_value=[
             WriteOutcome(point_id=10, exit_code=0, committed=True)
@@ -252,7 +258,13 @@ class TestEleanor(TestCase):
         sink = mock.Mock()
         eleanor.load_output_sink = mock.Mock(return_value=sink)
         executor = _Pool()
-        with mock.patch("eleanor.eleanor.build_executor", return_value=executor) as build_executor:
+        with (
+            mock.patch("eleanor.eleanor.build_executor", return_value=executor) as build_executor,
+            mock.patch(
+                "eleanor.navigator.registry.get_factory",
+                return_value=lambda *_args, **_kw: navigator,
+            ),
+        ):
             out = eleanor.dispatch(6, num_procs=0, show_progress=False, no_huffer=True)
 
         self.assertEqual(out, [5])
@@ -268,14 +280,14 @@ class TestEleanor(TestCase):
         """
         Ensure dispatch passes (kernel, navigator) to ignite when huffer is enabled.
         """
+        from eleanor.navigator import AbstractNavigator
+
         eleanor = self._make_eleanor()
         kernel = mock.Mock()
-        navigator = mock.Mock()
+        navigator = mock.Mock(spec=AbstractNavigator)
         navigator.supports_success_sampling.return_value = True
         eleanor.load_kernel = mock.Mock(return_value=kernel)
-        eleanor.order.navigator = mock.Mock()
-        eleanor.order.navigator.args = {}
-        eleanor.order.navigator.load.return_value = lambda *_args, **_kw: navigator
+        eleanor.order.navigator = SimpleNamespace(type="random", args={})
         eleanor.ignite = mock.Mock(return_value=6)
         eleanor.process = mock.Mock(return_value=[
             WriteOutcome(point_id=10, exit_code=0, committed=True)
@@ -283,7 +295,13 @@ class TestEleanor(TestCase):
         sink = mock.Mock()
         eleanor.load_output_sink = mock.Mock(return_value=sink)
         executor = _Pool()
-        with mock.patch("eleanor.eleanor.build_executor", return_value=executor) as build_executor:
+        with (
+            mock.patch("eleanor.eleanor.build_executor", return_value=executor) as build_executor,
+            mock.patch(
+                "eleanor.navigator.registry.get_factory",
+                return_value=lambda *_args, **_kw: navigator,
+            ),
+        ):
             out = eleanor.dispatch(3, no_huffer=False, show_progress=False)
 
         self.assertEqual(out, [6])
@@ -299,14 +317,14 @@ class TestEleanor(TestCase):
         Each call targets exactly simulation_size new successes; pre-existing
         DB successes are not counted toward the target.
         """
+        from eleanor.navigator import AbstractNavigator
+
         eleanor = self._make_eleanor()
         kernel = mock.Mock()
-        navigator = mock.Mock()
+        navigator = mock.Mock(spec=AbstractNavigator)
         navigator.supports_success_sampling.return_value = True
         eleanor.load_kernel = mock.Mock(return_value=kernel)
-        eleanor.order.navigator = mock.Mock()
-        eleanor.order.navigator.args = {}
-        eleanor.order.navigator.load.return_value = lambda *_args, **_kw: navigator
+        eleanor.order.navigator = SimpleNamespace(type="random", args={})
         eleanor.process = mock.Mock(return_value=[
             WriteOutcome(point_id=10, exit_code=0, committed=True),
             WriteOutcome(point_id=11, exit_code=0, committed=True),
@@ -321,6 +339,10 @@ class TestEleanor(TestCase):
             mock.patch("eleanor.eleanor.build_executor", return_value=executor) as build_executor,
             mock.patch("eleanor.eleanor.Manager", return_value=manager),
             mock.patch("eleanor.eleanor.Progress", return_value=progress),
+            mock.patch(
+                "eleanor.navigator.registry.get_factory",
+                return_value=lambda *_args, **_kw: navigator,
+            ),
         ):
             out = eleanor.dispatch(2, show_progress=True, success_sampling=True, order_id=11)
 
@@ -415,10 +437,17 @@ class TestEleanor(TestCase):
         """
         Ensure load_kernel fetches the KernelSpec and delegates to spec.build/setup.
         """
-        eleanor = self._make_eleanor()
-        eleanor.order.kernel = SimpleNamespace(type="eq36", settings="settings")
+        from eleanor.kernel.config import Settings as KernelSettings
+        from eleanor.kernel.interface import AbstractKernel
 
-        kernel = mock.Mock()
+        eleanor = self._make_eleanor()
+        settings = KernelSettings(timeout=None)
+        kernel_cfg = mock.Mock()
+        kernel_cfg.type = "eq36"
+        kernel_cfg.resolved_settings.return_value = settings
+        eleanor.order.kernel = kernel_cfg
+
+        kernel = mock.Mock(spec=AbstractKernel)
         spec = SimpleNamespace(
             settings_from_dict=mock.Mock(),
             build=mock.Mock(return_value=kernel),
@@ -428,7 +457,7 @@ class TestEleanor(TestCase):
 
         self.assertIs(out, kernel)
         get_spec_mock.assert_called_once_with("eq36")
-        spec.build.assert_called_once_with("settings", "arg1")
+        spec.build.assert_called_once_with(settings, "arg1")
         kernel.setup.assert_called_once_with(eleanor.order, alpha=1)
 
     def test_ignite_rejects_version_mismatch(self):

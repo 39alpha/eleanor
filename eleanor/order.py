@@ -6,7 +6,7 @@ import tomllib
 from copy import deepcopy
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
-from typing import Protocol, TypedDict, final
+from typing import Protocol, TypedDict, final, runtime_checkable
 
 import yaml
 from sqlalchemy import Column, DateTime, ForeignKey, Index, Integer, String, Table
@@ -21,7 +21,7 @@ from .kernel.config import Config as KernelConfig
 from .kernel.config import Settings as KernelSettings
 from .parameters import Parameter, ParameterSource
 from .reactants import AbstractReactant, ReactantRaw
-from .typing import Any, Callable, Self, cast
+from .typing import Self, cast
 from .util import is_list_of, mapreduce
 from .yeoman import Binary, JSONDict, reconstructor, yeoman_registry
 
@@ -123,15 +123,35 @@ def _build_transformer(value: object) -> 'TransformerConfig':
 def load_kernel_settings(kernel_raw: KernelRaw) -> tuple[str, KernelSettings]:
     """Parse a raw kernel block into its ``(type, Settings)`` pair via the registry."""
     kernel_type = _require_str(kernel_raw.get('type'), 'kernel.type')
-    kernel_args_raw = kernel_raw.get('args', {}) or {}
+    kernel_args_raw: object = kernel_raw.get('args', {}) or {}
     if not isinstance(kernel_args_raw, dict):
         raise EleanorException('kernel.args must be a dict')
+    # YAML/TOML/JSON loaders always produce str-keyed mappings; widen the
+    # ``dict[Unknown, Unknown]`` that ``isinstance`` leaves us with back to
+    # the registry's declared ``dict[str, object]`` input shape.
+    kernel_args_items = cast(dict[object, object], kernel_args_raw).items()
+    kernel_args: dict[str, object] = {str(k): v for k, v in kernel_args_items}
     spec = get_kernel_spec(kernel_type)
-    kernel_args = cast(dict[str, Any], kernel_args_raw)  # pyright: ignore[reportExplicitAny]
-    return kernel_type, cast(KernelSettings, spec.settings_from_dict(kernel_args))
+    settings = spec.settings_from_dict(kernel_args)
+    if not isinstance(settings, KernelSettings):
+        raise EleanorException(
+            f'kernel plugin "{kernel_type}" returned '
+            + f'{type(settings).__name__}, expected a Settings instance',
+        )
+    return kernel_type, settings
 
 
+@runtime_checkable
 class NavigatorProtocol(Protocol):
+    """Structural protocol for navigator plugins.
+
+    All four methods listed below are verified by the ``isinstance`` check
+    performed after a navigator factory returns (see :meth:`Eleanor._run`
+    in :mod:`eleanor.eleanor`).  A third-party navigator that implements
+    ``navigate``, ``supports_success_sampling``, and ``is_complete`` but
+    omits ``huffer_problem`` will fail that runtime gate even when the
+    huffer workflow is never invoked.  All four methods must be present.
+    """
     def navigate(self, scale: int, *args: object, **kwargs: object) -> list[vs.Point]:
         ...
     def huffer_problem(self, *args: object, **kwargs: object) -> vs.Point:
@@ -155,17 +175,11 @@ class ConstraintConfig(object):
 @dataclass(init=False)
 class NavigatorConfig(object):
     type: str
-    args: dict[str, Any]  # pyright: ignore[reportExplicitAny]
+    args: RawMap
 
-    def __init__(self, type: str = 'random', args: dict[str, Any] | None = None):  # pyright: ignore[reportExplicitAny]
+    def __init__(self, type: str = 'random', args: RawMap | None = None):
         self.type = type
         self.args = args if args is not None else {}
-
-    def load(self) -> Callable[..., NavigatorProtocol]:
-        """Return the navigator factory registered under :attr:`type`."""
-        from eleanor.navigator.registry import get_factory
-
-        return cast(Callable[..., NavigatorProtocol], get_factory(self.type))
 
 
 @dataclass(init=False)
@@ -176,12 +190,6 @@ class TransformerConfig(object):
     def __init__(self, type: str = 'glass_reactant_embedder', args: RawMap | None = None):
         self.type = type
         self.args = args if args is not None else {}
-
-    def load(self) -> Callable[..., object]:
-        """Return the transformer factory registered under :attr:`type`."""
-        from eleanor.transformers.registry import get_factory
-
-        return cast(Callable[..., object], get_factory(self.type))
 
 
 @dataclass(init=False)

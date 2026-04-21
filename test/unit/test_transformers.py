@@ -306,25 +306,36 @@ class TestTransformers(TestCase):
         """
         Ensure module-level transform applies configured transformers and clears transformer configs.
         """
+        from eleanor.transformers import AbstractTransformer
+
         kernel = object()
         order = SimpleNamespace(transformers=[], marker=0)
 
-        transformer_instance = mock.Mock()
+        class _Transformer(AbstractTransformer):
+            observed_args: dict[str, object] | None = None
 
-        def apply_marker(in_order, _kernel):
-            in_order.marker += 1
-            return in_order
+            def __init__(self, **args):
+                # Write to the class so the assertion below can read it
+                # without a reference to the specific instance.  Safe here
+                # because _Transformer is defined fresh per test invocation.
+                type(self).observed_args = args
 
-        transformer_instance.transform.side_effect = apply_marker
-        transformer_cls = mock.Mock(return_value=transformer_instance)
-        transformer_cfg = SimpleNamespace(load=lambda: transformer_cls, args={"filename": "x.csv"})
+            def transform(self, in_order, _kernel):
+                in_order.marker += 1
+                return in_order
+
+        transformer_cfg = SimpleNamespace(type="mine", args={"filename": "x.csv"})
         order.transformers = [transformer_cfg]
 
-        out = transform(order, kernel)
+        with mock.patch(
+            "eleanor.transformers.get_factory",
+            return_value=_Transformer,
+        ) as get_factory:
+            out = transform(order, kernel)
 
         self.assertIs(out, order)
-        transformer_cls.assert_called_once_with(filename="x.csv")
-        transformer_instance.transform.assert_called_once_with(order, kernel)
+        get_factory.assert_called_once_with("mine")
+        self.assertEqual(_Transformer.observed_args, {"filename": "x.csv"})
         self.assertEqual(order.marker, 1)
         self.assertEqual(order.transformers, [])
 

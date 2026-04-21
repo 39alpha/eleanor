@@ -8,20 +8,19 @@ from sqlalchemy import and_, select
 from eleanor.sailor import Sailor
 
 from .config import Config, load_config
-from .executor import AbstractExecutor, build_executor
+from .executor import AbstractExecutor, AbstractFuture, build_executor
 from .exceptions import EleanorException
 from .kernel.interface import AbstractKernel
 from .kernel.registry import get_spec as get_kernel_spec
 from .order import HufferResult, NavigatorProtocol, Order, load_order
 from .output import ComputeResult, OutputSink, PostgresSink, RunStats, WriteOutcome
 from .transformers import transform
-from .typing import Callable, EleanorKwargs, Self, Unpack, cast
+from .typing import EleanorKwargs, Self, Unpack
 from .util import Progress, chunks
 from .version import __version__
 from .yeoman import Yeoman, column_expr
 
 if TYPE_CHECKING:
-    from .navigator import AbstractNavigator
     from .transformers import AbstractTransformer
 
 
@@ -69,7 +68,7 @@ class Eleanor(object):
         chunks_per_worker: int | None = None,
         executor: AbstractExecutor | None = None,
         kernel: AbstractKernel | None = None,
-        navigator: 'AbstractNavigator | None' = None,
+        navigator: NavigatorProtocol | None = None,
         transformers: 'list[AbstractTransformer] | None' = None,
         **kwargs: Unpack[EleanorKwargs],
     ) -> list[int]:
@@ -115,7 +114,7 @@ class Eleanor(object):
         chunks_per_worker: int | None = None,
         executor: AbstractExecutor | None = None,
         kernel: AbstractKernel | None = None,
-        navigator: 'AbstractNavigator | None' = None,
+        navigator: NavigatorProtocol | None = None,
         **kwargs: Unpack[EleanorKwargs],
     ) -> list[int]:
         default_parallel, default_chunks_per_worker = self._parallel_defaults()
@@ -180,7 +179,7 @@ class Eleanor(object):
         chunks_per_worker: int | None = None,
         executor: AbstractExecutor | None = None,
         kernel: AbstractKernel | None = None,
-        navigator: 'AbstractNavigator | None' = None,
+        navigator: NavigatorProtocol | None = None,
         **kwargs: Unpack[EleanorKwargs],
     ) -> list[int]:
         no_huffer = kwargs.get('no_huffer', False)
@@ -200,8 +199,15 @@ class Eleanor(object):
         if navigator is None:
             if self.order.navigator is None:
                 raise EleanorException('order navigator is required')
-            navigator_factory = self.order.navigator.load()
-            navigator = navigator_factory(self.order, kernel, **self.order.navigator.args)
+            from .navigator.registry import get_factory as get_navigator_factory
+            navigator_factory = get_navigator_factory(self.order.navigator.type)
+            built = navigator_factory(self.order, kernel, **self.order.navigator.args)
+            if not isinstance(built, NavigatorProtocol):
+                raise EleanorException(
+                    f'navigator plugin "{self.order.navigator.type}" returned '
+                    + f'{type(built).__name__}, expected an AbstractNavigator',
+                )
+            navigator = built
 
         if success_sampling and not navigator.supports_success_sampling():
             msg = f"{navigator.__class__.__module__}.{navigator.__class__.__name__} does not support success sampling"
@@ -304,14 +310,14 @@ class Eleanor(object):
 
             vs_point_ids: list[int] = []
 
-            futures = []
+            futures: list[AbstractFuture[list[ComputeResult]]] = []
             # Cap chunk count at the number of points so we never produce
             # empty batches when num_workers * chunks_per_worker exceeds
             # len(vs_points).
             chunk_count = min(len(vs_points), executor.num_workers * chunks_per_worker)
             for batch in chunks(vs_points, chunk_count):
                 sailor_kwargs: EleanorKwargs = {**kwargs}
-                future = executor.submit(
+                future: AbstractFuture[list[ComputeResult]] = executor.submit(
                     Sailor(kernel).dispatch,
                     batch,
                     *args,
@@ -349,7 +355,13 @@ class Eleanor(object):
         if self.order.kernel is None:
             raise EleanorException('order kernel is required')
         spec = get_kernel_spec(self.order.kernel.type)
-        kernel = spec.build(self.order.kernel.settings, *self.kernel_args)
+        settings = self.order.kernel.resolved_settings()
+        kernel = spec.build(settings, *self.kernel_args)
+        if not isinstance(kernel, AbstractKernel):
+            raise EleanorException(
+                f'kernel plugin "{self.order.kernel.type}" returned '
+                + f'{type(kernel).__name__}, expected an AbstractKernel',
+            )
         kernel.setup(self.order, **kwargs)
 
         return kernel

@@ -1,5 +1,5 @@
 from collections.abc import Callable
-from typing import TypeVar
+from typing import TypeVar, override
 
 from .interface import AbstractExecutor, AbstractFuture
 
@@ -12,17 +12,26 @@ class SerialFuture(AbstractFuture[T]):
     def __init__(self, value: T):
         self._value = value
 
+    @override
     def result(self) -> T:
         return self._value
 
 
 class SerialExecutor(AbstractExecutor):
     @property
+    @override
     def num_workers(self) -> int:
         return 1
 
-    def submit(self, fn: Callable[..., T], *args, **kwargs) -> AbstractFuture[T]:
+    @override
+    def submit(
+        self,
+        fn: Callable[..., T],
+        *args: object,
+        **kwargs: object,
+    ) -> AbstractFuture[T]:
         return SerialFuture(fn(*args, **kwargs))
 
-    def shutdown(self, wait: bool = True) -> None:
+    @override
+    def shutdown(self, _wait: bool = True) -> None:
         pass

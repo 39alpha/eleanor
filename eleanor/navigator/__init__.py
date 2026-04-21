@@ -1,3 +1,4 @@
+import warnings
 from abc import ABC, abstractmethod
 from typing import override
 
@@ -144,6 +145,28 @@ from .registry import (  # noqa: E402
     get_factory,
     register_navigator,
 )
+
+# Seed the registry with the built-in navigator factories. The class bodies
+# accept ``(order, kernel)`` positionally, which matches the plugin factory
+# signature; extra keyword args coming from the order file are intentionally
+# ignored since none of the built-ins consume them.
+def _builtin_navigator(cls: type[AbstractNavigator]) -> NavigatorFactory:
+    def factory(order: Order, kernel: AbstractKernel, **_args: object) -> AbstractNavigator:
+        if _args:
+            warnings.warn(
+                f'built-in navigator "{cls.__name__}" does not accept keyword '
+                + f'arguments; ignoring: {list(_args)}',
+                RuntimeWarning,
+                stacklevel=2,
+            )
+        return cls(order, kernel)
+
+    return factory
+
+
+register_navigator('random', _builtin_navigator(Random))
+register_navigator('random_lattice', _builtin_navigator(RandomLattice))
+register_navigator('lattice', _builtin_navigator(Lattice))
 
 __all__ = [
     'AbstractNavigator',

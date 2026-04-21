@@ -1,8 +1,8 @@
 import os
 from collections.abc import Callable
 from multiprocessing import Pool
-from multiprocessing.pool import AsyncResult
-from typing import TypeVar, cast
+from multiprocessing.pool import ApplyResult, Pool as PoolClass
+from typing import TypeVar, override
 
 from eleanor.exceptions import EleanorException
 
@@ -12,17 +12,18 @@ T = TypeVar('T')
 
 
 class MultiprocessingFuture(AbstractFuture[T]):
-    _future: AsyncResult
+    _future: ApplyResult[T]
 
-    def __init__(self, future: AsyncResult):
+    def __init__(self, future: ApplyResult[T]):
         self._future = future
 
+    @override
     def result(self) -> T:
-        return cast(T, self._future.get())
+        return self._future.get()
 
 
 class MultiprocessingExecutor(AbstractExecutor):
-    _pool: Pool | None
+    _pool: PoolClass | None
     _num_workers: int
 
     def __init__(self, num_workers: int | None = None):
@@ -30,14 +31,22 @@ class MultiprocessingExecutor(AbstractExecutor):
         self._num_workers = num_workers if num_workers is not None else (os.cpu_count() or 1)
 
     @property
+    @override
     def num_workers(self) -> int:
         return self._num_workers
 
-    def submit(self, fn: Callable[..., T], *args, **kwargs) -> AbstractFuture[T]:
+    @override
+    def submit(
+        self,
+        fn: Callable[..., T],
+        *args: object,
+        **kwargs: object,
+    ) -> AbstractFuture[T]:
         if self._pool is None:
             raise EleanorException('executor has already been shut down')
         return MultiprocessingFuture(self._pool.apply_async(fn, args, kwargs))
 
+    @override
     def shutdown(self, wait: bool = True) -> None:
         if self._pool is None:
             return

@@ -6,7 +6,7 @@ import time. Third-party backends advertise themselves through the
 ``eleanor.executors`` entry-point group in their distribution metadata, e.g.::
 
     [project.entry-points."eleanor.executors"]
-    mpi = "eleanor_mpi.executor:build"
+    ray = "eleanor_ray.executor:build"
     dask = "eleanor_dask.executor:build"
 
 Each entry point must resolve to an :data:`ExecutorFactory` — that is, a

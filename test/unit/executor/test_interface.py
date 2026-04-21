@@ -1,8 +1,9 @@
 from unittest import mock
 
 from eleanor.exceptions import EleanorException
-from eleanor.executor import _normalize_num_workers, available_backends, build_executor
+from eleanor.executor import available_backends, build_executor
 from eleanor.executor.backends import SUPPORTED_BACKENDS, supported_backends
+from eleanor.executor.registry import _normalize_num_workers
 from eleanor.executor.interface import AbstractExecutor, AbstractFuture
 from eleanor.executor.serial import SerialExecutor
 

@@ -29,7 +29,7 @@ class TestOrder(TestCase):
 
     def test_constraint_and_navigator_config(self):
         """
-        Ensure basic config helper classes return expected defaults and registry-backed loading.
+        Ensure basic config helper classes return expected defaults.
         """
         self.assertEqual(ConstraintConfig(type="x").volume(), 1.0)
 
@@ -37,28 +37,21 @@ class TestOrder(TestCase):
         self.assertEqual(nav.type, "random")
         self.assertEqual(nav.args, {})
 
-        factory = object()
-        with mock.patch("eleanor.navigator.registry.get_factory", return_value=factory) as m:
-            nav2 = NavigatorConfig("my_plugin", args={"seed": 42})
-            loaded = nav2.load()
-        m.assert_called_once_with("my_plugin")
-        self.assertIs(loaded, factory)
+        nav2 = NavigatorConfig("my_plugin", args={"seed": 42})
+        self.assertEqual(nav2.type, "my_plugin")
         self.assertEqual(nav2.args, {"seed": 42})
 
-    def test_transformer_config_init_and_load(self):
+    def test_transformer_config_init(self):
         """
-        Ensure transformer config parsing preserves short names and resolves factories via the registry.
+        Ensure transformer config parsing preserves short names and args.
         """
         tf = TransformerConfig("glass_reactant_embedder")
         self.assertEqual(tf.type, "glass_reactant_embedder")
         self.assertEqual(tf.args, {})
 
-        factory = object()
-        with mock.patch("eleanor.transformers.registry.get_factory", return_value=factory) as m:
-            tf2 = TransformerConfig("my_transformer", args={"x": 1})
-            loaded = tf2.load()
-        m.assert_called_once_with("my_transformer")
-        self.assertIs(loaded, factory)
+        tf2 = TransformerConfig("my_transformer", args={"x": 1})
+        self.assertEqual(tf2.type, "my_transformer")
+        self.assertEqual(tf2.args, {"x": 1})
 
     def test_suppression(self):
         """
@@ -127,7 +120,9 @@ class TestOrder(TestCase):
         """
         Ensure suborder parsing handles optional fields and delegated loaders.
         """
-        fake_settings = object()
+        from eleanor.kernel.config import Settings as KernelSettings
+
+        fake_settings = KernelSettings(timeout=None)
         fake_spec = SimpleNamespace(
             settings_from_dict=mock.Mock(return_value=fake_settings),
             build=mock.Mock(),
@@ -231,7 +226,9 @@ class TestOrder(TestCase):
         with self.assertRaises(EleanorException):
             Order({"name": "x", "creator": 1})
 
-        fake_settings = object()
+        from eleanor.kernel.config import Settings as KernelSettings
+
+        fake_settings = KernelSettings(timeout=None)
         fake_spec = SimpleNamespace(
             settings_from_dict=mock.Mock(return_value=fake_settings),
             build=mock.Mock(),

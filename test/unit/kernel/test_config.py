@@ -1,5 +1,6 @@
 from unittest import mock
 
+from eleanor.exceptions import EleanorException
 from eleanor.kernel.config import Config, Settings
 from eleanor.kernel.registry import KernelSpec
 
@@ -18,44 +19,60 @@ class TestKernelConfig(TestCase):
         settings = Settings(timeout=30)
         self.assertEqual(settings.parameters(), [])
 
-    def test_config_reconstruct_dict_settings(self):
+    def test_config_resolved_settings_converts_dict(self):
         """
-        Ensure that :meth:`Config.reconstruct` converts dict settings via the kernel registry.
+        Ensure :meth:`Config.resolved_settings` converts a dict payload via the registry.
         """
-        parsed_settings = object()
+        parsed_settings = Settings(timeout=5)
         spec = KernelSpec(
             settings_from_dict=mock.Mock(return_value=parsed_settings),
             build=mock.Mock(),
         )
 
-        config = Config(type='eq36', settings={'timeout': 12})
+        # Build Config with a placeholder Settings so SQLAlchemy is happy,
+        # then overwrite ``settings`` with a dict to simulate the state
+        # SQLAlchemy leaves behind when rehydrating a JSON column.
+        config = Config(type='eq36', settings=Settings(timeout=None))
+        config.settings = {'timeout': 12}  # type: ignore[assignment]
 
-        with mock.patch('eleanor.kernel.config.get_spec', return_value=spec) as get_spec_mock:
-            config.reconstruct()
+        with mock.patch('eleanor.kernel.registry.get_spec', return_value=spec) as get_spec_mock:
+            resolved = config.resolved_settings()
 
         get_spec_mock.assert_called_once_with('eq36')
         spec.settings_from_dict.assert_called_once_with({'timeout': 12})
+        self.assertIs(resolved, parsed_settings)
+        # Cached in-place for subsequent accesses.
         self.assertIs(config.settings, parsed_settings)
 
-    def test_config_reconstruct_non_dict_settings_noop(self):
+    def test_config_resolved_settings_returns_existing_settings_instance(self):
         """
-        Ensure that :meth:`Config.reconstruct` leaves non-dict settings unchanged.
+        Ensure :meth:`Config.resolved_settings` is a no-op when already typed.
         """
         settings = Settings(timeout=10)
         config = Config(type='eq36', settings=settings)
 
-        with mock.patch('eleanor.kernel.config.get_spec') as get_spec_mock:
-            config.reconstruct()
+        with mock.patch('eleanor.kernel.registry.get_spec') as get_spec_mock:
+            resolved = config.resolved_settings()
 
         get_spec_mock.assert_not_called()
-        self.assertIs(config.settings, settings)
+        self.assertIs(resolved, settings)
+
+    def test_config_resolved_settings_rejects_unknown_types(self):
+        """
+        Ensure :meth:`Config.resolved_settings` raises on unexpected payload types.
+        """
+        config = Config(type='eq36', settings=Settings(timeout=None))
+        config.settings = 42  # type: ignore[assignment]
+
+        with self.assertRaises(EleanorException):
+            config.resolved_settings()
 
     def test_config_parameters_delegates_to_settings(self):
         """
         Ensure that :meth:`Config.parameters` delegates to the underlying settings object.
         """
         parameter = object()
-        settings = mock.Mock()
+        settings = mock.Mock(spec=Settings)
         settings.parameters.return_value = [parameter]
         config = Config(type='eq36', settings=settings)
 

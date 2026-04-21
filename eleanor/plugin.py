@@ -26,7 +26,7 @@ import os
 import warnings
 from collections.abc import Callable, Mapping
 from importlib.metadata import entry_points
-from typing import Generic, TypeVar
+from typing import Generic, TypeVar, cast, final
 
 from eleanor.exceptions import EleanorException
 
@@ -34,6 +34,7 @@ from eleanor.exceptions import EleanorException
 F = TypeVar('F')
 
 
+@final
 class PluginRegistry(Generic[F]):
     """Registry of named plugin factories for a single extension point.
 
@@ -52,6 +53,14 @@ class PluginRegistry(Generic[F]):
         validated once at construction.
     """
 
+    _kind: str
+    _entry_point_group: str
+    _override_env_var: str
+    _validator: Callable[[str, object], F] | None
+    _registry: dict[str, F]
+    _builtins: frozenset[str]
+    _discovered: bool
+
     def __init__(
         self,
         *,
@@ -59,15 +68,18 @@ class PluginRegistry(Generic[F]):
         entry_point_group: str,
         override_env_var: str,
         builtins: Mapping[str, F],
-        validator: Callable[[str, F], F] | None = None,
+        builtin_names: frozenset[str] | None = None,
+        validator: Callable[[str, object], F] | None = None,
     ) -> None:
         self._kind = kind
         self._entry_point_group = entry_point_group
         self._override_env_var = override_env_var
         self._validator = validator
-        self._registry: dict[str, F] = {}
-        self._builtins: frozenset[str] = frozenset(builtins.keys())
-        self._discovered: bool = False
+        self._registry = {}
+        self._builtins = (
+            builtin_names if builtin_names is not None else frozenset(builtins.keys())
+        )
+        self._discovered = False
 
         for name, factory in builtins.items():
             coerced = self._validate(name, factory)
@@ -121,7 +133,7 @@ class PluginRegistry(Generic[F]):
         self._discover_entry_points()
         return name in self._registry
 
-    def register(self, name: str, factory: F) -> None:
+    def register(self, name: str, factory: object) -> None:
         """Register ``factory`` under ``name``.
 
         Calling this with the same ``(name, factory)`` pair more than once is
@@ -129,8 +141,16 @@ class PluginRegistry(Generic[F]):
         :class:`RuntimeWarning` is emitted and the existing registration is
         preserved — unless the override environment variable is set to a
         truthy value.
+
+        The ``factory`` parameter is typed ``object`` because callers include
+        entry-point loaders whose return values start life untyped; the
+        optional ``validator`` narrows it to :data:`F`.
         """
-        if not isinstance(name, str) or not name:
+        # ``isinstance(name, str)`` is intentionally omitted: basedpyright
+        # flags it as ``reportUnnecessaryIsInstance`` because ``name`` is
+        # already typed ``str``.  The falsy check below still rejects the
+        # empty-string case, which is the only runtime risk.
+        if not name:
             raise EleanorException(f'{self._kind} plugin name must be a non-empty string')
 
         coerced = self._validate(name, factory)
@@ -144,7 +164,7 @@ class PluginRegistry(Generic[F]):
                 if not overrides:
                     warnings.warn(
                         f'refusing to override built-in {self._kind} "{name}"; '
-                        f'set {self._override_env_var}=1 to override',
+                        + f'set {self._override_env_var}=1 to override',
                         RuntimeWarning,
                         stacklevel=2,
                     )
@@ -152,20 +172,20 @@ class PluginRegistry(Generic[F]):
             elif not overrides:
                 warnings.warn(
                     f'{self._kind} "{name}" is already registered; '
-                    f'set {self._override_env_var}=1 to override',
+                    + f'set {self._override_env_var}=1 to override',
                     RuntimeWarning,
                     stacklevel=2,
                 )
                 return
         self._registry[name] = coerced
 
-    def _validate(self, name: str, factory: F) -> F:
+    def _validate(self, name: str, factory: object) -> F:
         if self._validator is None:
             if not callable(factory):
                 raise EleanorException(
                     f'{self._kind} factory for "{name}" must be callable',
                 )
-            return factory
+            return cast(F, factory)
         return self._validator(name, factory)
 
     def _overrides_allowed(self) -> bool:
@@ -188,22 +208,23 @@ class PluginRegistry(Generic[F]):
             return
 
         for ep in eps:
+            loaded: object
             try:
-                factory = ep.load()
+                loaded = cast(object, ep.load())
             except Exception as e:
                 warnings.warn(
                     f'failed to load {self._kind} entry point "{ep.name}" '
-                    f'from "{ep.value}": {e}',
+                    + f'from "{ep.value}": {e}',
                     RuntimeWarning,
                     stacklevel=2,
                 )
                 continue
             try:
-                self.register(ep.name, factory)
+                self.register(ep.name, loaded)
             except EleanorException as e:
                 warnings.warn(
                     f'{self._kind} entry point "{ep.name}" from "{ep.value}" '
-                    f'is invalid: {e}',
+                    + f'is invalid: {e}',
                     RuntimeWarning,
                     stacklevel=2,
                 )

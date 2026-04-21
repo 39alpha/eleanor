@@ -65,9 +65,9 @@ def init(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
         metavar='BACKEND',
         help=(
             'parallel backend (overrides configuration). Built-in backends are '
-            'serial and multiprocessing; additional backends (including mpi, '
-            'provided by the eleanor_mpi package) may be contributed by '
-            'third-party packages via the "eleanor.executors" entry-point group.'
+            'serial and multiprocessing; additional backends may be '
+            'contributed by third-party packages via the "eleanor.executors" '
+            'entry-point group.'
         ),
     )
     _ = parser.add_argument(

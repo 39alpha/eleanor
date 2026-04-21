@@ -1,22 +1,20 @@
 """
 Registry and discovery for eleanor transformer plugins.
 
-Built-in transformers (``glass_reactant_embedder``) are registered at module
-import time. Third-party transformers advertise themselves through the
-``eleanor.transformers`` entry-point group.
+Built-in transformers (``glass_reactant_embedder``) register themselves from
+:mod:`eleanor.transformers` at package import time. Third-party transformers
+advertise themselves through the ``eleanor.transformers`` entry-point group.
 
 Each registered factory is a callable invoked as ``factory(**args)``, where
 ``args`` is the ``args`` block from the order file's ``transformers`` entry.
-Transformer classes whose ``__init__`` accepts the advertised keyword
-arguments can be registered directly as their own factory.
+Factories are typed as ``Callable[..., object]`` so this module has no
+structural dependency on :mod:`eleanor.transformers`; callers validate the
+returned transformer against
+:class:`~eleanor.transformers.AbstractTransformer` before use.
 """
 from collections.abc import Callable
-from typing import TYPE_CHECKING, Any
 
 from eleanor.plugin import PluginRegistry
-
-if TYPE_CHECKING:
-    from . import AbstractTransformer
 
 #: Name of the entry-point group inspected on first registry access.
 ENTRY_POINT_GROUP = 'eleanor.transformers'
@@ -27,27 +25,21 @@ OVERRIDE_ENV_VAR = 'ELEANOR_TRANSFORMER_OVERRIDES'
 
 #: Factory callable shape. Each registered transformer is invoked with the
 #: keyword args from the order file.
-TransformerFactory = Callable[..., 'AbstractTransformer']
+TransformerFactory = Callable[..., object]
 
-
-def _build_glass_reactant_embedder(**args: Any) -> 'AbstractTransformer':
-    from . import GlassReactantEmbedder
-
-    return GlassReactantEmbedder(**args)
-
+#: Canonical names of the transformers shipped inside the eleanor
+#: distribution. Built-ins register their concrete factories from
+#: :mod:`eleanor.transformers`'s package ``__init__``.
+BUILTIN_TRANSFORMERS: frozenset[str] = frozenset({'glass_reactant_embedder'})
 
 #: The shared :class:`PluginRegistry` instance backing this module's helpers.
 registry: PluginRegistry[TransformerFactory] = PluginRegistry(
     kind='transformer',
     entry_point_group=ENTRY_POINT_GROUP,
     override_env_var=OVERRIDE_ENV_VAR,
-    builtins={
-        'glass_reactant_embedder': _build_glass_reactant_embedder,
-    },
+    builtins={},
+    builtin_names=BUILTIN_TRANSFORMERS,
 )
-
-#: Canonical names of the transformers shipped inside the eleanor distribution.
-BUILTIN_TRANSFORMERS: frozenset[str] = registry.builtins
 
 
 def register_transformer(name: str, factory: TransformerFactory) -> None:

@@ -1,0 +1,161 @@
+---
+title: Plugins
+---
+
+Eleanor exposes four extension points that share a single plugin model: a
+generic in-process registry, lazy entry-point discovery, and a common
+collision/override policy. The registry primitive lives at
+`eleanor.plugin.PluginRegistry`; each extension point instantiates it with its
+own factory shape and built-in seed set.
+
+## Extension points
+
+| Kind          | Entry-point group        | Factory signature                                           |
+|---------------|--------------------------|-------------------------------------------------------------|
+| Executor      | `eleanor.executors`      | `Callable[[int | None], AbstractExecutor]`                  |
+| Kernel        | `eleanor.kernels`        | `KernelSpec` (or a zero-arg callable returning one)         |
+| Navigator     | `eleanor.navigators`     | `Callable[[Order, Kernel, **args], AbstractNavigator]`      |
+| Transformer   | `eleanor.transformers`   | `Callable[[**args], AbstractTransformer]`                   |
+
+Names are short strings (e.g. `random`, `eq36`, `dask`). Built-in names are
+reserved: plugin registrations that collide with a built-in are rejected with
+a `RuntimeWarning` unless the `ELEANOR_<KIND>_OVERRIDES` environment variable
+is set.
+
+## Order file shape
+
+All four extension points use the same `{type, args}` shape (with kernel
+deferring settings parsing to the plugin's `KernelSpec.settings_from_dict`):
+
+```yaml
+kernel:
+  type: eq36
+  args:
+    model: b-dot
+    charge_balance: H+
+
+navigator:
+  type: random
+  args: {seed: 42}
+
+transformers:
+  - type: glass_reactant_embedder
+    args:
+      filename: oxides.csv
+      reactant_name: basalt
+      amount: 1.0
+```
+
+The short-string form `navigator: random` is accepted as sugar for
+`{type: random, args: {}}`.
+
+## Distributing a third-party plugin
+
+Third-party plugins register themselves through Python entry points declared
+in the distribution's `pyproject.toml`:
+
+```toml
+[project.entry-points."eleanor.navigators"]
+my_nav = "my_project.navigators:MyNavigator"
+
+[project.entry-points."eleanor.kernels"]
+my_kernel = "my_project.kernels:kernel_spec"
+```
+
+Discovery runs lazily on the first call to `available_*()` or `get_*()` for
+the relevant extension point. Failed entry-point loads emit
+`RuntimeWarning` and are skipped; the rest of the plugins continue to load
+normally.
+
+## Inline plugins
+
+Every extension point supports two non-packaged registration paths:
+
+1. **Programmatic name registration.** Call `register_<kind>(name, factory)`
+   from the host script, then reference the name in the order file or CLI:
+
+   ```python
+   from eleanor.navigator import register_navigator
+   from my_script import MyNavigator
+
+   register_navigator("my_nav", lambda order, kernel, **args: MyNavigator(order, kernel, **args))
+   ```
+
+2. **Direct instance override.** `Eleanor.run` accepts already-constructed
+   objects that bypass the registry entirely:
+
+   ```python
+   from eleanor import Eleanor
+
+   Eleanor(config, order, []).run(
+       simulation_size,
+       executor=MyExecutor(num_workers=4),
+       navigator=my_navigator_instance,
+       transformers=[my_transformer_instance],
+       kernel=my_kernel_instance,
+   )
+   ```
+
+   The override, when supplied, short-circuits the registry lookup for that
+   extension point only.
+
+## Kernel `KernelSpec`
+
+Kernel plugins register a small `KernelSpec` bundle rather than a single
+callable, because a kernel has two entry points: parsing order-file settings
+and constructing the kernel at run time.
+
+```python
+from eleanor.kernel.registry import KernelSpec, register_kernel
+from my_project.kernel import MyKernel, MySettings
+
+spec = KernelSpec(
+    settings_from_dict=MySettings.from_dict,
+    build=lambda settings, *args: MyKernel(settings, *args),
+)
+register_kernel("my_kernel", spec)
+```
+
+Entry points may resolve to either a `KernelSpec` directly or a zero-argument
+callable returning one; the registry validator normalises both forms.
+
+## Commercial plugins
+
+Entry points are pure metadata, so proprietary plugin wheels shipped through
+a private index (and optionally Cython-compiled) participate in discovery
+identically to open-source plugins. The registered factory can live inside a
+compiled `.so` and perform license verification on first use; Eleanor will
+surface any failure through the registry's standard warning/error path.
+
+## Collision / override policy
+
+- Built-in names always win on collision.
+- Plugin-vs-plugin collisions are resolved in favour of whichever plugin is
+  discovered first; a `RuntimeWarning` is emitted.
+- Setting `ELEANOR_<KIND>_OVERRIDES` to a truthy value in the environment
+  allows the new registration to win. Intended for development and debugging
+  only.
+
+## Writing a new extension point
+
+If you add a new pluggable concept to Eleanor, instantiate another
+`PluginRegistry` with the appropriate factory shape and entry-point group.
+The generic primitive handles discovery, validation, collision resolution, and
+override semantics, so the new registry module stays small:
+
+```python
+from eleanor.plugin import PluginRegistry
+
+MyFactory = Callable[..., 'MyAbstractThing']
+
+registry = PluginRegistry(
+    kind='thing',
+    entry_point_group='eleanor.things',
+    override_env_var='ELEANOR_THING_OVERRIDES',
+    builtins={'default': _build_default},
+)
+
+register_thing = registry.register
+available_things = registry.available
+get_factory = registry.get
+```

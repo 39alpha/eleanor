@@ -5,12 +5,13 @@ notes: Exhibit path tracking, special reactants and the Lattice Navigator
 
 kernel:
   type: eq36
-  model: b-dot
-  charge_balance: H+
-  track_path: true
-  eq6_config:
-    xi_max: 100
-    steps_print_interval: 1
+  args:
+    model: b-dot
+    charge_balance: H+
+    track_path: true
+    eq6_config:
+      xi_max: 100
+      steps_print_interval: 1
 
 navigator:
   type: Lattice

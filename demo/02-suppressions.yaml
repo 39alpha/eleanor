@@ -5,9 +5,10 @@ notes: Show the effects of suppressions
 
 kernel:
   type: eq36
-  model: b-dot
-  track_path: false
-  charge_balance: H+
+  args:
+    model: b-dot
+    track_path: false
+    charge_balance: H+
 
 temperature:
   max: 40

@@ -3,12 +3,12 @@ from typing import override
 
 import eleanor.variable_space as vs
 
-from .constraints import Boatswain
-from .exceptions import EleanorException
-from .kernel.interface import AbstractKernel
-from .order import Order
-from .parameters import Parameter, ValueParameter
-from .typing import Callable, Generator, cast
+from ..constraints import Boatswain
+from ..exceptions import EleanorException
+from ..kernel.interface import AbstractKernel
+from ..order import Order
+from ..parameters import Parameter, ValueParameter
+from ..typing import Callable, Generator, cast
 
 
 class AbstractNavigator(ABC):
@@ -133,3 +133,29 @@ class Lattice(LatticeNavigator):
 
 
 _ = LatticeNavigator.register(Lattice)
+
+
+from .registry import (  # noqa: E402
+    BUILTIN_NAVIGATORS,
+    ENTRY_POINT_GROUP,
+    OVERRIDE_ENV_VAR,
+    NavigatorFactory,
+    available_navigators,
+    get_factory,
+    register_navigator,
+)
+
+__all__ = [
+    'AbstractNavigator',
+    'BUILTIN_NAVIGATORS',
+    'ENTRY_POINT_GROUP',
+    'Lattice',
+    'LatticeNavigator',
+    'NavigatorFactory',
+    'OVERRIDE_ENV_VAR',
+    'Random',
+    'RandomLattice',
+    'available_navigators',
+    'get_factory',
+    'register_navigator',
+]

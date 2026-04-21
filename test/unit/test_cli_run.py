@@ -145,9 +145,9 @@ class TestCLIRun(TestCase):
         eleanor = mock.Mock()
         eleanor.run.return_value = [99]
 
-        saved_registry = dict(registry._BACKEND_REGISTRY)
-        saved_discovered = registry._DISCOVERED
-        registry._BACKEND_REGISTRY['plugin'] = lambda _n: mock.Mock()
+        saved_entries = dict(registry.registry._registry)
+        saved_discovered = registry.registry._discovered
+        registry.registry._registry['plugin'] = lambda _n: mock.Mock()
         try:
             with (
                 mock.patch("eleanor.cli.run.config_from_args", return_value=config),
@@ -155,9 +155,9 @@ class TestCLIRun(TestCase):
             ):
                 run_cli.execute(parser, ns)
         finally:
-            registry._BACKEND_REGISTRY.clear()
-            registry._BACKEND_REGISTRY.update(saved_registry)
-            registry._DISCOVERED = saved_discovered
+            registry.registry._registry.clear()
+            registry.registry._registry.update(saved_entries)
+            registry.registry._discovered = saved_discovered
 
         self.assertEqual(eleanor.run.call_args.kwargs['parallel'], 'plugin')
 
@@ -180,7 +180,8 @@ class TestCLIRun(TestCase):
         eleanor_cls.assert_not_called()
         joined = ' '.join(str(a) for a in printed)
         self.assertIn('does-not-exist', joined)
-        self.assertIn('unsupported executor backend', joined)
+        self.assertIn('unsupported', joined)
+        self.assertIn('executor backend', joined)
 
     def test_execute_surfaces_eleanor_exception(self):
         """

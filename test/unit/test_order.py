@@ -29,34 +29,36 @@ class TestOrder(TestCase):
 
     def test_constraint_and_navigator_config(self):
         """
-        Ensure basic config helper classes return expected defaults and dynamic loader behavior.
+        Ensure basic config helper classes return expected defaults and registry-backed loading.
         """
         self.assertEqual(ConstraintConfig(type="x").volume(), 1.0)
 
-        nav = NavigatorConfig("Random")
-        self.assertEqual(nav.type, "eleanor.navigator.Random")
+        nav = NavigatorConfig("random")
+        self.assertEqual(nav.type, "random")
+        self.assertEqual(nav.args, {})
 
-        fake_module = SimpleNamespace(MyNavigator=object())
-        with mock.patch("eleanor.order.import_module", return_value=fake_module) as m:
-            nav2 = NavigatorConfig("foo.bar.MyNavigator")
+        factory = object()
+        with mock.patch("eleanor.navigator.registry.get_factory", return_value=factory) as m:
+            nav2 = NavigatorConfig("my_plugin", args={"seed": 42})
             loaded = nav2.load()
-        m.assert_called_once_with("foo.bar")
-        self.assertIs(loaded, fake_module.MyNavigator)
+        m.assert_called_once_with("my_plugin")
+        self.assertIs(loaded, factory)
+        self.assertEqual(nav2.args, {"seed": 42})
 
     def test_transformer_config_init_and_load(self):
         """
-        Ensure transformer config parsing normalizes short names and resolves classes dynamically.
+        Ensure transformer config parsing preserves short names and resolves factories via the registry.
         """
-        tf = TransformerConfig("GlassReactantEmbedder")
-        self.assertEqual(tf.type, "eleanor.transformers.GlassReactantEmbedder")
+        tf = TransformerConfig("glass_reactant_embedder")
+        self.assertEqual(tf.type, "glass_reactant_embedder")
         self.assertEqual(tf.args, {})
 
-        fake_module = SimpleNamespace(MyTransformer=object())
-        with mock.patch("eleanor.order.import_module", return_value=fake_module) as m:
-            tf2 = TransformerConfig("pkg.mod.MyTransformer", args={"x": 1})
+        factory = object()
+        with mock.patch("eleanor.transformers.registry.get_factory", return_value=factory) as m:
+            tf2 = TransformerConfig("my_transformer", args={"x": 1})
             loaded = tf2.load()
-        m.assert_called_once_with("pkg.mod")
-        self.assertIs(loaded, fake_module.MyTransformer)
+        m.assert_called_once_with("my_transformer")
+        self.assertIs(loaded, factory)
 
     def test_suppression(self):
         """
@@ -126,13 +128,16 @@ class TestOrder(TestCase):
         Ensure suborder parsing handles optional fields and delegated loaders.
         """
         fake_settings = object()
-        fake_kernel_module = SimpleNamespace(Settings=SimpleNamespace(from_dict=mock.Mock(return_value=fake_settings)))
+        fake_spec = SimpleNamespace(
+            settings_from_dict=mock.Mock(return_value=fake_settings),
+            build=mock.Mock(),
+        )
 
         raw = {
             "name": "base",
             "notes": "n",
             "creator": "c",
-            "kernel": {"type": "eq36"},
+            "kernel": {"type": "eq36", "args": {"foo": "bar"}},
             "navigator": "Random",
             "temperature": 25.0,
             "pressure": 1.0,
@@ -145,15 +150,17 @@ class TestOrder(TestCase):
         }
 
         with (
-            mock.patch("eleanor.order.import_kernel_module", return_value=fake_kernel_module),
+            mock.patch("eleanor.order.get_kernel_spec", return_value=fake_spec),
             mock.patch("eleanor.order.AbstractReactant.from_dict", return_value="reactant") as reactant_from_dict,
         ):
             sub = Suborder.from_dict(raw)
 
+        fake_spec.settings_from_dict.assert_called_once_with({"foo": "bar"})
+
         self.assertEqual(sub.name, "base")
         self.assertEqual(sub.notes, "n")
         self.assertEqual(sub.creator, "c")
-        self.assertEqual(sub.navigator.type, "eleanor.navigator.Random")
+        self.assertEqual(sub.navigator.type, "Random")
         self.assertIsNotNone(sub.kernel)
         self.assertEqual(list(sub.elements.keys()), ["Na"])
         self.assertEqual(list(sub.species.keys()), ["H+"])
@@ -180,8 +187,9 @@ class TestOrder(TestCase):
         """
         Ensure suborder parsing accepts navigator dict objects.
         """
-        sub = Suborder.from_dict({"navigator": {"type": "foo.bar.Baz"}})
-        self.assertEqual(sub.navigator.type, "foo.bar.Baz")
+        sub = Suborder.from_dict({"navigator": {"type": "my_plugin", "args": {"seed": 1}}})
+        self.assertEqual(sub.navigator.type, "my_plugin")
+        self.assertEqual(sub.navigator.args, {"seed": 1})
 
     def test_order_core_methods(self):
         """
@@ -224,18 +232,21 @@ class TestOrder(TestCase):
             Order({"name": "x", "creator": 1})
 
         fake_settings = object()
-        fake_kernel_module = SimpleNamespace(Settings=SimpleNamespace(from_dict=mock.Mock(return_value=fake_settings)))
-        with mock.patch("eleanor.order.import_kernel_module", return_value=fake_kernel_module):
+        fake_spec = SimpleNamespace(
+            settings_from_dict=mock.Mock(return_value=fake_settings),
+            build=mock.Mock(),
+        )
+        with mock.patch("eleanor.order.get_kernel_spec", return_value=fake_spec):
             order = Order(
                 {
                     "name": "o",
                     "creator": "u",
-                    "kernel": {"type": "eq36"},
+                    "kernel": {"type": "eq36", "args": {}},
                     "navigator": "Random",
                 }
             )
         self.assertIsNotNone(order.kernel)
-        self.assertEqual(order.navigator.type, "eleanor.navigator.Random")
+        self.assertEqual(order.navigator.type, "Random")
 
     def test_order_transformer_configs_parse_and_validate(self):
         """
@@ -246,14 +257,14 @@ class TestOrder(TestCase):
                 "name": "o",
                 "creator": "u",
                 "transformers": [
-                    "GlassReactantEmbedder",
-                    {"type": "pkg.mod.MyTransformer", "args": {"filename": "x.csv"}},
+                    "glass_reactant_embedder",
+                    {"type": "my_transformer", "args": {"filename": "x.csv"}},
                 ],
             }
         )
         self.assertEqual(len(order.transformers), 2)
-        self.assertEqual(order.transformers[0].type, "eleanor.transformers.GlassReactantEmbedder")
-        self.assertEqual(order.transformers[1].type, "pkg.mod.MyTransformer")
+        self.assertEqual(order.transformers[0].type, "glass_reactant_embedder")
+        self.assertEqual(order.transformers[1].type, "my_transformer")
         self.assertEqual(order.transformers[1].args, {"filename": "x.csv"})
 
         with self.assertRaises(EleanorException):

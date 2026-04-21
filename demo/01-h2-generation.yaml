@@ -5,8 +5,9 @@ notes: React olivine, ortho and clino drawn from Gaussians
 
 kernel:
   type: eq36
-  model: b-dot
-  charge_balance: H+
+  args:
+    model: b-dot
+    charge_balance: H+
 
 temperature:
   min: 220

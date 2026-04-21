@@ -32,8 +32,8 @@ website:
           href: docs.qmd
         - text: Database
           href: database.qmd
-        - text: Executors
-          href: executors.qmd
+        - text: Plugins
+          href: plugins.qmd
 
 format:
   html:

@@ -5,13 +5,14 @@ notes: Track paths for a realistic rock and fluid with sampled titration rates
 
 kernel:
   type: eq36
-  model: b-dot
-  timeout: 5
-  eq6_config:
-    xi_max: 100
-    steps_print_interval: 1
-  track_path: true
-  charge_balance: Cl-
+  args:
+    model: b-dot
+    timeout: 5
+    eq6_config:
+      xi_max: 100
+      steps_print_interval: 1
+    track_path: true
+    charge_balance: Cl-
 
 temperature: 100
 

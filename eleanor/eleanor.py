@@ -1,6 +1,7 @@
 from contextlib import AbstractContextManager, nullcontext
 from multiprocessing import Manager
 from queue import Queue
+from typing import TYPE_CHECKING
 
 from sqlalchemy import and_, select
 
@@ -9,8 +10,8 @@ from eleanor.sailor import Sailor
 from .config import Config, load_config
 from .executor import AbstractExecutor, build_executor
 from .exceptions import EleanorException
-from .kernel.discover import import_kernel_module
 from .kernel.interface import AbstractKernel
+from .kernel.registry import get_spec as get_kernel_spec
 from .order import HufferResult, NavigatorProtocol, Order, load_order
 from .output import ComputeResult, OutputSink, PostgresSink, RunStats, WriteOutcome
 from .transformers import transform
@@ -18,6 +19,10 @@ from .typing import Callable, EleanorKwargs, Self, Unpack, cast
 from .util import Progress, chunks
 from .version import __version__
 from .yeoman import Yeoman, column_expr
+
+if TYPE_CHECKING:
+    from .navigator import AbstractNavigator
+    from .transformers import AbstractTransformer
 
 
 class Eleanor(object):
@@ -63,11 +68,14 @@ class Eleanor(object):
         parallel: str | None = None,
         chunks_per_worker: int | None = None,
         executor: AbstractExecutor | None = None,
+        kernel: AbstractKernel | None = None,
+        navigator: 'AbstractNavigator | None' = None,
+        transformers: 'list[AbstractTransformer] | None' = None,
         **kwargs: Unpack[EleanorKwargs],
     ) -> list[int]:
-        if len(self.order.transformers) != 0:
-            kernel = self.load_kernel(**kwargs)
-            self.order = transform(self.order, kernel)
+        if transformers is not None or len(self.order.transformers) != 0:
+            run_kernel = kernel if kernel is not None else self.load_kernel(**kwargs)
+            self.order = transform(self.order, run_kernel, overrides=transformers)
 
         default_parallel, default_chunks_per_worker = self._parallel_defaults()
         if parallel is None:
@@ -91,6 +99,8 @@ class Eleanor(object):
                 parallel=parallel,
                 chunks_per_worker=chunks_per_worker,
                 executor=run_executor,
+                kernel=kernel,
+                navigator=navigator,
                 **kwargs,
             )
 
@@ -104,6 +114,8 @@ class Eleanor(object):
         parallel: str | None = None,
         chunks_per_worker: int | None = None,
         executor: AbstractExecutor | None = None,
+        kernel: AbstractKernel | None = None,
+        navigator: 'AbstractNavigator | None' = None,
         **kwargs: Unpack[EleanorKwargs],
     ) -> list[int]:
         default_parallel, default_chunks_per_worker = self._parallel_defaults()
@@ -139,6 +151,8 @@ class Eleanor(object):
                     parallel=parallel,
                     chunks_per_worker=chunks_per_worker,
                     executor=executor,
+                    kernel=kernel,
+                    navigator=navigator,
                     **kwargs,
                 )
                 order_ids.update(suborder_ids)
@@ -152,6 +166,8 @@ class Eleanor(object):
             parallel=parallel,
             chunks_per_worker=chunks_per_worker,
             executor=executor,
+            kernel=kernel,
+            navigator=navigator,
             **kwargs,
         )
 
@@ -163,6 +179,8 @@ class Eleanor(object):
         parallel: str | None = None,
         chunks_per_worker: int | None = None,
         executor: AbstractExecutor | None = None,
+        kernel: AbstractKernel | None = None,
+        navigator: 'AbstractNavigator | None' = None,
         **kwargs: Unpack[EleanorKwargs],
     ) -> list[int]:
         no_huffer = kwargs.get('no_huffer', False)
@@ -177,10 +195,13 @@ class Eleanor(object):
         if chunks_per_worker is None:
             chunks_per_worker = default_chunks_per_worker
 
-        kernel = self.load_kernel(**kwargs)
-        if self.order.navigator is None:
-            raise EleanorException('order navigator is required')
-        navigator = self.order.navigator.load()(self.order, kernel)
+        if kernel is None:
+            kernel = self.load_kernel(**kwargs)
+        if navigator is None:
+            if self.order.navigator is None:
+                raise EleanorException('order navigator is required')
+            navigator_factory = self.order.navigator.load()
+            navigator = navigator_factory(self.order, kernel, **self.order.navigator.args)
 
         if success_sampling and not navigator.supports_success_sampling():
             msg = f"{navigator.__class__.__module__}.{navigator.__class__.__name__} does not support success sampling"
@@ -327,9 +348,8 @@ class Eleanor(object):
     def load_kernel(self, **kwargs: Unpack[EleanorKwargs]) -> AbstractKernel:
         if self.order.kernel is None:
             raise EleanorException('order kernel is required')
-        kernel_module = import_kernel_module(self.order.kernel.type)
-        kernel_ctor = cast(Callable[..., AbstractKernel], kernel_module.Kernel)
-        kernel = kernel_ctor(self.order.kernel.settings, *self.kernel_args)
+        spec = get_kernel_spec(self.order.kernel.type)
+        kernel = spec.build(self.order.kernel.settings, *self.kernel_args)
         kernel.setup(self.order, **kwargs)
 
         return kernel

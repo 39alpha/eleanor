@@ -4,12 +4,12 @@ from abc import ABC, abstractmethod
 import numpy as np
 import pandas as pd
 
-from .exceptions import EleanorException
-from .kernel.interface import AbstractKernel
-from .order import Order, Suborder, Suborders
-from .parameters import Parameter, ValueParameter
-from .reactants import GlassReactant, GlassReactantOxide, ReactantType
-from .typing import cast, override
+from ..exceptions import EleanorException
+from ..kernel.interface import AbstractKernel
+from ..order import Order, Suborder, Suborders
+from ..parameters import Parameter, ValueParameter
+from ..reactants import GlassReactant, GlassReactantOxide, ReactantType
+from ..typing import cast, override
 
 
 class AbstractTransformer(ABC):
@@ -172,10 +172,51 @@ class GlassReactantEmbedder(AbstractTransformer):
         return order
 
 
-def transform(order: Order, kernel: AbstractKernel) -> Order:
+def transform(
+    order: Order,
+    kernel: AbstractKernel,
+    overrides: list[AbstractTransformer] | None = None,
+) -> Order:
+    """Apply the order's transformers (or ``overrides``) to ``order`` in sequence.
+
+    :param overrides: optional list of already-instantiated transformers to
+        apply instead of those declared in the order file. Useful for the
+        inline-plugin workflow where a caller constructs a transformer
+        programmatically and wants to bypass the registry lookup.
+    """
+    if overrides is not None:
+        for transformer in overrides:
+            order = transformer.transform(order, kernel)
+        order.transformers = []
+        return order
+
     if len(order.transformers) != 0:
         for transformer_config in order.transformers:
             transformer = cast(AbstractTransformer, transformer_config.load()(**transformer_config.args))
             order = transformer.transform(order, kernel)
         order.transformers = []
     return order
+
+
+from .registry import (  # noqa: E402
+    BUILTIN_TRANSFORMERS,
+    ENTRY_POINT_GROUP,
+    OVERRIDE_ENV_VAR,
+    TransformerFactory,
+    available_transformers,
+    get_factory,
+    register_transformer,
+)
+
+__all__ = [
+    'AbstractTransformer',
+    'BUILTIN_TRANSFORMERS',
+    'ENTRY_POINT_GROUP',
+    'GlassReactantEmbedder',
+    'OVERRIDE_ENV_VAR',
+    'TransformerFactory',
+    'available_transformers',
+    'get_factory',
+    'register_transformer',
+    'transform',
+]

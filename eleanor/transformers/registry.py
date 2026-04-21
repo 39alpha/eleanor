@@ -1,0 +1,65 @@
+"""
+Registry and discovery for eleanor transformer plugins.
+
+Built-in transformers (``glass_reactant_embedder``) are registered at module
+import time. Third-party transformers advertise themselves through the
+``eleanor.transformers`` entry-point group.
+
+Each registered factory is a callable invoked as ``factory(**args)``, where
+``args`` is the ``args`` block from the order file's ``transformers`` entry.
+Transformer classes whose ``__init__`` accepts the advertised keyword
+arguments can be registered directly as their own factory.
+"""
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any
+
+from eleanor.plugin import PluginRegistry
+
+if TYPE_CHECKING:
+    from . import AbstractTransformer
+
+#: Name of the entry-point group inspected on first registry access.
+ENTRY_POINT_GROUP = 'eleanor.transformers'
+
+#: Environment variable that allows plugin registrations to override built-ins
+#: or previously-registered plugins.
+OVERRIDE_ENV_VAR = 'ELEANOR_TRANSFORMER_OVERRIDES'
+
+#: Factory callable shape. Each registered transformer is invoked with the
+#: keyword args from the order file.
+TransformerFactory = Callable[..., 'AbstractTransformer']
+
+
+def _build_glass_reactant_embedder(**args: Any) -> 'AbstractTransformer':
+    from . import GlassReactantEmbedder
+
+    return GlassReactantEmbedder(**args)
+
+
+#: The shared :class:`PluginRegistry` instance backing this module's helpers.
+registry: PluginRegistry[TransformerFactory] = PluginRegistry(
+    kind='transformer',
+    entry_point_group=ENTRY_POINT_GROUP,
+    override_env_var=OVERRIDE_ENV_VAR,
+    builtins={
+        'glass_reactant_embedder': _build_glass_reactant_embedder,
+    },
+)
+
+#: Canonical names of the transformers shipped inside the eleanor distribution.
+BUILTIN_TRANSFORMERS: frozenset[str] = registry.builtins
+
+
+def register_transformer(name: str, factory: TransformerFactory) -> None:
+    """Register ``factory`` under ``name`` in the transformer registry."""
+    registry.register(name, factory)
+
+
+def available_transformers() -> frozenset[str]:
+    """Return the set of currently-registered transformer names."""
+    return registry.available()
+
+
+def get_factory(name: str) -> TransformerFactory:
+    """Return the :data:`TransformerFactory` registered under ``name``."""
+    return registry.get(name)

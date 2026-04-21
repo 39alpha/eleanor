@@ -6,7 +6,6 @@ import tomllib
 from copy import deepcopy
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
-from importlib import import_module
 from typing import Protocol, TypedDict, final
 
 import yaml
@@ -14,7 +13,7 @@ from sqlalchemy import Column, DateTime, ForeignKey, Index, Integer, String, Tab
 from sqlalchemy.orm import relationship
 
 import eleanor.variable_space as vs
-from eleanor.kernel.discover import import_kernel_module
+from eleanor.kernel.registry import get_spec as get_kernel_spec
 from eleanor.variable_space import Point as VSPoint
 
 from .exceptions import EleanorException
@@ -22,7 +21,7 @@ from .kernel.config import Config as KernelConfig
 from .kernel.config import Settings as KernelSettings
 from .parameters import Parameter, ParameterSource
 from .reactants import AbstractReactant, ReactantRaw
-from .typing import Callable, Self, cast
+from .typing import Any, Callable, Self, cast
 from .util import is_list_of, mapreduce
 from .yeoman import Binary, JSONDict, reconstructor, yeoman_registry
 
@@ -37,6 +36,7 @@ type KernelRaw = RawMap
 
 class NavigatorRaw(TypedDict, total=False):
     type: str
+    args: RawMap
 
 
 class TransformerRaw(TypedDict, total=False):
@@ -85,12 +85,6 @@ class SubordersRaw(TypedDict, total=False):
     orders: list[SuborderRaw]
 
 
-class KernelSettingsClass(Protocol):
-    @staticmethod
-    def from_dict(raw: RawMap) -> KernelSettings:
-        ...
-
-
 def _require_opt_str(value: object, field_name: str) -> str | None:
     """Validate that ``value`` is a string or ``None`` at runtime.
 
@@ -127,10 +121,14 @@ def _build_transformer(value: object) -> 'TransformerConfig':
 
 
 def load_kernel_settings(kernel_raw: KernelRaw) -> tuple[str, KernelSettings]:
+    """Parse a raw kernel block into its ``(type, Settings)`` pair via the registry."""
     kernel_type = _require_str(kernel_raw.get('type'), 'kernel.type')
-    kernel_module = import_kernel_module(kernel_type)
-    settings_cls = cast(KernelSettingsClass, getattr(kernel_module, 'Settings'))
-    return kernel_type, settings_cls.from_dict(kernel_raw)
+    kernel_args_raw = kernel_raw.get('args', {}) or {}
+    if not isinstance(kernel_args_raw, dict):
+        raise EleanorException('kernel.args must be a dict')
+    spec = get_kernel_spec(kernel_type)
+    kernel_args = cast(dict[str, Any], kernel_args_raw)  # pyright: ignore[reportExplicitAny]
+    return kernel_type, cast(KernelSettings, spec.settings_from_dict(kernel_args))
 
 
 class NavigatorProtocol(Protocol):
@@ -157,21 +155,17 @@ class ConstraintConfig(object):
 @dataclass(init=False)
 class NavigatorConfig(object):
     type: str
+    args: dict[str, Any]  # pyright: ignore[reportExplicitAny]
 
-    def __init__(self, type: str = 'Random'):
-        if '.' not in type:
-            type = 'eleanor.navigator.' + type
-
+    def __init__(self, type: str = 'random', args: dict[str, Any] | None = None):  # pyright: ignore[reportExplicitAny]
         self.type = type
+        self.args = args if args is not None else {}
 
     def load(self) -> Callable[..., NavigatorProtocol]:
-        parts = self.type.split('.')
+        """Return the navigator factory registered under :attr:`type`."""
+        from eleanor.navigator.registry import get_factory
 
-        module_name = '.'.join(parts[:-1])
-        navigator_name = parts[-1]
-
-        module = import_module(module_name)
-        return cast(Callable[..., NavigatorProtocol], getattr(module, navigator_name))
+        return cast(Callable[..., NavigatorProtocol], get_factory(self.type))
 
 
 @dataclass(init=False)
@@ -179,21 +173,15 @@ class TransformerConfig(object):
     type: str
     args: RawMap
 
-    def __init__(self, type: str = 'Random', args: RawMap | None = None):
-        if '.' not in type:
-            type = 'eleanor.transformers.' + type
-
+    def __init__(self, type: str = 'glass_reactant_embedder', args: RawMap | None = None):
         self.type = type
         self.args = args if args is not None else {}
 
     def load(self) -> Callable[..., object]:
-        parts = self.type.split('.')
+        """Return the transformer factory registered under :attr:`type`."""
+        from eleanor.transformers.registry import get_factory
 
-        module_name = '.'.join(parts[:-1])
-        transformer_name = parts[-1]
-
-        module = import_module(module_name)
-        return cast(Callable[..., object], getattr(module, transformer_name))
+        return cast(Callable[..., object], get_factory(self.type))
 
 
 @dataclass(init=False)

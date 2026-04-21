@@ -5,7 +5,7 @@ from typing import Protocol
 from sqlalchemy import create_mock_engine
 
 from eleanor.cli.util import ConfigArgs, add_config_args, config_from_args, typed_args
-from eleanor.kernel.discover import import_all_kernels
+from eleanor.kernel import registry as _kernel_registry  # noqa: F401  (seeds yeoman_registry)
 from eleanor.yeoman import yeoman_registry
 
 
@@ -39,8 +39,6 @@ def init(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
 
 def execute(parser: argparse.ArgumentParser, ns: argparse.Namespace) -> None:
     args = typed_args(SchemaArgs, ns)
-
-    _ = import_all_kernels()
 
     config = config_from_args(parser, args)
 

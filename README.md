@@ -48,13 +48,7 @@ uv tool install git+https://github.com/39alpha/eleanor
 
 ## MPI backend (optional)
 
-MPI support is provided by the separately-distributed [`eleanor_mpi`](https://github.com/39alpha/eleanor) plugin package. Installing it registers the `mpi` backend with Eleanor's executor registry; no configuration changes are required.
-
-```bash
-pip install 'eleanor[mpi]'   # convenience alias for eleanor_mpi
-```
-
-or install the plugin directly:
+MPI support is provided by the separately-distributed `eleanor_mpi` plugin package. Installing it registers the `mpi` backend with Eleanor's executor registry; no configuration changes are required.
 
 ```bash
 pip install eleanor_mpi

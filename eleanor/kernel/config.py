@@ -1,12 +1,11 @@
 from dataclasses import dataclass
-from typing import Protocol
 
 from sqlalchemy import Column, ForeignKey, Integer, String, Table
 
 from ..parameters import Parameter
-from ..typing import cast
+from ..typing import Any, cast
 from ..yeoman import JSONDict, reconstructor, yeoman_registry
-from .discover import import_kernel_module
+from .registry import get_spec
 
 
 @dataclass
@@ -15,10 +14,6 @@ class Settings(object):
 
     def parameters(self) -> list[Parameter]:
         return []
-class SettingsClass(Protocol):
-    @staticmethod
-    def from_dict(raw: dict[str, object]) -> Settings:
-        ...
 
 
 @yeoman_registry.mapped_as_dataclass(kw_only=True)
@@ -38,9 +33,9 @@ class Config(object):
     @reconstructor
     def reconstruct(self) -> None:
         if isinstance(self.settings, dict):
-            kernel_module = import_kernel_module(self.type)
-            settings_cls = cast(SettingsClass, getattr(kernel_module, 'Settings'))
-            self.settings = settings_cls.from_dict(cast(dict[str, object], self.settings))
+            spec = get_spec(self.type)
+            settings_dict = cast(dict[str, Any], self.settings)  # pyright: ignore[reportExplicitAny]
+            self.settings = cast(Settings, spec.settings_from_dict(settings_dict))
 
     def parameters(self) -> list[Parameter]:
         return self.settings.parameters()

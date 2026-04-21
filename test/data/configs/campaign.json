@@ -5,8 +5,10 @@
     "creator": "39 Alpha Research, Team 0",
     "kernel": {
         "type": "eq36",
-        "model": "b-dot",
-        "charge_balance": "H+"
+        "args": {
+            "model": "b-dot",
+            "charge_balance": "H+"
+        }
     },
     "temperature": {
         "unit": "celcius",

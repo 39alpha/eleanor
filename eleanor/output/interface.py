@@ -59,3 +59,18 @@ class OutputSink(ABC):
     @abstractmethod
     def finalize(self) -> None:
         ...
+
+    def supports_worker_writes(self) -> bool:
+        """Whether :meth:`write_batch` is safe to invoke from worker processes.
+
+        Sinks that return ``True`` must be picklable and must tolerate being
+        invoked concurrently from multiple workers against the same target.
+        :meth:`begin_run` and :meth:`finalize` still run only in the main
+        process; any state they establish must either cross the pickle
+        boundary with the sink or be re-discovered inside :meth:`write_batch`.
+
+        Sinks that return ``False`` (the default) are driven by the main
+        process after workers have returned their :class:`ComputeResult`
+        payloads.
+        """
+        return False

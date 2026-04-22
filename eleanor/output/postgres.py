@@ -56,3 +56,7 @@ class PostgresSink(OutputSink):
     @override
     def finalize(self) -> None:
         pass
+
+    @override
+    def supports_worker_writes(self) -> bool:
+        return True

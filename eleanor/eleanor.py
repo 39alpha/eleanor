@@ -16,7 +16,7 @@ from .order import HufferResult, NavigatorProtocol, Order, load_order
 from .output.interface import ComputeResult, OutputSink, RunStats, WriteOutcome
 from .output.registry import get_factory as get_output_factory
 from .transformer import transform
-from .typing import EleanorKwargs, Self, Unpack
+from .typing import EleanorKwargs, Self, Unpack, cast
 from .util import Progress, chunks
 from .version import __version__
 from .yeoman import Yeoman, column_expr
@@ -309,6 +309,8 @@ class Eleanor(object):
         success_sampling = kwargs.get('success_sampling', False)
         outcomes: list[WriteOutcome] = []
 
+        worker_writes = sink.supports_worker_writes()
+
         while True:
             vs_points = navigator.navigate(simulation_size, order_id=order_id, max_attempts=1)
             if progress is not None:
@@ -316,27 +318,70 @@ class Eleanor(object):
 
             vs_point_ids: list[int] = []
 
-            futures: list[AbstractFuture[list[ComputeResult]]] = []
             # Cap chunk count at the number of points so we never produce
             # empty batches when num_workers * chunks_per_worker exceeds
             # len(vs_points).
             chunk_count = min(len(vs_points), executor.num_workers * chunks_per_worker)
-            for batch in chunks(vs_points, chunk_count):
-                sailor_kwargs: EleanorKwargs = {**kwargs}
-                future: AbstractFuture[list[ComputeResult]] = executor.submit(
-                    Sailor(kernel).dispatch,
-                    batch,
-                    *args,
-                    **sailor_kwargs,
-                )
-                futures.append(future)
 
-            compute_results: list[ComputeResult] = []
-            while futures:
-                future = futures.pop()
-                compute_results.extend(future.result())
+            sailor_kwargs: EleanorKwargs = {**kwargs}
 
-            batch_outcomes = sink.write_batch(order_id, compute_results)
+            if worker_writes:
+                # Sinks that opt in to worker writes receive the sink and
+                # ``order_id`` through to ``Sailor.dispatch``, which invokes
+                # ``sink.write_batch`` inside the worker. The future therefore
+                # resolves directly to a small ``list[WriteOutcome]`` payload,
+                # avoiding the IPC cost of shipping full ``ComputeResult``s
+                # (and their mapped ``vs.Point`` graph) back to the parent.
+                outcome_futures: list[AbstractFuture[list[WriteOutcome]]] = []
+                for batch in chunks(vs_points, chunk_count):
+                    # ``Sailor.dispatch`` has a ``list[ComputeResult] |
+                    # list[WriteOutcome]`` union return type, but with a sink
+                    # and ``order_id`` supplied it always returns
+                    # ``list[WriteOutcome]``. ``AbstractFuture`` is invariant
+                    # over its type parameter, so narrow the future here.
+                    outcome_future = cast(
+                        AbstractFuture[list[WriteOutcome]],
+                        executor.submit(
+                            Sailor(kernel).dispatch,
+                            batch,
+                            *args,
+                            sink=sink,
+                            order_id=order_id,
+                            **sailor_kwargs,
+                        ),
+                    )
+                    outcome_futures.append(outcome_future)
+
+                batch_outcomes: list[WriteOutcome] = []
+                while outcome_futures:
+                    outcome_future = outcome_futures.pop()
+                    batch_outcomes.extend(outcome_future.result())
+            else:
+                # Serial sinks are driven by the main process: workers return
+                # full ``ComputeResult`` payloads, which are then written here.
+                compute_futures: list[AbstractFuture[list[ComputeResult]]] = []
+                for batch in chunks(vs_points, chunk_count):
+                    # See the ``worker_writes`` branch above: without a sink,
+                    # ``Sailor.dispatch`` always resolves to
+                    # ``list[ComputeResult]``, so narrow the invariant future.
+                    compute_future = cast(
+                        AbstractFuture[list[ComputeResult]],
+                        executor.submit(
+                            Sailor(kernel).dispatch,
+                            batch,
+                            *args,
+                            **sailor_kwargs,
+                        ),
+                    )
+                    compute_futures.append(compute_future)
+
+                compute_results: list[ComputeResult] = []
+                while compute_futures:
+                    compute_future = compute_futures.pop()
+                    compute_results.extend(compute_future.result())
+
+                batch_outcomes = sink.write_batch(order_id, compute_results)
+
             outcomes.extend(batch_outcomes)
 
             for outcome in batch_outcomes:

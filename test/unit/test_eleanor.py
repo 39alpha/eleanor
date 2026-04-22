@@ -382,6 +382,7 @@ class TestEleanor(TestCase):
         ]
         executor.submit = mock.Mock(side_effect=[_Future(compute_results), _Future([])])
         sink = mock.Mock()
+        sink.supports_worker_writes.return_value = False
         sink.write_batch.return_value = [
             WriteOutcome(point_id=10, exit_code=0, committed=True),
             WriteOutcome(point_id=11, exit_code=0, committed=True),
@@ -417,6 +418,7 @@ class TestEleanor(TestCase):
         executor = _Pool()
         executor.submit = mock.Mock(side_effect=[_Future(worker_results), _Future([])])
         sink = mock.Mock()
+        sink.supports_worker_writes.return_value = False
         sink.write_batch.return_value = [
             WriteOutcome(point_id=101, exit_code=0, committed=True),
             WriteOutcome(point_id=102, exit_code=1, committed=True),
@@ -434,6 +436,48 @@ class TestEleanor(TestCase):
         )
 
         sink.write_batch.assert_called_once_with(9, worker_results)
+
+    def test_process_forwards_sink_to_workers_when_opted_in(self):
+        """
+        Ensure process routes writes through workers when the sink opts in:
+        the sink/order_id are threaded through executor.submit, futures already
+        resolve to WriteOutcomes, and sink.write_batch is not called in the
+        parent process.
+        """
+        eleanor = self._make_eleanor()
+        kernel = mock.Mock()
+        navigator = mock.Mock()
+        navigator.navigate.return_value = ["a", "b"]
+        navigator.is_complete.return_value = True
+
+        worker_outcomes = [
+            WriteOutcome(point_id=201, exit_code=0, committed=True),
+            WriteOutcome(point_id=202, exit_code=0, committed=True),
+        ]
+
+        executor = _Pool()
+        executor.submit = mock.Mock(side_effect=[_Future(worker_outcomes), _Future([])])
+
+        sink = mock.Mock()
+        sink.supports_worker_writes.return_value = True
+
+        eleanor.process(
+            kernel,
+            navigator,
+            2,
+            9,
+            executor=executor,
+            sink=sink,
+            progress=None,
+            success_sampling=True,
+        )
+
+        sink.write_batch.assert_not_called()
+        submit_kwargs = executor.submit.call_args_list[0].kwargs
+        self.assertIs(submit_kwargs["sink"], sink)
+        self.assertEqual(submit_kwargs["order_id"], 9)
+        is_complete_args = navigator.is_complete.call_args[0][0]
+        self.assertEqual(sorted(is_complete_args), [201, 202])
 
     def test_dispatch_uses_explicit_output_sink_override(self):
         """

@@ -1,7 +1,9 @@
+from collections.abc import Sequence
 from types import SimpleNamespace
 from unittest import mock
 
 from eleanor.config import DatabaseConfig
+from eleanor.order import HufferResult, Order
 from eleanor.output import ComputeResult, ErrorInfo, OutputSink, PostgresSink, RunStats, WriteOutcome
 
 from .common import TestCase
@@ -33,6 +35,31 @@ class TestOutput(TestCase):
         """
         with self.assertRaises(TypeError):
             OutputSink()  # type: ignore[abstract]
+
+    def test_output_sink_defaults_to_no_worker_writes(self):
+        """
+        Ensure OutputSink subclasses that do not override supports_worker_writes
+        opt out of worker-side writes by default.
+        """
+        class MinimalSink(OutputSink):
+            def begin_run(self, order: Order, huffer_result: HufferResult | None) -> None:
+                pass
+
+            def write_batch(self, order_id: int, results: Sequence[ComputeResult]) -> list[WriteOutcome]:
+                return []
+
+            def finalize(self) -> None:
+                pass
+
+        self.assertFalse(MinimalSink().supports_worker_writes())
+
+    def test_postgres_sink_supports_worker_writes(self):
+        """
+        Ensure PostgresSink opts in to worker-side writes.
+        """
+        cfg = DatabaseConfig(database="db", username="u", password="p")
+        sink = PostgresSink(cfg)
+        self.assertTrue(sink.supports_worker_writes())
 
     def test_error_info_fields(self):
         """

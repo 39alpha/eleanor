@@ -12,7 +12,7 @@ import eleanor.variable_space as vs
 
 from .exceptions import EleanorException
 from .kernel.interface import AbstractKernel
-from .output.interface import ComputeResult, ErrorInfo
+from .output.interface import ComputeResult, ErrorInfo, OutputSink, WriteOutcome
 from .typing import EleanorKwargs, Unpack
 from .util import WorkingDirectory
 
@@ -27,8 +27,18 @@ class Sailor(object):
         self,
         points: vs.Point | list[vs.Point],
         *args: object,
+        sink: OutputSink | None = None,
+        order_id: int | None = None,
         **kwargs: Unpack[EleanorKwargs],
-    ) -> list[ComputeResult]:
+    ) -> list[ComputeResult] | list[WriteOutcome]:
+        """Run the kernel over ``points`` and, if ``sink`` is provided, write the
+        resulting :class:`ComputeResult` payloads through it in-process.
+
+        When a ``sink`` is passed, :meth:`OutputSink.write_batch` runs inside
+        the worker and the return value is the resulting
+        :class:`WriteOutcome` list. Callers should only supply a ``sink`` that
+        returns ``True`` from :meth:`OutputSink.supports_worker_writes`.
+        """
         compute_results: list[ComputeResult] = []
 
         point_list: list[vs.Point]
@@ -50,6 +60,10 @@ class Sailor(object):
                     error=error,
                 ))
 
+        if sink is not None:
+            if order_id is None:
+                raise EleanorException('Sailor.dispatch requires order_id when sink is provided')
+            return sink.write_batch(order_id, compute_results)
         return compute_results
 
     def work(

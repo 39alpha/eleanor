@@ -2,7 +2,7 @@ from types import SimpleNamespace
 from unittest import mock
 
 from eleanor.exceptions import EleanorException
-from eleanor.output import ComputeResult
+from eleanor.output import ComputeResult, WriteOutcome
 from eleanor.sailor import Sailor
 
 from .common import TestCase
@@ -42,6 +42,43 @@ class TestSailor(TestCase):
         self.assertEqual(len(results), 1)
         self.assertIsInstance(results[0], ComputeResult)
         self.assertIs(results[0].point, point)
+
+    def test_dispatch_routes_through_sink_when_provided(self):
+        """
+        Ensure dispatch forwards compute results to sink.write_batch when a
+        sink and order_id are supplied, and returns the WriteOutcome list.
+        """
+        sailor = Sailor(kernel=mock.Mock())
+        points = [SimpleNamespace(exit_code=0), SimpleNamespace(exit_code=0)]
+        outcomes = [
+            WriteOutcome(point_id=301, exit_code=0, committed=True),
+            WriteOutcome(point_id=302, exit_code=0, committed=True),
+        ]
+        sink = mock.Mock()
+        sink.write_batch.return_value = outcomes
+
+        with mock.patch.object(Sailor, "work", side_effect=points):
+            results = sailor.dispatch([object(), object()], sink=sink, order_id=42)
+
+        self.assertEqual(results, outcomes)
+        sink.write_batch.assert_called_once()
+        called_order_id, called_compute_results = sink.write_batch.call_args.args
+        self.assertEqual(called_order_id, 42)
+        self.assertEqual(len(called_compute_results), 2)
+        self.assertTrue(all(isinstance(r, ComputeResult) for r in called_compute_results))
+        self.assertIs(called_compute_results[0].point, points[0])
+        self.assertIs(called_compute_results[1].point, points[1])
+
+    def test_dispatch_with_sink_requires_order_id(self):
+        """
+        Ensure dispatch raises if a sink is provided without order_id.
+        """
+        sailor = Sailor(kernel=mock.Mock())
+        sink = mock.Mock()
+        with mock.patch.object(Sailor, "work", return_value=SimpleNamespace(exit_code=0)):
+            with self.assertRaises(EleanorException):
+                sailor.dispatch([object()], sink=sink)
+        sink.write_batch.assert_not_called()
 
     def test_dispatch_serializes_error_metadata_and_clears_exception(self):
         """

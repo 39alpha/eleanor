@@ -7,7 +7,6 @@ from unittest import mock
 from eleanor.exceptions import EleanorException
 from eleanor.order import (
     ConstraintConfig,
-    HufferResult,
     NavigatorConfig,
     Order,
     Suborder,
@@ -75,19 +74,6 @@ class TestOrder(TestCase):
             Suppression.from_dict({"name": "x", "type": 2})
         with self.assertRaises(EleanorException):
             Suppression.from_dict({"name": "x", "except": [1]})
-
-    def test_huffer_result_from_scratch(self):
-        """
-        Ensure huffer scratch conversion uses null bytes for missing scratch and preserves provided zip.
-        """
-        h0 = HufferResult.from_scratch(None, exit_code=3)
-        self.assertEqual(h0.exit_code, 3)
-        self.assertEqual(h0.zip, bytes("\0", "ascii"))
-
-        scratch = Scratch(id=None, zip=b"abc")
-        h1 = HufferResult.from_scratch(scratch, exit_code=0, id=5)
-        self.assertEqual(h1.id, 5)
-        self.assertEqual(h1.zip, b"abc")
 
     def test_suborder_volume_and_suborders(self):
         """

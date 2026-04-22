@@ -9,7 +9,7 @@ from datetime import datetime
 from typing import Protocol, TypedDict, final, runtime_checkable
 
 import yaml
-from sqlalchemy import Column, DateTime, ForeignKey, Index, Integer, String, Table
+from sqlalchemy import Column, DateTime, Index, Integer, String, Table
 from sqlalchemy.orm import relationship
 
 import eleanor.variable_space as vs
@@ -23,7 +23,7 @@ from .parameters import Parameter, ParameterSource
 from .reactants import AbstractReactant, ReactantRaw
 from .typing import Self, cast
 from .util import is_list_of, mapreduce
-from .yeoman import Binary, JSONDict, reconstructor, yeoman_registry
+from .yeoman import JSONDict, reconstructor, yeoman_registry
 
 type RawMap = dict[str, object]
 
@@ -145,16 +145,11 @@ def load_kernel_settings(kernel_raw: KernelRaw) -> tuple[str, KernelSettings]:
 class NavigatorProtocol(Protocol):
     """Structural protocol for navigator plugins.
 
-    All four methods listed below are verified by the ``isinstance`` check
+    All three methods listed below are verified by the ``isinstance`` check
     performed after a navigator factory returns (see :meth:`Eleanor._run`
-    in :mod:`eleanor.eleanor`).  A third-party navigator that implements
-    ``navigate``, ``supports_success_sampling``, and ``is_complete`` but
-    omits ``huffer_problem`` will fail that runtime gate even when the
-    huffer workflow is never invoked.  All four methods must be present.
+    in :mod:`eleanor.eleanor`).
     """
     def navigate(self, scale: int, *args: object, **kwargs: object) -> list[vs.Point]:
-        ...
-    def huffer_problem(self, *args: object, **kwargs: object) -> vs.Point:
         ...
 
     def supports_success_sampling(self) -> bool:
@@ -218,36 +213,6 @@ class Suppression(object):
             raise EleanorException(f'suppression exceptions must be a list of strings')
 
         return Suppression(name, suppression_type, exceptions_raw)
-
-
-@final
-@yeoman_registry.mapped_as_dataclass(init=False)
-class HufferResult(object):
-    __table__ = Table(
-        'huffer',
-        yeoman_registry.metadata,
-        Column('id', Integer, ForeignKey('orders.id', ondelete="CASCADE"), primary_key=True),
-        Column('exit_code', Integer, nullable=False),
-        Column('zip', Binary, nullable=False),
-    )
-
-    id: int | None
-    exit_code: int | None
-    zip: bytes
-
-    def __init__(self, zip: bytes, exit_code: int, id: int | None = None):
-        self.id = id
-        self.exit_code = exit_code
-        self.zip = zip
-
-    @classmethod
-    def from_scratch(cls, scratch: vs.Scratch | None, exit_code: int, id: int | None = None):
-        if scratch is None:
-            zip = bytes('\0', 'ascii')
-        else:
-            zip = scratch.zip
-
-        return cls(id=id, exit_code=exit_code, zip=zip)
 
 
 @dataclass
@@ -401,7 +366,6 @@ class Order(Suborder):
     __mapper_args__: dict[str, object] = {
         'properties': {
             'vs_points': relationship(vs.Point, cascade="all, delete"),
-            'huffer_result': relationship(HufferResult, cascade="all, delete", uselist=False),
         }
     }
 
@@ -410,7 +374,6 @@ class Order(Suborder):
 
     suborders: Suborders | None = None
 
-    huffer_result: HufferResult | None = None
     id: int | None = None
     vs_points: list[VSPoint] = field(default_factory=lambda: [])
     create_date: datetime = field(default_factory=datetime.now)
@@ -419,7 +382,6 @@ class Order(Suborder):
     def __init__(
         self,
         raw: SuborderRaw,
-        huffer_result: HufferResult | None = None,
         vs_points: list[VSPoint] | None = None,
         create_date: datetime | None = None,
     ):
@@ -429,7 +391,6 @@ class Order(Suborder):
         # basedpyright's ``reportMissingSuperCall`` check happy.
         super().__init__()
         self.raw = raw
-        self.huffer_result = huffer_result
         self.vs_points = [] if vs_points is None else vs_points
         self.create_date = datetime.now() if create_date is None else create_date
 
@@ -496,7 +457,7 @@ class Order(Suborder):
 
     def rehash(self) -> str:
         data = asdict(self)
-        for k in ['huffer_result', 'id', 'vs_points', 'create_date', 'eleanor_version']:
+        for k in ['id', 'vs_points', 'create_date', 'eleanor_version']:
             del data[k]
 
         hasher = hashlib.sha256()

@@ -12,7 +12,7 @@ from .executor import AbstractExecutor, AbstractFuture, build_executor
 from .exceptions import EleanorException
 from .kernel.interface import AbstractKernel
 from .kernel.registry import get_factory as get_kernel_spec
-from .order import HufferResult, NavigatorProtocol, Order, load_order
+from .order import NavigatorProtocol, Order, load_order
 from .output.interface import ComputeResult, OutputSink, RunStats, WriteOutcome
 from .output.registry import get_factory as get_output_factory
 from .transformer import transform
@@ -135,7 +135,7 @@ class Eleanor(object):
             proportional_sampling = proportional_sampling or self.order.suborders.proportional_sampling
 
             if combined and order_id is None:
-                order_id = self.ignite(*args, **kwargs)
+                order_id = self.ignite()
 
             volume = self.order.volume()
 
@@ -189,7 +189,6 @@ class Eleanor(object):
         output_sink: OutputSink | None = None,
         **kwargs: Unpack[EleanorKwargs],
     ) -> list[int]:
-        no_huffer = kwargs.get('no_huffer', False)
         num_procs = kwargs.get('num_procs', None)
         show_progress = kwargs.get('show_progress', False)
         success_sampling = kwargs.get('success_sampling', False)
@@ -221,10 +220,7 @@ class Eleanor(object):
             raise EleanorException(msg)
 
         if order_id is None:
-            huffer_with = None
-            if not no_huffer:
-                huffer_with = (kernel, navigator)
-            order_id = self.ignite(*args, huffer_with=huffer_with, **kwargs)
+            order_id = self.ignite()
         self.order.id = order_id
 
         progress: Progress | None = None
@@ -240,7 +236,7 @@ class Eleanor(object):
         )
 
         run_output_sink = output_sink if output_sink is not None else self.load_output_sink(verbose=bool(verbose))
-        run_output_sink.begin_run(self.order, self.order.huffer_result)
+        run_output_sink.begin_run(self.order)
 
         stats = RunStats()
 
@@ -420,29 +416,7 @@ class Eleanor(object):
 
         return kernel
 
-    def ignite(
-        self,
-        *args: object,
-        huffer_with: tuple[AbstractKernel, NavigatorProtocol] | None = None,
-        **kwargs: Unpack[EleanorKwargs],
-    ) -> int:
-        kernel: AbstractKernel | None = None
-        huffer_result: HufferResult | None = None
-        if huffer_with is not None:
-            kernel, navigator = huffer_with
-            huffer_problem = navigator.huffer_problem()
-            # Force ``scratch=True`` via the kwargs bag so ``Sailor.work``
-            # doesn't get two values for the same keyword argument when
-            # ``kwargs`` already carries a user-supplied ``scratch`` from
-            # the CLI flow.
-            work_kwargs: EleanorKwargs = {**kwargs, 'scratch': True}
-            huffer_point = Sailor(kernel).work(huffer_problem, *args, **work_kwargs)
-            huffer_result = HufferResult.from_scratch(huffer_point.scratch, huffer_point.exit_code)
-        else:
-            huffer_point = None
-            self.order.huffer_result = None
-        self.order.huffer_result = huffer_result
-
+    def ignite(self) -> int:
         with Yeoman(self.config.database) as yeoman:
             yeoman.setup()
 
@@ -460,13 +434,6 @@ class Eleanor(object):
                 order_id = self.order.id = result.id
                 self.order.eleanor_version = result.eleanor_version
 
-                if huffer_result is not None:
-                    if result.huffer_result is None:
-                        result.huffer_result = huffer_result
-                    else:
-                        result.huffer_result.exit_code = huffer_result.exit_code
-                        result.huffer_result.zip = huffer_result.zip
-
                 _ = yeoman.merge(result)
                 yeoman.commit()
             else:
@@ -474,21 +441,7 @@ class Eleanor(object):
                 yeoman.write(self.order, refresh=True)
                 order_id = self.order.id
 
-        # ``yeoman.write`` attaches ``self.order`` to a session that
-        # ``commit`` + ``refresh`` leaves with expired relationship attributes.
-        # When that session closes the object becomes detached, so any later
-        # access to ``self.order.huffer_result`` (e.g. in ``dispatch``) would
-        # trigger a lazy load and raise ``DetachedInstanceError``. Re-assert
-        # the in-memory value so the attribute is in a known, loaded state
-        # regardless of which branch above ran.
-        self.order.huffer_result = huffer_result
-
-        if huffer_point is not None and kernel is not None and not kernel.is_soft_exit(huffer_point.exit_code):
-            raise EleanorException(
-                f'Error: the huffer failed',
-                code=huffer_point.exit_code,
-            ) from huffer_point.exception
-        elif order_id is None:
+        if order_id is None:
             raise EleanorException(f'Error: failed to create the order')
 
         return order_id

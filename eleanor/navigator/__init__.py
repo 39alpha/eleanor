@@ -5,7 +5,6 @@ from typing import override
 import eleanor.variable_space as vs
 
 from ..constraints import Boatswain
-from ..exceptions import EleanorException
 from ..kernel.interface import AbstractKernel
 from ..order import Order
 from ..parameters import Parameter, ValueParameter
@@ -26,12 +25,6 @@ class AbstractNavigator(ABC):
 
     def num_systems(self, scale: int) -> int:
         return scale
-
-    def huffer_problem(self, *args: object, **kwargs: object) -> vs.Point:
-        points = self.navigate(1, *args, **kwargs)
-        if not points:
-            raise EleanorException('navigator failed to generate a point')
-        return points[0]
 
     def supports_success_sampling(self) -> bool:
         return True

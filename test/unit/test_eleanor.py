@@ -4,7 +4,6 @@ from unittest import mock
 from eleanor.eleanor import Eleanor
 from eleanor.exceptions import EleanorException
 from eleanor.output import ComputeResult, OutputSink, WriteOutcome
-from eleanor.order import HufferResult
 
 from .common import TestCase
 
@@ -90,7 +89,7 @@ class TestEleanor(TestCase):
             output=SimpleNamespace(type="postgres", args={}),
             parallel=SimpleNamespace(backend='multiprocessing', chunks_per_worker=1),
         )
-        eleanor.order = SimpleNamespace(transformers=[], huffer_result=None)
+        eleanor.order = SimpleNamespace(transformers=[])
         return eleanor
 
     def test_init_loads_config_and_order(self):
@@ -267,7 +266,7 @@ class TestEleanor(TestCase):
                 return_value=lambda *_args, **_kw: navigator,
             ),
         ):
-            out = eleanor.dispatch(6, num_procs=0, show_progress=False, no_huffer=True)
+            out = eleanor.dispatch(6, num_procs=0, show_progress=False)
 
         self.assertEqual(out, [5])
         build_executor.assert_called_once_with(kind='multiprocessing', num_workers=0)
@@ -276,42 +275,6 @@ class TestEleanor(TestCase):
         sink.begin_run.assert_called_once()
         sink.finalize.assert_called_once()
         self.assertIs(eleanor.process.call_args.kwargs["executor"], executor)
-        self.assertEqual(eleanor.ignite.call_args.kwargs["huffer_with"], None)
-
-    def test_dispatch_sets_huffer_with_when_enabled(self):
-        """
-        Ensure dispatch passes (kernel, navigator) to ignite when huffer is enabled.
-        """
-        from eleanor.navigator import AbstractNavigator
-
-        eleanor = self._make_eleanor()
-        kernel = mock.Mock()
-        navigator = mock.Mock(spec=AbstractNavigator)
-        navigator.supports_success_sampling.return_value = True
-        eleanor.load_kernel = mock.Mock(return_value=kernel)
-        eleanor.order.navigator = SimpleNamespace(type="random", args={})
-        eleanor.ignite = mock.Mock(return_value=6)
-        eleanor.process = mock.Mock(return_value=[
-            WriteOutcome(point_id=10, exit_code=0, committed=True)
-        ])
-        sink = mock.Mock()
-        eleanor.load_output_sink = mock.Mock(return_value=sink)
-        executor = _Pool()
-        with (
-            mock.patch("eleanor.eleanor.build_executor", return_value=executor) as build_executor,
-            mock.patch(
-                "eleanor.navigator.registry.get_factory",
-                return_value=lambda *_args, **_kw: navigator,
-            ),
-        ):
-            out = eleanor.dispatch(3, no_huffer=False, show_progress=False)
-
-        self.assertEqual(out, [6])
-        build_executor.assert_called_once_with(kind='multiprocessing', num_workers=None)
-        sink.begin_run.assert_called_once()
-        sink.finalize.assert_called_once()
-        self.assertIs(eleanor.process.call_args.kwargs["executor"], executor)
-        self.assertEqual(eleanor.ignite.call_args.kwargs["huffer_with"], (kernel, navigator))
 
     def test_dispatch_success_sampling_with_progress(self):
         """
@@ -521,9 +484,8 @@ class TestEleanor(TestCase):
         eleanor.config.output = SimpleNamespace(type="plugin", args={"mode": "append"})
 
         class _Sink(OutputSink):
-            def begin_run(self, order, huffer_result):
+            def begin_run(self, order):
                 _ = order
-                _ = huffer_result
 
             def write_batch(self, order_id, results):
                 _ = order_id
@@ -595,36 +557,27 @@ class TestEleanor(TestCase):
 
     def test_ignite_merges_existing_order(self):
         """
-        Ensure ignite reuses an existing order record and merges huffer updates.
+        Ensure ignite reuses an existing order record.
         """
         eleanor = self._make_eleanor()
         eleanor.order.id = None
         eleanor.order.hash = "abc"
         eleanor.order.eleanor_version = None
-        eleanor.order.huffer_result = None
         existing = SimpleNamespace(
             id=21,
             eleanor_version="v",
-            huffer_result=SimpleNamespace(exit_code=0, zip=b"0"),
         )
-        navigator = mock.Mock()
-        navigator.huffer_problem.return_value = "problem"
         kernel = mock.Mock()
         kernel.is_soft_exit.return_value = True
-        huffer_point = SimpleNamespace(exit_code=1, scratch=SimpleNamespace(zip=b"x"), exception=RuntimeError("x"))
         yeoman = _Yeoman(scalar_values=[None, existing])
         with (
-            mock.patch("eleanor.eleanor.Sailor") as sailor_cls,
             mock.patch("eleanor.eleanor.Yeoman", return_value=yeoman),
         ):
-            sailor_cls.return_value.work.return_value = huffer_point
-            out = eleanor.ignite(huffer_with=(kernel, navigator))
+            out = eleanor.ignite()
 
         self.assertEqual(out, 21)
         yeoman.merge.assert_called_once_with(existing)
         yeoman.commit.assert_called_once()
-        self.assertEqual(existing.huffer_result.exit_code, 1)
-        self.assertEqual(existing.huffer_result.zip, b"x")
 
     def test_ignite_writes_new_order_and_requires_id(self):
         """
@@ -634,7 +587,6 @@ class TestEleanor(TestCase):
         eleanor.order.id = 33
         eleanor.order.hash = "abc"
         eleanor.order.eleanor_version = None
-        eleanor.order.huffer_result = None
         yeoman = _Yeoman(scalar_values=[None, None])
         with mock.patch("eleanor.eleanor.Yeoman", return_value=yeoman):
             out = eleanor.ignite()
@@ -645,76 +597,7 @@ class TestEleanor(TestCase):
         eleanor2.order.id = None
         eleanor2.order.hash = "abc"
         eleanor2.order.eleanor_version = None
-        eleanor2.order.huffer_result = None
         yeoman2 = _Yeoman(scalar_values=[None, None])
         with mock.patch("eleanor.eleanor.Yeoman", return_value=yeoman2):
             with self.assertRaises(EleanorException):
                 eleanor2.ignite()
-
-    def test_ignite_huffer_soft_and_hard_exit_paths(self):
-        """
-        Ensure ignite handles huffer integration and raises on hard kernel exit.
-        """
-        eleanor = self._make_eleanor()
-        eleanor.order.id = 8
-        eleanor.order.hash = "abc"
-        eleanor.order.eleanor_version = None
-        eleanor.order.huffer_result = None
-        navigator = mock.Mock()
-        navigator.huffer_problem.return_value = "problem"
-        kernel = mock.Mock()
-        kernel.is_soft_exit.return_value = True
-        huffer_point = SimpleNamespace(exit_code=3, scratch=SimpleNamespace(zip=b"z"), exception=RuntimeError("x"))
-        yeoman = _Yeoman(scalar_values=[None, None])
-        with (
-            mock.patch("eleanor.eleanor.Sailor") as sailor_cls,
-            mock.patch("eleanor.eleanor.Yeoman", return_value=yeoman),
-        ):
-            sailor_cls.return_value.work.return_value = huffer_point
-            out = eleanor.ignite(huffer_with=(kernel, navigator))
-        self.assertEqual(out, 8)
-        self.assertIsNotNone(eleanor.order.huffer_result)
-
-        eleanor2 = self._make_eleanor()
-        eleanor2.order.id = 8
-        eleanor2.order.hash = "abc"
-        eleanor2.order.eleanor_version = None
-        eleanor2.order.huffer_result = None
-        kernel2 = mock.Mock()
-        kernel2.is_soft_exit.return_value = False
-        yeoman2 = _Yeoman(scalar_values=[None, None])
-        with (
-            mock.patch("eleanor.eleanor.Sailor") as sailor_cls2,
-            mock.patch("eleanor.eleanor.Yeoman", return_value=yeoman2),
-        ):
-            sailor_cls2.return_value.work.return_value = huffer_point
-            with self.assertRaises(EleanorException):
-                eleanor2.ignite(huffer_with=(kernel2, navigator))
-
-    def test_ignite_existing_order_adds_huffer_result_when_missing(self):
-        """
-        Ensure ignite assigns huffer_result when an existing order lacks one.
-        """
-        eleanor = self._make_eleanor()
-        eleanor.order.id = None
-        eleanor.order.hash = "abc"
-        eleanor.order.eleanor_version = None
-        eleanor.order.huffer_result = None
-        existing = SimpleNamespace(id=17, eleanor_version="v", huffer_result=None)
-        navigator = mock.Mock()
-        navigator.huffer_problem.return_value = "problem"
-        kernel = mock.Mock()
-        kernel.is_soft_exit.return_value = True
-        huffer_point = SimpleNamespace(exit_code=2, scratch=SimpleNamespace(zip=b"xyz"), exception=RuntimeError("x"))
-        yeoman = _Yeoman(scalar_values=[None, existing])
-        with (
-            mock.patch("eleanor.eleanor.Sailor") as sailor_cls,
-            mock.patch("eleanor.eleanor.Yeoman", return_value=yeoman),
-        ):
-            sailor_cls.return_value.work.return_value = huffer_point
-            out = eleanor.ignite(huffer_with=(kernel, navigator))
-
-        self.assertEqual(out, 17)
-        self.assertIsNotNone(existing.huffer_result)
-        self.assertEqual(existing.huffer_result.exit_code, 2)
-

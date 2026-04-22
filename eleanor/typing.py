@@ -51,7 +51,6 @@ class EleanorKwargs(TypedDict, total=False):
     """
     verbose: bool
     scratch: bool
-    no_huffer: bool
     num_procs: int | None
     show_progress: bool
     success_sampling: bool

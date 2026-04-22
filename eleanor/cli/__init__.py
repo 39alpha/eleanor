@@ -1,7 +1,6 @@
 import argparse
 from typing import Callable, Protocol, cast
 
-import eleanor.cli.huffer as huffer
 import eleanor.cli.run as run
 import eleanor.cli.schema as schema
 import eleanor.cli.scratch as scratch
@@ -21,7 +20,6 @@ def main() -> object:
 
     subparsers = parser.add_subparsers(required=True, dest='command')
 
-    _ = huffer.init(subparsers.add_parser('huffer'))
     _ = run.init(subparsers.add_parser('run'))
     _ = schema.init(subparsers.add_parser('schema'))
     _ = scratch.init(subparsers.add_parser('scratch'))

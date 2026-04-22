@@ -27,7 +27,6 @@ class TestNavigator(TestCase):
         """
         nav = DummyNavigator(order=mock.Mock(), kernel=mock.Mock())
         self.assertEqual(nav.num_systems(3), 3)
-        self.assertEqual(nav.huffer_problem(), "p0")
         self.assertTrue(nav.supports_success_sampling())
         self.assertTrue(nav.is_complete([1, 2]))
 

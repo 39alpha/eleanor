@@ -5,7 +5,7 @@ from traceback import format_exception
 
 import eleanor.variable_space as vs
 
-from ..order import HufferResult, Order
+from ..order import Order
 
 
 @dataclass(slots=True, frozen=True)
@@ -49,7 +49,7 @@ class RunStats(object):
 
 class OutputSink(ABC):
     @abstractmethod
-    def begin_run(self, order: Order, huffer_result: HufferResult | None) -> None:
+    def begin_run(self, order: Order) -> None:
         ...
 
     @abstractmethod

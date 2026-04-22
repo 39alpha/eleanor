@@ -3,7 +3,7 @@ from types import SimpleNamespace
 from unittest import mock
 
 from eleanor.config import DatabaseConfig
-from eleanor.order import HufferResult, Order
+from eleanor.order import Order
 from eleanor.output import ComputeResult, ErrorInfo, OutputSink, PostgresSink, RunStats, WriteOutcome
 
 from .common import TestCase
@@ -42,7 +42,7 @@ class TestOutput(TestCase):
         opt out of worker-side writes by default.
         """
         class MinimalSink(OutputSink):
-            def begin_run(self, order: Order, huffer_result: HufferResult | None) -> None:
+            def begin_run(self, order: Order) -> None:
                 pass
 
             def write_batch(self, order_id: int, results: Sequence[ComputeResult]) -> list[WriteOutcome]:

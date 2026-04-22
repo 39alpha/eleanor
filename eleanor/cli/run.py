@@ -16,7 +16,6 @@ class RunArgs(ConfigArgs):
     scratch: bool
     kernel_args: list[str] | None
     progress: bool
-    no_huffer: bool
     combined: bool
     proportional: bool
     success_sampling: bool
@@ -38,7 +37,6 @@ def init(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
         action='store_true',
         help='enable progress bars (disabled by --verbose)',
     )
-    _ = parser.add_argument('--no-huffer', required=False, action='store_true', help='disable the huffer')
     _ = parser.add_argument(
         '-C',
         '--combined',
@@ -110,7 +108,6 @@ def execute(parser: argparse.ArgumentParser, ns: argparse.Namespace) -> None:
 
         order_ids = Eleanor(config, args['order'], kernel_args).run(
             args['simulation_size'],
-            no_huffer=args['no_huffer'],
             num_procs=args['num_procs'],
             scratch=args['scratch'],
             show_progress=show_progress,

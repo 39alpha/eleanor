@@ -18,7 +18,6 @@ class TestCLIRun(TestCase):
         values = {
             'order': 'order.yaml',
             'kernel_args': None,
-            'no_huffer': False,
             'num_procs': None,
             'simulation_size': 10,
             'scratch': False,
@@ -75,7 +74,6 @@ class TestCLIRun(TestCase):
         eleanor_cls.assert_called_once_with(config, 'order.yaml', [])
         eleanor.run.assert_called_once_with(
             10,
-            no_huffer=False,
             num_procs=3,
             scratch=False,
             show_progress=False,

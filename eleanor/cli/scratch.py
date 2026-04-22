@@ -17,9 +17,9 @@ class ScratchArgs(ConfigArgs):
 
 
 def init(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
-    parser.description = 'Dump huffer results to a directory'
+    parser.description = 'Dump scratch results to a directory'
 
-    _ = parser.add_argument('vs_id', type=int, help='the variable space id for the huffer entry')
+    _ = parser.add_argument('vs_id', type=int, help='the variable space id for the scratch entry')
     _ = parser.add_argument(
         '-o',
         '--outdir',

@@ -3,7 +3,7 @@ from typing import override
 
 from ..connection import DatabaseConfig
 from ..exceptions import EleanorException
-from ..order import HufferResult, Order
+from ..order import Order
 from ..yeoman import Yeoman
 from .interface import ComputeResult, OutputSink, WriteOutcome
 
@@ -17,7 +17,7 @@ class PostgresSink(OutputSink):
         self.verbose = verbose
 
     @override
-    def begin_run(self, order: Order, huffer_result: HufferResult | None) -> None:
+    def begin_run(self, order: Order) -> None:
         if order.id is None:
             raise EleanorException('order must have an id before writing output')
 

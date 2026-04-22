@@ -30,19 +30,16 @@ class AbstractKernel(ABC):
     ) -> list[es.Point]:
         pass
 
+    def validate_order(self, order: "Order") -> None:
+        _ = order
+
     def is_soft_exit(self, code: int) -> bool:
         return code in [0]
 
     def constrain(self, boatswain: Boatswain) -> Boatswain:
         return boatswain
 
-    def copy_data(
-        self,
-        vs_point: vs.Point,
-        *args: object,
-        dir: str = '.',
-        **kwargs: Unpack[EleanorKwargs],
-    ) -> None:
+    def copy_data(self, vs_point: vs.Point, *args: object, dir: str = '.', **kwargs: Unpack[EleanorKwargs]) -> None:
         _ = vs_point
         _ = args
         _ = dir

@@ -202,6 +202,7 @@ class Eleanor(object):
 
         if kernel is None:
             kernel = self.load_kernel(**kwargs)
+
         if navigator is None:
             if self.order.navigator is None:
                 raise EleanorException('order navigator is required')
@@ -413,6 +414,7 @@ class Eleanor(object):
                 + f'{type(kernel).__name__}, expected an AbstractKernel',
             )
         kernel.setup(self.order, **kwargs)
+        kernel.validate_order(self.order)
 
         return kernel
 

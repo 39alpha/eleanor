@@ -49,6 +49,15 @@ class Kernel(AbstractKernel):
         return code in [0, 60]
 
     @override
+    def validate_order(self, order: Order) -> None:
+        if not self._setup:
+            raise EleanorKernelException('eleanor.kernel.eq36.Kernel must be setup before validating order')
+
+        if len(self._data1s) == 0:
+            raise EleanorException('''The temperature and pressure ranges provided in the problem specification do not
+                overlap with any of the temperature-pressure curves specified in the provided data1 files.''')
+
+    @override
     def copy_data(
         self,
         vs_point: vs.Point,
@@ -97,10 +106,6 @@ class Kernel(AbstractKernel):
                 data1 = Data1.from_file(file)
                 if data1.tp_curve is not None and data1.tp_curve.set_domain(Trange, Prange):
                     self._data1s.append(data1)
-
-        if len(self._data1s) == 0:
-            raise EleanorException('''The temperature and pressure ranges provided in the problem specification do not
-                overlap with any of the temperature-pressure curves specified in the provided data1 files.''')
 
         self._setup = True
 

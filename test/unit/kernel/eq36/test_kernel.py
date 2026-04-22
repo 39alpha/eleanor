@@ -473,9 +473,9 @@ class TestEq36Kernel(TestCase):
         self.assertTrue(kernel._setup)
         self.assertEqual(kernel._data1s, [accepted])
 
-    def test_setup_raises_when_no_data1_curves_intersect_target_domain(self):
+    def test_validate_order_raises_kernel_has_not_been_setup(self):
         """
-        Ensure setup raises when no discovered data1 file supports the requested temperature/pressure domain.
+        Ensure validate_order raises when the kernel has not been setup.
         """
         kernel = self._kernel()
         order = SimpleNamespace(
@@ -492,9 +492,34 @@ class TestEq36Kernel(TestCase):
             mock.patch("eleanor.kernel.eq36.kernel.Data1.from_file", return_value=rejected),
         ):
             with self.assertRaises(EleanorException):
-                kernel.setup(order)
+                kernel.validate_order(order)
 
         self.assertFalse(kernel._setup)
+        self.assertEqual(kernel._data1s, [])
+
+    def test_validate_order_raises_when_no_data1_curves_intersect_target_domain(self):
+        """
+        Ensure validate_order raises when no discovered data1 file supports the requested temperature/pressure domain.
+        """
+        kernel = self._kernel()
+        order = SimpleNamespace(
+            temperature=SimpleNamespace(range=lambda: (10.0, 20.0)),
+            pressure=SimpleNamespace(range=lambda: (30.0, 40.0)),
+        )
+        rejected = SimpleNamespace(tp_curve=SimpleNamespace(set_domain=mock.Mock(return_value=False)))
+
+        with (
+            mock.patch("eleanor.kernel.eq36.kernel.tool_room.WorkingDirectory",
+                       return_value=contextlib.nullcontext()),
+            mock.patch("eleanor.kernel.eq36.kernel.tool_room.find_files", return_value=([], ["only.d1"])),
+            mock.patch("eleanor.kernel.eq36.kernel.os.path.realpath", side_effect=lambda path: path),
+            mock.patch("eleanor.kernel.eq36.kernel.Data1.from_file", return_value=rejected),
+        ):
+            kernel.setup(order)
+            with self.assertRaises(EleanorException):
+                kernel.validate_order(order)
+
+        self.assertTrue(kernel._setup)
         self.assertEqual(kernel._data1s, [])
 
     def test_constrain_appends_temperature_and_tp_constraints_in_order(self):

@@ -2,6 +2,7 @@ import json
 import textwrap
 from os.path import join
 from tempfile import TemporaryDirectory
+from unittest import mock
 
 from eleanor.config import Config, DatabaseConfig, OutputConfig, ParallelConfig, load_config
 from eleanor.exceptions import EleanorConfigurationException, EleanorException
@@ -285,13 +286,43 @@ class TestConfig(TestCase):
     def test_output_config_rejects_unsupported_type(self):
         """
         Ensure OutputConfig raises with a message that names the unsupported type
-        and lists all valid options, so the message stays aligned with _VALID_OUTPUT_TYPES.
+        and lists available sink options.
         """
         with self.assertRaises(EleanorConfigurationException) as ctx:
             OutputConfig(type='csv')
         msg = str(ctx.exception)
         self.assertIn('csv', msg)
         self.assertIn('postgres', msg)
+
+    def test_output_config_accepts_plugin_type_when_registry_exposes_it(self):
+        """
+        Ensure OutputConfig validation follows the registry's dynamic sink names.
+        """
+        with mock.patch('eleanor.config.available_output_sinks', return_value=frozenset({'postgres', 'csv'})):
+            cfg = OutputConfig(type='csv')
+        self.assertEqual(cfg.type, 'csv')
+
+    def test_output_config_from_raw_parses_args(self):
+        """
+        Ensure output.args is preserved as a string-keyed dict.
+        """
+        cfg = Config(raw={'output': {'type': 'postgres', 'args': {'batch_size': 4, 'format': 'json'}}})
+        self.assertEqual(cfg.output.type, 'postgres')
+        self.assertEqual(cfg.output.args, {'batch_size': 4, 'format': 'json'})
+
+    def test_output_config_rejects_non_dict_args(self):
+        """
+        Ensure output.args validation rejects non-dict values.
+        """
+        with self.assertRaises(EleanorConfigurationException):
+            _ = OutputConfig.from_raw({'type': 'postgres', 'args': 'nope'})  # type: ignore[arg-type]
+
+    def test_output_config_rejects_none_args(self):
+        """
+        Ensure output.args validation rejects None instead of silently defaulting.
+        """
+        with self.assertRaises(EleanorConfigurationException):
+            _ = OutputConfig.from_raw({'type': 'postgres', 'args': None})  # type: ignore[arg-type]
 
     def test_config_parallel_raw_defaults_when_missing(self):
         """

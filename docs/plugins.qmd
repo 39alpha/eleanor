@@ -2,7 +2,7 @@
 title: Plugins
 ---
 
-Eleanor exposes four extension points that share a single plugin model: a
+Eleanor exposes five extension points that share a single plugin model: a
 generic in-process registry, lazy entry-point discovery, and a common
 collision/override policy. The registry primitive lives at
 `eleanor.plugin.PluginRegistry`; each extension point instantiates it with its
@@ -16,15 +16,20 @@ own factory shape and built-in seed set.
 | Kernel        | `eleanor.kernels`        | `KernelSpec` (or a zero-arg callable returning one)         |
 | Navigator     | `eleanor.navigators`     | `Callable[[Order, Kernel, **args], AbstractNavigator]`      |
 | Transformer   | `eleanor.transformers`   | `Callable[[**args], AbstractTransformer]`                   |
+| Output sink   | `eleanor.outputs`        | `Callable[[Config, **args], OutputSink]`                    |
+
+Output sink registries also forward `verbose` as an optional keyword argument
+when calling the factory.
 
 Names are short strings (e.g. `random`, `eq36`, `dask`). Built-in names are
 reserved: plugin registrations that collide with a built-in are rejected with
 a `RuntimeWarning` unless the `ELEANOR_<KIND>_OVERRIDES` environment variable
 is set.
 
-## Order file shape
+## Configuration shape
 
-All four extension points use the same `{type, args}` shape (with kernel
+Kernel, navigator, transformer, and output sink selection all use the same
+`{type, args}` shape (with kernel
 deferring settings parsing to the plugin's `KernelSpec.settings_from_dict`):
 
 ```yaml
@@ -44,6 +49,10 @@ transformers:
       filename: oxides.csv
       reactant_name: basalt
       amount: 1.0
+
+output:
+  type: postgres
+  args: {}
 ```
 
 The short-string form `navigator: random` is accepted as sugar for
@@ -60,6 +69,9 @@ my_nav = "my_project.navigators:MyNavigator"
 
 [project.entry-points."eleanor.kernels"]
 my_kernel = "my_project.kernels:kernel_spec"
+
+[project.entry-points."eleanor.outputs"]
+my_sink = "my_project.outputs:build_sink"
 ```
 
 Discovery runs lazily on the first call to `available_*()` or `get_*()` for
@@ -93,6 +105,7 @@ Every extension point supports two non-packaged registration paths:
        navigator=my_navigator_instance,
        transformers=[my_transformer_instance],
        kernel=my_kernel_instance,
+       output_sink=my_output_sink_instance,
    )
    ```
 

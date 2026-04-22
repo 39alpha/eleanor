@@ -13,7 +13,8 @@ from .exceptions import EleanorException
 from .kernel.interface import AbstractKernel
 from .kernel.registry import get_spec as get_kernel_spec
 from .order import HufferResult, NavigatorProtocol, Order, load_order
-from .output import ComputeResult, OutputSink, PostgresSink, RunStats, WriteOutcome
+from .output.interface import ComputeResult, OutputSink, RunStats, WriteOutcome
+from .output.registry import get_factory as get_output_factory
 from .transformers import transform
 from .typing import EleanorKwargs, Self, Unpack
 from .util import Progress, chunks
@@ -69,6 +70,7 @@ class Eleanor(object):
         executor: AbstractExecutor | None = None,
         kernel: AbstractKernel | None = None,
         navigator: NavigatorProtocol | None = None,
+        output_sink: OutputSink | None = None,
         transformers: 'list[AbstractTransformer] | None' = None,
         **kwargs: Unpack[EleanorKwargs],
     ) -> list[int]:
@@ -100,6 +102,7 @@ class Eleanor(object):
                 executor=run_executor,
                 kernel=kernel,
                 navigator=navigator,
+                output_sink=output_sink,
                 **kwargs,
             )
 
@@ -115,6 +118,7 @@ class Eleanor(object):
         executor: AbstractExecutor | None = None,
         kernel: AbstractKernel | None = None,
         navigator: NavigatorProtocol | None = None,
+        output_sink: OutputSink | None = None,
         **kwargs: Unpack[EleanorKwargs],
     ) -> list[int]:
         default_parallel, default_chunks_per_worker = self._parallel_defaults()
@@ -152,6 +156,7 @@ class Eleanor(object):
                     executor=executor,
                     kernel=kernel,
                     navigator=navigator,
+                    output_sink=output_sink,
                     **kwargs,
                 )
                 order_ids.update(suborder_ids)
@@ -167,6 +172,7 @@ class Eleanor(object):
             executor=executor,
             kernel=kernel,
             navigator=navigator,
+            output_sink=output_sink,
             **kwargs,
         )
 
@@ -180,6 +186,7 @@ class Eleanor(object):
         executor: AbstractExecutor | None = None,
         kernel: AbstractKernel | None = None,
         navigator: NavigatorProtocol | None = None,
+        output_sink: OutputSink | None = None,
         **kwargs: Unpack[EleanorKwargs],
     ) -> list[int]:
         no_huffer = kwargs.get('no_huffer', False)
@@ -232,8 +239,8 @@ class Eleanor(object):
             num_workers=num_procs,
         )
 
-        output_sink = self.load_output_sink(verbose=bool(verbose))
-        output_sink.begin_run(self.order, self.order.huffer_result)
+        run_output_sink = output_sink if output_sink is not None else self.load_output_sink(verbose=bool(verbose))
+        run_output_sink.begin_run(self.order, self.order.huffer_result)
 
         stats = RunStats()
 
@@ -251,7 +258,7 @@ class Eleanor(object):
                             *args,
                             executor=dispatch_executor,
                             chunks_per_worker=chunks_per_worker,
-                            sink=output_sink,
+                            sink=run_output_sink,
                             progress=progress.queue if progress is not None else None,
                             **kwargs,
                         )
@@ -265,13 +272,12 @@ class Eleanor(object):
                         *args,
                         executor=dispatch_executor,
                         chunks_per_worker=chunks_per_worker,
-                        sink=output_sink,
+                        sink=run_output_sink,
                         progress=progress.queue if progress is not None else None,
                         **kwargs,
                     )
                     stats.update(outcomes)
-
-            output_sink.finalize()
+            run_output_sink.finalize()
         finally:
             if progress is not None:
                 progress.join()
@@ -345,11 +351,14 @@ class Eleanor(object):
         return outcomes
 
     def load_output_sink(self, verbose: bool = False) -> OutputSink:
-        match self.config.output.type:
-            case 'postgres':
-                return PostgresSink(self.config.database, verbose=verbose)
-            case _:
-                raise EleanorException(f'unsupported output sink type "{self.config.output.type}"')
+        factory = get_output_factory(self.config.output.type)
+        built = factory(self.config, verbose=verbose, **self.config.output.args)
+        if not isinstance(built, OutputSink):
+            raise EleanorException(
+                f'output sink plugin "{self.config.output.type}" returned '
+                + f'{type(built).__name__}, expected an OutputSink',
+            )
+        return built
 
     def load_kernel(self, **kwargs: Unpack[EleanorKwargs]) -> AbstractKernel:
         if self.order.kernel is None:

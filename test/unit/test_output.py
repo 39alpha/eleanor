@@ -67,7 +67,7 @@ class TestOutput(TestCase):
                 if point is bad_point:
                     raise RuntimeError("write failed")
 
-        with mock.patch("eleanor.output.Yeoman", FakeYeoman):
+        with mock.patch("eleanor.output.postgres.Yeoman", FakeYeoman):
             outcomes = sink.write_batch(order_id=7, results=results)
 
         self.assertEqual(len(outcomes), 2)
@@ -94,7 +94,7 @@ class TestOutput(TestCase):
             def __exit__(self, *_args): return None
             def write(self, _point, **_kwargs): pass  # does not set point.id
 
-        with mock.patch("eleanor.output.Yeoman", FakeYeoman):
+        with mock.patch("eleanor.output.postgres.Yeoman", FakeYeoman):
             outcomes = sink.write_batch(order_id=7, results=results)
 
         self.assertEqual(len(outcomes), 1)

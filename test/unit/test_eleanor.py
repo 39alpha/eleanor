@@ -3,7 +3,7 @@ from unittest import mock
 
 from eleanor.eleanor import Eleanor
 from eleanor.exceptions import EleanorException
-from eleanor.output import ComputeResult, WriteOutcome
+from eleanor.output import ComputeResult, OutputSink, WriteOutcome
 from eleanor.order import HufferResult
 
 from .common import TestCase
@@ -87,7 +87,7 @@ class TestEleanor(TestCase):
         eleanor.kernel_args = ["arg1"]
         eleanor.config = SimpleNamespace(
             database="db-config",
-            output=SimpleNamespace(type="postgres"),
+            output=SimpleNamespace(type="postgres", args={}),
             parallel=SimpleNamespace(backend='multiprocessing', chunks_per_worker=1),
         )
         eleanor.order = SimpleNamespace(transformers=[], huffer_result=None)
@@ -147,6 +147,7 @@ class TestEleanor(TestCase):
             executor=executor,
             kernel=None,
             navigator=None,
+            output_sink=None,
         )
 
     def test_run_applies_transformers_before_recursing(self):
@@ -183,6 +184,7 @@ class TestEleanor(TestCase):
             executor=executor,
             kernel=None,
             navigator=None,
+            output_sink=None,
         )
 
     def test_run_recurse_with_suborders_and_proportional_sampling(self):
@@ -432,6 +434,82 @@ class TestEleanor(TestCase):
         )
 
         sink.write_batch.assert_called_once_with(9, worker_results)
+
+    def test_dispatch_uses_explicit_output_sink_override(self):
+        """
+        Ensure dispatch uses a caller-provided sink and skips load_output_sink.
+        """
+        from eleanor.navigator import AbstractNavigator
+
+        eleanor = self._make_eleanor()
+        kernel = mock.Mock()
+        navigator = mock.Mock(spec=AbstractNavigator)
+        navigator.supports_success_sampling.return_value = True
+        eleanor.load_kernel = mock.Mock(return_value=kernel)
+        eleanor.order.navigator = SimpleNamespace(type="random", args={})
+        eleanor.process = mock.Mock(return_value=[
+            WriteOutcome(point_id=10, exit_code=0, committed=True)
+        ])
+        eleanor.load_output_sink = mock.Mock()
+        provided_sink = mock.Mock()
+        executor = _Pool()
+        with (
+            mock.patch("eleanor.eleanor.build_executor", return_value=executor) as build_executor,
+            mock.patch(
+                "eleanor.navigator.registry.get_factory",
+                return_value=lambda *_args, **_kw: navigator,
+            ),
+        ):
+            out = eleanor.dispatch(1, order_id=7, show_progress=False, output_sink=provided_sink)
+
+        self.assertEqual(out, [7])
+        build_executor.assert_called_once_with(kind='multiprocessing', num_workers=None)
+        eleanor.load_output_sink.assert_not_called()
+        provided_sink.begin_run.assert_called_once()
+        provided_sink.finalize.assert_called_once()
+        self.assertIs(eleanor.process.call_args.kwargs["sink"], provided_sink)
+
+    def test_load_output_sink_uses_registry_factory_and_args(self):
+        """
+        Ensure load_output_sink resolves the configured sink factory and forwards output.args.
+        """
+        eleanor = self._make_eleanor()
+        eleanor.config.output = SimpleNamespace(type="plugin", args={"mode": "append"})
+
+        class _Sink(OutputSink):
+            def begin_run(self, order, huffer_result):
+                _ = order
+                _ = huffer_result
+
+            def write_batch(self, order_id, results):
+                _ = order_id
+                _ = results
+                return []
+
+            def finalize(self):
+                return None
+
+        factory = mock.Mock(return_value=_Sink())
+        with mock.patch("eleanor.eleanor.get_output_factory", return_value=factory) as get_factory_mock:
+            sink = eleanor.load_output_sink(verbose=True)
+
+        self.assertIsInstance(sink, OutputSink)
+        get_factory_mock.assert_called_once_with("plugin")
+        factory.assert_called_once_with(eleanor.config, verbose=True, mode="append")
+
+    def test_load_output_sink_rejects_invalid_plugin_return(self):
+        """
+        Ensure load_output_sink enforces that factories return OutputSink instances.
+        """
+        eleanor = self._make_eleanor()
+        eleanor.config.output = SimpleNamespace(type="plugin", args={})
+        factory = mock.Mock(return_value=object())
+
+        with (
+            mock.patch("eleanor.eleanor.get_output_factory", return_value=factory),
+            self.assertRaisesRegex(EleanorException, 'expected an OutputSink'),
+        ):
+            eleanor.load_output_sink()
 
     def test_load_kernel_constructs_and_sets_up_kernel(self):
         """

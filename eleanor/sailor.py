@@ -12,7 +12,7 @@ import eleanor.variable_space as vs
 
 from .exceptions import EleanorException
 from .kernel.interface import AbstractKernel
-from .output import ComputeResult, ErrorInfo
+from .output.interface import ComputeResult, ErrorInfo
 from .typing import EleanorKwargs, Unpack
 from .util import WorkingDirectory
 

@@ -1,13 +1,14 @@
 import json
 import os.path
 import tomllib
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TypedDict, override
 
 import yaml
 
 from .exceptions import EleanorConfigurationException, EleanorException
 from .executor.backends import supported_backends
+from .output.registry import available_output_sinks
 from .typing import cast
 
 
@@ -26,6 +27,7 @@ class DatabaseRaw(TypedDict, total=False):
 class OutputRaw(TypedDict, total=False):
     """Schema for the ``output`` section of a raw config document."""
     type: str
+    args: dict[str, object]
 
 
 class ParallelRaw(TypedDict, total=False):
@@ -79,22 +81,30 @@ class DatabaseConfig(object):
         )
 
 
-_VALID_OUTPUT_TYPES = {'postgres'}
-
 
 @dataclass
 class OutputConfig(object):
     type: str = 'postgres'
+    args: dict[str, object] = field(default_factory=dict)
 
     def __post_init__(self):
-        if self.type not in _VALID_OUTPUT_TYPES:
-            valid = ', '.join(f'"{t}"' for t in sorted(_VALID_OUTPUT_TYPES))
+        sinks = available_output_sinks()
+        if self.type not in sinks:
+            valid = ', '.join(f'"{t}"' for t in sorted(sinks))
             msg = f'the "{self.type}" output type is not supported; choose one of {valid}'
             raise EleanorConfigurationException(msg)
 
     @staticmethod
     def from_raw(raw: OutputRaw) -> "OutputConfig":
-        return OutputConfig(type=raw.get('type', 'postgres'))
+        output_args_raw: object = raw.get('args', {})
+        if not isinstance(output_args_raw, dict):
+            raise EleanorConfigurationException('output.args must be a dict')
+        output_args_items = cast(dict[object, object], output_args_raw).items()
+        output_args: dict[str, object] = {str(k): v for k, v in output_args_items}
+        return OutputConfig(
+            type=raw.get('type', 'postgres'),
+            args=output_args,
+        )
 
 
 @dataclass

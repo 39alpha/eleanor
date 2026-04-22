@@ -33,5 +33,6 @@ class SerialExecutor(AbstractExecutor):
         return SerialFuture(fn(*args, **kwargs))
 
     @override
-    def shutdown(self, _wait: bool = True) -> None:
+    def shutdown(self, wait: bool = True) -> None:
+        _ = wait
         pass

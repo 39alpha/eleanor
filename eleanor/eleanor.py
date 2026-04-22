@@ -373,6 +373,7 @@ class Eleanor(object):
         **kwargs: Unpack[EleanorKwargs],
     ) -> int:
         kernel: AbstractKernel | None = None
+        huffer_result: HufferResult | None = None
         if huffer_with is not None:
             kernel, navigator = huffer_with
             huffer_problem = navigator.huffer_problem()
@@ -382,10 +383,11 @@ class Eleanor(object):
             # the CLI flow.
             work_kwargs: EleanorKwargs = {**kwargs, 'scratch': True}
             huffer_point = Sailor(kernel).work(huffer_problem, *args, **work_kwargs)
-            self.order.huffer_result = HufferResult.from_scratch(huffer_point.scratch, huffer_point.exit_code)
+            huffer_result = HufferResult.from_scratch(huffer_point.scratch, huffer_point.exit_code)
         else:
             huffer_point = None
             self.order.huffer_result = None
+        self.order.huffer_result = huffer_result
 
         with Yeoman(self.config.database) as yeoman:
             yeoman.setup()
@@ -404,12 +406,12 @@ class Eleanor(object):
                 order_id = self.order.id = result.id
                 self.order.eleanor_version = result.eleanor_version
 
-                if self.order.huffer_result is not None:
+                if huffer_result is not None:
                     if result.huffer_result is None:
-                        result.huffer_result = self.order.huffer_result
+                        result.huffer_result = huffer_result
                     else:
-                        result.huffer_result.exit_code = self.order.huffer_result.exit_code
-                        result.huffer_result.zip = self.order.huffer_result.zip
+                        result.huffer_result.exit_code = huffer_result.exit_code
+                        result.huffer_result.zip = huffer_result.zip
 
                 _ = yeoman.merge(result)
                 yeoman.commit()
@@ -417,6 +419,15 @@ class Eleanor(object):
                 self.order.eleanor_version = __version__
                 yeoman.write(self.order, refresh=True)
                 order_id = self.order.id
+
+        # ``yeoman.write`` attaches ``self.order`` to a session that
+        # ``commit`` + ``refresh`` leaves with expired relationship attributes.
+        # When that session closes the object becomes detached, so any later
+        # access to ``self.order.huffer_result`` (e.g. in ``dispatch``) would
+        # trigger a lazy load and raise ``DetachedInstanceError``. Re-assert
+        # the in-memory value so the attribute is in a known, loaded state
+        # regardless of which branch above ran.
+        self.order.huffer_result = huffer_result
 
         if huffer_point is not None and kernel is not None and not kernel.is_soft_exit(huffer_point.exit_code):
             raise EleanorException(

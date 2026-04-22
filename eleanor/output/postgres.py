@@ -1,7 +1,7 @@
 from collections.abc import Sequence
 from typing import override
 
-from ..config import DatabaseConfig
+from ..connection import DatabaseConfig
 from ..exceptions import EleanorException
 from ..order import HufferResult, Order
 from ..yeoman import Yeoman

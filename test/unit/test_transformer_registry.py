@@ -1,14 +1,14 @@
 from unittest import mock
 
 from eleanor.exceptions import EleanorException
-from eleanor.transformers import (
+from eleanor.transformer import (
     BUILTIN_TRANSFORMERS,
     GlassReactantEmbedder,
     available_transformers,
     get_factory,
     register_transformer,
 )
-from eleanor.transformers.registry import registry
+from eleanor.transformer.registry import registry
 
 from .common import TestCase
 

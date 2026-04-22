@@ -31,6 +31,7 @@ that need typed access are expected to validate the returned values with
 """
 from collections.abc import Callable
 from dataclasses import dataclass
+from typing import TypeAlias
 
 from eleanor.exceptions import EleanorException
 from eleanor.plugin import PluginRegistry
@@ -43,19 +44,19 @@ ENTRY_POINT_GROUP = 'eleanor.kernels'
 OVERRIDE_ENV_VAR = 'ELEANOR_KERNEL_OVERRIDES'
 
 #: Raw settings mapping shape (``kernel.args`` in an order file).
-SettingsRaw = dict[str, object]
+SettingsRaw: TypeAlias = dict[str, object]
 
 #: Callable that converts a raw mapping into a kernel-specific Settings
 #: object. The concrete return value is a subclass of
 #: :class:`eleanor.kernel.config.Settings` at runtime; typed as ``object``
 #: here to keep this module decoupled from ``kernel.config``.
-SettingsFromDict = Callable[[SettingsRaw], object]
+SettingsFromDict: TypeAlias = Callable[[SettingsRaw], object]
 
 #: Callable that constructs a concrete
 #: :class:`~eleanor.kernel.interface.AbstractKernel` from its Settings
 #: (first positional argument) plus any extra CLI / caller-supplied args.
 #: Typed as returning ``object`` to avoid importing the interface here.
-KernelBuild = Callable[..., object]
+KernelBuild: TypeAlias = Callable[..., object]
 
 
 @dataclass(frozen=True)
@@ -77,7 +78,7 @@ class KernelSpec(object):
 #: A factory is either a ready :class:`KernelSpec` or a zero-arg callable
 #: returning one. Entry-point-loaded objects always start life typed as
 #: ``object`` and are narrowed by :func:`_coerce_to_spec`.
-KernelFactory = KernelSpec | Callable[[], KernelSpec]
+KernelFactory: TypeAlias = KernelSpec | Callable[[], KernelSpec]
 
 
 def _coerce_to_spec(name: str, factory: object) -> KernelSpec:
@@ -139,7 +140,7 @@ def available_kernels() -> frozenset[str]:
     return registry.available()
 
 
-def get_spec(name: str) -> KernelSpec:
+def get_factory(name: str) -> KernelSpec:
     """Return the :class:`KernelSpec` registered under ``name``.
 
     Raises :class:`~eleanor.exceptions.EleanorException` if ``name`` is

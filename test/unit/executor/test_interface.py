@@ -1,9 +1,7 @@
 from unittest import mock
 
 from eleanor.exceptions import EleanorException
-from eleanor.executor import available_backends, build_executor
-from eleanor.executor.backends import SUPPORTED_BACKENDS, supported_backends
-from eleanor.executor.registry import _normalize_num_workers
+from eleanor.executor import _normalize_num_workers, available_executors, build_executor
 from eleanor.executor.interface import AbstractExecutor, AbstractFuture
 from eleanor.executor.serial import SerialExecutor
 
@@ -74,9 +72,9 @@ class TestExecutorInterface(TestCase):
 
     def test_build_executor_serial(self):
         """
-        Ensure serial backend selection returns a SerialExecutor instance.
+        Ensure serial executor selection returns a SerialExecutor instance.
         """
-        with self.assertWarnsRegex(RuntimeWarning, 'num_workers is ignored for serial backend'):
+        with self.assertWarnsRegex(RuntimeWarning, 'num_workers is ignored for serial executor'):
             out = build_executor(kind='serial', num_workers=8)
         self.assertIsInstance(out, SerialExecutor)
 
@@ -85,40 +83,33 @@ class TestExecutorInterface(TestCase):
         Ensure multiprocessing backend passes normalized worker counts to constructor.
         """
         sentinel = object()
-        # The multiprocessing factory resolves MultiprocessingExecutor from its
-        # source module on each call, so patch it there.
+        # The multiprocessing factory references MultiprocessingExecutor from the
+        # executor package's namespace (imported at module scope in __init__.py).
         with mock.patch(
-            "eleanor.executor.multiprocessing.MultiprocessingExecutor",
+            "eleanor.executor.MultiprocessingExecutor",
             return_value=sentinel,
         ) as mp_executor:
             out = build_executor(kind='multiprocessing', num_workers=0)
         self.assertIs(out, sentinel)
         mp_executor.assert_called_once_with(num_workers=1)
 
-    def test_build_executor_rejects_unknown_backend(self):
+    def test_build_executor_rejects_unknown_executor(self):
         """
-        Ensure unsupported backend names raise EleanorException with a helpful choices list.
+        Ensure unsupported executor names raise EleanorException with a helpful choices list.
         """
-        with self.assertRaisesRegex(EleanorException, 'unsupported executor backend'):
+        with self.assertRaisesRegex(EleanorException, 'unsupported executor'):
             build_executor(kind='bad-backend')
 
-    def test_build_executor_registry_matches_supported_backends(self):
+    def test_build_executor_registry_contains_builtins(self):
         """
-        Ensure every advertised backend name is accepted by build_executor.
-
-        This guards against drift between the supported-backends surface
-        (``supported_backends()`` / ``SUPPORTED_BACKENDS``) and the live
-        registry queried by ``available_backends()``.
+        Ensure every advertised executor name is accepted by build_executor.
         """
-        live = available_backends()
+        live = available_executors()
         # The two built-ins must always be present; plugins (e.g. eleanor_mpi)
         # may add more.
         self.assertIn('serial', live)
         self.assertIn('multiprocessing', live)
         self.assertNotIn('bad-backend', live)
-        # The backends shim and the registry must agree.
-        self.assertEqual(supported_backends(), live)
-        self.assertEqual(SUPPORTED_BACKENDS, live)
 
     def test_build_executor_rejects_unknown_kwargs(self):
         """

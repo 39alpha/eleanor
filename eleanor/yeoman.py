@@ -10,7 +10,7 @@ from sqlalchemy.engine import Dialect
 from sqlalchemy.orm import Session, registry
 from sqlalchemy.types import TypeDecorator, TypeEngine
 
-from .config import DatabaseConfig
+from .connection import DatabaseConfig
 from .exceptions import EleanorException
 
 yeoman_registry = registry()

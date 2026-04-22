@@ -2,17 +2,18 @@
 Registry and discovery for eleanor transformer plugins.
 
 Built-in transformers (``glass_reactant_embedder``) register themselves from
-:mod:`eleanor.transformers` at package import time. Third-party transformers
+:mod:`eleanor.transformer` at package import time. Third-party transformers
 advertise themselves through the ``eleanor.transformers`` entry-point group.
 
 Each registered factory is a callable invoked as ``factory(**args)``, where
 ``args`` is the ``args`` block from the order file's ``transformers`` entry.
 Factories are typed as ``Callable[..., object]`` so this module has no
-structural dependency on :mod:`eleanor.transformers`; callers validate the
+structural dependency on :mod:`eleanor.transformer`; callers validate the
 returned transformer against
-:class:`~eleanor.transformers.AbstractTransformer` before use.
+:class:`~eleanor.transformer.AbstractTransformer` before use.
 """
 from collections.abc import Callable
+from typing import TypeAlias
 
 from eleanor.plugin import PluginRegistry
 
@@ -25,11 +26,11 @@ OVERRIDE_ENV_VAR = 'ELEANOR_TRANSFORMER_OVERRIDES'
 
 #: Factory callable shape. Each registered transformer is invoked with the
 #: keyword args from the order file.
-TransformerFactory = Callable[..., object]
+TransformerFactory: TypeAlias = Callable[..., object]
 
 #: Canonical names of the transformers shipped inside the eleanor
 #: distribution. Built-ins register their concrete factories from
-#: :mod:`eleanor.transformers`'s package ``__init__``.
+#: :mod:`eleanor.transformer`'s package ``__init__``.
 BUILTIN_TRANSFORMERS: frozenset[str] = frozenset({'glass_reactant_embedder'})
 
 #: The shared :class:`PluginRegistry` instance backing this module's helpers.

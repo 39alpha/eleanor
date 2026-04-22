@@ -135,9 +135,9 @@ class TestCLIRun(TestCase):
         ns = parser.parse_args(['--parallel', 'future-plugin', 'order.yaml', '10'])
         self.assertEqual(ns.parallel, 'future-plugin')
 
-    def test_execute_accepts_plugin_registered_backend(self):
+    def test_execute_accepts_plugin_registered_executor(self):
         """
-        Ensure --parallel accepts a backend contributed via register_backend at runtime.
+        Ensure --parallel accepts an executor contributed via register_executor at runtime.
         """
         parser = argparse.ArgumentParser()
         ns = self._namespace(parallel='plugin')
@@ -181,7 +181,7 @@ class TestCLIRun(TestCase):
         joined = ' '.join(str(a) for a in printed)
         self.assertIn('does-not-exist', joined)
         self.assertIn('unsupported', joined)
-        self.assertIn('executor backend', joined)
+        self.assertIn('executor', joined)
 
     def test_execute_surfaces_eleanor_exception(self):
         """

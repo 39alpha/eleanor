@@ -4,7 +4,7 @@ from traceback import print_exception
 from eleanor import Eleanor
 from eleanor.cli.util import ConfigArgs, add_config_args, config_from_args, typed_args
 from eleanor.exceptions import EleanorException
-from eleanor.executor.backends import supported_backends
+from eleanor.executor import available_executors
 
 
 class RunArgs(ConfigArgs):
@@ -99,11 +99,11 @@ def execute(parser: argparse.ArgumentParser, ns: argparse.Namespace) -> None:
         if parallel is None:
             parallel = config.parallel.backend
         else:
-            backends = supported_backends()
-            if parallel not in backends:
-                choices = ', '.join(sorted(backends))
+            executors = available_executors()
+            if parallel not in executors:
+                choices = ', '.join(sorted(executors))
                 raise EleanorException(
-                    f'unsupported executor backend "{parallel}"; choose from {choices}',
+                    f'unsupported executor "{parallel}"; choose from {choices}',
                 )
         if chunks_per_worker is None:
             chunks_per_worker = config.parallel.chunks_per_worker

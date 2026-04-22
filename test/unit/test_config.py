@@ -298,7 +298,7 @@ class TestConfig(TestCase):
         """
         Ensure OutputConfig validation follows the registry's dynamic sink names.
         """
-        with mock.patch('eleanor.config.available_output_sinks', return_value=frozenset({'postgres', 'csv'})):
+        with mock.patch('eleanor.config.available_outputs', return_value=frozenset({'postgres', 'csv'})):
             cfg = OutputConfig(type='csv')
         self.assertEqual(cfg.type, 'csv')
 

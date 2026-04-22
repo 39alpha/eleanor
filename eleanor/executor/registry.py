@@ -1,8 +1,9 @@
 """
-Registry and discovery for eleanor executor backends.
+Registry and discovery for eleanor executors.
 
-Built-in backends (``serial``, ``multiprocessing``) are registered at module
-import time. Third-party backends advertise themselves through the
+Built-in executors (``serial``, ``multiprocessing``) are pre-announced here
+and registered from :mod:`eleanor.executor` at package import time.
+Third-party executors advertise themselves through the
 ``eleanor.executors`` entry-point group in their distribution metadata, e.g.::
 
     [project.entry-points."eleanor.executors"]
@@ -13,11 +14,10 @@ Each entry point must resolve to an :data:`ExecutorFactory` — that is, a
 callable with the signature ``Callable[[int | None], AbstractExecutor]``.
 
 This module is a thin wrapper around :class:`eleanor.plugin.PluginRegistry`.
-The public helpers (:func:`register_backend`, :func:`available_backends`,
+The public helpers (:func:`register_executor`, :func:`available_executors`,
 :func:`get_factory`) bind to the registry's methods; the registry instance
 itself is exposed as :data:`registry` for advanced introspection.
 """
-import warnings
 from collections.abc import Callable
 from typing import TypeAlias
 
@@ -35,58 +35,29 @@ ENTRY_POINT_GROUP = 'eleanor.executors'
 OVERRIDE_ENV_VAR = 'ELEANOR_EXECUTOR_OVERRIDES'
 
 
-def _normalize_num_workers(num_workers: int | None) -> int | None:
-    """Clamp ``num_workers`` to ``>= 1``, preserving ``None`` as the default sentinel."""
-    if num_workers is None:
-        return None
-    if num_workers <= 0:
-        return 1
-    return num_workers
-
-
-def _build_serial(num_workers: int | None) -> AbstractExecutor:
-    from .serial import SerialExecutor
-
-    if num_workers is not None:
-        warnings.warn(
-            'num_workers is ignored for serial backend',
-            RuntimeWarning,
-            stacklevel=3,
-        )
-    return SerialExecutor()
-
-
-def _build_multiprocessing(num_workers: int | None) -> AbstractExecutor:
-    from .multiprocessing import MultiprocessingExecutor
-
-    return MultiprocessingExecutor(num_workers=_normalize_num_workers(num_workers))
-
-
 #: The shared :class:`PluginRegistry` instance backing this module's helpers.
 registry: PluginRegistry[ExecutorFactory] = PluginRegistry(
-    kind='executor backend',
+    kind='executor',
     entry_point_group=ENTRY_POINT_GROUP,
     override_env_var=OVERRIDE_ENV_VAR,
-    builtins={
-        'serial': _build_serial,
-        'multiprocessing': _build_multiprocessing,
-    },
+    builtins={},
+    builtin_names=frozenset({'serial', 'multiprocessing'}),
 )
 
-#: Canonical names of the backends shipped inside the eleanor distribution.
-BUILTIN_BACKENDS: frozenset[str] = registry.builtins
+#: Canonical names of the executors shipped inside the eleanor distribution.
+BUILTIN_EXECUTORS: frozenset[str] = registry.builtins
 
 
-def register_backend(name: str, factory: ExecutorFactory) -> None:
-    """Register ``factory`` under ``name`` in the backend registry.
+def register_executor(name: str, factory: ExecutorFactory) -> None:
+    """Register ``factory`` under ``name`` in the executor registry.
 
     See :meth:`PluginRegistry.register` for collision semantics.
     """
     registry.register(name, factory)
 
 
-def available_backends() -> frozenset[str]:
-    """Return the set of currently-registered backend names.
+def available_executors() -> frozenset[str]:
+    """Return the set of currently-registered executor names.
 
     The first call triggers entry-point discovery; subsequent calls return
     the cached registry contents.

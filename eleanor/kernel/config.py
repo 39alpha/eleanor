@@ -67,9 +67,9 @@ class Config(object):
             raise EleanorException(
                 f'kernel.settings has unexpected type {type(raw).__name__}',
             )
-        from .registry import get_spec
+        from .registry import get_factory
 
-        spec = get_spec(self.type)
+        spec = get_factory(self.type)
         settings = spec.settings_from_dict(cast(dict[str, object], raw))
         if not isinstance(settings, Settings):
             raise EleanorException(

@@ -2,11 +2,11 @@ from unittest import mock
 
 from eleanor.exceptions import EleanorException
 from eleanor.output import (
-    BUILTIN_OUTPUT_SINKS,
+    BUILTIN_OUTPUTS,
     OVERRIDE_ENV_VAR,
-    available_output_sinks,
+    available_outputs,
     get_factory,
-    register_output_sink,
+    register_output,
 )
 from eleanor.output.registry import registry
 
@@ -38,32 +38,32 @@ class _OutputRegistryTestCase(TestCase):
         registry._discovered = self._saved_discovered
 
 
-class TestBuiltinOutputSinks(TestCase):
+class TestBuiltinOutputs(TestCase):
     """
-    Sanity checks on the built-in output sink set.
+    Sanity checks on the built-in output set.
     """
 
     def test_postgres_is_registered(self):
         """
-        Ensure ``postgres`` is always present in the output sink registry.
+        Ensure ``postgres`` is always present in the output registry.
         """
-        self.assertIn('postgres', BUILTIN_OUTPUT_SINKS)
-        self.assertIn('postgres', available_output_sinks())
+        self.assertIn('postgres', BUILTIN_OUTPUTS)
+        self.assertIn('postgres', available_outputs())
 
 
-class TestRegisterOutputSink(_OutputRegistryTestCase):
+class TestRegisterOutput(_OutputRegistryTestCase):
     """
-    Tests of :func:`register_output_sink`.
+    Tests of :func:`register_output`.
     """
 
     def test_register_and_retrieve(self):
         """
-        Ensure a plugin sink factory can be registered and retrieved by name.
+        Ensure a plugin output factory can be registered and retrieved by name.
         """
         factory = mock.Mock(return_value=object())
-        register_output_sink('plugin', factory)
+        register_output('plugin', factory)
 
-        self.assertIn('plugin', available_output_sinks())
+        self.assertIn('plugin', available_outputs())
         self.assertIs(get_factory('plugin'), factory)
 
     def test_unknown_name_raises(self):
@@ -75,7 +75,7 @@ class TestRegisterOutputSink(_OutputRegistryTestCase):
 
     def test_register_rejects_builtin_override_without_env(self):
         """
-        Ensure built-in sinks cannot be overridden by default.
+        Ensure built-in outputs cannot be overridden by default.
         """
         original = registry._registry['postgres']
         replacement = mock.Mock(return_value=object())
@@ -83,19 +83,19 @@ class TestRegisterOutputSink(_OutputRegistryTestCase):
         with mock.patch.dict('os.environ', {}, clear=False):
             __import__('os').environ.pop(OVERRIDE_ENV_VAR, None)
             with self.assertWarnsRegex(RuntimeWarning, 'refusing to override built-in'):
-                register_output_sink('postgres', replacement)
+                register_output('postgres', replacement)
 
         self.assertIs(registry._registry['postgres'], original)
 
     def test_register_allows_builtin_override_with_env(self):
         """
-        Ensure built-in sinks can be overridden when the override env var is set.
+        Ensure built-in outputs can be overridden when the override env var is set.
         """
         original = registry._registry['postgres']
         replacement = mock.Mock(return_value=object())
         try:
             with mock.patch.dict('os.environ', {OVERRIDE_ENV_VAR: '1'}):
-                register_output_sink('postgres', replacement)
+                register_output('postgres', replacement)
             self.assertIs(registry._registry['postgres'], replacement)
         finally:
             registry._registry['postgres'] = original
@@ -118,9 +118,9 @@ class TestEntryPointDiscovery(_OutputRegistryTestCase):
         ep = _FakeEntryPoint('plugin', 'pkg.mod:build_sink', lambda: factory)
 
         with mock.patch('eleanor.plugin.entry_points', return_value=[ep]):
-            sinks = available_output_sinks()
+            outputs = available_outputs()
 
-        self.assertIn('plugin', sinks)
+        self.assertIn('plugin', outputs)
         self.assertIs(get_factory('plugin'), factory)
 
     def test_discovery_warns_and_continues_on_load_failure(self):
@@ -136,11 +136,11 @@ class TestEntryPointDiscovery(_OutputRegistryTestCase):
         working_ep = _FakeEntryPoint('working', 'pkg.ok:build', lambda: good_factory)
 
         with mock.patch('eleanor.plugin.entry_points', return_value=[failing_ep, working_ep]):
-            with self.assertWarnsRegex(RuntimeWarning, 'failed to load output sink entry point "broken"'):
-                sinks = available_output_sinks()
+            with self.assertWarnsRegex(RuntimeWarning, 'failed to load output entry point "broken"'):
+                outputs = available_outputs()
 
-        self.assertNotIn('broken', sinks)
-        self.assertIn('working', sinks)
+        self.assertNotIn('broken', outputs)
+        self.assertIn('working', outputs)
 
     def test_discovery_rejects_non_callable_entry_point(self):
         """
@@ -150,6 +150,6 @@ class TestEntryPointDiscovery(_OutputRegistryTestCase):
 
         with mock.patch('eleanor.plugin.entry_points', return_value=[bad_ep]):
             with self.assertWarnsRegex(RuntimeWarning, 'is invalid'):
-                sinks = available_output_sinks()
+                outputs = available_outputs()
 
-        self.assertNotIn('bad', sinks)
+        self.assertNotIn('bad', outputs)

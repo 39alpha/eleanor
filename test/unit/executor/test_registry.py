@@ -4,11 +4,11 @@ from unittest import mock
 from eleanor.exceptions import EleanorException
 from eleanor.executor import registry as registry_module
 from eleanor.executor.registry import (
-    BUILTIN_BACKENDS,
+    BUILTIN_EXECUTORS,
     OVERRIDE_ENV_VAR,
-    available_backends,
+    available_executors,
     get_factory,
-    register_backend,
+    register_executor,
     registry,
 )
 
@@ -46,19 +46,19 @@ class _RegistryTestCase(TestCase):
         registry._discovered = self._saved_discovered
 
 
-class TestRegisterBackend(_RegistryTestCase):
+class TestRegisterExecutor(_RegistryTestCase):
     """
-    Tests of :func:`eleanor.executor.registry.register_backend`.
+    Tests of :func:`eleanor.executor.registry.register_executor`.
     """
 
-    def test_register_adds_new_backend(self):
+    def test_register_adds_new_executor(self):
         """
-        Ensure register_backend exposes the factory through the registry.
+        Ensure register_executor exposes the factory through the registry.
         """
         factory, sentinel = _make_factory()
-        register_backend('fake', factory)
+        register_executor('fake', factory)
 
-        self.assertIn('fake', available_backends())
+        self.assertIn('fake', available_executors())
         self.assertIs(get_factory('fake')(2), sentinel)
         factory.assert_called_once_with(2)
 
@@ -67,16 +67,16 @@ class TestRegisterBackend(_RegistryTestCase):
         Ensure re-registering the same factory under the same name is a no-op.
         """
         factory, _ = _make_factory()
-        register_backend('fake', factory)
+        register_executor('fake', factory)
         # No warning should be raised on the second call.
         with warnings.catch_warnings():
             warnings.simplefilter('error')
-            register_backend('fake', factory)
+            register_executor('fake', factory)
         self.assertIs(registry._registry['fake'], factory)
 
     def test_register_rejects_builtin_override_without_env(self):
         """
-        Ensure built-in backends cannot be overridden by default.
+        Ensure built-in executors cannot be overridden by default.
         """
         builtin_name = 'serial'
         original = registry._registry[builtin_name]
@@ -86,13 +86,13 @@ class TestRegisterBackend(_RegistryTestCase):
             # Ensure the override env var is unset.
             __import__('os').environ.pop(OVERRIDE_ENV_VAR, None)
             with self.assertWarnsRegex(RuntimeWarning, 'refusing to override built-in'):
-                register_backend(builtin_name, replacement)
+                register_executor(builtin_name, replacement)
 
         self.assertIs(registry._registry[builtin_name], original)
 
     def test_register_allows_builtin_override_with_env(self):
         """
-        Ensure built-in backends can be overridden when the override env var is set.
+        Ensure built-in executors can be overridden when the override env var is set.
         """
         builtin_name = 'serial'
         original = registry._registry[builtin_name]
@@ -100,7 +100,7 @@ class TestRegisterBackend(_RegistryTestCase):
 
         try:
             with mock.patch.dict('os.environ', {OVERRIDE_ENV_VAR: '1'}):
-                register_backend(builtin_name, replacement)
+                register_executor(builtin_name, replacement)
             self.assertIs(registry._registry[builtin_name], replacement)
         finally:
             registry._registry[builtin_name] = original
@@ -111,27 +111,27 @@ class TestRegisterBackend(_RegistryTestCase):
         """
         first, _ = _make_factory()
         second, _ = _make_factory()
-        register_backend('clash', first)
+        register_executor('clash', first)
 
         with self.assertWarnsRegex(RuntimeWarning, 'is already registered'):
-            register_backend('clash', second)
+            register_executor('clash', second)
 
         self.assertIs(registry._registry['clash'], first)
 
     def test_register_rejects_empty_name(self):
         """
-        Ensure register_backend validates the backend name.
+        Ensure register_executor validates the executor name.
         """
         factory, _ = _make_factory()
         with self.assertRaises(EleanorException):
-            register_backend('', factory)
+            register_executor('', factory)
 
     def test_register_rejects_non_callable_factory(self):
         """
-        Ensure register_backend validates the factory argument.
+        Ensure register_executor validates the factory argument.
         """
         with self.assertRaises(EleanorException):
-            register_backend('broken', object())  # type: ignore[arg-type]
+            register_executor('broken', object())  # type: ignore[arg-type]
 
 
 class TestEntryPointDiscovery(_RegistryTestCase):
@@ -152,9 +152,9 @@ class TestEntryPointDiscovery(_RegistryTestCase):
         ep = _FakeEntryPoint('plugin', 'pkg.mod:build', lambda: factory)
 
         with mock.patch('eleanor.plugin.entry_points', return_value=[ep]):
-            backends = available_backends()
+            executors = available_executors()
 
-        self.assertIn('plugin', backends)
+        self.assertIn('plugin', executors)
         self.assertIs(get_factory('plugin')(4), sentinel)
         factory.assert_called_once_with(4)
 
@@ -174,11 +174,11 @@ class TestEntryPointDiscovery(_RegistryTestCase):
             'eleanor.plugin.entry_points',
             return_value=[failing_ep, working_ep],
         ):
-            with self.assertWarnsRegex(RuntimeWarning, 'failed to load executor backend entry point "broken"'):
-                backends = available_backends()
+            with self.assertWarnsRegex(RuntimeWarning, 'failed to load executor entry point "broken"'):
+                executors = available_executors()
 
-        self.assertNotIn('broken', backends)
-        self.assertIn('working', backends)
+        self.assertNotIn('broken', executors)
+        self.assertIn('working', executors)
 
     def test_discovery_rejects_non_callable_entry_point(self):
         """
@@ -191,9 +191,9 @@ class TestEntryPointDiscovery(_RegistryTestCase):
             return_value=[not_callable_ep],
         ):
             with self.assertWarnsRegex(RuntimeWarning, 'is invalid'):
-                backends = available_backends()
+                executors = available_executors()
 
-        self.assertNotIn('bad', backends)
+        self.assertNotIn('bad', executors)
 
     def test_discovery_runs_at_most_once(self):
         """
@@ -201,8 +201,8 @@ class TestEntryPointDiscovery(_RegistryTestCase):
         """
         ep_call = mock.MagicMock(return_value=[])
         with mock.patch('eleanor.plugin.entry_points', ep_call):
-            available_backends()
-            available_backends()
+            available_executors()
+            available_executors()
             get_factory('serial')
         self.assertEqual(ep_call.call_count, 1)
 
@@ -216,7 +216,7 @@ class TestEntryPointDiscovery(_RegistryTestCase):
 
         with mock.patch('eleanor.plugin.entry_points', return_value=[ep]):
             with self.assertWarnsRegex(RuntimeWarning, 'refusing to override built-in'):
-                available_backends()
+                available_executors()
 
         self.assertIs(registry._registry['serial'], original)
 
@@ -226,7 +226,7 @@ class TestGetFactory(_RegistryTestCase):
     Tests of :func:`eleanor.executor.registry.get_factory`.
     """
 
-    def test_unknown_backend_error_enumerates_plugin_names(self):
+    def test_unknown_executor_error_enumerates_plugin_names(self):
         """
         Ensure the error message lists both built-ins and discovered plugins.
         """
@@ -241,7 +241,7 @@ class TestGetFactory(_RegistryTestCase):
         message = str(ctx.exception)
         self.assertIn('nope', message)
         self.assertIn('plugin', message)
-        for builtin in sorted(BUILTIN_BACKENDS):
+        for builtin in sorted(BUILTIN_EXECUTORS):
             self.assertIn(builtin, message)
 
 
@@ -256,11 +256,11 @@ class TestRegistrySurface(TestCase):
         """
         from eleanor.plugin import PluginRegistry
         self.assertIsInstance(registry_module.registry, PluginRegistry)
-        self.assertEqual(registry_module.registry.kind, 'executor backend')
+        self.assertEqual(registry_module.registry.kind, 'executor')
         self.assertEqual(registry_module.registry.entry_point_group, 'eleanor.executors')
 
-    def test_builtin_backends_is_registry_builtins(self):
+    def test_builtin_executors_is_registry_builtins(self):
         """
-        Ensure BUILTIN_BACKENDS is the registry's built-in set.
+        Ensure BUILTIN_EXECUTORS is the registry's built-in set.
         """
-        self.assertEqual(BUILTIN_BACKENDS, registry_module.registry.builtins)
+        self.assertEqual(BUILTIN_EXECUTORS, registry_module.registry.builtins)

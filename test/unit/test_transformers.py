@@ -5,7 +5,7 @@ import pandas as pd
 
 from eleanor.exceptions import EleanorException
 from eleanor.reactants import ReactantType
-from eleanor.transformers import AbstractTransformer, GlassReactantEmbedder, transform
+from eleanor.transformer import AbstractTransformer, GlassReactantEmbedder, transform
 
 from .common import TestCase
 
@@ -306,7 +306,7 @@ class TestTransformers(TestCase):
         """
         Ensure module-level transform applies configured transformers and clears transformer configs.
         """
-        from eleanor.transformers import AbstractTransformer
+        from eleanor.transformer import AbstractTransformer
 
         kernel = object()
         order = SimpleNamespace(transformers=[], marker=0)
@@ -328,7 +328,7 @@ class TestTransformers(TestCase):
         order.transformers = [transformer_cfg]
 
         with mock.patch(
-            "eleanor.transformers.get_factory",
+            "eleanor.transformer.get_factory",
             return_value=_Transformer,
         ) as get_factory:
             out = transform(order, kernel)

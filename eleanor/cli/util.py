@@ -5,7 +5,8 @@ from typing import TypedDict
 
 from xdg_base_dirs import xdg_config_home
 
-from eleanor.config import Config, DatabaseConfig, DatabaseRaw, load_config
+from eleanor.config import Config, load_config
+from eleanor.connection import DatabaseConfig, DatabaseRaw
 from eleanor.typing import cast
 
 

@@ -2,26 +2,15 @@ import json
 import os.path
 import tomllib
 from dataclasses import dataclass, field
-from typing import TypedDict, override
+from typing import TypedDict
 
 import yaml
 
+from .connection import DatabaseConfig, DatabaseRaw
 from .exceptions import EleanorConfigurationException, EleanorException
-from .executor.backends import supported_backends
-from .output.registry import available_output_sinks
+from .executor import available_executors
+from .output import available_outputs
 from .typing import cast
-
-
-class DatabaseRaw(TypedDict, total=False):
-    """Schema for the ``database`` section of a raw config document."""
-    dialect: str
-    dbapi: str | None
-    host: str | None
-    port: int | None
-    database: str | None
-    username: str | None
-    password: str | None
-    sslmode: str | None
 
 
 class OutputRaw(TypedDict, total=False):
@@ -44,51 +33,12 @@ class ConfigRaw(TypedDict, total=False):
 
 
 @dataclass
-class DatabaseConfig(object):
-    dialect: str = 'postgresql'
-    dbapi: str | None = 'psycopg'
-    host: str | None = 'localhost'
-    port: int | None = None
-    database: str | None = None
-    username: str | None = None
-    password: str | None = None
-    sslmode: str | None = None
-
-    def __post_init__(self):
-        if self.dialect not in ['postgresql']:
-            msg = f'the "{self.dialect}" database dialect is not supported; choose "postgresql"'
-            raise EleanorConfigurationException(msg)
-
-    @override
-    def __str__(self) -> str:
-        identity = self.username if self.username is not None else ''
-        if self.password is not None and self.password != "":
-            identity = identity + ':' + self.password
-        port = f':{self.port}' if self.port is not None else ''
-        return f'{self.dialect}+{self.dbapi}://{identity}@{self.host}{port}/{self.database}'
-
-    @staticmethod
-    def from_raw(raw: DatabaseRaw) -> "DatabaseConfig":
-        return DatabaseConfig(
-            dialect=raw.get('dialect', 'postgresql'),
-            dbapi=raw.get('dbapi', 'psycopg'),
-            host=raw.get('host', 'localhost'),
-            port=raw.get('port'),
-            database=raw.get('database'),
-            username=raw.get('username'),
-            password=raw.get('password'),
-            sslmode=raw.get('sslmode'),
-        )
-
-
-
-@dataclass
 class OutputConfig(object):
     type: str = 'postgres'
     args: dict[str, object] = field(default_factory=dict)
 
     def __post_init__(self):
-        sinks = available_output_sinks()
+        sinks = available_outputs()
         if self.type not in sinks:
             valid = ', '.join(f'"{t}"' for t in sorted(sinks))
             msg = f'the "{self.type}" output type is not supported; choose one of {valid}'
@@ -113,7 +63,7 @@ class ParallelConfig(object):
     chunks_per_worker: int = 1
 
     def __post_init__(self):
-        backends = supported_backends()
+        backends = available_executors()
         if self.backend not in backends:
             msg = f'the "{self.backend}" parallel backend is not supported; choose from {", ".join(sorted(backends))}'
             raise EleanorConfigurationException(msg)

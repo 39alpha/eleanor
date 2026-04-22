@@ -35,10 +35,10 @@ class TestKernelConfig(TestCase):
         config = Config(type='eq36', settings=Settings(timeout=None))
         config.settings = {'timeout': 12}  # type: ignore[assignment]
 
-        with mock.patch('eleanor.kernel.registry.get_spec', return_value=spec) as get_spec_mock:
+        with mock.patch('eleanor.kernel.registry.get_factory', return_value=spec) as get_factory_mock:
             resolved = config.resolved_settings()
 
-        get_spec_mock.assert_called_once_with('eq36')
+        get_factory_mock.assert_called_once_with('eq36')
         spec.settings_from_dict.assert_called_once_with({'timeout': 12})
         self.assertIs(resolved, parsed_settings)
         # Cached in-place for subsequent accesses.
@@ -51,10 +51,10 @@ class TestKernelConfig(TestCase):
         settings = Settings(timeout=10)
         config = Config(type='eq36', settings=settings)
 
-        with mock.patch('eleanor.kernel.registry.get_spec') as get_spec_mock:
+        with mock.patch('eleanor.kernel.registry.get_factory') as get_factory_mock:
             resolved = config.resolved_settings()
 
-        get_spec_mock.assert_not_called()
+        get_factory_mock.assert_not_called()
         self.assertIs(resolved, settings)
 
     def test_config_resolved_settings_rejects_unknown_types(self):

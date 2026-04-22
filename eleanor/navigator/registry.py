@@ -15,6 +15,7 @@ against :class:`~eleanor.navigator.AbstractNavigator` (or the
 :class:`~eleanor.order.NavigatorProtocol` structural alternative) before use.
 """
 from collections.abc import Callable
+from typing import TypeAlias
 
 from eleanor.plugin import PluginRegistry
 
@@ -27,7 +28,7 @@ OVERRIDE_ENV_VAR = 'ELEANOR_NAVIGATOR_OVERRIDES'
 
 #: Factory callable shape. Each registered navigator is invoked with the
 #: current order, kernel, and keyword args from the order file.
-NavigatorFactory = Callable[..., object]
+NavigatorFactory: TypeAlias = Callable[..., object]
 
 #: Canonical names of the navigators shipped inside the eleanor distribution.
 #: Built-ins register their concrete factories from

@@ -5,7 +5,7 @@ from eleanor.kernel.registry import (
     BUILTIN_KERNELS,
     KernelSpec,
     available_kernels,
-    get_spec,
+    get_factory,
     register_kernel,
     registry,
 )
@@ -56,7 +56,7 @@ class TestBuiltin(TestCase):
         """
         self.assertIn('eq36', BUILTIN_KERNELS)
         self.assertIn('eq36', available_kernels())
-        spec = get_spec('eq36')
+        spec = get_factory('eq36')
         self.assertIsInstance(spec, KernelSpec)
 
 
@@ -73,7 +73,7 @@ class TestRegisterKernel(_KernelRegistryTestCase):
         register_kernel('fake', spec)
 
         self.assertIn('fake', available_kernels())
-        self.assertIs(get_spec('fake'), spec)
+        self.assertIs(get_factory('fake'), spec)
 
     def test_register_zero_arg_callable_returning_spec(self):
         """
@@ -82,7 +82,7 @@ class TestRegisterKernel(_KernelRegistryTestCase):
         spec = _spec()
         register_kernel('lazy', lambda: spec)
 
-        self.assertIs(get_spec('lazy'), spec)
+        self.assertIs(get_factory('lazy'), spec)
 
     def test_register_rejects_callable_returning_non_spec(self):
         """
@@ -120,7 +120,7 @@ class TestEntryPointDiscovery(_KernelRegistryTestCase):
 
         with mock.patch('eleanor.plugin.entry_points', return_value=[ep]):
             self.assertIn('plugin', available_kernels())
-        self.assertIs(get_spec('plugin'), spec)
+        self.assertIs(get_factory('plugin'), spec)
 
     def test_discovery_accepts_factory_returning_spec(self):
         """
@@ -131,7 +131,7 @@ class TestEntryPointDiscovery(_KernelRegistryTestCase):
 
         with mock.patch('eleanor.plugin.entry_points', return_value=[ep]):
             self.assertIn('lazy', available_kernels())
-        self.assertIs(get_spec('lazy'), spec)
+        self.assertIs(get_factory('lazy'), spec)
 
     def test_discovery_warns_on_invalid_factory(self):
         """

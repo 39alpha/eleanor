@@ -11,18 +11,18 @@ from .config import Config, load_config
 from .executor import AbstractExecutor, AbstractFuture, build_executor
 from .exceptions import EleanorException
 from .kernel.interface import AbstractKernel
-from .kernel.registry import get_spec as get_kernel_spec
+from .kernel.registry import get_factory as get_kernel_spec
 from .order import HufferResult, NavigatorProtocol, Order, load_order
 from .output.interface import ComputeResult, OutputSink, RunStats, WriteOutcome
 from .output.registry import get_factory as get_output_factory
-from .transformers import transform
+from .transformer import transform
 from .typing import EleanorKwargs, Self, Unpack
 from .util import Progress, chunks
 from .version import __version__
 from .yeoman import Yeoman, column_expr
 
 if TYPE_CHECKING:
-    from .transformers import AbstractTransformer
+    from .transformer import AbstractTransformer
 
 
 class Eleanor(object):

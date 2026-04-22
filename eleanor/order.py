@@ -13,7 +13,7 @@ from sqlalchemy import Column, DateTime, ForeignKey, Index, Integer, String, Tab
 from sqlalchemy.orm import relationship
 
 import eleanor.variable_space as vs
-from eleanor.kernel.registry import get_spec as get_kernel_spec
+from eleanor.kernel.registry import get_factory as get_kernel_spec
 from eleanor.variable_space import Point as VSPoint
 
 from .exceptions import EleanorException

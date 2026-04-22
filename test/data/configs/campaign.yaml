@@ -1,12 +1,12 @@
 name: Regression Testing
-date: 2024-06-12 12:34:36
 notes: For use to test for Eleanor regressions
 creator: 39 Alpha Research, Team 0
 
 kernel:
   type: eq36
-  model: b-dot
-  charge_balance: H+
+  args:
+    model: b-dot
+    charge_balance: H+
 
 temperature:
   unit: celcius
@@ -76,7 +76,7 @@ species:
     unit: partial pressure
     value: -1.00
 
-suppress:
+suppressions:
   - methane
   - type: mineral
     except:
@@ -145,9 +145,5 @@ reactants:
       unit: moles per step
       value: -9
     end_members:
-      fayalite:
-        unit: molar percent
-        value: 0.84
-      forsterite:
-        unit: molar percent
-        value: 0.16
+      fayalite: 0.84
+      forsterite: 0.16

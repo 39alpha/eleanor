@@ -1,6 +1,5 @@
 {
     "name": "Regression Testing",
-    "date": "2024-06-12 12:34:36",
     "notes": "For use to test for Eleanor regressions",
     "creator": "39 Alpha Research, Team 0",
     "kernel": {
@@ -97,7 +96,7 @@
             "value": -1.00
         }
     },
-    "suppress": [
+    "suppressions": [
         {
             "name": "methane"
         },
@@ -189,14 +188,8 @@
                 "value": -9
             },
             "end_members": {
-                "fayalite": {
-                    "unit": "molar percent",
-                    "value": 0.84
-                },
-                "forsterite": {
-                    "unit": "molar percent",
-                    "value": 0.16
-                }
+                "fayalite": 0.84,
+                "forsterite": 0.16
             }
         }
     }

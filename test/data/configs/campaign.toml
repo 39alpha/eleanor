@@ -1,10 +1,10 @@
 name = "Regression Testing"
-date = 2024-06-12 12:34:36
 notes = "For use to test for Eleanor regressions"
 creator = "39 Alpha Research, Team 0"
 
 [kernel]
 type = "eq36"
+[kernel.args]
 model = "b-dot"
 charge_balance = "H+"
 
@@ -40,14 +40,14 @@ Al = { unit = "log molality", value = -9.0 }
 "H+"    = { unit = "log activity",     value = -7.0  }
 "O2(g)" = { unit = "partial pressure", value = -1.00 }
 
-[[suppress]]
+[[suppressions]]
 name = "methane"
 
-[[suppress]]
+[[suppressions]]
 type = "mineral"
 except = ["olivine"]
 
-[[suppress]]
+[[suppressions]]
 type = "solid solution"
 
 [reactants.fayalite]
@@ -82,5 +82,5 @@ amount = { unit = "log moles", min = -6, max = -3 }
 titration_rate = { unit = "moles per step", value = -9 }
 
 [reactants.olivine-ss.end_members]
-fayalite = { unit = "molar percent", value = 0.84 }
-forsterite = { unit = "molar percent", value = 0.16 }
+fayalite = 0.84
+forsterite = 0.16

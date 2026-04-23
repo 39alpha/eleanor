@@ -12,7 +12,7 @@ from eleanor.output.postgres.persistence import repositories
 from eleanor.output.postgres.persistence.session import PostgresSession
 from eleanor.output.postgres.persistence.types import Binary, JSONDict
 
-from .common import TestCase
+from ..common import TestCase
 
 
 class TestPostgresPersistence(TestCase):

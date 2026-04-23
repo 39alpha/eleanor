@@ -197,15 +197,25 @@ class TestOutput(TestCase):
         bad_point = SimpleNamespace(exit_code=0, order_id=None)
         results = [ComputeResult(point=good_point), ComputeResult(point=bad_point)]
 
-        def write_point(_cfg, _order_id, point, verbose=False):
-            _ = verbose
+        fake_session = mock.MagicMock()
+        fake_session.__enter__.return_value = fake_session
+        fake_session.__exit__.return_value = None
+
+        def insert_point(_session, _order_id, point):
             if point is bad_point:
                 raise RuntimeError('write failed')
             return SimpleNamespace(id=42)
 
-        with mock.patch('eleanor.output.postgres.sink.repositories.write_point', side_effect=write_point):
+        with (
+            mock.patch('eleanor.output.postgres.sink.PostgresSession', return_value=fake_session),
+            mock.patch(
+                'eleanor.output.postgres.sink.repositories.insert_point',
+                side_effect=insert_point,
+            ),
+        ):
             outcomes = sink.write_batch(order_id=7, results=results)
 
+        fake_session.rollback.assert_called_once()
         self.assertEqual(len(outcomes), 2)
         self.assertTrue(outcomes[0].committed)
         self.assertEqual(outcomes[0].point_id, 42)
@@ -224,9 +234,16 @@ class TestOutput(TestCase):
         point = SimpleNamespace(exit_code=0, order_id=None)
         results = [ComputeResult(point=point)]
 
-        with mock.patch(
-            'eleanor.output.postgres.sink.repositories.write_point',
-            return_value=SimpleNamespace(id=None),
+        fake_session = mock.MagicMock()
+        fake_session.__enter__.return_value = fake_session
+        fake_session.__exit__.return_value = None
+
+        with (
+            mock.patch('eleanor.output.postgres.sink.PostgresSession', return_value=fake_session),
+            mock.patch(
+                'eleanor.output.postgres.sink.repositories.insert_point',
+                return_value=SimpleNamespace(id=None),
+            ),
         ):
             outcomes = sink.write_batch(order_id=7, results=results)
 

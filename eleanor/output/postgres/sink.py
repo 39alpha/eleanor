@@ -7,6 +7,7 @@ from ...order import Order
 from ...version import __version__
 from ..interface import ComputeResult, OutputSink, WriteOutcome
 from .persistence import repositories
+from .persistence.session import PostgresSession
 
 
 class PostgresSink(OutputSink):
@@ -60,28 +61,30 @@ class PostgresSink(OutputSink):
     @override
     def write_batch(self, order_id: int, results: Sequence[ComputeResult]) -> list[WriteOutcome]:
         outcomes: list[WriteOutcome] = []
-        for result in results:
-            try:
-                point = result.point
-                # point.order_id remains a caller-visible side effect of writing.
-                point.order_id = order_id
-                model = repositories.write_point(self.config, order_id, point, verbose=self.verbose)
-                if model.id is None:
-                    raise EleanorException('variable space point does not have an id after insert')
-                outcomes.append(
-                    WriteOutcome(
-                        point_id=model.id,
-                        exit_code=point.exit_code,
-                        committed=True,
-                    ))
-            except Exception as e:
-                outcomes.append(
-                    WriteOutcome(
-                        point_id=None,
-                        exit_code=-1,
-                        committed=False,
-                        error_message=str(e),
-                    ))
+        with PostgresSession(self.config, verbose=self.verbose) as session:
+            for result in results:
+                try:
+                    point = result.point
+                    # point.order_id remains a caller-visible side effect of writing.
+                    point.order_id = order_id
+                    model = repositories.insert_point(session, order_id, point)
+                    if model.id is None:
+                        raise EleanorException('variable space point does not have an id after insert')
+                    outcomes.append(
+                        WriteOutcome(
+                            point_id=model.id,
+                            exit_code=point.exit_code,
+                            committed=True,
+                        ))
+                except Exception as e:
+                    session.rollback()
+                    outcomes.append(
+                        WriteOutcome(
+                            point_id=None,
+                            exit_code=-1,
+                            committed=False,
+                            error_message=str(e),
+                        ))
         return outcomes
 
     @override

@@ -6,8 +6,7 @@ import eleanor.variable_space as core_vs
 
 from ....exceptions import EleanorException
 from ....kernel.config import Config as KernelConfig
-from ....kernel.config import Settings as KernelSettings
-from ....kernel.registry import get_factory as get_kernel_spec
+from ....kernel.config import resolve_settings as resolve_kernel_settings
 from ....typing import cast
 from . import models
 
@@ -18,17 +17,6 @@ def _to_dict_payload(value: object, field_name: str) -> dict[str, object]:
     if not isinstance(value, dict):
         raise EleanorException(f'{field_name} must serialize to a dict')
     return cast(dict[str, object], value)
-
-
-def _resolved_kernel_settings(kernel_type: str, payload: dict[str, object]) -> KernelSettings:
-    spec = get_kernel_spec(kernel_type)
-    settings = spec.settings_from_dict(payload)
-    if not isinstance(settings, KernelSettings):
-        raise EleanorException(
-            f'kernel plugin "{kernel_type}" returned '
-            + f'{type(settings).__name__}, expected a Settings instance',
-        )
-    return settings
 
 
 def to_order_model(order: core_order.Order) -> models.OrderModel:
@@ -61,7 +49,7 @@ def to_kernel_config_model(config: KernelConfig) -> models.KernelConfigModel:
 
 
 def from_kernel_config_model(model: models.KernelConfigModel) -> KernelConfig:
-    settings = _resolved_kernel_settings(model.type, dict(model.settings))
+    settings = resolve_kernel_settings(model.type, dict(model.settings))
     return KernelConfig(type=model.type, settings=settings)
 
 

@@ -131,7 +131,7 @@ class TestOrder(TestCase):
         }
 
         with (
-            mock.patch("eleanor.order.get_kernel_spec", return_value=fake_spec),
+            mock.patch("eleanor.kernel.registry.get_factory", return_value=fake_spec),
             mock.patch("eleanor.order.AbstractReactant.from_dict", return_value="reactant") as reactant_from_dict,
         ):
             sub = Suborder.from_dict(raw)
@@ -277,7 +277,7 @@ class TestOrder(TestCase):
             settings_from_dict=mock.Mock(return_value=fake_settings),
             build=mock.Mock(),
         )
-        with mock.patch("eleanor.order.get_kernel_spec", return_value=fake_spec):
+        with mock.patch("eleanor.kernel.registry.get_factory", return_value=fake_spec):
             order = Order(
                 {
                     "name": "o",

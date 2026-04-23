@@ -10,12 +10,12 @@ from typing import Protocol, TypedDict, final, runtime_checkable
 import yaml
 
 import eleanor.variable_space as vs
-from eleanor.kernel.registry import get_factory as get_kernel_spec
 from eleanor.variable_space import Point as VSPoint
 
 from .exceptions import EleanorException
 from .kernel.config import Config as KernelConfig
 from .kernel.config import Settings as KernelSettings
+from .kernel.config import resolve_settings as resolve_kernel_settings
 from .parameters import Parameter, ParameterSource
 from .reactants import AbstractReactant, ReactantRaw
 from .typing import Self, cast
@@ -141,14 +141,7 @@ def load_kernel_settings(kernel_raw: KernelRaw) -> tuple[str, KernelSettings]:
     # the registry's declared ``dict[str, object]`` input shape.
     kernel_args_items = cast(dict[object, object], kernel_args_raw).items()
     kernel_args: dict[str, object] = {str(k): v for k, v in kernel_args_items}
-    spec = get_kernel_spec(kernel_type)
-    settings = spec.settings_from_dict(kernel_args)
-    if not isinstance(settings, KernelSettings):
-        raise EleanorException(
-            f'kernel plugin "{kernel_type}" returned '
-            + f'{type(settings).__name__}, expected a Settings instance',
-        )
-    return kernel_type, settings
+    return kernel_type, resolve_kernel_settings(kernel_type, kernel_args)
 
 
 @runtime_checkable

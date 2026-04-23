@@ -4,6 +4,13 @@
 :mod:`eleanor.config` so output sink modules can import it without pulling
 in the full config module and its plugin-registry dependencies, which would
 create a circular import.
+
+Dialect validation is deliberately *not* performed here: different output
+sinks accept different dialects, so each sink is responsible for rejecting
+configurations it cannot use (see :class:`eleanor.output.postgres.PostgresSink`
+for the postgres-only example). Keeping :class:`DatabaseConfig` sink-agnostic
+lets non-postgres sinks consume it without inheriting postgres-specific
+restrictions.
 """
 from dataclasses import dataclass
 from typing import TypedDict, override

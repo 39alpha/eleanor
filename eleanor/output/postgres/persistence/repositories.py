@@ -35,26 +35,23 @@ def insert_order(config: DatabaseConfig, order: Order, verbose: bool = False) ->
     return model
 
 
-def write_point(
-    config: DatabaseConfig,
+def insert_point(
+    session: PostgresSession,
     order_id: int,
     point: core_vs.Point,
-    verbose: bool = False,
 ) -> models.VSPointModel:
+    """Insert ``point`` through an already-open session and return the refreshed model.
+
+    The session is supplied by the caller so a whole batch can share a single
+    engine/session pair; per-point error handling (rolling back on failure,
+    collecting :class:`~eleanor.output.interface.WriteOutcome` values, etc.)
+    stays at the sink layer where the batch loop lives.
+    """
     model = mappers.to_vs_point_model(point, order_id=order_id)
-    with PostgresSession(config, verbose=verbose) as session:
-        session.add(model)
-        session.commit()
-        session.refresh(model)
+    session.add(model)
+    session.commit()
+    session.refresh(model)
     return model
-
-
-def load_point(config: DatabaseConfig, point_id: int, verbose: bool = False) -> core_vs.Point | None:
-    with PostgresSession(config, verbose=verbose) as session:
-        model = session.get(models.VSPointModel, point_id)
-        if model is None:
-            return None
-        return mappers.from_vs_point_model(model)
 
 
 def get_scratch_entry(
@@ -62,10 +59,19 @@ def get_scratch_entry(
     variable_space_id: int,
     verbose: bool = False,
 ) -> ScratchEntry | None:
+    """Fetch a persisted scratch payload for a variable-space point.
+
+    Returns ``None`` when the variable-space point does not exist. Raises
+    :class:`LookupError` with ``'scratch'`` when the point exists but has no
+    scratch row, so CLI callers can distinguish the two cases and preserve
+    the historical error messages.
+    """
     with PostgresSession(config, verbose=verbose) as session:
         model = session.get(models.VSPointModel, variable_space_id)
-        if model is None or model.scratch is None or model.id is None:
+        if model is None or model.id is None:
             return None
+        if model.scratch is None:
+            raise LookupError('scratch')
         return ScratchEntry(
             variable_space_id=model.id,
             exit_code=model.exit_code,

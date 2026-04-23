@@ -48,7 +48,12 @@ def execute(parser: argparse.ArgumentParser, ns: argparse.Namespace) -> None:
         sys.exit(1)
 
     try:
-        result = load_scratch_entry(config.database, variable_space_id)
+        try:
+            result = load_scratch_entry(config.database, variable_space_id)
+        except LookupError as missing:
+            if str(missing) == 'scratch':
+                raise Exception('no scratch found for variable space point') from missing
+            raise
         if result is None:
             raise Exception(f'no variable space point found with id {variable_space_id}')
 

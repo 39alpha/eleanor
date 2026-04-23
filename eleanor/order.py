@@ -84,6 +84,20 @@ class SubordersRaw(TypedDict, total=False):
     orders: list[SuborderRaw]
 
 
+def _require_opt_int(value: object, field_name: str) -> int | None:
+    """Validate that ``value`` is an int or ``None`` at runtime.
+
+    Used at the boundary between untrusted raw-dict input (YAML/TOML/JSON)
+    and the typed dataclass-backed suborder/order model. Taking ``object``
+    here (rather than the TypedDict's narrower ``int | None``) is deliberate:
+    it forces the ``isinstance`` check to be meaningful even when the caller
+    reads a field whose ``TypedDict`` declaration promises the right type.
+    """
+    if value is not None and (isinstance(value, bool) or not isinstance(value, int)):
+        raise EleanorException(f'{field_name} must be an integer')
+    return value
+
+
 def _require_opt_str(value: object, field_name: str) -> str | None:
     """Validate that ``value`` is a string or ``None`` at runtime.
 
@@ -388,6 +402,8 @@ class Order(Suborder):
         self.raw = raw
         self.vs_points = [] if vs_points is None else vs_points
         self.create_date = datetime.now() if create_date is None else create_date
+        self.id = _require_opt_int(self.raw.get('id'), 'id')
+
         self.eleanor_version = None
 
         self.__post_init__()

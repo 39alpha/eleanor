@@ -74,6 +74,28 @@ class TestEleanor(TestCase):
         self.assertEqual(eleanor.order, "ord")
         self.assertEqual(eleanor.kernel_args, ["k"])
 
+    def test_init_applies_order_id_override(self):
+        """
+        Ensure the constructor assigns the supplied order_id onto the loaded order
+        and leaves the existing id untouched when order_id is omitted.
+        """
+        loaded = SimpleNamespace(id=None)
+        with (
+            mock.patch("eleanor.eleanor.load_config", return_value="cfg"),
+            mock.patch("eleanor.eleanor.load_order", return_value=loaded),
+        ):
+            eleanor = Eleanor("config.toml", "order.yaml", ["k"], order_id=55)
+        self.assertIs(eleanor.order, loaded)
+        self.assertEqual(eleanor.order.id, 55)
+
+        untouched = SimpleNamespace(id=7)
+        with (
+            mock.patch("eleanor.eleanor.load_config", return_value="cfg"),
+            mock.patch("eleanor.eleanor.load_order", return_value=untouched),
+        ):
+            eleanor = Eleanor("config.toml", "order.yaml", ["k"])
+        self.assertEqual(eleanor.order.id, 7)
+
     def test_recur_uses_runtime_class(self):
         """
         Ensure recur re-instantiates via the dynamic class of self.

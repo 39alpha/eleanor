@@ -17,6 +17,7 @@ class TestCLIRun(TestCase):
     def _namespace(self, **overrides):
         values = {
             'order': 'order.yaml',
+            'order_id': None,
             'kernel_args': None,
             'num_procs': None,
             'simulation_size': 10,
@@ -71,7 +72,7 @@ class TestCLIRun(TestCase):
         ):
             run_cli.execute(parser, ns)
 
-        eleanor_cls.assert_called_once_with(config, 'order.yaml', [])
+        eleanor_cls.assert_called_once_with(config, 'order.yaml', [], order_id=None)
         eleanor.run.assert_called_once_with(
             10,
             num_procs=3,
@@ -121,6 +122,42 @@ class TestCLIRun(TestCase):
             run_cli.execute(parser, ns)
 
         self.assertFalse(eleanor.run.call_args.kwargs['show_progress'])
+
+    def test_init_parses_order_id_flag(self):
+        """
+        Ensure --order-id/-i is parsed into the RunArgs namespace as an int,
+        and defaults to None when omitted.
+        """
+        parser = argparse.ArgumentParser()
+        with mock.patch("eleanor.cli.run.add_config_args"):
+            run_cli.init(parser)
+
+        ns_long = parser.parse_args(['--order-id', '42', 'order.yaml', '10'])
+        self.assertEqual(ns_long.order_id, 42)
+
+        ns_short = parser.parse_args(['--order-id', '7', 'order.yaml', '10'])
+        self.assertEqual(ns_short.order_id, 7)
+
+        ns_default = parser.parse_args(['order.yaml', '10'])
+        self.assertIsNone(ns_default.order_id)
+
+    def test_execute_forwards_order_id_to_eleanor(self):
+        """
+        Ensure execute forwards the parsed order_id to Eleanor as a keyword argument.
+        """
+        parser = argparse.ArgumentParser()
+        ns = self._namespace(order_id=321)
+        config = self._config()
+        eleanor = mock.Mock()
+        eleanor.run.return_value = [321]
+
+        with (
+            mock.patch("eleanor.cli.run.config_from_args", return_value=config),
+            mock.patch("eleanor.cli.run.Eleanor", return_value=eleanor) as eleanor_cls,
+        ):
+            run_cli.execute(parser, ns)
+
+        eleanor_cls.assert_called_once_with(config, 'order.yaml', [], order_id=321)
 
     def test_init_accepts_arbitrary_parallel_name(self):
         """

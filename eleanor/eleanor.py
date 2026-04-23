@@ -27,9 +27,17 @@ class Eleanor(object):
     order: Order
     kernel_args: list[object]
 
-    def __init__(self, config: str | Config, order: str | Order, kernel_args: list[object]):
+    def __init__(
+        self,
+        config: str | Config,
+        order: str | Order,
+        kernel_args: list[object],
+        order_id: int | None = None
+    ):
         self.config = load_config(config)
         self.order = load_order(order)
+        if order_id is not None:
+            self.order.id = order_id
         self.kernel_args = kernel_args
 
     def recur(self, config: str | Config, order: str | Order, kernel_args: list[object]) -> Self:

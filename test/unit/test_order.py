@@ -197,6 +197,20 @@ class TestOrder(TestCase):
         self.assertEqual(split[0].name, "child")
         self.assertEqual(split[0].temperature.value, 50.0)
 
+    def test_order_reads_id_from_raw(self):
+        """
+        Ensure Order.__post_init__ reads an optional numeric ``id`` from raw
+        and defaults to None when the field is absent.
+        """
+        order_with_id = Order({"id": 12, "name": "o", "creator": "u"})
+        self.assertEqual(order_with_id.id, 12)
+
+        order_without_id = Order({"name": "o", "creator": "u"})
+        self.assertIsNone(order_without_id.id)
+
+        with self.assertRaisesRegex(EleanorException, "id must be an integer"):
+            Order({"id": "not-an-int", "name": "o", "creator": "u"})
+
     def test_order_post_init_validation_and_kernel_branches(self):
         """
         Ensure order post-init validates metadata and handles kernel/navigator parsing branches.

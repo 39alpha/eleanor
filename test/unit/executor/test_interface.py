@@ -61,6 +61,17 @@ class TestExecutorInterface(TestCase):
             self.assertIs(active, executor)
         self.assertEqual(executor.shutdown_calls, 1)
 
+    def test_has_entered_tracks_context_manager_state(self):
+        """
+        Ensure has_entered() returns False before entering, True inside, and
+        False again after exiting the context manager.
+        """
+        executor = _Executor()
+        self.assertFalse(executor.has_entered())
+        with executor:
+            self.assertTrue(executor.has_entered())
+        self.assertFalse(executor.has_entered())
+
     def test_normalize_num_workers(self):
         """
         Ensure worker-count normalization preserves None and clamps non-positive values.

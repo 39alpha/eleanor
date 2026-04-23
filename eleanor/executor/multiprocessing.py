@@ -2,7 +2,7 @@ import os
 from collections.abc import Callable
 from multiprocessing import Pool
 from multiprocessing.pool import ApplyResult, Pool as PoolClass
-from typing import TypeVar, override
+from typing import Self, TypeVar, override
 
 from eleanor.exceptions import EleanorException
 
@@ -27,8 +27,13 @@ class MultiprocessingExecutor(AbstractExecutor):
     _num_workers: int
 
     def __init__(self, num_workers: int | None = None):
-        self._pool = Pool(processes=num_workers)
+        self._pool = None
         self._num_workers = num_workers if num_workers is not None else (os.cpu_count() or 1)
+
+    @override
+    def __enter__(self) -> Self:
+        self._pool = Pool(processes=self._num_workers)
+        return super().__enter__()
 
     @property
     @override

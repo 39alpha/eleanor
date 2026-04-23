@@ -238,26 +238,16 @@ class TestOrder(TestCase):
         self.assertEqual(order.id, 42)
         self.assertEqual(order.tag, "kwarg-tag")
 
-    def test_load_order_applies_overrides(self):
+    def test_load_order_returns_order_as_is(self):
         """
-        Ensure load_order applies order_id and tag overrides to an already-loaded
-        Order, and leaves existing values alone when the override is None.
+        Ensure load_order returns an already-loaded Order unchanged.
         """
         order = Order({"name": "o", "creator": "u", "tag": "raw-tag"})
-        order.id = 3
-
-        returned = load_order(order, order_id=99, tag="new-tag")
+        order.id = 7
+        returned = load_order(order)
         self.assertIs(returned, order)
-        self.assertEqual(order.id, 99)
-        self.assertEqual(order.tag, "new-tag")
-
-        # With both override kwargs None, the loaded order is returned unchanged.
-        other = Order({"name": "o", "creator": "u", "tag": "raw-tag"})
-        other.id = 7
-        returned_other = load_order(other)
-        self.assertIs(returned_other, other)
-        self.assertEqual(other.id, 7)
-        self.assertEqual(other.tag, "raw-tag")
+        self.assertEqual(order.id, 7)
+        self.assertEqual(order.tag, "raw-tag")
 
     def test_order_post_init_validation_and_kernel_branches(self):
         """

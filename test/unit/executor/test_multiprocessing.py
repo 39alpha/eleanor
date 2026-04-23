@@ -36,11 +36,19 @@ class TestMultiprocessingExecutor(TestCase):
         Ensure submit delegates to apply_async and returned futures resolve via result().
         """
         with mock.patch("eleanor.executor.multiprocessing.Pool", _Pool):
-            executor = MultiprocessingExecutor(num_workers=4)
-            future = executor.submit(lambda x, y: x + y, 5, 7)
+            with MultiprocessingExecutor(num_workers=4) as executor:
+                future = executor.submit(lambda x, y: x + y, 5, 7)
 
         self.assertEqual(executor.num_workers, 4)
         self.assertEqual(future.result(), 12)
+
+    def test_pool_is_none_before_enter(self):
+        """
+        Ensure __init__ does not create the pool; it is created only on __enter__.
+        """
+        executor = MultiprocessingExecutor(num_workers=2)
+        self.assertIsNone(executor._pool)
+        self.assertFalse(executor.has_entered())
 
     def test_shutdown_wait_true_closes_and_joins(self):
         """
@@ -48,6 +56,7 @@ class TestMultiprocessingExecutor(TestCase):
         """
         with mock.patch("eleanor.executor.multiprocessing.Pool", _Pool):
             executor = MultiprocessingExecutor(num_workers=2)
+            executor.__enter__()
 
         pool = executor._pool
         self.assertIsNotNone(pool)
@@ -62,6 +71,7 @@ class TestMultiprocessingExecutor(TestCase):
         """
         with mock.patch("eleanor.executor.multiprocessing.Pool", _Pool):
             executor = MultiprocessingExecutor(num_workers=2)
+            executor.__enter__()
 
         pool = executor._pool
         self.assertIsNotNone(pool)
@@ -76,6 +86,7 @@ class TestMultiprocessingExecutor(TestCase):
         """
         with mock.patch("eleanor.executor.multiprocessing.Pool", _Pool):
             executor = MultiprocessingExecutor(num_workers=2)
+            executor.__enter__()
         executor.shutdown(wait=True)
         with self.assertRaises(EleanorException):
             executor.submit(lambda x: x, 1)

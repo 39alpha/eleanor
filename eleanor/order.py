@@ -2,6 +2,7 @@ import json
 import operator
 import os.path
 import tomllib
+from collections.abc import Iterator
 from copy import deepcopy
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -226,6 +227,28 @@ class Suppression(object):
             raise EleanorException(f'suppression exceptions must be a list of strings')
 
         return Suppression(name, suppression_type, exceptions_raw)
+
+
+@dataclass(frozen=True)
+class LeafPlan(object):
+    """A fully-resolved leaf order paired with its dispatch metadata.
+
+    Produced by :meth:`Order.iter_leaves`. Each leaf plan carries enough
+    context for :class:`eleanor.eleanor.Eleanor` to dispatch the leaf
+    without walking the suborder tree itself.
+
+    :param order: the leaf :class:`Order` ready to be dispatched.
+    :param sample_fraction: the multiplier to apply to the caller's
+        ``simulation_size`` when this leaf is dispatched. ``1.0`` when
+        proportional sampling is not in effect for the leaf.
+    :param umbrella: the ancestor :class:`Order` under which this leaf
+        belongs for the ``combined`` flag (i.e. the topmost ancestor at
+        which ``combined`` first became sticky-True), or ``None`` if the
+        leaf is its own umbrella.
+    """
+    order: 'Order'
+    sample_fraction: float
+    umbrella: 'Order | None'
 
 
 @dataclass
@@ -527,6 +550,93 @@ class Order(Suborder):
 
         return orders
 
+    def iter_leaves(
+        self,
+        combined: bool = False,
+        proportional_sampling: bool = False,
+    ) -> Iterator[LeafPlan]:
+        """Walk the suborder tree, yielding one :class:`LeafPlan` per leaf.
+
+        A leaf is an order with no ``suborders`` block, or whose
+        ``suborders`` block is empty. When :paramref:`self` is itself a
+        leaf, a single :class:`LeafPlan` is yielded with
+        ``sample_fraction == 1.0`` and ``umbrella is None``.
+
+        Both :paramref:`combined` and :paramref:`proportional_sampling`
+        are sticky-on: once either the caller or a traversed node's
+        ``Suborders`` block sets one to ``True``, it remains ``True`` for
+        every descendant. This mirrors the semantics of the previous
+        recursive dispatch in :class:`eleanor.eleanor.Eleanor`, which
+        OR-ed these flags down the tree.
+
+        :param combined: whether leaves should be grouped under a shared
+            umbrella order. When ``True``, :paramref:`self` is the umbrella
+            for all yielded leaves. Otherwise, the first ``Suborders``
+            block encountered during the walk whose ``combined`` field is
+            ``True`` sets the umbrella to the node at that level. Leaves
+            outside any combined subtree carry ``umbrella=None``.
+        :param proportional_sampling: whether each leaf's sample share
+            should be scaled by ``leaf.volume() / prop_root.volume()``.
+            When ``True``, :paramref:`self` is the proportional root;
+            otherwise, the first ``Suborders`` block encountered during
+            the walk whose ``proportional_sampling`` field is ``True``
+            sets the root to the node at that level. When proportional
+            sampling is not in effect for a leaf, its
+            ``sample_fraction`` is ``1.0``.
+        """
+        # Stack entries describe one pending node to expand or yield:
+        # ``(order, combined_root, prop_root)``. ``combined_root`` and
+        # ``prop_root`` are the ancestors (or ``self``) at which the
+        # corresponding flag first became ``True``, or ``None`` if it
+        # hasn't yet.
+        initial_combined_root: Order | None = self if combined else None
+        initial_prop_root: Order | None = self if proportional_sampling else None
+
+        # Iterative DFS so nested suborders do not recurse in Python.
+        stack: list[tuple[Order, Order | None, Order | None]] = [
+            (self, initial_combined_root, initial_prop_root),
+        ]
+
+        while stack:
+            node, combined_root, prop_root = stack.pop()
+
+            suborders_block = node.suborders
+            has_children = (
+                suborders_block is not None
+                and len(suborders_block.suborders) != 0
+            )
+
+            if not has_children:
+                if prop_root is None:
+                    fraction = 1.0
+                else:
+                    denom = prop_root.volume()
+                    fraction = node.volume() / denom if denom != 0 else 0.0
+                yield LeafPlan(
+                    order=node,
+                    sample_fraction=fraction,
+                    umbrella=combined_root,
+                )
+                continue
+
+            # Promote sticky-on flags at this level, remembering the
+            # topmost ancestor that caused each to flip.
+            assert suborders_block is not None  # narrowed by ``has_children``
+            next_combined_root = combined_root
+            if next_combined_root is None and suborders_block.combined:
+                next_combined_root = node
+            next_prop_root = prop_root
+            if next_prop_root is None and suborders_block.proportional_sampling:
+                next_prop_root = node
+
+            # ``split_suborders`` returns fully-resolved child orders
+            # with grandchildren copied onto ``child.suborders`` so the
+            # next iteration keeps descending. Push in reverse so
+            # left-to-right tree order is preserved when popping.
+            children = node.split_suborders()
+            for child in reversed(children):
+                stack.append((child, next_combined_root, next_prop_root))
+
     @staticmethod
     def from_yaml(fname: str):
         with open(fname, 'rb') as handle:
@@ -575,19 +685,14 @@ class Order(Suborder):
             raise EleanorException(f'failed to parse "{fname}" as yaml, toml or json') from e
 
 
-def load_order(order: str | Order, order_id: int | None = None, tag: str | None = None) -> Order:
+def load_order(order: str | Order) -> Order:
     """Load and/or override an order.
 
     If the provided :paramref:`order` is a string, it is assumed to be a
     filename and the order is first loaded from disk.
 
-    If any of the keyword arguments are provided, they will override the
-    corresponding properties on the Order before it is returned.
+    If the provided :paramref:`order` is an Order, then this call is a no-op.
     """
     if isinstance(order, str):
         order = Order.from_file(order)
-    if order_id is not None:
-        order.id = order_id
-    if tag is not None:
-        order.tag = tag
     return order

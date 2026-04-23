@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterable, Iterator
 from types import TracebackType
-from typing import Generic, TypeVar
+from typing import Generic, Self, TypeVar
 
 T = TypeVar('T')
 
@@ -19,6 +19,11 @@ class AbstractExecutor(ABC):
     #: to ``False`` so callers know not to forward
     #: ``multiprocessing.Manager``-backed queues into workers.
     supports_worker_progress: bool = True
+
+    #: Tracks whether the executor has been entered via __enter__ and not yet
+    #: exited.  The base class sets and clears this flag; subclasses should
+    #: call super().__enter__() / super().__exit__() to keep it accurate.
+    _entered: bool = False
 
     @property
     @abstractmethod
@@ -40,7 +45,18 @@ class AbstractExecutor(ABC):
     @abstractmethod
     def shutdown(self, wait: bool = True) -> None: ...
 
-    def __enter__(self) -> "AbstractExecutor":
+    def has_entered(self) -> bool:
+        """Return ``True`` if the executor has been entered via :meth:`__enter__`
+        and not yet exited.
+
+        Eleanor uses this to decide whether to call :meth:`__enter__` and
+        :meth:`__exit__` on a caller-supplied executor: if the caller has
+        already entered it, Eleanor leaves the lifecycle to the caller.
+        """
+        return self._entered
+
+    def __enter__(self) -> Self:
+        self._entered = True
         return self
 
     def __exit__(
@@ -50,3 +66,4 @@ class AbstractExecutor(ABC):
         _traceback: TracebackType | None,
     ) -> None:
         self.shutdown(wait=True)
+        self._entered = False

@@ -99,7 +99,8 @@ Every extension point supports two non-packaged registration paths:
    ```python
    from eleanor import Eleanor
 
-   Eleanor(config, order, []).run(
+   Eleanor(config, []).run(
+       order,
        simulation_size,
        executor=MyExecutor(num_workers=4),
        navigator=my_navigator_instance,

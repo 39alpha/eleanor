@@ -9,6 +9,21 @@ from eleanor.executor import registry
 from .common import TestCase
 
 
+def _fake_eleanor(run_return=None):
+    """Build a ``MagicMock`` that behaves like ``Eleanor`` in a ``with`` block.
+
+    ``__enter__`` returns the mock itself so tests can make assertions
+    against the same object used both outside and inside the ``with`` block.
+    """
+    eleanor = mock.MagicMock()
+    eleanor.__enter__.return_value = eleanor
+    eleanor.__exit__.return_value = None
+    if run_return is None:
+        run_return = [1]
+    eleanor.run.return_value = run_return
+    return eleanor
+
+
 class TestCLIRun(TestCase):
     """
     Tests of the eleanor.cli.run module.
@@ -64,19 +79,20 @@ class TestCLIRun(TestCase):
         parser = argparse.ArgumentParser()
         ns = self._namespace(num_procs=3)
         config = self._config(backend='serial', chunks_per_worker=6)
-        eleanor = mock.Mock()
-        eleanor.run.return_value = [42]
+        eleanor = _fake_eleanor(run_return=[42])
+        fake_order = mock.Mock()
 
         with (
             mock.patch("eleanor.cli.run.config_from_args", return_value=config),
+            mock.patch("eleanor.cli.run.load_order", return_value=fake_order),
             mock.patch("eleanor.cli.run.Eleanor", return_value=eleanor) as eleanor_cls,
         ):
             run_cli.execute(parser, ns)
 
-        eleanor_cls.assert_called_once_with(config, 'order.yaml', [], order_id=None, tag=None)
+        eleanor_cls.assert_called_once_with(config, [], num_procs=3)
         eleanor.run.assert_called_once_with(
+            fake_order,
             10,
-            num_procs=3,
             scratch=False,
             show_progress=False,
             combined=False,
@@ -94,11 +110,12 @@ class TestCLIRun(TestCase):
         parser = argparse.ArgumentParser()
         ns = self._namespace(parallel='serial', chunks_per_worker=9)
         config = self._config(backend='multiprocessing', chunks_per_worker=2)
-        eleanor = mock.Mock()
-        eleanor.run.return_value = [7]
+        eleanor = _fake_eleanor(run_return=[7])
+        fake_order = mock.Mock()
 
         with (
             mock.patch("eleanor.cli.run.config_from_args", return_value=config),
+            mock.patch("eleanor.cli.run.load_order", return_value=fake_order),
             mock.patch("eleanor.cli.run.Eleanor", return_value=eleanor),
         ):
             run_cli.execute(parser, ns)
@@ -113,11 +130,12 @@ class TestCLIRun(TestCase):
         parser = argparse.ArgumentParser()
         ns = self._namespace(progress=True, verbose=True)
         config = self._config()
-        eleanor = mock.Mock()
-        eleanor.run.return_value = [1]
+        eleanor = _fake_eleanor()
+        fake_order = mock.Mock()
 
         with (
             mock.patch("eleanor.cli.run.config_from_args", return_value=config),
+            mock.patch("eleanor.cli.run.load_order", return_value=fake_order),
             mock.patch("eleanor.cli.run.Eleanor", return_value=eleanor),
         ):
             run_cli.execute(parser, ns)
@@ -157,41 +175,47 @@ class TestCLIRun(TestCase):
         ns_default = parser.parse_args(['order.yaml', '10'])
         self.assertIsNone(ns_default.tag)
 
-    def test_execute_forwards_order_id_to_eleanor(self):
+    def test_execute_applies_order_id_to_order_before_run(self):
         """
-        Ensure execute forwards the parsed order_id to Eleanor as a keyword argument.
+        Ensure execute sets order.id from --order-id on the loaded order before calling run().
         """
         parser = argparse.ArgumentParser()
         ns = self._namespace(order_id=321)
         config = self._config()
-        eleanor = mock.Mock()
-        eleanor.run.return_value = [321]
+        eleanor = _fake_eleanor(run_return=[321])
+        fake_order = mock.Mock()
 
         with (
             mock.patch("eleanor.cli.run.config_from_args", return_value=config),
+            mock.patch("eleanor.cli.run.load_order", return_value=fake_order),
             mock.patch("eleanor.cli.run.Eleanor", return_value=eleanor) as eleanor_cls,
         ):
             run_cli.execute(parser, ns)
 
-        eleanor_cls.assert_called_once_with(config, 'order.yaml', [], order_id=321, tag=None)
+        eleanor_cls.assert_called_once_with(config, [], num_procs=None)
+        self.assertEqual(fake_order.id, 321)
+        self.assertIs(eleanor.run.call_args.args[0], fake_order)
 
-    def test_execute_forwards_tag_to_eleanor(self):
+    def test_execute_applies_tag_to_order_before_run(self):
         """
-        Ensure execute forwards the parsed tag to Eleanor as a keyword argument.
+        Ensure execute sets order.tag from --tag on the loaded order before calling run().
         """
         parser = argparse.ArgumentParser()
         ns = self._namespace(tag='experiment-1')
         config = self._config()
-        eleanor = mock.Mock()
-        eleanor.run.return_value = [1]
+        eleanor = _fake_eleanor()
+        fake_order = mock.Mock()
 
         with (
             mock.patch("eleanor.cli.run.config_from_args", return_value=config),
+            mock.patch("eleanor.cli.run.load_order", return_value=fake_order),
             mock.patch("eleanor.cli.run.Eleanor", return_value=eleanor) as eleanor_cls,
         ):
             run_cli.execute(parser, ns)
 
-        eleanor_cls.assert_called_once_with(config, 'order.yaml', [], order_id=None, tag='experiment-1')
+        eleanor_cls.assert_called_once_with(config, [], num_procs=None)
+        self.assertEqual(fake_order.tag, 'experiment-1')
+        self.assertIs(eleanor.run.call_args.args[0], fake_order)
 
     def test_init_accepts_arbitrary_parallel_name(self):
         """
@@ -211,15 +235,16 @@ class TestCLIRun(TestCase):
         parser = argparse.ArgumentParser()
         ns = self._namespace(parallel='plugin')
         config = self._config(backend='multiprocessing', chunks_per_worker=1)
-        eleanor = mock.Mock()
-        eleanor.run.return_value = [99]
+        eleanor = _fake_eleanor(run_return=[99])
 
         saved_entries = dict(registry.registry._registry)
         saved_discovered = registry.registry._discovered
         registry.registry._registry['plugin'] = lambda _n: mock.Mock()
+        fake_order = mock.Mock()
         try:
             with (
                 mock.patch("eleanor.cli.run.config_from_args", return_value=config),
+                mock.patch("eleanor.cli.run.load_order", return_value=fake_order),
                 mock.patch("eleanor.cli.run.Eleanor", return_value=eleanor),
             ):
                 run_cli.execute(parser, ns)

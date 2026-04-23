@@ -5,6 +5,7 @@ from eleanor import Eleanor
 from eleanor.cli.util import ConfigArgs, add_config_args, config_from_args, typed_args
 from eleanor.exceptions import EleanorException
 from eleanor.executor import available_executors
+from eleanor.order import load_order
 
 
 class RunArgs(ConfigArgs):
@@ -110,18 +111,25 @@ def execute(parser: argparse.ArgumentParser, ns: argparse.Namespace) -> None:
         if chunks_per_worker is None:
             chunks_per_worker = config.parallel.chunks_per_worker
 
-        order_ids = Eleanor(config, args['order'], kernel_args, order_id=args['order_id'], tag=args['tag']).run(
-            args['simulation_size'],
-            num_procs=args['num_procs'],
-            scratch=args['scratch'],
-            show_progress=show_progress,
-            combined=args['combined'],
-            proportional_sampling=args['proportional'],
-            success_sampling=args['success_sampling'],
-            verbose=args['verbose'],
-            parallel=parallel,
-            chunks_per_worker=chunks_per_worker,
-        )
+        order = load_order(args['order'])
+        if args['order_id'] is not None:
+            order.id = args['order_id']
+        if args['tag'] is not None:
+            order.tag = args['tag']
+
+        with Eleanor(config, kernel_args, num_procs=args['num_procs']) as eleanor:
+            order_ids = eleanor.run(
+                order,
+                args['simulation_size'],
+                scratch=args['scratch'],
+                show_progress=show_progress,
+                combined=args['combined'],
+                proportional_sampling=args['proportional'],
+                success_sampling=args['success_sampling'],
+                verbose=args['verbose'],
+                parallel=parallel,
+                chunks_per_worker=chunks_per_worker,
+            )
 
         if args['verbose']:
             print("Orders created or extended:", order_ids)

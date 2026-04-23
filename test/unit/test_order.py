@@ -44,7 +44,7 @@ class TestOrder(TestCase):
         """
         Ensure transformer config parsing preserves short names and args.
         """
-        tf = TransformerConfig()
+        tf = TransformerConfig("transformer")
         self.assertEqual(tf.type, "transformer")
         self.assertEqual(tf.args, {})
 

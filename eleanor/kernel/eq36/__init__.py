@@ -1,33 +1,33 @@
-from eleanor.exceptions import EleanorException
+"""The built-in eq36 kernel plugin.
 
-from ..registry import KernelSpec, register_kernel
-from .kernel import Kernel
+Registration now lives in :mod:`eleanor.kernel` so every import path that
+reaches into the kernel package (``eleanor.order`` → ``eleanor.kernel.config``,
+``eleanor.eleanor`` → ``eleanor.kernel.registry``, and so on) drives the
+``eq36`` entry into the registry without anyone having to pre-import this
+subpackage for its side effects.
+
+The concrete :class:`Kernel` and :class:`Settings` classes are re-exported
+here for callers that want to talk to eq36 directly (tests, notebooks,
+documentation examples). :class:`Kernel` is loaded through :pep:`562`'s
+``__getattr__`` hook so that merely importing ``eleanor.kernel.eq36`` does
+not pay the cost of its heavy numpy / Fortran / ORM dependencies; they are
+only imported when the attribute is actually dereferenced (for example by
+:func:`eleanor.kernel._build_eq36` when the CLI asks the registry to build
+an eq36 kernel).
+"""
+from typing import TYPE_CHECKING
+
 from .settings import Settings
 
 __all__ = ['Kernel', 'Settings']
 
-
-def _settings_from_dict(raw: dict[str, object]) -> Settings:
-    return Settings.from_dict(raw)
-
-
-def _build(settings: object, *args: object) -> Kernel:
-    if not isinstance(settings, Settings):
-        raise EleanorException(
-            f'eq36 kernel requires eq36 Settings, got {type(settings).__name__}',
-        )
-    if not args:
-        raise EleanorException('eq36 kernel requires a data1_dir argument')
-    data1_dir, *rest = args
-    if not isinstance(data1_dir, str):
-        raise EleanorException(
-            f'eq36 kernel requires a string data1_dir, got {type(data1_dir).__name__}',
-        )
-    # ``rest`` contains any additional positional arguments supplied by the
-    # caller (e.g. extra CLI arguments passed via ``Eleanor.kernel_args``).
-    # They are forwarded to ``Kernel.__init__`` unvalidated; ``Kernel`` is
-    # responsible for rejecting unexpected arguments.
-    return Kernel(settings, data1_dir, *rest)
+if TYPE_CHECKING:
+    from .kernel import Kernel as Kernel
 
 
-register_kernel('eq36', KernelSpec(settings_from_dict=_settings_from_dict, build=_build))
+def __getattr__(name: str) -> object:
+    if name == 'Kernel':
+        from .kernel import Kernel  # noqa: PLC0415
+
+        return Kernel
+    raise AttributeError(f'module {__name__!r} has no attribute {name!r}')

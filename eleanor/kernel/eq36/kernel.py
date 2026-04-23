@@ -682,14 +682,14 @@ class Kernel(AbstractKernel):
     @staticmethod
     def _build_pure_solid(name: str, log_qk: float, affinity: float, log_moles: float | None, log_mass: float | None,
                           log_volume: float | None) -> es.PureSolid:
-        pure_solid = es.PureSolid()
-        pure_solid.name = name
-        pure_solid.log_qk = log_qk
-        pure_solid.affinity = affinity
-        pure_solid.log_moles = log_moles
-        pure_solid.log_mass = log_mass
-        pure_solid.log_volume = log_volume
-        return pure_solid
+        return es.PureSolid(
+            name=name,
+            log_qk=log_qk,
+            affinity=affinity,
+            log_moles=log_moles,
+            log_mass=log_mass,
+            log_volume=log_volume,
+        )
 
     @staticmethod
     def read_eq3_output(file: str | io.TextIOWrapper | None = None) -> es.Point:

@@ -162,8 +162,6 @@ class Boatswain(object):
                     case MineralReactant(name, _, log_moles, titration_rate):
                         mineral_reactants.append(
                             vs.MineralReactant(
-                                id=None,
-                                variable_space_id=None,
                                 name=name,
                                 log_moles=valuation[self.registry.id(log_moles)].value,
                                 titration_rate=valuation[self.registry.id(titration_rate)].value,
@@ -171,8 +169,6 @@ class Boatswain(object):
                     case AqueousReactant(name, _, log_moles, titration_rate):
                         aqueous_reactants.append(
                             vs.AqueousReactant(
-                                id=None,
-                                variable_space_id=None,
                                 name=name,
                                 log_moles=valuation[self.registry.id(log_moles)].value,
                                 titration_rate=valuation[self.registry.id(titration_rate)].value,
@@ -180,8 +176,6 @@ class Boatswain(object):
                     case GasReactant(name, _, log_moles, titration_rate):
                         gas_reactants.append(
                             vs.GasReactant(
-                                id=None,
-                                variable_space_id=None,
                                 name=name,
                                 log_moles=valuation[self.registry.id(log_moles)].value,
                                 titration_rate=valuation[self.registry.id(titration_rate)].value,
@@ -189,8 +183,6 @@ class Boatswain(object):
                     case ElementReactant(name, _, log_moles, titration_rate):
                         element_reactants.append(
                             vs.ElementReactant(
-                                id=None,
-                                variable_space_id=None,
                                 name=name,
                                 log_moles=valuation[self.registry.id(log_moles)].value,
                                 titration_rate=valuation[self.registry.id(titration_rate)].value,
@@ -198,8 +190,6 @@ class Boatswain(object):
                     case SpecialReactant(name, _, log_moles, titration_rate, composition):
                         special_reactants.append(
                             vs.SpecialReactant(
-                                id=None,
-                                variable_space_id=None,
                                 name=name,
                                 log_moles=valuation[self.registry.id(log_moles)].value,
                                 titration_rate=valuation[self.registry.id(titration_rate)].value,
@@ -210,8 +200,6 @@ class Boatswain(object):
                     case FixedGasReactant(name, _, log_moles, log_fugacity):
                         fixed_gas_reactants.append(
                             vs.FixedGasReactant(
-                                id=None,
-                                variable_space_id=None,
                                 name=name,
                                 log_moles=valuation[self.registry.id(log_moles)].value,
                                 log_fugacity=valuation[self.registry.id(log_fugacity)].value,
@@ -219,8 +207,6 @@ class Boatswain(object):
                     case SolidSolutionReactant(name, _, log_moles, titration_rate, end_members):
                         solid_solution_reactants.append(
                             vs.SolidSolutionReactant(
-                                id=None,
-                                variable_space_id=None,
                                 name=name,
                                 log_moles=valuation[self.registry.id(log_moles)].value,
                                 titration_rate=valuation[self.registry.id(titration_rate)].value,
@@ -236,8 +222,6 @@ class Boatswain(object):
 
                         glass_reactants.append(
                             vs.GlassReactant(
-                                id=None,
-                                variable_space_id=None,
                                 name=name,
                                 log_moles=log_moles,
                                 titration_rate=titration_rate,

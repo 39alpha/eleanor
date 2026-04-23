@@ -6,9 +6,10 @@ bundles two callables: one that parses a raw settings dict into the kernel's
 ``Settings`` object, and one that instantiates the kernel from those settings
 and any caller-supplied positional arguments.
 
-Built-in kernels register themselves via a one-time call to
-:func:`register_kernel` in their package's ``__init__`` (for example
-:mod:`eleanor.kernel.eq36`). Third-party kernels advertise themselves through
+Built-in kernels are registered by :mod:`eleanor.kernel` itself at package
+import time (see :mod:`eleanor.kernel.__init__`), using deferred imports so
+that merely importing the parent package does not drag in a built-in's heavy
+transitive dependencies. Third-party kernels advertise themselves through
 the ``eleanor.kernels`` entry-point group in their distribution metadata,
 e.g.::
 
@@ -105,10 +106,10 @@ def _coerce_to_spec(name: str, factory: object) -> KernelSpec:
 
 
 #: Canonical names of the kernels shipped inside the eleanor distribution.
-#: The actual :class:`KernelSpec` for each built-in is registered by the
-#: corresponding package's ``__init__`` (see :mod:`eleanor.kernel.eq36`); the
-#: names are hard-coded here so overrides can be rejected even before the
-#: built-in packages have been imported.
+#: The actual :class:`KernelSpec` for each built-in is registered by
+#: :mod:`eleanor.kernel` at package import time; the names are hard-coded
+#: here so overrides can be rejected even before ``eleanor.kernel`` has been
+#: fully initialized.
 BUILTIN_KERNELS: frozenset[str] = frozenset({'eq36'})
 
 #: The shared :class:`PluginRegistry` instance backing this module's helpers.

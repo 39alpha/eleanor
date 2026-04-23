@@ -1,136 +1,50 @@
-import math
-from dataclasses import field
+from dataclasses import dataclass, field
 from datetime import datetime
 from typing import final
 
-from sqlalchemy import Column, DateTime, Double, ForeignKey, Integer, String, Table
-from sqlalchemy.orm import relationship
-from sqlalchemy.sql.schema import SchemaItem
-
-from .typing import Callable, ClassVar, cast
-from .yeoman import JSONDict, yeoman_registry
-Column = cast(Callable[..., SchemaItem], Column)
-
 
 @final
-@yeoman_registry.mapped_as_dataclass
+@dataclass
 class Element(object):
-    __table__ = Table(
-        'equilibrium_elements',
-        yeoman_registry.metadata,
-        Column('id', Integer, primary_key=True),
-        Column('equilibrium_space_id', Integer, ForeignKey('equilibrium_space.id', ondelete="CASCADE"), nullable=False),
-        Column('name', String, nullable=False),
-        Column('log_molality', Double, nullable=False),
-        Column('mass_fraction', Double, nullable=False),
-    )
-
     name: str
     log_molality: float
     mass_fraction: float
-    equilibrium_space_id: int | None = None
-    id: int | None = None
 
 
 @final
-@yeoman_registry.mapped_as_dataclass
+@dataclass
 class AqueousSpecies(object):
-    __table__ = Table(
-        'equilibrium_aqueous_species',
-        yeoman_registry.metadata,
-        Column('id', Integer, primary_key=True),
-        Column('equilibrium_space_id', Integer, ForeignKey('equilibrium_space.id', ondelete="CASCADE"), nullable=False),
-        Column('name', String, nullable=False),
-        Column('log_molality', Double, nullable=False),
-        Column('log_activity', Double, nullable=False),
-        Column('log_gamma', Double, nullable=False),
-    )
-
     name: str
     log_molality: float
     log_activity: float
     log_gamma: float
-    equilibrium_space_id: int | None = None
-    id: int | None = None
 
 
 @final
-@yeoman_registry.mapped_as_dataclass(init=False)
+@dataclass
 class PureSolid(object):
-    __table__ = Table(
-        'equilibrium_pure_solids',
-        yeoman_registry.metadata,
-        Column('id', Integer, primary_key=True),
-        Column('equilibrium_space_id', Integer, ForeignKey('equilibrium_space.id', ondelete="CASCADE"), nullable=False),
-        Column('name', String, nullable=False),
-        Column('log_qk', Double, nullable=False),
-        Column('affinity', Double, nullable=False),
-        Column('log_moles', Double, nullable=False, default=-math.inf),
-        Column('log_mass', Double, nullable=False, default=-math.inf),
-        Column('log_volume', Double, nullable=False, default=-math.inf),
-    )
-
     name: str
     log_qk: float
     affinity: float
     log_moles: float | None = None
     log_mass: float | None = None
     log_volume: float | None = None
-    equilibrium_space_id: int | None = None
-    id: int | None = None
 
 
 @final
-@yeoman_registry.mapped_as_dataclass
+@dataclass
 class EndMember(object):
-    __table__ = Table(
-        'equilibrium_end_members',
-        yeoman_registry.metadata,
-        Column('id', Integer, primary_key=True),
-        Column('equilibrium_solid_solution_id',
-               Integer,
-               ForeignKey('equilibrium_solid_solutions.id', ondelete="CASCADE"),
-               nullable=False),
-        Column('name', String, nullable=False),
-        Column('log_qk', Double, nullable=False),
-        Column('affinity', Double, nullable=False),
-        Column('log_moles', Double, nullable=False, default=-math.inf),
-        Column('log_mass', Double, nullable=False, default=-math.inf),
-        Column('log_volume', Double, nullable=False, default=-math.inf),
-    )
-
     name: str
     log_qk: float
     affinity: float
     log_moles: float | None = None
     log_mass: float | None = None
     log_volume: float | None = None
-    equilibrium_space_id: int | None = None
-    id: int | None = None
 
 
 @final
-@yeoman_registry.mapped_as_dataclass
+@dataclass
 class SolidSolution(object):
-    __table__ = Table(
-        'equilibrium_solid_solutions',
-        yeoman_registry.metadata,
-        Column('id', Integer, primary_key=True),
-        Column('equilibrium_space_id', Integer, ForeignKey('equilibrium_space.id', ondelete="CASCADE"), nullable=False),
-        Column('name', String, nullable=False),
-        Column('log_qk', Double, nullable=False),
-        Column('affinity', Double, nullable=False),
-        Column('log_moles', Double, nullable=False, default=-math.inf),
-        Column('log_mass', Double, nullable=False, default=-math.inf),
-        Column('log_volume', Double, nullable=False, default=-math.inf),
-    )
-
-    __mapper_args__: ClassVar[dict[str, object]] = {
-        'properties': {
-            'end_members': relationship(EndMember, cascade="all, delete"),
-        }
-    }
-
     name: str
     log_qk: float
     affinity: float
@@ -138,45 +52,18 @@ class SolidSolution(object):
     log_moles: float | None = None
     log_mass: float | None = None
     log_volume: float | None = None
-    equilibrium_space_id: int | None = None
-    id: int | None = None
 
 
 @final
-@yeoman_registry.mapped_as_dataclass
+@dataclass
 class Gas(object):
-    __table__ = Table(
-        'equilibrium_gases',
-        yeoman_registry.metadata,
-        Column('id', Integer, primary_key=True),
-        Column('equilibrium_space_id', Integer, ForeignKey('equilibrium_space.id', ondelete="CASCADE"), nullable=False),
-        Column('name', String, nullable=False),
-        Column('log_fugacity', Double, nullable=False),
-    )
-
     name: str
     log_fugacity: float
-    equilibrium_space_id: int | None = None
-    id: int | None = None
 
 
 @final
-@yeoman_registry.mapped_as_dataclass
+@dataclass
 class Reactant(object):
-    __table__ = Table(
-        'equilibrium_reactants',
-        yeoman_registry.metadata,
-        Column('id', Integer, primary_key=True),
-        Column('equilibrium_space_id', Integer, ForeignKey('equilibrium_space.id', ondelete="CASCADE"), nullable=False),
-        Column('name', String, nullable=False),
-        Column('affinity', Double, nullable=False),
-        Column('relative_rate', Double, nullable=False),
-        Column('log_moles_reacted', Double, nullable=False),
-        Column('log_moles_remaining', Double, nullable=False),
-        Column('log_mass_reacted', Double, nullable=False),
-        Column('log_mass_remaining', Double, nullable=False),
-    )
-
     name: str
     affinity: float
     relative_rate: float
@@ -184,106 +71,21 @@ class Reactant(object):
     log_moles_remaining: float
     log_mass_reacted: float
     log_mass_remaining: float
-    equilibrium_space_id: int | None = None
-    id: int | None = None
 
 
 @final
-@yeoman_registry.mapped_as_dataclass
+@dataclass
 class RedoxReaction(object):
-    __table__ = Table(
-        'equilibrium_redox_reactions',
-        yeoman_registry.metadata,
-        Column('id', Integer, primary_key=True),
-        Column('equilibrium_space_id', Integer, ForeignKey('equilibrium_space.id', ondelete="CASCADE"), nullable=False),
-        Column('couple', String, nullable=False),
-        Column('Eh', Double, nullable=False),
-        Column('pe', Double, nullable=False),
-        Column('log_fO2', Double, nullable=False),
-        Column('Ah', Double, nullable=False),
-    )
-
     couple: str
     Eh: float
     pe: float
     log_fO2: float
     Ah: float
-    equilibrium_space_id: int | None = None
-    id: int | None = None
 
 
 @final
-@yeoman_registry.mapped_as_dataclass(kw_only=True)
+@dataclass(kw_only=True)
 class Point(object):
-    __table__ = Table(
-        'equilibrium_space',
-        yeoman_registry.metadata,
-        Column('id', Integer, primary_key=True),
-        Column('variable_space_id', Integer, ForeignKey('variable_space.id', ondelete="CASCADE")),
-        Column('stage', String, nullable=False),
-        Column('log_xi', Double),
-        Column('temperature', Double, nullable=False),
-        Column('pressure', Double, nullable=False),
-        Column('pH', Double, nullable=False),
-        Column('log_fO2', Double, nullable=False),
-        Column('log_activity_water', Double, nullable=False),
-        Column('mole_fraction_water', Double, nullable=False),
-        Column('log_gamma_water', Double, nullable=False),
-        Column('Eh', Double, nullable=False),
-        Column('pe', Double, nullable=False),
-        Column('Ah', Double, nullable=False),
-        Column('pcH', Double),
-        Column('pHCl', Double),
-        Column('log_ionic_strength', Double, nullable=False),
-        Column('log_stoichiometric_ionic_strength', Double, nullable=False),
-        Column('log_ionic_asymmetry', Double, nullable=False),
-        Column('log_stoichiometric_ionic_asymmetry', Double, nullable=False),
-        Column('osmotic_coefficient', Double, nullable=False),
-        Column('stoichiometric_osmotic_coefficient', Double, nullable=False),
-        Column('log_sum_molalities', Double, nullable=False),
-        Column('log_sum_stoichiometric_molalities', Double, nullable=False),
-        Column('charge_imbalance', Double, nullable=False),
-        Column('expected_charge_imbalance', Double),
-        Column('sigma', Double),
-        Column('charge_discrepancy', Double),
-        Column('anions', Double),
-        Column('cations', Double),
-        Column('total_charge', Double),
-        Column('mean_charge', Double),
-        Column('solute_mass', Double, nullable=False),
-        Column('solvent_mass', Double, nullable=False),
-        Column('solution_mass', Double, nullable=False),
-        Column('solution_volume', Double),
-        Column('tds', Double, nullable=False),
-        Column('solute_fraction', Double, nullable=False),
-        Column('solvent_fraction', Double, nullable=False),
-        Column('extended_alkalinity', Double),
-        Column('overall_affinity', Double),
-        Column('reactant_mass_reacted', Double),
-        Column('reactant_mass_remaining', Double),
-        Column('solid_mass_change', Double),
-        Column('solid_mass_created', Double),
-        Column('solid_mass_destroyed', Double),
-        Column('solid_volume_change', Double),
-        Column('solid_volume_created', Double),
-        Column('solid_volume_destroyed', Double),
-        Column('start_date', DateTime, nullable=False),
-        Column('complete_date', DateTime, nullable=False),
-        Column('custom_properties', JSONDict, nullable=False),
-    )
-
-    __mapper_args__: ClassVar[dict[str, object]] = {
-        'properties': {
-            'elements': relationship(Element, cascade="all, delete"),
-            'aqueous_species': relationship(AqueousSpecies, cascade="all, delete"),
-            'pure_solids': relationship(PureSolid, cascade="all, delete"),
-            'solid_solutions': relationship(SolidSolution, cascade="all, delete"),
-            'gases': relationship(Gas, cascade="all, delete"),
-            'reactants': relationship(Reactant, cascade="all, delete"),
-            'redox_reactions': relationship(RedoxReaction, cascade="all, delete"),
-        }
-    }
-
     stage: str
     temperature: float
     pressure: float
@@ -310,14 +112,12 @@ class Point(object):
     tds: float
     solute_fraction: float
     solvent_fraction: float
-
     elements: list[Element]
     aqueous_species: list[AqueousSpecies]
     pure_solids: list[PureSolid]
     solid_solutions: list[SolidSolution]
     gases: list[Gas]
     redox_reactions: list[RedoxReaction]
-
     log_xi: float | None = None
     pcH: float | None = None
     pHCl: float | None = None
@@ -339,12 +139,7 @@ class Point(object):
     solid_volume_change: float | None = None
     solid_volume_created: float | None = None
     solid_volume_destroyed: float | None = None
-
-    reactants: list[Reactant] = field(default_factory=lambda: cast(list[Reactant], []))
-
-    id: int | None = None
-    variable_space_id: int | None = None
+    reactants: list[Reactant] = field(default_factory=list)
     start_date: datetime | None = None
     complete_date: datetime | None = None
-
-    custom_properties: dict[str, object] = field(default_factory=lambda: cast(dict[str, object], {}))
+    custom_properties: dict[str, object] = field(default_factory=dict)

@@ -8,19 +8,21 @@ from sqlalchemy.orm import Session
 
 from eleanor.config import DatabaseConfig
 from eleanor.exceptions import EleanorException
-from eleanor.yeoman import Binary, JSONDict, Yeoman, yeoman_registry
+from eleanor.output.postgres.persistence import repositories
+from eleanor.output.postgres.persistence.session import PostgresSession
+from eleanor.output.postgres.persistence.types import Binary, JSONDict
 
-from .common import TestCase
+from ..common import TestCase
 
 
-class TestYeoman(TestCase):
+class TestPostgresPersistence(TestCase):
     """
-    Tests of the eleanor.yeoman module.
+    Tests of the sink-owned Postgres persistence modules.
     """
 
     def test_jsondict_load_dialect_impl(self):
         """
-        Ensure that :class:`JSONDict` chooses JSONB for postgresql and JSON otherwise.
+        Ensure JSONDict chooses JSONB for postgresql and JSON otherwise.
         """
         typ = JSONDict()
 
@@ -32,7 +34,7 @@ class TestYeoman(TestCase):
 
     def test_jsondict_process_bind_param(self):
         """
-        Ensure that :class:`JSONDict` serializes dict/dataclass values and rejects invalid types.
+        Ensure JSONDict serializes dict/dataclass values and rejects invalid types.
         """
 
         @dataclass
@@ -51,7 +53,7 @@ class TestYeoman(TestCase):
 
     def test_binary_load_dialect_impl(self):
         """
-        Ensure that :class:`Binary` chooses BYTEA for postgresql and BLOB otherwise.
+        Ensure Binary chooses BYTEA for postgresql and BLOB otherwise.
         """
         typ = Binary()
 
@@ -61,35 +63,35 @@ class TestYeoman(TestCase):
         self.assertEqual(typ.load_dialect_impl(pg), ('pg', BYTEA))
         self.assertEqual(typ.load_dialect_impl(other), ('other', BLOB))
 
-    def test_yeoman_init(self):
+    def test_postgres_session_init(self):
         """
-        Ensure that :class:`Yeoman` builds an engine and initializes :class:`Session` with it.
+        Ensure PostgresSession builds an engine and initializes Session with it.
         """
         engine = mock.Mock()
         cfg = DatabaseConfig(database='main', username='alice', password='secret')
 
         with (
-            mock.patch('eleanor.yeoman.create_engine', return_value=engine) as create_engine_mock,
+            mock.patch('eleanor.output.postgres.persistence.session.create_engine', return_value=engine) as create_engine_mock,
             mock.patch.object(Session, '__init__', return_value=None) as session_init_mock,
         ):
-            session = Yeoman(cfg, verbose=True)
+            session = PostgresSession(cfg, verbose=True)
 
         create_engine_mock.assert_called_once_with(str(cfg), echo=True)
         session_init_mock.assert_called_once_with(engine)
         self.assertIs(session.engine, engine)
 
-    def test_yeoman_init_with_sslmode(self):
+    def test_postgres_session_init_with_sslmode(self):
         """
-        Ensure that :class:`Yeoman` forwards sslmode via connect_args when configured.
+        Ensure PostgresSession forwards sslmode via connect_args when configured.
         """
         engine = mock.Mock()
         cfg = DatabaseConfig(database='main', username='alice', password='secret', sslmode='verify-full')
 
         with (
-            mock.patch('eleanor.yeoman.create_engine', return_value=engine) as create_engine_mock,
+            mock.patch('eleanor.output.postgres.persistence.session.create_engine', return_value=engine) as create_engine_mock,
             mock.patch.object(Session, '__init__', return_value=None) as session_init_mock,
         ):
-            session = Yeoman(cfg)
+            session = PostgresSession(cfg)
 
         create_engine_mock.assert_called_once_with(
             str(cfg),
@@ -99,63 +101,37 @@ class TestYeoman(TestCase):
         session_init_mock.assert_called_once_with(engine)
         self.assertIs(session.engine, engine)
 
-    def test_yeoman_exit_disposes_engine(self):
+    def test_postgres_session_exit_disposes_engine(self):
         """
-        Ensure that :meth:`Yeoman.__exit__` delegates to Session and disposes the engine.
+        Ensure PostgresSession.__exit__ delegates to Session and disposes the engine.
         """
-        session = object.__new__(Yeoman)
+        session = object.__new__(PostgresSession)
         session.engine = mock.Mock()
 
         with mock.patch.object(Session, '__exit__', return_value=None) as session_exit_mock:
-            Yeoman.__exit__(session, None, None, None)
+            PostgresSession.__exit__(session, None, None, None)
 
         session_exit_mock.assert_called_once_with(None, None, None)
         session.engine.dispose.assert_called_once_with()
 
-    def test_yeoman_setup(self):
+    def test_setup_schema_creates_all_tables(self):
         """
-        Ensure that :meth:`Yeoman.setup` creates all mapped tables on the session engine.
+        Ensure setup_schema calls metadata.create_all against the session engine.
         """
-        session = object.__new__(Yeoman)
-        session.engine = mock.Mock()
-
-        with mock.patch.object(yeoman_registry.metadata, 'create_all') as create_all_mock:
-            session.setup()
-
-        create_all_mock.assert_called_once_with(session.engine)
-
-    def test_yeoman_write_without_refresh(self):
-        """
-        Ensure that :meth:`Yeoman.write` adds and commits entities without refreshing by default.
-        """
-        session = object.__new__(Yeoman)
-        entity = object()
-        manager = mock.Mock()
+        cfg = DatabaseConfig(database='main', username='alice', password='secret')
+        engine = mock.Mock()
+        metadata = mock.Mock()
+        session = mock.MagicMock()
+        session.__enter__.return_value = SimpleNamespace(engine=engine)
+        session.__exit__.return_value = None
 
         with (
-            mock.patch.object(Yeoman, '__enter__', return_value=manager),
-            mock.patch.object(Yeoman, '__exit__', return_value=None),
+            mock.patch('eleanor.output.postgres.persistence.repositories.PostgresSession', return_value=session),
+            mock.patch(
+                'eleanor.output.postgres.persistence.repositories.postgres_registry',
+                new=SimpleNamespace(metadata=metadata),
+            ),
         ):
-            session.write(entity, refresh=False)
+            repositories.setup_schema(cfg, verbose=True)
 
-        manager.add.assert_called_once_with(entity)
-        manager.commit.assert_called_once_with()
-        manager.refresh.assert_not_called()
-
-    def test_yeoman_write_with_refresh(self):
-        """
-        Ensure that :meth:`Yeoman.write` refreshes entities when requested.
-        """
-        session = object.__new__(Yeoman)
-        entity = object()
-        manager = mock.Mock()
-
-        with (
-            mock.patch.object(Yeoman, '__enter__', return_value=manager),
-            mock.patch.object(Yeoman, '__exit__', return_value=None),
-        ):
-            session.write(entity, refresh=True)
-
-        manager.add.assert_called_once_with(entity)
-        manager.commit.assert_called_once_with()
-        manager.refresh.assert_called_once_with(entity)
+        metadata.create_all.assert_called_once_with(engine)

@@ -1,11 +1,8 @@
 from dataclasses import dataclass
 
-from sqlalchemy import Column, ForeignKey, Integer, String, Table
-
 from ..exceptions import EleanorException
 from ..parameters import Parameter
 from ..typing import cast
-from ..yeoman import JSONDict, yeoman_registry
 
 
 @dataclass
@@ -16,68 +13,56 @@ class Settings(object):
         return []
 
 
-@yeoman_registry.mapped_as_dataclass(kw_only=True)
-class Config(object):
-    """ORM-mapped kernel configuration row.
+def resolve_settings(kernel_type: str, payload: dict[str, object]) -> Settings:
+    """Look up ``kernel_type`` in the kernel registry and rehydrate ``payload``
+    into the plugin's concrete :class:`Settings` subclass.
 
-    .. warning::
-        The ``settings`` attribute is an internal ORM column field.  After a
-        database round-trip SQLAlchemy rehydrates it as a raw ``dict``; it is
-        **not safe to read ``settings`` directly**.  Always use
-        :meth:`resolved_settings` as the sole public entry point for
-        accessing the typed :class:`Settings` value.
+    This is the single entry point both the order parser
+    (:func:`eleanor.order.load_kernel_settings`) and the postgres persistence
+    mapper use when turning a raw ``(type, dict)`` pair into a typed
+    :class:`Settings` instance, so error messages and validation stay in lock
+    step between the two paths.
+
+    The registry is imported lazily so this leaf config module does not pull
+    the plugin subsystem into callers that only need the :class:`Config` /
+    :class:`Settings` dataclass types.
     """
+    from .registry import get_factory  # noqa: PLC0415
 
-    __table__: Table = Table(
-        'kernel',
-        yeoman_registry.metadata,
-        Column('id', Integer, ForeignKey('variable_space.id', ondelete="CASCADE"), primary_key=True),
-        Column('type', String, nullable=False),
-        Column('settings', JSONDict, nullable=False),
-    )
+    spec = get_factory(kernel_type)
+    settings = spec.settings_from_dict(payload)
+    if not isinstance(settings, Settings):
+        raise EleanorException(
+            f'kernel plugin "{kernel_type}" returned '
+            + f'{type(settings).__name__}, expected a Settings instance',
+        )
+    return settings
 
+@dataclass(kw_only=True)
+class Config(object):
     type: str
-    # SQLAlchemy interprets this annotation to choose the mapped column type,
-    # so it must name a single concrete class. At runtime the attribute may
-    # briefly hold a ``dict`` (the form SQLAlchemy rehydrates out of the
-    # ``JSONDict`` column); :meth:`resolved_settings` is the only safe entry
-    # point for reading it and narrows the raw form via the kernel registry.
     settings: Settings
-    id: int | None = None
 
     def resolved_settings(self) -> Settings:
-        """Return ``self.settings`` as a fully-typed :class:`Settings` instance.
+        """Return the typed :class:`Settings` value.
 
-        If the field is still a raw mapping (the shape SQLAlchemy rehydrates
-        from the ``JSONDict`` column), dispatch through the kernel registry to
-        produce the correct concrete ``Settings`` subclass and cache it in
-        place. The registry is imported lazily to avoid pulling the plugin
-        subsystem into this leaf config module.
+        This remains a trivial typed helper so callers don't have to care that
+        the persistence layer is the only thing that ever produces a
+        :class:`Config`. It also defensively validates the runtime type so a
+        mis-constructed instance (e.g. a test fixture that bypasses the type
+        system via ``# type: ignore[assignment]``) still produces a legible
+        error instead of silently behaving like a :class:`Settings`.
 
-        The ``settings`` attribute is statically typed as :class:`Settings`
-        to satisfy SQLAlchemy's Mapped-column inference, but the JSONDict
-        column deserializer hands us a raw ``dict`` until this method caches
-        the parsed form. :func:`object.__getattribute__` retrieves the value
-        untyped so the isinstance guards below are meaningful to pyright.
+        The read is widened to :class:`object` so the ``isinstance`` guard
+        survives basedpyright's narrow-by-annotation analysis
+        (``reportUnnecessaryIsInstance``) without being dropped as dead code.
         """
-        raw = cast(object, object.__getattribute__(self, 'settings'))
-        if isinstance(raw, Settings):
-            return raw
-        if not isinstance(raw, dict):
+        raw = cast(object, self.settings)
+        if not isinstance(raw, Settings):
             raise EleanorException(
                 f'kernel.settings has unexpected type {type(raw).__name__}',
             )
-        from .registry import get_factory
-
-        spec = get_factory(self.type)
-        settings = spec.settings_from_dict(cast(dict[str, object], raw))
-        if not isinstance(settings, Settings):
-            raise EleanorException(
-                f'kernel plugin "{self.type}" returned '
-                + f'{type(settings).__name__}, expected a Settings instance',
-            )
-        self.settings = settings
-        return settings
+        return raw
 
     def parameters(self) -> list[Parameter]:
         return self.resolved_settings().parameters()

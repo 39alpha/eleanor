@@ -3,7 +3,7 @@ from types import SimpleNamespace
 from unittest import mock
 
 from eleanor.config import DatabaseConfig
-from eleanor.exceptions import EleanorException
+from eleanor.exceptions import EleanorConfigurationException, EleanorException
 from eleanor.order import Order
 from eleanor.output import ComputeResult, ErrorInfo, OutputSink, PostgresSink, RunStats, WriteOutcome
 
@@ -23,7 +23,7 @@ class TestOutput(TestCase):
         outcomes = [
             WriteOutcome(point_id=10, exit_code=0, committed=True),
             WriteOutcome(point_id=11, exit_code=1, committed=True),
-            WriteOutcome(point_id=None, exit_code=0, committed=False, error_message="x"),
+            WriteOutcome(point_id=None, exit_code=0, committed=False, error_message='x'),
         ]
         stats.update(outcomes)
         self.assertEqual(stats.attempted, 3)
@@ -80,7 +80,7 @@ class TestOutput(TestCase):
         """
         Ensure PostgresSink opts in to worker-side writes.
         """
-        cfg = DatabaseConfig(database="db", username="u", password="p")
+        cfg = DatabaseConfig(database='db', username='u', password='p')
         sink = PostgresSink(cfg)
         self.assertTrue(sink.supports_worker_writes())
 
@@ -88,145 +88,118 @@ class TestOutput(TestCase):
         """
         Ensure PostgresSink opts in to per-row output progress reporting.
         """
-        cfg = DatabaseConfig(database="db", username="u", password="p")
+        cfg = DatabaseConfig(database='db', username='u', password='p')
         sink = PostgresSink(cfg)
         self.assertTrue(sink.supports_progress())
 
+    def test_postgres_sink_rejects_non_postgres_dialect(self):
+        """
+        Ensure sink-specific dialect validation rejects non-postgresql configs.
+        """
+        cfg = DatabaseConfig(dialect='sqlite', database='db', username='u', password='p')
+        with self.assertRaises(EleanorConfigurationException):
+            _ = PostgresSink(cfg)
+
     def test_postgres_begin_run_returns_existing_order_id(self):
         """
-        Ensure PostgresSink.begin_run returns the existing order.id without
-        writing when the order is already persisted, and copies the stored
-        eleanor_version onto the in-memory order when it is unset.
+        Ensure begin_run returns existing order.id and copies stored eleanor_version when unset.
         """
-        cfg = DatabaseConfig(database="db", username="u", password="p")
+        cfg = DatabaseConfig(database='db', username='u', password='p')
         sink = PostgresSink(cfg)
 
         order = SimpleNamespace(id=17, eleanor_version=None)
-        existing = SimpleNamespace(id=17, eleanor_version="v1")
+        existing = SimpleNamespace(id=17, eleanor_version='v1')
 
-        class FakeYeoman:
-            def __init__(self, *_args, **_kwargs): pass
-            def __enter__(self): return self
-            def __exit__(self, *_args): return None
-            def setup(self): pass
-            def get(self, _entity, _ident): return existing
-            def write(self, _point, **_kwargs):
-                raise AssertionError("write should not be called when the order is already persisted")
-
-        with mock.patch("eleanor.output.postgres.Yeoman", FakeYeoman):
+        with (
+            mock.patch('eleanor.output.postgres.sink.repositories.setup_schema') as setup_schema,
+            mock.patch('eleanor.output.postgres.sink.repositories.get_order', return_value=existing) as get_order,
+            mock.patch('eleanor.output.postgres.sink.repositories.insert_order') as insert_order,
+        ):
             order_id = sink.begin_run(order)  # type: ignore[arg-type]
 
         self.assertEqual(order_id, 17)
-        self.assertEqual(order.eleanor_version, "v1")
+        self.assertEqual(order.eleanor_version, 'v1')
+        setup_schema.assert_called_once_with(cfg, verbose=False)
+        get_order.assert_called_once_with(cfg, 17, verbose=False)
+        insert_order.assert_not_called()
 
     def test_postgres_begin_run_writes_order_with_preassigned_id(self):
         """
-        Ensure PostgresSink.begin_run inserts an order when order.id is
-        supplied but no matching row exists, preserving the caller-chosen id
-        and stamping the current Eleanor version.
+        Ensure begin_run inserts a caller-preassigned id when no matching row exists.
         """
-        cfg = DatabaseConfig(database="db", username="u", password="p")
+        cfg = DatabaseConfig(database='db', username='u', password='p')
         sink = PostgresSink(cfg)
 
         order = SimpleNamespace(id=99, eleanor_version=None)
-        write_calls: list[tuple[object, dict[str, object]]] = []
 
-        class FakeYeoman:
-            def __init__(self, *_args, **_kwargs): pass
-            def __enter__(self): return self
-            def __exit__(self, *_args): return None
-            def setup(self): pass
-            def get(self, _entity, _ident): return None  # no matching row
-            def write(self, entity, **kwargs):
-                write_calls.append((entity, kwargs))
-
-        with mock.patch("eleanor.output.postgres.Yeoman", FakeYeoman):
+        with (
+            mock.patch('eleanor.output.postgres.sink.repositories.setup_schema'),
+            mock.patch('eleanor.output.postgres.sink.repositories.get_order', return_value=None),
+            mock.patch(
+                'eleanor.output.postgres.sink.repositories.insert_order',
+                return_value=SimpleNamespace(id=99),
+            ) as insert_order,
+        ):
             order_id = sink.begin_run(order)  # type: ignore[arg-type]
 
         self.assertEqual(order_id, 99)
-        self.assertEqual(len(write_calls), 1)
-        entity, kwargs = write_calls[0]
-        self.assertIs(entity, order)
-        self.assertEqual(entity.id, 99)  # caller-chosen id preserved
-        self.assertTrue(kwargs.get("refresh"))
+        self.assertEqual(order.id, 99)
         self.assertIsNotNone(order.eleanor_version)
+        insert_order.assert_called_once_with(cfg, order, verbose=False)
 
     def test_postgres_begin_run_raises_on_version_mismatch(self):
         """
-        Ensure PostgresSink.begin_run rejects extending an order whose stored
-        eleanor_version does not match the in-memory order's version.
+        Ensure begin_run rejects extending an order from a different Eleanor version.
         """
-        cfg = DatabaseConfig(database="db", username="u", password="p")
+        cfg = DatabaseConfig(database='db', username='u', password='p')
         sink = PostgresSink(cfg)
 
-        order = SimpleNamespace(id=17, eleanor_version="v2")
-        existing = SimpleNamespace(id=17, eleanor_version="v1")
-
-        class FakeYeoman:
-            def __init__(self, *_args, **_kwargs): pass
-            def __enter__(self): return self
-            def __exit__(self, *_args): return None
-            def setup(self): pass
-            def get(self, _entity, _ident): return existing
-            def write(self, _point, **_kwargs):
-                raise AssertionError("write should not be called on version mismatch")
+        order = SimpleNamespace(id=17, eleanor_version='v2')
+        existing = SimpleNamespace(id=17, eleanor_version='v1')
 
         with (
-            mock.patch("eleanor.output.postgres.Yeoman", FakeYeoman),
-            self.assertRaisesRegex(EleanorException, "different version of Eleanor"),
+            mock.patch('eleanor.output.postgres.sink.repositories.setup_schema'),
+            mock.patch('eleanor.output.postgres.sink.repositories.get_order', return_value=existing),
+            self.assertRaisesRegex(EleanorException, 'different version of Eleanor'),
         ):
             sink.begin_run(order)  # type: ignore[arg-type]
 
     def test_postgres_begin_run_writes_new_order_and_returns_id(self):
         """
-        Ensure PostgresSink.begin_run writes an unpersisted order and returns
-        the id assigned by the refresh.
+        Ensure begin_run writes a new order and returns its generated id.
         """
-        cfg = DatabaseConfig(database="db", username="u", password="p")
+        cfg = DatabaseConfig(database='db', username='u', password='p')
         sink = PostgresSink(cfg)
 
         order = SimpleNamespace(id=None, eleanor_version=None)
-        write_calls: list[tuple[object, dict[str, object]]] = []
-
-        class FakeYeoman:
-            def __init__(self, *_args, **_kwargs): pass
-            def __enter__(self): return self
-            def __exit__(self, *_args): return None
-            def setup(self): pass
-            def write(self, entity, **kwargs):
-                write_calls.append((entity, kwargs))
-                entity.id = 42  # simulate refresh assigning a primary key
-
-        with mock.patch("eleanor.output.postgres.Yeoman", FakeYeoman):
+        with (
+            mock.patch('eleanor.output.postgres.sink.repositories.setup_schema'),
+            mock.patch(
+                'eleanor.output.postgres.sink.repositories.insert_order',
+                return_value=SimpleNamespace(id=42),
+            ) as insert_order,
+        ):
             order_id = sink.begin_run(order)  # type: ignore[arg-type]
 
         self.assertEqual(order_id, 42)
-        self.assertEqual(len(write_calls), 1)
-        entity, kwargs = write_calls[0]
-        self.assertIs(entity, order)
-        self.assertTrue(kwargs.get("refresh"))
-        # begin_run should stamp the current Eleanor version onto the new order.
+        self.assertEqual(order.id, 42)
         self.assertIsNotNone(order.eleanor_version)
+        insert_order.assert_called_once_with(cfg, order, verbose=False)
 
     def test_postgres_begin_run_raises_when_id_missing_after_write(self):
         """
-        Ensure PostgresSink.begin_run raises if the refresh does not assign an
-        order id after writing.
+        Ensure begin_run raises if persistence does not return an order id.
         """
-        cfg = DatabaseConfig(database="db", username="u", password="p")
+        cfg = DatabaseConfig(database='db', username='u', password='p')
         sink = PostgresSink(cfg)
-
         order = SimpleNamespace(id=None, eleanor_version=None)
 
-        class FakeYeoman:
-            def __init__(self, *_args, **_kwargs): pass
-            def __enter__(self): return self
-            def __exit__(self, *_args): return None
-            def setup(self): pass
-            def write(self, _entity, **_kwargs): pass  # does not set id
-
         with (
-            mock.patch("eleanor.output.postgres.Yeoman", FakeYeoman),
+            mock.patch('eleanor.output.postgres.sink.repositories.setup_schema'),
+            mock.patch(
+                'eleanor.output.postgres.sink.repositories.insert_order',
+                return_value=SimpleNamespace(id=None),
+            ),
             self.assertRaises(EleanorException),
         ):
             sink.begin_run(order)  # type: ignore[arg-type]
@@ -235,63 +208,70 @@ class TestOutput(TestCase):
         """
         Ensure ErrorInfo stores serializable error metadata fields.
         """
-        error = ErrorInfo(type_name="RuntimeError", message="boom", traceback_text="traceback")
-        self.assertEqual(error.type_name, "RuntimeError")
-        self.assertEqual(error.message, "boom")
-        self.assertEqual(error.traceback_text, "traceback")
+        error = ErrorInfo(type_name='RuntimeError', message='boom', traceback_text='traceback')
+        self.assertEqual(error.type_name, 'RuntimeError')
+        self.assertEqual(error.message, 'boom')
+        self.assertEqual(error.traceback_text, 'traceback')
 
     def test_write_batch_recovers_per_point_on_write_failure(self):
         """
-        Ensure write_batch catches per-point write failures and returns a committed=False
-        outcome without aborting the rest of the batch.
+        Ensure write_batch catches per-point failures and keeps processing the batch.
         """
-        cfg = DatabaseConfig(database="db", username="u", password="p")
+        cfg = DatabaseConfig(database='db', username='u', password='p')
         sink = PostgresSink(cfg)
 
-        good_point = SimpleNamespace(exit_code=0, order_id=None, id=42)
-        bad_point = SimpleNamespace(exit_code=0, order_id=None, id=None)
+        good_point = SimpleNamespace(exit_code=0, order_id=None)
+        bad_point = SimpleNamespace(exit_code=0, order_id=None)
+        results = [ComputeResult(point=good_point), ComputeResult(point=bad_point)]
 
-        results = [
-            ComputeResult(point=good_point),
-            ComputeResult(point=bad_point),
-        ]
+        fake_session = mock.MagicMock()
+        fake_session.__enter__.return_value = fake_session
+        fake_session.__exit__.return_value = None
 
-        class FakeYeoman:
-            def __init__(self, *_args, **_kwargs): pass
-            def __enter__(self): return self
-            def __exit__(self, *_args): return None
-            def write(self, point, **_kwargs):
-                if point is bad_point:
-                    raise RuntimeError("write failed")
+        def insert_point(_session, _order_id, point):
+            if point is bad_point:
+                raise RuntimeError('write failed')
+            return SimpleNamespace(id=42)
 
-        with mock.patch("eleanor.output.postgres.Yeoman", FakeYeoman):
+        with (
+            mock.patch('eleanor.output.postgres.sink.PostgresSession', return_value=fake_session),
+            mock.patch(
+                'eleanor.output.postgres.sink.repositories.insert_point',
+                side_effect=insert_point,
+            ),
+        ):
             outcomes = sink.write_batch(order_id=7, results=results)
 
+        fake_session.rollback.assert_called_once()
         self.assertEqual(len(outcomes), 2)
         self.assertTrue(outcomes[0].committed)
         self.assertEqual(outcomes[0].point_id, 42)
         self.assertFalse(outcomes[1].committed)
         self.assertIsNone(outcomes[1].point_id)
         self.assertIsNotNone(outcomes[1].error_message)
-        self.assertIn("write failed", outcomes[1].error_message)  # type: ignore[arg-type]
+        self.assertIn('write failed', outcomes[1].error_message)  # type: ignore[arg-type]
 
     def test_write_batch_recovers_when_point_id_missing_after_write(self):
         """
-        Ensure write_batch treats a missing point.id after write as a recoverable error.
+        Ensure write_batch treats a missing persisted id after write as a recoverable error.
         """
-        cfg = DatabaseConfig(database="db", username="u", password="p")
+        cfg = DatabaseConfig(database='db', username='u', password='p')
         sink = PostgresSink(cfg)
 
-        point = SimpleNamespace(exit_code=0, order_id=None, id=None)
+        point = SimpleNamespace(exit_code=0, order_id=None)
         results = [ComputeResult(point=point)]
 
-        class FakeYeoman:
-            def __init__(self, *_args, **_kwargs): pass
-            def __enter__(self): return self
-            def __exit__(self, *_args): return None
-            def write(self, _point, **_kwargs): pass  # does not set point.id
+        fake_session = mock.MagicMock()
+        fake_session.__enter__.return_value = fake_session
+        fake_session.__exit__.return_value = None
 
-        with mock.patch("eleanor.output.postgres.Yeoman", FakeYeoman):
+        with (
+            mock.patch('eleanor.output.postgres.sink.PostgresSession', return_value=fake_session),
+            mock.patch(
+                'eleanor.output.postgres.sink.repositories.insert_point',
+                return_value=SimpleNamespace(id=None),
+            ),
+        ):
             outcomes = sink.write_batch(order_id=7, results=results)
 
         self.assertEqual(len(outcomes), 1)
@@ -304,7 +284,7 @@ class TestOutput(TestCase):
         Ensure PostgresSink.write_batch emits one progress tick per durably-
         written row and no tick for a row that failed to write.
         """
-        cfg = DatabaseConfig(database="db", username="u", password="p")
+        cfg = DatabaseConfig(database='db', username='u', password='p')
         sink = PostgresSink(cfg)
 
         good_a = SimpleNamespace(exit_code=0, order_id=None, id=10)
@@ -316,16 +296,23 @@ class TestOutput(TestCase):
             ComputeResult(point=good_b),
         ]
 
-        class FakeYeoman:
-            def __init__(self, *_args, **_kwargs): pass
-            def __enter__(self): return self
-            def __exit__(self, *_args): return None
-            def write(self, point, **_kwargs):
-                if point is bad:
-                    raise RuntimeError("write failed")
+        fake_session = mock.MagicMock()
+        fake_session.__enter__.return_value = fake_session
+        fake_session.__exit__.return_value = None
+
+        def insert_point(_session, _order_id, point):
+            if point is bad:
+                raise RuntimeError('write failed')
+            return SimpleNamespace(id=point.id)
 
         progress = mock.Mock()
-        with mock.patch("eleanor.output.postgres.Yeoman", FakeYeoman):
+        with (
+            mock.patch('eleanor.output.postgres.sink.PostgresSession', return_value=fake_session),
+            mock.patch(
+                'eleanor.output.postgres.sink.repositories.insert_point',
+                side_effect=insert_point,
+            ),
+        ):
             outcomes = sink.write_batch(order_id=7, results=results, progress=progress)
 
         self.assertEqual(len(outcomes), 3)
@@ -339,19 +326,23 @@ class TestOutput(TestCase):
         """
         Ensure PostgresSink.write_batch tolerates progress=None (the default).
         """
-        cfg = DatabaseConfig(database="db", username="u", password="p")
+        cfg = DatabaseConfig(database='db', username='u', password='p')
         sink = PostgresSink(cfg)
 
         point = SimpleNamespace(exit_code=0, order_id=None, id=5)
         results = [ComputeResult(point=point)]
 
-        class FakeYeoman:
-            def __init__(self, *_args, **_kwargs): pass
-            def __enter__(self): return self
-            def __exit__(self, *_args): return None
-            def write(self, _point, **_kwargs): pass
+        fake_session = mock.MagicMock()
+        fake_session.__enter__.return_value = fake_session
+        fake_session.__exit__.return_value = None
 
-        with mock.patch("eleanor.output.postgres.Yeoman", FakeYeoman):
+        with (
+            mock.patch('eleanor.output.postgres.sink.PostgresSession', return_value=fake_session),
+            mock.patch(
+                'eleanor.output.postgres.sink.repositories.insert_point',
+                return_value=SimpleNamespace(id=point.id),
+            ),
+        ):
             outcomes = sink.write_batch(order_id=7, results=results)
 
         # Smoke test: if the call didn't raise, the default-None path is fine.

@@ -27,13 +27,13 @@ class TestVariableSpace(TestCase):
             species = []
         if reactant_sizes is None:
             reactant_sizes = [0, 0, 0, 0, 0, 0, 0]
-        mineral = [MineralReactant(name=f"m{i}", log_moles=0.0, titration_rate=1.0, id=None, variable_space_id=None)
+        mineral = [MineralReactant(name=f"m{i}", log_moles=0.0, titration_rate=1.0)
                    for i in range(reactant_sizes[0])]
-        aqueous = [AqueousReactant(name=f"a{i}", log_moles=0.0, titration_rate=1.0, id=None, variable_space_id=None)
+        aqueous = [AqueousReactant(name=f"a{i}", log_moles=0.0, titration_rate=1.0)
                    for i in range(reactant_sizes[1])]
-        gas = [GasReactant(name=f"g{i}", log_moles=0.0, titration_rate=1.0, id=None, variable_space_id=None)
+        gas = [GasReactant(name=f"g{i}", log_moles=0.0, titration_rate=1.0)
                for i in range(reactant_sizes[2])]
-        element = [ElementReactant(name=f"e{i}", log_moles=0.0, titration_rate=1.0, id=None, variable_space_id=None)
+        element = [ElementReactant(name=f"e{i}", log_moles=0.0, titration_rate=1.0)
                    for i in range(reactant_sizes[3])]
         special = [
             SpecialReactant(
@@ -41,12 +41,10 @@ class TestVariableSpace(TestCase):
                 log_moles=0.0,
                 titration_rate=1.0,
                 composition=[SpecialReactantComposition(element="Na", count=1)],
-                id=None,
-                variable_space_id=None,
             ) for i in range(reactant_sizes[4])
         ]
         fixed_gas = [
-            FixedGasReactant(name=f"fg{i}", log_moles=0.0, log_fugacity=0.0, id=None, variable_space_id=None)
+            FixedGasReactant(name=f"fg{i}", log_moles=0.0, log_fugacity=0.0)
             for i in range(reactant_sizes[5])
         ]
         solid_solution = [
@@ -55,8 +53,6 @@ class TestVariableSpace(TestCase):
                 log_moles=0.0,
                 titration_rate=1.0,
                 end_members=[SolidSolutionReactantEndMembers(name="em", fraction=1.0)],
-                id=None,
-                variable_space_id=None,
             ) for i in range(reactant_sizes[6])
         ]
         return Point(

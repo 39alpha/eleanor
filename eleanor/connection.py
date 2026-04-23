@@ -1,15 +1,19 @@
 """Database connection configuration.
 
 :class:`DatabaseConfig` is intentionally kept separate from
-:mod:`eleanor.config` so that :mod:`eleanor.yeoman` and
-:mod:`eleanor.output.postgres` can import it without pulling in the full
-config module and its plugin-registry dependencies, which would create a
-circular import.
+:mod:`eleanor.config` so output sink modules can import it without pulling
+in the full config module and its plugin-registry dependencies, which would
+create a circular import.
+
+Dialect validation is deliberately *not* performed here: different output
+sinks accept different dialects, so each sink is responsible for rejecting
+configurations it cannot use (see :class:`eleanor.output.postgres.PostgresSink`
+for the postgres-only example). Keeping :class:`DatabaseConfig` sink-agnostic
+lets non-postgres sinks consume it without inheriting postgres-specific
+restrictions.
 """
 from dataclasses import dataclass
 from typing import TypedDict, override
-
-from .exceptions import EleanorConfigurationException
 
 
 class DatabaseRaw(TypedDict, total=False):
@@ -34,11 +38,6 @@ class DatabaseConfig(object):
     username: str | None = None
     password: str | None = None
     sslmode: str | None = None
-
-    def __post_init__(self):
-        if self.dialect not in ['postgresql']:
-            msg = f'the "{self.dialect}" database dialect is not supported; choose "postgresql"'
-            raise EleanorConfigurationException(msg)
 
     @override
     def __str__(self) -> str:

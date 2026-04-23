@@ -2,7 +2,6 @@ from unittest import mock
 
 from eleanor.exceptions import EleanorException
 from eleanor.kernel.config import Config, Settings
-from eleanor.kernel.registry import KernelSpec
 
 from ..common import TestCase
 
@@ -19,30 +18,14 @@ class TestKernelConfig(TestCase):
         settings = Settings(timeout=30)
         self.assertEqual(settings.parameters(), [])
 
-    def test_config_resolved_settings_converts_dict(self):
+    def test_config_resolved_settings_rejects_dict_payload(self):
         """
-        Ensure :meth:`Config.resolved_settings` converts a dict payload via the registry.
+        Ensure :meth:`Config.resolved_settings` rejects raw dict payloads.
         """
-        parsed_settings = Settings(timeout=5)
-        spec = KernelSpec(
-            settings_from_dict=mock.Mock(return_value=parsed_settings),
-            build=mock.Mock(),
-        )
-
-        # Build Config with a placeholder Settings so SQLAlchemy is happy,
-        # then overwrite ``settings`` with a dict to simulate the state
-        # SQLAlchemy leaves behind when rehydrating a JSON column.
         config = Config(type='eq36', settings=Settings(timeout=None))
         config.settings = {'timeout': 12}  # type: ignore[assignment]
-
-        with mock.patch('eleanor.kernel.registry.get_factory', return_value=spec) as get_factory_mock:
-            resolved = config.resolved_settings()
-
-        get_factory_mock.assert_called_once_with('eq36')
-        spec.settings_from_dict.assert_called_once_with({'timeout': 12})
-        self.assertIs(resolved, parsed_settings)
-        # Cached in-place for subsequent accesses.
-        self.assertIs(config.settings, parsed_settings)
+        with self.assertRaises(EleanorException):
+            config.resolved_settings()
 
     def test_config_resolved_settings_returns_existing_settings_instance(self):
         """
@@ -51,10 +34,7 @@ class TestKernelConfig(TestCase):
         settings = Settings(timeout=10)
         config = Config(type='eq36', settings=settings)
 
-        with mock.patch('eleanor.kernel.registry.get_factory') as get_factory_mock:
-            resolved = config.resolved_settings()
-
-        get_factory_mock.assert_not_called()
+        resolved = config.resolved_settings()
         self.assertIs(resolved, settings)
 
     def test_config_resolved_settings_rejects_unknown_types(self):

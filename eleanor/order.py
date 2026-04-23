@@ -9,21 +9,18 @@ from datetime import datetime
 from typing import Protocol, TypedDict, final, runtime_checkable
 
 import yaml
-from sqlalchemy import Column, DateTime, Integer, String, Table
-from sqlalchemy.orm import relationship
 
 import eleanor.variable_space as vs
-from eleanor.kernel.registry import get_factory as get_kernel_spec
 from eleanor.variable_space import Point as VSPoint
 
 from .exceptions import EleanorException
 from .kernel.config import Config as KernelConfig
 from .kernel.config import Settings as KernelSettings
+from .kernel.config import resolve_settings as resolve_kernel_settings
 from .parameters import Parameter, ParameterSource
 from .reactants import AbstractReactant, ReactantRaw
 from .typing import Self, cast
 from .util import is_list_of, mapreduce
-from .yeoman import JSONDict, reconstructor, yeoman_registry
 
 type RawMap = dict[str, object]
 
@@ -145,14 +142,7 @@ def load_kernel_settings(kernel_raw: KernelRaw) -> tuple[str, KernelSettings]:
     # the registry's declared ``dict[str, object]`` input shape.
     kernel_args_items = cast(dict[object, object], kernel_args_raw).items()
     kernel_args: dict[str, object] = {str(k): v for k, v in kernel_args_items}
-    spec = get_kernel_spec(kernel_type)
-    settings = spec.settings_from_dict(kernel_args)
-    if not isinstance(settings, KernelSettings):
-        raise EleanorException(
-            f'kernel plugin "{kernel_type}" returned '
-            + f'{type(settings).__name__}, expected a Settings instance',
-        )
-    return kernel_type, settings
+    return kernel_type, resolve_kernel_settings(kernel_type, kernel_args)
 
 
 @runtime_checkable
@@ -384,24 +374,8 @@ class Suborders(object):
 
 
 @final
-@yeoman_registry.mapped_as_dataclass(init=False)
+@dataclass(init=False)
 class Order(Suborder):
-    __table__: Table = Table(
-        'orders',
-        yeoman_registry.metadata,
-        Column('id', Integer, primary_key=True),
-        Column('name', String, nullable=False, index=True),
-        Column('tag', String, nullable=False, default="", server_default="", index=True),
-        Column('eleanor_version', String, nullable=False, index=True),
-        Column('raw', JSONDict, nullable=False),
-        Column('create_date', DateTime, nullable=False),
-    )
-
-    __mapper_args__: dict[str, object] = {
-        'properties': {
-            'vs_points': relationship(vs.Point, cascade="all, delete"),
-        }
-    }
 
     transformers: list[TransformerConfig]
 
@@ -440,8 +414,7 @@ class Order(Suborder):
 
         self.__post_init__()
 
-    @reconstructor
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         self.notes = _require_str(self.raw.get('notes', ''), 'notes')
         self.creator = _require_str(self.raw.get('creator'), 'creator')
 

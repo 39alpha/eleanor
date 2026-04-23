@@ -4,6 +4,7 @@ from typing import override
 from ..connection import DatabaseConfig
 from ..exceptions import EleanorException
 from ..order import Order
+from ..progress import ProgressHandle
 from ..version import __version__
 from ..yeoman import Yeoman
 from .interface import ComputeResult, OutputSink, WriteOutcome
@@ -53,7 +54,12 @@ class PostgresSink(OutputSink):
             return order.id
 
     @override
-    def write_batch(self, order_id: int, results: Sequence[ComputeResult]) -> list[WriteOutcome]:
+    def write_batch(
+        self,
+        order_id: int,
+        results: Sequence[ComputeResult],
+        progress: ProgressHandle | None = None,
+    ) -> list[WriteOutcome]:
         outcomes: list[WriteOutcome] = []
 
         with Yeoman(self.config, verbose=self.verbose) as yeoman:
@@ -73,6 +79,12 @@ class PostgresSink(OutputSink):
                             exit_code=point.exit_code,
                             committed=True,
                         ))
+
+                    # Tick the output bar once per durably-written row. Rows
+                    # that raise above are intentionally skipped: the output
+                    # bar counts only committed writes.
+                    if progress is not None:
+                        progress.tick()
                 except Exception as e:
                     outcomes.append(
                         WriteOutcome(
@@ -90,4 +102,8 @@ class PostgresSink(OutputSink):
 
     @override
     def supports_worker_writes(self) -> bool:
+        return True
+
+    @override
+    def supports_progress(self) -> bool:
         return True

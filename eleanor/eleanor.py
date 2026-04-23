@@ -1,7 +1,6 @@
 from contextlib import ExitStack, contextmanager
 from multiprocessing import Manager
 from multiprocessing.managers import SyncManager
-from queue import Queue
 from types import TracebackType
 from typing import TYPE_CHECKING
 
@@ -15,9 +14,10 @@ from .kernel.registry import get_factory as get_kernel_spec
 from .order import NavigatorProtocol, Order
 from .output.interface import ComputeResult, OutputSink, RunStats, WriteOutcome
 from .output.registry import get_factory as get_output_factory
+from .progress import Progress, ProgressHandle
 from .transformer import transform
 from .typing import EleanorKwargs, Self, Unpack, cast
-from .util import Progress, chunks
+from .util import chunks
 from .version import __version__
 
 if TYPE_CHECKING:
@@ -397,13 +397,18 @@ class Eleanor(object):
         The caller is responsible for resolving the executor, sink and
         (if progress is requested) manager scopes; this method neither
         builds nor tears them down. It does, however, construct a fresh
-        :class:`~eleanor.util.Progress` for each leaf when progress is
-        enabled, so every leaf gets its own ``tqdm`` bar even when the
+        :class:`~eleanor.progress.Progress` for each leaf when progress is
+        enabled, so every leaf gets its own ``tqdm`` bar(s) even when the
         underlying :class:`SyncManager` is session-scoped.
 
         ``show_progress`` and ``success_sampling`` are read from
         :paramref:`kwargs` (the :class:`EleanorKwargs` bag) so that they
         still flow through to :meth:`process` and the sailor chain.
+
+        The output progress bar is only rendered when the active
+        :class:`OutputSink` opts in via
+        :meth:`~OutputSink.supports_progress`; otherwise only the simulation
+        bar is shown.
         """
         show_progress = kwargs.get('show_progress', False)
         success_sampling = kwargs.get('success_sampling', False)
@@ -437,10 +442,22 @@ class Eleanor(object):
             raise EleanorException(msg)
 
         progress: Progress | None = None
+        sim_handle: ProgressHandle | None = None
+        out_handle: ProgressHandle | None = None
         if show_progress:
             if manager is None:
                 raise EleanorException('show_progress requires an active SyncManager')
-            progress = Progress(manager, no_total_update=success_sampling)
+            # Under ``success_sampling`` the output bar tracks progress toward
+            # a fixed target (N successes) and should therefore ignore
+            # ``extend`` messages after its initial total is set.
+            progress = Progress(manager, out_no_total_update=success_sampling)
+            sim_handle = progress.sim
+            if sink.supports_progress():
+                out_handle = progress.out
+                if success_sampling:
+                    # Seed the output bar's target immediately so it renders
+                    # with the right denominator before any sink tick arrives.
+                    out_handle.total(simulation_size)
 
         order.id = sink.begin_run(order)
 
@@ -461,7 +478,8 @@ class Eleanor(object):
                         executor=executor,
                         chunks_per_worker=chunks_per_worker,
                         sink=sink,
-                        progress=progress.queue if progress is not None else None,
+                        sim_progress=sim_handle,
+                        out_progress=out_handle,
                         **kwargs,
                     )
                     stats.update(outcomes)
@@ -475,7 +493,8 @@ class Eleanor(object):
                     executor=executor,
                     chunks_per_worker=chunks_per_worker,
                     sink=sink,
-                    progress=progress.queue if progress is not None else None,
+                    sim_progress=sim_handle,
+                    out_progress=out_handle,
                     **kwargs,
                 )
                 stats.update(outcomes)
@@ -495,9 +514,25 @@ class Eleanor(object):
         executor: AbstractExecutor | None = None,
         chunks_per_worker: int = 1,
         sink: OutputSink,
-        progress: Queue[bool | int] | None = None,
+        sim_progress: ProgressHandle | None = None,
+        out_progress: ProgressHandle | None = None,
         **kwargs: Unpack[EleanorKwargs],
     ) -> list[WriteOutcome]:
+        """Drive the navigator/executor/sink loop for a single leaf order.
+
+        :param sim_progress: Handle for the simulation bar. Extended by the
+            navigator batch size at the start of each iteration. Forwarded to
+            :meth:`Sailor.dispatch` so workers can emit per-point ticks;
+            when the executor does not support worker-side progress, ticks
+            are emitted in the parent after each future resolves.
+        :param out_progress: Handle for the output bar. Extended by the
+            navigator batch size at the start of each iteration (a no-op
+            when the underlying bar has ``out_no_total_update=True``).
+            Passed to :meth:`OutputSink.write_batch`; the sink decides its
+            own tick cadence. For worker-write sinks on executors without
+            worker-progress support, a single batch-level tick per future is
+            emitted in the parent as a fallback.
+        """
         if executor is None:
             raise EleanorException('no process executor created')
         if executor.num_workers <= 0:
@@ -505,15 +540,22 @@ class Eleanor(object):
         if chunks_per_worker <= 0:
             raise EleanorException('chunks_per_worker must be >= 1')
 
-        success_sampling = kwargs.get('success_sampling', False)
         outcomes: list[WriteOutcome] = []
 
         worker_writes = sink.supports_worker_writes()
 
+        # When the executor cannot forward a ``Manager``-backed queue into
+        # its workers, we must not hand the handles to ``Sailor.dispatch``;
+        # the parent will emit coarser batch-granularity ticks instead.
+        worker_sim_progress = sim_progress if executor.supports_worker_progress else None
+        worker_out_progress = out_progress if executor.supports_worker_progress else None
+
         while True:
             vs_points = navigator.navigate(simulation_size, order_id=order_id, max_attempts=1)
-            if progress is not None:
-                progress.put(len(vs_points))
+            if sim_progress is not None:
+                sim_progress.extend(len(vs_points))
+            if out_progress is not None:
+                out_progress.extend(len(vs_points))
 
             vs_point_ids: list[int] = []
 
@@ -546,6 +588,8 @@ class Eleanor(object):
                             *args,
                             sink=sink,
                             order_id=order_id,
+                            sim_progress=worker_sim_progress,
+                            out_progress=worker_out_progress,
                             **sailor_kwargs,
                         ),
                     )
@@ -554,7 +598,17 @@ class Eleanor(object):
                 batch_outcomes: list[WriteOutcome] = []
                 while outcome_futures:
                     outcome_future = outcome_futures.pop()
-                    batch_outcomes.extend(outcome_future.result())
+                    result = outcome_future.result()
+                    batch_outcomes.extend(result)
+                    # Fallback batch-level ticks for executors that cannot
+                    # forward the ProgressHandle into workers. Empty futures
+                    # are skipped so the bar never gets a spurious tick(0).
+                    if worker_sim_progress is None and sim_progress is not None and result:
+                        sim_progress.tick(len(result))
+                    if worker_out_progress is None and out_progress is not None:
+                        committed = sum(1 for o in result if o.committed and o.exit_code == 0)
+                        if committed:
+                            out_progress.tick(committed)
             else:
                 # Serial sinks are driven by the main process: workers return
                 # full ``ComputeResult`` payloads, which are then written here.
@@ -569,6 +623,7 @@ class Eleanor(object):
                             Sailor(kernel).dispatch,
                             batch,
                             *args,
+                            sim_progress=worker_sim_progress,
                             **sailor_kwargs,
                         ),
                     )
@@ -577,17 +632,24 @@ class Eleanor(object):
                 compute_results: list[ComputeResult] = []
                 while compute_futures:
                     compute_future = compute_futures.pop()
-                    compute_results.extend(compute_future.result())
+                    result = compute_future.result()
+                    compute_results.extend(result)
+                    if worker_sim_progress is None and sim_progress is not None and result:
+                        sim_progress.tick(len(result))
 
-                batch_outcomes = sink.write_batch(order_id, compute_results)
+                # The sink owns the output bar's cadence: per-row, per-batch,
+                # or anything in between. Eleanor only hands over the handle.
+                batch_outcomes = sink.write_batch(
+                    order_id,
+                    compute_results,
+                    progress=out_progress,
+                )
 
             outcomes.extend(batch_outcomes)
 
             for outcome in batch_outcomes:
                 if outcome.point_id is not None:
                     vs_point_ids.append(outcome.point_id)
-                if progress is not None and (not success_sampling or outcome.exit_code == 0):
-                    progress.put(True)
 
             if navigator.is_complete(vs_point_ids):
                 break

@@ -547,6 +547,7 @@ class TestEleanorDispatch(TestCase):
         order = _leaf_order()
         sink = mock.Mock()
         sink.begin_run.return_value = 11
+        sink.supports_progress.return_value = False
         eleanor.process = mock.Mock(return_value=[
             WriteOutcome(point_id=10, exit_code=0, committed=True),
             WriteOutcome(point_id=11, exit_code=0, committed=True),
@@ -554,7 +555,11 @@ class TestEleanorDispatch(TestCase):
         executor = _FakeExecutor()
         manager = mock.Mock()
 
-        progress = SimpleNamespace(queue=mock.Mock(), join=mock.Mock())
+        progress = SimpleNamespace(
+            sim=mock.Mock(),
+            out=mock.Mock(),
+            join=mock.Mock(),
+        )
         with (
             mock.patch("eleanor.eleanor.Progress", return_value=progress),
             mock.patch(
@@ -578,6 +583,88 @@ class TestEleanorDispatch(TestCase):
         eleanor.process.assert_called_once()
         sink.begin_run.assert_called_once_with(order)
         progress.join.assert_called_once()
+
+    def test_dispatch_constructs_out_handle_only_when_sink_supports_progress(self):
+        """
+        Ensure _dispatch hands the output handle to process() only when the
+        sink advertises supports_progress=True; otherwise only the sim handle
+        travels down, keeping the output bar from rendering.
+        """
+        from eleanor.navigator import AbstractNavigator
+
+        eleanor = _make_eleanor()
+        kernel = mock.Mock()
+        navigator = mock.Mock(spec=AbstractNavigator)
+        navigator.supports_success_sampling.return_value = True
+        order = _leaf_order()
+        executor = _FakeExecutor()
+        manager = mock.Mock()
+
+        sim_handle = mock.Mock(name="sim_handle")
+        out_handle = mock.Mock(name="out_handle")
+        progress = SimpleNamespace(sim=sim_handle, out=out_handle, join=mock.Mock())
+
+        # Sink opts out of progress: out_handle must never be forwarded.
+        quiet_sink = mock.Mock()
+        quiet_sink.begin_run.return_value = 5
+        quiet_sink.supports_progress.return_value = False
+        eleanor.process = mock.Mock(return_value=[])
+
+        with (
+            mock.patch("eleanor.eleanor.Progress", return_value=progress),
+            mock.patch(
+                "eleanor.navigator.registry.get_factory",
+                return_value=lambda *_args, **_kw: navigator,
+            ),
+        ):
+            eleanor._dispatch(
+                order, 1,
+                chunks_per_worker=1,
+                executor=executor,
+                kernel=kernel,
+                navigator=None,
+                sink=quiet_sink,
+                manager=manager,
+                show_progress=True,
+            )
+
+        kwargs = eleanor.process.call_args.kwargs
+        self.assertIs(kwargs["sim_progress"], sim_handle)
+        self.assertIsNone(kwargs["out_progress"])
+
+        # Sink opts in: the out handle is forwarded and, under
+        # success_sampling, the output bar total is seeded up front.
+        loud_sink = mock.Mock()
+        loud_sink.begin_run.return_value = 6
+        loud_sink.supports_progress.return_value = True
+        eleanor.process = mock.Mock(return_value=[
+            WriteOutcome(point_id=10, exit_code=0, committed=True),
+        ])
+
+        with (
+            mock.patch("eleanor.eleanor.Progress", return_value=progress),
+            mock.patch(
+                "eleanor.navigator.registry.get_factory",
+                return_value=lambda *_args, **_kw: navigator,
+            ),
+        ):
+            eleanor._dispatch(
+                order, 3,
+                chunks_per_worker=1,
+                executor=executor,
+                kernel=kernel,
+                navigator=None,
+                sink=loud_sink,
+                manager=manager,
+                show_progress=True,
+                success_sampling=True,
+            )
+
+        kwargs = eleanor.process.call_args.kwargs
+        self.assertIs(kwargs["sim_progress"], sim_handle)
+        self.assertIs(kwargs["out_progress"], out_handle)
+        # Under success_sampling, the output bar's target was seeded to 3.
+        out_handle.total.assert_called_with(3)
 
     def test_dispatch_requires_manager_when_progress_enabled(self):
         """
@@ -636,7 +723,8 @@ class TestEleanorDispatch(TestCase):
         executor = _FakeExecutor(
             submit_side_effect=[_Future(compute_results), _Future([])],
         )
-        progress = mock.Mock()
+        sim_progress = mock.Mock()
+        out_progress = mock.Mock()
         sink = mock.Mock()
         sink.supports_worker_writes.return_value = False
         sink.write_batch.return_value = [
@@ -648,22 +736,27 @@ class TestEleanorDispatch(TestCase):
             kernel, navigator, 2, 9,
             executor=executor,
             sink=sink,
-            progress=progress,
+            sim_progress=sim_progress,
+            out_progress=out_progress,
             success_sampling=True,
         )
 
-        progress.put.assert_any_call(2)
+        # Both bars extend by the batch size at the start of each navigator
+        # iteration; output bar has out_no_total_update in Progress, so the
+        # extend() call is safe even under success_sampling.
+        sim_progress.extend.assert_any_call(2)
+        out_progress.extend.assert_any_call(2)
         self.assertEqual(executor.submit.call_count, 2)
-        sink.write_batch.assert_called_once_with(9, compute_results)
+        sink.write_batch.assert_called_once_with(9, compute_results, progress=out_progress)
         is_complete_args = navigator.is_complete.call_args[0][0]
         self.assertEqual(sorted(is_complete_args), [10, 11])
 
     def test_process_forwards_sink_to_workers_when_opted_in(self):
         """
         Ensure process routes writes through workers when the sink opts in:
-        the sink/order_id are threaded through executor.submit, futures already
-        resolve to WriteOutcomes, and sink.write_batch is not called in the
-        parent process.
+        the sink/order_id/progress handles are threaded through executor.submit,
+        futures already resolve to WriteOutcomes, and sink.write_batch is not
+        called in the parent process.
         """
         eleanor = _make_eleanor()
         kernel = mock.Mock()
@@ -680,12 +773,15 @@ class TestEleanorDispatch(TestCase):
         )
         sink = mock.Mock()
         sink.supports_worker_writes.return_value = True
+        sim_progress = mock.Mock()
+        out_progress = mock.Mock()
 
         eleanor.process(
             kernel, navigator, 2, 9,
             executor=executor,
             sink=sink,
-            progress=None,
+            sim_progress=sim_progress,
+            out_progress=out_progress,
             success_sampling=True,
         )
 
@@ -693,8 +789,55 @@ class TestEleanorDispatch(TestCase):
         submit_kwargs = executor.submit.call_args_list[0].kwargs
         self.assertIs(submit_kwargs["sink"], sink)
         self.assertEqual(submit_kwargs["order_id"], 9)
+        # Progress handles flow through to workers when the executor
+        # advertises supports_worker_progress=True.
+        self.assertIs(submit_kwargs["sim_progress"], sim_progress)
+        self.assertIs(submit_kwargs["out_progress"], out_progress)
         is_complete_args = navigator.is_complete.call_args[0][0]
         self.assertEqual(sorted(is_complete_args), [201, 202])
+
+    def test_process_falls_back_to_batch_ticks_when_executor_cannot_carry_progress(self):
+        """
+        Ensure process emits coarse batch-level ticks in the parent when the
+        executor cannot forward a ProgressHandle into its workers.
+        """
+        eleanor = _make_eleanor()
+        kernel = mock.Mock()
+        navigator = mock.Mock()
+        navigator.navigate.return_value = ["a", "b"]
+        navigator.is_complete.return_value = True
+
+        worker_outcomes = [
+            WriteOutcome(point_id=1, exit_code=0, committed=True),
+            WriteOutcome(point_id=2, exit_code=1, committed=True),  # not counted as success
+        ]
+        executor = _FakeExecutor(
+            submit_side_effect=[_Future(worker_outcomes), _Future([])],
+        )
+        executor.supports_worker_progress = False
+
+        sink = mock.Mock()
+        sink.supports_worker_writes.return_value = True
+        sim_progress = mock.Mock()
+        out_progress = mock.Mock()
+
+        eleanor.process(
+            kernel, navigator, 2, 9,
+            executor=executor,
+            sink=sink,
+            sim_progress=sim_progress,
+            out_progress=out_progress,
+        )
+
+        # Handles are NOT threaded into the worker when the executor cannot
+        # carry them.
+        submit_kwargs = executor.submit.call_args_list[0].kwargs
+        self.assertIsNone(submit_kwargs["sim_progress"])
+        self.assertIsNone(submit_kwargs["out_progress"])
+        # Instead, the parent ticks once per batch: 2 results total, 1 of
+        # which is a committed success.
+        sim_progress.tick.assert_called_once_with(2)
+        out_progress.tick.assert_called_once_with(1)
 
     def test_run_uses_explicit_output_sink_override(self):
         """

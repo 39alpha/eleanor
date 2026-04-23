@@ -47,13 +47,34 @@ class TestOutput(TestCase):
                 _ = order
                 return 0
 
-            def write_batch(self, order_id: int, results: Sequence[ComputeResult]) -> list[WriteOutcome]:
+            def write_batch(self, order_id: int, results: Sequence[ComputeResult], progress=None) -> list[WriteOutcome]:
+                _ = progress
                 return []
 
             def finalize(self) -> None:
                 pass
 
         self.assertFalse(MinimalSink().supports_worker_writes())
+
+    def test_output_sink_defaults_to_no_progress(self):
+        """
+        Ensure OutputSink subclasses that do not override supports_progress
+        opt out of the output bar by default -- protecting third-party sinks
+        from silent breakage when the progress protocol evolves.
+        """
+        class MinimalSink(OutputSink):
+            def begin_run(self, order: Order) -> int:
+                _ = order
+                return 0
+
+            def write_batch(self, order_id: int, results: Sequence[ComputeResult], progress=None) -> list[WriteOutcome]:
+                _ = progress
+                return []
+
+            def finalize(self) -> None:
+                pass
+
+        self.assertFalse(MinimalSink().supports_progress())
 
     def test_postgres_sink_supports_worker_writes(self):
         """
@@ -62,6 +83,14 @@ class TestOutput(TestCase):
         cfg = DatabaseConfig(database="db", username="u", password="p")
         sink = PostgresSink(cfg)
         self.assertTrue(sink.supports_worker_writes())
+
+    def test_postgres_sink_supports_progress(self):
+        """
+        Ensure PostgresSink opts in to per-row output progress reporting.
+        """
+        cfg = DatabaseConfig(database="db", username="u", password="p")
+        sink = PostgresSink(cfg)
+        self.assertTrue(sink.supports_progress())
 
     def test_postgres_begin_run_returns_existing_order_id(self):
         """
@@ -269,3 +298,61 @@ class TestOutput(TestCase):
         self.assertFalse(outcomes[0].committed)
         self.assertIsNone(outcomes[0].point_id)
         self.assertIsNotNone(outcomes[0].error_message)
+
+    def test_write_batch_ticks_progress_only_for_committed_rows(self):
+        """
+        Ensure PostgresSink.write_batch emits one progress tick per durably-
+        written row and no tick for a row that failed to write.
+        """
+        cfg = DatabaseConfig(database="db", username="u", password="p")
+        sink = PostgresSink(cfg)
+
+        good_a = SimpleNamespace(exit_code=0, order_id=None, id=10)
+        bad = SimpleNamespace(exit_code=0, order_id=None, id=None)
+        good_b = SimpleNamespace(exit_code=0, order_id=None, id=11)
+        results = [
+            ComputeResult(point=good_a),
+            ComputeResult(point=bad),
+            ComputeResult(point=good_b),
+        ]
+
+        class FakeYeoman:
+            def __init__(self, *_args, **_kwargs): pass
+            def __enter__(self): return self
+            def __exit__(self, *_args): return None
+            def write(self, point, **_kwargs):
+                if point is bad:
+                    raise RuntimeError("write failed")
+
+        progress = mock.Mock()
+        with mock.patch("eleanor.output.postgres.Yeoman", FakeYeoman):
+            outcomes = sink.write_batch(order_id=7, results=results, progress=progress)
+
+        self.assertEqual(len(outcomes), 3)
+        # Two successful writes => two ticks.
+        self.assertEqual(progress.tick.call_count, 2)
+        self.assertTrue(outcomes[0].committed)
+        self.assertFalse(outcomes[1].committed)
+        self.assertTrue(outcomes[2].committed)
+
+    def test_write_batch_without_progress_handle_is_silent(self):
+        """
+        Ensure PostgresSink.write_batch tolerates progress=None (the default).
+        """
+        cfg = DatabaseConfig(database="db", username="u", password="p")
+        sink = PostgresSink(cfg)
+
+        point = SimpleNamespace(exit_code=0, order_id=None, id=5)
+        results = [ComputeResult(point=point)]
+
+        class FakeYeoman:
+            def __init__(self, *_args, **_kwargs): pass
+            def __enter__(self): return self
+            def __exit__(self, *_args): return None
+            def write(self, _point, **_kwargs): pass
+
+        with mock.patch("eleanor.output.postgres.Yeoman", FakeYeoman):
+            outcomes = sink.write_batch(order_id=7, results=results)
+
+        # Smoke test: if the call didn't raise, the default-None path is fine.
+        self.assertEqual(len(outcomes), 1)

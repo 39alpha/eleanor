@@ -6,6 +6,7 @@ from traceback import format_exception
 import eleanor.variable_space as vs
 
 from ..order import Order
+from ..progress import ProgressHandle
 
 
 @dataclass(slots=True, frozen=True)
@@ -71,7 +72,27 @@ class OutputSink(ABC):
         ...
 
     @abstractmethod
-    def write_batch(self, order_id: int, results: Sequence[ComputeResult]) -> list[WriteOutcome]:
+    def write_batch(
+        self,
+        order_id: int,
+        results: Sequence[ComputeResult],
+        progress: ProgressHandle | None = None,
+    ) -> list[WriteOutcome]:
+        """Persist ``results`` for ``order_id`` and return per-point outcomes.
+
+        When ``progress`` is supplied the sink is responsible for emitting
+        ``tick`` messages whose values sum to the number of rows it durably
+        wrote during this call. The sink chooses the cadence that best fits
+        its storage model -- per row, per internal sub-batch, or a single
+        call at the end. Sinks that cannot emit meaningful progress must
+        return ``False`` from :meth:`supports_progress` so Eleanor never
+        supplies a non-``None`` handle in the first place.
+
+        Default implementations of :meth:`OutputSink` (and older third-party
+        sinks that have not yet been updated) may ignore ``progress`` freely;
+        they will never receive a non-``None`` handle because the default
+        :meth:`supports_progress` returns ``False``.
+        """
         ...
 
     @abstractmethod
@@ -90,5 +111,19 @@ class OutputSink(ABC):
         Sinks that return ``False`` (the default) are driven by the main
         process after workers have returned their :class:`ComputeResult`
         payloads.
+        """
+        return False
+
+    def supports_progress(self) -> bool:
+        """Whether :meth:`write_batch` emits per-point output progress.
+
+        Sinks that return ``True`` accept a :class:`ProgressHandle` on
+        :meth:`write_batch` and emit ``tick`` messages that sum to the number
+        of rows they durably wrote. Eleanor uses this signal to decide
+        whether to render the output progress bar at all: when every active
+        sink returns ``False``, the output bar is never created.
+
+        The default is ``False`` so third-party sinks that pre-date the
+        progress protocol continue to work unchanged.
         """
         return False

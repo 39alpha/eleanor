@@ -64,10 +64,54 @@ class TestSailor(TestCase):
         sink.write_batch.assert_called_once()
         called_order_id, called_compute_results = sink.write_batch.call_args.args
         self.assertEqual(called_order_id, 42)
+        self.assertIsNone(sink.write_batch.call_args.kwargs["progress"])
         self.assertEqual(len(called_compute_results), 2)
         self.assertTrue(all(isinstance(r, ComputeResult) for r in called_compute_results))
         self.assertIs(called_compute_results[0].point, points[0])
         self.assertIs(called_compute_results[1].point, points[1])
+
+    def test_dispatch_emits_sim_progress_tick_per_point(self):
+        """
+        Ensure dispatch calls sim_progress.tick() once per point when a progress handle is supplied.
+        """
+        sailor = Sailor(kernel=mock.Mock())
+        sim_progress = mock.Mock()
+
+        with mock.patch.object(Sailor, "work", side_effect=[
+            SimpleNamespace(exit_code=0),
+            SimpleNamespace(exit_code=0),
+            SimpleNamespace(exit_code=0),
+        ]):
+            _ = sailor.dispatch([object(), object(), object()], sim_progress=sim_progress)
+
+        self.assertEqual(sim_progress.tick.call_count, 3)
+
+    def test_dispatch_forwards_out_progress_to_sink(self):
+        """
+        Ensure dispatch forwards the out_progress handle into sink.write_batch.
+        """
+        sailor = Sailor(kernel=mock.Mock())
+        sink = mock.Mock()
+        sink.write_batch.return_value = []
+        out_progress = mock.Mock()
+
+        with mock.patch.object(Sailor, "work", return_value=SimpleNamespace(exit_code=0)):
+            _ = sailor.dispatch([object()], sink=sink, order_id=1, out_progress=out_progress)
+
+        sink.write_batch.assert_called_once()
+        self.assertIs(sink.write_batch.call_args.kwargs["progress"], out_progress)
+
+    def test_dispatch_without_progress_handles_never_ticks(self):
+        """
+        Ensure dispatch does not attempt any progress emission when handles are omitted.
+        """
+        sailor = Sailor(kernel=mock.Mock())
+
+        with mock.patch.object(Sailor, "work", return_value=SimpleNamespace(exit_code=0)):
+            results = sailor.dispatch([object(), object()])
+
+        # No exception, no interaction with a progress handle; just the compute path.
+        self.assertEqual(len(results), 2)
 
     def test_dispatch_with_sink_requires_order_id(self):
         """

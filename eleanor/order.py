@@ -1,15 +1,14 @@
-import hashlib
 import json
 import operator
 import os.path
 import tomllib
 from copy import deepcopy
-from dataclasses import asdict, dataclass, field
+from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Protocol, TypedDict, final, runtime_checkable
 
 import yaml
-from sqlalchemy import Column, DateTime, Index, Integer, String, Table
+from sqlalchemy import Column, DateTime, Integer, String, Table
 from sqlalchemy.orm import relationship
 
 import eleanor.variable_space as vs
@@ -355,13 +354,10 @@ class Order(Suborder):
         yeoman_registry.metadata,
         Column('id', Integer, primary_key=True),
         Column('name', String, nullable=False, index=True),
-        Column('hash', String, nullable=False, index=True),
-        Column('eleanor_version', String, nullable=False),
+        Column('eleanor_version', String, nullable=False, index=True),
         Column('raw', JSONDict, nullable=False),
         Column('create_date', DateTime, nullable=False),
     )
-
-    __table_args__: tuple[Index] = (Index('hash_version', 'hash', 'eleanor_version', unique=True), )
 
     __mapper_args__: dict[str, object] = {
         'properties': {
@@ -369,7 +365,6 @@ class Order(Suborder):
         }
     }
 
-    hash: str = ''
     transformers: list[TransformerConfig]
 
     suborders: Suborders | None = None
@@ -393,6 +388,7 @@ class Order(Suborder):
         self.raw = raw
         self.vs_points = [] if vs_points is None else vs_points
         self.create_date = datetime.now() if create_date is None else create_date
+        self.eleanor_version = None
 
         self.__post_init__()
 
@@ -453,20 +449,6 @@ class Order(Suborder):
 
         if 'suborders' in self.raw:
             self.suborders = Suborders(self.raw['suborders'])
-        _ = self.rehash()
-
-    def rehash(self) -> str:
-        data = asdict(self)
-        for k in ['id', 'vs_points', 'create_date', 'eleanor_version']:
-            del data[k]
-
-        hasher = hashlib.sha256()
-        content: bytes = bytes(json.dumps(data, sort_keys=True, default=str), 'utf-8')
-        hasher.update(content)
-
-        self.hash = hasher.hexdigest()
-
-        return self.hash
 
     def parameters(self) -> list[Parameter]:
         parameters: list[Parameter] = []
@@ -516,7 +498,6 @@ class Order(Suborder):
                 if 'suborders' in order.raw:
                     del order.raw['suborders']
                 order.raw.update(suborder.raw)
-                _ = order.rehash()
 
                 orders.append(order)
 

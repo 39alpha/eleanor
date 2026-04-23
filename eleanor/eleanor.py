@@ -3,8 +3,6 @@ from multiprocessing import Manager
 from queue import Queue
 from typing import TYPE_CHECKING
 
-from sqlalchemy import and_, select
-
 from eleanor.sailor import Sailor
 
 from .config import Config, load_config
@@ -19,7 +17,6 @@ from .transformer import transform
 from .typing import EleanorKwargs, Self, Unpack, cast
 from .util import Progress, chunks
 from .version import __version__
-from .yeoman import Yeoman, column_expr
 
 if TYPE_CHECKING:
     from .transformer import AbstractTransformer
@@ -135,7 +132,9 @@ class Eleanor(object):
             proportional_sampling = proportional_sampling or self.order.suborders.proportional_sampling
 
             if combined and order_id is None:
-                order_id = self.ignite()
+                verbose = kwargs.get('verbose', False)
+                output_sink = output_sink if output_sink is not None else self.load_output_sink(verbose=verbose)
+                order_id = output_sink.begin_run(self.order)
 
             volume = self.order.volume()
 
@@ -220,10 +219,6 @@ class Eleanor(object):
             msg = f"{navigator.__class__.__module__}.{navigator.__class__.__name__} does not support success sampling"
             raise EleanorException(msg)
 
-        if order_id is None:
-            order_id = self.ignite()
-        self.order.id = order_id
-
         progress: Progress | None = None
         manager = None
         if show_progress:
@@ -236,8 +231,10 @@ class Eleanor(object):
             num_workers=num_procs,
         )
 
-        run_output_sink = output_sink if output_sink is not None else self.load_output_sink(verbose=bool(verbose))
-        run_output_sink.begin_run(self.order)
+        output_sink = output_sink if output_sink is not None else self.load_output_sink(verbose=verbose)
+        if order_id is not None:
+            self.order.id = order_id
+        order_id = output_sink.begin_run(self.order)
 
         stats = RunStats()
 
@@ -255,7 +252,7 @@ class Eleanor(object):
                             *args,
                             executor=dispatch_executor,
                             chunks_per_worker=chunks_per_worker,
-                            sink=run_output_sink,
+                            sink=output_sink,
                             progress=progress.queue if progress is not None else None,
                             **kwargs,
                         )
@@ -269,12 +266,12 @@ class Eleanor(object):
                         *args,
                         executor=dispatch_executor,
                         chunks_per_worker=chunks_per_worker,
-                        sink=run_output_sink,
+                        sink=output_sink,
                         progress=progress.queue if progress is not None else None,
                         **kwargs,
                     )
                     stats.update(outcomes)
-            run_output_sink.finalize()
+            output_sink.finalize()
         finally:
             if progress is not None:
                 progress.join()
@@ -417,33 +414,3 @@ class Eleanor(object):
         kernel.validate_order(self.order)
 
         return kernel
-
-    def ignite(self) -> int:
-        with Yeoman(self.config.database) as yeoman:
-            yeoman.setup()
-
-            if yeoman.scalar(select(Order).where(column_expr(Order.eleanor_version != __version__))):
-                raise EleanorException('cannot add order to a database created with a different version of Eleanor')
-
-            result = yeoman.scalar(
-                select(Order).where(
-                    and_(
-                        column_expr(Order.hash == self.order.hash),
-                        column_expr(Order.eleanor_version == __version__),
-                    )))
-
-            if result is not None:
-                order_id = self.order.id = result.id
-                self.order.eleanor_version = result.eleanor_version
-
-                _ = yeoman.merge(result)
-                yeoman.commit()
-            else:
-                self.order.eleanor_version = __version__
-                yeoman.write(self.order, refresh=True)
-                order_id = self.order.id
-
-        if order_id is None:
-            raise EleanorException(f'Error: failed to create the order')
-
-        return order_id

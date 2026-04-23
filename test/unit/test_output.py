@@ -3,6 +3,7 @@ from types import SimpleNamespace
 from unittest import mock
 
 from eleanor.config import DatabaseConfig
+from eleanor.exceptions import EleanorException
 from eleanor.order import Order
 from eleanor.output import ComputeResult, ErrorInfo, OutputSink, PostgresSink, RunStats, WriteOutcome
 
@@ -42,8 +43,9 @@ class TestOutput(TestCase):
         opt out of worker-side writes by default.
         """
         class MinimalSink(OutputSink):
-            def begin_run(self, order: Order) -> None:
-                pass
+            def begin_run(self, order: Order) -> int:
+                _ = order
+                return 0
 
             def write_batch(self, order_id: int, results: Sequence[ComputeResult]) -> list[WriteOutcome]:
                 return []
@@ -60,6 +62,145 @@ class TestOutput(TestCase):
         cfg = DatabaseConfig(database="db", username="u", password="p")
         sink = PostgresSink(cfg)
         self.assertTrue(sink.supports_worker_writes())
+
+    def test_postgres_begin_run_returns_existing_order_id(self):
+        """
+        Ensure PostgresSink.begin_run returns the existing order.id without
+        writing when the order is already persisted, and copies the stored
+        eleanor_version onto the in-memory order when it is unset.
+        """
+        cfg = DatabaseConfig(database="db", username="u", password="p")
+        sink = PostgresSink(cfg)
+
+        order = SimpleNamespace(id=17, eleanor_version=None)
+        existing = SimpleNamespace(id=17, eleanor_version="v1")
+
+        class FakeYeoman:
+            def __init__(self, *_args, **_kwargs): pass
+            def __enter__(self): return self
+            def __exit__(self, *_args): return None
+            def setup(self): pass
+            def get(self, _entity, _ident): return existing
+            def write(self, _point, **_kwargs):
+                raise AssertionError("write should not be called when the order is already persisted")
+
+        with mock.patch("eleanor.output.postgres.Yeoman", FakeYeoman):
+            order_id = sink.begin_run(order)  # type: ignore[arg-type]
+
+        self.assertEqual(order_id, 17)
+        self.assertEqual(order.eleanor_version, "v1")
+
+    def test_postgres_begin_run_writes_order_with_preassigned_id(self):
+        """
+        Ensure PostgresSink.begin_run inserts an order when order.id is
+        supplied but no matching row exists, preserving the caller-chosen id
+        and stamping the current Eleanor version.
+        """
+        cfg = DatabaseConfig(database="db", username="u", password="p")
+        sink = PostgresSink(cfg)
+
+        order = SimpleNamespace(id=99, eleanor_version=None)
+        write_calls: list[tuple[object, dict[str, object]]] = []
+
+        class FakeYeoman:
+            def __init__(self, *_args, **_kwargs): pass
+            def __enter__(self): return self
+            def __exit__(self, *_args): return None
+            def setup(self): pass
+            def get(self, _entity, _ident): return None  # no matching row
+            def write(self, entity, **kwargs):
+                write_calls.append((entity, kwargs))
+
+        with mock.patch("eleanor.output.postgres.Yeoman", FakeYeoman):
+            order_id = sink.begin_run(order)  # type: ignore[arg-type]
+
+        self.assertEqual(order_id, 99)
+        self.assertEqual(len(write_calls), 1)
+        entity, kwargs = write_calls[0]
+        self.assertIs(entity, order)
+        self.assertEqual(entity.id, 99)  # caller-chosen id preserved
+        self.assertTrue(kwargs.get("refresh"))
+        self.assertIsNotNone(order.eleanor_version)
+
+    def test_postgres_begin_run_raises_on_version_mismatch(self):
+        """
+        Ensure PostgresSink.begin_run rejects extending an order whose stored
+        eleanor_version does not match the in-memory order's version.
+        """
+        cfg = DatabaseConfig(database="db", username="u", password="p")
+        sink = PostgresSink(cfg)
+
+        order = SimpleNamespace(id=17, eleanor_version="v2")
+        existing = SimpleNamespace(id=17, eleanor_version="v1")
+
+        class FakeYeoman:
+            def __init__(self, *_args, **_kwargs): pass
+            def __enter__(self): return self
+            def __exit__(self, *_args): return None
+            def setup(self): pass
+            def get(self, _entity, _ident): return existing
+            def write(self, _point, **_kwargs):
+                raise AssertionError("write should not be called on version mismatch")
+
+        with (
+            mock.patch("eleanor.output.postgres.Yeoman", FakeYeoman),
+            self.assertRaisesRegex(EleanorException, "different version of Eleanor"),
+        ):
+            sink.begin_run(order)  # type: ignore[arg-type]
+
+    def test_postgres_begin_run_writes_new_order_and_returns_id(self):
+        """
+        Ensure PostgresSink.begin_run writes an unpersisted order and returns
+        the id assigned by the refresh.
+        """
+        cfg = DatabaseConfig(database="db", username="u", password="p")
+        sink = PostgresSink(cfg)
+
+        order = SimpleNamespace(id=None, eleanor_version=None)
+        write_calls: list[tuple[object, dict[str, object]]] = []
+
+        class FakeYeoman:
+            def __init__(self, *_args, **_kwargs): pass
+            def __enter__(self): return self
+            def __exit__(self, *_args): return None
+            def setup(self): pass
+            def write(self, entity, **kwargs):
+                write_calls.append((entity, kwargs))
+                entity.id = 42  # simulate refresh assigning a primary key
+
+        with mock.patch("eleanor.output.postgres.Yeoman", FakeYeoman):
+            order_id = sink.begin_run(order)  # type: ignore[arg-type]
+
+        self.assertEqual(order_id, 42)
+        self.assertEqual(len(write_calls), 1)
+        entity, kwargs = write_calls[0]
+        self.assertIs(entity, order)
+        self.assertTrue(kwargs.get("refresh"))
+        # begin_run should stamp the current Eleanor version onto the new order.
+        self.assertIsNotNone(order.eleanor_version)
+
+    def test_postgres_begin_run_raises_when_id_missing_after_write(self):
+        """
+        Ensure PostgresSink.begin_run raises if the refresh does not assign an
+        order id after writing.
+        """
+        cfg = DatabaseConfig(database="db", username="u", password="p")
+        sink = PostgresSink(cfg)
+
+        order = SimpleNamespace(id=None, eleanor_version=None)
+
+        class FakeYeoman:
+            def __init__(self, *_args, **_kwargs): pass
+            def __enter__(self): return self
+            def __exit__(self, *_args): return None
+            def setup(self): pass
+            def write(self, _entity, **_kwargs): pass  # does not set id
+
+        with (
+            mock.patch("eleanor.output.postgres.Yeoman", FakeYeoman),
+            self.assertRaises(EleanorException),
+        ):
+            sink.begin_run(order)  # type: ignore[arg-type]
 
     def test_error_info_fields(self):
         """

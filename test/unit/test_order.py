@@ -174,7 +174,7 @@ class TestOrder(TestCase):
 
     def test_order_core_methods(self):
         """
-        Ensure order parsing/hash/parameter collection/splitting work for common paths.
+        Ensure order parsing, parameter collection, and splitting work for common paths.
         """
         raw = {
             "name": "order1",
@@ -188,10 +188,6 @@ class TestOrder(TestCase):
         }
         with mock.patch("eleanor.order.AbstractReactant.from_dict", return_value="reactant"):
             order = Order(raw)
-
-        h0 = order.hash
-        self.assertTrue(isinstance(h0, str) and len(h0) == 64)
-        self.assertEqual(order.rehash(), order.hash)
 
         params = order.parameters()
         self.assertTrue(any(isinstance(p, ValueParameter) for p in params))

@@ -49,7 +49,25 @@ class RunStats(object):
 
 class OutputSink(ABC):
     @abstractmethod
-    def begin_run(self, order: Order) -> None:
+    def begin_run(self, order: Order) -> int:
+        """Perform any setup required for a run and return the order id.
+
+        This method is responsible for choosing an order id if the order does
+        not already have one, and the sink may modify the provided order.
+
+        This method must be called before :meth:`write_batch` or
+        :meth:`finalize`. Repeated calls with the same order are expected to
+        return the same id and leave the sink's backing store in the same
+        observable state as a single call (e.g. no duplicate order rows),
+        though they may still perform work -- opening a connection, reading
+        back stored metadata, or populating fields on the in-memory order.
+
+        Implementations are only expected to verify identifying metadata
+        (such as the order id and the version of Eleanor that produced
+        the order); they are not expected to validate that the full order
+        contents match what is stored. Callers extending an existing order
+        are responsible for supplying a consistent order.
+        """
         ...
 
     @abstractmethod

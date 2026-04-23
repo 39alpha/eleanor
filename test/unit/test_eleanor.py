@@ -35,39 +35,6 @@ class _Pool:
         return None
 
 
-class _Query:
-    def __init__(self, count_value):
-        self._count_value = count_value
-
-    def filter(self, *_args, **_kwargs):
-        return self
-
-    def count(self):
-        return self._count_value
-
-
-class _Yeoman:
-    def __init__(self, scalar_values=None, count_value=0):
-        self.scalar_values = [] if scalar_values is None else list(scalar_values)
-        self.write = mock.Mock()
-        self.merge = mock.Mock()
-        self.commit = mock.Mock()
-        self.setup = mock.Mock()
-        self._count_value = count_value
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, *_args):
-        return None
-
-    def scalar(self, *_args, **_kwargs):
-        return self.scalar_values.pop(0) if self.scalar_values else None
-
-    def query(self, *_args, **_kwargs):
-        return _Query(self._count_value)
-
-
 class _Suborder:
     def __init__(self, volume):
         self._volume = volume
@@ -195,7 +162,9 @@ class TestEleanor(TestCase):
         eleanor.order.suborders = SimpleNamespace(suborders=suborders, combined=True, proportional_sampling=True)
         eleanor.order.split_suborders = mock.Mock(return_value=suborders)
         eleanor.order.volume = mock.Mock(return_value=4.0)
-        eleanor.ignite = mock.Mock(return_value=99)
+        sink = mock.Mock()
+        sink.begin_run.return_value = 99
+        eleanor.load_output_sink = mock.Mock(return_value=sink)
 
         child1 = mock.Mock()
         child1._run.return_value = [4, 2]
@@ -208,7 +177,8 @@ class TestEleanor(TestCase):
 
         self.assertEqual(out, [2, 3, 4])
         build_executor.assert_called_once_with(kind='multiprocessing', num_workers=None)
-        eleanor.ignite.assert_called_once()
+        eleanor.load_output_sink.assert_called_once()
+        sink.begin_run.assert_called_once_with(eleanor.order)
         child1._run.assert_called_once()
         child2._run.assert_called_once()
         self.assertIs(child1._run.call_args.kwargs["executor"], executor)
@@ -217,6 +187,9 @@ class TestEleanor(TestCase):
         self.assertEqual(child2._run.call_args.kwargs["parallel"], 'multiprocessing')
         self.assertEqual(child1._run.call_args.kwargs["chunks_per_worker"], 1)
         self.assertEqual(child2._run.call_args.kwargs["chunks_per_worker"], 1)
+        # order_id from begin_run is threaded into the child runs.
+        self.assertEqual(child1._run.call_args.kwargs["order_id"], 99)
+        self.assertEqual(child2._run.call_args.kwargs["order_id"], 99)
 
     def test_dispatch_rejects_unsupported_success_sampling(self):
         """
@@ -242,7 +215,7 @@ class TestEleanor(TestCase):
 
     def test_dispatch_processes_without_success_sampling(self):
         """
-        Ensure dispatch ignites as needed and calls process once in standard mode.
+        Ensure dispatch begins a run via the output sink and calls process once in standard mode.
         """
         from eleanor.navigator import AbstractNavigator
 
@@ -252,11 +225,11 @@ class TestEleanor(TestCase):
         navigator.supports_success_sampling.return_value = True
         eleanor.load_kernel = mock.Mock(return_value=kernel)
         eleanor.order.navigator = SimpleNamespace(type="random", args={})
-        eleanor.ignite = mock.Mock(return_value=5)
         eleanor.process = mock.Mock(return_value=[
             WriteOutcome(point_id=10, exit_code=0, committed=True)
         ])
         sink = mock.Mock()
+        sink.begin_run.return_value = 5
         eleanor.load_output_sink = mock.Mock(return_value=sink)
         executor = _Pool()
         with (
@@ -270,9 +243,8 @@ class TestEleanor(TestCase):
 
         self.assertEqual(out, [5])
         build_executor.assert_called_once_with(kind='multiprocessing', num_workers=0)
-        eleanor.ignite.assert_called_once()
         eleanor.process.assert_called_once()
-        sink.begin_run.assert_called_once()
+        sink.begin_run.assert_called_once_with(eleanor.order)
         sink.finalize.assert_called_once()
         self.assertIs(eleanor.process.call_args.kwargs["executor"], executor)
 
@@ -295,6 +267,7 @@ class TestEleanor(TestCase):
             WriteOutcome(point_id=11, exit_code=0, committed=True),
         ])
         sink = mock.Mock()
+        sink.begin_run.return_value = 11
         eleanor.load_output_sink = mock.Mock(return_value=sink)
         executor = _Pool()
         manager = mock.Mock()
@@ -314,7 +287,7 @@ class TestEleanor(TestCase):
         self.assertEqual(out, [11])
         build_executor.assert_called_once_with(kind='multiprocessing', num_workers=None)
         eleanor.process.assert_called_once()
-        sink.begin_run.assert_called_once()
+        sink.begin_run.assert_called_once_with(eleanor.order)
         sink.finalize.assert_called_once()
         progress.join.assert_called_once()
         manager.shutdown.assert_called_once()
@@ -459,6 +432,7 @@ class TestEleanor(TestCase):
         ])
         eleanor.load_output_sink = mock.Mock()
         provided_sink = mock.Mock()
+        provided_sink.begin_run.return_value = 7
         executor = _Pool()
         with (
             mock.patch("eleanor.eleanor.build_executor", return_value=executor) as build_executor,
@@ -472,7 +446,7 @@ class TestEleanor(TestCase):
         self.assertEqual(out, [7])
         build_executor.assert_called_once_with(kind='multiprocessing', num_workers=None)
         eleanor.load_output_sink.assert_not_called()
-        provided_sink.begin_run.assert_called_once()
+        provided_sink.begin_run.assert_called_once_with(eleanor.order)
         provided_sink.finalize.assert_called_once()
         self.assertIs(eleanor.process.call_args.kwargs["sink"], provided_sink)
 
@@ -544,60 +518,3 @@ class TestEleanor(TestCase):
         spec.build.assert_called_once_with(settings, "arg1")
         kernel.setup.assert_called_once_with(eleanor.order, alpha=1)
 
-    def test_ignite_rejects_version_mismatch(self):
-        """
-        Ensure ignite raises when database contains orders with a different Eleanor version.
-        """
-        eleanor = self._make_eleanor()
-        eleanor.order.hash = "abc"
-        yeoman = _Yeoman(scalar_values=[object()])
-        with mock.patch("eleanor.eleanor.Yeoman", return_value=yeoman):
-            with self.assertRaises(EleanorException):
-                eleanor.ignite()
-
-    def test_ignite_merges_existing_order(self):
-        """
-        Ensure ignite reuses an existing order record.
-        """
-        eleanor = self._make_eleanor()
-        eleanor.order.id = None
-        eleanor.order.hash = "abc"
-        eleanor.order.eleanor_version = None
-        existing = SimpleNamespace(
-            id=21,
-            eleanor_version="v",
-        )
-        kernel = mock.Mock()
-        kernel.is_soft_exit.return_value = True
-        yeoman = _Yeoman(scalar_values=[None, existing])
-        with (
-            mock.patch("eleanor.eleanor.Yeoman", return_value=yeoman),
-        ):
-            out = eleanor.ignite()
-
-        self.assertEqual(out, 21)
-        yeoman.merge.assert_called_once_with(existing)
-        yeoman.commit.assert_called_once()
-
-    def test_ignite_writes_new_order_and_requires_id(self):
-        """
-        Ensure ignite writes new orders and raises if no order id is assigned.
-        """
-        eleanor = self._make_eleanor()
-        eleanor.order.id = 33
-        eleanor.order.hash = "abc"
-        eleanor.order.eleanor_version = None
-        yeoman = _Yeoman(scalar_values=[None, None])
-        with mock.patch("eleanor.eleanor.Yeoman", return_value=yeoman):
-            out = eleanor.ignite()
-        self.assertEqual(out, 33)
-        yeoman.write.assert_called_once_with(eleanor.order, refresh=True)
-
-        eleanor2 = self._make_eleanor()
-        eleanor2.order.id = None
-        eleanor2.order.hash = "abc"
-        eleanor2.order.eleanor_version = None
-        yeoman2 = _Yeoman(scalar_values=[None, None])
-        with mock.patch("eleanor.eleanor.Yeoman", return_value=yeoman2):
-            with self.assertRaises(EleanorException):
-                eleanor2.ignite()

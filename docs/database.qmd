@@ -100,7 +100,6 @@ representing "absent" or "missing", e.g. `-inf`. Columns that are nullable
 |:-: |:-: |:-:|---------------------------                                      |---------   |------------------------------------------------------------                                                                                                  |---------      |
 | ✔  |    |   | `id`                                                            | `INTEGER`  | The order identifier                                                                                                                                         |               |
 |    |    |   | `name`                                                          | `VARCHAR`  | The name of the order                                                                                                                                        |               |
-|    |    |   | `hash`                                                          | `VARCHAR`  | A SHA-256 hash of the order file contents                                                                                                                    |               |
 |    |    |   | `eleanor_version`                                               | `VARCHAR`  | The version of eleanor used to run the order                                                                                                                 |               |
 |    |    |   | `raw`                                                           | `JSON`     | The raw, JSON-encoded contents of the order                                                                                                                  |               |
 |    |    |   | `create_date`                                                   | `DATETIME` | The datetime at which the order was created                                                                                                                  |               |
@@ -109,34 +108,23 @@ representing "absent" or "missing", e.g. `-inf`. Columns that are nullable
 
 When the user runs an order, **Eleanor** stores an entry in the `orders` table
 which includes the autoincremented `id`, the name of the order (extracted from
-the YAML/TOML/JSON file), a SHA-256 hash of the normalized content of the order,
-and the version of **Eleanor** used to execute the order.
+the YAML/TOML/JSON file) and the version of **Eleanor** used to execute the
+order.
 
-A entry in the `orders` table is created if:
-
-1. The hash of the order is not in the table (i.e. a new order), or
-2. The version of **Eleanor** used to run the order changes, or
-3. The user specifies that they want a disctinct order created.
-
-Otherwise, any [variable space](#variable_space) points generated for the
-order will be associated with an existing order with the same `hash` and
-`eleanor_version`. This allows the user to run small batches for initial testing
-and subsequent batches to more fully sample the variable space, an "extension
-run".
+The `raw` column stores the original content of the order file in JSON format.
 
 The `create_date` value is the datetime at which the order was initially created.
-Subsequent extension runs do not update the `create_date`.
 
 **Example**:
 
 ```sql
-SELECT id, name, hash, eleanor_version, create_date FROM orders;
+SELECT id, name, eleanor_version, create_date FROM orders;
 
-+----+----------------------+------------------------------------------------------------------+-----------------+------------------------+
-| id | name                 | hash                                                             | eleanor_version | create_date            |
-|----+----------------------+------------------------------------------------------------------+-----------------+------------------------|
-| 1  | A Wild Example Order | 9a511f8f977d86264a8329b8a75bc9d489237d6ad249ab009c73f8e159360c36 | 0.19.0          | 2026-01-09 10:59:01.98 |
-+----+----------------------+------------------------------------------------------------------+-----------------+------------------------+
++----+----------------------+-----------------+------------------------+
+| id | name                 | eleanor_version | create_date            |
+|----+----------------------+-----------------+------------------------|
+| 1  | A Wild Example Order | 0.19.0          | 2026-01-09 10:59:01.98 |
++----+----------------------+-----------------+------------------------+
 ```
 
 {{< pagebreak >}}

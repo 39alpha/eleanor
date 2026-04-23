@@ -193,15 +193,14 @@ class TestOutput(TestCase):
         cfg = DatabaseConfig(database='db', username='u', password='p')
         sink = PostgresSink(cfg)
 
-        good_point = SimpleNamespace(exit_code=0, order_id=None, id=None)
-        bad_point = SimpleNamespace(exit_code=0, order_id=None, id=None)
+        good_point = SimpleNamespace(exit_code=0, order_id=None)
+        bad_point = SimpleNamespace(exit_code=0, order_id=None)
         results = [ComputeResult(point=good_point), ComputeResult(point=bad_point)]
 
         def write_point(_cfg, _order_id, point, verbose=False):
             _ = verbose
             if point is bad_point:
                 raise RuntimeError('write failed')
-            point.id = 42
             return SimpleNamespace(id=42)
 
         with mock.patch('eleanor.output.postgres.sink.repositories.write_point', side_effect=write_point):
@@ -217,12 +216,12 @@ class TestOutput(TestCase):
 
     def test_write_batch_recovers_when_point_id_missing_after_write(self):
         """
-        Ensure write_batch treats a missing point.id after write as a recoverable error.
+        Ensure write_batch treats a missing persisted id after write as a recoverable error.
         """
         cfg = DatabaseConfig(database='db', username='u', password='p')
         sink = PostgresSink(cfg)
 
-        point = SimpleNamespace(exit_code=0, order_id=None, id=None)
+        point = SimpleNamespace(exit_code=0, order_id=None)
         results = [ComputeResult(point=point)]
 
         with mock.patch(

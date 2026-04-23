@@ -13,10 +13,8 @@ class Settings(object):
 
 @dataclass(kw_only=True)
 class Config(object):
-
     type: str
     settings: Settings | dict[str, object]
-    id: int | None = None
 
     def resolved_settings(self) -> Settings:
         if not isinstance(self.settings, Settings):

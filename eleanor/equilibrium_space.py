@@ -9,7 +9,6 @@ class Element(object):
     name: str
     log_molality: float
     mass_fraction: float
-    id: int | None = None
 
 
 @final
@@ -19,7 +18,6 @@ class AqueousSpecies(object):
     log_molality: float
     log_activity: float
     log_gamma: float
-    id: int | None = None
 
 
 @final
@@ -31,7 +29,6 @@ class PureSolid(object):
     log_moles: float | None = None
     log_mass: float | None = None
     log_volume: float | None = None
-    id: int | None = None
 
 
 @final
@@ -43,7 +40,6 @@ class EndMember(object):
     log_moles: float | None = None
     log_mass: float | None = None
     log_volume: float | None = None
-    id: int | None = None
 
 
 @final
@@ -56,7 +52,6 @@ class SolidSolution(object):
     log_moles: float | None = None
     log_mass: float | None = None
     log_volume: float | None = None
-    id: int | None = None
 
 
 @final
@@ -64,7 +59,6 @@ class SolidSolution(object):
 class Gas(object):
     name: str
     log_fugacity: float
-    id: int | None = None
 
 
 @final
@@ -77,7 +71,6 @@ class Reactant(object):
     log_moles_remaining: float
     log_mass_reacted: float
     log_mass_remaining: float
-    id: int | None = None
 
 
 @final
@@ -88,7 +81,6 @@ class RedoxReaction(object):
     pe: float
     log_fO2: float
     Ah: float
-    id: int | None = None
 
 
 @final
@@ -148,7 +140,6 @@ class Point(object):
     solid_volume_created: float | None = None
     solid_volume_destroyed: float | None = None
     reactants: list[Reactant] = field(default_factory=list)
-    id: int | None = None
     start_date: datetime | None = None
     complete_date: datetime | None = None
     custom_properties: dict[str, object] = field(default_factory=dict)

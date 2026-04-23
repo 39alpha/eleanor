@@ -797,25 +797,23 @@ class TestEq36Kernel(TestCase):
         kernel = self._kernel()
         settings = self._settings()
 
-        mineral = MineralReactant(name="Calcite", log_moles=0.0, titration_rate=1.0, id=None)
+        mineral = MineralReactant(name="Calcite", log_moles=0.0, titration_rate=1.0)
         solid_solution = SolidSolutionReactant(
             name="Albite_ss",
             log_moles=0.0,
             titration_rate=1.0,
             end_members=[SolidSolutionReactantEndMembers(name="EM1", fraction=1.0)],
-            id=None,
         )
         special = SpecialReactant(
             name="SR",
             log_moles=0.0,
             titration_rate=1.0,
             composition=[SpecialReactantComposition(element="Na", count=1)],
-            id=None,
         )
-        element = ElementReactant(name="Na", log_moles=0.0, titration_rate=1.0, id=None)
-        aqueous = AqueousReactant(name="Na+", log_moles=0.0, titration_rate=1.0, id=None)
-        gas = GasReactant(name="CO2(g)", log_moles=0.0, titration_rate=1.0, id=None)
-        fixed_gas = FixedGasReactant(name="O2(g)", log_moles=0.0, log_fugacity=-50.0, id=None)
+        element = ElementReactant(name="Na", log_moles=0.0, titration_rate=1.0)
+        aqueous = AqueousReactant(name="Na+", log_moles=0.0, titration_rate=1.0)
+        gas = GasReactant(name="CO2(g)", log_moles=0.0, titration_rate=1.0)
+        fixed_gas = FixedGasReactant(name="O2(g)", log_moles=0.0, log_fugacity=-50.0)
         glass = SimpleNamespace(
             oxides=[
                 SimpleNamespace(

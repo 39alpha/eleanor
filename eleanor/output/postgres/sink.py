@@ -65,12 +65,12 @@ class PostgresSink(OutputSink):
                 point = result.point
                 # point.order_id remains a caller-visible side effect of writing.
                 point.order_id = order_id
-                _ = repositories.write_point(self.config, order_id, point, verbose=self.verbose)
-                if point.id is None:
+                model = repositories.write_point(self.config, order_id, point, verbose=self.verbose)
+                if model.id is None:
                     raise EleanorException('variable space point does not have an id after insert')
                 outcomes.append(
                     WriteOutcome(
-                        point_id=point.id,
+                        point_id=model.id,
                         exit_code=point.exit_code,
                         committed=True,
                     ))

@@ -111,6 +111,6 @@ class Sailor(object):
             with zipfile.ZipFile(buffer, 'w', compression=zipfile.ZIP_BZIP2, allowZip64=True, compresslevel=9) as zip:
                 for filename in os.listdir(dir):
                     zip.write(join(dir, filename), filename)
-            return vs.Scratch(id=None, zip=buffer.getvalue())
+            return vs.Scratch(zip=buffer.getvalue())
         except Exception:
-            return vs.Scratch(id=None, zip=bytes('\0', 'ascii'))
+            return vs.Scratch(zip=bytes('\0', 'ascii'))

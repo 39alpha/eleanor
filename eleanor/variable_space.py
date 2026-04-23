@@ -13,7 +13,6 @@ from .util import mapreduce
 @dataclass
 class SuppressionException(object):
     name: str
-    id: int | None = None
 
 
 @final
@@ -22,7 +21,6 @@ class Suppression(object):
     name: str | None
     type: str | None
     exceptions: list[SuppressionException]
-    id: int | None = None
 
 
 @final
@@ -31,7 +29,6 @@ class MineralReactant(object):
     name: str
     log_moles: float
     titration_rate: float
-    id: int | None = None
 
 
 @final
@@ -40,7 +37,6 @@ class AqueousReactant(object):
     name: str
     log_moles: float
     titration_rate: float
-    id: int | None = None
 
 
 @final
@@ -49,7 +45,6 @@ class GasReactant(object):
     name: str
     log_moles: float
     titration_rate: float
-    id: int | None = None
 
 
 @final
@@ -58,7 +53,6 @@ class ElementReactant(object):
     name: str
     log_moles: float
     titration_rate: float
-    id: int | None = None
 
 
 @final
@@ -66,7 +60,6 @@ class ElementReactant(object):
 class SpecialReactantComposition(object):
     element: str
     count: int
-    id: int | None = None
 
 
 @final
@@ -76,7 +69,6 @@ class SpecialReactant(object):
     log_moles: float
     titration_rate: float
     composition: list[SpecialReactantComposition]
-    id: int | None = None
 
 
 @final
@@ -84,7 +76,6 @@ class SpecialReactant(object):
 class GlassReactantOxideComposition(object):
     element: str
     count: int
-    id: int | None = None
 
 
 @final
@@ -95,7 +86,6 @@ class GlassReactantOxide(object):
     log_moles: float
     titration_rate: float
     composition: list[GlassReactantOxideComposition]
-    id: int | None = None
 
 
 @final
@@ -105,7 +95,6 @@ class GlassReactant(object):
     log_moles: float
     titration_rate: float
     oxides: list[GlassReactantOxide]
-    id: int | None = None
 
 
 @final
@@ -114,7 +103,6 @@ class FixedGasReactant(object):
     name: str
     log_moles: float
     log_fugacity: float
-    id: int | None = None
 
 
 @final
@@ -122,7 +110,6 @@ class FixedGasReactant(object):
 class SolidSolutionReactantEndMembers(object):
     name: str
     fraction: float
-    id: int | None = None
 
 
 @final
@@ -132,7 +119,6 @@ class SolidSolutionReactant(object):
     log_moles: float
     titration_rate: float
     end_members: list[SolidSolutionReactantEndMembers]
-    id: int | None = None
 
 
 @final
@@ -140,7 +126,6 @@ class SolidSolutionReactant(object):
 class Element(object):
     name: str
     log_molality: float
-    id: int | None = None
 
 
 @final
@@ -148,14 +133,12 @@ class Element(object):
 class Species(object):
     name: str
     value: float
-    id: int | None = None
 
 
 @final
 @dataclass
 class Scratch(object):
     zip: bytes
-    id: int | None = None
 
 
 @final
@@ -176,7 +159,6 @@ class Point(object):
     fixed_gas_reactants: list[FixedGasReactant]
     solid_solution_reactants: list[SolidSolutionReactant]
     glass_reactants: list[GlassReactant]
-    id: int | None = None
     order_id: int | None = None
     es_points: list[es.Point] = field(default_factory=list)
     scratch: Scratch | None = None

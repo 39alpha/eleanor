@@ -46,7 +46,6 @@ def write_point(
         session.add(model)
         session.commit()
         session.refresh(model)
-        mappers.copy_vs_model_ids_back(point, model)
     return model
 
 

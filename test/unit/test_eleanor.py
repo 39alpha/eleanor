@@ -69,32 +69,36 @@ class TestEleanor(TestCase):
         ):
             eleanor = Eleanor("config.toml", "order.yaml", ["k"])
         load_cfg.assert_called_once_with("config.toml")
-        load_order.assert_called_once_with("order.yaml")
+        load_order.assert_called_once_with("order.yaml", order_id=None, tag=None)
         self.assertEqual(eleanor.config, "cfg")
         self.assertEqual(eleanor.order, "ord")
         self.assertEqual(eleanor.kernel_args, ["k"])
 
-    def test_init_applies_order_id_override(self):
+    def test_init_forwards_order_id_and_tag_to_load_order(self):
         """
-        Ensure the constructor assigns the supplied order_id onto the loaded order
-        and leaves the existing id untouched when order_id is omitted.
+        Ensure the constructor forwards order_id and tag overrides to load_order,
+        which is the component responsible for applying them to the loaded order.
         """
-        loaded = SimpleNamespace(id=None)
         with (
             mock.patch("eleanor.eleanor.load_config", return_value="cfg"),
-            mock.patch("eleanor.eleanor.load_order", return_value=loaded),
+            mock.patch("eleanor.eleanor.load_order", return_value="ord") as load_order,
         ):
-            eleanor = Eleanor("config.toml", "order.yaml", ["k"], order_id=55)
-        self.assertIs(eleanor.order, loaded)
-        self.assertEqual(eleanor.order.id, 55)
+            _ = Eleanor("config.toml", "order.yaml", ["k"], order_id=55, tag="experiment-1")
+        load_order.assert_called_once_with("order.yaml", order_id=55, tag="experiment-1")
 
-        untouched = SimpleNamespace(id=7)
         with (
             mock.patch("eleanor.eleanor.load_config", return_value="cfg"),
-            mock.patch("eleanor.eleanor.load_order", return_value=untouched),
+            mock.patch("eleanor.eleanor.load_order", return_value="ord") as load_order,
         ):
-            eleanor = Eleanor("config.toml", "order.yaml", ["k"])
-        self.assertEqual(eleanor.order.id, 7)
+            _ = Eleanor("config.toml", "order.yaml", ["k"], order_id=55)
+        load_order.assert_called_once_with("order.yaml", order_id=55, tag=None)
+
+        with (
+            mock.patch("eleanor.eleanor.load_config", return_value="cfg"),
+            mock.patch("eleanor.eleanor.load_order", return_value="ord") as load_order,
+        ):
+            _ = Eleanor("config.toml", "order.yaml", ["k"], tag="experiment-1")
+        load_order.assert_called_once_with("order.yaml", order_id=None, tag="experiment-1")
 
     def test_recur_uses_runtime_class(self):
         """

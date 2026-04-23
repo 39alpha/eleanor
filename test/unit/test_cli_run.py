@@ -18,6 +18,7 @@ class TestCLIRun(TestCase):
         values = {
             'order': 'order.yaml',
             'order_id': None,
+            'tag': None,
             'kernel_args': None,
             'num_procs': None,
             'simulation_size': 10,
@@ -72,7 +73,7 @@ class TestCLIRun(TestCase):
         ):
             run_cli.execute(parser, ns)
 
-        eleanor_cls.assert_called_once_with(config, 'order.yaml', [], order_id=None)
+        eleanor_cls.assert_called_once_with(config, 'order.yaml', [], order_id=None, tag=None)
         eleanor.run.assert_called_once_with(
             10,
             num_procs=3,
@@ -125,7 +126,7 @@ class TestCLIRun(TestCase):
 
     def test_init_parses_order_id_flag(self):
         """
-        Ensure --order-id/-i is parsed into the RunArgs namespace as an int,
+        Ensure --order-id is parsed into the RunArgs namespace as an int,
         and defaults to None when omitted.
         """
         parser = argparse.ArgumentParser()
@@ -135,11 +136,26 @@ class TestCLIRun(TestCase):
         ns_long = parser.parse_args(['--order-id', '42', 'order.yaml', '10'])
         self.assertEqual(ns_long.order_id, 42)
 
-        ns_short = parser.parse_args(['--order-id', '7', 'order.yaml', '10'])
-        self.assertEqual(ns_short.order_id, 7)
+        ns_long_alt = parser.parse_args(['--order-id', '7', 'order.yaml', '10'])
+        self.assertEqual(ns_long_alt.order_id, 7)
 
         ns_default = parser.parse_args(['order.yaml', '10'])
         self.assertIsNone(ns_default.order_id)
+
+    def test_init_parses_tag_flag(self):
+        """
+        Ensure --tag is parsed into the RunArgs namespace as a str,
+        and defaults to None when omitted.
+        """
+        parser = argparse.ArgumentParser()
+        with mock.patch("eleanor.cli.run.add_config_args"):
+            run_cli.init(parser)
+
+        ns_long = parser.parse_args(['--tag', 'experiment-1', 'order.yaml', '10'])
+        self.assertEqual(ns_long.tag, 'experiment-1')
+
+        ns_default = parser.parse_args(['order.yaml', '10'])
+        self.assertIsNone(ns_default.tag)
 
     def test_execute_forwards_order_id_to_eleanor(self):
         """
@@ -157,7 +173,25 @@ class TestCLIRun(TestCase):
         ):
             run_cli.execute(parser, ns)
 
-        eleanor_cls.assert_called_once_with(config, 'order.yaml', [], order_id=321)
+        eleanor_cls.assert_called_once_with(config, 'order.yaml', [], order_id=321, tag=None)
+
+    def test_execute_forwards_tag_to_eleanor(self):
+        """
+        Ensure execute forwards the parsed tag to Eleanor as a keyword argument.
+        """
+        parser = argparse.ArgumentParser()
+        ns = self._namespace(tag='experiment-1')
+        config = self._config()
+        eleanor = mock.Mock()
+        eleanor.run.return_value = [1]
+
+        with (
+            mock.patch("eleanor.cli.run.config_from_args", return_value=config),
+            mock.patch("eleanor.cli.run.Eleanor", return_value=eleanor) as eleanor_cls,
+        ):
+            run_cli.execute(parser, ns)
+
+        eleanor_cls.assert_called_once_with(config, 'order.yaml', [], order_id=None, tag='experiment-1')
 
     def test_init_accepts_arbitrary_parallel_name(self):
         """

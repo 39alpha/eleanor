@@ -32,12 +32,11 @@ class Eleanor(object):
         config: str | Config,
         order: str | Order,
         kernel_args: list[object],
-        order_id: int | None = None
+        order_id: int | None = None,
+        tag: str | None = None
     ):
         self.config = load_config(config)
-        self.order = load_order(order)
-        if order_id is not None:
-            self.order.id = order_id
+        self.order = load_order(order, order_id=order_id, tag=tag)
         self.kernel_args = kernel_args
 
     def recur(self, config: str | Config, order: str | Order, kernel_args: list[object]) -> Self:

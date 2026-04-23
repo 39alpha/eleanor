@@ -368,6 +368,7 @@ class Order(Suborder):
         yeoman_registry.metadata,
         Column('id', Integer, primary_key=True),
         Column('name', String, nullable=False, index=True),
+        Column('tag', String, nullable=False, default="", server_default="", index=True),
         Column('eleanor_version', String, nullable=False, index=True),
         Column('raw', JSONDict, nullable=False),
         Column('create_date', DateTime, nullable=False),
@@ -387,10 +388,13 @@ class Order(Suborder):
     vs_points: list[VSPoint] = field(default_factory=lambda: [])
     create_date: datetime = field(default_factory=datetime.now)
     eleanor_version: str | None = None
+    tag: str = ""
 
     def __init__(
         self,
         raw: SuborderRaw,
+        order_id: int | None = None,
+        tag: str | None = None,
         vs_points: list[VSPoint] | None = None,
         create_date: datetime | None = None,
     ):
@@ -402,7 +406,12 @@ class Order(Suborder):
         self.raw = raw
         self.vs_points = [] if vs_points is None else vs_points
         self.create_date = datetime.now() if create_date is None else create_date
-        self.id = _require_opt_int(self.raw.get('id'), 'id')
+        self.id = order_id if order_id is not None else _require_opt_int(self.raw.get('id'), 'id')
+
+        raw_tag = _require_opt_str(self.raw.get('tag'), 'tag') or ""
+        self.tag = tag if tag is not None else raw_tag
+
+        self.name = _require_str(self.raw.get('name'), 'name')
 
         self.eleanor_version = None
 
@@ -410,7 +419,6 @@ class Order(Suborder):
 
     @reconstructor
     def __post_init__(self):
-        self.name = _require_str(self.raw.get('name'), 'name')
         self.notes = _require_str(self.raw.get('notes', ''), 'notes')
         self.creator = _require_str(self.raw.get('creator'), 'creator')
 
@@ -567,7 +575,19 @@ class Order(Suborder):
             raise EleanorException(f'failed to parse "{fname}" as yaml, toml or json') from e
 
 
-def load_order(order: str | Order) -> Order:
+def load_order(order: str | Order, order_id: int | None = None, tag: str | None = None) -> Order:
+    """Load and/or override an order.
+
+    If the provided :paramref:`order` is a string, it is assumed to be a
+    filename and the order is first loaded from disk.
+
+    If any of the keyword arguments are provided, they will override the
+    corresponding properties on the Order before it is returned.
+    """
     if isinstance(order, str):
         order = Order.from_file(order)
+    if order_id is not None:
+        order.id = order_id
+    if tag is not None:
+        order.tag = tag
     return order

@@ -199,7 +199,7 @@ class TestOrder(TestCase):
 
     def test_order_reads_id_from_raw(self):
         """
-        Ensure Order.__post_init__ reads an optional numeric ``id`` from raw
+        Ensure Order.__init__ reads an optional numeric ``id`` from raw
         and defaults to None when the field is absent.
         """
         order_with_id = Order({"id": 12, "name": "o", "creator": "u"})
@@ -210,6 +210,54 @@ class TestOrder(TestCase):
 
         with self.assertRaisesRegex(EleanorException, "id must be an integer"):
             Order({"id": "not-an-int", "name": "o", "creator": "u"})
+
+    def test_order_reads_tag_from_raw_and_defaults_to_empty_string(self):
+        """
+        Ensure Order.__init__ reads an optional ``tag`` from raw, defaults to
+        the empty string when the field is absent, and rejects non-string values.
+        """
+        order_with_tag = Order({"name": "o", "creator": "u", "tag": "experiment-1"})
+        self.assertEqual(order_with_tag.tag, "experiment-1")
+
+        order_without_tag = Order({"name": "o", "creator": "u"})
+        self.assertEqual(order_without_tag.tag, "")
+
+        with self.assertRaisesRegex(EleanorException, "tag must be a string"):
+            Order({"name": "o", "creator": "u", "tag": 123})
+
+    def test_order_kwargs_override_raw_id_and_tag(self):
+        """
+        Ensure explicit order_id and tag kwargs to Order.__init__ take precedence
+        over matching fields in the raw dict.
+        """
+        order = Order(
+            {"id": 1, "name": "o", "creator": "u", "tag": "raw-tag"},
+            order_id=42,
+            tag="kwarg-tag",
+        )
+        self.assertEqual(order.id, 42)
+        self.assertEqual(order.tag, "kwarg-tag")
+
+    def test_load_order_applies_overrides(self):
+        """
+        Ensure load_order applies order_id and tag overrides to an already-loaded
+        Order, and leaves existing values alone when the override is None.
+        """
+        order = Order({"name": "o", "creator": "u", "tag": "raw-tag"})
+        order.id = 3
+
+        returned = load_order(order, order_id=99, tag="new-tag")
+        self.assertIs(returned, order)
+        self.assertEqual(order.id, 99)
+        self.assertEqual(order.tag, "new-tag")
+
+        # With both override kwargs None, the loaded order is returned unchanged.
+        other = Order({"name": "o", "creator": "u", "tag": "raw-tag"})
+        other.id = 7
+        returned_other = load_order(other)
+        self.assertIs(returned_other, other)
+        self.assertEqual(other.id, 7)
+        self.assertEqual(other.tag, "raw-tag")
 
     def test_order_post_init_validation_and_kernel_branches(self):
         """

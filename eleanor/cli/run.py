@@ -11,6 +11,7 @@ class RunArgs(ConfigArgs):
     """Argparse fields accepted by the ``run`` command."""
     order: str
     order_id: int | None
+    tag: str | None
     simulation_size: int
     num_procs: int | None
     verbose: bool
@@ -32,6 +33,7 @@ def init(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
     _ = parser.add_argument('-s', '--scratch', required=False, action='store_true', help='save scratch for all sailors')
     _ = parser.add_argument('-k', '--kernel-args', required=False, action='append', help='arguments to pass to the kernel')
     _ = parser.add_argument('--order-id', required=False, type=int, help='override the order id')
+    _ = parser.add_argument('--tag', required=False, type=str, help='override the order tag')
     _ = parser.add_argument(
         '-p',
         '--progress',
@@ -108,7 +110,7 @@ def execute(parser: argparse.ArgumentParser, ns: argparse.Namespace) -> None:
         if chunks_per_worker is None:
             chunks_per_worker = config.parallel.chunks_per_worker
 
-        order_ids = Eleanor(config, args['order'], kernel_args, order_id=args['order_id']).run(
+        order_ids = Eleanor(config, args['order'], kernel_args, order_id=args['order_id'], tag=args['tag']).run(
             args['simulation_size'],
             num_procs=args['num_procs'],
             scratch=args['scratch'],

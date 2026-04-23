@@ -44,11 +44,9 @@ navigator:
   args: {seed: 42}
 
 transformers:
-  - type: glass_reactant_embedder
+  - type: my_transformer
     args:
-      filename: oxides.csv
-      reactant_name: basalt
-      amount: 1.0
+      mode: campaign_defaults
 
 output:
   type: postgres

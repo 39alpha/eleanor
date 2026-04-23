@@ -44,8 +44,8 @@ class TestOrder(TestCase):
         """
         Ensure transformer config parsing preserves short names and args.
         """
-        tf = TransformerConfig("glass_reactant_embedder")
-        self.assertEqual(tf.type, "glass_reactant_embedder")
+        tf = TransformerConfig()
+        self.assertEqual(tf.type, "transformer")
         self.assertEqual(tf.args, {})
 
         tf2 = TransformerConfig("my_transformer", args={"x": 1})
@@ -288,13 +288,13 @@ class TestOrder(TestCase):
                 "name": "o",
                 "creator": "u",
                 "transformers": [
-                    "glass_reactant_embedder",
+                    "my_transformer_a",
                     {"type": "my_transformer", "args": {"filename": "x.csv"}},
                 ],
             }
         )
         self.assertEqual(len(order.transformers), 2)
-        self.assertEqual(order.transformers[0].type, "glass_reactant_embedder")
+        self.assertEqual(order.transformers[0].type, "my_transformer_a")
         self.assertEqual(order.transformers[1].type, "my_transformer")
         self.assertEqual(order.transformers[1].args, {"filename": "x.csv"})
 

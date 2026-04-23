@@ -3,7 +3,6 @@ from unittest import mock
 from eleanor.exceptions import EleanorException
 from eleanor.transformer import (
     BUILTIN_TRANSFORMERS,
-    GlassReactantEmbedder,
     available_transformers,
     get_factory,
     register_transformer,
@@ -30,21 +29,12 @@ class TestBuiltinTransformers(TestCase):
     Sanity checks on the built-in transformer set.
     """
 
-    def test_glass_reactant_embedder_is_registered(self):
+    def test_no_builtin_transformers_are_shipped(self):
         """
-        Ensure ``glass_reactant_embedder`` is registered as a built-in.
+        Ensure the built-in transformer set is empty.
         """
-        self.assertIn('glass_reactant_embedder', BUILTIN_TRANSFORMERS)
-        self.assertIn('glass_reactant_embedder', available_transformers())
-
-    def test_glass_reactant_embedder_factory_returns_instance(self):
-        """
-        Ensure the built-in factory returns a GlassReactantEmbedder configured from kwargs.
-        """
-        factory = get_factory('glass_reactant_embedder')
-        instance = factory(filename='x.csv', reactant_name='g', amount=1.0)
-        self.assertIsInstance(instance, GlassReactantEmbedder)
-        self.assertEqual(instance.filename, 'x.csv')
+        self.assertEqual(BUILTIN_TRANSFORMERS, frozenset())
+        self.assertEqual(BUILTIN_TRANSFORMERS.intersection(available_transformers()), frozenset())
 
 
 class TestRegisterTransformer(_TransformerRegistryTestCase):
@@ -62,6 +52,7 @@ class TestRegisterTransformer(_TransformerRegistryTestCase):
 
         register_transformer('plugin', factory)
         self.assertIs(get_factory('plugin'), factory)
+        self.assertIn('plugin', available_transformers())
 
     def test_unknown_name_raises(self):
         """

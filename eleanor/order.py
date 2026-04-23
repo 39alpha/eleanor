@@ -196,7 +196,7 @@ class TransformerConfig(object):
     type: str
     args: RawMap
 
-    def __init__(self, type: str = 'glass_reactant_embedder', args: RawMap | None = None):
+    def __init__(self, type: str, args: RawMap | None = None):
         self.type = type
         self.args = args if args is not None else {}
 

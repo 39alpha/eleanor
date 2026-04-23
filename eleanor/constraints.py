@@ -163,7 +163,6 @@ class Boatswain(object):
                         mineral_reactants.append(
                             vs.MineralReactant(
                                 id=None,
-                                variable_space_id=None,
                                 name=name,
                                 log_moles=valuation[self.registry.id(log_moles)].value,
                                 titration_rate=valuation[self.registry.id(titration_rate)].value,
@@ -172,7 +171,6 @@ class Boatswain(object):
                         aqueous_reactants.append(
                             vs.AqueousReactant(
                                 id=None,
-                                variable_space_id=None,
                                 name=name,
                                 log_moles=valuation[self.registry.id(log_moles)].value,
                                 titration_rate=valuation[self.registry.id(titration_rate)].value,
@@ -181,7 +179,6 @@ class Boatswain(object):
                         gas_reactants.append(
                             vs.GasReactant(
                                 id=None,
-                                variable_space_id=None,
                                 name=name,
                                 log_moles=valuation[self.registry.id(log_moles)].value,
                                 titration_rate=valuation[self.registry.id(titration_rate)].value,
@@ -190,7 +187,6 @@ class Boatswain(object):
                         element_reactants.append(
                             vs.ElementReactant(
                                 id=None,
-                                variable_space_id=None,
                                 name=name,
                                 log_moles=valuation[self.registry.id(log_moles)].value,
                                 titration_rate=valuation[self.registry.id(titration_rate)].value,
@@ -199,7 +195,6 @@ class Boatswain(object):
                         special_reactants.append(
                             vs.SpecialReactant(
                                 id=None,
-                                variable_space_id=None,
                                 name=name,
                                 log_moles=valuation[self.registry.id(log_moles)].value,
                                 titration_rate=valuation[self.registry.id(titration_rate)].value,
@@ -211,7 +206,6 @@ class Boatswain(object):
                         fixed_gas_reactants.append(
                             vs.FixedGasReactant(
                                 id=None,
-                                variable_space_id=None,
                                 name=name,
                                 log_moles=valuation[self.registry.id(log_moles)].value,
                                 log_fugacity=valuation[self.registry.id(log_fugacity)].value,
@@ -220,7 +214,6 @@ class Boatswain(object):
                         solid_solution_reactants.append(
                             vs.SolidSolutionReactant(
                                 id=None,
-                                variable_space_id=None,
                                 name=name,
                                 log_moles=valuation[self.registry.id(log_moles)].value,
                                 titration_rate=valuation[self.registry.id(titration_rate)].value,
@@ -237,7 +230,6 @@ class Boatswain(object):
                         glass_reactants.append(
                             vs.GlassReactant(
                                 id=None,
-                                variable_space_id=None,
                                 name=name,
                                 log_moles=log_moles,
                                 titration_rate=titration_rate,

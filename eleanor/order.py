@@ -8,8 +8,6 @@ from datetime import datetime
 from typing import Protocol, TypedDict, final, runtime_checkable
 
 import yaml
-from sqlalchemy import Column, DateTime, Integer, String, Table
-from sqlalchemy.orm import relationship
 
 import eleanor.variable_space as vs
 from eleanor.kernel.registry import get_factory as get_kernel_spec
@@ -22,7 +20,6 @@ from .parameters import Parameter, ParameterSource
 from .reactants import AbstractReactant, ReactantRaw
 from .typing import Self, cast
 from .util import is_list_of, mapreduce
-from .yeoman import JSONDict, reconstructor, yeoman_registry
 
 type RawMap = dict[str, object]
 
@@ -361,24 +358,8 @@ class Suborders(object):
 
 
 @final
-@yeoman_registry.mapped_as_dataclass(init=False)
+@dataclass(init=False)
 class Order(Suborder):
-    __table__: Table = Table(
-        'orders',
-        yeoman_registry.metadata,
-        Column('id', Integer, primary_key=True),
-        Column('name', String, nullable=False, index=True),
-        Column('tag', String, nullable=False, default="", server_default="", index=True),
-        Column('eleanor_version', String, nullable=False, index=True),
-        Column('raw', JSONDict, nullable=False),
-        Column('create_date', DateTime, nullable=False),
-    )
-
-    __mapper_args__: dict[str, object] = {
-        'properties': {
-            'vs_points': relationship(vs.Point, cascade="all, delete"),
-        }
-    }
 
     transformers: list[TransformerConfig]
 
@@ -417,8 +398,7 @@ class Order(Suborder):
 
         self.__post_init__()
 
-    @reconstructor
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         self.notes = _require_str(self.raw.get('notes', ''), 'notes')
         self.creator = _require_str(self.raw.get('creator'), 'creator')
 

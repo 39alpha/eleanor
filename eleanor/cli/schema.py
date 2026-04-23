@@ -1,21 +1,8 @@
 import argparse
 import sys
-from typing import Protocol
 
-from sqlalchemy import create_mock_engine
-
-import eleanor.kernel.eq36 as _eq36
 from eleanor.cli.util import ConfigArgs, add_config_args, config_from_args, typed_args
-from eleanor.yeoman import yeoman_registry
-
-# Import eq36 so that its ORM tables are registered against
-# :data:`yeoman_registry.metadata` before we emit the schema.
-# The attribute access on ``_eq36.Settings`` is intentional: it makes the
-# import "used" from basedpyright's perspective (suppressing
-# ``reportUnusedImport``) while being explicit about which class triggers
-# the side-effect.  A bare ``# noqa: F401`` comment would be ignored by
-# basedpyright.
-_ = _eq36.Settings
+from eleanor.output.postgres.tools import dump_schema
 
 
 class SchemaArgs(ConfigArgs):
@@ -23,17 +10,12 @@ class SchemaArgs(ConfigArgs):
     output: str | None
 
 
-class _Compilable(Protocol):
-    def compile(self) -> object:
-        ...
-
-
 def init(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
     parser.description = 'Dump an Eleanor database schema'
 
     _ = parser.add_argument(
-        "-o",
-        "--output",
+        '-o',
+        '--output',
         required=False,
         type=str,
         help='file to which to write the schema (default: STDOUT)',
@@ -50,6 +32,10 @@ def execute(parser: argparse.ArgumentParser, ns: argparse.Namespace) -> None:
     args = typed_args(SchemaArgs, ns)
 
     config = config_from_args(parser, args)
+    if config.database.database is None:
+        print('error: no database provided\n', file=sys.stdout)
+        parser.print_help()
+        sys.exit(1)
 
     output = args['output']
     if output is None:
@@ -57,9 +43,5 @@ def execute(parser: argparse.ArgumentParser, ns: argparse.Namespace) -> None:
     else:
         stream = open(output, 'w')
 
-    def dump(sql: _Compilable, *_multiparams: object, **_params: object) -> None:
-        print(sql.compile(), file=stream)
-
     with stream:
-        engine = create_mock_engine(str(config.database), dump)
-        yeoman_registry.metadata.create_all(engine)
+        dump_schema(config.database, stream)

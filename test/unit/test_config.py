@@ -35,12 +35,12 @@ class TestConfig(TestCase):
         )
         self.assertEqual(str(cfg), 'postgresql+psycopg://alice:secret@db.local:5432/main')
 
-    def test_database_config_rejects_unsupported_dialect(self):
+    def test_database_config_allows_non_postgres_dialect(self):
         """
-        Ensure that unsupported database dialects raise configuration errors.
+        Ensure DatabaseConfig itself stays sink-agnostic; sink-specific code enforces dialect support.
         """
-        with self.assertRaises(EleanorConfigurationException):
-            DatabaseConfig(dialect='sqlite', username='alice', password='secret')
+        cfg = DatabaseConfig(dialect='sqlite', username='alice', password='secret', database='main')
+        self.assertEqual(cfg.dialect, 'sqlite')
 
     def test_database_config_allows_missing_credentials(self):
         """

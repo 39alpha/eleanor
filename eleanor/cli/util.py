@@ -62,7 +62,7 @@ def config_from_args(parser: argparse.ArgumentParser, args: ConfigArgs) -> Confi
         raw_database['database'] = database
         config.raw['database'] = raw_database
         config.database = DatabaseConfig.from_raw(raw_database)
-    elif config.database.database is None:
+    elif config.output.type == 'postgres' and config.database.database is None:
         print('error: no database provided\n', file=sys.stdout)
         parser.print_help()
         sys.exit(1)

@@ -33,11 +33,12 @@ class _FakeTqdm:
 
     instances: list['_FakeTqdm'] = []
 
-    def __init__(self, total, unit, colour, position):
+    def __init__(self, total, unit, colour, position, desc):
         self.total = total
         self.unit = unit
         self.colour = colour
         self.position = position
+        self.desc = desc
         self.update_calls: list[int] = []
         self.refresh_calls = 0
         self.closed = False
@@ -203,6 +204,9 @@ class TestProgressListener(TestCase):
         self.assertEqual(sim.total, 8)  # 5 then extended by 3
         self.assertEqual(sim.update_calls, [1, 2])
         self.assertTrue(sim.closed)
+        # The bar should carry a human-readable label so the user can tell
+        # it apart from the output bar.
+        self.assertEqual(sim.desc.strip(), 'sims')
         self.assertEqual(queue.task_done_count, 5)
 
     def test_output_bar_materialises_only_after_first_out_message(self):
@@ -234,6 +238,11 @@ class TestProgressListener(TestCase):
         self.assertEqual(bars['sim'].total, 2)
         self.assertEqual(bars['out'].total, 2)
         self.assertEqual(bars['out'].update_calls, [1])
+        # Sim and out bars should have distinct, human-readable labels and
+        # be padded to a common width so they line up vertically.
+        self.assertEqual(bars['sim'].desc.strip(), 'sims')
+        self.assertEqual(bars['out'].desc.strip(), 'output')
+        self.assertEqual(len(bars['sim'].desc), len(bars['out'].desc))
 
     def test_out_no_total_update_suppresses_extend_on_output_bar(self):
         """

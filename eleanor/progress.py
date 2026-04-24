@@ -152,6 +152,8 @@ class Progress(object):
         totals: dict[Channel, int] = {'sim': 0, 'out': 0}
         positions: dict[Channel, int] = {'sim': 0, 'out': 1}
         colours: dict[Channel, str] = {'sim': '#ec5c29', 'out': '#2993ec'}
+        descriptions: dict[Channel, str] = {'sim': 'sims', 'out': 'output'}
+        description_width = max(len(description) for description in descriptions.values())
         no_total_update: dict[Channel, bool] = {'sim': False, 'out': self.out_no_total_update}
         first_total: dict[Channel, bool] = {'sim': True, 'out': True}
 
@@ -163,6 +165,7 @@ class Progress(object):
                     unit=' systems',
                     colour=colours[channel],
                     position=positions[channel],
+                    desc=descriptions[channel].ljust(description_width),
                 )
                 bars[channel] = bar
             return bar

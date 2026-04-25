@@ -49,6 +49,20 @@ class RunStats(object):
 
 
 class OutputSink(ABC):
+    def initialize(self) -> None:
+        """Perform once-per-sink setup before any :meth:`begin_run` is called.
+
+        Eleanor calls this method exactly once per sink instance, before
+        the first :meth:`begin_run`. Sinks may use it to open persistent
+        resources (connections, file handles), apply schema setup, or
+        enter bulk-load mode. The default implementation is a no-op.
+
+        :meth:`initialize` and :meth:`finalize` bracket the sink's lifetime;
+        :meth:`begin_run` / :meth:`write_batch` / :meth:`finalize_run`
+        bracket each individual run within that lifetime.
+        """
+        return None
+
     @abstractmethod
     def begin_run(self, order: Order) -> int:
         """Perform any setup required for a run and return the order id.
@@ -57,8 +71,8 @@ class OutputSink(ABC):
         not already have one, and the sink may modify the provided order.
 
         This method must be called before :meth:`write_batch` or
-        :meth:`finalize`. Repeated calls with the same order are expected to
-        return the same id and leave the sink's backing store in the same
+        :meth:`finalize_run`. Repeated calls with the same order are expected
+        to return the same id and leave the sink's backing store in the same
         observable state as a single call (e.g. no duplicate order rows),
         though they may still perform work -- opening a connection, reading
         back stored metadata, or populating fields on the in-memory order.
@@ -96,16 +110,42 @@ class OutputSink(ABC):
         ...
 
     @abstractmethod
-    def finalize(self) -> None: ...
+    def finalize_run(self) -> None:
+        """Perform per-run cleanup after a single :meth:`Eleanor.run` returns.
+
+        Called once for every :meth:`Eleanor.run` invocation that uses this
+        sink, after all :meth:`begin_run` / :meth:`write_batch` calls for
+        that run have completed. Sinks may use it to flush per-run buffers,
+        commit per-run state, or release per-run resources. Sink-lifetime
+        resources (persistent connections, indexes dropped under bulk-load
+        mode) belong to :meth:`initialize` / :meth:`finalize` instead.
+        """
+        ...
+
+    def finalize(self) -> None:
+        """Perform once-per-sink teardown after all :meth:`finalize_run` cycles.
+
+        Eleanor calls this method exactly once per sink instance, after the
+        final :meth:`finalize_run` (or immediately, if no run was started).
+        Sinks may use it to close persistent resources, recreate indexes
+        and constraints dropped during bulk-load mode, or run any
+        post-write maintenance. The default implementation is a no-op.
+
+        :meth:`finalize` and :meth:`initialize` bracket the sink's lifetime;
+        :meth:`begin_run` / :meth:`write_batch` / :meth:`finalize_run`
+        bracket each individual run within that lifetime.
+        """
+        return None
 
     def supports_worker_writes(self) -> bool:
         """Whether :meth:`write_batch` is safe to invoke from worker processes.
 
         Sinks that return ``True`` must be picklable and must tolerate being
         invoked concurrently from multiple workers against the same target.
-        :meth:`begin_run` and :meth:`finalize` still run only in the main
-        process; any state they establish must either cross the pickle
-        boundary with the sink or be re-discovered inside :meth:`write_batch`.
+        :meth:`initialize`, :meth:`begin_run`, :meth:`finalize_run`, and
+        :meth:`finalize` still run only in the main process; any state they
+        establish must either cross the pickle boundary with the sink or be
+        re-discovered inside :meth:`write_batch`.
 
         Sinks that return ``False`` (the default) are driven by the main
         process after workers have returned their :class:`ComputeResult`

@@ -6,7 +6,6 @@ from typing import TypedDict
 
 import yaml
 
-from .connection import DatabaseConfig, DatabaseRaw
 from .exceptions import EleanorConfigurationException, EleanorException
 from .executor import available_executors
 from .output import available_outputs
@@ -30,7 +29,6 @@ class ParallelRaw(TypedDict, total=False):
 class ConfigRaw(TypedDict, total=False):
     """Schema for a raw config document loaded from YAML/TOML/JSON."""
 
-    database: DatabaseRaw
     output: OutputRaw
     parallel: ParallelRaw
 
@@ -84,19 +82,25 @@ class ParallelConfig(object):
 
 @dataclass(init=False)
 class Config(object):
-    database: DatabaseConfig
     output: OutputConfig
     parallel: ParallelConfig
     raw: ConfigRaw
 
     def __init__(self, raw: ConfigRaw | None = None):
         if raw is None:
-            raw = ConfigRaw(database=DatabaseRaw(), output=OutputRaw(), parallel=ParallelRaw())
+            raw = ConfigRaw(output=OutputRaw(), parallel=ParallelRaw())
+        # Guard against the old top-level 'database:' key from configs written
+        # before the schema moved database settings to output.args.database.
+        # Silently ignoring the key would produce a confusing "no database
+        # provided" error with no hint of what changed.
+        if cast(dict[str, object], cast(object, raw)).get("database") is not None:
+            raise EleanorConfigurationException(
+                'the top-level "database:" config key is no longer supported; '
+                + 'move your database settings under "output.args.database:" instead'
+            )
         object.__setattr__(self, "raw", raw)
-        raw_database = self.raw.get("database", DatabaseRaw())
         raw_output = self.raw.get("output", OutputRaw())
         raw_parallel = self.raw.get("parallel", ParallelRaw())
-        object.__setattr__(self, "database", DatabaseConfig.from_raw(raw_database))
         object.__setattr__(self, "output", OutputConfig.from_raw(raw_output))
         object.__setattr__(self, "parallel", ParallelConfig.from_raw(raw_parallel))
 

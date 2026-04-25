@@ -2,6 +2,7 @@ import argparse
 import sys
 
 from eleanor.cli.util import ConfigArgs, add_config_args, config_from_args, typed_args
+from eleanor.output.postgres.config import database_config_from_config
 from eleanor.output.postgres.tools import dump_schema
 
 
@@ -33,7 +34,8 @@ def execute(parser: argparse.ArgumentParser, ns: argparse.Namespace) -> None:
     args = typed_args(SchemaArgs, ns)
 
     config = config_from_args(parser, args)
-    if config.database.database is None:
+    database_config = database_config_from_config(config)
+    if database_config.database is None:
         print("error: no database provided\n", file=sys.stdout)
         parser.print_help()
         sys.exit(1)
@@ -45,4 +47,4 @@ def execute(parser: argparse.ArgumentParser, ns: argparse.Namespace) -> None:
         stream = open(output, "w")
 
     with stream:
-        dump_schema(config.database, stream)
+        dump_schema(database_config, stream)

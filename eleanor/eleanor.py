@@ -233,17 +233,26 @@ class Eleanor(object):
         *,
         verbose: bool,
     ) -> "Generator[OutputSink, None, None]":
-        """Yield an :class:`OutputSink` for the duration of one :meth:`run`.
+        """Yield an :class:`OutputSink` for the duration of one :meth:`run` call.
 
         Preference order:
 
-        * Per-run ``override`` wins and is ``finalize()``-d at scope exit.
+        * Per-run ``override`` wins. Eleanor takes the full lifecycle for the
+          single :meth:`run` call: :meth:`~OutputSink.initialize` on entry,
+          :meth:`~OutputSink.finalize_run` on exit, then
+          :meth:`~OutputSink.finalize` on exit (in that order).
         * ``self._output_sink_override`` (constructor-level) — returned
-          as-is, caller keeps ownership, never finalized by Eleanor.
+          as-is, caller keeps ownership of
+          :meth:`~OutputSink.initialize` / :meth:`~OutputSink.finalize`.
+          Eleanor still calls :meth:`~OutputSink.finalize_run` per run.
         * ``self._output_sink`` (session-scoped, lazily built from
-          :attr:`config`) — finalized once at :meth:`__exit__`.
-        * A fresh per-run sink built from :attr:`config` and
-          ``finalize()``-d at scope exit.
+          :attr:`config`) — :meth:`~OutputSink.initialize`-d at construction
+          time, :meth:`~OutputSink.finalize_run`-d on every run scope exit,
+          and :meth:`~OutputSink.finalize`-d once at :meth:`__exit__`.
+        * A fresh per-run sink built from :attr:`config` — full lifecycle
+          (:meth:`~OutputSink.initialize`, :meth:`~OutputSink.finalize_run`,
+          :meth:`~OutputSink.finalize`) collapsed into the single
+          :meth:`run` call.
 
         .. note::
             When session-scoped (third branch), the ``verbose`` setting of
@@ -252,27 +261,42 @@ class Eleanor(object):
             ``verbose`` value will not affect the existing sink.
         """
         if override is not None:
+            override.initialize()
             try:
                 yield override
             finally:
-                override.finalize()
+                try:
+                    override.finalize_run()
+                finally:
+                    override.finalize()
             return
 
         if self._output_sink_override is not None:
-            yield self._output_sink_override
+            try:
+                yield self._output_sink_override
+            finally:
+                self._output_sink_override.finalize_run()
             return
 
         if self._entered:
             if self._output_sink is None:
                 self._output_sink = self.load_output_sink(verbose=verbose)
-            yield self._output_sink
+                self._output_sink.initialize()
+            try:
+                yield self._output_sink
+            finally:
+                self._output_sink.finalize_run()
             return
 
         sink = self.load_output_sink(verbose=verbose)
+        sink.initialize()
         try:
             yield sink
         finally:
-            sink.finalize()
+            try:
+                sink.finalize_run()
+            finally:
+                sink.finalize()
 
     def run(
         self,
@@ -297,9 +321,11 @@ class Eleanor(object):
         turn against a shared executor / sink / manager. See the class
         docstring for the session-vs-per-run resource model.
 
-        If an explicit ``output_sink`` is supplied, Eleanor calls
-        ``finalize()`` on it when :meth:`run` returns — ownership of the
-        sink transfers to Eleanor for the duration of the call.
+        If an explicit ``output_sink`` is supplied, Eleanor takes the full
+        sink lifecycle for the duration of this :meth:`run` call:
+        :meth:`~OutputSink.initialize` on entry, then
+        :meth:`~OutputSink.finalize_run` and :meth:`~OutputSink.finalize`
+        on exit.
         """
         verbose = kwargs.get("verbose", False)
         show_progress = kwargs.get("show_progress", False)

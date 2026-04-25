@@ -883,7 +883,7 @@ class TestEleanorLoaders(TestCase):
                 _ = results
                 return []
 
-            def finalize(self):
+            def finalize_run(self):
                 return None
 
         factory = mock.Mock(return_value=_Sink())

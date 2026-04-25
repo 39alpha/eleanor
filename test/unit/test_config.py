@@ -4,8 +4,9 @@ from os.path import join
 from tempfile import TemporaryDirectory
 from unittest import mock
 
-from eleanor.config import Config, DatabaseConfig, OutputConfig, ParallelConfig, load_config
+from eleanor.config import Config, OutputConfig, ParallelConfig, load_config
 from eleanor.exceptions import EleanorConfigurationException, EleanorException
+from eleanor.output.postgres.config import database_config_from_config
 
 from .common import TestCase
 
@@ -14,50 +15,6 @@ class TestConfig(TestCase):
     """
     Tests of the eleanor.config module.
     """
-
-    def test_database_config_str_without_port(self):
-        """
-        Ensure that :class:`DatabaseConfig` string formatting omits a port when not provided.
-        """
-        cfg = DatabaseConfig(database='main', username='alice', password='secret')
-        self.assertEqual(str(cfg), 'postgresql+psycopg://alice:secret@localhost/main')
-
-    def test_database_config_str_with_port(self):
-        """
-        Ensure that :class:`DatabaseConfig` string formatting includes the configured port.
-        """
-        cfg = DatabaseConfig(
-            database='main',
-            username='alice',
-            password='secret',
-            host='db.local',
-            port=5432,
-        )
-        self.assertEqual(str(cfg), 'postgresql+psycopg://alice:secret@db.local:5432/main')
-
-    def test_database_config_allows_non_postgres_dialect(self):
-        """
-        Ensure DatabaseConfig itself stays sink-agnostic; sink-specific code enforces dialect support.
-        """
-        cfg = DatabaseConfig(dialect='sqlite', username='alice', password='secret', database='main')
-        self.assertEqual(cfg.dialect, 'sqlite')
-
-    def test_database_config_allows_missing_credentials(self):
-        """
-        Ensure that missing credential fields are allowed at construction time.
-        """
-        cfg = DatabaseConfig(database='main', username=None, password='secret')
-        self.assertIsNone(cfg.username)
-        self.assertEqual(cfg.password, 'secret')
-
-        cfg = DatabaseConfig(database='main', username='alice', password=None)
-        self.assertEqual(cfg.username, 'alice')
-        self.assertIsNone(cfg.password)
-
-        cfg = DatabaseConfig(database='main', dbapi=None, username='alice', password='secret')
-        self.assertIsNone(cfg.dbapi)
-        self.assertEqual(cfg.username, 'alice')
-        self.assertEqual(cfg.password, 'secret')
 
     def test_parallel_config_defaults(self):
         """
@@ -81,8 +38,9 @@ class TestConfig(TestCase):
         Ensure that :class:`Config` default construction allows missing credentials.
         """
         cfg = Config()
-        self.assertIsNone(cfg.database.username)
-        self.assertIsNone(cfg.database.password)
+        database_config = database_config_from_config(cfg)
+        self.assertIsNone(database_config.username)
+        self.assertIsNone(database_config.password)
         self.assertEqual(cfg.parallel.backend, 'multiprocessing')
         self.assertEqual(cfg.parallel.chunks_per_worker, 1)
 
@@ -93,23 +51,27 @@ class TestConfig(TestCase):
         with TemporaryDirectory() as tmp:
             path = join(tmp, 'config.yaml')
             content = textwrap.dedent("""\
-                database:
-                  dialect: postgresql
-                  dbapi: psycopg
-                  host: localhost
-                  port: 5432
-                  database: sample
-                  username: alice
-                  password: secret
-                  sslmode: require
+                output:
+                  type: postgres
+                  args:
+                    database:
+                      dialect: postgresql
+                      dbapi: psycopg
+                      host: localhost
+                      port: 5432
+                      database: sample
+                      username: alice
+                      password: secret
+                      sslmode: require
             """)
             with open(path, 'w') as f:
                 f.write(content)
 
             cfg = Config.from_yaml(path)
-            self.assertEqual(cfg.database.database, 'sample')
-            self.assertEqual(cfg.database.port, 5432)
-            self.assertEqual(cfg.database.sslmode, 'require')
+            database_config = database_config_from_config(cfg)
+            self.assertEqual(database_config.database, 'sample')
+            self.assertEqual(database_config.port, 5432)
+            self.assertEqual(database_config.sslmode, 'require')
 
     def test_config_from_toml(self):
         """
@@ -118,7 +80,9 @@ class TestConfig(TestCase):
         with TemporaryDirectory() as tmp:
             path = join(tmp, 'config.toml')
             content = textwrap.dedent("""\
-                [database]
+                [output]
+                type = "postgres"
+                [output.args.database]
                 dialect = "postgresql"
                 dbapi = "psycopg"
                 host = "localhost"
@@ -135,9 +99,10 @@ class TestConfig(TestCase):
                 f.write(content)
 
             cfg = Config.from_toml(path)
-            self.assertEqual(cfg.database.database, 'sample')
-            self.assertEqual(cfg.database.port, 5432)
-            self.assertEqual(cfg.database.sslmode, 'require')
+            database_config = database_config_from_config(cfg)
+            self.assertEqual(database_config.database, 'sample')
+            self.assertEqual(database_config.port, 5432)
+            self.assertEqual(database_config.sslmode, 'require')
             self.assertEqual(cfg.parallel.backend, 'serial')
             self.assertEqual(cfg.parallel.chunks_per_worker, 3)
 
@@ -148,15 +113,20 @@ class TestConfig(TestCase):
         with TemporaryDirectory() as tmp:
             path = join(tmp, 'config.json')
             raw = {
-                'database': {
-                    'dialect': 'postgresql',
-                    'dbapi': 'psycopg',
-                    'host': 'localhost',
-                    'port': 5432,
-                    'database': 'sample',
-                    'username': 'alice',
-                    'password': 'secret',
-                    'sslmode': 'require',
+                'output': {
+                    'type': 'postgres',
+                    'args': {
+                        'database': {
+                            'dialect': 'postgresql',
+                            'dbapi': 'psycopg',
+                            'host': 'localhost',
+                            'port': 5432,
+                            'database': 'sample',
+                            'username': 'alice',
+                            'password': 'secret',
+                            'sslmode': 'require',
+                        },
+                    },
                 },
                 'parallel': {
                     'backend': 'serial',
@@ -167,9 +137,10 @@ class TestConfig(TestCase):
                 json.dump(raw, f)
 
             cfg = Config.from_json(path)
-            self.assertEqual(cfg.database.database, 'sample')
-            self.assertEqual(cfg.database.port, 5432)
-            self.assertEqual(cfg.database.sslmode, 'require')
+            database_config = database_config_from_config(cfg)
+            self.assertEqual(database_config.database, 'sample')
+            self.assertEqual(database_config.port, 5432)
+            self.assertEqual(database_config.sslmode, 'require')
             self.assertEqual(cfg.parallel.backend, 'serial')
             self.assertEqual(cfg.parallel.chunks_per_worker, 8)
 
@@ -181,17 +152,20 @@ class TestConfig(TestCase):
             yaml_path = join(tmp, 'config.yml')
             with open(yaml_path, 'w') as f:
                 f.write(
-                    "database:\n"
-                    "  dialect: postgresql\n"
-                    "  dbapi: psycopg\n"
-                    "  host: localhost\n"
-                    "  database: sample\n"
-                    "  username: alice\n"
-                    "  password: secret\n"
+                    "output:\n"
+                    "  type: postgres\n"
+                    "  args:\n"
+                    "    database:\n"
+                    "      dialect: postgresql\n"
+                    "      dbapi: psycopg\n"
+                    "      host: localhost\n"
+                    "      database: sample\n"
+                    "      username: alice\n"
+                    "      password: secret\n"
                 )
 
             cfg = Config.from_file(yaml_path)
-            self.assertEqual(cfg.database.username, 'alice')
+            self.assertEqual(database_config_from_config(cfg).username, 'alice')
 
     def test_config_from_file_dispatches_yaml_extension(self):
         """
@@ -201,17 +175,20 @@ class TestConfig(TestCase):
             yaml_path = join(tmp, 'config.yaml')
             with open(yaml_path, 'w') as f:
                 f.write(
-                    "database:\n"
-                    "  dialect: postgresql\n"
-                    "  dbapi: psycopg\n"
-                    "  host: localhost\n"
-                    "  database: sample\n"
-                    "  username: alice\n"
-                    "  password: secret\n"
+                    "output:\n"
+                    "  type: postgres\n"
+                    "  args:\n"
+                    "    database:\n"
+                    "      dialect: postgresql\n"
+                    "      dbapi: psycopg\n"
+                    "      host: localhost\n"
+                    "      database: sample\n"
+                    "      username: alice\n"
+                    "      password: secret\n"
                 )
 
             cfg = Config.from_file(yaml_path)
-            self.assertEqual(cfg.database.database, 'sample')
+            self.assertEqual(database_config_from_config(cfg).database, 'sample')
 
     def test_config_from_file_dispatches_toml_extension(self):
         """
@@ -221,7 +198,9 @@ class TestConfig(TestCase):
             toml_path = join(tmp, 'config.toml')
             with open(toml_path, 'w') as f:
                 f.write(
-                    "[database]\n"
+                    "[output]\n"
+                    "type = \"postgres\"\n"
+                    "[output.args.database]\n"
                     "dialect = \"postgresql\"\n"
                     "dbapi = \"psycopg\"\n"
                     "host = \"localhost\"\n"
@@ -231,7 +210,7 @@ class TestConfig(TestCase):
                 )
 
             cfg = Config.from_file(toml_path)
-            self.assertEqual(cfg.database.database, 'sample')
+            self.assertEqual(database_config_from_config(cfg).database, 'sample')
 
     def test_config_from_file_rejects_bad_extension(self):
         """
@@ -240,7 +219,7 @@ class TestConfig(TestCase):
         with TemporaryDirectory() as tmp:
             path = join(tmp, 'config.ini')
             with open(path, 'w') as f:
-                f.write('[database]\n')
+                f.write('[output]\n')
 
             with self.assertRaises(EleanorException):
                 Config.from_file(path)
@@ -251,28 +230,34 @@ class TestConfig(TestCase):
         """
         default_cfg = load_config(None)
         self.assertIsInstance(default_cfg, Config)
-        self.assertIsNone(default_cfg.database.username)
-        self.assertIsNone(default_cfg.database.password)
+        default_database_config = database_config_from_config(default_cfg)
+        self.assertIsNone(default_database_config.username)
+        self.assertIsNone(default_database_config.password)
 
         with TemporaryDirectory() as tmp:
             path = join(tmp, 'config.json')
             raw = {
-                'database': {
-                    'dialect': 'postgresql',
-                    'dbapi': 'psycopg',
-                    'host': 'localhost',
-                    'database': 'sample',
-                    'username': 'alice',
-                    'password': 'secret',
-                }
+                'output': {
+                    'type': 'postgres',
+                    'args': {
+                        'database': {
+                            'dialect': 'postgresql',
+                            'dbapi': 'psycopg',
+                            'host': 'localhost',
+                            'database': 'sample',
+                            'username': 'alice',
+                            'password': 'secret',
+                        },
+                    },
+                },
             }
             with open(path, 'w') as f:
                 json.dump(raw, f)
 
             from_file = load_config(path)
-            self.assertEqual(from_file.database.database, 'sample')
+            self.assertEqual(database_config_from_config(from_file).database, 'sample')
 
-        cfg = Config(raw={'database': {'username': 'alice', 'password': 'secret'}})
+        cfg = Config(raw={'output': {'type': 'postgres', 'args': {'database': {'username': 'alice', 'password': 'secret'}}}})
         same = load_config(cfg)
         self.assertIs(same, cfg)
 
@@ -328,6 +313,17 @@ class TestConfig(TestCase):
         """
         Ensure parallel defaults are applied when raw config omits the parallel section.
         """
-        cfg = Config(raw={'database': {'database': 'sample'}})
+        cfg = Config(raw={'output': {'type': 'postgres', 'args': {'database': {'database': 'sample'}}}})
         self.assertEqual(cfg.parallel.backend, 'multiprocessing')
         self.assertEqual(cfg.parallel.chunks_per_worker, 1)
+
+    def test_config_rejects_legacy_database_key(self):
+        """
+        Ensure Config raises EleanorConfigurationException when the raw dict contains
+        the old top-level 'database:' key, guiding users to migrate rather than
+        silently producing a confusing 'no database provided' error.
+        """
+        with self.assertRaises(EleanorConfigurationException) as ctx:
+            Config(raw={'database': {'database': 'sample'}})  # type: ignore[typeddict-unknown-key]
+        self.assertIn('database', str(ctx.exception))
+        self.assertIn('output.args.database', str(ctx.exception))

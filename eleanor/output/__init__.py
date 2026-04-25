@@ -5,10 +5,11 @@ The registry API (:func:`available_outputs`, :func:`get_factory`,
 
 The interface dataclasses (:class:`OutputSink`, :class:`ComputeResult`,
 :class:`ErrorInfo`, :class:`WriteOutcome`, :class:`RunStats`) and the
-built-in :class:`PostgresSink` transitively pull in SQLAlchemy ORM models
-and are therefore loaded on demand through :pep:`562`'s ``__getattr__``
-hook, with a matching ``TYPE_CHECKING`` block so static type checkers see
-them as regular re-exports.
+built-in :class:`PostgresSink` are loaded on demand through :pep:`562`'s
+``__getattr__`` hook so importing :mod:`eleanor.output` does not pull in
+psycopg or the schema/converters/queries graph until a caller actually
+touches one of those names. A matching ``TYPE_CHECKING`` block keeps
+static type checkers seeing them as regular re-exports.
 
 The built-in ``postgres`` output factory is defined here and registered at
 module import time; the heavy :mod:`eleanor.output.postgres` import is
@@ -19,7 +20,6 @@ actually called.
 import warnings
 from typing import TYPE_CHECKING
 
-from ..exceptions import EleanorException
 from .registry import (
     BUILTIN_OUTPUTS,
     ENTRY_POINT_GROUP,
@@ -67,22 +67,42 @@ def __getattr__(name: str) -> object:
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
-def _build_postgres(config: object, *, verbose: bool = False, **args: object) -> "PostgresSink":
-    database = getattr(config, "database", None)
-    if database is None:
-        raise EleanorException("postgres output sink requires config.database")
-    if args:
+_KNOWN_POSTGRES_ARGS: frozenset[str] = frozenset({"database", "bulk_load_optimization"})
+
+
+def _build_postgres(_config: object, *, verbose: bool = False, **args: object) -> "PostgresSink":
+    unknown = sorted(k for k in args if k not in _KNOWN_POSTGRES_ARGS)
+    if unknown:
         warnings.warn(
-            'built-in output sink "postgres" does not accept keyword arguments; ' + f"ignoring: {list(args)}",
+            'built-in output sink "postgres" does not accept these keyword arguments; ' + f"ignoring: {unknown}",
             RuntimeWarning,
             stacklevel=2,
         )
-    from ..connection import DatabaseConfig
+    from ..typing import cast
     from .postgres import PostgresSink
+    from .postgres.config import DatabaseConfig, DatabaseRaw
 
-    if not isinstance(database, DatabaseConfig):
-        raise EleanorException("postgres output sink requires a DatabaseConfig")
-    return PostgresSink(database, verbose=verbose)
+    # The registry splats config.output.args as kwargs, so the 'database' kwarg
+    # IS the raw database block from the config file. Use it directly rather than
+    # re-traversing config.raw, which keeps the factory self-consistent even if
+    # the caller mutates config.output.args without touching config.raw.
+    database_raw = args.get("database")
+    db_config = (
+        DatabaseConfig.from_raw(cast(DatabaseRaw, cast(object, database_raw)))
+        if isinstance(database_raw, dict)
+        else DatabaseConfig()
+    )
+    # ``bulk_load_optimization`` is a sink-behaviour knob (a sibling of
+    # ``database`` in ``output.args``), not a connection setting, so it
+    # threads straight onto :class:`PostgresSink` rather than into the
+    # frozen :class:`DatabaseConfig` (which is hashable and used as a
+    # connection-cache key).
+    bulk_load_optimization = bool(args.get("bulk_load_optimization", False))
+    return PostgresSink(
+        db_config,
+        verbose=verbose,
+        bulk_load_optimization=bulk_load_optimization,
+    )
 
 
 _build_postgres.__eleanor_api_version__ = 1  # pyright: ignore[reportFunctionMemberAccess]

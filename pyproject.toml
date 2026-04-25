@@ -9,10 +9,9 @@ license = {file = "LICENSE"}
 dependencies = [
   'numpy',
   "pandas>=3.0.1",
-  'psycopg[binary]',
+  'psycopg[binary]>=3.1',
   'pyyaml',
   'scipy',
-  'sqlalchemy==2.0.35',
   'tqdm',
   'xdg-base-dirs',
 ]

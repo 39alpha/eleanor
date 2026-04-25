@@ -52,7 +52,10 @@ class TestCLIRun(TestCase):
     def _config(self, backend='multiprocessing', chunks_per_worker=1):
         return Config(
             raw={
-                'database': {'database': 'sample'},
+                'output': {
+                    'type': 'postgres',
+                    'args': {'database': {'database': 'sample'}},
+                },
                 'parallel': {
                     'backend': backend,
                     'chunks_per_worker': chunks_per_worker,

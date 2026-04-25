@@ -5,6 +5,7 @@ import sys
 from zipfile import ZipFile
 
 from eleanor.cli.util import ConfigArgs, add_config_args, config_from_args, typed_args
+from eleanor.output.postgres.config import database_config_from_config
 from eleanor.output.postgres.tools import load_scratch_entry
 
 
@@ -43,14 +44,15 @@ def execute(parser: argparse.ArgumentParser, ns: argparse.Namespace) -> None:
 
     print(f"Loading {args['config']}")
     config = config_from_args(parser, args)
-    if config.database.database is None:
+    database_config = database_config_from_config(config)
+    if database_config.database is None:
         print("error: no database provided\n", file=sys.stdout)
         parser.print_help()
         sys.exit(1)
 
     try:
         try:
-            result = load_scratch_entry(config.database, variable_space_id)
+            result = load_scratch_entry(database_config, variable_space_id)
         except LookupError as missing:
             if str(missing) == "scratch":
                 raise Exception("no scratch found for variable space point") from missing
@@ -58,7 +60,7 @@ def execute(parser: argparse.ArgumentParser, ns: argparse.Namespace) -> None:
         if result is None:
             raise Exception(f"no variable space point found with id {variable_space_id}")
 
-        print("Database:           ", config.database.database)
+        print("Database:           ", database_config.database)
         print("Variable Space ID:  ", result.variable_space_id)
         print("Exit Code:          ", result.exit_code)
 

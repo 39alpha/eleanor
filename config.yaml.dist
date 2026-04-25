@@ -1,4 +1,7 @@
-database:
-  username:
-  password:
-  database:
+output:
+  type: postgres
+  args:
+    database:
+      username:
+      password:
+      database:

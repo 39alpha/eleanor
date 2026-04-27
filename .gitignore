@@ -4,6 +4,7 @@
 *.so
 *.xlsx
 *.yaml
+!.pre-commit-config.yaml
 .DS_Store
 .mypy_cache
 __pycache__

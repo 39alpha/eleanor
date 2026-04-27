@@ -1,0 +1,39 @@
+name: Type Check
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+permissions:
+  contents: read
+
+jobs:
+  basedpyright:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          # hatch-vcs needs full history + tags to derive the version.
+          fetch-depth: 0
+
+      - name: Install Fortran and Meson build tooling
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gfortran meson ninja-build
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Set up Python 3.14
+        run: uv python install 3.14
+
+      - name: Sync dependencies (incl. dev group)
+        run: uv sync --python 3.14 --group dev
+
+      - name: Run basedpyright
+        run: uv run --python 3.14 basedpyright eleanor

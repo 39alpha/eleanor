@@ -39,11 +39,18 @@ source = "vcs"
 [tool.hatch.build.hooks.vcs]
 version-file = "eleanor/version.py"
 
-[tool.yapf]
-column_limit = 120
+[tool.ruff]
+line-length = 120
+target-version = "py314"
+extend-exclude = ["eleanor/kernel/eq36/parsers"]
 
-[tool.isort]
-line_length = 120
+[tool.ruff.lint]
+# Defaults give us pycodestyle (E) + Pyflakes (F); add isort (I) and pycodestyle
+# warnings (W).
+extend-select = ["I", "W"]
+# E501 (line too long) was disabled under pycodestyle; keep it disabled while
+# we settle on a final policy.
+ignore = ["E501"]
 
 [tool.mypy]
 check_untyped_defs = true
@@ -56,14 +63,13 @@ dev = [
     "mccabe>=0.7.0",
     "mypy>=1.19.1",
     "pandas-stubs>=3.0.0.260204",
-    "pycodestyle>=2.14.0",
+    "pre-commit>=4.6.0",
     "pylsp-mypy>=0.7.1",
     "pytest-cov>=7.0.0",
     "pytest>=9.0.2",
-    "python-lsp-isort>=0.2.1",
     "python-lsp-server>=1.14.0",
+    "ruff>=0.15.0",
     "scipy-stubs>=1.17.1.4",
-    "yapf>=0.43.0",
 ]
 
 [[tool.hatch.build.targets.wheel.hooks.build-scripts.scripts]]

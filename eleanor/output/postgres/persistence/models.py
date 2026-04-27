@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 import math
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -20,11 +21,11 @@ Column = cast(Callable[..., SchemaItem], Column)
 @dataclass
 class VSSuppressionExceptionModel(object):
     __table__ = Table(
-        'suppression_exceptions',
+        "suppression_exceptions",
         postgres_registry.metadata,
-        Column('id', Integer, primary_key=True, autoincrement=True),
-        Column('name', String, nullable=False),
-        Column('suppression_id', Integer, ForeignKey('suppressions.id', ondelete='CASCADE'), nullable=False),
+        Column("id", Integer, primary_key=True, autoincrement=True),
+        Column("name", String, nullable=False),
+        Column("suppression_id", Integer, ForeignKey("suppressions.id", ondelete="CASCADE"), nullable=False),
     )
 
     name: str
@@ -37,18 +38,18 @@ class VSSuppressionExceptionModel(object):
 @dataclass
 class VSSuppressionModel(object):
     __table__ = Table(
-        'suppressions',
+        "suppressions",
         postgres_registry.metadata,
-        Column('id', Integer, primary_key=True),
-        Column('variable_space_id', Integer, ForeignKey('variable_space.id', ondelete='CASCADE'), nullable=False),
-        Column('name', String),
-        Column('type', String),
-        CheckConstraint('name is not null or type is not null', name='suppressions_well_defined'),
+        Column("id", Integer, primary_key=True),
+        Column("variable_space_id", Integer, ForeignKey("variable_space.id", ondelete="CASCADE"), nullable=False),
+        Column("name", String),
+        Column("type", String),
+        CheckConstraint("name is not null or type is not null", name="suppressions_well_defined"),
     )
 
     __mapper_args__ = {
-        'properties': {
-            'exceptions': relationship(VSSuppressionExceptionModel, cascade='all, delete'),
+        "properties": {
+            "exceptions": relationship(VSSuppressionExceptionModel, cascade="all, delete"),
         }
     }
 
@@ -64,13 +65,13 @@ class VSSuppressionModel(object):
 @dataclass
 class VSMineralReactantModel(object):
     __table__ = Table(
-        'mineral_reactants',
+        "mineral_reactants",
         postgres_registry.metadata,
-        Column('id', Integer, primary_key=True),
-        Column('variable_space_id', Integer, ForeignKey('variable_space.id', ondelete='CASCADE'), nullable=False),
-        Column('name', String, nullable=False),
-        Column('log_moles', Double, nullable=False),
-        Column('titration_rate', Double, nullable=False),
+        Column("id", Integer, primary_key=True),
+        Column("variable_space_id", Integer, ForeignKey("variable_space.id", ondelete="CASCADE"), nullable=False),
+        Column("name", String, nullable=False),
+        Column("log_moles", Double, nullable=False),
+        Column("titration_rate", Double, nullable=False),
     )
 
     name: str
@@ -85,13 +86,13 @@ class VSMineralReactantModel(object):
 @dataclass
 class VSAqueousReactantModel(object):
     __table__ = Table(
-        'aqueous_reactants',
+        "aqueous_reactants",
         postgres_registry.metadata,
-        Column('id', Integer, primary_key=True),
-        Column('variable_space_id', Integer, ForeignKey('variable_space.id', ondelete='CASCADE'), nullable=False),
-        Column('name', String, nullable=False),
-        Column('log_moles', Double, nullable=False),
-        Column('titration_rate', Double, nullable=False),
+        Column("id", Integer, primary_key=True),
+        Column("variable_space_id", Integer, ForeignKey("variable_space.id", ondelete="CASCADE"), nullable=False),
+        Column("name", String, nullable=False),
+        Column("log_moles", Double, nullable=False),
+        Column("titration_rate", Double, nullable=False),
     )
 
     name: str
@@ -106,13 +107,13 @@ class VSAqueousReactantModel(object):
 @dataclass
 class VSGasReactantModel(object):
     __table__ = Table(
-        'gas_reactants',
+        "gas_reactants",
         postgres_registry.metadata,
-        Column('id', Integer, primary_key=True),
-        Column('variable_space_id', Integer, ForeignKey('variable_space.id', ondelete='CASCADE'), nullable=False),
-        Column('name', String, nullable=False),
-        Column('log_moles', Double, nullable=False),
-        Column('titration_rate', Double, nullable=False),
+        Column("id", Integer, primary_key=True),
+        Column("variable_space_id", Integer, ForeignKey("variable_space.id", ondelete="CASCADE"), nullable=False),
+        Column("name", String, nullable=False),
+        Column("log_moles", Double, nullable=False),
+        Column("titration_rate", Double, nullable=False),
     )
 
     name: str
@@ -127,13 +128,13 @@ class VSGasReactantModel(object):
 @dataclass
 class VSElementReactantModel(object):
     __table__ = Table(
-        'element_reactants',
+        "element_reactants",
         postgres_registry.metadata,
-        Column('id', Integer, primary_key=True),
-        Column('variable_space_id', Integer, ForeignKey('variable_space.id', ondelete='CASCADE'), nullable=False),
-        Column('name', String, nullable=False),
-        Column('log_moles', Double, nullable=False),
-        Column('titration_rate', Double, nullable=False),
+        Column("id", Integer, primary_key=True),
+        Column("variable_space_id", Integer, ForeignKey("variable_space.id", ondelete="CASCADE"), nullable=False),
+        Column("name", String, nullable=False),
+        Column("log_moles", Double, nullable=False),
+        Column("titration_rate", Double, nullable=False),
     )
 
     name: str
@@ -148,12 +149,12 @@ class VSElementReactantModel(object):
 @dataclass
 class VSSpecialReactantCompositionModel(object):
     __table__ = Table(
-        'special_reactant_compositions',
+        "special_reactant_compositions",
         postgres_registry.metadata,
-        Column('id', Integer, primary_key=True),
-        Column('special_reactant_id', Integer, ForeignKey('special_reactants.id', ondelete='CASCADE'), nullable=False),
-        Column('element', String, nullable=False),
-        Column('count', Integer, nullable=False),
+        Column("id", Integer, primary_key=True),
+        Column("special_reactant_id", Integer, ForeignKey("special_reactants.id", ondelete="CASCADE"), nullable=False),
+        Column("element", String, nullable=False),
+        Column("count", Integer, nullable=False),
     )
 
     element: str
@@ -167,18 +168,18 @@ class VSSpecialReactantCompositionModel(object):
 @dataclass
 class VSSpecialReactantModel(object):
     __table__ = Table(
-        'special_reactants',
+        "special_reactants",
         postgres_registry.metadata,
-        Column('id', Integer, primary_key=True),
-        Column('variable_space_id', Integer, ForeignKey('variable_space.id', ondelete='CASCADE'), nullable=False),
-        Column('name', String, nullable=False),
-        Column('log_moles', Double, nullable=False),
-        Column('titration_rate', Double, nullable=False),
+        Column("id", Integer, primary_key=True),
+        Column("variable_space_id", Integer, ForeignKey("variable_space.id", ondelete="CASCADE"), nullable=False),
+        Column("name", String, nullable=False),
+        Column("log_moles", Double, nullable=False),
+        Column("titration_rate", Double, nullable=False),
     )
 
     __mapper_args__ = {
-        'properties': {
-            'composition': relationship(VSSpecialReactantCompositionModel, cascade='all, delete'),
+        "properties": {
+            "composition": relationship(VSSpecialReactantCompositionModel, cascade="all, delete"),
         }
     }
 
@@ -195,12 +196,17 @@ class VSSpecialReactantModel(object):
 @dataclass
 class VSGlassReactantOxideCompositionModel(object):
     __table__ = Table(
-        'glass_reactant_oxide_compositions',
+        "glass_reactant_oxide_compositions",
         postgres_registry.metadata,
-        Column('id', Integer, primary_key=True),
-        Column('glass_reactant_oxide_id', Integer, ForeignKey('glass_reactant_oxides.id', ondelete='CASCADE'), nullable=False),
-        Column('element', String, nullable=False),
-        Column('count', Integer, nullable=False),
+        Column("id", Integer, primary_key=True),
+        Column(
+            "glass_reactant_oxide_id",
+            Integer,
+            ForeignKey("glass_reactant_oxides.id", ondelete="CASCADE"),
+            nullable=False,
+        ),
+        Column("element", String, nullable=False),
+        Column("count", Integer, nullable=False),
     )
 
     element: str
@@ -214,19 +220,19 @@ class VSGlassReactantOxideCompositionModel(object):
 @dataclass
 class VSGlassReactantOxideModel(object):
     __table__ = Table(
-        'glass_reactant_oxides',
+        "glass_reactant_oxides",
         postgres_registry.metadata,
-        Column('id', Integer, primary_key=True),
-        Column('glass_reactant_id', Integer, ForeignKey('glass_reactants.id', ondelete='CASCADE'), nullable=False),
-        Column('name', String, nullable=False),
-        Column('fraction', Double, nullable=False),
-        Column('log_moles', Double, nullable=False),
-        Column('titration_rate', Double, nullable=False),
+        Column("id", Integer, primary_key=True),
+        Column("glass_reactant_id", Integer, ForeignKey("glass_reactants.id", ondelete="CASCADE"), nullable=False),
+        Column("name", String, nullable=False),
+        Column("fraction", Double, nullable=False),
+        Column("log_moles", Double, nullable=False),
+        Column("titration_rate", Double, nullable=False),
     )
 
     __mapper_args__ = {
-        'properties': {
-            'composition': relationship(VSGlassReactantOxideCompositionModel, cascade='all, delete'),
+        "properties": {
+            "composition": relationship(VSGlassReactantOxideCompositionModel, cascade="all, delete"),
         }
     }
 
@@ -244,18 +250,18 @@ class VSGlassReactantOxideModel(object):
 @dataclass
 class VSGlassReactantModel(object):
     __table__ = Table(
-        'glass_reactants',
+        "glass_reactants",
         postgres_registry.metadata,
-        Column('id', Integer, primary_key=True),
-        Column('variable_space_id', Integer, ForeignKey('variable_space.id', ondelete='CASCADE'), nullable=False),
-        Column('name', String, nullable=False),
-        Column('log_moles', Double, nullable=False),
-        Column('titration_rate', Double, nullable=False),
+        Column("id", Integer, primary_key=True),
+        Column("variable_space_id", Integer, ForeignKey("variable_space.id", ondelete="CASCADE"), nullable=False),
+        Column("name", String, nullable=False),
+        Column("log_moles", Double, nullable=False),
+        Column("titration_rate", Double, nullable=False),
     )
 
     __mapper_args__ = {
-        'properties': {
-            'oxides': relationship(VSGlassReactantOxideModel, cascade='all, delete'),
+        "properties": {
+            "oxides": relationship(VSGlassReactantOxideModel, cascade="all, delete"),
         }
     }
 
@@ -272,13 +278,13 @@ class VSGlassReactantModel(object):
 @dataclass
 class VSFixedGasReactantModel(object):
     __table__ = Table(
-        'fixed_gas_reactants',
+        "fixed_gas_reactants",
         postgres_registry.metadata,
-        Column('id', Integer, primary_key=True),
-        Column('variable_space_id', Integer, ForeignKey('variable_space.id', ondelete='CASCADE'), nullable=False),
-        Column('name', String, nullable=False),
-        Column('log_moles', Double, nullable=False),
-        Column('log_fugacity', Double, nullable=False),
+        Column("id", Integer, primary_key=True),
+        Column("variable_space_id", Integer, ForeignKey("variable_space.id", ondelete="CASCADE"), nullable=False),
+        Column("name", String, nullable=False),
+        Column("log_moles", Double, nullable=False),
+        Column("log_fugacity", Double, nullable=False),
     )
 
     name: str
@@ -293,13 +299,18 @@ class VSFixedGasReactantModel(object):
 @dataclass
 class VSSolidSolutionReactantEndMembersModel(object):
     __table__ = Table(
-        'solid_solution_reactant_end_members',
+        "solid_solution_reactant_end_members",
         postgres_registry.metadata,
-        Column('id', Integer, primary_key=True),
-        Column('solid_solution_reactant_id', Integer, ForeignKey('solid_solution_reactants.id', ondelete='CASCADE'), nullable=False),
-        Column('name', String, nullable=False),
-        Column('fraction', Double, nullable=False),
-        CheckConstraint('0.0 <= fraction AND fraction <= 1.0', name='fraction_in_range'),
+        Column("id", Integer, primary_key=True),
+        Column(
+            "solid_solution_reactant_id",
+            Integer,
+            ForeignKey("solid_solution_reactants.id", ondelete="CASCADE"),
+            nullable=False,
+        ),
+        Column("name", String, nullable=False),
+        Column("fraction", Double, nullable=False),
+        CheckConstraint("0.0 <= fraction AND fraction <= 1.0", name="fraction_in_range"),
     )
 
     name: str
@@ -313,18 +324,18 @@ class VSSolidSolutionReactantEndMembersModel(object):
 @dataclass
 class VSSolidSolutionReactantModel(object):
     __table__ = Table(
-        'solid_solution_reactants',
+        "solid_solution_reactants",
         postgres_registry.metadata,
-        Column('id', Integer, primary_key=True),
-        Column('variable_space_id', Integer, ForeignKey('variable_space.id', ondelete='CASCADE'), nullable=False),
-        Column('name', String, nullable=False),
-        Column('log_moles', Double, nullable=False),
-        Column('titration_rate', Double, nullable=False),
+        Column("id", Integer, primary_key=True),
+        Column("variable_space_id", Integer, ForeignKey("variable_space.id", ondelete="CASCADE"), nullable=False),
+        Column("name", String, nullable=False),
+        Column("log_moles", Double, nullable=False),
+        Column("titration_rate", Double, nullable=False),
     )
 
     __mapper_args__ = {
-        'properties': {
-            'end_members': relationship(VSSolidSolutionReactantEndMembersModel, cascade='all, delete'),
+        "properties": {
+            "end_members": relationship(VSSolidSolutionReactantEndMembersModel, cascade="all, delete"),
         }
     }
 
@@ -341,12 +352,12 @@ class VSSolidSolutionReactantModel(object):
 @dataclass
 class VSElementModel(object):
     __table__ = Table(
-        'elements',
+        "elements",
         postgres_registry.metadata,
-        Column('id', Integer, primary_key=True),
-        Column('variable_space_id', Integer, ForeignKey('variable_space.id', ondelete='CASCADE'), nullable=False),
-        Column('name', String, nullable=False),
-        Column('log_molality', Double, nullable=False),
+        Column("id", Integer, primary_key=True),
+        Column("variable_space_id", Integer, ForeignKey("variable_space.id", ondelete="CASCADE"), nullable=False),
+        Column("name", String, nullable=False),
+        Column("log_molality", Double, nullable=False),
     )
 
     name: str
@@ -360,12 +371,12 @@ class VSElementModel(object):
 @dataclass
 class VSSpeciesModel(object):
     __table__ = Table(
-        'species',
+        "species",
         postgres_registry.metadata,
-        Column('id', Integer, primary_key=True),
-        Column('variable_space_id', Integer, ForeignKey('variable_space.id', ondelete='CASCADE'), nullable=False),
-        Column('name', String, nullable=False),
-        Column('value', Double, nullable=False),
+        Column("id", Integer, primary_key=True),
+        Column("variable_space_id", Integer, ForeignKey("variable_space.id", ondelete="CASCADE"), nullable=False),
+        Column("name", String, nullable=False),
+        Column("value", Double, nullable=False),
     )
 
     name: str
@@ -379,10 +390,10 @@ class VSSpeciesModel(object):
 @dataclass
 class VSScratchModel(object):
     __table__ = Table(
-        'scratch',
+        "scratch",
         postgres_registry.metadata,
-        Column('id', Integer, ForeignKey('variable_space.id', ondelete='CASCADE'), primary_key=True),
-        Column('zip', Binary, nullable=False),
+        Column("id", Integer, ForeignKey("variable_space.id", ondelete="CASCADE"), primary_key=True),
+        Column("zip", Binary, nullable=False),
     )
 
     zip: bytes
@@ -394,11 +405,11 @@ class VSScratchModel(object):
 @dataclass
 class KernelConfigModel(object):
     __table__ = Table(
-        'kernel',
+        "kernel",
         postgres_registry.metadata,
-        Column('id', Integer, ForeignKey('variable_space.id', ondelete='CASCADE'), primary_key=True),
-        Column('type', String, nullable=False),
-        Column('settings', JSONDict, nullable=False),
+        Column("id", Integer, ForeignKey("variable_space.id", ondelete="CASCADE"), primary_key=True),
+        Column("type", String, nullable=False),
+        Column("settings", JSONDict, nullable=False),
     )
 
     type: str
@@ -411,35 +422,35 @@ class KernelConfigModel(object):
 @dataclass
 class VSPointModel(object):
     __table__ = Table(
-        'variable_space',
+        "variable_space",
         postgres_registry.metadata,
-        Column('id', Integer, primary_key=True),
-        Column('order_id', Integer, ForeignKey('orders.id', ondelete='CASCADE'), nullable=False),
-        Column('water_mass', Double, nullable=False),
-        Column('temperature', Double, nullable=False),
-        Column('pressure', Double, nullable=False),
-        Column('exit_code', Integer, nullable=False),
-        Column('create_date', DateTime, nullable=False),
-        Column('start_date', DateTime, nullable=False),
-        Column('complete_date', DateTime, nullable=False),
+        Column("id", Integer, primary_key=True),
+        Column("order_id", Integer, ForeignKey("orders.id", ondelete="CASCADE"), nullable=False),
+        Column("water_mass", Double, nullable=False),
+        Column("temperature", Double, nullable=False),
+        Column("pressure", Double, nullable=False),
+        Column("exit_code", Integer, nullable=False),
+        Column("create_date", DateTime, nullable=False),
+        Column("start_date", DateTime, nullable=False),
+        Column("complete_date", DateTime, nullable=False),
     )
 
     __mapper_args__: ClassVar[dict[str, object]] = {
-        'properties': {
-            'kernel': relationship('KernelConfigModel', cascade='all, delete', uselist=False),
-            'elements': relationship('VSElementModel', cascade='all, delete'),
-            'species': relationship('VSSpeciesModel', cascade='all, delete'),
-            'suppressions': relationship('VSSuppressionModel', cascade='all, delete'),
-            'mineral_reactants': relationship('VSMineralReactantModel', cascade='all, delete'),
-            'aqueous_reactants': relationship('VSAqueousReactantModel', cascade='all, delete'),
-            'gas_reactants': relationship('VSGasReactantModel', cascade='all, delete'),
-            'element_reactants': relationship('VSElementReactantModel', cascade='all, delete'),
-            'special_reactants': relationship('VSSpecialReactantModel', cascade='all, delete'),
-            'fixed_gas_reactants': relationship('VSFixedGasReactantModel', cascade='all, delete'),
-            'solid_solution_reactants': relationship('VSSolidSolutionReactantModel', cascade='all, delete'),
-            'glass_reactants': relationship('VSGlassReactantModel', cascade='all, delete'),
-            'es_points': relationship('ESPointModel', cascade='all, delete'),
-            'scratch': relationship('VSScratchModel', cascade='all, delete', uselist=False),
+        "properties": {
+            "kernel": relationship("KernelConfigModel", cascade="all, delete", uselist=False),
+            "elements": relationship("VSElementModel", cascade="all, delete"),
+            "species": relationship("VSSpeciesModel", cascade="all, delete"),
+            "suppressions": relationship("VSSuppressionModel", cascade="all, delete"),
+            "mineral_reactants": relationship("VSMineralReactantModel", cascade="all, delete"),
+            "aqueous_reactants": relationship("VSAqueousReactantModel", cascade="all, delete"),
+            "gas_reactants": relationship("VSGasReactantModel", cascade="all, delete"),
+            "element_reactants": relationship("VSElementReactantModel", cascade="all, delete"),
+            "special_reactants": relationship("VSSpecialReactantModel", cascade="all, delete"),
+            "fixed_gas_reactants": relationship("VSFixedGasReactantModel", cascade="all, delete"),
+            "solid_solution_reactants": relationship("VSSolidSolutionReactantModel", cascade="all, delete"),
+            "glass_reactants": relationship("VSGlassReactantModel", cascade="all, delete"),
+            "es_points": relationship("ESPointModel", cascade="all, delete"),
+            "scratch": relationship("VSScratchModel", cascade="all, delete", uselist=False),
         }
     }
 
@@ -473,13 +484,13 @@ class VSPointModel(object):
 @dataclass
 class ESElementModel(object):
     __table__ = Table(
-        'equilibrium_elements',
+        "equilibrium_elements",
         postgres_registry.metadata,
-        Column('id', Integer, primary_key=True),
-        Column('equilibrium_space_id', Integer, ForeignKey('equilibrium_space.id', ondelete='CASCADE'), nullable=False),
-        Column('name', String, nullable=False),
-        Column('log_molality', Double, nullable=False),
-        Column('mass_fraction', Double, nullable=False),
+        Column("id", Integer, primary_key=True),
+        Column("equilibrium_space_id", Integer, ForeignKey("equilibrium_space.id", ondelete="CASCADE"), nullable=False),
+        Column("name", String, nullable=False),
+        Column("log_molality", Double, nullable=False),
+        Column("mass_fraction", Double, nullable=False),
     )
 
     name: str
@@ -494,14 +505,14 @@ class ESElementModel(object):
 @dataclass
 class ESAqueousSpeciesModel(object):
     __table__ = Table(
-        'equilibrium_aqueous_species',
+        "equilibrium_aqueous_species",
         postgres_registry.metadata,
-        Column('id', Integer, primary_key=True),
-        Column('equilibrium_space_id', Integer, ForeignKey('equilibrium_space.id', ondelete='CASCADE'), nullable=False),
-        Column('name', String, nullable=False),
-        Column('log_molality', Double, nullable=False),
-        Column('log_activity', Double, nullable=False),
-        Column('log_gamma', Double, nullable=False),
+        Column("id", Integer, primary_key=True),
+        Column("equilibrium_space_id", Integer, ForeignKey("equilibrium_space.id", ondelete="CASCADE"), nullable=False),
+        Column("name", String, nullable=False),
+        Column("log_molality", Double, nullable=False),
+        Column("log_activity", Double, nullable=False),
+        Column("log_gamma", Double, nullable=False),
     )
 
     name: str
@@ -517,16 +528,16 @@ class ESAqueousSpeciesModel(object):
 @dataclass
 class ESPureSolidModel(object):
     __table__ = Table(
-        'equilibrium_pure_solids',
+        "equilibrium_pure_solids",
         postgres_registry.metadata,
-        Column('id', Integer, primary_key=True),
-        Column('equilibrium_space_id', Integer, ForeignKey('equilibrium_space.id', ondelete='CASCADE'), nullable=False),
-        Column('name', String, nullable=False),
-        Column('log_qk', Double, nullable=False),
-        Column('affinity', Double, nullable=False),
-        Column('log_moles', Double, nullable=False, default=-math.inf),
-        Column('log_mass', Double, nullable=False, default=-math.inf),
-        Column('log_volume', Double, nullable=False, default=-math.inf),
+        Column("id", Integer, primary_key=True),
+        Column("equilibrium_space_id", Integer, ForeignKey("equilibrium_space.id", ondelete="CASCADE"), nullable=False),
+        Column("name", String, nullable=False),
+        Column("log_qk", Double, nullable=False),
+        Column("affinity", Double, nullable=False),
+        Column("log_moles", Double, nullable=False, default=-math.inf),
+        Column("log_mass", Double, nullable=False, default=-math.inf),
+        Column("log_volume", Double, nullable=False, default=-math.inf),
     )
 
     name: str
@@ -544,16 +555,21 @@ class ESPureSolidModel(object):
 @dataclass
 class ESEndMemberModel(object):
     __table__ = Table(
-        'equilibrium_end_members',
+        "equilibrium_end_members",
         postgres_registry.metadata,
-        Column('id', Integer, primary_key=True),
-        Column('equilibrium_solid_solution_id', Integer, ForeignKey('equilibrium_solid_solutions.id', ondelete='CASCADE'), nullable=False),
-        Column('name', String, nullable=False),
-        Column('log_qk', Double, nullable=False),
-        Column('affinity', Double, nullable=False),
-        Column('log_moles', Double, nullable=False, default=-math.inf),
-        Column('log_mass', Double, nullable=False, default=-math.inf),
-        Column('log_volume', Double, nullable=False, default=-math.inf),
+        Column("id", Integer, primary_key=True),
+        Column(
+            "equilibrium_solid_solution_id",
+            Integer,
+            ForeignKey("equilibrium_solid_solutions.id", ondelete="CASCADE"),
+            nullable=False,
+        ),
+        Column("name", String, nullable=False),
+        Column("log_qk", Double, nullable=False),
+        Column("affinity", Double, nullable=False),
+        Column("log_moles", Double, nullable=False, default=-math.inf),
+        Column("log_mass", Double, nullable=False, default=-math.inf),
+        Column("log_volume", Double, nullable=False, default=-math.inf),
     )
 
     name: str
@@ -571,21 +587,21 @@ class ESEndMemberModel(object):
 @dataclass
 class ESSolidSolutionModel(object):
     __table__ = Table(
-        'equilibrium_solid_solutions',
+        "equilibrium_solid_solutions",
         postgres_registry.metadata,
-        Column('id', Integer, primary_key=True),
-        Column('equilibrium_space_id', Integer, ForeignKey('equilibrium_space.id', ondelete='CASCADE'), nullable=False),
-        Column('name', String, nullable=False),
-        Column('log_qk', Double, nullable=False),
-        Column('affinity', Double, nullable=False),
-        Column('log_moles', Double, nullable=False, default=-math.inf),
-        Column('log_mass', Double, nullable=False, default=-math.inf),
-        Column('log_volume', Double, nullable=False, default=-math.inf),
+        Column("id", Integer, primary_key=True),
+        Column("equilibrium_space_id", Integer, ForeignKey("equilibrium_space.id", ondelete="CASCADE"), nullable=False),
+        Column("name", String, nullable=False),
+        Column("log_qk", Double, nullable=False),
+        Column("affinity", Double, nullable=False),
+        Column("log_moles", Double, nullable=False, default=-math.inf),
+        Column("log_mass", Double, nullable=False, default=-math.inf),
+        Column("log_volume", Double, nullable=False, default=-math.inf),
     )
 
     __mapper_args__: ClassVar[dict[str, object]] = {
-        'properties': {
-            'end_members': relationship(ESEndMemberModel, cascade='all, delete'),
+        "properties": {
+            "end_members": relationship(ESEndMemberModel, cascade="all, delete"),
         }
     }
 
@@ -605,12 +621,12 @@ class ESSolidSolutionModel(object):
 @dataclass
 class ESGasModel(object):
     __table__ = Table(
-        'equilibrium_gases',
+        "equilibrium_gases",
         postgres_registry.metadata,
-        Column('id', Integer, primary_key=True),
-        Column('equilibrium_space_id', Integer, ForeignKey('equilibrium_space.id', ondelete='CASCADE'), nullable=False),
-        Column('name', String, nullable=False),
-        Column('log_fugacity', Double, nullable=False),
+        Column("id", Integer, primary_key=True),
+        Column("equilibrium_space_id", Integer, ForeignKey("equilibrium_space.id", ondelete="CASCADE"), nullable=False),
+        Column("name", String, nullable=False),
+        Column("log_fugacity", Double, nullable=False),
     )
 
     name: str
@@ -624,17 +640,17 @@ class ESGasModel(object):
 @dataclass
 class ESReactantModel(object):
     __table__ = Table(
-        'equilibrium_reactants',
+        "equilibrium_reactants",
         postgres_registry.metadata,
-        Column('id', Integer, primary_key=True),
-        Column('equilibrium_space_id', Integer, ForeignKey('equilibrium_space.id', ondelete='CASCADE'), nullable=False),
-        Column('name', String, nullable=False),
-        Column('affinity', Double, nullable=False),
-        Column('relative_rate', Double, nullable=False),
-        Column('log_moles_reacted', Double, nullable=False),
-        Column('log_moles_remaining', Double, nullable=False),
-        Column('log_mass_reacted', Double, nullable=False),
-        Column('log_mass_remaining', Double, nullable=False),
+        Column("id", Integer, primary_key=True),
+        Column("equilibrium_space_id", Integer, ForeignKey("equilibrium_space.id", ondelete="CASCADE"), nullable=False),
+        Column("name", String, nullable=False),
+        Column("affinity", Double, nullable=False),
+        Column("relative_rate", Double, nullable=False),
+        Column("log_moles_reacted", Double, nullable=False),
+        Column("log_moles_remaining", Double, nullable=False),
+        Column("log_mass_reacted", Double, nullable=False),
+        Column("log_mass_remaining", Double, nullable=False),
     )
 
     name: str
@@ -653,15 +669,15 @@ class ESReactantModel(object):
 @dataclass
 class ESRedoxReactionModel(object):
     __table__ = Table(
-        'equilibrium_redox_reactions',
+        "equilibrium_redox_reactions",
         postgres_registry.metadata,
-        Column('id', Integer, primary_key=True),
-        Column('equilibrium_space_id', Integer, ForeignKey('equilibrium_space.id', ondelete='CASCADE'), nullable=False),
-        Column('couple', String, nullable=False),
-        Column('Eh', Double, nullable=False),
-        Column('pe', Double, nullable=False),
-        Column('log_fO2', Double, nullable=False),
-        Column('Ah', Double, nullable=False),
+        Column("id", Integer, primary_key=True),
+        Column("equilibrium_space_id", Integer, ForeignKey("equilibrium_space.id", ondelete="CASCADE"), nullable=False),
+        Column("couple", String, nullable=False),
+        Column("Eh", Double, nullable=False),
+        Column("pe", Double, nullable=False),
+        Column("log_fO2", Double, nullable=False),
+        Column("Ah", Double, nullable=False),
     )
 
     couple: str
@@ -678,71 +694,71 @@ class ESRedoxReactionModel(object):
 @dataclass
 class ESPointModel(object):
     __table__ = Table(
-        'equilibrium_space',
+        "equilibrium_space",
         postgres_registry.metadata,
-        Column('id', Integer, primary_key=True),
-        Column('variable_space_id', Integer, ForeignKey('variable_space.id', ondelete='CASCADE')),
-        Column('stage', String, nullable=False),
-        Column('log_xi', Double),
-        Column('temperature', Double, nullable=False),
-        Column('pressure', Double, nullable=False),
-        Column('pH', Double, nullable=False),
-        Column('log_fO2', Double, nullable=False),
-        Column('log_activity_water', Double, nullable=False),
-        Column('mole_fraction_water', Double, nullable=False),
-        Column('log_gamma_water', Double, nullable=False),
-        Column('Eh', Double, nullable=False),
-        Column('pe', Double, nullable=False),
-        Column('Ah', Double, nullable=False),
-        Column('pcH', Double),
-        Column('pHCl', Double),
-        Column('log_ionic_strength', Double, nullable=False),
-        Column('log_stoichiometric_ionic_strength', Double, nullable=False),
-        Column('log_ionic_asymmetry', Double, nullable=False),
-        Column('log_stoichiometric_ionic_asymmetry', Double, nullable=False),
-        Column('osmotic_coefficient', Double, nullable=False),
-        Column('stoichiometric_osmotic_coefficient', Double, nullable=False),
-        Column('log_sum_molalities', Double, nullable=False),
-        Column('log_sum_stoichiometric_molalities', Double, nullable=False),
-        Column('charge_imbalance', Double, nullable=False),
-        Column('expected_charge_imbalance', Double),
-        Column('sigma', Double),
-        Column('charge_discrepancy', Double),
-        Column('anions', Double),
-        Column('cations', Double),
-        Column('total_charge', Double),
-        Column('mean_charge', Double),
-        Column('solute_mass', Double, nullable=False),
-        Column('solvent_mass', Double, nullable=False),
-        Column('solution_mass', Double, nullable=False),
-        Column('solution_volume', Double),
-        Column('tds', Double, nullable=False),
-        Column('solute_fraction', Double, nullable=False),
-        Column('solvent_fraction', Double, nullable=False),
-        Column('extended_alkalinity', Double),
-        Column('overall_affinity', Double),
-        Column('reactant_mass_reacted', Double),
-        Column('reactant_mass_remaining', Double),
-        Column('solid_mass_change', Double),
-        Column('solid_mass_created', Double),
-        Column('solid_mass_destroyed', Double),
-        Column('solid_volume_change', Double),
-        Column('solid_volume_created', Double),
-        Column('solid_volume_destroyed', Double),
-        Column('start_date', DateTime, nullable=False),
-        Column('complete_date', DateTime, nullable=False),
-        Column('custom_properties', JSONDict, nullable=False),
+        Column("id", Integer, primary_key=True),
+        Column("variable_space_id", Integer, ForeignKey("variable_space.id", ondelete="CASCADE")),
+        Column("stage", String, nullable=False),
+        Column("log_xi", Double),
+        Column("temperature", Double, nullable=False),
+        Column("pressure", Double, nullable=False),
+        Column("pH", Double, nullable=False),
+        Column("log_fO2", Double, nullable=False),
+        Column("log_activity_water", Double, nullable=False),
+        Column("mole_fraction_water", Double, nullable=False),
+        Column("log_gamma_water", Double, nullable=False),
+        Column("Eh", Double, nullable=False),
+        Column("pe", Double, nullable=False),
+        Column("Ah", Double, nullable=False),
+        Column("pcH", Double),
+        Column("pHCl", Double),
+        Column("log_ionic_strength", Double, nullable=False),
+        Column("log_stoichiometric_ionic_strength", Double, nullable=False),
+        Column("log_ionic_asymmetry", Double, nullable=False),
+        Column("log_stoichiometric_ionic_asymmetry", Double, nullable=False),
+        Column("osmotic_coefficient", Double, nullable=False),
+        Column("stoichiometric_osmotic_coefficient", Double, nullable=False),
+        Column("log_sum_molalities", Double, nullable=False),
+        Column("log_sum_stoichiometric_molalities", Double, nullable=False),
+        Column("charge_imbalance", Double, nullable=False),
+        Column("expected_charge_imbalance", Double),
+        Column("sigma", Double),
+        Column("charge_discrepancy", Double),
+        Column("anions", Double),
+        Column("cations", Double),
+        Column("total_charge", Double),
+        Column("mean_charge", Double),
+        Column("solute_mass", Double, nullable=False),
+        Column("solvent_mass", Double, nullable=False),
+        Column("solution_mass", Double, nullable=False),
+        Column("solution_volume", Double),
+        Column("tds", Double, nullable=False),
+        Column("solute_fraction", Double, nullable=False),
+        Column("solvent_fraction", Double, nullable=False),
+        Column("extended_alkalinity", Double),
+        Column("overall_affinity", Double),
+        Column("reactant_mass_reacted", Double),
+        Column("reactant_mass_remaining", Double),
+        Column("solid_mass_change", Double),
+        Column("solid_mass_created", Double),
+        Column("solid_mass_destroyed", Double),
+        Column("solid_volume_change", Double),
+        Column("solid_volume_created", Double),
+        Column("solid_volume_destroyed", Double),
+        Column("start_date", DateTime, nullable=False),
+        Column("complete_date", DateTime, nullable=False),
+        Column("custom_properties", JSONDict, nullable=False),
     )
 
     __mapper_args__: ClassVar[dict[str, object]] = {
-        'properties': {
-            'elements': relationship(ESElementModel, cascade='all, delete'),
-            'aqueous_species': relationship(ESAqueousSpeciesModel, cascade='all, delete'),
-            'pure_solids': relationship(ESPureSolidModel, cascade='all, delete'),
-            'solid_solutions': relationship(ESSolidSolutionModel, cascade='all, delete'),
-            'gases': relationship(ESGasModel, cascade='all, delete'),
-            'reactants': relationship(ESReactantModel, cascade='all, delete'),
-            'redox_reactions': relationship(ESRedoxReactionModel, cascade='all, delete'),
+        "properties": {
+            "elements": relationship(ESElementModel, cascade="all, delete"),
+            "aqueous_species": relationship(ESAqueousSpeciesModel, cascade="all, delete"),
+            "pure_solids": relationship(ESPureSolidModel, cascade="all, delete"),
+            "solid_solutions": relationship(ESSolidSolutionModel, cascade="all, delete"),
+            "gases": relationship(ESGasModel, cascade="all, delete"),
+            "reactants": relationship(ESReactantModel, cascade="all, delete"),
+            "redox_reactions": relationship(ESRedoxReactionModel, cascade="all, delete"),
         }
     }
 
@@ -812,19 +828,19 @@ class ESPointModel(object):
 @dataclass
 class OrderModel(object):
     __table__ = Table(
-        'orders',
+        "orders",
         postgres_registry.metadata,
-        Column('id', Integer, primary_key=True),
-        Column('name', String, nullable=False, index=True),
-        Column('tag', String, nullable=False, default='', server_default='', index=True),
-        Column('eleanor_version', String, nullable=False, index=True),
-        Column('raw', JSONDict, nullable=False),
-        Column('create_date', DateTime, nullable=False),
+        Column("id", Integer, primary_key=True),
+        Column("name", String, nullable=False, index=True),
+        Column("tag", String, nullable=False, default="", server_default="", index=True),
+        Column("eleanor_version", String, nullable=False, index=True),
+        Column("raw", JSONDict, nullable=False),
+        Column("create_date", DateTime, nullable=False),
     )
 
     __mapper_args__: ClassVar[dict[str, object]] = {
-        'properties': {
-            'vs_points': relationship('VSPointModel', cascade='all, delete'),
+        "properties": {
+            "vs_points": relationship("VSPointModel", cascade="all, delete"),
         }
     }
 
@@ -832,6 +848,6 @@ class OrderModel(object):
     eleanor_version: str
     raw: dict[str, object]
     id: int | None = None
-    tag: str = ''
+    tag: str = ""
     create_date: datetime = field(default_factory=datetime.now)
     vs_points: list[VSPointModel] = field(default_factory=list)

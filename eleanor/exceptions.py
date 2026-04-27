@@ -14,7 +14,6 @@ class EleanorException(Exception):
 
 
 class EleanorFileException(EleanorException):
-
     def __init__(self, error: object, *args: object, code: int | None = None):
         super().__init__(self, str(error), *args, code=code)
 

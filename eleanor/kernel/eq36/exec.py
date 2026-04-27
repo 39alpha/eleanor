@@ -3,11 +3,13 @@
 
 Provide a simple API for running EQ3/6.
 """
+
 import re
 from subprocess import PIPE, Popen, TimeoutExpired
 
 from .codes import RunCode
 from .exceptions import Eq36Exception
+
 
 def error_guard(output: bytes | str, cmd: str, code: int, fname: str | None = None) -> None:
     """
@@ -19,15 +21,15 @@ def error_guard(output: bytes | str, cmd: str, code: int, fname: str | None = No
     :param fname: an optional filename to add to the error message
     :raises Eq36Exception: if an error message is found
     """
-    matches = re.search('Error - (.|\n)*', str(output))
+    matches = re.search("Error - (.|\n)*", str(output))
     if matches is not None:
-        errors = matches.group(0).split('\\n\\n')
+        errors = matches.group(0).split("\\n\\n")
         for error in errors:
-            first_message = error.split('\\n\\n')[0]
-            trimmed_prefix = first_message.replace('Error - ', str(cmd))
-            no_newline = trimmed_prefix.replace('\\n', '')
-            message = re.sub('\\s+', ' ', no_newline)
-            if re.match('^\\s*$', message) is None:
+            first_message = error.split("\\n\\n")[0]
+            trimmed_prefix = first_message.replace("Error - ", str(cmd))
+            no_newline = trimmed_prefix.replace("\\n", "")
+            message = re.sub("\\s+", " ", no_newline)
+            if re.match("^\\s*$", message) is None:
                 if fname is None:
                     raise Eq36Exception(message, code=code)
                 else:
@@ -60,11 +62,11 @@ def run(
         try:
             error_guard(stdout, cmd, code=code, fname=fname)
         except Eq36Exception as e:
-            raise Eq36Exception(f'{cmd} timed out with errors', code=RunCode.EQ36_TIMEOUT) from e
-        raise Eq36Exception(f'{cmd} timed out without errors', code=RunCode.EQ36_TIMEOUT)
+            raise Eq36Exception(f"{cmd} timed out with errors", code=RunCode.EQ36_TIMEOUT) from e
+        raise Eq36Exception(f"{cmd} timed out without errors", code=RunCode.EQ36_TIMEOUT)
 
     if process.returncode != 0:
-        raise Eq36Exception(f'{cmd} exited with an unexpected error', code=process.returncode)
+        raise Eq36Exception(f"{cmd} exited with an unexpected error", code=process.returncode)
 
     return stdout, stderr
 
@@ -86,7 +88,7 @@ def eqpt(data0: str) -> tuple[bytes, bytes]:
     :return: the standard output and error that results from eq3nr on the data1
              and 3i files.
     """
-    return run('eqpt', data0, fname=data0, code=RunCode.EQPT_ERROR)
+    return run("eqpt", data0, fname=data0, code=RunCode.EQPT_ERROR)
 
 
 def eq3(data1: str, threei: str, timeout: int | None = None) -> tuple[bytes, bytes]:
@@ -106,7 +108,7 @@ def eq3(data1: str, threei: str, timeout: int | None = None) -> tuple[bytes, byt
              and 3i files.
     """
     _ = timeout
-    return run('eq3nr', data1, threei, timeout=None, fname=threei, code=RunCode.EQ3_ERROR)
+    return run("eq3nr", data1, threei, timeout=None, fname=threei, code=RunCode.EQ3_ERROR)
 
 
 def eq6(data1: str, sixi: str, timeout: int | None = None) -> tuple[bytes, bytes]:
@@ -128,4 +130,4 @@ def eq6(data1: str, sixi: str, timeout: int | None = None) -> tuple[bytes, bytes
     :return: the standard output and error that results from eq6 on the data1
              and 6i files.
     """
-    return run('eq6', data1, sixi, timeout=timeout, fname=sixi, code=RunCode.EQ6_ERROR)
+    return run("eq6", data1, sixi, timeout=timeout, fname=sixi, code=RunCode.EQ6_ERROR)

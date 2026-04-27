@@ -12,21 +12,19 @@ import numpy as np
 from .exceptions import EleanorException
 from .typing import NDArray, Number
 
-MapInputT = TypeVar('MapInputT')
-ReduceT = TypeVar('ReduceT')
-ChunkInputT = TypeVar('ChunkInputT')
+MapInputT = TypeVar("MapInputT")
+ReduceT = TypeVar("ReduceT")
+ChunkInputT = TypeVar("ChunkInputT")
 
 
 class HashLike(Protocol):
-    def update(self, obj: bytes, /) -> object:
-        ...
+    def update(self, obj: bytes, /) -> object: ...
 
-    def hexdigest(self) -> str:
-        ...
+    def hexdigest(self) -> str: ...
 
 
 # TODO: Use an enumeration for str_loc parameter
-def find_files(match: str, location: str = '.', str_loc: str = 'suffix') -> tuple[list[str], list[str]]:
+def find_files(match: str, location: str = ".", str_loc: str = "suffix") -> tuple[list[str], list[str]]:
     """
     Find all files in folders downstream from 'location', with extension 'file_extension'
 
@@ -46,11 +44,11 @@ def find_files(match: str, location: str = '.', str_loc: str = 'suffix') -> tupl
     file_paths: list[str] = []
     for root, _dirs, files in os.walk(location):
         for file in files:
-            if str_loc == 'suffix':
+            if str_loc == "suffix":
                 if file.endswith(match):
                     file_names.append(file)
                     file_paths.append(os.path.join(root, file))
-            if str_loc == 'prefix':
+            if str_loc == "prefix":
                 if file.startswith(match):
                     file_names.append(file)
                     file_paths.append(os.path.join(root, file))
@@ -84,7 +82,7 @@ def ck_for_empty_file(path: str) -> None:
     :type path: str
     """
     if os.stat(path).st_size == 0:
-        print('file: ' + path + ' is empty.')
+        print("file: " + path + " is empty.")
         sys.exit()
 
 
@@ -92,8 +90,9 @@ class NumberFormat(StrEnum):
     """
     A utility class to make formatting numeric values more expressive.
     """
-    SCIENTIFIC = 'E'
-    FLOATING = 'f'
+
+    SCIENTIFIC = "E"
+    FLOATING = "f"
 
     # TODO: Handle units
     def fmt(self, value: Number, precision: int) -> str:
@@ -109,7 +108,7 @@ class NumberFormat(StrEnum):
         :param precision: the precision to
         """
         if precision < 0:
-            raise EleanorException('invalid precision {precision} < 0')
+            raise EleanorException("invalid precision {precision} < 0")
 
         return "{value:.{precision}{fmt}}".format(value=value, precision=precision, fmt=self)
 
@@ -153,6 +152,7 @@ class WorkingDirectory(object):
 
     path: str
     cwd: str
+
     def __init__(self, path: str):
         self.path = os.path.realpath(path)
         self.cwd = os.getcwd()
@@ -191,8 +191,8 @@ def hash_file(path: str, hasher: HashLike | None = None) -> str:
     """
     if hasher is None:
         hasher = hashlib.sha256()
-    with open(path, 'rb') as handle:
-        for chunk in iter(lambda: handle.read(4096), b''):
+    with open(path, "rb") as handle:
+        for chunk in iter(lambda: handle.read(4096), b""):
             _ = hasher.update(chunk)
     return hasher.hexdigest()
 
@@ -239,7 +239,7 @@ def convert_to_number(value: Number | str, types: list[type[object]] | None = No
     if types is None:
         return convert_to_number(value, [int, np.integer, float, np.floating])
     if len(types) == 0:
-        raise EleanorException('could not convert string to numeric type')
+        raise EleanorException("could not convert string to numeric type")
     if isinstance(value, tuple(types)):
         return _as_number(value)
 
@@ -254,7 +254,7 @@ def convert_to_number(value: Number | str, types: list[type[object]] | None = No
             return int(value)
         if t is float:
             return float(value)
-        raise EleanorException('could not convert string to numeric type')
+        raise EleanorException("could not convert string to numeric type")
     except ValueError:
         return convert_to_number(value, remaining)
 
@@ -288,11 +288,11 @@ def chunks(indexable: Sequence[ChunkInputT], n: int) -> Generator[Sequence[Chunk
     residual = N - n * chunk_size
     start = 0
     while residual > 0 and start < N:
-        yield indexable[start:start + chunk_size + 1]
+        yield indexable[start : start + chunk_size + 1]
         start += chunk_size + 1
         residual -= 1
     while start < N:
-        yield indexable[start:start + chunk_size]
+        yield indexable[start : start + chunk_size]
         start += chunk_size
 
 

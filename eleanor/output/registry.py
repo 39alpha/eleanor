@@ -13,17 +13,18 @@ as ``Callable[..., object]`` so this module has no structural dependency on
 :mod:`eleanor.output.interface` or :mod:`eleanor.config`. Callers validate
 the returned sink against :class:`~eleanor.output.OutputSink` at use sites.
 """
+
 from collections.abc import Callable
 from typing import TypeAlias
 
 from eleanor.plugin import PluginRegistry
 
 #: Name of the entry-point group inspected on first registry access.
-ENTRY_POINT_GROUP = 'eleanor.outputs'
+ENTRY_POINT_GROUP = "eleanor.outputs"
 
 #: Environment variable that allows plugin registrations to override built-ins
 #: or previously-registered plugins.
-OVERRIDE_ENV_VAR = 'ELEANOR_OUTPUT_OVERRIDES'
+OVERRIDE_ENV_VAR = "ELEANOR_OUTPUT_OVERRIDES"
 
 #: Factory callable shape for output sink builders.
 OutputFactory: TypeAlias = Callable[..., object]
@@ -31,11 +32,11 @@ OutputFactory: TypeAlias = Callable[..., object]
 
 #: The shared :class:`PluginRegistry` instance backing this module's helpers.
 registry: PluginRegistry[OutputFactory] = PluginRegistry(
-    kind='output',
+    kind="output",
     entry_point_group=ENTRY_POINT_GROUP,
     override_env_var=OVERRIDE_ENV_VAR,
     builtins={},
-    builtin_names=frozenset({'postgres'}),
+    builtin_names=frozenset({"postgres"}),
 )
 
 #: Canonical names of the output sinks shipped inside the eleanor distribution.

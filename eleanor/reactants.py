@@ -14,6 +14,7 @@ type RawMap = dict[str, object]
 
 class GlassOxideRaw(TypedDict, total=False):
     """Raw schema for a single oxide block inside a glass reactant."""
+
     name: str | None
     composition: dict[str, int]
     fraction: float
@@ -28,6 +29,7 @@ class ReactantRaw(TypedDict, total=False):
     declared here so that the ``TypedDict`` covers the full surface area;
     each concrete ``from_dict`` only reads the subset it needs.
     """
+
     type: str
     name: str | None
     amount: ParameterSource
@@ -40,7 +42,7 @@ class ReactantRaw(TypedDict, total=False):
 
 def _require_str(value: object, field_name: str) -> str:
     if not isinstance(value, str):
-        raise EleanorException(f'{field_name} must be a string')
+        raise EleanorException(f"{field_name} must be a string")
     return value
 
 
@@ -53,25 +55,25 @@ def _require_dict[T](value: object, field_name: str) -> dict[str, T]:
     the check as meaningful.
     """
     if not isinstance(value, dict):
-        raise EleanorException(f'{field_name} must be a dictionary')
+        raise EleanorException(f"{field_name} must be a dictionary")
     return cast(dict[str, T], cast(object, value))
 
 
 def _require_float(value: object, field_name: str) -> float:
     if not isinstance(value, float):
-        raise EleanorException(f'{field_name} must be a floating-point number')
+        raise EleanorException(f"{field_name} must be a floating-point number")
     return value
 
 
 class ReactantType(StrEnum):
-    MINERAL = 'mineral'
-    GAS = 'gas'
-    FIXED_GAS = 'fixed gas'
-    SPECIAL = 'special'
-    ELEMENT = 'element'
-    SOLID_SOLUTION = 'solid solution'
-    AQUEOUS = 'aqueous'
-    GLASS = 'glass'
+    MINERAL = "mineral"
+    GAS = "gas"
+    FIXED_GAS = "fixed gas"
+    SPECIAL = "special"
+    ELEMENT = "element"
+    SOLID_SOLUTION = "solid solution"
+    AQUEOUS = "aqueous"
+    GLASS = "glass"
 
 
 @dataclass
@@ -91,7 +93,7 @@ class AbstractReactant(ABC):
         # typed as ``@classmethod`` + ``@override`` without triggering a
         # method-override-compatibility error from the type checker.
         _ = cls
-        reactant_type = cast(object, ReactantType(_require_str(raw.get('type'), 'reactant.type')))
+        reactant_type = cast(object, ReactantType(_require_str(raw.get("type"), "reactant.type")))
         match reactant_type:
             case ReactantType.MINERAL:
                 return MineralReactant.from_dict(raw, name)
@@ -111,6 +113,7 @@ class AbstractReactant(ABC):
                 return GlassReactant.from_dict(raw, name)
             case _:
                 raise EleanorException(f'unexpected reactant type "{reactant_type}"')
+
     @abstractmethod
     def volume(self) -> float:
         raise NotImplementedError
@@ -129,13 +132,13 @@ class TitratedReactant(AbstractReactant):
     @override
     def from_dict(cls, raw: ReactantRaw, name: str | None = None) -> "TitratedReactant":
         if name is None:
-            name = raw.get('name')
+            name = raw.get("name")
         if not isinstance(name, str):
-            raise EleanorException('reactant name must be a string')
+            raise EleanorException("reactant name must be a string")
 
-        reactant_type = ReactantType(_require_str(raw.get('type'), 'reactant.type'))
-        amount = Parameter.load(raw.get('amount'), 'amount')
-        titration_rate = Parameter.load(raw.get('titration_rate', 1.0), 'titration_rate')
+        reactant_type = ReactantType(_require_str(raw.get("type"), "reactant.type"))
+        amount = Parameter.load(raw.get("amount"), "amount")
+        titration_rate = Parameter.load(raw.get("titration_rate", 1.0), "titration_rate")
 
         return cls(name, reactant_type, amount, titration_rate)
 
@@ -202,16 +205,16 @@ class FixedGasReactant(AbstractReactant):
     @override
     def from_dict(cls, raw: ReactantRaw, name: str | None = None) -> "FixedGasReactant":
         if name is None:
-            name = raw.get('name')
+            name = raw.get("name")
         if not isinstance(name, str):
-            raise EleanorException('reactant name must be a string')
+            raise EleanorException("reactant name must be a string")
 
-        reactant_type = ReactantType(_require_str(raw.get('type'), 'reactant.type'))
+        reactant_type = ReactantType(_require_str(raw.get("type"), "reactant.type"))
         if reactant_type != ReactantType.FIXED_GAS:
             raise EleanorException(f'cannot create a fixed gas reactant from config of type "{reactant_type}"')
 
-        amount = Parameter.load(raw.get('amount'), 'amount')
-        fugacity = Parameter.load(raw.get('fugacity'), 'fugacity')
+        amount = Parameter.load(raw.get("amount"), "amount")
+        fugacity = Parameter.load(raw.get("fugacity"), "fugacity")
 
         return cls(name, reactant_type, amount, fugacity)
 
@@ -230,7 +233,7 @@ class SpecialReactant(TitratedReactant):
     @classmethod
     @override
     def from_dict(cls, raw: ReactantRaw, name: str | None = None) -> "SpecialReactant":
-        composition: dict[str, int] = _require_dict(raw.get('composition'), 'special reactant composition')
+        composition: dict[str, int] = _require_dict(raw.get("composition"), "special reactant composition")
 
         base = TitratedReactant.from_dict(raw, name)
         if base.type != ReactantType.SPECIAL:
@@ -271,7 +274,8 @@ class SolidSolutionReactant(TitratedReactant):
             raise EleanorException(f'cannot create a solid solution reactant from config of type "{base.type}"')
 
         typed_end_members: dict[str, ParameterSource] = _require_dict(
-            raw.get('end_members'), 'solid solution end_members',
+            raw.get("end_members"),
+            "solid solution end_members",
         )
 
         for end_member, raw_param in typed_end_members.items():
@@ -285,8 +289,7 @@ class SolidSolutionReactant(TitratedReactant):
                 )
 
         end_members: dict[str, Parameter] = {
-            str(end_member): Parameter.load(param, 'fraction')
-            for end_member, param in typed_end_members.items()
+            str(end_member): Parameter.load(param, "fraction") for end_member, param in typed_end_members.items()
         }
 
         fraction = 0.0
@@ -302,7 +305,9 @@ class SolidSolutionReactant(TitratedReactant):
             fraction += param.value
 
         if fraction != 1.0:
-            raise EleanorException(f'solid solution "{base.name}" end member fractions sum to {fraction}; must sum to 1.0')
+            raise EleanorException(
+                f'solid solution "{base.name}" end member fractions sum to {fraction}; must sum to 1.0'
+            )
 
         return cls(base.name, base.type, base.amount, base.titration_rate, end_members)
 
@@ -326,19 +331,20 @@ class GlassReactantOxide(object):
     @classmethod
     def from_dict(cls, raw: GlassOxideRaw, name: str | None = None) -> "GlassReactantOxide":
         if name is None:
-            name = raw.get('name')
+            name = raw.get("name")
         if not isinstance(name, str):
-            raise EleanorException('oxide name must be a string')
+            raise EleanorException("oxide name must be a string")
 
         composition: dict[str, int] = _require_dict(
-            raw.get('composition'), f'oxide "{name}" composition specification',
+            raw.get("composition"),
+            f'oxide "{name}" composition specification',
         )
-        fraction = _require_float(raw.get('fraction'), f'oxide "{name}" fraction specification')
+        fraction = _require_float(raw.get("fraction"), f'oxide "{name}" fraction specification')
 
         if not (0.0 < fraction and fraction < 1.0):
             raise EleanorException(f'oxide "{name}" has a value {fraction}; must be between 0 and 1 exclusive')
 
-        relative_rate = Parameter.load(raw.get('relative_rate', 1.0), name='relative_rate')
+        relative_rate = Parameter.load(raw.get("relative_rate", 1.0), name="relative_rate")
 
         return cls(name, composition, fraction, relative_rate)
 
@@ -357,11 +363,10 @@ class GlassReactant(TitratedReactant):
     @classmethod
     @override
     def from_dict(cls, raw: ReactantRaw, name: str | None = None) -> "GlassReactant":
-        typed_oxides: dict[str, GlassOxideRaw] = _require_dict(raw.get('oxides'), 'glass oxides')
+        typed_oxides: dict[str, GlassOxideRaw] = _require_dict(raw.get("oxides"), "glass oxides")
 
         oxides: dict[str, GlassReactantOxide] = {
-            oxide: GlassReactantOxide.from_dict(data, oxide)
-            for oxide, data in typed_oxides.items()
+            oxide: GlassReactantOxide.from_dict(data, oxide) for oxide, data in typed_oxides.items()
         }
 
         base = TitratedReactant.from_dict(raw, name)
@@ -371,13 +376,24 @@ class GlassReactant(TitratedReactant):
         if len(oxides) == 0:
             raise EleanorException(f'glass "{base.name}" has no oxides; consider removing it')
         elif len(oxides) == 1:
-            raise EleanorException(f'glass "{base.name}" has only one oxide; consider replacing it with a special reactant')
+            raise EleanorException(
+                f'glass "{base.name}" has only one oxide; consider replacing it with a special reactant'
+            )
 
         fraction = mapreduce(lambda o: o.fraction, operator.add, oxides.values(), 0.0)
         if fraction != 1.0:
-            raise EleanorException(f'glass \"{base.name}\" oxide fractions sum to {fraction}; must sum to 1.0')
+            raise EleanorException(f'glass "{base.name}" oxide fractions sum to {fraction}; must sum to 1.0')
 
         return cls(base.name, base.type, base.amount, base.titration_rate, oxides)
 
 
-Reactant = MineralReactant | AqueousReactant | GasReactant | FixedGasReactant | SpecialReactant | ElementReactant | SolidSolutionReactant | GlassReactant
+Reactant = (
+    MineralReactant
+    | AqueousReactant
+    | GasReactant
+    | FixedGasReactant
+    | SpecialReactant
+    | ElementReactant
+    | SolidSolutionReactant
+    | GlassReactant
+)

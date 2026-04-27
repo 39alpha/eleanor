@@ -11,7 +11,6 @@ if TYPE_CHECKING:
 
 
 class AbstractKernel(ABC):
-
     @abstractmethod
     def setup(
         self,
@@ -39,7 +38,7 @@ class AbstractKernel(ABC):
     def constrain(self, boatswain: Boatswain) -> Boatswain:
         return boatswain
 
-    def copy_data(self, vs_point: vs.Point, *args: object, dir: str = '.', **kwargs: Unpack[EleanorKwargs]) -> None:
+    def copy_data(self, vs_point: vs.Point, *args: object, dir: str = ".", **kwargs: Unpack[EleanorKwargs]) -> None:
         _ = vs_point
         _ = args
         _ = dir

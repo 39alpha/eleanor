@@ -11,17 +11,18 @@ structural dependency on :mod:`eleanor.transformer`; callers validate the
 returned transformer against
 :class:`~eleanor.transformer.AbstractTransformer` before use.
 """
+
 from collections.abc import Callable
 from typing import TypeAlias
 
 from eleanor.plugin import PluginRegistry
 
 #: Name of the entry-point group inspected on first registry access.
-ENTRY_POINT_GROUP = 'eleanor.transformers'
+ENTRY_POINT_GROUP = "eleanor.transformers"
 
 #: Environment variable that allows plugin registrations to override built-ins
 #: or previously-registered plugins.
-OVERRIDE_ENV_VAR = 'ELEANOR_TRANSFORMER_OVERRIDES'
+OVERRIDE_ENV_VAR = "ELEANOR_TRANSFORMER_OVERRIDES"
 
 #: Factory callable shape. Each registered transformer is invoked with the
 #: keyword args from the order file.
@@ -33,7 +34,7 @@ BUILTIN_TRANSFORMERS: frozenset[str] = frozenset()
 
 #: The shared :class:`PluginRegistry` instance backing this module's helpers.
 registry: PluginRegistry[TransformerFactory] = PluginRegistry(
-    kind='transformer',
+    kind="transformer",
     entry_point_group=ENTRY_POINT_GROUP,
     override_env_var=OVERRIDE_ENV_VAR,
     builtins={},

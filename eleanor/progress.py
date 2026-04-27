@@ -21,6 +21,7 @@ the scenes. Per-channel :class:`_ChannelHandle` wrappers hide the tagging and
 are picklable, so they can cross the worker boundary alongside the underlying
 queue proxy.
 """
+
 from dataclasses import dataclass
 from multiprocessing import Process
 from multiprocessing.managers import SyncManager
@@ -31,8 +32,8 @@ from tqdm import tqdm
 
 from .typing import cast
 
-Channel = Literal['sim', 'out']
-MessageKind = Literal['total', 'extend', 'tick']
+Channel = Literal["sim", "out"]
+MessageKind = Literal["total", "extend", "tick"]
 
 
 @dataclass(slots=True, frozen=True)
@@ -50,6 +51,7 @@ class ProgressMessage(object):
         the number of units to advance; for ``'total'`` / ``'extend'`` it is
         an absolute / delta count respectively.
     """
+
     channel: Channel
     kind: MessageKind
     value: int
@@ -84,23 +86,23 @@ class _ChannelHandle(object):
     state is a queue proxy and a string literal.
     """
 
-    __slots__: tuple[str, ...] = ('_queue', '_channel')
+    __slots__: tuple[str, ...] = ("_queue", "_channel")
 
-    _queue: 'Queue[ProgressMessage | None]'
+    _queue: "Queue[ProgressMessage | None]"
     _channel: Channel
 
-    def __init__(self, queue: 'Queue[ProgressMessage | None]', channel: Channel):
+    def __init__(self, queue: "Queue[ProgressMessage | None]", channel: Channel):
         self._queue = queue
         self._channel = channel
 
     def total(self, n: int) -> None:
-        self._queue.put(ProgressMessage(channel=self._channel, kind='total', value=int(n)))
+        self._queue.put(ProgressMessage(channel=self._channel, kind="total", value=int(n)))
 
     def extend(self, n: int) -> None:
-        self._queue.put(ProgressMessage(channel=self._channel, kind='extend', value=int(n)))
+        self._queue.put(ProgressMessage(channel=self._channel, kind="extend", value=int(n)))
 
     def tick(self, n: int = 1) -> None:
-        self._queue.put(ProgressMessage(channel=self._channel, kind='tick', value=int(n)))
+        self._queue.put(ProgressMessage(channel=self._channel, kind="tick", value=int(n)))
 
 
 class Progress(object):
@@ -119,7 +121,7 @@ class Progress(object):
         fixed target (N successes) rather than the growing attempt count.
     """
 
-    queue: 'Queue[ProgressMessage | None]'
+    queue: "Queue[ProgressMessage | None]"
     process: Process
     out_no_total_update: bool
 
@@ -127,19 +129,19 @@ class Progress(object):
         self.out_no_total_update = out_no_total_update
         # SyncManager.Queue() is typed as Any by the stubs; narrow it here so
         # downstream users see the ProgressMessage shape we expect.
-        self.queue = cast('Queue[ProgressMessage | None]', manager.Queue())
+        self.queue = cast("Queue[ProgressMessage | None]", manager.Queue())
         self.process = Process(target=self.listen)
         self.process.start()
 
     @property
     def sim(self) -> ProgressHandle:
         """Handle for the simulation channel. Picklable for worker use."""
-        return _ChannelHandle(self.queue, 'sim')
+        return _ChannelHandle(self.queue, "sim")
 
     @property
     def out(self) -> ProgressHandle:
         """Handle for the output channel. Picklable for worker use."""
-        return _ChannelHandle(self.queue, 'out')
+        return _ChannelHandle(self.queue, "out")
 
     def listen(self) -> None:
         """Drain the queue until a shutdown sentinel (``None``) arrives.
@@ -148,21 +150,21 @@ class Progress(object):
         total-update policy) is kept locally; the parent's copy of ``self`` is
         read-only here except for resources that live in the queue itself.
         """
-        bars: dict[Channel, tqdm[NoReturn] | None] = {'sim': None, 'out': None}
-        totals: dict[Channel, int] = {'sim': 0, 'out': 0}
-        positions: dict[Channel, int] = {'sim': 0, 'out': 1}
-        colours: dict[Channel, str] = {'sim': '#ec5c29', 'out': '#2993ec'}
-        descriptions: dict[Channel, str] = {'sim': 'sims', 'out': 'output'}
+        bars: dict[Channel, tqdm[NoReturn] | None] = {"sim": None, "out": None}
+        totals: dict[Channel, int] = {"sim": 0, "out": 0}
+        positions: dict[Channel, int] = {"sim": 0, "out": 1}
+        colours: dict[Channel, str] = {"sim": "#ec5c29", "out": "#2993ec"}
+        descriptions: dict[Channel, str] = {"sim": "sims", "out": "output"}
         description_width = max(len(description) for description in descriptions.values())
-        no_total_update: dict[Channel, bool] = {'sim': False, 'out': self.out_no_total_update}
-        first_total: dict[Channel, bool] = {'sim': True, 'out': True}
+        no_total_update: dict[Channel, bool] = {"sim": False, "out": self.out_no_total_update}
+        first_total: dict[Channel, bool] = {"sim": True, "out": True}
 
         def ensure_bar(channel: Channel) -> tqdm[NoReturn]:
             bar = bars[channel]
             if bar is None:
                 bar = tqdm(
                     total=totals[channel] if totals[channel] > 0 else None,
-                    unit=' systems',
+                    unit=" systems",
                     colour=colours[channel],
                     position=positions[channel],
                     desc=descriptions[channel].ljust(description_width),
@@ -177,13 +179,13 @@ class Progress(object):
                 break
 
             channel = msg.channel
-            if msg.kind == 'total':
+            if msg.kind == "total":
                 totals[channel] = msg.value
                 first_total[channel] = False
                 bar = ensure_bar(channel)
                 bar.total = msg.value
                 bar.refresh()
-            elif msg.kind == 'extend':
+            elif msg.kind == "extend":
                 if first_total[channel]:
                     # Treat the first extend as the bar's initial total so a
                     # producer that only ever sends extends still gets a bar.
@@ -197,7 +199,7 @@ class Progress(object):
                     bar = ensure_bar(channel)
                     bar.total = totals[channel]
                     bar.refresh()
-            elif msg.kind == 'tick':
+            elif msg.kind == "tick":
                 bar = ensure_bar(channel)
                 _ = bar.update(msg.value)
 

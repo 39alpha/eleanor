@@ -16,8 +16,8 @@ class ErrorInfo(object):
     traceback_text: str
 
     @staticmethod
-    def from_exception(error: Exception) -> 'ErrorInfo':
-        traceback_text = ''.join(format_exception(type(error), error, error.__traceback__))
+    def from_exception(error: Exception) -> "ErrorInfo":
+        traceback_text = "".join(format_exception(type(error), error, error.__traceback__))
         return ErrorInfo(type_name=error.__class__.__name__, message=str(error), traceback_text=traceback_text)
 
 
@@ -96,8 +96,7 @@ class OutputSink(ABC):
         ...
 
     @abstractmethod
-    def finalize(self) -> None:
-        ...
+    def finalize(self) -> None: ...
 
     def supports_worker_writes(self) -> bool:
         """Whether :meth:`write_batch` is safe to invoke from worker processes.

@@ -4,7 +4,7 @@ from dataclasses import dataclass
 import numpy as np
 
 from eleanor.kernel.exceptions import EleanorKernelException
-from eleanor.typing import *
+from eleanor.typing import Array1D, Array2D
 
 
 def get_libpath():
@@ -16,14 +16,14 @@ def get_libpath():
 
     platform_name = system()
     match platform_name:
-        case 'Linux':
-            library = 'libeq36.so'
-        case 'Darwin':
-            library = 'libeq36.dylib'
+        case "Linux":
+            library = "libeq36.so"
+        case "Darwin":
+            library = "libeq36.dylib"
         case _:
-            raise RuntimeError(f'{platform_name} is not supported')
+            raise RuntimeError(f"{platform_name} is not supported")
 
-    return realpath(join(dirname(__file__), 'lib', library))
+    return realpath(join(dirname(__file__), "lib", library))
 
 
 libeq36 = CDLL(get_libpath())
@@ -214,18 +214,18 @@ class Data(object):
 
 
 def read_data1(filename: str) -> Data:
-    fname = bytes(filename, 'ascii')
+    fname = bytes(filename, "ascii")
     data1 = c_int(0)
     errno = c_int(0)
 
     try:
         open_data1(fname, byref(data1), byref(errno), len(fname))
     except Exception as e:
-        raise EleanorKernelException('failed to open data1 file') from e
+        raise EleanorKernelException("failed to open data1 file") from e
 
     try:
         if errno.value != 0:
-            raise EleanorKernelException('failed to open data1 file')
+            raise EleanorKernelException("failed to open data1 file")
 
         ikta_asv = c_int(-1)
         ipbt_asv = c_int(-1)
@@ -313,10 +313,10 @@ def read_data1(filename: str) -> Data:
                 byref(errno),
             )
         except Exception as e:
-            raise Exception('failed to read data1 header') from e
+            raise Exception("failed to read data1 header") from e
 
         if errno.value != 0:
-            raise Exception('failed to read data1 header')
+            raise Exception("failed to read data1 header")
 
         iapxa_asv = c_int(30)
         ibpxa_asv = c_int(10)
@@ -331,77 +331,77 @@ def read_data1(filename: str) -> Data:
         ndrsa_asv = c_int(7 * nsta_asv.value)
         nessa_asv = c_int(5 * nsta_asv.value)
 
-        iapxta = np.zeros(nxta_asv.value, dtype=np.int32, order='F')
-        ibpxta = np.zeros(nxta_asv.value, dtype=np.int32, order='F')
-        jsola = np.zeros(nxta_asv.value, dtype=np.int32, order='F')
-        narxt = np.zeros(ntpr_asv.value, dtype=np.int32, order='F')
-        nbaspa = np.zeros(nbta_asv.value, dtype=np.int32, order='F')
-        ndrsa = np.zeros(ndrsa_asv.value, dtype=np.int32, order='F')
-        nessa = np.zeros(nessa_asv.value, dtype=np.int32, order='F')
-        ncmpra = np.zeros((2, npta_asv.value), dtype=np.int32, order='F')
-        ndrsra = np.zeros((2, nsta_asv.value), dtype=np.int32, order='F')
-        nessra = np.zeros((2, nsta_asv.value), dtype=np.int32, order='F')
-        qclnsa = np.zeros(nsta_asv.value, dtype=c_int, order='F')
-        utitld = np.asarray([bytes(80) for _ in range(ntid_asv.value)], order='F')
-        uspeca = np.asarray([bytes(48) for _ in range(nsta_asv.value)], order='F')
-        uphasa = np.asarray([bytes(24) for _ in range(npta_asv.value)], order='F')
-        uptypa = np.asarray([bytes(24) for _ in range(npta_asv.value)], order='F')
-        uelema = np.asarray([bytes(8) for _ in range(ncta_asv.value)], order='F')
-        ubasp = np.asarray([bytes(48) for _ in range(nbta_asv.value)], order='F')
-        tempcu = np.zeros(ntpr_asv.value, dtype=np.float64, order='F')
-        aprehw = np.zeros((narx_asv.value, ntpr_asv.value), dtype=np.float64, order='F')
-        apresg = np.zeros((narx_asv.value, ntpr_asv.value), dtype=np.float64, order='F')
-        axhfe = np.zeros((narx_asv.value, ntpr_asv.value), dtype=np.float64, order='F')
-        axlke = np.zeros((narx_asv.value, ntpr_asv.value), dtype=np.float64, order='F')
-        axvfe = np.zeros((narx_asv.value, ntpr_asv.value), dtype=np.float64, order='F')
-        aadh = np.zeros((narx_asv.value, ntpr_asv.value), dtype=np.float64, order='F')
-        aadhh = np.zeros((narx_asv.value, ntpr_asv.value), dtype=np.float64, order='F')
-        aadhv = np.zeros((narx_asv.value, ntpr_asv.value), dtype=np.float64, order='F')
-        aaphi = np.zeros((narx_asv.value, ntpr_asv.value), dtype=np.float64, order='F')
-        abdh = np.zeros((narx_asv.value, ntpr_asv.value), dtype=np.float64, order='F')
-        abdhh = np.zeros((narx_asv.value, ntpr_asv.value), dtype=np.float64, order='F')
-        abdhv = np.zeros((narx_asv.value, ntpr_asv.value), dtype=np.float64, order='F')
-        abdot = np.zeros((narx_asv.value, ntpr_asv.value), dtype=np.float64, order='F')
-        abdoth = np.zeros((narx_asv.value, ntpr_asv.value), dtype=np.float64, order='F')
-        abdotv = np.zeros((narx_asv.value, ntpr_asv.value), dtype=np.float64, order='F')
-        adadhh = np.zeros((narx_asv.value, ntpr_asv.value, ipch_asv.value), dtype=np.float64, order='F')
-        adadhv = np.zeros((narx_asv.value, ntpr_asv.value, ipcv_asv.value), dtype=np.float64, order='F')
-        adbdhh = np.zeros((narx_asv.value, ntpr_asv.value, ipch_asv.value), dtype=np.float64, order='F')
-        adbdhv = np.zeros((narx_asv.value, ntpr_asv.value, ipcv_asv.value), dtype=np.float64, order='F')
-        adbdth = np.zeros((narx_asv.value, ntpr_asv.value, ipch_asv.value), dtype=np.float64, order='F')
-        adbdtv = np.zeros((narx_asv.value, ntpr_asv.value, ipch_asv.value), dtype=np.float64, order='F')
-        adhfe = np.zeros((narx_asv.value, ntpr_asv.value, ipch_asv.value), dtype=np.float64, order='F')
-        advfe = np.zeros((narx_asv.value, ntpr_asv.value, ipcv_asv.value), dtype=np.float64, order='F')
-        axhfsa = np.zeros((narx_asv.value, ntpr_asv.value, nsta_asv.value), dtype=np.float64, order='F')
+        iapxta = np.zeros(nxta_asv.value, dtype=np.int32, order="F")
+        ibpxta = np.zeros(nxta_asv.value, dtype=np.int32, order="F")
+        jsola = np.zeros(nxta_asv.value, dtype=np.int32, order="F")
+        narxt = np.zeros(ntpr_asv.value, dtype=np.int32, order="F")
+        nbaspa = np.zeros(nbta_asv.value, dtype=np.int32, order="F")
+        ndrsa = np.zeros(ndrsa_asv.value, dtype=np.int32, order="F")
+        nessa = np.zeros(nessa_asv.value, dtype=np.int32, order="F")
+        ncmpra = np.zeros((2, npta_asv.value), dtype=np.int32, order="F")
+        ndrsra = np.zeros((2, nsta_asv.value), dtype=np.int32, order="F")
+        nessra = np.zeros((2, nsta_asv.value), dtype=np.int32, order="F")
+        qclnsa = np.zeros(nsta_asv.value, dtype=c_int, order="F")
+        utitld = np.asarray([bytes(80) for _ in range(ntid_asv.value)], order="F")
+        uspeca = np.asarray([bytes(48) for _ in range(nsta_asv.value)], order="F")
+        uphasa = np.asarray([bytes(24) for _ in range(npta_asv.value)], order="F")
+        uptypa = np.asarray([bytes(24) for _ in range(npta_asv.value)], order="F")
+        uelema = np.asarray([bytes(8) for _ in range(ncta_asv.value)], order="F")
+        ubasp = np.asarray([bytes(48) for _ in range(nbta_asv.value)], order="F")
+        tempcu = np.zeros(ntpr_asv.value, dtype=np.float64, order="F")
+        aprehw = np.zeros((narx_asv.value, ntpr_asv.value), dtype=np.float64, order="F")
+        apresg = np.zeros((narx_asv.value, ntpr_asv.value), dtype=np.float64, order="F")
+        axhfe = np.zeros((narx_asv.value, ntpr_asv.value), dtype=np.float64, order="F")
+        axlke = np.zeros((narx_asv.value, ntpr_asv.value), dtype=np.float64, order="F")
+        axvfe = np.zeros((narx_asv.value, ntpr_asv.value), dtype=np.float64, order="F")
+        aadh = np.zeros((narx_asv.value, ntpr_asv.value), dtype=np.float64, order="F")
+        aadhh = np.zeros((narx_asv.value, ntpr_asv.value), dtype=np.float64, order="F")
+        aadhv = np.zeros((narx_asv.value, ntpr_asv.value), dtype=np.float64, order="F")
+        aaphi = np.zeros((narx_asv.value, ntpr_asv.value), dtype=np.float64, order="F")
+        abdh = np.zeros((narx_asv.value, ntpr_asv.value), dtype=np.float64, order="F")
+        abdhh = np.zeros((narx_asv.value, ntpr_asv.value), dtype=np.float64, order="F")
+        abdhv = np.zeros((narx_asv.value, ntpr_asv.value), dtype=np.float64, order="F")
+        abdot = np.zeros((narx_asv.value, ntpr_asv.value), dtype=np.float64, order="F")
+        abdoth = np.zeros((narx_asv.value, ntpr_asv.value), dtype=np.float64, order="F")
+        abdotv = np.zeros((narx_asv.value, ntpr_asv.value), dtype=np.float64, order="F")
+        adadhh = np.zeros((narx_asv.value, ntpr_asv.value, ipch_asv.value), dtype=np.float64, order="F")
+        adadhv = np.zeros((narx_asv.value, ntpr_asv.value, ipcv_asv.value), dtype=np.float64, order="F")
+        adbdhh = np.zeros((narx_asv.value, ntpr_asv.value, ipch_asv.value), dtype=np.float64, order="F")
+        adbdhv = np.zeros((narx_asv.value, ntpr_asv.value, ipcv_asv.value), dtype=np.float64, order="F")
+        adbdth = np.zeros((narx_asv.value, ntpr_asv.value, ipch_asv.value), dtype=np.float64, order="F")
+        adbdtv = np.zeros((narx_asv.value, ntpr_asv.value, ipch_asv.value), dtype=np.float64, order="F")
+        adhfe = np.zeros((narx_asv.value, ntpr_asv.value, ipch_asv.value), dtype=np.float64, order="F")
+        advfe = np.zeros((narx_asv.value, ntpr_asv.value, ipcv_asv.value), dtype=np.float64, order="F")
+        axhfsa = np.zeros((narx_asv.value, ntpr_asv.value, nsta_asv.value), dtype=np.float64, order="F")
         axlksa = np.zeros(
             (narx_asv.value, ntpr_asv.value, nsta_asv.value),
             dtype=np.float64,
-            order='F',
+            order="F",
         )
         axvfsa = np.zeros(
             (narx_asv.value, ntpr_asv.value, nsta_asv.value),
             dtype=np.float64,
-            order='F',
+            order="F",
         )
-        adhfsa = np.zeros((narx_asv.value, ntpr_asv.value, ipch_asv.value, nsta_asv.value), dtype=np.float64, order='F')
-        advfsa = np.zeros((narx_asv.value, ntpr_asv.value, ipcv_asv.value, nsta_asv.value), dtype=np.float64, order='F')
-        atwta = np.zeros(ncta_asv.value, dtype=np.float64, order='F')
-        cdrsa = np.zeros(ndrsa_asv.value, dtype=np.float64, order='F')
-        cessa = np.zeros(nessa_asv.value, dtype=np.float64, order='F')
-        mwtspa = np.zeros(nsta_asv.value, dtype=np.float64, order='F')
-        vosp0a = np.zeros(nsta_asv.value, dtype=np.float64, order='F')
-        zchara = np.zeros(nsta_asv.value, dtype=np.float64, order='F')
-        apxa = np.zeros((iapxa_asv.value, nxta_asv.value), dtype=np.float64, order='F')
-        bpxa = np.zeros((ibpxa_asv.value, nxta_asv.value), dtype=np.float64, order='F')
-        azeroa = np.zeros(nata_asv.value, dtype=np.float64, order='F')
-        insgfa = np.zeros(nata_asv.value, dtype=np.int64, order='F')
-        nalpaa = np.zeros(nslta_asv.value, dtype=np.int64, order='F')
-        nmuxa = np.zeros((3, nmuta_asv.value), dtype=np.int64, order='F')
-        nslxa = np.zeros((2, nslta_asv.value), dtype=np.int64, order='F')
-        amua = np.zeros((jpfc_asv.value, nmuta_asv.value), dtype=np.float64, order='F')
-        aslma = np.zeros((jpfc_asv.value, ipbt_asv.value + 1, nmuta_asv.value), dtype=np.float64, order='F')
-        palpaa = np.zeros((ipbt_asv.value, napa_asv.value), dtype=np.float64, order='F')
-        cco2 = np.zeros(5, dtype=np.float64, order='F')
+        adhfsa = np.zeros((narx_asv.value, ntpr_asv.value, ipch_asv.value, nsta_asv.value), dtype=np.float64, order="F")
+        advfsa = np.zeros((narx_asv.value, ntpr_asv.value, ipcv_asv.value, nsta_asv.value), dtype=np.float64, order="F")
+        atwta = np.zeros(ncta_asv.value, dtype=np.float64, order="F")
+        cdrsa = np.zeros(ndrsa_asv.value, dtype=np.float64, order="F")
+        cessa = np.zeros(nessa_asv.value, dtype=np.float64, order="F")
+        mwtspa = np.zeros(nsta_asv.value, dtype=np.float64, order="F")
+        vosp0a = np.zeros(nsta_asv.value, dtype=np.float64, order="F")
+        zchara = np.zeros(nsta_asv.value, dtype=np.float64, order="F")
+        apxa = np.zeros((iapxa_asv.value, nxta_asv.value), dtype=np.float64, order="F")
+        bpxa = np.zeros((ibpxa_asv.value, nxta_asv.value), dtype=np.float64, order="F")
+        azeroa = np.zeros(nata_asv.value, dtype=np.float64, order="F")
+        insgfa = np.zeros(nata_asv.value, dtype=np.int64, order="F")
+        nalpaa = np.zeros(nslta_asv.value, dtype=np.int64, order="F")
+        nmuxa = np.zeros((3, nmuta_asv.value), dtype=np.int64, order="F")
+        nslxa = np.zeros((2, nslta_asv.value), dtype=np.int64, order="F")
+        amua = np.zeros((jpfc_asv.value, nmuta_asv.value), dtype=np.float64, order="F")
+        aslma = np.zeros((jpfc_asv.value, ipbt_asv.value + 1, nmuta_asv.value), dtype=np.float64, order="F")
+        palpaa = np.zeros((ipbt_asv.value, napa_asv.value), dtype=np.float64, order="F")
+        cco2 = np.zeros(5, dtype=np.float64, order="F")
 
         try:
             read_body(
@@ -532,10 +532,10 @@ def read_data1(filename: str) -> Data:
                 byref(errno),
             )
         except Exception as e:
-            raise Exception('failed to read data1 body') from e
+            raise Exception("failed to read data1 body") from e
 
         if errno.value != 0:
-            raise Exception('failed to read data1 body')
+            raise Exception("failed to read data1 body")
     finally:
         close_data1(data1)
 

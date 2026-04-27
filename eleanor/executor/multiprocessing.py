@@ -1,14 +1,15 @@
 import os
 from collections.abc import Callable
 from multiprocessing import Pool
-from multiprocessing.pool import ApplyResult, Pool as PoolClass
+from multiprocessing.pool import ApplyResult
+from multiprocessing.pool import Pool as PoolClass
 from typing import Self, TypeVar, override
 
 from eleanor.exceptions import EleanorException
 
 from .interface import AbstractExecutor, AbstractFuture
 
-T = TypeVar('T')
+T = TypeVar("T")
 
 
 class MultiprocessingFuture(AbstractFuture[T]):
@@ -48,7 +49,7 @@ class MultiprocessingExecutor(AbstractExecutor):
         **kwargs: object,
     ) -> AbstractFuture[T]:
         if self._pool is None:
-            raise EleanorException('executor has already been shut down')
+            raise EleanorException("executor has already been shut down")
         return MultiprocessingFuture(self._pool.apply_async(fn, args, kwargs))
 
     @override

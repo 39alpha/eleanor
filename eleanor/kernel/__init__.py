@@ -15,6 +15,7 @@ The heavy dependencies of each built-in (for example eq36's numpy / Fortran
 / ORM imports) are deferred inside the factory bodies, so merely touching
 :mod:`eleanor.kernel` does not drag them in.
 """
+
 from eleanor.exceptions import EleanorException
 
 from .registry import KernelSpec, register_kernel
@@ -44,14 +45,14 @@ def _build_eq36(settings: object, *args: object) -> object:
 
     if not isinstance(settings, Settings):
         raise EleanorException(
-            f'eq36 kernel requires eq36 Settings, got {type(settings).__name__}',
+            f"eq36 kernel requires eq36 Settings, got {type(settings).__name__}",
         )
     if not args:
-        raise EleanorException('eq36 kernel requires a data1_dir argument')
+        raise EleanorException("eq36 kernel requires a data1_dir argument")
     data1_dir, *rest = args
     if not isinstance(data1_dir, str):
         raise EleanorException(
-            f'eq36 kernel requires a string data1_dir, got {type(data1_dir).__name__}',
+            f"eq36 kernel requires a string data1_dir, got {type(data1_dir).__name__}",
         )
     # ``rest`` contains any additional positional arguments supplied by the
     # caller (e.g. extra CLI arguments passed via ``Eleanor.kernel_args``).
@@ -61,6 +62,6 @@ def _build_eq36(settings: object, *args: object) -> object:
 
 
 register_kernel(
-    'eq36',
+    "eq36",
     KernelSpec(settings_from_dict=_build_eq36_settings, build=_build_eq36),
 )

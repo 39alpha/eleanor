@@ -32,11 +32,11 @@ class TPCurve(object):
     domain: list[FloatRange]
 
     def __init__(self, T: dict[str, np.float64], P: tuple[Array1D[np.float64], Array1D[np.float64]]):
-        if not ('min' in T and 'mid' in T and 'max' in T):
-            raise ValueError('temperature dictionary must have min, mid and max keys')
+        if not ("min" in T and "mid" in T and "max" in T):
+            raise ValueError("temperature dictionary must have min, mid and max keys")
 
         if any(len(coeffs) == 0 for coeffs in P):
-            raise ValueError('polynomial has no coefficients')
+            raise ValueError("polynomial has no coefficients")
 
         self.P = P
         self.T = T
@@ -46,21 +46,21 @@ class TPCurve(object):
 
         [coeff_left, coeff_right] = self.P
 
-        tmp_left = cast(object, np.dot(coeff_left, self.T['mid']**np.arange(len(coeff_left))))
+        tmp_left = cast(object, np.dot(coeff_left, self.T["mid"] ** np.arange(len(coeff_left))))
         if not isinstance(tmp_left, np.float64):
             raise TypeError(tmp_left)
         left = np.float64(tmp_left)
 
-        tmp_right = cast(object, np.dot(coeff_right, self.T['mid']**np.arange(len(coeff_right))))
+        tmp_right = cast(object, np.dot(coeff_right, self.T["mid"] ** np.arange(len(coeff_right))))
         if not isinstance(tmp_right, np.float64):
             raise TypeError(tmp_right)
         right = np.float64(tmp_right)
 
         if not np.isclose(left, right):
-            raise ValueError('provided polynomials differ at the common temperature')
+            raise ValueError("provided polynomials differ at the common temperature")
 
     def reset_domain(self):
-        self.domain = [(self.T['min'], self.T['max'])]
+        self.domain = [(self.T["min"], self.T["max"])]
         return self
 
     def temperature_in_domain(self, T: float | np.float32 | np.float64) -> bool:
@@ -71,11 +71,11 @@ class TPCurve(object):
 
     def __call__(self, T: float | np.float64) -> np.float64:
         if not self.temperature_in_domain(T):
-            msg = f'the provided temperature ({T}) is not in the restricted domain {self.domain}'
+            msg = f"the provided temperature ({T}) is not in the restricted domain {self.domain}"
             raise ValueError(msg)
 
-        coefficients = self.P[0] if T <= self.T['mid'] else self.P[1]
-        value = cast(object, np.dot(coefficients, T**np.arange(len(coefficients))))
+        coefficients = self.P[0] if T <= self.T["mid"] else self.P[1]
+        value = cast(object, np.dot(coefficients, T ** np.arange(len(coefficients))))
         if not isinstance(value, np.float64):
             raise TypeError(value)
         return np.float64(value)
@@ -90,7 +90,7 @@ class TPCurve(object):
         notEmpty = True
         if len(intersections) == 0:
             endpoints = 0
-            for T in [self.T['min'], self.T['max']]:
+            for T in [self.T["min"], self.T["max"]]:
                 P = self(T)
                 if Tmin <= T and T <= Tmax and Pmin <= P and P <= Pmax:
                     endpoints += 1
@@ -98,14 +98,14 @@ class TPCurve(object):
             if endpoints == 0:
                 notEmpty = False
             elif endpoints == 1:
-                msg = 'expected to find intersections or both points inside/outside region'
+                msg = "expected to find intersections or both points inside/outside region"
                 raise Exception(msg)
             else:
-                domain = [(self.T['min'], self.T['max'])]
+                domain = [(self.T["min"], self.T["max"])]
         elif len(intersections) == 1:
-            (Tint, _), = intersections
+            ((Tint, _),) = intersections
             is_single_point = True
-            for T in [self.T['min'], self.T['mid'], self.T['max']]:
+            for T in [self.T["min"], self.T["mid"], self.T["max"]]:
                 if T == Tint or Tmax < T or T < Tmin:
                     continue
 
@@ -128,7 +128,9 @@ class TPCurve(object):
 
         return notEmpty
 
-    def find_boundary_intersections(self, temperature_range: FloatRange, pressure_range: FloatRange) -> list[CartesianCoord]:
+    def find_boundary_intersections(
+        self, temperature_range: FloatRange, pressure_range: FloatRange
+    ) -> list[CartesianCoord]:
         Tmin, Tmax = temperature_range
         Pmin, Pmax = pressure_range
 
@@ -148,7 +150,12 @@ class TPCurve(object):
                 roots = np.roots(coefficients[::-1])
                 real_roots: Array1D[np.float64] = np.asarray(np.real(roots[np.isreal(roots)]), dtype=np.float64)
                 for T in real_roots:
-                    if Tmin <= T and T <= Tmax and (i == 0 and self.T['min'] <= T and T <= self.T['mid']) or (i == 1 and self.T['mid'] <= T and T <= self.T['max']):
+                    if (
+                        Tmin <= T
+                        and T <= Tmax
+                        and (i == 0 and self.T["min"] <= T and T <= self.T["mid"])
+                        or (i == 1 and self.T["mid"] <= T and T <= self.T["max"])
+                    ):
                         intersections.append((T, self(T)))
 
         return sorted(set(intersections))
@@ -179,7 +186,9 @@ class TPCurve(object):
         return domain
 
     @classmethod
-    def sample(cls, curves: list[TPCurve], num_samples: int) -> tuple[Array1D[np.float64], Array1D[np.float64], list[TPCurve]]:
+    def sample(
+        cls, curves: list[TPCurve], num_samples: int
+    ) -> tuple[Array1D[np.float64], Array1D[np.float64], list[TPCurve]]:
         domain = cls.union_domains(curves)
         domain_size = sum(map(lambda s: s[1] - s[0], domain))
         steps = [domain[i + 1][0] - domain[i][1] for i in range(len(domain) - 1)]
@@ -223,7 +232,7 @@ class Data1(object):
                 basis_species.append(species)
 
         if len(basis_species) > 1:
-            raise Exception(f'data1 file contains multiple basis species with element {element}')
+            raise Exception(f"data1 file contains multiple basis species with element {element}")
 
         return None if not basis_species else basis_species[0]
 
@@ -232,9 +241,9 @@ class Data1(object):
         data = read_data1(filename)
 
         T: dict[str, np.float64] = {
-            'min': data.min_temperature,
-            'mid': data.max_temperature_range[0],
-            'max': data.max_temperature_range[1],
+            "min": data.min_temperature,
+            "mid": data.max_temperature_range[0],
+            "max": data.max_temperature_range[1],
         }
         P = (data.pressure_coefficients[:, 0], data.pressure_coefficients[:, 1])
         tp_curve = TPCurve(T, P)
@@ -244,25 +253,26 @@ class Data1(object):
         for raw_name_obj, weight in zip(cast(list[object], list(data.element_names)), data.atomic_weights):
             if not isinstance(raw_name_obj, bytes):
                 raise TypeError(raw_name_obj)
-            name = str(raw_name_obj.strip(), 'ascii')
+            name = str(raw_name_obj.strip(), "ascii")
             element_names.append(name)
             elements[name] = weight
 
         basis_species: dict[str, BasisSpecies] = dict()
         for i, (raw_species_name_obj, c, charge, volume) in enumerate(
-                zip(cast(list[object], list(data.species_names)), data.cdrsa, data.charges, data.volumes)):
+            zip(cast(list[object], list(data.species_names)), data.cdrsa, data.charges, data.volumes)
+        ):
             if not isinstance(raw_species_name_obj, bytes):
                 raise TypeError(raw_species_name_obj)
 
             if c != 0:
                 break
-            name = str(raw_species_name_obj[0:24].strip(), 'ascii')
+            name = str(raw_species_name_obj[0:24].strip(), "ascii")
             a = int(cast(np.int32, data.nessra[0, i]))
             b = int(cast(np.int32, data.nessra[1, i]))
-            indices = cast(Array1D[np.int32], data.nessa[a - 1:b])
+            indices = cast(Array1D[np.int32], data.nessa[a - 1 : b])
             composition: dict[str, int] = dict()
             selected_elements = [element_names[int(idx) - 1] for idx in indices]
-            counts = cast(list[object], list(data.cessa[a - 1:b]))
+            counts = cast(list[object], list(data.cessa[a - 1 : b]))
             for element, count in zip(selected_elements, counts):
                 if not isinstance(count, np.float64):
                     raise TypeError(count)
@@ -279,12 +289,13 @@ class Data1(object):
             if not isinstance(line, bytes):
                 raise TypeError(line)
 
-            end_member = str(line[:24].strip(), 'ascii')
-            solid_solution = str(line[24:].strip(), 'ascii')
+            end_member = str(line[:24].strip(), "ascii")
+            solid_solution = str(line[24:].strip(), "ascii")
             if solid_solution in solid_solutions:
                 if end_member in solid_solutions[solid_solution].end_members:
                     raise RuntimeError(
-                        f'solid solution ({solid_solution}) end member ({end_member}) occurs multiple times')
+                        f"solid solution ({solid_solution}) end member ({end_member}) occurs multiple times"
+                    )
                 solid_solutions[solid_solution].end_members.add(end_member)
             else:
                 solid_solutions[solid_solution] = SolidSolution(solid_solution, set([end_member]))

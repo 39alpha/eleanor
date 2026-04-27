@@ -10,6 +10,7 @@ from eleanor.order import load_order
 
 class RunArgs(ConfigArgs):
     """Argparse fields accepted by the ``run`` command."""
+
     order: str
     order_id: int | None
     tag: str | None
@@ -27,60 +28,62 @@ class RunArgs(ConfigArgs):
 
 
 def init(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
-    parser.description = 'Run eleanor'
+    parser.description = "Run eleanor"
 
-    _ = parser.add_argument('-n', '--num-procs', required=False, type=int, help='number of processes')
-    _ = parser.add_argument('-v', '--verbose', required=False, action='store_true', help='enable verbose output')
-    _ = parser.add_argument('-s', '--scratch', required=False, action='store_true', help='save scratch for all sailors')
-    _ = parser.add_argument('-k', '--kernel-args', required=False, action='append', help='arguments to pass to the kernel')
-    _ = parser.add_argument('--order-id', required=False, type=int, help='override the order id')
-    _ = parser.add_argument('--tag', required=False, type=str, help='override the order tag')
+    _ = parser.add_argument("-n", "--num-procs", required=False, type=int, help="number of processes")
+    _ = parser.add_argument("-v", "--verbose", required=False, action="store_true", help="enable verbose output")
+    _ = parser.add_argument("-s", "--scratch", required=False, action="store_true", help="save scratch for all sailors")
     _ = parser.add_argument(
-        '-p',
-        '--progress',
+        "-k", "--kernel-args", required=False, action="append", help="arguments to pass to the kernel"
+    )
+    _ = parser.add_argument("--order-id", required=False, type=int, help="override the order id")
+    _ = parser.add_argument("--tag", required=False, type=str, help="override the order tag")
+    _ = parser.add_argument(
+        "-p",
+        "--progress",
         required=False,
-        action='store_true',
-        help='enable progress bars (disabled by --verbose)',
+        action="store_true",
+        help="enable progress bars (disabled by --verbose)",
     )
     _ = parser.add_argument(
-        '-C',
-        '--combined',
+        "-C",
+        "--combined",
         required=False,
-        action='store_true',
-        help='store suborders as a single order',
+        action="store_true",
+        help="store suborders as a single order",
     )
     _ = parser.add_argument(
-        '-P',
-        '--proportional',
+        "-P",
+        "--proportional",
         required=False,
-        action='store_true',
-        help='use proportional sampling',
+        action="store_true",
+        help="use proportional sampling",
     )
     _ = parser.add_argument(
-        '--success-sampling',
+        "--success-sampling",
         required=False,
-        action='store_true',
-        help='sample size counts successes only',
+        action="store_true",
+        help="sample size counts successes only",
     )
     _ = parser.add_argument(
-        '--parallel',
+        "--parallel",
         required=False,
-        metavar='BACKEND',
+        metavar="BACKEND",
         help=(
-            'parallel backend (overrides configuration). Built-in backends are '
-            'serial and multiprocessing; additional backends may be '
+            "parallel backend (overrides configuration). Built-in backends are "
+            "serial and multiprocessing; additional backends may be "
             'contributed by third-party packages via the "eleanor.executors" '
-            'entry-point group.'
+            "entry-point group."
         ),
     )
     _ = parser.add_argument(
-        '--chunks-per-worker',
+        "--chunks-per-worker",
         required=False,
         type=int,
-        help='number of chunks per worker (overrides configuration)',
+        help="number of chunks per worker (overrides configuration)",
     )
-    _ = parser.add_argument('order', type=str, help='order file')
-    _ = parser.add_argument('simulation_size', type=int, help='the size of the simulation')
+    _ = parser.add_argument("order", type=str, help="order file")
+    _ = parser.add_argument("simulation_size", type=int, help="the size of the simulation")
 
     add_config_args(parser)
 
@@ -92,10 +95,10 @@ def init(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
 def execute(parser: argparse.ArgumentParser, ns: argparse.Namespace) -> None:
     args = typed_args(RunArgs, ns)
 
-    kernel_args: list[object] = list(args['kernel_args'] or [])
-    show_progress = args['progress'] and not args['verbose']
-    parallel = args['parallel']
-    chunks_per_worker = args['chunks_per_worker']
+    kernel_args: list[object] = list(args["kernel_args"] or [])
+    show_progress = args["progress"] and not args["verbose"]
+    parallel = args["parallel"]
+    chunks_per_worker = args["chunks_per_worker"]
 
     try:
         config = config_from_args(parser, args)
@@ -104,37 +107,37 @@ def execute(parser: argparse.ArgumentParser, ns: argparse.Namespace) -> None:
         else:
             executors = available_executors()
             if parallel not in executors:
-                choices = ', '.join(sorted(executors))
+                choices = ", ".join(sorted(executors))
                 raise EleanorException(
                     f'unsupported executor "{parallel}"; choose from {choices}',
                 )
         if chunks_per_worker is None:
             chunks_per_worker = config.parallel.chunks_per_worker
 
-        order = load_order(args['order'])
-        if args['order_id'] is not None:
-            order.id = args['order_id']
-        if args['tag'] is not None:
-            order.tag = args['tag']
+        order = load_order(args["order"])
+        if args["order_id"] is not None:
+            order.id = args["order_id"]
+        if args["tag"] is not None:
+            order.tag = args["tag"]
 
-        with Eleanor(config, kernel_args, num_procs=args['num_procs']) as eleanor:
+        with Eleanor(config, kernel_args, num_procs=args["num_procs"]) as eleanor:
             order_ids = eleanor.run(
                 order,
-                args['simulation_size'],
-                scratch=args['scratch'],
+                args["simulation_size"],
+                scratch=args["scratch"],
                 show_progress=show_progress,
-                combined=args['combined'],
-                proportional_sampling=args['proportional'],
-                success_sampling=args['success_sampling'],
-                verbose=args['verbose'],
+                combined=args["combined"],
+                proportional_sampling=args["proportional"],
+                success_sampling=args["success_sampling"],
+                verbose=args["verbose"],
                 parallel=parallel,
                 chunks_per_worker=chunks_per_worker,
             )
 
-        if args['verbose']:
+        if args["verbose"]:
             print("Orders created or extended:", order_ids)
     except Exception as e:
-        if args['verbose']:
+        if args["verbose"]:
             print_exception(e)
         else:
             print(e)

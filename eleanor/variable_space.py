@@ -178,15 +178,20 @@ class Point(object):
         return None
 
     def reactant_count(self) -> int:
-        nrct = sum(map(len, [
-            self.mineral_reactants,
-            self.aqueous_reactants,
-            self.gas_reactants,
-            self.element_reactants,
-            self.special_reactants,
-            self.fixed_gas_reactants,
-            self.solid_solution_reactants,
-        ]))
+        nrct = sum(
+            map(
+                len,
+                [
+                    self.mineral_reactants,
+                    self.aqueous_reactants,
+                    self.gas_reactants,
+                    self.element_reactants,
+                    self.special_reactants,
+                    self.fixed_gas_reactants,
+                    self.solid_solution_reactants,
+                ],
+            )
+        )
         return mapreduce(lambda g: len(g.oxides), operator.add, self.glass_reactants, nrct)
 
     def has_reactants(self) -> bool:

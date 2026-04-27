@@ -30,6 +30,7 @@ classes so the registry module itself has no structural dependency on
 that need typed access are expected to validate the returned values with
 :func:`isinstance` before use.
 """
+
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import TypeAlias
@@ -38,11 +39,11 @@ from eleanor.exceptions import EleanorException
 from eleanor.plugin import PluginRegistry
 
 #: Name of the entry-point group inspected on first registry access.
-ENTRY_POINT_GROUP = 'eleanor.kernels'
+ENTRY_POINT_GROUP = "eleanor.kernels"
 
 #: Environment variable that, when truthy, allows plugin registrations to
 #: override built-in or previously-registered kernels.
-OVERRIDE_ENV_VAR = 'ELEANOR_KERNEL_OVERRIDES'
+OVERRIDE_ENV_VAR = "ELEANOR_KERNEL_OVERRIDES"
 
 #: Raw settings mapping shape (``kernel.args`` in an order file).
 SettingsRaw: TypeAlias = dict[str, object]
@@ -72,6 +73,7 @@ class KernelSpec(object):
         construct the concrete :class:`~eleanor.kernel.interface.AbstractKernel`
         instance at run time.
     """
+
     settings_from_dict: SettingsFromDict
     build: KernelBuild
 
@@ -95,13 +97,12 @@ def _coerce_to_spec(name: str, factory: object) -> KernelSpec:
             ) from e
         if not isinstance(produced, KernelSpec):
             raise EleanorException(
-                f'kernel plugin "{name}" factory must return a KernelSpec, '
-                + f'got {type(produced).__name__}',
+                f'kernel plugin "{name}" factory must return a KernelSpec, ' + f"got {type(produced).__name__}",
             )
         return produced
     raise EleanorException(
         f'kernel plugin "{name}" must be a KernelSpec or a zero-arg callable '
-        + f'returning one (got {type(factory).__name__})',
+        + f"returning one (got {type(factory).__name__})",
     )
 
 
@@ -110,11 +111,11 @@ def _coerce_to_spec(name: str, factory: object) -> KernelSpec:
 #: :mod:`eleanor.kernel` at package import time; the names are hard-coded
 #: here so overrides can be rejected even before ``eleanor.kernel`` has been
 #: fully initialized.
-BUILTIN_KERNELS: frozenset[str] = frozenset({'eq36'})
+BUILTIN_KERNELS: frozenset[str] = frozenset({"eq36"})
 
 #: The shared :class:`PluginRegistry` instance backing this module's helpers.
 registry: PluginRegistry[KernelSpec] = PluginRegistry(
-    kind='kernel',
+    kind="kernel",
     entry_point_group=ENTRY_POINT_GROUP,
     override_env_var=OVERRIDE_ENV_VAR,
     builtins={},

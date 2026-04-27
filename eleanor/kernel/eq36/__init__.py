@@ -15,19 +15,20 @@ only imported when the attribute is actually dereferenced (for example by
 :func:`eleanor.kernel._build_eq36` when the CLI asks the registry to build
 an eq36 kernel).
 """
+
 from typing import TYPE_CHECKING
 
 from .settings import Settings
 
-__all__ = ['Kernel', 'Settings']
+__all__ = ["Kernel", "Settings"]
 
 if TYPE_CHECKING:
     from .kernel import Kernel as Kernel
 
 
 def __getattr__(name: str) -> object:
-    if name == 'Kernel':
+    if name == "Kernel":
         from .kernel import Kernel  # noqa: PLC0415
 
         return Kernel
-    raise AttributeError(f'module {__name__!r} has no attribute {name!r}')
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

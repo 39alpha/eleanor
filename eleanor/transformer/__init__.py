@@ -11,7 +11,6 @@ class AbstractTransformer(ABC):
         return order
 
 
-
 def transform(
     order: Order,
     kernel: AbstractKernel,
@@ -36,7 +35,7 @@ def transform(
             if not isinstance(built, AbstractTransformer):
                 raise EleanorException(
                     f'transformer plugin "{transformer_config.type}" returned '
-                    + f'{type(built).__name__}, expected an AbstractTransformer',
+                    + f"{type(built).__name__}, expected an AbstractTransformer",
                 )
             order = built.transform(order, kernel)
         order.transformers = []
@@ -54,13 +53,13 @@ from .registry import (  # noqa: E402
 )
 
 __all__ = [
-    'AbstractTransformer',
-    'BUILTIN_TRANSFORMERS',
-    'ENTRY_POINT_GROUP',
-    'OVERRIDE_ENV_VAR',
-    'TransformerFactory',
-    'available_transformers',
-    'get_factory',
-    'register_transformer',
-    'transform',
+    "AbstractTransformer",
+    "BUILTIN_TRANSFORMERS",
+    "ENTRY_POINT_GROUP",
+    "OVERRIDE_ENV_VAR",
+    "TransformerFactory",
+    "available_transformers",
+    "get_factory",
+    "register_transformer",
+    "transform",
 ]

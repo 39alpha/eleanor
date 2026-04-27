@@ -3,7 +3,7 @@ from typing import TypeVar, override
 
 from .interface import AbstractExecutor, AbstractFuture
 
-T = TypeVar('T')
+T = TypeVar("T")
 
 
 class SerialFuture(AbstractFuture[T]):

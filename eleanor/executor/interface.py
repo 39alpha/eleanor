@@ -3,11 +3,10 @@ from collections.abc import Callable, Iterable, Iterator
 from types import TracebackType
 from typing import Generic, Self, TypeVar
 
-T = TypeVar('T')
+T = TypeVar("T")
 
 
 class AbstractFuture(ABC, Generic[T]):
-
     @abstractmethod
     def result(self) -> T: ...
 

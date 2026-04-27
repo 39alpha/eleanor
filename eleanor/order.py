@@ -43,11 +43,11 @@ class TransformerRaw(TypedDict, total=False):
 
 # ``except`` is a Python keyword, so the functional TypedDict syntax is used.
 SuppressionRaw = TypedDict(
-    'SuppressionRaw',
+    "SuppressionRaw",
     {
-        'name': str | None,
-        'type': str | None,
-        'except': list[str],
+        "name": str | None,
+        "type": str | None,
+        "except": list[str],
     },
     total=False,
 )
@@ -59,6 +59,7 @@ class SuborderRaw(TypedDict, total=False):
     All keys are optional at the schema level; runtime validation enforces
     which are required in each concrete context.
     """
+
     name: str | None
     notes: str | None
     creator: str | None
@@ -72,7 +73,7 @@ class SuborderRaw(TypedDict, total=False):
     suppressions: list[str | SuppressionRaw]
     reactants: dict[str, ReactantRaw]
     constraints: list[RawMap]
-    suborders: 'SubordersRaw | list[SuborderRaw]'
+    suborders: "SubordersRaw | list[SuborderRaw]"
     transformers: list[str | TransformerRaw]
 
 
@@ -92,7 +93,7 @@ def _require_opt_int(value: object, field_name: str) -> int | None:
     reads a field whose ``TypedDict`` declaration promises the right type.
     """
     if value is not None and (isinstance(value, bool) or not isinstance(value, int)):
-        raise EleanorException(f'{field_name} must be an integer')
+        raise EleanorException(f"{field_name} must be an integer")
     return value
 
 
@@ -106,17 +107,17 @@ def _require_opt_str(value: object, field_name: str) -> str | None:
     reads a field whose ``TypedDict`` declaration promises the right type.
     """
     if value is not None and not isinstance(value, str):
-        raise EleanorException(f'{field_name} must be a string')
+        raise EleanorException(f"{field_name} must be a string")
     return value
 
 
 def _require_str(value: object, field_name: str) -> str:
     if not isinstance(value, str):
-        raise EleanorException(f'{field_name} must be a string')
+        raise EleanorException(f"{field_name} must be a string")
     return value
 
 
-def _build_transformer(value: object) -> 'TransformerConfig':
+def _build_transformer(value: object) -> "TransformerConfig":
     """Construct a :class:`TransformerConfig` from its raw string/dict form.
 
     Accepting ``object`` rather than ``str | TransformerRaw`` keeps the
@@ -133,10 +134,10 @@ def _build_transformer(value: object) -> 'TransformerConfig':
 
 def load_kernel_settings(kernel_raw: KernelRaw) -> tuple[str, KernelSettings]:
     """Parse a raw kernel block into its ``(type, Settings)`` pair via the registry."""
-    kernel_type = _require_str(kernel_raw.get('type'), 'kernel.type')
-    kernel_args_raw: object = kernel_raw.get('args', {}) or {}
+    kernel_type = _require_str(kernel_raw.get("type"), "kernel.type")
+    kernel_args_raw: object = kernel_raw.get("args", {}) or {}
     if not isinstance(kernel_args_raw, dict):
-        raise EleanorException('kernel.args must be a dict')
+        raise EleanorException("kernel.args must be a dict")
     # YAML/TOML/JSON loaders always produce str-keyed mappings; widen the
     # ``dict[Unknown, Unknown]`` that ``isinstance`` leaves us with back to
     # the registry's declared ``dict[str, object]`` input shape.
@@ -153,14 +154,12 @@ class NavigatorProtocol(Protocol):
     performed after a navigator factory returns (see :meth:`Eleanor._run`
     in :mod:`eleanor.eleanor`).
     """
-    def navigate(self, scale: int, *args: object, **kwargs: object) -> list[vs.Point]:
-        ...
 
-    def supports_success_sampling(self) -> bool:
-        ...
+    def navigate(self, scale: int, *args: object, **kwargs: object) -> list[vs.Point]: ...
 
-    def is_complete(self, batch: list[int]) -> bool:
-        ...
+    def supports_success_sampling(self) -> bool: ...
+
+    def is_complete(self, batch: list[int]) -> bool: ...
 
 
 @dataclass
@@ -176,7 +175,7 @@ class NavigatorConfig(object):
     type: str
     args: RawMap
 
-    def __init__(self, type: str = 'random', args: RawMap | None = None):
+    def __init__(self, type: str = "random", args: RawMap | None = None):
         self.type = type
         self.args = args if args is not None else {}
 
@@ -199,7 +198,7 @@ class Suppression(object):
 
     def __init__(self, name: str | None, type: str | None, exceptions: list[str]):
         if name is None and type is None:
-            raise EleanorException(f'suppression must have a name or a type')
+            raise EleanorException("suppression must have a name or a type")
 
         self.name = name
         self.type = type
@@ -208,13 +207,13 @@ class Suppression(object):
     @staticmethod
     def from_dict(raw: SuppressionRaw, name: str | None = None) -> "Suppression":
         if name is None:
-            name = _require_opt_str(raw.get('name'), 'suppression.name')
+            name = _require_opt_str(raw.get("name"), "suppression.name")
 
-        suppression_type = _require_opt_str(raw.get('type'), 'suppression.type')
+        suppression_type = _require_opt_str(raw.get("type"), "suppression.type")
 
-        exceptions_raw = raw.get('except', [])
+        exceptions_raw = raw.get("except", [])
         if not is_list_of(exceptions_raw, str, allowNone=False):
-            raise EleanorException(f'suppression exceptions must be a list of strings')
+            raise EleanorException("suppression exceptions must be a list of strings")
 
         return Suppression(name, suppression_type, exceptions_raw)
 
@@ -236,9 +235,10 @@ class LeafPlan(object):
         which ``combined`` first became sticky-True), or ``None`` if the
         leaf is its own umbrella.
     """
-    order: 'Order'
+
+    order: "Order"
     sample_fraction: float
-    umbrella: 'Order | None'
+    umbrella: "Order | None"
 
 
 @dataclass
@@ -292,46 +292,40 @@ class Suborder(object):
 
         suborder.raw = raw
 
-        suborder.name = _require_opt_str(raw.get('name'), 'name')
-        suborder.notes = _require_opt_str(raw.get('notes'), 'notes')
-        suborder.creator = _require_opt_str(raw.get('creator'), 'creator')
+        suborder.name = _require_opt_str(raw.get("name"), "name")
+        suborder.notes = _require_opt_str(raw.get("notes"), "notes")
+        suborder.creator = _require_opt_str(raw.get("creator"), "creator")
 
-        if 'kernel' in raw:
-            kernel_type, kernel_settings = load_kernel_settings(raw['kernel'])
+        if "kernel" in raw:
+            kernel_type, kernel_settings = load_kernel_settings(raw["kernel"])
             suborder.kernel = KernelConfig(type=kernel_type, settings=kernel_settings)
 
-        if 'navigator' in raw:
-            navigator_raw = raw['navigator']
+        if "navigator" in raw:
+            navigator_raw = raw["navigator"]
             if isinstance(navigator_raw, str):
                 suborder.navigator = NavigatorConfig(type=navigator_raw)
             else:
                 suborder.navigator = NavigatorConfig(**navigator_raw)
 
-        if 'water_mass' in raw:
-            suborder.water_mass = Parameter.load(raw['water_mass'], 'water_mass')
+        if "water_mass" in raw:
+            suborder.water_mass = Parameter.load(raw["water_mass"], "water_mass")
 
-        if 'temperature' in raw:
-            suborder.temperature = Parameter.load(raw['temperature'], 'temperature')
+        if "temperature" in raw:
+            suborder.temperature = Parameter.load(raw["temperature"], "temperature")
 
-        if 'pressure' in raw:
-            suborder.pressure = Parameter.load(raw['pressure'], 'pressure')
+        if "pressure" in raw:
+            suborder.pressure = Parameter.load(raw["pressure"], "pressure")
 
-        if 'elements' in raw:
-            elements_raw = raw.get('elements') or {}
-            suborder.elements = {
-                name: Parameter.load(value, name=name)
-                for name, value in elements_raw.items()
-            }
+        if "elements" in raw:
+            elements_raw = raw.get("elements") or {}
+            suborder.elements = {name: Parameter.load(value, name=name) for name, value in elements_raw.items()}
 
-        if 'species' in raw:
-            species_raw = raw.get('species') or {}
-            suborder.species = {
-                name: Parameter.load(value, name=name)
-                for name, value in species_raw.items()
-            }
+        if "species" in raw:
+            species_raw = raw.get("species") or {}
+            suborder.species = {name: Parameter.load(value, name=name) for name, value in species_raw.items()}
 
-        if 'suppressions' in raw:
-            suppressions_raw = raw.get('suppressions') or []
+        if "suppressions" in raw:
+            suppressions_raw = raw.get("suppressions") or []
             suborder.suppressions = [
                 Suppression.from_dict(SuppressionRaw(), name=value)
                 if isinstance(value, str)
@@ -339,18 +333,15 @@ class Suborder(object):
                 for value in suppressions_raw
             ]
 
-        if 'reactants' in raw:
-            reactants_raw = raw.get('reactants') or {}
-            suborder.reactants = [
-                AbstractReactant.from_dict(value, name=name)
-                for name, value in reactants_raw.items()
-            ]
+        if "reactants" in raw:
+            reactants_raw = raw.get("reactants") or {}
+            suborder.reactants = [AbstractReactant.from_dict(value, name=name) for name, value in reactants_raw.items()]
 
-        if 'constraints' in raw:
+        if "constraints" in raw:
             suborder.constraints = []
 
-        if 'suborders' in raw:
-            suborder.suborders = Suborders(raw['suborders'])
+        if "suborders" in raw:
+            suborder.suborders = Suborders(raw["suborders"])
 
         return suborder
 
@@ -363,9 +354,9 @@ class Suborders(object):
 
     def __init__(self, raw: SubordersRaw | list[SuborderRaw]):
         if isinstance(raw, dict):
-            self.combined = raw.get('combined', False)
-            self.proportional_sampling = raw.get('proportional_sampling', False)
-            self.suborders = [Suborder.from_dict(s) for s in raw.get('orders', [])]
+            self.combined = raw.get("combined", False)
+            self.proportional_sampling = raw.get("proportional_sampling", False)
+            self.suborders = [Suborder.from_dict(s) for s in raw.get("orders", [])]
         else:
             self.suborders = [Suborder.from_dict(s) for s in raw]
 
@@ -376,7 +367,6 @@ class Suborders(object):
 @final
 @dataclass(init=False)
 class Order(Suborder):
-
     transformers: list[TransformerConfig]
 
     suborders: Suborders | None = None
@@ -403,52 +393,46 @@ class Order(Suborder):
         self.raw = raw
         self.vs_points = [] if vs_points is None else vs_points
         self.create_date = datetime.now() if create_date is None else create_date
-        self.id = order_id if order_id is not None else _require_opt_int(self.raw.get('id'), 'id')
+        self.id = order_id if order_id is not None else _require_opt_int(self.raw.get("id"), "id")
 
-        raw_tag = _require_opt_str(self.raw.get('tag'), 'tag') or ""
+        raw_tag = _require_opt_str(self.raw.get("tag"), "tag") or ""
         self.tag = tag if tag is not None else raw_tag
 
-        self.name = _require_str(self.raw.get('name'), 'name')
+        self.name = _require_str(self.raw.get("name"), "name")
 
         self.eleanor_version = None
 
         self.__post_init__()
 
     def __post_init__(self) -> None:
-        self.notes = _require_str(self.raw.get('notes', ''), 'notes')
-        self.creator = _require_str(self.raw.get('creator'), 'creator')
+        self.notes = _require_str(self.raw.get("notes", ""), "notes")
+        self.creator = _require_str(self.raw.get("creator"), "creator")
 
-        if 'kernel' in self.raw:
-            kernel_type, kernel_settings = load_kernel_settings(self.raw['kernel'])
+        if "kernel" in self.raw:
+            kernel_type, kernel_settings = load_kernel_settings(self.raw["kernel"])
             self.kernel = KernelConfig(type=kernel_type, settings=kernel_settings)
 
-        navigator_raw = self.raw.get('navigator', NavigatorRaw())
+        navigator_raw = self.raw.get("navigator", NavigatorRaw())
         if isinstance(navigator_raw, str):
             self.navigator = NavigatorConfig(type=navigator_raw)
         else:
             self.navigator = NavigatorConfig(**navigator_raw)
 
-        self.water_mass = Parameter.load(self.raw.get('water_mass', 1.0), 'water_mass')
+        self.water_mass = Parameter.load(self.raw.get("water_mass", 1.0), "water_mass")
 
-        if 'temperature' in self.raw:
-            self.temperature = Parameter.load(self.raw['temperature'], 'temperature')
+        if "temperature" in self.raw:
+            self.temperature = Parameter.load(self.raw["temperature"], "temperature")
 
-        if 'pressure' in self.raw:
-            self.pressure = Parameter.load(self.raw['pressure'], 'pressure')
+        if "pressure" in self.raw:
+            self.pressure = Parameter.load(self.raw["pressure"], "pressure")
 
-        elements_raw = self.raw.get('elements') or {}
-        self.elements = {
-            name: Parameter.load(value, name=name)
-            for name, value in elements_raw.items()
-        }
+        elements_raw = self.raw.get("elements") or {}
+        self.elements = {name: Parameter.load(value, name=name) for name, value in elements_raw.items()}
 
-        species_raw = self.raw.get('species') or {}
-        self.species = {
-            name: Parameter.load(value, name=name)
-            for name, value in species_raw.items()
-        }
+        species_raw = self.raw.get("species") or {}
+        self.species = {name: Parameter.load(value, name=name) for name, value in species_raw.items()}
 
-        suppressions_raw = self.raw.get('suppressions') or []
+        suppressions_raw = self.raw.get("suppressions") or []
         self.suppressions = [
             Suppression.from_dict(SuppressionRaw(), name=value)
             if isinstance(value, str)
@@ -456,19 +440,16 @@ class Order(Suborder):
             for value in suppressions_raw
         ]
 
-        reactants_raw = self.raw.get('reactants') or {}
-        self.reactants = [
-            AbstractReactant.from_dict(value, name=name)
-            for name, value in reactants_raw.items()
-        ]
+        reactants_raw = self.raw.get("reactants") or {}
+        self.reactants = [AbstractReactant.from_dict(value, name=name) for name, value in reactants_raw.items()]
 
         self.constraints = []
 
-        transformers_raw = self.raw.get('transformers') or []
+        transformers_raw = self.raw.get("transformers") or []
         self.transformers = [_build_transformer(t) for t in transformers_raw]
 
-        if 'suborders' in self.raw:
-            self.suborders = Suborders(self.raw['suborders'])
+        if "suborders" in self.raw:
+            self.suborders = Suborders(self.raw["suborders"])
 
     def parameters(self) -> list[Parameter]:
         parameters: list[Parameter] = []
@@ -515,8 +496,8 @@ class Order(Suborder):
                 order.constraints = suborder.constraints if suborder.constraints is not None else order.constraints
                 order.suborders = suborder.suborders
 
-                if 'suborders' in order.raw:
-                    del order.raw['suborders']
+                if "suborders" in order.raw:
+                    del order.raw["suborders"]
                 order.raw.update(suborder.raw)
 
                 orders.append(order)
@@ -574,10 +555,7 @@ class Order(Suborder):
             node, combined_root, prop_root = stack.pop()
 
             suborders_block = node.suborders
-            has_children = (
-                suborders_block is not None
-                and len(suborders_block.suborders) != 0
-            )
+            has_children = suborders_block is not None and len(suborders_block.suborders) != 0
 
             if not has_children:
                 if prop_root is None:
@@ -612,7 +590,7 @@ class Order(Suborder):
 
     @staticmethod
     def from_yaml(fname: str):
-        with open(fname, 'rb') as handle:
+        with open(fname, "rb") as handle:
             return Order(cast(SuborderRaw, cast(object, yaml.safe_load(handle))))
 
     @staticmethod
@@ -621,7 +599,7 @@ class Order(Suborder):
 
     @staticmethod
     def from_toml(fname: str):
-        with open(fname, 'rb') as handle:
+        with open(fname, "rb") as handle:
             return Order(cast(SuborderRaw, cast(object, tomllib.load(handle))))
 
     @staticmethod
@@ -630,7 +608,7 @@ class Order(Suborder):
 
     @staticmethod
     def from_json(fname: str):
-        with open(fname, 'rb') as handle:
+        with open(fname, "rb") as handle:
             return Order(cast(SuborderRaw, cast(object, json.load(handle))))
 
     @staticmethod

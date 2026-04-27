@@ -8,8 +8,7 @@ from ..persistence.registry import postgres_registry
 
 
 class _Compilable(Protocol):
-    def compile(self) -> object:
-        ...
+    def compile(self) -> object: ...
 
 
 def dump_schema(config: DatabaseConfig, stream: TextIO) -> None:
@@ -21,6 +20,5 @@ def dump_schema(config: DatabaseConfig, stream: TextIO) -> None:
     # ``@postgres_registry.mapped`` decorator so every ORM table is registered
     # against :data:`postgres_registry.metadata` before we emit the schema.
     # ``_ = models`` keeps basedpyright from reporting the import as unused
-    # (``# noqa: F401`` would be silently ignored).
     _ = models
     postgres_registry.metadata.create_all(engine)

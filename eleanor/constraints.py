@@ -1,17 +1,25 @@
+import math
 from abc import ABC, abstractmethod
 from copy import deepcopy
-import math
 
 import eleanor.variable_space as vs
 
 from .exceptions import EleanorException
 from .order import ConstraintConfig, Order
 from .parameters import Parameter, ParameterRegistry, Valuation, ValueParameter
-from .reactants import *
+from .reactants import (
+    AqueousReactant,
+    ElementReactant,
+    FixedGasReactant,
+    GasReactant,
+    GlassReactant,
+    MineralReactant,
+    SolidSolutionReactant,
+    SpecialReactant,
+)
 
 
 class AbstractConstraint(ABC):
-
     @property
     @abstractmethod
     def independent_parameters(self) -> list[Parameter]:
@@ -31,11 +39,12 @@ class AbstractConstraint(ABC):
     def is_resolvable(self, registry: ParameterRegistry, valuation: Valuation) -> bool:
         return all(
             registry.id(p) in valuation and isinstance(valuation[registry.id(p)], ValueParameter)
-            for p in self.independent_parameters)
+            for p in self.independent_parameters
+        )
 
     def resolve(self, registry: ParameterRegistry, valuation: Valuation):
         if not self.is_resolvable(registry, valuation):
-            raise EleanorException('cannot resolve an unresolvable constraint')
+            raise EleanorException("cannot resolve an unresolvable constraint")
 
         valuation.update(self.apply(registry, valuation))
 
@@ -44,7 +53,7 @@ class AbstractConstraint(ABC):
         pass
 
     @classmethod
-    def from_order(cls, _order: Order, _constraint_config: ConstraintConfig) -> 'AbstractConstraint | None':
+    def from_order(cls, _order: Order, _constraint_config: ConstraintConfig) -> "AbstractConstraint | None":
         return None
 
 
@@ -64,7 +73,8 @@ class Boatswain(object):
 
         order_constraints = self.order.constraints or []
         self.constraints = [
-            loaded for loaded in (AbstractConstraint.from_order(self.order, c) for c in order_constraints)
+            loaded
+            for loaded in (AbstractConstraint.from_order(self.order, c) for c in order_constraints)
             if loaded is not None
         ]
         self.constraints.extend(constraints)
@@ -76,15 +86,15 @@ class Boatswain(object):
 
     def __setitem__(self, parameter: Parameter, value: Parameter):
         if self.registry.id(parameter) not in self.valuations:
-            raise Exception(f'{parameter} ({self.registry.id(parameter)}) is not in the registry')
+            raise Exception(f"{parameter} ({self.registry.id(parameter)}) is not in the registry")
         elif not parameter.in_domain(value):
-            raise Exception(f'{value} is not a refinment of {parameter}')
+            raise Exception(f"{value} is not a refinment of {parameter}")
 
         parameter_id = self.registry.id(parameter)
 
         refined = self.valuations[parameter_id]
         if not refined.in_domain(value):
-            raise Exception(f'{value} is not a refinement of {refined}')
+            raise Exception(f"{value} is not a refinement of {refined}")
 
         self.valuations[parameter_id] = value
 
@@ -126,7 +136,7 @@ class Boatswain(object):
             for parameter_id, refined in self.valuations.items():
                 original = self.registry.parameter(parameter_id)
                 if not isinstance(refined, ValueParameter):
-                    raise Exception(f'parameter {original} is not fully refined: {refined}')
+                    raise Exception(f"parameter {original} is not fully refined: {refined}")
                 valuation[parameter_id] = refined
 
             elements = [
@@ -138,7 +148,8 @@ class Boatswain(object):
                 vs.Species(
                     name=s.name,
                     value=valuation[self.registry.id(s)].value,
-                ) for s in (self.order.species or {}).values()
+                )
+                for s in (self.order.species or {}).values()
             ]
 
             suppressions = [
@@ -146,7 +157,8 @@ class Boatswain(object):
                     name=s.name,
                     type=s.type,
                     exceptions=[vs.SuppressionException(name=name) for name in s.exceptions],
-                ) for s in (self.order.suppressions or [])
+                )
+                for s in (self.order.suppressions or [])
             ]
 
             mineral_reactants: list[vs.MineralReactant] = []
@@ -157,7 +169,7 @@ class Boatswain(object):
             fixed_gas_reactants: list[vs.FixedGasReactant] = []
             solid_solution_reactants: list[vs.SolidSolutionReactant] = []
             glass_reactants: list[vs.GlassReactant] = []
-            for reactant in (self.order.reactants or []):
+            for reactant in self.order.reactants or []:
                 match reactant:
                     case MineralReactant(name, _, log_moles, titration_rate):
                         mineral_reactants.append(
@@ -165,28 +177,32 @@ class Boatswain(object):
                                 name=name,
                                 log_moles=valuation[self.registry.id(log_moles)].value,
                                 titration_rate=valuation[self.registry.id(titration_rate)].value,
-                            ), )
+                            ),
+                        )
                     case AqueousReactant(name, _, log_moles, titration_rate):
                         aqueous_reactants.append(
                             vs.AqueousReactant(
                                 name=name,
                                 log_moles=valuation[self.registry.id(log_moles)].value,
                                 titration_rate=valuation[self.registry.id(titration_rate)].value,
-                            ), )
+                            ),
+                        )
                     case GasReactant(name, _, log_moles, titration_rate):
                         gas_reactants.append(
                             vs.GasReactant(
                                 name=name,
                                 log_moles=valuation[self.registry.id(log_moles)].value,
                                 titration_rate=valuation[self.registry.id(titration_rate)].value,
-                            ), )
+                            ),
+                        )
                     case ElementReactant(name, _, log_moles, titration_rate):
                         element_reactants.append(
                             vs.ElementReactant(
                                 name=name,
                                 log_moles=valuation[self.registry.id(log_moles)].value,
                                 titration_rate=valuation[self.registry.id(titration_rate)].value,
-                            ), )
+                            ),
+                        )
                     case SpecialReactant(name, _, log_moles, titration_rate, composition):
                         special_reactants.append(
                             vs.SpecialReactant(
@@ -196,14 +212,16 @@ class Boatswain(object):
                                 composition=[
                                     vs.SpecialReactantComposition(element=k, count=v) for k, v in composition.items()
                                 ],
-                            ), )
+                            ),
+                        )
                     case FixedGasReactant(name, _, log_moles, log_fugacity):
                         fixed_gas_reactants.append(
                             vs.FixedGasReactant(
                                 name=name,
                                 log_moles=valuation[self.registry.id(log_moles)].value,
                                 log_fugacity=valuation[self.registry.id(log_fugacity)].value,
-                            ), )
+                            ),
+                        )
                     case SolidSolutionReactant(name, _, log_moles, titration_rate, end_members):
                         solid_solution_reactants.append(
                             vs.SolidSolutionReactant(
@@ -212,10 +230,12 @@ class Boatswain(object):
                                 titration_rate=valuation[self.registry.id(titration_rate)].value,
                                 end_members=[
                                     vs.SolidSolutionReactantEndMembers(
-                                        name=name, fraction=valuation[self.registry.id(end_member_param)].value)
+                                        name=name, fraction=valuation[self.registry.id(end_member_param)].value
+                                    )
                                     for name, end_member_param in end_members.items()
                                 ],
-                            ), )
+                            ),
+                        )
                     case GlassReactant(name, _, log_moles, titration_rate, oxides):
                         log_moles = valuation[self.registry.id(log_moles)].value
                         titration_rate = valuation[self.registry.id(titration_rate)].value
@@ -230,26 +250,28 @@ class Boatswain(object):
                                         name=name,
                                         fraction=oxide.fraction,
                                         log_moles=math.log10(oxide.fraction) + log_moles,
-                                        titration_rate=titration_rate * valuation[self.registry.id(oxide.relative_rate)].value,
+                                        titration_rate=titration_rate
+                                        * valuation[self.registry.id(oxide.relative_rate)].value,
                                         composition=[
                                             vs.GlassReactantOxideComposition(element=k, count=v)
                                             for k, v in oxide.composition.items()
                                         ],
-                                    ) for name, oxide in oxides.items()
+                                    )
+                                    for name, oxide in oxides.items()
                                 ],
                             ),
                         )
                     case _:
-                        raise Exception(f'Unexpected reactant type {reactant}')
+                        raise Exception(f"Unexpected reactant type {reactant}")
 
             if self.order.kernel is None:
-                raise Exception('order kernel is required')
+                raise Exception("order kernel is required")
             if self.order.water_mass is None:
-                raise Exception('order water_mass is required')
+                raise Exception("order water_mass is required")
             if self.order.temperature is None:
-                raise Exception('order temperature is required')
+                raise Exception("order temperature is required")
             if self.order.pressure is None:
-                raise Exception('order pressure is required')
+                raise Exception("order pressure is required")
             return vs.Point(
                 order_id=order_id,
                 kernel=deepcopy(self.order.kernel),
@@ -269,4 +291,4 @@ class Boatswain(object):
                 glass_reactants=glass_reactants,
             )
         except Exception as e:
-            raise Exception('cannot generate Point from config') from e
+            raise Exception("cannot generate Point from config") from e

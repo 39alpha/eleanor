@@ -7,8 +7,8 @@ from typing import TYPE_CHECKING
 from eleanor.sailor import Sailor
 
 from .config import Config
-from .executor import AbstractExecutor, AbstractFuture, build_executor
 from .exceptions import EleanorException
+from .executor import AbstractExecutor, AbstractFuture, build_executor
 from .kernel.interface import AbstractKernel
 from .kernel.registry import get_factory as get_kernel_spec
 from .order import NavigatorProtocol, Order
@@ -18,7 +18,6 @@ from .progress import Progress, ProgressHandle
 from .transformer import transform
 from .typing import EleanorKwargs, Self, Unpack, cast
 from .util import chunks
-from .version import __version__
 
 if TYPE_CHECKING:
     from collections.abc import Generator
@@ -60,7 +59,7 @@ class Eleanor(object):
     # (detected via ``has_entered()``); the output-sink override is never
     # finalized by Eleanor.
     _executor_override: AbstractExecutor | None
-    _entered_executor_override: bool   # True when Eleanor called __enter__ on it
+    _entered_executor_override: bool  # True when Eleanor called __enter__ on it
     _output_sink_override: OutputSink | None
 
     # Resources owned by the engine when used as a context manager.
@@ -182,7 +181,7 @@ class Eleanor(object):
         override: AbstractExecutor | None,
         *,
         parallel: str,
-    ) -> 'Generator[AbstractExecutor, None, None]':
+    ) -> "Generator[AbstractExecutor, None, None]":
         """Yield an executor for the duration of one :meth:`run` call.
 
         Preference order:
@@ -208,7 +207,7 @@ class Eleanor(object):
             yield executor
 
     @contextmanager
-    def _manager_scope(self) -> 'Generator[SyncManager, None, None]':
+    def _manager_scope(self) -> "Generator[SyncManager, None, None]":
         """Yield a :class:`SyncManager` for the duration of one :meth:`run`.
 
         Session-scoped when inside a ``with`` block, lazily initialised
@@ -232,7 +231,7 @@ class Eleanor(object):
         override: OutputSink | None,
         *,
         verbose: bool,
-    ) -> 'Generator[OutputSink, None, None]':
+    ) -> "Generator[OutputSink, None, None]":
         """Yield an :class:`OutputSink` for the duration of one :meth:`run`.
 
         Preference order:
@@ -287,7 +286,7 @@ class Eleanor(object):
         kernel: AbstractKernel | None = None,
         navigator: NavigatorProtocol | None = None,
         output_sink: OutputSink | None = None,
-        transformers: 'list[AbstractTransformer] | None' = None,
+        transformers: "list[AbstractTransformer] | None" = None,
         **kwargs: Unpack[EleanorKwargs],
     ) -> list[int]:
         """Dispatch ``order`` against ``simulation_size`` VS points.
@@ -301,8 +300,8 @@ class Eleanor(object):
         ``finalize()`` on it when :meth:`run` returns — ownership of the
         sink transfers to Eleanor for the duration of the call.
         """
-        verbose = kwargs.get('verbose', False)
-        show_progress = kwargs.get('show_progress', False)
+        verbose = kwargs.get("verbose", False)
+        show_progress = kwargs.get("show_progress", False)
 
         default_parallel, default_chunks_per_worker = self._parallel_defaults()
         if parallel is None:
@@ -334,12 +333,14 @@ class Eleanor(object):
             if show_progress:
                 run_manager = stack.enter_context(self._manager_scope())
 
-            leaves = list(order.iter_leaves(
-                combined=combined,
-                proportional_sampling=proportional_sampling,
-            ))
+            leaves = list(
+                order.iter_leaves(
+                    combined=combined,
+                    proportional_sampling=proportional_sampling,
+                )
+            )
             if not leaves:
-                raise EleanorException('order produced no dispatchable leaves')
+                raise EleanorException("order produced no dispatchable leaves")
 
             # Resolve umbrella order ids up front so ``begin_run`` runs
             # once per distinct umbrella regardless of how many leaves
@@ -410,35 +411,33 @@ class Eleanor(object):
         :meth:`~OutputSink.supports_progress`; otherwise only the simulation
         bar is shown.
         """
-        show_progress = kwargs.get('show_progress', False)
-        success_sampling = kwargs.get('success_sampling', False)
+        show_progress = kwargs.get("show_progress", False)
+        success_sampling = kwargs.get("success_sampling", False)
 
         if executor.num_workers <= 0:
-            raise EleanorException('executor num_workers must be >= 1')
+            raise EleanorException("executor num_workers must be >= 1")
         if chunks_per_worker <= 0:
-            raise EleanorException('chunks_per_worker must be >= 1')
+            raise EleanorException("chunks_per_worker must be >= 1")
 
         if kernel is None:
             kernel = self.load_kernel(order, **kwargs)
 
         if navigator is None:
             if order.navigator is None:
-                raise EleanorException('order navigator is required')
+                raise EleanorException("order navigator is required")
             from .navigator.registry import get_factory as get_navigator_factory
+
             navigator_factory = get_navigator_factory(order.navigator.type)
             built = navigator_factory(order, kernel, **order.navigator.args)
             if not isinstance(built, NavigatorProtocol):
                 raise EleanorException(
                     f'navigator plugin "{order.navigator.type}" returned '
-                    + f'{type(built).__name__}, expected an AbstractNavigator',
+                    + f"{type(built).__name__}, expected an AbstractNavigator",
                 )
             navigator = built
 
         if success_sampling and not navigator.supports_success_sampling():
-            msg = (
-                f"{navigator.__class__.__module__}."
-                f"{navigator.__class__.__name__} does not support success sampling"
-            )
+            msg = f"{navigator.__class__.__module__}.{navigator.__class__.__name__} does not support success sampling"
             raise EleanorException(msg)
 
         progress: Progress | None = None
@@ -446,7 +445,7 @@ class Eleanor(object):
         out_handle: ProgressHandle | None = None
         if show_progress:
             if manager is None:
-                raise EleanorException('show_progress requires an active SyncManager')
+                raise EleanorException("show_progress requires an active SyncManager")
             # Under ``success_sampling`` the output bar tracks progress toward
             # a fixed target (N successes) and should therefore ignore
             # ``extend`` messages after its initial total is set.
@@ -534,11 +533,11 @@ class Eleanor(object):
             emitted in the parent as a fallback.
         """
         if executor is None:
-            raise EleanorException('no process executor created')
+            raise EleanorException("no process executor created")
         if executor.num_workers <= 0:
-            raise EleanorException('executor num_workers must be >= 1')
+            raise EleanorException("executor num_workers must be >= 1")
         if chunks_per_worker <= 0:
-            raise EleanorException('chunks_per_worker must be >= 1')
+            raise EleanorException("chunks_per_worker must be >= 1")
 
         outcomes: list[WriteOutcome] = []
 
@@ -662,20 +661,20 @@ class Eleanor(object):
         if not isinstance(built, OutputSink):
             raise EleanorException(
                 f'output sink plugin "{self.config.output.type}" returned '
-                + f'{type(built).__name__}, expected an OutputSink',
+                + f"{type(built).__name__}, expected an OutputSink",
             )
         return built
 
     def load_kernel(self, order: Order, **kwargs: Unpack[EleanorKwargs]) -> AbstractKernel:
         if order.kernel is None:
-            raise EleanorException('order kernel is required')
+            raise EleanorException("order kernel is required")
         spec = get_kernel_spec(order.kernel.type)
         settings = order.kernel.resolved_settings()
         kernel = spec.build(settings, *self.kernel_args)
         if not isinstance(kernel, AbstractKernel):
             raise EleanorException(
                 f'kernel plugin "{order.kernel.type}" returned '
-                + f'{type(kernel).__name__}, expected an AbstractKernel',
+                + f"{type(kernel).__name__}, expected an AbstractKernel",
             )
         kernel.setup(order, **kwargs)
         kernel.validate_order(order)

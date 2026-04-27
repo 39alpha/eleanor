@@ -15,6 +15,7 @@ module import time; the heavy :mod:`eleanor.output.postgres` import is
 deferred inside the factory callable so it only occurs when the factory is
 actually called.
 """
+
 import warnings
 from typing import TYPE_CHECKING
 
@@ -39,65 +40,65 @@ if TYPE_CHECKING:
 
 
 def __getattr__(name: str) -> object:
-    if name == 'ComputeResult':
+    if name == "ComputeResult":
         from .interface import ComputeResult
 
         return ComputeResult
-    if name == 'ErrorInfo':
+    if name == "ErrorInfo":
         from .interface import ErrorInfo
 
         return ErrorInfo
-    if name == 'OutputSink':
+    if name == "OutputSink":
         from .interface import OutputSink
 
         return OutputSink
-    if name == 'RunStats':
+    if name == "RunStats":
         from .interface import RunStats
 
         return RunStats
-    if name == 'WriteOutcome':
+    if name == "WriteOutcome":
         from .interface import WriteOutcome
 
         return WriteOutcome
-    if name == 'PostgresSink':
+    if name == "PostgresSink":
         from .postgres import PostgresSink
 
         return PostgresSink
-    raise AttributeError(f'module {__name__!r} has no attribute {name!r}')
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
-def _build_postgres(config: object, *, verbose: bool = False, **args: object) -> 'PostgresSink':
-    database = getattr(config, 'database', None)
+def _build_postgres(config: object, *, verbose: bool = False, **args: object) -> "PostgresSink":
+    database = getattr(config, "database", None)
     if database is None:
-        raise EleanorException('postgres output sink requires config.database')
+        raise EleanorException("postgres output sink requires config.database")
     if args:
         warnings.warn(
-            'built-in output sink "postgres" does not accept keyword arguments; '
-            + f'ignoring: {list(args)}',
+            'built-in output sink "postgres" does not accept keyword arguments; ' + f"ignoring: {list(args)}",
             RuntimeWarning,
             stacklevel=2,
         )
     from ..connection import DatabaseConfig
     from .postgres import PostgresSink
+
     if not isinstance(database, DatabaseConfig):
-        raise EleanorException('postgres output sink requires a DatabaseConfig')
+        raise EleanorException("postgres output sink requires a DatabaseConfig")
     return PostgresSink(database, verbose=verbose)
 
 
-register_output('postgres', _build_postgres)
+register_output("postgres", _build_postgres)
 
 __all__ = [
-    'BUILTIN_OUTPUTS',
-    'ComputeResult',
-    'ENTRY_POINT_GROUP',
-    'ErrorInfo',
-    'OVERRIDE_ENV_VAR',
-    'OutputFactory',
-    'OutputSink',
-    'PostgresSink',
-    'RunStats',
-    'WriteOutcome',
-    'available_outputs',
-    'get_factory',
-    'register_output',
+    "BUILTIN_OUTPUTS",
+    "ComputeResult",
+    "ENTRY_POINT_GROUP",
+    "ErrorInfo",
+    "OVERRIDE_ENV_VAR",
+    "OutputFactory",
+    "OutputSink",
+    "PostgresSink",
+    "RunStats",
+    "WriteOutcome",
+    "available_outputs",
+    "get_factory",
+    "register_output",
 ]

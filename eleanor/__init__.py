@@ -2,15 +2,31 @@ from pkgutil import extend_path
 from typing import TYPE_CHECKING
 
 __path__ = list(extend_path(__path__, __name__))
-from .version import *
+from .version import (
+    __commit_id__,
+    __version__,
+    __version_tuple__,
+    commit_id,
+    version,
+    version_tuple,
+)
 
-__all__ = ['Eleanor']
+__all__ = [
+    "Eleanor",
+    "__commit_id__",
+    "__version__",
+    "__version_tuple__",
+    "commit_id",
+    "version",
+    "version_tuple",
+]
 if TYPE_CHECKING:
     from .eleanor import Eleanor
 
 
 def __getattr__(name: str):
-    if name == 'Eleanor':
+    if name == "Eleanor":
         from .eleanor import Eleanor
+
         return Eleanor
-    raise AttributeError(f'module {__name__!r} has no attribute {name!r}')
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

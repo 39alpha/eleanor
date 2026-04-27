@@ -71,7 +71,7 @@ def get_scratch_entry(
         if model is None or model.id is None:
             return None
         if model.scratch is None:
-            raise LookupError('scratch')
+            raise LookupError("scratch")
         return ScratchEntry(
             variable_space_id=model.id,
             exit_code=model.exit_code,

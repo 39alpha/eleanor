@@ -52,7 +52,7 @@ class Random(AbstractNavigator):
 
             return boatswain.generate_vs(order_id)
         except Exception as e:
-            raise Exception('failed to select VS point') from e
+            raise Exception("failed to select VS point") from e
 
     @override
     def num_systems(self, scale: int) -> int:
@@ -101,7 +101,7 @@ class LatticeNavigator(AbstractNavigator, ABC):
 
     @override
     def num_systems(self, scale: int) -> int:
-        return cast(int, scale**len([1 for p in self.order.parameters() if not isinstance(p, ValueParameter)]))
+        return cast(int, scale ** len([1 for p in self.order.parameters() if not isinstance(p, ValueParameter)]))
 
 
 class RandomLattice(LatticeNavigator):
@@ -117,7 +117,7 @@ class Lattice(LatticeNavigator):
     @override
     def generate(self, parameter: Parameter, scale: int, *_args: object, **_kwargs: object) -> list[ValueParameter]:
         if scale < 1:
-            raise ValueError('')
+            raise ValueError("")
 
         return parameter.lattice(size=scale)
 
@@ -139,6 +139,7 @@ from .registry import (  # noqa: E402
     register_navigator,
 )
 
+
 # Seed the registry with the built-in navigator factories. The class bodies
 # accept ``(order, kernel)`` positionally, which matches the plugin factory
 # signature; extra keyword args coming from the order file are intentionally
@@ -147,8 +148,7 @@ def _builtin_navigator(cls: type[AbstractNavigator]) -> NavigatorFactory:
     def factory(order: Order, kernel: AbstractKernel, **_args: object) -> AbstractNavigator:
         if _args:
             warnings.warn(
-                f'built-in navigator "{cls.__name__}" does not accept keyword '
-                + f'arguments; ignoring: {list(_args)}',
+                f'built-in navigator "{cls.__name__}" does not accept keyword ' + f"arguments; ignoring: {list(_args)}",
                 RuntimeWarning,
                 stacklevel=2,
             )
@@ -157,21 +157,21 @@ def _builtin_navigator(cls: type[AbstractNavigator]) -> NavigatorFactory:
     return factory
 
 
-register_navigator('random', _builtin_navigator(Random))
-register_navigator('random_lattice', _builtin_navigator(RandomLattice))
-register_navigator('lattice', _builtin_navigator(Lattice))
+register_navigator("random", _builtin_navigator(Random))
+register_navigator("random_lattice", _builtin_navigator(RandomLattice))
+register_navigator("lattice", _builtin_navigator(Lattice))
 
 __all__ = [
-    'AbstractNavigator',
-    'BUILTIN_NAVIGATORS',
-    'ENTRY_POINT_GROUP',
-    'Lattice',
-    'LatticeNavigator',
-    'NavigatorFactory',
-    'OVERRIDE_ENV_VAR',
-    'Random',
-    'RandomLattice',
-    'available_navigators',
-    'get_factory',
-    'register_navigator',
+    "AbstractNavigator",
+    "BUILTIN_NAVIGATORS",
+    "ENTRY_POINT_GROUP",
+    "Lattice",
+    "LatticeNavigator",
+    "NavigatorFactory",
+    "OVERRIDE_ENV_VAR",
+    "Random",
+    "RandomLattice",
+    "available_navigators",
+    "get_factory",
+    "register_navigator",
 ]

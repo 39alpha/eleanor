@@ -1,6 +1,6 @@
 import json
 from dataclasses import asdict, is_dataclass
-from typing import final, override, cast
+from typing import cast, final, override
 
 from sqlalchemy import BLOB, JSON
 from sqlalchemy.dialects.postgresql import BYTEA, JSONB
@@ -18,7 +18,7 @@ class JSONDict(TypeDecorator[dict[str, object] | None]):
     @override
     def load_dialect_impl(self, dialect: Dialect) -> TypeEngine[object]:
         match dialect.name:
-            case 'postgresql':
+            case "postgresql":
                 return dialect.type_descriptor(cast(TypeEngine[object], JSONB))
             case _:
                 return dialect.type_descriptor(cast(TypeEngine[object], JSON))
@@ -31,7 +31,7 @@ class JSONDict(TypeDecorator[dict[str, object] | None]):
         if is_dataclass(value) and not isinstance(value, type):
             value = asdict(value)
         if not isinstance(value, dict):
-            raise EleanorException('cannot serialize non-dict to JSON')
+            raise EleanorException("cannot serialize non-dict to JSON")
         return cast(dict[str, object], json.loads(json.dumps(value, sort_keys=True, default=str)))
 
 
@@ -43,7 +43,7 @@ class Binary(TypeDecorator[bytes]):
     @override
     def load_dialect_impl(self, dialect: Dialect) -> TypeEngine[object]:
         match dialect.name:
-            case 'postgresql':
+            case "postgresql":
                 return dialect.type_descriptor(cast(TypeEngine[object], BYTEA))
             case _:
                 return dialect.type_descriptor(cast(TypeEngine[object], BLOB))

@@ -33,10 +33,10 @@ def resolve_settings(kernel_type: str, payload: dict[str, object]) -> Settings:
     settings = spec.settings_from_dict(payload)
     if not isinstance(settings, Settings):
         raise EleanorException(
-            f'kernel plugin "{kernel_type}" returned '
-            + f'{type(settings).__name__}, expected a Settings instance',
+            f'kernel plugin "{kernel_type}" returned ' + f"{type(settings).__name__}, expected a Settings instance",
         )
     return settings
+
 
 @dataclass(kw_only=True)
 class Config(object):
@@ -60,7 +60,7 @@ class Config(object):
         raw = cast(object, self.settings)
         if not isinstance(raw, Settings):
             raise EleanorException(
-                f'kernel.settings has unexpected type {type(raw).__name__}',
+                f"kernel.settings has unexpected type {type(raw).__name__}",
             )
         return raw
 

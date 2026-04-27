@@ -13,16 +13,16 @@ class CLIArgs(Protocol):
 
 def main() -> object:
     parser = argparse.ArgumentParser(
-        prog='eleanor',
-        description='Run eleanor or interact with a generated dataset',
+        prog="eleanor",
+        description="Run eleanor or interact with a generated dataset",
         allow_abbrev=True,
     )
 
-    subparsers = parser.add_subparsers(required=True, dest='command')
+    subparsers = parser.add_subparsers(required=True, dest="command")
 
-    _ = run.init(subparsers.add_parser('run'))
-    _ = schema.init(subparsers.add_parser('schema'))
-    _ = scratch.init(subparsers.add_parser('scratch'))
+    _ = run.init(subparsers.add_parser("run"))
+    _ = schema.init(subparsers.add_parser("schema"))
+    _ = scratch.init(subparsers.add_parser("scratch"))
 
     args_ns = parser.parse_args()
     args = cast(CLIArgs, cast(object, args_ns))

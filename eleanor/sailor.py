@@ -60,7 +60,7 @@ class Sailor(object):
 
         for point in point_list:
             vs_point = self.work(point, *args, **kwargs)
-            exception: Exception | None = getattr(vs_point, 'exception', None)
+            exception: Exception | None = getattr(vs_point, "exception", None)
             error = None if exception is None else ErrorInfo.from_exception(exception)
             if exception is not None:
                 vs_point.exception = None
@@ -69,14 +69,15 @@ class Sailor(object):
                 ComputeResult(
                     point=vs_point,
                     error=error,
-                ))
+                )
+            )
 
             if sim_progress is not None:
                 sim_progress.tick()
 
         if sink is not None:
             if order_id is None:
-                raise EleanorException('Sailor.dispatch requires order_id when sink is provided')
+                raise EleanorException("Sailor.dispatch requires order_id when sink is provided")
             return sink.write_batch(order_id, compute_results, progress=out_progress)
         return compute_results
 
@@ -86,8 +87,8 @@ class Sailor(object):
         *args: object,
         **kwargs: Unpack[EleanorKwargs],
     ) -> vs.Point:
-        scratch = kwargs.get('scratch', False)
-        verbose = kwargs.get('verbose', False)
+        scratch = kwargs.get("scratch", False)
+        verbose = kwargs.get("verbose", False)
 
         with TemporaryDirectory(prefix="eleanor_") as tempdir:
             with WorkingDirectory(tempdir):
@@ -101,14 +102,14 @@ class Sailor(object):
                     vs_point.exit_code = 0
                 except Exception as e:
                     self.kernel.copy_data(vs_point)
-                    with open('traceback.txt', 'w') as file:
+                    with open("traceback.txt", "w") as file:
                         print_exception(e, file=file)
                     if verbose:
                         print_exception(e, file=sys.stderr)
                     vs_point.scratch = Sailor.collect_scratch(tempdir)
                     vs_point.exception = e
                     if isinstance(e, EleanorException):
-                        code = getattr(e, 'code', None)
+                        code = getattr(e, "code", None)
                         vs_point.exit_code = code if isinstance(code, int) else -1
                     else:
                         vs_point.exit_code = -1
@@ -122,9 +123,9 @@ class Sailor(object):
     def collect_scratch(dir: str) -> vs.Scratch | None:
         try:
             buffer = io.BytesIO()
-            with zipfile.ZipFile(buffer, 'w', compression=zipfile.ZIP_BZIP2, allowZip64=True, compresslevel=9) as zip:
+            with zipfile.ZipFile(buffer, "w", compression=zipfile.ZIP_BZIP2, allowZip64=True, compresslevel=9) as zip:
                 for filename in os.listdir(dir):
                     zip.write(join(dir, filename), filename)
             return vs.Scratch(zip=buffer.getvalue())
         except Exception:
-            return vs.Scratch(zip=bytes('\0', 'ascii'))
+            return vs.Scratch(zip=bytes("\0", "ascii"))

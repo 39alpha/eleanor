@@ -19,10 +19,10 @@ def field_as_float(field: str) -> float:
     """
     Parse a string from an EQ3/6 output file as a `float`
     """
-    match = re.match(r'([-\+]?\d+(\.\d+)?)([-\+]\d+)', field)
+    match = re.match(r"([-\+]?\d+(\.\d+)?)([-\+]\d+)", field)
     if match:
-        return float(match[1] + 'e' + match[3])
-    matches = cast(list[str], re.findall(r'[0-9Ee\+\.-]+', field))
+        return float(match[1] + "e" + match[3])
+    matches = cast(list[str], re.findall(r"[0-9Ee\+\.-]+", field))
     if matches:
         try:
             return float(matches[0])
@@ -34,11 +34,11 @@ def field_as_float(field: str) -> float:
 
 def read_pickup_lines(file: str | io.TextIOWrapper | None = None) -> list[str]:
     if file is None:
-        return read_pickup_lines('problem.3p')
+        return read_pickup_lines("problem.3p")
 
     if isinstance(file, str):
         try:
-            with open(file, 'r') as handle:
+            with open(file, "r") as handle:
                 return read_pickup_lines(handle)
         except FileNotFoundError as e:
             raise EleanorFileException(e, code=RunCode.FILE_ERROR_3P)
@@ -46,9 +46,9 @@ def read_pickup_lines(file: str | io.TextIOWrapper | None = None) -> list[str]:
     try:
         lines = file.readlines()
         for i, line in reversed(list(enumerate(lines))):
-            if line.startswith('*---'):
-                return lines[i + 1:]
-        raise EleanorFileException('failed to find seperator in pickup file', code=RunCode.FILE_ERROR_3P)
+            if line.startswith("*---"):
+                return lines[i + 1 :]
+        raise EleanorFileException("failed to find seperator in pickup file", code=RunCode.FILE_ERROR_3P)
     except FileNotFoundError as e:
         raise EleanorFileException(e, code=RunCode.FILE_ERROR_3P)
 
@@ -56,10 +56,10 @@ def read_pickup_lines(file: str | io.TextIOWrapper | None = None) -> list[str]:
 # DGM: I believe we can replace this with `read_eq6_output`
 def determine_species(file: str | io.TextIOWrapper | None = None) -> Species:
     if file is None:
-        return determine_species('problem.3o')
+        return determine_species("problem.3o")
 
     if isinstance(file, str):
-        with open(file, 'r') as handle:
+        with open(file, "r") as handle:
             return determine_species(handle)
 
     suppress: list[str] = []
@@ -74,7 +74,7 @@ def determine_species(file: str | io.TextIOWrapper | None = None) -> Species:
 
     # gather suppress info from near the top of the
     for i in range(len(lines)):
-        if ' * Alter/suppress options' in lines[i]:
+        if " * Alter/suppress options" in lines[i]:
             # number of suppression options
             supp_n = int(lines[i + 1].split()[-1])
             # print(supp_n)
@@ -86,20 +86,20 @@ def determine_species(file: str | io.TextIOWrapper | None = None) -> Species:
     start_idx = 0
     for i in range(len(lines) - 1, 0, -1):
         # find the beginning of the print section for the final system composition.
-        if ' Done. Hybrid Newton-Raphson iteration converged in ' in lines[i]:
+        if " Done. Hybrid Newton-Raphson iteration converged in " in lines[i]:
             start_idx = i
             break
 
     # now count forward in lines against to read the system composition
     i = start_idx
     while i < len(lines):
-        if re.findall('^\n', lines[i]):
+        if re.findall("^\n", lines[i]):
             i += 1
-        elif '           --- Elemental Composition of the Aqueous Solution ---' in lines[i]:
+        elif "           --- Elemental Composition of the Aqueous Solution ---" in lines[i]:
             i += 4
-            while not re.findall('^\n', lines[i]):
+            while not re.findall("^\n", lines[i]):
                 ele = lines[i][:13].strip()
-                if ele not in ['O', 'H']:
+                if ele not in ["O", "H"]:
                     if float(lines[i].split()[1]) == 0.0:
                         # element not loaded (ie. Cl). this shows up in
                         # the eq3 element set even if set to 0.
@@ -110,35 +110,35 @@ def determine_species(file: str | io.TextIOWrapper | None = None) -> Species:
                 else:
                     i += 1
 
-        elif '--- Distribution of Aqueous Solute Species ---' in lines[i]:
+        elif "--- Distribution of Aqueous Solute Species ---" in lines[i]:
             i += 4
-            while not re.findall('^\n', lines[i]):
+            while not re.findall("^\n", lines[i]):
                 name = lines[i][:26].strip()
                 # O2(g) is a ficticious aqueous species
-                if name != 'O2(g)':
+                if name != "O2(g)":
                     aqueous_species.append(name)
                 i += 1
-        elif '           --- Saturation States of Pure Solids ---' in lines[i]:
+        elif "           --- Saturation States of Pure Solids ---" in lines[i]:
             i += 4
-            while not re.findall('^\n', lines[i]):
-                if 'None' not in lines[i]:
+            while not re.findall("^\n", lines[i]):
+                if "None" not in lines[i]:
                     solids.append(lines[i][:26].strip())
                     i += 1
                 else:
                     i += 1
 
-        elif '--- Saturation States of Solid Solutions ---' in lines[i]:
+        elif "--- Saturation States of Solid Solutions ---" in lines[i]:
             i += 4
-            while not re.findall('^\n', lines[i]):
-                if 'None' not in lines[i]:
+            while not re.findall("^\n", lines[i]):
+                if "None" not in lines[i]:
                     solid_solutions.append(lines[i][:26].strip())
                     i += 1
                 else:
                     i += 1
 
-        elif '--- Fugacities ---' in lines[i]:
+        elif "--- Fugacities ---" in lines[i]:
             i += 4
-            while not re.findall('^\n', lines[i]):
+            while not re.findall("^\n", lines[i]):
                 gases.append(lines[i][:26].strip())
                 i += 1
 

@@ -15,18 +15,21 @@ from .typing import cast
 
 class OutputRaw(TypedDict, total=False):
     """Schema for the ``output`` section of a raw config document."""
+
     type: str
     args: dict[str, object]
 
 
 class ParallelRaw(TypedDict, total=False):
     """Schema for the ``parallel`` section of a raw config document."""
+
     backend: str
     chunks_per_worker: int
 
 
 class ConfigRaw(TypedDict, total=False):
     """Schema for a raw config document loaded from YAML/TOML/JSON."""
+
     database: DatabaseRaw
     output: OutputRaw
     parallel: ParallelRaw
@@ -34,32 +37,32 @@ class ConfigRaw(TypedDict, total=False):
 
 @dataclass
 class OutputConfig(object):
-    type: str = 'postgres'
+    type: str = "postgres"
     args: dict[str, object] = field(default_factory=dict)
 
     def __post_init__(self):
         sinks = available_outputs()
         if self.type not in sinks:
-            valid = ', '.join(f'"{t}"' for t in sorted(sinks))
+            valid = ", ".join(f'"{t}"' for t in sorted(sinks))
             msg = f'the "{self.type}" output type is not supported; choose one of {valid}'
             raise EleanorConfigurationException(msg)
 
     @staticmethod
     def from_raw(raw: OutputRaw) -> "OutputConfig":
-        output_args_raw: object = raw.get('args', {})
+        output_args_raw: object = raw.get("args", {})
         if not isinstance(output_args_raw, dict):
-            raise EleanorConfigurationException('output.args must be a dict')
+            raise EleanorConfigurationException("output.args must be a dict")
         output_args_items = cast(dict[object, object], output_args_raw).items()
         output_args: dict[str, object] = {str(k): v for k, v in output_args_items}
         return OutputConfig(
-            type=raw.get('type', 'postgres'),
+            type=raw.get("type", "postgres"),
             args=output_args,
         )
 
 
 @dataclass
 class ParallelConfig(object):
-    backend: str = 'multiprocessing'
+    backend: str = "multiprocessing"
     chunks_per_worker: int = 1
 
     def __post_init__(self):
@@ -74,8 +77,8 @@ class ParallelConfig(object):
     @staticmethod
     def from_raw(raw: ParallelRaw) -> "ParallelConfig":
         return ParallelConfig(
-            backend=raw.get('backend', 'multiprocessing'),
-            chunks_per_worker=raw.get('chunks_per_worker', 1),
+            backend=raw.get("backend", "multiprocessing"),
+            chunks_per_worker=raw.get("chunks_per_worker", 1),
         )
 
 
@@ -89,29 +92,29 @@ class Config(object):
     def __init__(self, raw: ConfigRaw | None = None):
         if raw is None:
             raw = ConfigRaw(database=DatabaseRaw(), output=OutputRaw(), parallel=ParallelRaw())
-        object.__setattr__(self, 'raw', raw)
-        raw_database = self.raw.get('database', DatabaseRaw())
-        raw_output = self.raw.get('output', OutputRaw())
-        raw_parallel = self.raw.get('parallel', ParallelRaw())
-        object.__setattr__(self, 'database', DatabaseConfig.from_raw(raw_database))
-        object.__setattr__(self, 'output', OutputConfig.from_raw(raw_output))
-        object.__setattr__(self, 'parallel', ParallelConfig.from_raw(raw_parallel))
+        object.__setattr__(self, "raw", raw)
+        raw_database = self.raw.get("database", DatabaseRaw())
+        raw_output = self.raw.get("output", OutputRaw())
+        raw_parallel = self.raw.get("parallel", ParallelRaw())
+        object.__setattr__(self, "database", DatabaseConfig.from_raw(raw_database))
+        object.__setattr__(self, "output", OutputConfig.from_raw(raw_output))
+        object.__setattr__(self, "parallel", ParallelConfig.from_raw(raw_parallel))
 
     @staticmethod
     def from_yaml(fname: str) -> "Config":
-        with open(fname, 'rb') as handle:
+        with open(fname, "rb") as handle:
             raw = cast(ConfigRaw, cast(object, yaml.safe_load(handle)))
             return Config(raw)
 
     @staticmethod
     def from_toml(fname: str) -> "Config":
-        with open(fname, 'rb') as handle:
+        with open(fname, "rb") as handle:
             raw = cast(ConfigRaw, cast(object, tomllib.load(handle)))
             return Config(raw)
 
     @staticmethod
     def from_json(fname: str) -> "Config":
-        with open(fname, 'rb') as handle:
+        with open(fname, "rb") as handle:
             raw = cast(ConfigRaw, cast(object, json.load(handle)))
             return Config(raw)
 

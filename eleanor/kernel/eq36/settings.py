@@ -7,8 +7,7 @@ from eleanor.kernel.config import Settings as KernelSettings
 from eleanor.kernel.exceptions import EleanorKernelException
 from eleanor.typing import Number, Self, TypeVar, cast
 
-
-SettingT = TypeVar('SettingT', bound=IntEnum)
+SettingT = TypeVar("SettingT", bound=IntEnum)
 
 
 def _get_float(cfg: dict[str, object], key: str, default: float) -> float:
@@ -29,7 +28,7 @@ def get_setting(cfg: dict[str, object], setting: type[SettingT], default: Settin
     key: str = setting.__name__.lower()
     value: object | None = cfg.get(key, default)
     if value is None:
-        raise EleanorKernelException(f'config option {key} is required')
+        raise EleanorKernelException(f"config option {key} is required")
 
     try:
         if isinstance(value, setting):
@@ -39,8 +38,8 @@ def get_setting(cfg: dict[str, object], setting: type[SettingT], default: Settin
         if isinstance(value, int):
             return setting(value)
     except Exception as e:
-        raise EleanorKernelException(f'unexpected value for option {key}') from e
-    raise EleanorKernelException(f'unexpected value for option {key}')
+        raise EleanorKernelException(f"unexpected value for option {key}") from e
+    raise EleanorKernelException(f"unexpected value for option {key}")
 
 
 class JTEMP(IntEnum):
@@ -50,6 +49,7 @@ class JTEMP(IntEnum):
     For Eleanor version  1, we only use jtemp = 0 (constant Temperature)
     We plan to add jtemp = 3 (fluid mixing, for Eleanor version 1.1)
     """
+
     CONSTANT_T = 0
     LINEAR_WITH_XI = 1
     LINEAR_WITH_TIME = 2
@@ -60,6 +60,7 @@ class IOPT_1(IntEnum):
     """
     Physical System Model Selection:
     """
+
     CLOSED_SYS = 0  # Closed system
     TITRATION_SYS = 1  # Titration system
     FLOW_THROUGH_SYS = 2  # Fluid-centered flow-through open system
@@ -69,6 +70,7 @@ class IOPT_2(IntEnum):
     """
     Kinetic Mode Selection:
     """
+
     ARBITRARY_KINETICS = 0  # Reaction progress mode (arbitrary kinetics)
     TRUE_KINETICS = 1  # Reaction progress/time mode (true kinetics)
 
@@ -77,6 +79,7 @@ class IOPT_3(IntEnum):
     """
     Phase Boundary Searches:
     """
+
     STEP_SIZE_BY_PHASE_BOUNDARIES = 0  # Search for phase boundaries and constrain the step size to match
     SEARCH_PHASE_BOUNDARIES = 1  # Search for phase boundaries and print their locations
     DONT_SEARCH_PHASE_BOUNDARIES = 2  # Don't search for phase boundaries
@@ -86,6 +89,7 @@ class IOPT_4(IntEnum):
     """
     Solid Solutions
     """
+
     IGNORE_SOLID_SOLUTIONS = 0
     PERMIT_SOLID_SOLUTIONS = 1
 
@@ -94,6 +98,7 @@ class IOPT_5(IntEnum):
     """
     Clear the ES Solids Read from the INPUT File:
     """
+
     DONT_CLEAR_SOLIDS = 0
     CLEAR_SOLIDS = 1
 
@@ -102,6 +107,7 @@ class IOPT_6(IntEnum):
     """
     Clear the ES Solids at the Initial Value of Reaction Progress:
     """
+
     DONT_CLEAR_SOLIDS_AT_INITIAL = 0
     CLEAR_SOLIDS_AT_INITIAL = 1
 
@@ -110,6 +116,7 @@ class IOPT_7(IntEnum):
     """
     Clear the ES Solids at the End of the Run:
     """
+
     DONT_CLEAR_SOLIDS_AT_END = 0
     CLEAR_SOLIDS_AT_END = 1
 
@@ -118,6 +125,7 @@ class IOPT_9(IntEnum):
     """
     Clear the PRS Solids Read from the INPUT file:
     """
+
     DONT_CLEAR_PRS_SOLIDS_FROM_INPUT = 0
     CLEAR_PRS_SOLIDS_FROM_INPUT = 1
 
@@ -126,6 +134,7 @@ class IOPT_10(IntEnum):
     """
     Clear the PRS Solids at the End of the Run:
     """
+
     DONT_CLEAR_PRS_SOLIDS_AT_END = 0
     CLEAR_PRS_SOLIDS_AT_END = 1  # Do it, unless numerical problems cause early termination
 
@@ -134,6 +143,7 @@ class IOPT_11(IntEnum):
     """
     Auto Basis Switching in pre-N-R Optimization
     """
+
     DONT_PRE_NR_AUTO_BASIS_SWITCH = 0
     PRE_NR_BASIS_SWITCH = 1
 
@@ -142,6 +152,7 @@ class IOPT_12(IntEnum):
     """
     Auto Basis Switching after Newton-Raphson Iteration
     """
+
     DONT_POST_NR_AUTO_BASIS_SWITCH = 0
     POST_NR_BASIS_SWITCH = 1
 
@@ -150,6 +161,7 @@ class IOPT_13(IntEnum):
     """
     Calculational Mode Selection
     """
+
     PATH_TRACE = 0  # Normal path tracing
     ECONOMY = 1  # Economy mode (if permissible)
     SUPER_ECONOMY = 2  # Super economy mode (if permissible)
@@ -159,6 +171,7 @@ class IOPT_14(IntEnum):
     """
     ODE Integrator Corrector Mode Selection
     """
+
     STIFF_SIMPLE_CORRECTORS = 0  # Allow Stiff and Simple Correctors
     SIMPLE_CORRECTORS = 1  # Allow Only the Simple Corrector
     STIFF_CORRECTORS = 2  # Allow Only the Stiff Corrector
@@ -169,6 +182,7 @@ class IOPT_15(IntEnum):
     """
     Force the Suppression of All Redox Reactions (NOT IN USE)
     """
+
     DONT_SUPPRESS_REDOX = 0
     SUPPRESS_REDOX = 1
 
@@ -177,6 +191,7 @@ class IOPT_16(IntEnum):
     """
     BACKUP File Options
     """
+
     NO_BACKUP_FILE = -1
     WRITE_BACKUP_FILE = 0
     WRITE_SEQUENTIAL_BACKUP_FILE = 1
@@ -186,6 +201,7 @@ class IOPT_17(IntEnum):
     """
     PICKUP File Options
     """
+
     DONT_WRITE_PICKUP = -1
     WRITE_PICKUP = 0
 
@@ -194,6 +210,7 @@ class IOPT_18(IntEnum):
     """
     TAB File Options
     """
+
     DONT_WRITE_TAB = -1
     WRITE_TAB = 0
     PREPEND_TAB = 1  # Write a TAB file, prepending TABX file data from a previous run
@@ -203,6 +220,7 @@ class IOPT_19(IntEnum):
     """
     Advanced EQ3NR PICKUP File Options
     """
+
     NORMAL_PICKUP = 0
     QZ_DISSOLVE_PICKUP = 1  # Write an EQ6 INPUT file with Quartz dissolving, relative rate law
     ALBITE_DISSOLVE_PICKUP = 2  # Write an EQ6 INPUT file with Albite dissolving, TST rate law
@@ -213,6 +231,7 @@ class IOPT_20(IntEnum):
     """
     Advanced EQ6 PICKUP File Options:
     """
+
     NORMAL_PICKUP = 0
     FLUID_MIXING_PICKUP = 1  # Write an EQ6 INPUT file with Fluid 1 set up for fluid mixing
 
@@ -221,6 +240,7 @@ class IOPG_1(IntEnum):
     """
     Aqueous Species Activity Coefficient Model
     """
+
     DAVIES = -1
     B_DOT = 0
     PITZER = 1
@@ -231,6 +251,7 @@ class IOPG_2(IntEnum):
     """
     Choice of pH Scale (Rescales Activity Coefficients)
     """
+
     INTERNAL_PH = -1  # no rescaling
     NBS_PH = 0  # uses the Bates-Guggenheim equation
     MESMER_PH = 1  # numerically, pH = -log m(H+)
@@ -240,6 +261,7 @@ class IOPR_1(IntEnum):
     """
     Print All Species Read from the Data File
     """
+
     DONT_PRINT_DATA_FILE_SP = 0
     PRINT_DATA_FILE_SP = 1
 
@@ -248,6 +270,7 @@ class IOPR_2(IntEnum):
     """
     Print All Reactions:
     """
+
     DONT_PRINT_RXNS = 0  # Don't print
     PRINT_ALL_RXNS = 1  # Print the reactions
     PRINT_RXNS_LOGK = 2  # Print the reactions and log K values
@@ -258,6 +281,7 @@ class IOPR_3(IntEnum):
     """
     Print the Aqueous Species Hard Core Diameters
     """
+
     DONT_PRINT_HARD_DIAMETERS = 0
     PRINT_HARD_DIAMETERS = 1
 
@@ -266,6 +290,7 @@ class IOPR_4(IntEnum):
     """
     Print a Table of Aqueous Species Concentrations, Activities, etc.
     """
+
     CUT_NEG8 = -3  # Omit species with molalities < 1.e-8
     CUT_NEG12 = -2  # Omit species with molalities < 1.e-12
     CUT_NEG20 = -1  # Omit species with molalities < 1.e-20
@@ -277,6 +302,7 @@ class IOPR_5(IntEnum):
     """
     Print a Table of Aqueous Species/H+ Activity Ratios
     """
+
     DONT_PRINT_AQ_OVER_H = 0
     PRINT_CAT_RATIOS = 1  # Print cation/H+ activity ratios only
     PRINT_CAT_AN_RATIOS = 2  # Print cation/H+ and anion/H+ activity ratios
@@ -287,6 +313,7 @@ class IOPR_6(IntEnum):
     """
     Print a Table of Aqueous Mass Balance Percentages
     """
+
     DONT_PRINT_AQ_MASS_BAL = -1
     NINTY_NINE_AQ_MASS_BAL = 0  # Print species comprising 99% of mass balance
     PRINT_ALL_SP_MASS_BAL = 1
@@ -296,6 +323,7 @@ class IOPR_7(IntEnum):
     """
     Print Tables of Saturation Indices and Affinities
     """
+
     DONT_PRINT_AFFINITIES = -1
     RID_UNDER_10KCAL_AFFINITIES = 0  # omit phases undersaturated by more than 10 kcal
     PRINT_ALL_AFFINITIES = 1
@@ -305,6 +333,7 @@ class IOPR_8(IntEnum):
     """
     Print a Table of Fugacities:
     """
+
     DONT_PRINT_FUGACITIES = -1
     PRINT_FUGACITIES = 0
 
@@ -313,6 +342,7 @@ class IOPR_9(IntEnum):
     """
     Print a Table of Mean Molal Activity Coefficients
     """
+
     DONT_PRINT_MEAN_ACTIVITY_COE = 0
     PRINT_MEAN_ACTIVITY_COE = 1
 
@@ -321,6 +351,7 @@ class IOPR_10(IntEnum):
     """
     Print a Tabulation of the Pitzer Interaction Coefficients
     """
+
     DONT_PRINT_PITZER_INTERACT_COE = 0
     SUMMARY_PITZER_INTERACT_COE = 1
     DETAILED_PITZER_INTERACT_COE = 2
@@ -330,6 +361,7 @@ class IOPR_17(IntEnum):
     """
     PICKUP file format ("W" or "D")
     """
+
     PICKUP_IS_INPUT_FORMAT = 0
     W_FORMAT = 1
     D_FORMAT = 2
@@ -339,6 +371,7 @@ class IODB_1(IntEnum):
     """
     Print General Diagnostic Messages:
     """
+
     DONT_PRINT_DIAG = 0
     PRINT_LEVEL_1_DIAG = 1  # Print Level 1 diagnostic messages
     PRINT_LEVEL_1_2_DIAG = 2  # Print Level 1 and Level 2 diagnostic messages
@@ -348,6 +381,7 @@ class IODB_2(IntEnum):
     """
     Kinetics Related Diagnostic Messages:
     """
+
     DONT_PRINT_KINETIC_DIAG = 0
     PRINT_LEVEL_1_KINETIC_DIAG = 1  # Print Level 1 kinetics diagnostic messages
     PRINT_LEVEL_1_2_KINETIC_DIAG = 2  # Print Level 1 and Level 2 kinetics diagnostic messages
@@ -357,6 +391,7 @@ class IODB_3(IntEnum):
     """
     Print Pre-Newton-Raphson Optimization Information:
     """
+
     DONT_PRINT_PRE_NR_DIAG = 0
     SUMMARY_PRE_NR_DIAG = 1  # Print summary information
     DETAILED_PRE_NR_DIAG = 2  # Print detailed information (including the beta and del vectors)
@@ -368,6 +403,7 @@ class IODB_4(IntEnum):
     """
     Print Newton-Raphson Iteration Information:
     """
+
     DONT_PRINT_NR_INFO = 0
     SUMMARY_NR_INFO = 1  # Print summary information
     DETAILED_NR_INFO = 2  # Print detailed information (including the beta and del vectors)
@@ -379,6 +415,7 @@ class IODB_5(IntEnum):
     """
     Print Step-Size and Order Selection:
     """
+
     DONT_PRINT_STEP_SELECT_INFO = 0  # Don't print
     SUMMARY_STEP_SELECT_INFO = 1  # Print summary information
     DETAILED_STEP_SELECT_INFO = 2  # Print detailed information
@@ -388,6 +425,7 @@ class IODB_6(IntEnum):
     """
     Print Details of Hypothetical Affinity Calculations:
     """
+
     DONT_PRINT_AFFINITY_CALC = 0  # Don't print
     SUMMARY_AFFINITY_CALC = 1  # Print summary information
     DETAILED_AFFINITY_CALC = 2  # Print detailed information
@@ -397,6 +435,7 @@ class IODB_7(IntEnum):
     """
     Print General Search (e.g., for a phase boundary) Information:
     """
+
     DONT_PRINT_PHASE_BOUNDARY_INFO = 0
     SUMMARY_PHASE_BOUNDRY_INFO = 1  # Print summary information
 
@@ -405,45 +444,46 @@ class IODB_8(IntEnum):
     """
     Print ODE Corrector Iteration Information:
     """
+
     DONT_PRINT_ODE_CORRECTOR = 0
     SUMMARY_ODE_CORRECTOR = 1  # Print summary information
     DETAILED_ODE_CORRECTOR = 2  # Print detailed information (including the betar and delvcr vectors)|
 
 
 EQ36_MODEL_EXTENSIONS: dict[str, str] = {
-    'dav': 'davies',
-    'com': 'b-dot',
-    'cmp': 'b-dot',
-    'ymp': 'b-dot',
-    'cm1': 'b-dot',
-    'cm2': 'b-dot',
-    'cm3': 'b-dot',
-    'alt': 'b-dot',
-    'sup': 'b-dot',
-    'nea': 'b-dot',
-    'cod': 'b-dot',
-    'chv': 'b-dot',
-    'cv1': 'b-dot',
-    'cv2': 'b-dot',
-    'cv3': 'b-dot',
-    'phr': 'b-dot',
-    'skb': 'b-dot',
-    'wat': 'b-dot',
-    'bdt': 'b-dot',
-    'pit': 'pitzer',
-    'pt1': 'pitzer',
-    'pt2': 'pitzer',
-    'pt3': 'pitzer',
-    'hmw': 'pitzer',
-    'ypf': 'pitzer',
-    'fmt': 'pitzer',
-    'ppz': 'pitzer',
-    'pze': 'pitzer',
-    'fwe': 'pitzer',
-    'gmo': 'pitzer',
-    'smw': 'pitzer',
-    'ub0': 'pitzer',
-    'ubr': 'pitzer'
+    "dav": "davies",
+    "com": "b-dot",
+    "cmp": "b-dot",
+    "ymp": "b-dot",
+    "cm1": "b-dot",
+    "cm2": "b-dot",
+    "cm3": "b-dot",
+    "alt": "b-dot",
+    "sup": "b-dot",
+    "nea": "b-dot",
+    "cod": "b-dot",
+    "chv": "b-dot",
+    "cv1": "b-dot",
+    "cv2": "b-dot",
+    "cv3": "b-dot",
+    "phr": "b-dot",
+    "skb": "b-dot",
+    "wat": "b-dot",
+    "bdt": "b-dot",
+    "pit": "pitzer",
+    "pt1": "pitzer",
+    "pt2": "pitzer",
+    "pt3": "pitzer",
+    "hmw": "pitzer",
+    "ypf": "pitzer",
+    "fmt": "pitzer",
+    "ppz": "pitzer",
+    "pze": "pitzer",
+    "fwe": "pitzer",
+    "gmo": "pitzer",
+    "smw": "pitzer",
+    "ub0": "pitzer",
+    "ubr": "pitzer",
 }
 
 
@@ -494,9 +534,26 @@ class Eq3Config(object):
     @property
     def iopt(self) -> list[int]:
         return [
-            self.iopt_1, self.iopt_2, self.iopt_3, self.iopt_4, self.iopt_5, self.iopt_6, self.iopt_7, self.iopt_9, 0,
-            self.iopt_10, self.iopt_11, self.iopt_12, self.iopt_13, self.iopt_14, self.iopt_15, self.iopt_16,
-            self.iopt_17, self.iopt_18, self.iopt_19, self.iopt_20
+            self.iopt_1,
+            self.iopt_2,
+            self.iopt_3,
+            self.iopt_4,
+            self.iopt_5,
+            self.iopt_6,
+            self.iopt_7,
+            self.iopt_9,
+            0,
+            self.iopt_10,
+            self.iopt_11,
+            self.iopt_12,
+            self.iopt_13,
+            self.iopt_14,
+            self.iopt_15,
+            self.iopt_16,
+            self.iopt_17,
+            self.iopt_18,
+            self.iopt_19,
+            self.iopt_20,
         ]
 
     @property
@@ -506,15 +563,51 @@ class Eq3Config(object):
     @property
     def iopr(self) -> list[int]:
         return [
-            self.iopr_1, self.iopr_2, self.iopr_3, self.iopr_4, self.iopr_5, self.iopr_6, self.iopr_7, self.iopr_8,
-            self.iopr_9, self.iopr_10, 0, 0, 0, 0, 0, 0, self.iopr_17, 0, 0, 0
+            self.iopr_1,
+            self.iopr_2,
+            self.iopr_3,
+            self.iopr_4,
+            self.iopr_5,
+            self.iopr_6,
+            self.iopr_7,
+            self.iopr_8,
+            self.iopr_9,
+            self.iopr_10,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            self.iopr_17,
+            0,
+            0,
+            0,
         ]
 
     @property
     def iodb(self) -> list[int]:
         return [
-            self.iodb_1, self.iodb_2, self.iodb_3, self.iodb_4, self.iodb_5, self.iodb_6, self.iodb_7, self.iodb_8, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+            self.iodb_1,
+            self.iodb_2,
+            self.iodb_3,
+            self.iodb_4,
+            self.iodb_5,
+            self.iodb_6,
+            self.iodb_7,
+            self.iodb_8,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
         ]
 
     def make_verbose(self) -> Self:
@@ -607,9 +700,26 @@ class Eq6Config(object):
     @property
     def iopt(self) -> list[int]:
         return [
-            self.iopt_1, self.iopt_2, self.iopt_3, self.iopt_4, self.iopt_5, self.iopt_6, self.iopt_7, self.iopt_9, 0,
-            self.iopt_10, self.iopt_11, self.iopt_12, self.iopt_13, self.iopt_14, self.iopt_15, self.iopt_16,
-            self.iopt_17, self.iopt_18, self.iopt_19, self.iopt_20
+            self.iopt_1,
+            self.iopt_2,
+            self.iopt_3,
+            self.iopt_4,
+            self.iopt_5,
+            self.iopt_6,
+            self.iopt_7,
+            self.iopt_9,
+            0,
+            self.iopt_10,
+            self.iopt_11,
+            self.iopt_12,
+            self.iopt_13,
+            self.iopt_14,
+            self.iopt_15,
+            self.iopt_16,
+            self.iopt_17,
+            self.iopt_18,
+            self.iopt_19,
+            self.iopt_20,
         ]
 
     @property
@@ -619,15 +729,51 @@ class Eq6Config(object):
     @property
     def iopr(self) -> list[int]:
         return [
-            self.iopr_1, self.iopr_2, self.iopr_3, self.iopr_4, self.iopr_5, self.iopr_6, self.iopr_7, self.iopr_8,
-            self.iopr_9, self.iopr_10, 0, 0, 0, 0, 0, 0, self.iopr_17, 0, 0, 0
+            self.iopr_1,
+            self.iopr_2,
+            self.iopr_3,
+            self.iopr_4,
+            self.iopr_5,
+            self.iopr_6,
+            self.iopr_7,
+            self.iopr_8,
+            self.iopr_9,
+            self.iopr_10,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            self.iopr_17,
+            0,
+            0,
+            0,
         ]
 
     @property
     def iodb(self) -> list[int]:
         return [
-            self.iodb_1, self.iodb_2, self.iodb_3, self.iodb_4, self.iodb_5, self.iodb_6, self.iodb_7, self.iodb_8, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+            self.iodb_1,
+            self.iodb_2,
+            self.iodb_3,
+            self.iodb_4,
+            self.iodb_5,
+            self.iodb_6,
+            self.iodb_7,
+            self.iodb_8,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
         ]
 
 
@@ -640,19 +786,20 @@ class Settings(KernelSettings):
     data1_file: str | None = None
     track_path: bool = False
     basis_map: dict[str, str] = field(default_factory=dict)
-    redox_species: str = 'fO2'
+    redox_species: str = "fO2"
 
     @classmethod
     def from_dict(cls, raw: dict[str, object]):
-        model_raw = raw['model']
+        model_raw = raw["model"]
         model: IOPG_1
         if isinstance(model_raw, int):
             model = IOPG_1(model_raw)
         elif isinstance(model_raw, str):
             model_name = EQ36_MODEL_EXTENSIONS.get(model_raw, model_raw)
-            if model_name not in ['pitzer', 'davies', 'b-dot', 'hc_dh']:
+            if model_name not in ["pitzer", "davies", "b-dot", "hc_dh"]:
                 raise EleanorException(
-                    'kernel.model must be \"pitzer\", \"davies\", \"b-dot\", \"hc_dh\" or a standard EQ3/6 file extension')
+                    'kernel.model must be "pitzer", "davies", "b-dot", "hc_dh" or a standard EQ3/6 file extension'
+                )
             match model_name:
                 case "davies":
                     model = IOPG_1.DAVIES
@@ -663,33 +810,33 @@ class Settings(KernelSettings):
                 case "pitzer":
                     model = IOPG_1.PITZER
                 case _:
-                    raise EleanorException('kernel.model has an unsupported value')
+                    raise EleanorException("kernel.model has an unsupported value")
         else:
-            raise EleanorException('kernel.model must be a string or integer')
+            raise EleanorException("kernel.model must be a string or integer")
 
-        charge_balance = raw['charge_balance']
+        charge_balance = raw["charge_balance"]
         if not isinstance(charge_balance, str):
-            raise EleanorException('kernel.charge_balance must be a string')
+            raise EleanorException("kernel.charge_balance must be a string")
 
-        basis_map = raw.get('basis_map', {})
+        basis_map = raw.get("basis_map", {})
         if not isinstance(basis_map, dict):
-            raise EleanorException('kernel.basis_map must be a dict')
+            raise EleanorException("kernel.basis_map must be a dict")
 
-        redox_species = raw.get('redox_species', 'fO2')
+        redox_species = raw.get("redox_species", "fO2")
         if not isinstance(redox_species, str):
-            raise EleanorException('kernel.redox_species must be a str')
+            raise EleanorException("kernel.redox_species must be a str")
 
-        timeout = raw.get('timeout', 0)
+        timeout = raw.get("timeout", 0)
         if timeout is not None and not isinstance(timeout, int):
-            raise EleanorException('kernel.timeout must be an integer or None')
+            raise EleanorException("kernel.timeout must be an integer or None")
         elif timeout == 0:
             timeout = None
 
-        track_path = raw.get('track_path', False)
+        track_path = raw.get("track_path", False)
         if not isinstance(track_path, bool):
-            raise EleanorException('kernel.track_path must be a boolean')
+            raise EleanorException("kernel.track_path must be a boolean")
 
-        raw_eq3_config: dict[str, object] = cast(dict[str, object], raw.get('eq3_config', {}))
+        raw_eq3_config: dict[str, object] = cast(dict[str, object], raw.get("eq3_config", {}))
 
         eq3_config = Eq3Config(
             iopt_2=get_setting(raw_eq3_config, IOPT_2, IOPT_2.ARBITRARY_KINETICS),
@@ -718,38 +865,38 @@ class Settings(KernelSettings):
         )
 
         if eq3_config.iopt_19 != IOPT_19.SIXI_FLUID_1_AS_FLUID_MIX:
-            msg = f'kernel.eq3_config.iopt_19 value ({eq3_config.iopt_19}) is unsupported'
+            msg = f"kernel.eq3_config.iopt_19 value ({eq3_config.iopt_19}) is unsupported"
             raise EleanorException(msg)
 
-        if not raw.get('eq6_config', True):
+        if not raw.get("eq6_config", True):
             eq6_config = None
         else:
-            raw_eq6_config: dict[str, object] = cast(dict[str, object], raw.get('eq6_config', {}))
+            raw_eq6_config: dict[str, object] = cast(dict[str, object], raw.get("eq6_config", {}))
             eq6_config = Eq6Config(
                 jtemp=get_setting(raw_eq6_config, JTEMP, JTEMP.CONSTANT_T),
-                ttk1=_get_float(raw_eq6_config, 'ttk1', 0),
-                ttk2=_get_float(raw_eq6_config, 'ttk2', 0),
-                xi_min=_get_float(raw_eq6_config, 'xi_min', 0),
-                xi_max=_get_float(raw_eq6_config, 'xi_max', 100),
-                time_min=_get_float(raw_eq6_config, 'time_min', 0),
-                time_max=_get_float(raw_eq6_config, 'time_max', 1e38),
-                ph_min=_get_float(raw_eq6_config, 'pH_min', -1e38),
-                ph_max=_get_float(raw_eq6_config, 'pH_max', 1e38),
-                eh_min=_get_float(raw_eq6_config, 'Eh_min', -1e38),
-                eh_max=_get_float(raw_eq6_config, 'Eh_max', 1e38),
-                log_fO2_min=_get_float(raw_eq6_config, 'log_fO2_min', -1e38),
-                log_fO2_max=_get_float(raw_eq6_config, 'log_fO2_max', 1e38),
-                aw_min=_get_float(raw_eq6_config, 'aw_min', -1e38),
-                aw_max=_get_float(raw_eq6_config, 'aw_max', 1e38),
-                xi_print_interval=_get_float(raw_eq6_config, 'xi_print_interval', 1e0),
-                log_xi_print_interval=_get_float(raw_eq6_config, 'log_xi_print_interval', 1e0),
-                time_print_interval=_get_float(raw_eq6_config, 'time_print_interval', 1e38),
-                log_time_print_interval=_get_float(raw_eq6_config, 'log_time_print_interval', 1e38),
-                ph_print_interval=_get_float(raw_eq6_config, 'pH_print_interval', 1e38),
-                eh_print_interval=_get_float(raw_eq6_config, 'Eh_print_interval', 1e38),
-                log_fO2_print_interval=_get_float(raw_eq6_config, 'log_fO2_print_interval', 1e38),
-                aw_print_interval=_get_float(raw_eq6_config, 'aw_print_interval', 1e38),
-                steps_print_interval=_get_int(raw_eq6_config, 'steps_print_interval', 10000),
+                ttk1=_get_float(raw_eq6_config, "ttk1", 0),
+                ttk2=_get_float(raw_eq6_config, "ttk2", 0),
+                xi_min=_get_float(raw_eq6_config, "xi_min", 0),
+                xi_max=_get_float(raw_eq6_config, "xi_max", 100),
+                time_min=_get_float(raw_eq6_config, "time_min", 0),
+                time_max=_get_float(raw_eq6_config, "time_max", 1e38),
+                ph_min=_get_float(raw_eq6_config, "pH_min", -1e38),
+                ph_max=_get_float(raw_eq6_config, "pH_max", 1e38),
+                eh_min=_get_float(raw_eq6_config, "Eh_min", -1e38),
+                eh_max=_get_float(raw_eq6_config, "Eh_max", 1e38),
+                log_fO2_min=_get_float(raw_eq6_config, "log_fO2_min", -1e38),
+                log_fO2_max=_get_float(raw_eq6_config, "log_fO2_max", 1e38),
+                aw_min=_get_float(raw_eq6_config, "aw_min", -1e38),
+                aw_max=_get_float(raw_eq6_config, "aw_max", 1e38),
+                xi_print_interval=_get_float(raw_eq6_config, "xi_print_interval", 1e0),
+                log_xi_print_interval=_get_float(raw_eq6_config, "log_xi_print_interval", 1e0),
+                time_print_interval=_get_float(raw_eq6_config, "time_print_interval", 1e38),
+                log_time_print_interval=_get_float(raw_eq6_config, "log_time_print_interval", 1e38),
+                ph_print_interval=_get_float(raw_eq6_config, "pH_print_interval", 1e38),
+                eh_print_interval=_get_float(raw_eq6_config, "Eh_print_interval", 1e38),
+                log_fO2_print_interval=_get_float(raw_eq6_config, "log_fO2_print_interval", 1e38),
+                aw_print_interval=_get_float(raw_eq6_config, "aw_print_interval", 1e38),
+                steps_print_interval=_get_int(raw_eq6_config, "steps_print_interval", 10000),
                 iopt_1=get_setting(raw_eq6_config, IOPT_1, IOPT_1.CLOSED_SYS),
                 iopt_2=get_setting(raw_eq6_config, IOPT_2, IOPT_2.ARBITRARY_KINETICS),
                 iopt_3=get_setting(raw_eq6_config, IOPT_3, IOPT_3.STEP_SIZE_BY_PHASE_BOUNDARIES),

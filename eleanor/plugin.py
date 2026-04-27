@@ -23,6 +23,7 @@ shared behaviour is:
 * An optional ``validator`` callback can reject ill-shaped factories at
   registration time.
 """
+
 import os
 import warnings
 from collections.abc import Callable, Mapping
@@ -32,7 +33,7 @@ from typing import Generic, TypeVar, cast, final
 from eleanor.exceptions import EleanorException
 
 #: Generic parameter for the per-extension factory callable (or spec object).
-F = TypeVar('F')
+F = TypeVar("F")
 
 
 @final
@@ -77,9 +78,7 @@ class PluginRegistry(Generic[F]):
         self._override_env_var = override_env_var
         self._validator = validator
         self._registry = {}
-        self._builtins = (
-            builtin_names if builtin_names is not None else frozenset(builtins.keys())
-        )
+        self._builtins = builtin_names if builtin_names is not None else frozenset(builtins.keys())
         self._discovered = False
 
         for name, factory in builtins.items():
@@ -125,7 +124,7 @@ class PluginRegistry(Generic[F]):
         try:
             return self._registry[name]
         except KeyError as e:
-            choices = ', '.join(sorted(self._registry))
+            choices = ", ".join(sorted(self._registry))
             raise EleanorException(
                 f'unsupported {self._kind} "{name}"; choose from {choices}',
             ) from e
@@ -152,7 +151,7 @@ class PluginRegistry(Generic[F]):
         # already typed ``str``.  The falsy check below still rejects the
         # empty-string case, which is the only runtime risk.
         if not name:
-            raise EleanorException(f'{self._kind} plugin name must be a non-empty string')
+            raise EleanorException(f"{self._kind} plugin name must be a non-empty string")
 
         coerced = self._validate(name, factory)
 
@@ -165,15 +164,14 @@ class PluginRegistry(Generic[F]):
                 if not overrides:
                     warnings.warn(
                         f'refusing to override built-in {self._kind} "{name}"; '
-                        + f'set {self._override_env_var}=1 to override',
+                        + f"set {self._override_env_var}=1 to override",
                         RuntimeWarning,
                         stacklevel=2,
                     )
                     return
             elif not overrides:
                 warnings.warn(
-                    f'{self._kind} "{name}" is already registered; '
-                    + f'set {self._override_env_var}=1 to override',
+                    f'{self._kind} "{name}" is already registered; ' + f"set {self._override_env_var}=1 to override",
                     RuntimeWarning,
                     stacklevel=2,
                 )
@@ -190,8 +188,8 @@ class PluginRegistry(Generic[F]):
         return self._validator(name, factory)
 
     def _overrides_allowed(self) -> bool:
-        value = os.environ.get(self._override_env_var, '').strip().lower()
-        return value not in ('', '0', 'false', 'no', 'off')
+        value = os.environ.get(self._override_env_var, "").strip().lower()
+        return value not in ("", "0", "false", "no", "off")
 
     def _discover_entry_points(self) -> None:
         if self._discovered:
@@ -214,8 +212,7 @@ class PluginRegistry(Generic[F]):
                 loaded = cast(object, ep.load())
             except Exception as e:
                 warnings.warn(
-                    f'failed to load {self._kind} entry point "{ep.name}" '
-                    + f'from "{ep.value}": {e}',
+                    f'failed to load {self._kind} entry point "{ep.name}" ' + f'from "{ep.value}": {e}',
                     RuntimeWarning,
                     stacklevel=2,
                 )
@@ -224,8 +221,7 @@ class PluginRegistry(Generic[F]):
                 self.register(ep.name, loaded)
             except EleanorException as e:
                 warnings.warn(
-                    f'{self._kind} entry point "{ep.name}" from "{ep.value}" '
-                    + f'is invalid: {e}',
+                    f'{self._kind} entry point "{ep.name}" from "{ep.value}" ' + f"is invalid: {e}",
                     RuntimeWarning,
                     stacklevel=2,
                 )

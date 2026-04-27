@@ -18,6 +18,7 @@ The public helpers (:func:`register_executor`, :func:`available_executors`,
 :func:`get_factory`) bind to the registry's methods; the registry instance
 itself is exposed as :data:`registry` for advanced introspection.
 """
+
 from collections.abc import Callable
 from typing import TypeAlias
 
@@ -28,20 +29,20 @@ from .interface import AbstractExecutor
 ExecutorFactory: TypeAlias = Callable[[int | None], AbstractExecutor]
 
 #: Name of the entry-point group inspected on first registry access.
-ENTRY_POINT_GROUP = 'eleanor.executors'
+ENTRY_POINT_GROUP = "eleanor.executors"
 
 #: Environment variable users can set to allow third-party plugins to override
 #: built-ins or already-registered plugins.
-OVERRIDE_ENV_VAR = 'ELEANOR_EXECUTOR_OVERRIDES'
+OVERRIDE_ENV_VAR = "ELEANOR_EXECUTOR_OVERRIDES"
 
 
 #: The shared :class:`PluginRegistry` instance backing this module's helpers.
 registry: PluginRegistry[ExecutorFactory] = PluginRegistry(
-    kind='executor',
+    kind="executor",
     entry_point_group=ENTRY_POINT_GROUP,
     override_env_var=OVERRIDE_ENV_VAR,
     builtins={},
-    builtin_names=frozenset({'serial', 'multiprocessing'}),
+    builtin_names=frozenset({"serial", "multiprocessing"}),
 )
 
 #: Canonical names of the executors shipped inside the eleanor distribution.

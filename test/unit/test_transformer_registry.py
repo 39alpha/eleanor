@@ -12,6 +12,26 @@ from eleanor.transformer.registry import registry
 from .common import TestCase
 
 
+class _FakeEntryPoint:
+    """
+    Lightweight stand-in for :class:`importlib.metadata.EntryPoint`.
+    """
+
+    def __init__(self, name: str, value: str, loader):
+        self.name = name
+        self.value = value
+        self._loader = loader
+
+    def load(self):
+        return self._loader()
+
+
+def _stamp(factory, version: int = 1):
+    """Stamp the eleanor plugin API version on a test factory."""
+    factory.__eleanor_api_version__ = version
+    return factory
+
+
 class _TransformerRegistryTestCase(TestCase):
 
     def setUp(self) -> None:
@@ -50,6 +70,7 @@ class TestRegisterTransformer(_TransformerRegistryTestCase):
         def factory(**_args):
             return mock.Mock()
 
+        _stamp(factory)
         register_transformer('plugin', factory)
         self.assertIs(get_factory('plugin'), factory)
         self.assertIn('plugin', available_transformers())
@@ -60,3 +81,19 @@ class TestRegisterTransformer(_TransformerRegistryTestCase):
         """
         with self.assertRaises(EleanorException):
             get_factory('nope')
+
+    def test_discovery_skips_too_new_api_plugin_with_warning(self):
+        """
+        Ensure too-new transformer entry points are warned and skipped.
+        """
+
+        def factory(**_args):
+            return mock.Mock()
+
+        _stamp(factory, 99)
+        ep = _FakeEntryPoint("too_new", "pkg:factory", lambda: factory)
+        registry._discovered = False
+        with mock.patch("eleanor.plugin.entry_points", return_value=[ep]):
+            with self.assertWarnsRegex(RuntimeWarning, 'transformer entry point "too_new"'):
+                names = available_transformers()
+        self.assertNotIn("too_new", names)

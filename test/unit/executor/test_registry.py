@@ -15,10 +15,18 @@ from eleanor.executor.registry import (
 from ..common import TestCase
 
 
-def _make_factory(return_value=None):
-    """Return a fresh factory callable for registry tests."""
+def _make_factory(return_value=None, *, api_version: int = 1):
+    """Return a fresh factory callable for registry tests.
+
+    The factory is stamped with ``__eleanor_api_version__ = api_version`` so
+    the registry does not emit the unversioned-plugin warning during normal
+    fixture setup. Tests that exercise the version-mismatch path pass an
+    out-of-range ``api_version`` explicitly.
+    """
     sentinel = return_value if return_value is not None else object()
-    return mock.MagicMock(return_value=sentinel), sentinel
+    factory = mock.MagicMock(return_value=sentinel)
+    factory.__eleanor_api_version__ = api_version
+    return factory, sentinel
 
 
 class _FakeEntryPoint:
@@ -219,6 +227,19 @@ class TestEntryPointDiscovery(_RegistryTestCase):
                 available_executors()
 
         self.assertIs(registry._registry['serial'], original)
+
+    def test_discovery_skips_too_new_api_plugin_with_warning(self):
+        """
+        Ensure too-new executor entry points are warned and skipped.
+        """
+        factory, _ = _make_factory(api_version=99)
+        ep = _FakeEntryPoint("too_new", "pkg:factory", lambda: factory)
+
+        with mock.patch("eleanor.plugin.entry_points", return_value=[ep]):
+            with self.assertWarnsRegex(RuntimeWarning, 'executor entry point "too_new"'):
+                executors = available_executors()
+
+        self.assertNotIn("too_new", executors)
 
 
 class TestGetFactory(_RegistryTestCase):

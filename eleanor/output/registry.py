@@ -12,6 +12,11 @@ Each registered factory is a callable invoked as
 as ``Callable[..., object]`` so this module has no structural dependency on
 :mod:`eleanor.output.interface` or :mod:`eleanor.config`. Callers validate
 the returned sink against :class:`~eleanor.output.OutputSink` at use sites.
+
+Output plugins declare API compatibility via a module- or function-level
+``__eleanor_api_version__`` attribute. Registration checks this against this
+module's ``PLUGIN_API_VERSION``/``MIN_SUPPORTED_API_VERSION`` policy; see
+``AGENTS.md`` for details.
 """
 
 from collections.abc import Callable
@@ -25,6 +30,8 @@ ENTRY_POINT_GROUP = "eleanor.outputs"
 #: Environment variable that allows plugin registrations to override built-ins
 #: or previously-registered plugins.
 OVERRIDE_ENV_VAR = "ELEANOR_OUTPUT_OVERRIDES"
+PLUGIN_API_VERSION: int = 1
+MIN_SUPPORTED_API_VERSION: int = 1
 
 #: Factory callable shape for output sink builders.
 OutputFactory: TypeAlias = Callable[..., object]
@@ -37,6 +44,8 @@ registry: PluginRegistry[OutputFactory] = PluginRegistry(
     override_env_var=OVERRIDE_ENV_VAR,
     builtins={},
     builtin_names=frozenset({"postgres"}),
+    api_version=PLUGIN_API_VERSION,
+    min_api_version=MIN_SUPPORTED_API_VERSION,
 )
 
 #: Canonical names of the output sinks shipped inside the eleanor distribution.

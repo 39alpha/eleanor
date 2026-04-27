@@ -85,6 +85,8 @@ def _build_postgres(config: object, *, verbose: bool = False, **args: object) ->
     return PostgresSink(database, verbose=verbose)
 
 
+_build_postgres.__eleanor_api_version__ = 1  # pyright: ignore[reportFunctionMemberAccess]
+
 register_output("postgres", _build_postgres)
 
 __all__ = [

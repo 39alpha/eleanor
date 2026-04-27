@@ -3,6 +3,7 @@ from abc import ABC, abstractmethod
 from ..exceptions import EleanorException
 from ..kernel.interface import AbstractKernel
 from ..order import Order
+from ..plugin import is_abstract_instantiation_error, resolve_api_version
 
 
 class AbstractTransformer(ABC):
@@ -31,7 +32,17 @@ def transform(
 
     if len(order.transformers) != 0:
         for transformer_config in order.transformers:
-            built = get_factory(transformer_config.type)(**transformer_config.args)
+            transformer_factory = get_factory(transformer_config.type)
+            version = resolve_api_version(transformer_factory)
+            try:
+                built = transformer_factory(**transformer_config.args)
+            except TypeError as e:
+                if not is_abstract_instantiation_error(e):
+                    raise
+                version_suffix = "" if version is None else f" (API v{version})"
+                raise EleanorException(
+                    f'transformer plugin "{transformer_config.type}" failed to instantiate{version_suffix}: {e}',
+                ) from e
             if not isinstance(built, AbstractTransformer):
                 raise EleanorException(
                     f'transformer plugin "{transformer_config.type}" returned '

@@ -14,6 +14,7 @@ from .kernel.registry import get_factory as get_kernel_spec
 from .order import NavigatorProtocol, Order
 from .output.interface import ComputeResult, OutputSink, RunStats, WriteOutcome
 from .output.registry import get_factory as get_output_factory
+from .plugin import is_abstract_instantiation_error, resolve_api_version
 from .progress import Progress, ProgressHandle
 from .transformer import transform
 from .typing import EleanorKwargs, Self, Unpack, cast
@@ -428,7 +429,16 @@ class Eleanor(object):
             from .navigator.registry import get_factory as get_navigator_factory
 
             navigator_factory = get_navigator_factory(order.navigator.type)
-            built = navigator_factory(order, kernel, **order.navigator.args)
+            version = resolve_api_version(navigator_factory)
+            try:
+                built = navigator_factory(order, kernel, **order.navigator.args)
+            except TypeError as e:
+                if not is_abstract_instantiation_error(e):
+                    raise
+                version_suffix = "" if version is None else f" (API v{version})"
+                raise EleanorException(
+                    f'navigator plugin "{order.navigator.type}" failed to instantiate{version_suffix}: {e}',
+                ) from e
             if not isinstance(built, NavigatorProtocol):
                 raise EleanorException(
                     f'navigator plugin "{order.navigator.type}" returned '
@@ -657,7 +667,16 @@ class Eleanor(object):
 
     def load_output_sink(self, verbose: bool = False) -> OutputSink:
         factory = get_output_factory(self.config.output.type)
-        built = factory(self.config, verbose=verbose, **self.config.output.args)
+        version = resolve_api_version(factory)
+        try:
+            built = factory(self.config, verbose=verbose, **self.config.output.args)
+        except TypeError as e:
+            if not is_abstract_instantiation_error(e):
+                raise
+            version_suffix = "" if version is None else f" (API v{version})"
+            raise EleanorException(
+                f'output sink plugin "{self.config.output.type}" failed to instantiate{version_suffix}: {e}',
+            ) from e
         if not isinstance(built, OutputSink):
             raise EleanorException(
                 f'output sink plugin "{self.config.output.type}" returned '
@@ -670,7 +689,15 @@ class Eleanor(object):
             raise EleanorException("order kernel is required")
         spec = get_kernel_spec(order.kernel.type)
         settings = order.kernel.resolved_settings()
-        kernel = spec.build(settings, *self.kernel_args)
+        try:
+            kernel = spec.build(settings, *self.kernel_args)
+        except TypeError as e:
+            if not is_abstract_instantiation_error(e):
+                raise
+            raise EleanorException(
+                f'kernel plugin "{order.kernel.type}" failed to instantiate '
+                + f"(API v{spec.plugin_api_version}): {e}",
+            ) from e
         if not isinstance(kernel, AbstractKernel):
             raise EleanorException(
                 f'kernel plugin "{order.kernel.type}" returned '

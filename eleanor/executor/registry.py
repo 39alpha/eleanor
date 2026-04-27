@@ -17,6 +17,11 @@ This module is a thin wrapper around :class:`eleanor.plugin.PluginRegistry`.
 The public helpers (:func:`register_executor`, :func:`available_executors`,
 :func:`get_factory`) bind to the registry's methods; the registry instance
 itself is exposed as :data:`registry` for advanced introspection.
+
+Executor plugins declare API compatibility via a module- or function-level
+``__eleanor_api_version__`` attribute. Registration checks this against this
+module's ``PLUGIN_API_VERSION``/``MIN_SUPPORTED_API_VERSION`` policy; see
+``AGENTS.md`` for details.
 """
 
 from collections.abc import Callable
@@ -34,6 +39,8 @@ ENTRY_POINT_GROUP = "eleanor.executors"
 #: Environment variable users can set to allow third-party plugins to override
 #: built-ins or already-registered plugins.
 OVERRIDE_ENV_VAR = "ELEANOR_EXECUTOR_OVERRIDES"
+PLUGIN_API_VERSION: int = 1
+MIN_SUPPORTED_API_VERSION: int = 1
 
 
 #: The shared :class:`PluginRegistry` instance backing this module's helpers.
@@ -43,6 +50,8 @@ registry: PluginRegistry[ExecutorFactory] = PluginRegistry(
     override_env_var=OVERRIDE_ENV_VAR,
     builtins={},
     builtin_names=frozenset({"serial", "multiprocessing"}),
+    api_version=PLUGIN_API_VERSION,
+    min_api_version=MIN_SUPPORTED_API_VERSION,
 )
 
 #: Canonical names of the executors shipped inside the eleanor distribution.

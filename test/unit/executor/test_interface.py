@@ -93,7 +93,7 @@ class TestExecutorInterface(TestCase):
         """
         Ensure multiprocessing backend passes normalized worker counts to constructor.
         """
-        sentinel = object()
+        sentinel = _Executor()
         # The multiprocessing factory references MultiprocessingExecutor from the
         # executor package's namespace (imported at module scope in __init__.py).
         with mock.patch(

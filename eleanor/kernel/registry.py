@@ -29,11 +29,16 @@ classes so the registry module itself has no structural dependency on
 :mod:`eleanor.kernel.interface` or :mod:`eleanor.kernel.config`. Callers
 that need typed access are expected to validate the returned values with
 :func:`isinstance` before use.
+
+Plugins also declare a kernel-plugin API version using
+``KernelSpec.plugin_api_version``. Registration enforces compatibility against
+this module's ``PLUGIN_API_VERSION`` and ``MIN_SUPPORTED_API_VERSION`` values.
+See ``AGENTS.md`` for the versioning policy.
 """
 
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import TypeAlias
+from typing import TypeAlias, cast
 
 from eleanor.exceptions import EleanorException
 from eleanor.plugin import PluginRegistry
@@ -44,6 +49,8 @@ ENTRY_POINT_GROUP = "eleanor.kernels"
 #: Environment variable that, when truthy, allows plugin registrations to
 #: override built-in or previously-registered kernels.
 OVERRIDE_ENV_VAR = "ELEANOR_KERNEL_OVERRIDES"
+PLUGIN_API_VERSION: int = 1
+MIN_SUPPORTED_API_VERSION: int = 1
 
 #: Raw settings mapping shape (``kernel.args`` in an order file).
 SettingsRaw: TypeAlias = dict[str, object]
@@ -72,10 +79,13 @@ class KernelSpec(object):
     :param build: callable invoked as ``build(settings, *kernel_args)`` to
         construct the concrete :class:`~eleanor.kernel.interface.AbstractKernel`
         instance at run time.
+    :param plugin_api_version: kernel plugin API version this spec targets.
+        Defaults to ``1`` for backward compatibility with existing built-ins.
     """
 
     settings_from_dict: SettingsFromDict
     build: KernelBuild
+    plugin_api_version: int = 1
 
 
 #: A factory is either a ready :class:`KernelSpec` or a zero-arg callable
@@ -85,10 +95,16 @@ KernelFactory: TypeAlias = KernelSpec | Callable[[], KernelSpec]
 
 
 def _coerce_to_spec(name: str, factory: object) -> KernelSpec:
-    """Accept a :class:`KernelSpec` directly or a zero-arg callable returning one."""
+    """Accept a :class:`KernelSpec` directly or a zero-arg callable returning one.
+
+    Also validates that :attr:`KernelSpec.plugin_api_version` is a real ``int``
+    (rejecting ``bool``, which is a subtype of ``int`` in Python and would
+    otherwise silently flow into the version comparison) before the registry
+    runs its API-version check.
+    """
     if isinstance(factory, KernelSpec):
-        return factory
-    if callable(factory):
+        spec = factory
+    elif callable(factory):
         try:
             produced = factory()
         except TypeError as e:
@@ -99,11 +115,32 @@ def _coerce_to_spec(name: str, factory: object) -> KernelSpec:
             raise EleanorException(
                 f'kernel plugin "{name}" factory must return a KernelSpec, ' + f"got {type(produced).__name__}",
             )
-        return produced
-    raise EleanorException(
-        f'kernel plugin "{name}" must be a KernelSpec or a zero-arg callable '
-        + f"returning one (got {type(factory).__name__})",
-    )
+        spec = produced
+    else:
+        raise EleanorException(
+            f'kernel plugin "{name}" must be a KernelSpec or a zero-arg callable '
+            + f"returning one (got {type(factory).__name__})",
+        )
+    # ``KernelSpec.plugin_api_version`` is annotated ``int`` but the dataclass
+    # does not enforce that at runtime, so a ``bool`` (which is a subclass of
+    # ``int``) or any other type can be smuggled through.  ``cast(object, ...)``
+    # forces basedpyright to treat the value as opaque so the runtime guard
+    # actually inspects it rather than trusting the annotation.
+    declared = cast(object, spec.plugin_api_version)
+    if isinstance(declared, bool) or not isinstance(declared, int):
+        raise EleanorException(
+            f'kernel plugin "{name}" KernelSpec.plugin_api_version must be int, ' + f"got {type(declared).__name__}",
+        )
+    return spec
+
+
+def _spec_api_version(spec: KernelSpec) -> int | None:
+    """Resolver hook used by :class:`PluginRegistry` for the kernel registry.
+
+    Reads :attr:`KernelSpec.plugin_api_version` directly rather than the
+    ``__eleanor_api_version__`` dunder used for bare-callable registries.
+    """
+    return spec.plugin_api_version
 
 
 #: Canonical names of the kernels shipped inside the eleanor distribution.
@@ -121,6 +158,9 @@ registry: PluginRegistry[KernelSpec] = PluginRegistry(
     builtins={},
     builtin_names=BUILTIN_KERNELS,
     validator=_coerce_to_spec,
+    api_version=PLUGIN_API_VERSION,
+    min_api_version=MIN_SUPPORTED_API_VERSION,
+    api_version_resolver=_spec_api_version,
 )
 
 

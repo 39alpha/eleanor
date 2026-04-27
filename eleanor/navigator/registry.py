@@ -13,6 +13,11 @@ block from the order file's ``navigator`` section. Factories are typed as
 :mod:`eleanor.navigator` itself; callers validate the returned navigator
 against :class:`~eleanor.navigator.AbstractNavigator` (or the
 :class:`~eleanor.order.NavigatorProtocol` structural alternative) before use.
+
+Navigator plugins declare API compatibility via a module- or function-level
+``__eleanor_api_version__`` attribute. Registration checks this against this
+module's ``PLUGIN_API_VERSION``/``MIN_SUPPORTED_API_VERSION`` policy; see
+``AGENTS.md`` for details.
 """
 
 from collections.abc import Callable
@@ -26,6 +31,8 @@ ENTRY_POINT_GROUP = "eleanor.navigators"
 #: Environment variable that allows plugin registrations to override built-ins
 #: or previously-registered plugins.
 OVERRIDE_ENV_VAR = "ELEANOR_NAVIGATOR_OVERRIDES"
+PLUGIN_API_VERSION: int = 1
+MIN_SUPPORTED_API_VERSION: int = 1
 
 #: Factory callable shape. Each registered navigator is invoked with the
 #: current order, kernel, and keyword args from the order file.
@@ -43,6 +50,8 @@ registry: PluginRegistry[NavigatorFactory] = PluginRegistry(
     override_env_var=OVERRIDE_ENV_VAR,
     builtins={},
     builtin_names=BUILTIN_NAVIGATORS,
+    api_version=PLUGIN_API_VERSION,
+    min_api_version=MIN_SUPPORTED_API_VERSION,
 )
 
 

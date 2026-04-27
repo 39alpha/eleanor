@@ -13,6 +13,14 @@ from eleanor.output.registry import registry
 from ..common import TestCase
 
 
+def _make_factory(return_value=None, *, api_version: int = 1):
+    """Return a stamped Mock factory for output registry tests."""
+    sentinel = return_value if return_value is not None else object()
+    factory = mock.Mock(return_value=sentinel)
+    factory.__eleanor_api_version__ = api_version
+    return factory
+
+
 class _FakeEntryPoint:
     """Lightweight stand-in for :class:`importlib.metadata.EntryPoint`."""
 
@@ -60,7 +68,7 @@ class TestRegisterOutput(_OutputRegistryTestCase):
         """
         Ensure a plugin output factory can be registered and retrieved by name.
         """
-        factory = mock.Mock(return_value=object())
+        factory = _make_factory()
         register_output('plugin', factory)
 
         self.assertIn('plugin', available_outputs())
@@ -77,11 +85,13 @@ class TestRegisterOutput(_OutputRegistryTestCase):
         """
         Ensure built-in outputs cannot be overridden by default.
         """
+        import os
+
         original = registry._registry['postgres']
-        replacement = mock.Mock(return_value=object())
+        replacement = _make_factory()
 
         with mock.patch.dict('os.environ', {}, clear=False):
-            __import__('os').environ.pop(OVERRIDE_ENV_VAR, None)
+            os.environ.pop(OVERRIDE_ENV_VAR, None)
             with self.assertWarnsRegex(RuntimeWarning, 'refusing to override built-in'):
                 register_output('postgres', replacement)
 
@@ -92,7 +102,7 @@ class TestRegisterOutput(_OutputRegistryTestCase):
         Ensure built-in outputs can be overridden when the override env var is set.
         """
         original = registry._registry['postgres']
-        replacement = mock.Mock(return_value=object())
+        replacement = _make_factory()
         try:
             with mock.patch.dict('os.environ', {OVERRIDE_ENV_VAR: '1'}):
                 register_output('postgres', replacement)
@@ -114,7 +124,7 @@ class TestEntryPointDiscovery(_OutputRegistryTestCase):
         """
         Ensure entry points in the ``eleanor.outputs`` group populate the registry.
         """
-        factory = mock.Mock(return_value=object())
+        factory = _make_factory()
         ep = _FakeEntryPoint('plugin', 'pkg.mod:build_sink', lambda: factory)
 
         with mock.patch('eleanor.plugin.entry_points', return_value=[ep]):
@@ -127,7 +137,7 @@ class TestEntryPointDiscovery(_OutputRegistryTestCase):
         """
         Ensure a failing entry point emits a warning and does not abort discovery.
         """
-        good_factory = mock.Mock(return_value=object())
+        good_factory = _make_factory()
 
         def _fail():
             raise ImportError('boom')
@@ -153,3 +163,16 @@ class TestEntryPointDiscovery(_OutputRegistryTestCase):
                 outputs = available_outputs()
 
         self.assertNotIn('bad', outputs)
+
+    def test_discovery_skips_too_new_api_plugin_with_warning(self):
+        """
+        Ensure too-new output entry points are warned and skipped.
+        """
+        factory = _make_factory(api_version=99)
+        ep = _FakeEntryPoint("too_new", "pkg:factory", lambda: factory)
+
+        with mock.patch("eleanor.plugin.entry_points", return_value=[ep]):
+            with self.assertWarnsRegex(RuntimeWarning, 'output entry point "too_new"'):
+                outputs = available_outputs()
+
+        self.assertNotIn("too_new", outputs)

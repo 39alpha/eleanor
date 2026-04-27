@@ -1,5 +1,7 @@
 import warnings
 
+from ..exceptions import EleanorException
+from ..plugin import is_abstract_instantiation_error, resolve_api_version
 from .interface import AbstractExecutor, AbstractFuture
 from .multiprocessing import MultiprocessingExecutor
 from .registry import (
@@ -52,6 +54,9 @@ def _build_multiprocessing(num_workers: int | None) -> AbstractExecutor:
     return MultiprocessingExecutor(num_workers=_normalize_num_workers(num_workers))
 
 
+_build_serial.__eleanor_api_version__ = 1  # pyright: ignore[reportFunctionMemberAccess]
+_build_multiprocessing.__eleanor_api_version__ = 1  # pyright: ignore[reportFunctionMemberAccess]
+
 register_executor("serial", _build_serial)
 register_executor("multiprocessing", _build_multiprocessing)
 
@@ -67,4 +72,23 @@ def build_executor(kind: str = "multiprocessing", *, num_workers: int | None = N
         normalize or ignore this value; see the individual executor classes.
     """
     factory = get_factory(kind)
-    return factory(num_workers)
+    version = resolve_api_version(factory)
+    try:
+        executor = factory(num_workers)
+    except TypeError as e:
+        if not is_abstract_instantiation_error(e):
+            raise
+        version_suffix = "" if version is None else f" (API v{version})"
+        raise EleanorException(
+            f'executor plugin "{kind}" failed to instantiate{version_suffix}: {e}',
+        ) from e
+    # ``ExecutorFactory`` declares the return type as ``AbstractExecutor``, but
+    # entry-point-loaded plugins reach the registry as ``object`` and are cast
+    # without runtime validation. The ``isinstance`` guard is a backstop for
+    # third-party factories that violate the contract; basedpyright cannot see
+    # past the static type, so the redundancy warning is suppressed.
+    if not isinstance(executor, AbstractExecutor):  # pyright: ignore[reportUnnecessaryIsInstance]
+        raise EleanorException(
+            f'executor plugin "{kind}" returned {type(executor).__name__}, ' + "expected an AbstractExecutor",
+        )
+    return executor

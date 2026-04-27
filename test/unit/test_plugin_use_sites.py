@@ -1,0 +1,379 @@
+"""Tests of use-site error wrappers for plugin instantiation.
+
+Each plugin extension point's use site catches :class:`TypeError`,
+checks whether it came from :class:`abc.ABCMeta` (i.e. the plugin
+forgot to override an ``@abstractmethod``), and re-raises as
+:class:`EleanorException` with the plugin name and resolved API
+version. Unrelated ``TypeError``s must propagate unchanged so the
+original traceback survives.
+"""
+
+from abc import ABC, abstractmethod
+from types import SimpleNamespace
+from unittest import mock
+
+from eleanor.eleanor import Eleanor
+from eleanor.exceptions import EleanorException
+from eleanor.executor import AbstractExecutor, build_executor
+from eleanor.executor.registry import registry as executor_registry
+from eleanor.kernel.registry import KernelSpec, registry as kernel_registry
+from eleanor.navigator.registry import registry as navigator_registry
+from eleanor.order import LeafPlan, NavigatorProtocol  # noqa: F401
+from eleanor.output import OutputSink  # noqa: F401
+from eleanor.output.registry import registry as output_registry
+from eleanor.transformer import AbstractTransformer, transform
+from eleanor.transformer.registry import registry as transformer_registry
+
+from .common import TestCase
+
+
+def _stamp(obj, version: int = 1):
+    obj.__eleanor_api_version__ = version
+    return obj
+
+
+class _RegistrySnapshot:
+    """Mixin that snapshots/restores a registry's mutable state."""
+
+    def _snapshot(self, registry) -> None:
+        self._saved_entries = dict(registry._registry)
+        self._saved_discovered = registry._discovered
+        self._registry = registry
+
+    def _restore(self) -> None:
+        self._registry._registry.clear()
+        self._registry._registry.update(self._saved_entries)
+        self._registry._discovered = self._saved_discovered
+
+
+class TestBuildExecutorErrorWrapping(_RegistrySnapshot, TestCase):
+    """
+    Tests of the use-site wrapper in :func:`eleanor.executor.build_executor`.
+    """
+
+    def setUp(self) -> None:
+        self._snapshot(executor_registry)
+
+    def tearDown(self) -> None:
+        self._restore()
+
+    def test_abstract_subclass_typeerror_is_wrapped(self):
+        """
+        Ensure a plugin whose class misses an abstract method is rethrown as EleanorException.
+        """
+
+        class _IncompleteExecutor(AbstractExecutor):
+            # Deliberately omit ``submit`` and ``shutdown`` overrides so the
+            # ``ABCMeta`` instantiation in the factory raises ``TypeError``.
+            pass
+
+        def factory(_num_workers):
+            return _IncompleteExecutor()  # pyright: ignore[reportAbstractUsage]
+
+        _stamp(factory, 1)
+        executor_registry.register("incomplete", factory)
+        with self.assertRaisesRegex(EleanorException, 'executor plugin "incomplete" failed to instantiate'):
+            _ = build_executor(kind="incomplete")
+
+    def test_abstract_subclass_typeerror_message_includes_api_version(self):
+        """
+        Ensure the wrapped error mentions the plugin's resolved API version.
+        """
+
+        class _IncompleteExecutor(AbstractExecutor):
+            pass
+
+        def factory(_num_workers):
+            return _IncompleteExecutor()  # pyright: ignore[reportAbstractUsage]
+
+        _stamp(factory, 1)
+        executor_registry.register("incomplete2", factory)
+        with self.assertRaisesRegex(EleanorException, r"API v1"):
+            _ = build_executor(kind="incomplete2")
+
+    def test_unrelated_typeerror_propagates(self):
+        """
+        Ensure a non-abstract TypeError from inside the factory is not rewrapped.
+        """
+
+        def factory(_num_workers):
+            raise TypeError("argument of type 'int' is not iterable")
+
+        _stamp(factory, 1)
+        executor_registry.register("typeerror", factory)
+        with self.assertRaisesRegex(TypeError, "is not iterable"):
+            _ = build_executor(kind="typeerror")
+
+    def test_non_executor_return_is_rejected(self):
+        """
+        Ensure a factory returning a non-AbstractExecutor is rejected with EleanorException.
+        """
+
+        def factory(_num_workers):
+            return "not-an-executor"
+
+        _stamp(factory, 1)
+        executor_registry.register("badreturn", factory)
+        with self.assertRaisesRegex(EleanorException, "expected an AbstractExecutor"):
+            _ = build_executor(kind="badreturn")
+
+
+class _StubKernel(SimpleNamespace):
+    """Stand-in for an AbstractKernel used in transformer tests."""
+
+
+class TestTransformerErrorWrapping(_RegistrySnapshot, TestCase):
+    """
+    Tests of the use-site wrapper in :func:`eleanor.transformer.transform`.
+    """
+
+    def setUp(self) -> None:
+        self._snapshot(transformer_registry)
+
+    def tearDown(self) -> None:
+        self._restore()
+
+    def _order_with_transformers(self, transformer_type: str):
+        order = SimpleNamespace(
+            transformers=[SimpleNamespace(type=transformer_type, args={})],
+        )
+        return order
+
+    def test_abstract_subclass_typeerror_is_wrapped(self):
+        """
+        Ensure an incomplete AbstractTransformer subclass is rethrown as EleanorException.
+        """
+
+        class _Incomplete(AbstractTransformer):
+            pass
+
+        def factory(**_args):
+            return _Incomplete()  # pyright: ignore[reportAbstractUsage]
+
+        _stamp(factory, 1)
+        transformer_registry.register("incomplete", factory)
+        with self.assertRaisesRegex(EleanorException, 'transformer plugin "incomplete" failed to instantiate'):
+            _ = transform(self._order_with_transformers("incomplete"), _StubKernel())  # type: ignore[arg-type]
+
+    def test_unrelated_typeerror_propagates(self):
+        """
+        Ensure non-abstract TypeErrors thrown inside the factory propagate.
+        """
+
+        def factory(**_args):
+            raise TypeError("expected str, got bytes")
+
+        _stamp(factory, 1)
+        transformer_registry.register("kaboom", factory)
+        with self.assertRaisesRegex(TypeError, "expected str, got bytes"):
+            _ = transform(self._order_with_transformers("kaboom"), _StubKernel())  # type: ignore[arg-type]
+
+    def test_non_transformer_return_is_rejected(self):
+        """
+        Ensure a factory returning something other than AbstractTransformer is rejected.
+        """
+
+        def factory(**_args):
+            return "not a transformer"
+
+        _stamp(factory, 1)
+        transformer_registry.register("nontransformer", factory)
+        with self.assertRaisesRegex(EleanorException, "expected an AbstractTransformer"):
+            _ = transform(self._order_with_transformers("nontransformer"), _StubKernel())  # type: ignore[arg-type]
+
+
+class TestLoadKernelErrorWrapping(_RegistrySnapshot, TestCase):
+    """
+    Tests of the use-site wrapper in :meth:`Eleanor.load_kernel`.
+    """
+
+    def setUp(self) -> None:
+        self._snapshot(kernel_registry)
+
+    def tearDown(self) -> None:
+        self._restore()
+
+    def _make_eleanor(self) -> Eleanor:
+        config = SimpleNamespace(
+            database="db",
+            output=SimpleNamespace(type="postgres", args={}),
+            parallel=SimpleNamespace(backend="multiprocessing", chunks_per_worker=1),
+        )
+        return Eleanor(config, ["arg1"])
+
+    def _make_order(self, kernel_type: str):
+        return SimpleNamespace(
+            kernel=SimpleNamespace(
+                type=kernel_type,
+                resolved_settings=lambda: SimpleNamespace(),
+            ),
+        )
+
+    def test_abstract_subclass_typeerror_is_wrapped(self):
+        """
+        Ensure load_kernel rewraps an abstract instantiation TypeError.
+        """
+
+        def build_fn(_settings, *_args):
+            raise TypeError("Can't instantiate abstract class FakeKernel")
+
+        spec = KernelSpec(
+            settings_from_dict=lambda raw: raw,
+            build=build_fn,
+            plugin_api_version=1,
+        )
+        kernel_registry.register("flawed", spec)
+        eleanor = self._make_eleanor()
+        with self.assertRaisesRegex(EleanorException, 'kernel plugin "flawed" failed to instantiate'):
+            _ = eleanor.load_kernel(self._make_order("flawed"))  # type: ignore[arg-type]
+
+    def test_unrelated_typeerror_propagates(self):
+        """
+        Ensure non-abstract TypeErrors in the kernel build propagate.
+        """
+
+        def build_fn(_settings, *_args):
+            raise TypeError("argument count mismatch")
+
+        spec = KernelSpec(
+            settings_from_dict=lambda raw: raw,
+            build=build_fn,
+            plugin_api_version=1,
+        )
+        kernel_registry.register("typeerror", spec)
+        eleanor = self._make_eleanor()
+        with self.assertRaisesRegex(TypeError, "argument count mismatch"):
+            _ = eleanor.load_kernel(self._make_order("typeerror"))  # type: ignore[arg-type]
+
+
+class TestLoadOutputSinkErrorWrapping(_RegistrySnapshot, TestCase):
+    """
+    Tests of the use-site wrapper in :meth:`Eleanor.load_output_sink`.
+    """
+
+    def setUp(self) -> None:
+        self._snapshot(output_registry)
+
+    def tearDown(self) -> None:
+        self._restore()
+
+    def _make_eleanor(self, sink_type: str) -> Eleanor:
+        config = SimpleNamespace(
+            database="db",
+            output=SimpleNamespace(type=sink_type, args={}),
+            parallel=SimpleNamespace(backend="multiprocessing", chunks_per_worker=1),
+        )
+        return Eleanor(config, [])
+
+    def test_abstract_subclass_typeerror_is_wrapped(self):
+        """
+        Ensure an incomplete OutputSink subclass produces an EleanorException.
+        """
+
+        class _IncompleteSink(ABC):
+            @abstractmethod
+            def begin_run(self, order):  # pragma: no cover - never called
+                pass
+
+        def factory(_config, *, verbose: bool = False, **_args):
+            return _IncompleteSink()  # pyright: ignore[reportAbstractUsage]
+
+        _stamp(factory, 1)
+        output_registry.register("flawed", factory)
+        eleanor = self._make_eleanor("flawed")
+        with self.assertRaisesRegex(EleanorException, 'output sink plugin "flawed" failed to instantiate'):
+            _ = eleanor.load_output_sink()
+
+    def test_unrelated_typeerror_propagates(self):
+        """
+        Ensure unrelated TypeErrors in the sink builder propagate.
+        """
+
+        def factory(_config, *, verbose: bool = False, **_args):
+            raise TypeError("unsupported operand")
+
+        _stamp(factory, 1)
+        output_registry.register("typeerror", factory)
+        eleanor = self._make_eleanor("typeerror")
+        with self.assertRaisesRegex(TypeError, "unsupported operand"):
+            _ = eleanor.load_output_sink()
+
+
+class TestDispatchNavigatorErrorWrapping(_RegistrySnapshot, TestCase):
+    """
+    Tests of the navigator-loading wrapper in :meth:`Eleanor._dispatch`.
+
+    The dispatcher only reaches the navigator-construction branch when a
+    ``navigator`` is not pre-supplied. We pin ``executor`` and other
+    arguments to minimal mocks so the test can assert on the wrapper alone.
+    """
+
+    def setUp(self) -> None:
+        self._snapshot(navigator_registry)
+
+    def tearDown(self) -> None:
+        self._restore()
+
+    def _make_eleanor(self) -> Eleanor:
+        config = SimpleNamespace(
+            database="db",
+            output=SimpleNamespace(type="postgres", args={}),
+            parallel=SimpleNamespace(backend="multiprocessing", chunks_per_worker=1),
+        )
+        return Eleanor(config, [])
+
+    def _order_with_navigator(self, navigator_type: str):
+        return SimpleNamespace(
+            kernel=None,
+            navigator=SimpleNamespace(type=navigator_type, args={}),
+            id=None,
+        )
+
+    def _executor_stub(self):
+        return SimpleNamespace(num_workers=1)
+
+    def test_abstract_subclass_typeerror_is_wrapped(self):
+        """
+        Ensure an incomplete navigator factory rewraps the TypeError.
+        """
+
+        def factory(_order, _kernel, **_args):
+            raise TypeError("Can't instantiate abstract class FakeNav")
+
+        _stamp(factory, 1)
+        navigator_registry.register("flawed", factory)
+        eleanor = self._make_eleanor()
+        with self.assertRaisesRegex(EleanorException, 'navigator plugin "flawed" failed to instantiate'):
+            _ = eleanor._dispatch(
+                self._order_with_navigator("flawed"),  # type: ignore[arg-type]
+                1,
+                chunks_per_worker=1,
+                executor=self._executor_stub(),  # type: ignore[arg-type]
+                kernel=mock.Mock(),
+                navigator=None,
+                sink=mock.Mock(),
+                manager=None,
+            )
+
+    def test_unrelated_typeerror_propagates(self):
+        """
+        Ensure unrelated TypeErrors from the navigator factory propagate.
+        """
+
+        def factory(_order, _kernel, **_args):
+            raise TypeError("unexpected keyword argument 'foo'")
+
+        _stamp(factory, 1)
+        navigator_registry.register("typeerror", factory)
+        eleanor = self._make_eleanor()
+        with self.assertRaisesRegex(TypeError, "unexpected keyword argument"):
+            _ = eleanor._dispatch(
+                self._order_with_navigator("typeerror"),  # type: ignore[arg-type]
+                1,
+                chunks_per_worker=1,
+                executor=self._executor_stub(),  # type: ignore[arg-type]
+                kernel=mock.Mock(),
+                navigator=None,
+                sink=mock.Mock(),
+                manager=None,
+            )

@@ -91,6 +91,34 @@ class TestRegisterKernel(_KernelRegistryTestCase):
         with self.assertRaises(EleanorException):
             register_kernel('bad', lambda: 'not a spec')
 
+    def test_register_rejects_bool_plugin_api_version(self):
+        """
+        Ensure a KernelSpec with bool plugin_api_version is rejected.
+        """
+        # ``bool`` is a subclass of ``int`` in Python; the dataclass field
+        # annotation does not enforce the distinction at construction, so the
+        # registry has to reject it explicitly to keep the version comparison
+        # honest.
+        bad_spec = KernelSpec(
+            settings_from_dict=mock.Mock(),
+            build=mock.Mock(),
+            plugin_api_version=True,  # type: ignore[arg-type]
+        )
+        with self.assertRaisesRegex(EleanorException, 'plugin_api_version must be int'):
+            register_kernel('bad', bad_spec)
+
+    def test_register_rejects_float_plugin_api_version(self):
+        """
+        Ensure a KernelSpec with non-int plugin_api_version is rejected.
+        """
+        bad_spec = KernelSpec(
+            settings_from_dict=mock.Mock(),
+            build=mock.Mock(),
+            plugin_api_version=1.5,  # type: ignore[arg-type]
+        )
+        with self.assertRaisesRegex(EleanorException, 'plugin_api_version must be int'):
+            register_kernel('bad', bad_spec)
+
     def test_register_rejects_builtin_override_without_env(self):
         """
         Ensure built-in kernels cannot be overridden without the env var.
@@ -145,3 +173,20 @@ class TestEntryPointDiscovery(_KernelRegistryTestCase):
             with self.assertWarns(RuntimeWarning):
                 backends = available_kernels()
         self.assertNotIn('broken', backends)
+
+    def test_discovery_skips_too_new_api_plugin_with_warning(self):
+        """
+        Ensure too-new kernel entry points are warned and skipped.
+        """
+        spec = _spec()
+        spec = KernelSpec(
+            settings_from_dict=spec.settings_from_dict,
+            build=spec.build,
+            plugin_api_version=99,
+        )
+        ep = _FakeEntryPoint("too_new", "pkg:spec", lambda: spec)
+
+        with mock.patch("eleanor.plugin.entry_points", return_value=[ep]):
+            with self.assertWarnsRegex(RuntimeWarning, 'kernel entry point "too_new"'):
+                backends = available_kernels()
+        self.assertNotIn("too_new", backends)

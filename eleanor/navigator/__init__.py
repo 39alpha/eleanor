@@ -154,6 +154,8 @@ def _builtin_navigator(cls: type[AbstractNavigator]) -> NavigatorFactory:
             )
         return cls(order, kernel)
 
+    factory.__eleanor_api_version__ = 1  # pyright: ignore[reportFunctionMemberAccess]
+
     return factory
 
 

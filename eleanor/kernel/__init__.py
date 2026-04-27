@@ -63,5 +63,9 @@ def _build_eq36(settings: object, *args: object) -> object:
 
 register_kernel(
     "eq36",
-    KernelSpec(settings_from_dict=_build_eq36_settings, build=_build_eq36),
+    KernelSpec(
+        settings_from_dict=_build_eq36_settings,
+        build=_build_eq36,
+        plugin_api_version=1,
+    ),
 )

@@ -58,6 +58,13 @@ class TestBuiltinOutputs(TestCase):
         self.assertIn('postgres', BUILTIN_OUTPUTS)
         self.assertIn('postgres', available_outputs())
 
+    def test_csv_is_registered(self):
+        """
+        Ensure ``csv`` is always present in the output registry.
+        """
+        self.assertIn('csv', BUILTIN_OUTPUTS)
+        self.assertIn('csv', available_outputs())
+
 
 class TestRegisterOutput(_OutputRegistryTestCase):
     """

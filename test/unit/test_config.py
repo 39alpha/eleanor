@@ -274,9 +274,9 @@ class TestConfig(TestCase):
         and lists available sink options.
         """
         with self.assertRaises(EleanorConfigurationException) as ctx:
-            OutputConfig(type='csv')
+            OutputConfig(type='definitely-not-a-sink')
         msg = str(ctx.exception)
-        self.assertIn('csv', msg)
+        self.assertIn('definitely-not-a-sink', msg)
         self.assertIn('postgres', msg)
 
     def test_output_config_accepts_plugin_type_when_registry_exposes_it(self):

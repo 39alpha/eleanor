@@ -31,6 +31,7 @@ from .registry import (
 )
 
 if TYPE_CHECKING:
+    from .csv import CsvSink as CsvSink
     from .interface import ComputeResult as ComputeResult
     from .interface import ErrorInfo as ErrorInfo
     from .interface import OutputSink as OutputSink
@@ -64,10 +65,15 @@ def __getattr__(name: str) -> object:
         from .postgres import PostgresSink
 
         return PostgresSink
+    if name == "CsvSink":
+        from .csv import CsvSink
+
+        return CsvSink
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 _KNOWN_POSTGRES_ARGS: frozenset[str] = frozenset({"database", "bulk_load_optimization"})
+_KNOWN_CSV_ARGS: frozenset[str] = frozenset({"filename", "query"})
 
 
 def _build_postgres(_config: object, *, verbose: bool = False, **args: object) -> "PostgresSink":
@@ -105,12 +111,38 @@ def _build_postgres(_config: object, *, verbose: bool = False, **args: object) -
     )
 
 
+def _build_csv(_config: object, *, verbose: bool = False, **args: object) -> "CsvSink":
+    # ``verbose`` is accepted for parity with the other built-in factories but
+    # the CSV sink has no verbose-only behaviour; ignore it deliberately.
+    _ = verbose
+    unknown = sorted(k for k in args if k not in _KNOWN_CSV_ARGS)
+    if unknown:
+        warnings.warn(
+            'built-in output sink "csv" does not accept these keyword arguments; ' + f"ignoring: {unknown}",
+            RuntimeWarning,
+            stacklevel=2,
+        )
+
+    from .csv import CsvSink
+    from .csv.config import CsvConfig
+
+    return CsvSink(
+        CsvConfig(
+            filename=args.get("filename"),
+            query=args.get("query"),
+        )
+    )
+
+
 _build_postgres.__eleanor_api_version__ = 1  # pyright: ignore[reportFunctionMemberAccess]
+_build_csv.__eleanor_api_version__ = 1  # pyright: ignore[reportFunctionMemberAccess]
 
 register_output("postgres", _build_postgres)
+register_output("csv", _build_csv)
 
 __all__ = [
     "BUILTIN_OUTPUTS",
+    "CsvSink",
     "ComputeResult",
     "ENTRY_POINT_GROUP",
     "ErrorInfo",

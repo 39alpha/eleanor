@@ -43,7 +43,7 @@ registry: PluginRegistry[OutputFactory] = PluginRegistry(
     entry_point_group=ENTRY_POINT_GROUP,
     override_env_var=OVERRIDE_ENV_VAR,
     builtins={},
-    builtin_names=frozenset({"postgres"}),
+    builtin_names=frozenset({"postgres", "csv"}),
     api_version=PLUGIN_API_VERSION,
     min_api_version=MIN_SUPPORTED_API_VERSION,
 )

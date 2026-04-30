@@ -12,7 +12,13 @@ dependencies = [
   'psycopg[binary]>=3.1',
   'pyyaml',
   'scipy',
-  'tqdm',
+  # ``eleanor.progress`` rewrites tqdm's ``start_t`` / ``last_print_t``
+  # internal timer attributes via a Protocol cast in ``_TimedBar``. These
+  # have been stable across tqdm 4.x but a future major release could
+  # rename them, in which case the listener would silently install
+  # phantom attributes and display the wrong elapsed time. Pin to the
+  # 4.x line until we add explicit version-aware fallbacks.
+  'tqdm>=4.66,<5',
   'xdg-base-dirs',
 ]
 requires-python = ">= 3.14"

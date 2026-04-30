@@ -32,6 +32,11 @@ class _FakeTqdm:
     """Lightweight tqdm stand-in recording every interaction."""
 
     instances: list['_FakeTqdm'] = []
+    # Value returned by every instance's ``_time()`` -- tests override this
+    # before invoking the listener to assert what ``reset_timer_to_now``
+    # writes back into ``start_t`` / ``last_print_t``. Mirrors the way real
+    # tqdm exposes its clock as ``self._time``.
+    time_value: float = 0.0
 
     def __init__(self, total, unit, colour, position, desc):
         self.total = total
@@ -42,7 +47,15 @@ class _FakeTqdm:
         self.update_calls: list[int] = []
         self.refresh_calls = 0
         self.closed = False
+        # Sentinel distinguishable from any value tests install via
+        # ``_FakeTqdm.time_value``; the listener's ``reset_timer_to_now``
+        # rewrites these via a Protocol cast on the first tick.
+        self.start_t: float = -1.0
+        self.last_print_t: float = -1.0
         _FakeTqdm.instances.append(self)
+
+    def _time(self):
+        return _FakeTqdm.time_value
 
     def update(self, n):
         self.update_calls.append(n)
@@ -90,16 +103,20 @@ class TestChannelHandle(TestCase):
         sim.tick()
         sim.tick(3)
         sim.extend(4)
+        sim.done()
         out.total(7)
         out.tick(2)
+        out.done()
 
         self.assertEqual(queue.puts, [
             ProgressMessage(channel='sim', kind='total', value=10),
             ProgressMessage(channel='sim', kind='tick', value=1),
             ProgressMessage(channel='sim', kind='tick', value=3),
             ProgressMessage(channel='sim', kind='extend', value=4),
+            ProgressMessage(channel='sim', kind='done', value=0),
             ProgressMessage(channel='out', kind='total', value=7),
             ProgressMessage(channel='out', kind='tick', value=2),
+            ProgressMessage(channel='out', kind='done', value=0),
         ])
 
     def test_channel_handle_is_picklable_for_worker_use(self):
@@ -162,6 +179,7 @@ class TestProgressListener(TestCase):
 
     def setUp(self):
         _FakeTqdm.instances = []
+        _FakeTqdm.time_value = 0.0
 
     def _run_listener(self, messages, out_no_total_update=False):
         queue = _FakeQueue(messages=messages)
@@ -285,3 +303,86 @@ class TestProgressListener(TestCase):
         bars = self._bars_by_channel()
         self.assertTrue(bars['sim'].closed)
         self.assertTrue(bars['out'].closed)
+
+    def test_done_closes_channel_and_ignores_late_messages(self):
+        """
+        Ensure a done message freezes/closes one channel and late messages on that channel are ignored.
+        """
+        self._run_listener([
+            ProgressMessage(channel='sim', kind='total', value=2),
+            ProgressMessage(channel='sim', kind='tick', value=1),
+            ProgressMessage(channel='sim', kind='done', value=0),
+            ProgressMessage(channel='sim', kind='tick', value=1),  # ignored after done
+            ProgressMessage(channel='out', kind='total', value=1),
+            ProgressMessage(channel='out', kind='tick', value=1),
+            None,
+        ])
+        bars = self._bars_by_channel()
+        self.assertEqual(bars['sim'].update_calls, [1])
+        self.assertTrue(bars['sim'].closed)
+        self.assertEqual(bars['out'].update_calls, [1])
+
+    def test_done_on_unmaterialized_channel_is_a_noop(self):
+        """
+        Ensure done for a channel with no prior messages does not crash and does not materialize a bar.
+        """
+        self._run_listener([
+            ProgressMessage(channel='sim', kind='total', value=3),
+            ProgressMessage(channel='sim', kind='tick', value=1),
+            ProgressMessage(channel='out', kind='done', value=0),
+            ProgressMessage(channel='sim', kind='tick', value=1),
+            None,
+        ])
+        bars = self._bars_by_channel()
+        self.assertIn('sim', bars)
+        self.assertNotIn('out', bars)
+        self.assertEqual(bars['sim'].update_calls, [1, 1])
+
+    def test_first_tick_resets_elapsed_timer_baseline(self):
+        """
+        Ensure the first tick resets tqdm's internal timer so elapsed starts at first completed unit.
+        """
+        queue = _FakeQueue(messages=[
+            ProgressMessage(channel='sim', kind='total', value=2),
+            ProgressMessage(channel='sim', kind='tick', value=1),
+            None,
+        ])
+        p = object.__new__(Progress)
+        p.queue = queue
+        p.out_no_total_update = False
+
+        # ``reset_timer_to_now`` reads ``bar._time()`` so it stays in the same
+        # clock domain as tqdm's elapsed display; route the fake bar's clock
+        # through ``_FakeTqdm.time_value`` so the test owns the value the
+        # listener installs into ``start_t`` / ``last_print_t``.
+        _FakeTqdm.time_value = 123.0
+        with mock.patch.object(progress_mod, 'tqdm', _FakeTqdm):
+            p.listen()
+
+        bars = self._bars_by_channel()
+        self.assertEqual(bars['sim'].start_t, 123.0)
+        self.assertEqual(bars['sim'].last_print_t, 123.0)
+
+    def test_done_before_any_tick_does_not_reset_timer(self):
+        """
+        Ensure done arriving before any tick leaves tqdm's elapsed timer untouched.
+        """
+        queue = _FakeQueue(messages=[
+            ProgressMessage(channel='sim', kind='total', value=2),
+            ProgressMessage(channel='sim', kind='done', value=0),
+            None,
+        ])
+        p = object.__new__(Progress)
+        p.queue = queue
+        p.out_no_total_update = False
+
+        # If ``reset_timer_to_now`` were (incorrectly) called here, both
+        # fields would be 999.0 instead of the _FakeTqdm -1.0 sentinel.
+        _FakeTqdm.time_value = 999.0
+        with mock.patch.object(progress_mod, 'tqdm', _FakeTqdm):
+            p.listen()
+
+        bars = self._bars_by_channel()
+        self.assertTrue(bars['sim'].closed)
+        self.assertEqual(bars['sim'].start_t, -1.0)
+        self.assertEqual(bars['sim'].last_print_t, -1.0)

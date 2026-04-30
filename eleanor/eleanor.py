@@ -15,7 +15,7 @@ from .order import NavigatorProtocol, Order
 from .output.interface import ComputeResult, OutputSink, RunStats, WriteOutcome
 from .output.registry import get_factory as get_output_factory
 from .plugin import is_abstract_instantiation_error, resolve_api_version
-from .progress import Progress, ProgressHandle
+from .progress import ManagedProgressHandle, Progress, ProgressHandle
 from .transformer import transform
 from .typing import EleanorKwargs, Self, Unpack, cast
 from .util import chunks
@@ -477,8 +477,13 @@ class Eleanor(object):
             raise EleanorException(msg)
 
         progress: Progress | None = None
-        sim_handle: ProgressHandle | None = None
-        out_handle: ProgressHandle | None = None
+        # Local handles use ``ManagedProgressHandle`` rather than the worker-
+        # facing ``ProgressHandle`` so the dispatch context can call ``done()``
+        # at teardown.  Anywhere these are forwarded to a producer
+        # (``process()`` / ``Sailor.dispatch`` / ``OutputSink.write_batch``)
+        # they implicitly narrow to ``ProgressHandle``, which omits ``done()``.
+        sim_handle: ManagedProgressHandle | None = None
+        out_handle: ManagedProgressHandle | None = None
         if show_progress:
             if manager is None:
                 raise EleanorException("show_progress requires an active SyncManager")
@@ -535,6 +540,16 @@ class Eleanor(object):
                 stats.update(outcomes)
         finally:
             if progress is not None:
+                # ``sim_handle`` is co-assigned with ``progress`` above, but
+                # the type checker can't infer that link from the
+                # ``progress is not None`` narrowing alone.  Closing the sim
+                # bar via ``progress.sim.done()`` keeps the live invariant
+                # — "progress drives sim" — as the single discriminant.
+                # ``out_handle`` legitimately may be ``None`` here when the
+                # active sink does not opt in to progress reporting.
+                progress.sim.done()
+                if out_handle is not None:
+                    out_handle.done()
                 progress.join()
 
         return [order.id]

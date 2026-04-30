@@ -666,6 +666,118 @@ class TestEleanorDispatch(TestCase):
         # Under success_sampling, the output bar's target was seeded to 3.
         out_handle.total.assert_called_with(3)
 
+    def test_dispatch_signals_done_on_both_handles_in_finally(self):
+        """
+        Ensure _dispatch closes the sim bar (always) and the out bar (only when
+        the sink opted in) by calling ``done()`` on each handle in the finally
+        block, even when ``process()`` raises.
+        """
+        from eleanor.navigator import AbstractNavigator
+
+        eleanor = _make_eleanor()
+        kernel = mock.Mock()
+        navigator = mock.Mock(spec=AbstractNavigator)
+        navigator.supports_success_sampling.return_value = True
+        executor = _FakeExecutor()
+        manager = mock.Mock()
+
+        # --- Loud sink: both handles are live, both must be closed. ---
+        sim_handle = mock.Mock(name="sim_handle")
+        out_handle = mock.Mock(name="out_handle")
+        progress = SimpleNamespace(sim=sim_handle, out=out_handle, join=mock.Mock())
+
+        loud_sink = mock.Mock()
+        loud_sink.begin_run.return_value = 6
+        loud_sink.supports_progress.return_value = True
+        eleanor.process = mock.Mock(return_value=[])
+
+        with (
+            mock.patch("eleanor.eleanor.Progress", return_value=progress),
+            mock.patch(
+                "eleanor.navigator.registry.get_factory",
+                return_value=lambda *_args, **_kw: navigator,
+            ),
+        ):
+            eleanor._dispatch(
+                _leaf_order(), 1,
+                chunks_per_worker=1,
+                executor=executor,
+                kernel=kernel,
+                navigator=None,
+                sink=loud_sink,
+                manager=manager,
+                show_progress=True,
+            )
+
+        sim_handle.done.assert_called_once_with()
+        out_handle.done.assert_called_once_with()
+        progress.join.assert_called_once_with()
+
+        # --- Quiet sink: out_handle was never built, so done() must not be sent on it. ---
+        sim_handle = mock.Mock(name="sim_handle")
+        out_handle = mock.Mock(name="out_handle")
+        progress = SimpleNamespace(sim=sim_handle, out=out_handle, join=mock.Mock())
+
+        quiet_sink = mock.Mock()
+        quiet_sink.begin_run.return_value = 7
+        quiet_sink.supports_progress.return_value = False
+        eleanor.process = mock.Mock(return_value=[])
+
+        with (
+            mock.patch("eleanor.eleanor.Progress", return_value=progress),
+            mock.patch(
+                "eleanor.navigator.registry.get_factory",
+                return_value=lambda *_args, **_kw: navigator,
+            ),
+        ):
+            eleanor._dispatch(
+                _leaf_order(), 1,
+                chunks_per_worker=1,
+                executor=executor,
+                kernel=kernel,
+                navigator=None,
+                sink=quiet_sink,
+                manager=manager,
+                show_progress=True,
+            )
+
+        sim_handle.done.assert_called_once_with()
+        out_handle.done.assert_not_called()
+        progress.join.assert_called_once_with()
+
+        # --- Exception path: done()/join() must still fire from the finally. ---
+        sim_handle = mock.Mock(name="sim_handle")
+        out_handle = mock.Mock(name="out_handle")
+        progress = SimpleNamespace(sim=sim_handle, out=out_handle, join=mock.Mock())
+
+        boom_sink = mock.Mock()
+        boom_sink.begin_run.return_value = 8
+        boom_sink.supports_progress.return_value = True
+        eleanor.process = mock.Mock(side_effect=RuntimeError("boom"))
+
+        with (
+            mock.patch("eleanor.eleanor.Progress", return_value=progress),
+            mock.patch(
+                "eleanor.navigator.registry.get_factory",
+                return_value=lambda *_args, **_kw: navigator,
+            ),
+            self.assertRaises(RuntimeError),
+        ):
+            eleanor._dispatch(
+                _leaf_order(), 1,
+                chunks_per_worker=1,
+                executor=executor,
+                kernel=kernel,
+                navigator=None,
+                sink=boom_sink,
+                manager=manager,
+                show_progress=True,
+            )
+
+        sim_handle.done.assert_called_once_with()
+        out_handle.done.assert_called_once_with()
+        progress.join.assert_called_once_with()
+
     def test_dispatch_requires_manager_when_progress_enabled(self):
         """
         Ensure _dispatch refuses to build a Progress object without a SyncManager.

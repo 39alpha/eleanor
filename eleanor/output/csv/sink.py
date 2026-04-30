@@ -50,30 +50,30 @@ def _read_schema(schema_path: str) -> dict[str, object]:
     return {str(k): v for k, v in cast(dict[object, object], raw).items()}
 
 
-def _require_int_field(schema: dict[str, object], schema_path: str, name: str) -> int:
-    """Read ``name`` from ``schema`` and reject anything that is not a true int.
+def _require_vs_points_seen(schema: dict[str, object], schema_path: str) -> dict[int, int]:
+    vs_points_seen = schema.get("vs_points_seen", {})
 
-    ``isinstance(x, bool)`` matches because ``bool`` subclasses ``int`` in
-    Python, so an explicit second check is required to keep ``True``/``False``
-    out of the schema.
-    """
-    value = schema.get(name)
-    if not isinstance(value, int) or isinstance(value, bool):
-        raise EleanorException(f'csv schema "{schema_path}" has invalid {name}: {value!r}')
-    return value
+    if not isinstance(vs_points_seen, dict):
+        raise EleanorException(f'csv schema "{schema_path}" has invalid vs_points_seen')
+
+    for key, value in cast(dict[object, object], vs_points_seen).items():
+        if not isinstance(key, int) or isinstance(key, bool):
+            raise EleanorException(f'csv schema "{schema_path}" has invalid key {key!r}')
+        if not isinstance(value, int) or isinstance(value, bool):
+            raise EleanorException(f'csv schema "{schema_path}" has invalid count for {key}: {value!r}')
+
+    return cast(dict[int, int], vs_points_seen)
 
 
 def _write_schema(
     schema_path: str,
     query: dict[str, object],
     *,
-    next_order_id: int,
-    next_vs_point_id: int,
+    vs_points_seen: dict[int, int],
 ) -> None:
     payload = {
         "query": query,
-        "next_order_id": next_order_id,
-        "next_vs_point_id": next_vs_point_id,
+        "vs_points_seen": vs_points_seen,
     }
     with open(schema_path, "w") as handle:
         yaml.safe_dump(payload, handle, sort_keys=False)
@@ -100,50 +100,6 @@ def _find_vs_index_columns(compiled: CompiledQuery) -> list[str]:
     return index_columns
 
 
-def _find_order_id_column(compiled: CompiledQuery) -> str | None:
-    order_id_column: str | None = None
-    point_order_id_column: str | None = None
-    for spec in compiled.columns:
-        path = spec.path
-        if path.meta is not None or len(path.segments) != 2:
-            continue
-        head_alias = path.segments[0].name
-        tail_name = path.segments[1].name
-        if head_alias not in compiled.scope_table:
-            continue
-        head_scope = compiled.scope_table[head_alias]
-        kind = head_scope.type_kind
-        if not isinstance(kind, DataclassField):
-            continue
-        if head_alias == "order" and tail_name == "id" and kind.dataclass_type is Order:
-            order_id_column = spec.name
-            continue
-        if tail_name == "order_id" and kind.dataclass_type is vs.Point:
-            point_order_id_column = spec.name
-    if order_id_column is not None:
-        return order_id_column
-    return point_order_id_column
-
-
-def _max_order_id_in_csv(filename: str, column_name: str) -> int | None:
-    max_seen: int | None = None
-    with open(filename, newline="") as handle:
-        reader = csv.DictReader(handle)
-        for row in reader:
-            value = row.get(column_name)
-            if value is None or value == "":
-                continue
-            try:
-                parsed = int(value)
-            except ValueError as exc:
-                raise EleanorException(
-                    f'csv column "{column_name}" contains a non-integer order id value: {value!r}'
-                ) from exc
-            if max_seen is None or parsed > max_seen:
-                max_seen = parsed
-    return max_seen
-
-
 def _prepare_rows(
     columns: list[str], vs_index_columns: list[str], vs_index: int, rows: Sequence[Mapping[str, object]]
 ) -> Sequence[Mapping[str, object]]:
@@ -167,34 +123,23 @@ class CsvSink(OutputSink):
     config: CsvConfig
     _compiled: CompiledQuery
     _columns: list[str]
-    _next_order_id: int | None
-    # ``_next_vs_point_id`` is the persisted counter handed out as
-    # ``WriteOutcome.point_id`` so navigators have a non-None id per vs point.
-    # Stored alongside ``next_order_id`` in the schema sidecar and refreshed
-    # at end of every successful :meth:`write_batch` call. Persistence is
-    # batch-granular by design (per-row fsync would dominate the CSV append
-    # cost); callers who need bulletproof durability should use the postgres
-    # sink instead.
-    _next_vs_point_id: int
     _order_id: int | None
     _order: Order | None
     _schema_file: str
     _rows_written: bool
     _vs_index_columns: list[str]
-    _vs_points_seen: int
+    _vs_points_seen: dict[int, int]
 
     def __init__(self, config: CsvConfig):
         self.config = config
         self._compiled = compile_query(Order, config.query)
         self._columns = [spec.name for spec in self._compiled.columns]
-        self._next_order_id = None
-        self._next_vs_point_id = 1
         self._order_id = None
         self._order = None
         self._schema_file = _schema_path(config.filename)
         self._rows_written = False
         self._vs_index_columns = _find_vs_index_columns(self._compiled)
-        self._vs_points_seen = 0
+        self._vs_points_seen = {}
 
     @override
     def initialize(self) -> None:
@@ -203,11 +148,8 @@ class CsvSink(OutputSink):
             _write_schema(
                 self._schema_file,
                 self.config.query,
-                next_order_id=1,
-                next_vs_point_id=1,
+                vs_points_seen=self._vs_points_seen,
             )
-            self._next_order_id = 1
-            self._next_vs_point_id = 1
             self._order_id = None
             self._order = None
             self._rows_written = False
@@ -219,8 +161,7 @@ class CsvSink(OutputSink):
             )
 
         schema = _read_schema(self._schema_file)
-        next_order_id = _require_int_field(schema, self._schema_file, "next_order_id")
-        next_vs_point_id = _require_int_field(schema, self._schema_file, "next_vs_point_id")
+        self._vs_points_seen = _require_vs_points_seen(schema, self._schema_file)
 
         existing_header = _read_csv_header(self.config.filename)
         if existing_header != self._columns:
@@ -229,45 +170,36 @@ class CsvSink(OutputSink):
                 + f"expected {self._columns!r}, found {existing_header!r}"
             )
 
-        # TODO: validate schema["query"] matches this sink's raw query exactly.
-        order_id_column = _find_order_id_column(self._compiled)
-        if order_id_column is not None:
-            max_seen = _max_order_id_in_csv(self.config.filename, order_id_column)
-            if max_seen is not None and max_seen != next_order_id - 1:
-                raise EleanorException(
-                    "csv order-id validation failed: "
-                    + f"max seen {max_seen} but schema next_order_id is {next_order_id}"
-                )
-
-        self._next_order_id = next_order_id
-        self._next_vs_point_id = next_vs_point_id
         self._order_id = None
         self._order = None
         self._rows_written = False
-        self._vs_points_seen = 0
 
     @override
     def begin_run(self, order: Order) -> int:
         if self._order is order:
             assert self._order_id is not None
             return self._order_id
-        if self._next_order_id is None:
-            raise EleanorException("csv sink is not initialized")
-        order_id = self._next_order_id
+
+        if order.id is None:
+            order_id = max(self._vs_points_seen.keys() or [-1]) + 1
+        else:
+            order_id = order.id
+
+        self._vs_points_seen[order_id] = self._vs_points_seen.get(order_id, 0)
         _write_schema(
             self._schema_file,
             self.config.query,
-            next_order_id=order_id + 1,
-            next_vs_point_id=self._next_vs_point_id,
+            vs_points_seen=self._vs_points_seen,
         )
-        self._next_order_id = order_id + 1
+
         if order.eleanor_version is None:
             order.eleanor_version = __version__
+
         order.id = order_id
         self._order = order
         self._order_id = order_id
         self._rows_written = False
-        self._vs_points_seen = 0
+
         return order_id
 
     @override
@@ -280,10 +212,13 @@ class CsvSink(OutputSink):
         _ = order_id
         if self._order is None:
             raise EleanorException("csv sink write_batch called before begin_run")
+        if not os.path.exists(self.config.filename):
+            raise EleanorException("csv sink write_batch requires initialize() to create the CSV header")
         # ``self._order`` non-None implies we have run through ``initialize``
-        # and ``begin_run``, so ``self._next_order_id`` is also non-None. Pin
-        # that for the type checker before the trailing sidecar write below.
-        assert self._next_order_id is not None
+        # and ``begin_run``, so two things are true:
+        #   1. self._order_id is not None
+        #   2. self._vs_points_seen[self._order_id] does not raise a KeyError
+        assert self._order_id is not None and self._order_id in self._vs_points_seen
 
         outcomes: list[WriteOutcome] = []
         for index, result in enumerate(results):
@@ -320,50 +255,40 @@ class CsvSink(OutputSink):
                 )
                 traceback.print_exc(file=sys.stderr)
                 if not self._rows_written:
-                    schema = _read_schema(self._schema_file)
-                    next_order_id = _require_int_field(schema, self._schema_file, "next_order_id")
-                    # Decrement ``next_order_id`` only; the in-memory
-                    # ``_next_vs_point_id`` already reflects any point ids
-                    # consumed earlier in this batch (e.g. results that
-                    # produced zero rows but still claimed ids), and those
-                    # consumed ids must not be re-issued on the retry.
                     _write_schema(
                         self._schema_file,
                         self.config.query,
-                        next_order_id=next_order_id - 1,
-                        next_vs_point_id=self._next_vs_point_id,
+                        vs_points_seen=self._vs_points_seen,
                     )
-                    self._next_order_id = next_order_id - 1
                     self._order = None
                     self._order_id = None
                 raise
             finally:
                 order.vs_points = original_vs_points
-            rows = _prepare_rows(self._columns, self._vs_index_columns, self._vs_points_seen, rows)
+            current_point_id = self._vs_points_seen[self._order_id]
+            rows = _prepare_rows(self._columns, self._vs_index_columns, current_point_id, rows)
             _append_rows(self.config.filename, self._columns, rows)
+            point_id: int | None = None
+            committed = False
             if rows:
                 self._rows_written = True
-            point_id = self._next_vs_point_id
-            self._next_vs_point_id += 1
-            self._vs_points_seen += 1
+                point_id = current_point_id
+                committed = True
+                self._vs_points_seen[self._order_id] += 1
             outcomes.append(
                 WriteOutcome(
                     point_id=point_id,
                     exit_code=result.point.exit_code,
-                    committed=True,
+                    committed=committed,
                 )
             )
             if progress is not None:
                 progress.tick()
 
-        # Persist the (possibly advanced) ``next_vs_point_id`` once at the
-        # end of the batch. ``next_order_id`` is rewritten too for symmetry;
-        # ``begin_run`` already wrote the same value, so this is idempotent.
         _write_schema(
             self._schema_file,
             self.config.query,
-            next_order_id=self._next_order_id,
-            next_vs_point_id=self._next_vs_point_id,
+            vs_points_seen=self._vs_points_seen,
         )
         return outcomes
 

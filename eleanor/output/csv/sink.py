@@ -79,6 +79,27 @@ def _write_schema(
         yaml.safe_dump(payload, handle, sort_keys=False)
 
 
+def _find_vs_index_columns(compiled: CompiledQuery) -> list[str]:
+    index_columns: list[str] = []
+
+    for spec in compiled.columns:
+        path = spec.path
+        if path.meta is None:
+            continue
+        head_alias = path.segments[0].name
+        if head_alias not in compiled.scope_table:
+            continue
+        head_scope = compiled.scope_table[head_alias]
+        kind = head_scope.type_kind
+        if not isinstance(kind, DataclassField):
+            continue
+
+        if path.meta.name == "index" and kind.dataclass_type is vs.Point:
+            index_columns.append(spec.name)
+
+    return index_columns
+
+
 def _find_order_id_column(compiled: CompiledQuery) -> str | None:
     order_id_column: str | None = None
     point_order_id_column: str | None = None
@@ -123,12 +144,23 @@ def _max_order_id_in_csv(filename: str, column_name: str) -> int | None:
     return max_seen
 
 
+def _prepare_rows(
+    columns: list[str], vs_index_columns: list[str], vs_index: int, rows: Sequence[Mapping[str, object]]
+) -> Sequence[Mapping[str, object]]:
+    cooked: list[Mapping[str, object]] = []
+    for row in rows:
+        cooked_row = {column: ("" if (v := row.get(column)) is None else v) for column in columns}
+        for column in vs_index_columns:
+            cooked_row[column] = vs_index
+        cooked.append(cooked_row)
+    return cooked
+
+
 def _append_rows(filename: str, columns: list[str], rows: Sequence[Mapping[str, object]]) -> None:
     with open(filename, "a", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=columns)
         for row in rows:
-            cooked = {column: ("" if (v := row.get(column)) is None else v) for column in columns}
-            writer.writerow(cooked)
+            writer.writerow(row)
 
 
 class CsvSink(OutputSink):
@@ -148,6 +180,8 @@ class CsvSink(OutputSink):
     _order: Order | None
     _schema_file: str
     _rows_written: bool
+    _vs_index_columns: list[str]
+    _vs_points_seen: int
 
     def __init__(self, config: CsvConfig):
         self.config = config
@@ -159,6 +193,8 @@ class CsvSink(OutputSink):
         self._order = None
         self._schema_file = _schema_path(config.filename)
         self._rows_written = False
+        self._vs_index_columns = _find_vs_index_columns(self._compiled)
+        self._vs_points_seen = 0
 
     @override
     def initialize(self) -> None:
@@ -208,6 +244,7 @@ class CsvSink(OutputSink):
         self._order_id = None
         self._order = None
         self._rows_written = False
+        self._vs_points_seen = 0
 
     @override
     def begin_run(self, order: Order) -> int:
@@ -230,6 +267,7 @@ class CsvSink(OutputSink):
         self._order = order
         self._order_id = order_id
         self._rows_written = False
+        self._vs_points_seen = 0
         return order_id
 
     @override
@@ -301,11 +339,13 @@ class CsvSink(OutputSink):
                 raise
             finally:
                 order.vs_points = original_vs_points
+            rows = _prepare_rows(self._columns, self._vs_index_columns, self._vs_points_seen, rows)
             _append_rows(self.config.filename, self._columns, rows)
             if rows:
                 self._rows_written = True
             point_id = self._next_vs_point_id
             self._next_vs_point_id += 1
+            self._vs_points_seen += 1
             outcomes.append(
                 WriteOutcome(
                     point_id=point_id,

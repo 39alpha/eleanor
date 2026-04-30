@@ -31,34 +31,34 @@ class TestCLIRun(TestCase):
 
     def _namespace(self, **overrides):
         values = {
-            'order': 'order.yaml',
-            'order_id': None,
-            'tag': None,
-            'kernel_args': None,
-            'num_procs': None,
-            'simulation_size': 10,
-            'scratch': False,
-            'progress': False,
-            'combined': False,
-            'proportional': False,
-            'success_sampling': False,
-            'verbose': False,
-            'parallel': None,
-            'chunks_per_worker': None,
+            "order": "order.yaml",
+            "order_id": None,
+            "tag": None,
+            "kernel_args": None,
+            "num_procs": None,
+            "simulation_size": 10,
+            "scratch": False,
+            "progress": False,
+            "combined": False,
+            "proportional": False,
+            "success_sampling": False,
+            "verbose": False,
+            "parallel": None,
+            "chunks_per_worker": None,
         }
         values.update(overrides)
         return argparse.Namespace(**values)
 
-    def _config(self, backend='multiprocessing', chunks_per_worker=1):
+    def _config(self, backend="multiprocessing", chunks_per_worker=1):
         return Config(
             raw={
-                'output': {
-                    'type': 'postgres',
-                    'args': {'database': {'database': 'sample'}},
+                "output": {
+                    "type": "postgres",
+                    "args": {"database": {"database": "sample"}},
                 },
-                'parallel': {
-                    'backend': backend,
-                    'chunks_per_worker': chunks_per_worker,
+                "parallel": {
+                    "backend": backend,
+                    "chunks_per_worker": chunks_per_worker,
                 },
             },
         )
@@ -71,8 +71,8 @@ class TestCLIRun(TestCase):
         with mock.patch("eleanor.cli.run.add_config_args"):
             run_cli.init(parser)
 
-        ns = parser.parse_args(['--parallel', 'serial', '--chunks-per-worker', '4', 'order.yaml', '10'])
-        self.assertEqual(ns.parallel, 'serial')
+        ns = parser.parse_args(["--parallel", "serial", "--chunks-per-worker", "4", "order.yaml", "10"])
+        self.assertEqual(ns.parallel, "serial")
         self.assertEqual(ns.chunks_per_worker, 4)
 
     def test_execute_uses_config_parallel_defaults(self):
@@ -81,18 +81,21 @@ class TestCLIRun(TestCase):
         """
         parser = argparse.ArgumentParser()
         ns = self._namespace(num_procs=3)
-        config = self._config(backend='serial', chunks_per_worker=6)
+        config = self._config(backend="serial", chunks_per_worker=6)
         eleanor = _fake_eleanor(run_return=[42])
+        executor = mock.Mock()
         fake_order = mock.Mock()
 
         with (
             mock.patch("eleanor.cli.run.config_from_args", return_value=config),
             mock.patch("eleanor.cli.run.load_order", return_value=fake_order),
+            mock.patch("eleanor.cli.run.build_executor", return_value=executor) as build_executor,
             mock.patch("eleanor.cli.run.Eleanor", return_value=eleanor) as eleanor_cls,
         ):
             run_cli.execute(parser, ns)
 
-        eleanor_cls.assert_called_once_with(config, [], num_procs=3)
+        build_executor.assert_called_once_with(kind="serial", num_workers=3)
+        eleanor_cls.assert_called_once_with(config, [], executor=executor)
         eleanor.run.assert_called_once_with(
             fake_order,
             10,
@@ -102,7 +105,7 @@ class TestCLIRun(TestCase):
             proportional_sampling=False,
             success_sampling=False,
             verbose=False,
-            parallel='serial',
+            parallel="serial",
             chunks_per_worker=6,
         )
 
@@ -111,20 +114,24 @@ class TestCLIRun(TestCase):
         Ensure CLI-provided parallel and chunk values override config defaults.
         """
         parser = argparse.ArgumentParser()
-        ns = self._namespace(parallel='serial', chunks_per_worker=9)
-        config = self._config(backend='multiprocessing', chunks_per_worker=2)
+        ns = self._namespace(parallel="serial", chunks_per_worker=9)
+        config = self._config(backend="multiprocessing", chunks_per_worker=2)
         eleanor = _fake_eleanor(run_return=[7])
+        executor = mock.Mock()
         fake_order = mock.Mock()
 
         with (
             mock.patch("eleanor.cli.run.config_from_args", return_value=config),
             mock.patch("eleanor.cli.run.load_order", return_value=fake_order),
-            mock.patch("eleanor.cli.run.Eleanor", return_value=eleanor),
+            mock.patch("eleanor.cli.run.build_executor", return_value=executor) as build_executor,
+            mock.patch("eleanor.cli.run.Eleanor", return_value=eleanor) as eleanor_cls,
         ):
             run_cli.execute(parser, ns)
 
-        self.assertEqual(eleanor.run.call_args.kwargs['parallel'], 'serial')
-        self.assertEqual(eleanor.run.call_args.kwargs['chunks_per_worker'], 9)
+        build_executor.assert_called_once_with(kind="serial", num_workers=None)
+        eleanor_cls.assert_called_once_with(config, [], executor=executor)
+        self.assertEqual(eleanor.run.call_args.kwargs["parallel"], "serial")
+        self.assertEqual(eleanor.run.call_args.kwargs["chunks_per_worker"], 9)
 
     def test_execute_disables_progress_when_verbose(self):
         """
@@ -139,11 +146,12 @@ class TestCLIRun(TestCase):
         with (
             mock.patch("eleanor.cli.run.config_from_args", return_value=config),
             mock.patch("eleanor.cli.run.load_order", return_value=fake_order),
+            mock.patch("eleanor.cli.run.build_executor"),
             mock.patch("eleanor.cli.run.Eleanor", return_value=eleanor),
         ):
             run_cli.execute(parser, ns)
 
-        self.assertFalse(eleanor.run.call_args.kwargs['show_progress'])
+        self.assertFalse(eleanor.run.call_args.kwargs["show_progress"])
 
     def test_init_parses_order_id_flag(self):
         """
@@ -154,13 +162,13 @@ class TestCLIRun(TestCase):
         with mock.patch("eleanor.cli.run.add_config_args"):
             run_cli.init(parser)
 
-        ns_long = parser.parse_args(['--order-id', '42', 'order.yaml', '10'])
+        ns_long = parser.parse_args(["--order-id", "42", "order.yaml", "10"])
         self.assertEqual(ns_long.order_id, 42)
 
-        ns_long_alt = parser.parse_args(['--order-id', '7', 'order.yaml', '10'])
+        ns_long_alt = parser.parse_args(["--order-id", "7", "order.yaml", "10"])
         self.assertEqual(ns_long_alt.order_id, 7)
 
-        ns_default = parser.parse_args(['order.yaml', '10'])
+        ns_default = parser.parse_args(["order.yaml", "10"])
         self.assertIsNone(ns_default.order_id)
 
     def test_init_parses_tag_flag(self):
@@ -172,10 +180,10 @@ class TestCLIRun(TestCase):
         with mock.patch("eleanor.cli.run.add_config_args"):
             run_cli.init(parser)
 
-        ns_long = parser.parse_args(['--tag', 'experiment-1', 'order.yaml', '10'])
-        self.assertEqual(ns_long.tag, 'experiment-1')
+        ns_long = parser.parse_args(["--tag", "experiment-1", "order.yaml", "10"])
+        self.assertEqual(ns_long.tag, "experiment-1")
 
-        ns_default = parser.parse_args(['order.yaml', '10'])
+        ns_default = parser.parse_args(["order.yaml", "10"])
         self.assertIsNone(ns_default.tag)
 
     def test_execute_applies_order_id_to_order_before_run(self):
@@ -186,16 +194,19 @@ class TestCLIRun(TestCase):
         ns = self._namespace(order_id=321)
         config = self._config()
         eleanor = _fake_eleanor(run_return=[321])
+        executor = mock.Mock()
         fake_order = mock.Mock()
 
         with (
             mock.patch("eleanor.cli.run.config_from_args", return_value=config),
             mock.patch("eleanor.cli.run.load_order", return_value=fake_order),
+            mock.patch("eleanor.cli.run.build_executor", return_value=executor) as build_executor,
             mock.patch("eleanor.cli.run.Eleanor", return_value=eleanor) as eleanor_cls,
         ):
             run_cli.execute(parser, ns)
 
-        eleanor_cls.assert_called_once_with(config, [], num_procs=None)
+        build_executor.assert_called_once_with(kind="multiprocessing", num_workers=None)
+        eleanor_cls.assert_called_once_with(config, [], executor=executor)
         self.assertEqual(fake_order.id, 321)
         self.assertIs(eleanor.run.call_args.args[0], fake_order)
 
@@ -204,20 +215,23 @@ class TestCLIRun(TestCase):
         Ensure execute sets order.tag from --tag on the loaded order before calling run().
         """
         parser = argparse.ArgumentParser()
-        ns = self._namespace(tag='experiment-1')
+        ns = self._namespace(tag="experiment-1")
         config = self._config()
         eleanor = _fake_eleanor()
+        executor = mock.Mock()
         fake_order = mock.Mock()
 
         with (
             mock.patch("eleanor.cli.run.config_from_args", return_value=config),
             mock.patch("eleanor.cli.run.load_order", return_value=fake_order),
+            mock.patch("eleanor.cli.run.build_executor", return_value=executor) as build_executor,
             mock.patch("eleanor.cli.run.Eleanor", return_value=eleanor) as eleanor_cls,
         ):
             run_cli.execute(parser, ns)
 
-        eleanor_cls.assert_called_once_with(config, [], num_procs=None)
-        self.assertEqual(fake_order.tag, 'experiment-1')
+        build_executor.assert_called_once_with(kind="multiprocessing", num_workers=None)
+        eleanor_cls.assert_called_once_with(config, [], executor=executor)
+        self.assertEqual(fake_order.tag, "experiment-1")
         self.assertIs(eleanor.run.call_args.args[0], fake_order)
 
     def test_init_accepts_arbitrary_parallel_name(self):
@@ -228,27 +242,29 @@ class TestCLIRun(TestCase):
         with mock.patch("eleanor.cli.run.add_config_args"):
             run_cli.init(parser)
 
-        ns = parser.parse_args(['--parallel', 'future-plugin', 'order.yaml', '10'])
-        self.assertEqual(ns.parallel, 'future-plugin')
+        ns = parser.parse_args(["--parallel", "future-plugin", "order.yaml", "10"])
+        self.assertEqual(ns.parallel, "future-plugin")
 
     def test_execute_accepts_plugin_registered_executor(self):
         """
         Ensure --parallel accepts an executor contributed via register_executor at runtime.
         """
         parser = argparse.ArgumentParser()
-        ns = self._namespace(parallel='plugin')
-        config = self._config(backend='multiprocessing', chunks_per_worker=1)
+        ns = self._namespace(parallel="plugin")
+        config = self._config(backend="multiprocessing", chunks_per_worker=1)
         eleanor = _fake_eleanor(run_return=[99])
+        executor = mock.Mock()
 
         saved_entries = dict(registry.registry._registry)
         saved_discovered = registry.registry._discovered
-        registry.registry._registry['plugin'] = lambda _n: mock.Mock()
+        registry.registry._registry["plugin"] = lambda _n: mock.Mock()
         fake_order = mock.Mock()
         try:
             with (
                 mock.patch("eleanor.cli.run.config_from_args", return_value=config),
                 mock.patch("eleanor.cli.run.load_order", return_value=fake_order),
-                mock.patch("eleanor.cli.run.Eleanor", return_value=eleanor),
+                mock.patch("eleanor.cli.run.build_executor", return_value=executor) as build_executor,
+                mock.patch("eleanor.cli.run.Eleanor", return_value=eleanor) as eleanor_cls,
             ):
                 run_cli.execute(parser, ns)
         finally:
@@ -256,14 +272,40 @@ class TestCLIRun(TestCase):
             registry.registry._registry.update(saved_entries)
             registry.registry._discovered = saved_discovered
 
-        self.assertEqual(eleanor.run.call_args.kwargs['parallel'], 'plugin')
+        build_executor.assert_called_once_with(kind="plugin", num_workers=None)
+        eleanor_cls.assert_called_once_with(config, [], executor=executor)
+        self.assertEqual(eleanor.run.call_args.kwargs["parallel"], "plugin")
+
+    def test_execute_builds_selected_backend_before_entering_eleanor_context(self):
+        """
+        Ensure execute injects the resolved backend's executor into Eleanor so
+        the context manager does not eagerly construct the config-default backend.
+        """
+        parser = argparse.ArgumentParser()
+        ns = self._namespace(parallel="serial", num_procs=5)
+        config = self._config(backend="multiprocessing", chunks_per_worker=1)
+        eleanor = _fake_eleanor(run_return=[12])
+        executor = mock.Mock()
+        fake_order = mock.Mock()
+
+        with (
+            mock.patch("eleanor.cli.run.config_from_args", return_value=config),
+            mock.patch("eleanor.cli.run.load_order", return_value=fake_order),
+            mock.patch("eleanor.cli.run.build_executor", return_value=executor) as build_executor,
+            mock.patch("eleanor.cli.run.Eleanor", return_value=eleanor) as eleanor_cls,
+        ):
+            run_cli.execute(parser, ns)
+
+        build_executor.assert_called_once_with(kind="serial", num_workers=5)
+        eleanor_cls.assert_called_once_with(config, [], executor=executor)
+        self.assertEqual(eleanor.run.call_args.kwargs["parallel"], "serial")
 
     def test_execute_rejects_unknown_parallel_backend(self):
         """
         Ensure an unknown --parallel value yields a user-friendly error without running.
         """
         parser = argparse.ArgumentParser()
-        ns = self._namespace(parallel='does-not-exist')
+        ns = self._namespace(parallel="does-not-exist")
         config = self._config()
 
         printed: list[object] = []
@@ -275,10 +317,10 @@ class TestCLIRun(TestCase):
             run_cli.execute(parser, ns)
 
         eleanor_cls.assert_not_called()
-        joined = ' '.join(str(a) for a in printed)
-        self.assertIn('does-not-exist', joined)
-        self.assertIn('unsupported', joined)
-        self.assertIn('executor', joined)
+        joined = " ".join(str(a) for a in printed)
+        self.assertIn("does-not-exist", joined)
+        self.assertIn("unsupported", joined)
+        self.assertIn("executor", joined)
 
     def test_execute_surfaces_eleanor_exception(self):
         """

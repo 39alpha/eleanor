@@ -4,7 +4,7 @@ from traceback import print_exception
 from eleanor import Eleanor
 from eleanor.cli.util import ConfigArgs, add_config_args, config_from_args, typed_args
 from eleanor.exceptions import EleanorException
-from eleanor.executor import available_executors
+from eleanor.executor import available_executors, build_executor
 from eleanor.order import load_order
 
 
@@ -120,7 +120,8 @@ def execute(parser: argparse.ArgumentParser, ns: argparse.Namespace) -> None:
         if args["tag"] is not None:
             order.tag = args["tag"]
 
-        with Eleanor(config, kernel_args, num_procs=args["num_procs"]) as eleanor:
+        executor = build_executor(kind=parallel, num_workers=args["num_procs"])
+        with Eleanor(config, kernel_args, executor=executor) as eleanor:
             order_ids = eleanor.run(
                 order,
                 args["simulation_size"],

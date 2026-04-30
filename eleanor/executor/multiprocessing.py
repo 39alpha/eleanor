@@ -49,7 +49,9 @@ class MultiprocessingExecutor(AbstractExecutor):
         **kwargs: object,
     ) -> AbstractFuture[T]:
         if self._pool is None:
-            raise EleanorException("executor has already been shut down")
+            raise EleanorException(
+                "executor is not active — enter the executor context before submitting work, or it has already been shut down"
+            )
         return MultiprocessingFuture(self._pool.apply_async(fn, args, kwargs))
 
     @override

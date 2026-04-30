@@ -23,6 +23,13 @@ def _fake_eleanor(run_return=None):
     eleanor.run.return_value = run_return
     return eleanor
 
+def _fake_executor():
+    """Build an executor double that behaves as a no-op context manager."""
+    executor = mock.MagicMock()
+    executor.__enter__.return_value = executor
+    executor.__exit__.return_value = None
+    return executor
+
 
 class TestCLIRun(TestCase):
     """
@@ -83,7 +90,7 @@ class TestCLIRun(TestCase):
         ns = self._namespace(num_procs=3)
         config = self._config(backend="serial", chunks_per_worker=6)
         eleanor = _fake_eleanor(run_return=[42])
-        executor = mock.Mock()
+        executor = _fake_executor()
         fake_order = mock.Mock()
 
         with (
@@ -117,7 +124,7 @@ class TestCLIRun(TestCase):
         ns = self._namespace(parallel="serial", chunks_per_worker=9)
         config = self._config(backend="multiprocessing", chunks_per_worker=2)
         eleanor = _fake_eleanor(run_return=[7])
-        executor = mock.Mock()
+        executor = _fake_executor()
         fake_order = mock.Mock()
 
         with (
@@ -194,7 +201,7 @@ class TestCLIRun(TestCase):
         ns = self._namespace(order_id=321)
         config = self._config()
         eleanor = _fake_eleanor(run_return=[321])
-        executor = mock.Mock()
+        executor = _fake_executor()
         fake_order = mock.Mock()
 
         with (
@@ -218,7 +225,7 @@ class TestCLIRun(TestCase):
         ns = self._namespace(tag="experiment-1")
         config = self._config()
         eleanor = _fake_eleanor()
-        executor = mock.Mock()
+        executor = _fake_executor()
         fake_order = mock.Mock()
 
         with (
@@ -253,7 +260,7 @@ class TestCLIRun(TestCase):
         ns = self._namespace(parallel="plugin")
         config = self._config(backend="multiprocessing", chunks_per_worker=1)
         eleanor = _fake_eleanor(run_return=[99])
-        executor = mock.Mock()
+        executor = _fake_executor()
 
         saved_entries = dict(registry.registry._registry)
         saved_discovered = registry.registry._discovered
@@ -285,7 +292,7 @@ class TestCLIRun(TestCase):
         ns = self._namespace(parallel="serial", num_procs=5)
         config = self._config(backend="multiprocessing", chunks_per_worker=1)
         eleanor = _fake_eleanor(run_return=[12])
-        executor = mock.Mock()
+        executor = _fake_executor()
         fake_order = mock.Mock()
 
         with (
@@ -297,6 +304,8 @@ class TestCLIRun(TestCase):
             run_cli.execute(parser, ns)
 
         build_executor.assert_called_once_with(kind="serial", num_workers=5)
+        executor.__enter__.assert_called_once_with()
+        executor.__exit__.assert_called_once_with(None, None, None)
         eleanor_cls.assert_called_once_with(config, [], executor=executor)
         self.assertEqual(eleanor.run.call_args.kwargs["parallel"], "serial")
 

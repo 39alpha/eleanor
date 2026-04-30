@@ -48,7 +48,6 @@ class TestMultiprocessingExecutor(TestCase):
         """
         executor = MultiprocessingExecutor(num_workers=2)
         self.assertIsNone(executor._pool)
-        self.assertFalse(executor.has_entered())
 
     def test_shutdown_wait_true_closes_and_joins(self):
         """

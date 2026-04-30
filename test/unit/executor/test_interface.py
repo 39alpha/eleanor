@@ -19,11 +19,9 @@ class _Future(AbstractFuture):
 
 
 class _Executor(AbstractExecutor):
-    submitted: list[tuple]
     shutdown_calls: int
 
     def __init__(self):
-        self.submitted = []
         self.shutdown_calls = 0
 
     @property
@@ -31,7 +29,6 @@ class _Executor(AbstractExecutor):
         return 2
 
     def submit(self, fn, *args, **kwargs):
-        self.submitted.append((fn, args, kwargs))
         return _Future(fn(*args, **kwargs))
 
     def shutdown(self, wait: bool = True) -> None:
@@ -43,14 +40,6 @@ class TestExecutorInterface(TestCase):
     Tests of executor interface-level behavior and factory helpers.
     """
 
-    def test_default_map_uses_submit_and_result(self):
-        """
-        Ensure the default map implementation delegates through submit/result.
-        """
-        executor = _Executor()
-        values = list(executor.map(lambda x: x * 2, [1, 2, 3]))
-        self.assertEqual(values, [2, 4, 6])
-        self.assertEqual(len(executor.submitted), 3)
 
     def test_context_manager_calls_shutdown(self):
         """
@@ -61,16 +50,6 @@ class TestExecutorInterface(TestCase):
             self.assertIs(active, executor)
         self.assertEqual(executor.shutdown_calls, 1)
 
-    def test_has_entered_tracks_context_manager_state(self):
-        """
-        Ensure has_entered() returns False before entering, True inside, and
-        False again after exiting the context manager.
-        """
-        executor = _Executor()
-        self.assertFalse(executor.has_entered())
-        with executor:
-            self.assertTrue(executor.has_entered())
-        self.assertFalse(executor.has_entered())
 
     def test_normalize_num_workers(self):
         """

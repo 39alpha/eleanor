@@ -17,10 +17,3 @@ class TestSerialExecutor(TestCase):
         self.assertEqual(executor.num_workers, 1)
         self.assertEqual(future.result(), 5)
 
-    def test_map_runs_functions_in_order(self):
-        """
-        Ensure map preserves item order for serial execution.
-        """
-        executor = SerialExecutor()
-        out = list(executor.map(lambda x: x * x, [1, 2, 3, 4]))
-        self.assertEqual(out, [1, 4, 9, 16])

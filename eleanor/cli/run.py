@@ -120,20 +120,20 @@ def execute(parser: argparse.ArgumentParser, ns: argparse.Namespace) -> None:
         if args["tag"] is not None:
             order.tag = args["tag"]
 
-        executor = build_executor(kind=parallel, num_workers=args["num_procs"])
-        with Eleanor(config, kernel_args, executor=executor) as eleanor:
-            order_ids = eleanor.run(
-                order,
-                args["simulation_size"],
-                scratch=args["scratch"],
-                show_progress=show_progress,
-                combined=args["combined"],
-                proportional_sampling=args["proportional"],
-                success_sampling=args["success_sampling"],
-                verbose=args["verbose"],
-                parallel=parallel,
-                chunks_per_worker=chunks_per_worker,
-            )
+        with build_executor(kind=parallel, num_workers=args["num_procs"]) as executor:
+            with Eleanor(config, kernel_args, executor=executor) as eleanor:
+                order_ids = eleanor.run(
+                    order,
+                    args["simulation_size"],
+                    scratch=args["scratch"],
+                    show_progress=show_progress,
+                    combined=args["combined"],
+                    proportional_sampling=args["proportional"],
+                    success_sampling=args["success_sampling"],
+                    verbose=args["verbose"],
+                    parallel=parallel,
+                    chunks_per_worker=chunks_per_worker,
+                )
 
         if args["verbose"]:
             print("Orders created or extended:", order_ids)

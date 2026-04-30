@@ -27,7 +27,7 @@ class _FakeExecutor:
 
     def __init__(self, num_workers=2, submit_side_effect=None):
         self._num_workers = num_workers
-        self._entered = False
+        self.enter_count = 0
         self.submit = mock.Mock(
             side_effect=submit_side_effect or [_Future([]), _Future([])]
         )
@@ -37,16 +37,12 @@ class _FakeExecutor:
     def num_workers(self):
         return self._num_workers
 
-    def has_entered(self):
-        return self._entered
-
     def __enter__(self):
-        self._entered = True
+        self.enter_count += 1
         return self
 
     def __exit__(self, *_args):
         self.shutdown(wait=True)
-        self._entered = False
         return None
 
 
@@ -1094,10 +1090,10 @@ class TestEleanorConstructorOverrides(TestCase):
         self.assertIs(seen_executors[0], ctor_executor)
         self.assertIs(seen_executors[1], ctor_executor)
 
-    def test_unentered_executor_override_entered_and_shut_down_by_eleanor(self):
+    def test_unentered_executor_override_not_entered_or_shut_down_by_eleanor(self):
         """
-        Ensure Eleanor enters a constructor-supplied executor that has not yet
-        been entered (Pattern 1 — Eleanor manages the lifecycle).
+        Ensure Eleanor reuses an unentered constructor-supplied executor
+        as-is and does not manage its lifecycle.
         """
         eleanor = _make_eleanor()
         ctor_executor = _FakeExecutor()   # not entered by caller
@@ -1111,15 +1107,16 @@ class TestEleanorConstructorOverrides(TestCase):
             mock.patch.object(Eleanor, "load_output_sink", return_value=sink),
         ):
             with eleanor:
-                self.assertTrue(ctor_executor.has_entered())
+                self.assertEqual(ctor_executor.enter_count, 0)
                 _ = eleanor.run(order, 1)
+                self.assertEqual(ctor_executor.enter_count, 0)
 
-        ctor_executor.shutdown.assert_called_once_with(wait=True)
+        ctor_executor.shutdown.assert_not_called()
 
     def test_caller_entered_executor_not_shut_down_by_eleanor(self):
         """
         Ensure Eleanor does not shut down a constructor-supplied executor that
-        the caller already entered (Pattern 2 — caller manages the lifecycle).
+        the caller already entered.
         """
         eleanor = _make_eleanor()
         ctor_executor = _FakeExecutor()
@@ -1135,6 +1132,7 @@ class TestEleanorConstructorOverrides(TestCase):
         ):
             with eleanor:
                 _ = eleanor.run(order, 1)
+                self.assertEqual(ctor_executor.enter_count, 1)
 
         ctor_executor.shutdown.assert_not_called()
 

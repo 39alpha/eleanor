@@ -55,12 +55,10 @@ class Eleanor(object):
     kernel_args: list[object]
     num_procs: int | None
 
-    # Caller-supplied session-level overrides.  Eleanor enters and exits the
-    # executor override only when the caller has not already entered it
-    # (detected via ``has_entered()``); the output-sink override is never
-    # finalized by Eleanor.
+    # Caller-supplied session-level overrides. Caller retains ownership:
+    # Eleanor never enters/shuts down the executor override and never
+    # finalizes the output-sink override.
     _executor_override: AbstractExecutor | None
-    _entered_executor_override: bool  # True when Eleanor called __enter__ on it
     _output_sink_override: OutputSink | None
 
     # Resources owned by the engine when used as a context manager.
@@ -84,7 +82,6 @@ class Eleanor(object):
         self.num_procs = num_procs
 
         self._executor_override = executor
-        self._entered_executor_override = False
         self._output_sink_override = output_sink
 
         self._entered = False
@@ -97,14 +94,9 @@ class Eleanor(object):
 
         When no constructor-level ``executor`` was supplied, one is built from
         :attr:`config` and entered eagerly so workers are warm for the first
-        :meth:`run` call.  When one was supplied, Eleanor checks
-        :meth:`~AbstractExecutor.has_entered`:
-
-        * If the executor has **not** been entered (Pattern 1 — Eleanor owns
-          lifecycle), Eleanor calls :meth:`~AbstractExecutor.__enter__` on it
-          and will call :meth:`~AbstractExecutor.shutdown` at :meth:`__exit__`.
-        * If it **has** already been entered (Pattern 2 — caller owns
-          lifecycle), Eleanor uses it as-is and will not touch its lifecycle.
+        :meth:`run` call. When a constructor-level executor override is
+        supplied, Eleanor reuses it as-is and never enters or shuts it down;
+        caller-owned lifecycle may be context-managed or manual.
 
         The progress :class:`SyncManager` and :class:`OutputSink` are left
         unbuilt until the first :meth:`run` that needs them.
@@ -113,9 +105,6 @@ class Eleanor(object):
             parallel, _ = self._parallel_defaults()
             self._executor = build_executor(kind=parallel, num_workers=self.num_procs)
             _ = self._executor.__enter__()
-        elif not self._executor_override.has_entered():
-            _ = self._executor_override.__enter__()
-            self._entered_executor_override = True
         self._entered = True
         return self
 
@@ -158,15 +147,6 @@ class Eleanor(object):
                     first_error = error
             finally:
                 self._executor = None
-
-        if self._executor_override is not None and self._entered_executor_override:
-            try:
-                self._executor_override.shutdown(wait=True)
-            except BaseException as error:
-                if first_error is None:
-                    first_error = error
-            finally:
-                self._entered_executor_override = False
 
         self._entered = False
 

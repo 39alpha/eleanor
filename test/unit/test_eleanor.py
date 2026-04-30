@@ -1138,29 +1138,13 @@ class TestEleanorConstructorOverrides(TestCase):
 
         ctor_executor.shutdown.assert_not_called()
 
-    def test_per_run_executor_overrides_constructor_executor(self):
+    def test_run_rejects_per_run_executor_kwarg(self):
         """
-        Ensure a per-run executor= kwarg takes precedence over the
-        constructor-supplied executor.
+        Ensure run() no longer accepts per-run executor overrides.
         """
         eleanor = _make_eleanor()
-        ctor_executor = _FakeExecutor()
-        per_run_executor = _FakeExecutor()
-        eleanor._executor_override = ctor_executor
-
-        order = _leaf_order()
-        sink = mock.Mock()
-        seen_executors = []
-
-        def dispatch(order, samples, *a, executor, **kw):
-            seen_executors.append(executor)
-            return [1]
-        eleanor._dispatch = mock.Mock(side_effect=dispatch)
-
-        with mock.patch.object(Eleanor, "load_output_sink", return_value=sink):
-            eleanor.run(order, 1, executor=per_run_executor)
-
-        self.assertIs(seen_executors[0], per_run_executor)
+        with self.assertRaisesRegex(TypeError, "unexpected keyword argument 'executor'"):
+            eleanor.run(_leaf_order(), 1, executor=_FakeExecutor())
 
     def test_constructor_output_sink_used_for_all_runs_in_session(self):
         """

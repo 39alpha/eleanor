@@ -47,8 +47,8 @@ class Eleanor(object):
     Constructor-level ``executor`` and ``output_sink`` keyword arguments
     override the Config-derived defaults for every :meth:`run` call on
     this instance.  Caller retains ownership — Eleanor never shuts down
-    or finalizes them.  Per-run ``executor=`` / ``output_sink=`` kwargs
-    on individual :meth:`run` calls still take precedence.
+    or finalizes them.  Per-run ``output_sink=`` kwargs on individual
+    :meth:`run` calls still take precedence.
     """
 
     config: Config
@@ -179,25 +179,19 @@ class Eleanor(object):
     @contextmanager
     def _executor_scope(
         self,
-        override: AbstractExecutor | None,
         *,
         parallel: str,
     ) -> "Generator[AbstractExecutor, None, None]":
         """Yield an executor for the duration of one :meth:`run` call.
 
         Preference order:
-
-        * ``override`` (per-run, externally-owned) — returned as-is,
-          caller keeps ownership.
         * ``self._executor_override`` (constructor-level) — returned
           as-is, caller keeps ownership.
         * ``self._executor`` (session-scoped, built in :meth:`__enter__`)
           — returned as-is.
-        * a freshly-built executor torn down when this scope exits.
+        * a freshly-built executor torn down when this scope exits
+          (one-shot usage: Eleanor not used as a context manager).
         """
-        if override is not None:
-            yield override
-            return
         if self._executor_override is not None:
             yield self._executor_override
             return
@@ -307,7 +301,6 @@ class Eleanor(object):
         proportional_sampling: bool = False,
         parallel: str | None = None,
         chunks_per_worker: int | None = None,
-        executor: AbstractExecutor | None = None,
         kernel: AbstractKernel | None = None,
         navigator: NavigatorProtocol | None = None,
         output_sink: OutputSink | None = None,
@@ -327,6 +320,10 @@ class Eleanor(object):
         :meth:`~OutputSink.finalize_run` and :meth:`~OutputSink.finalize`
         on exit.
         """
+        # ``executor`` was a named parameter prior to this branch; the double cast
+        # lets basedpyright accept a membership test for a key outside EleanorKwargs.
+        if "executor" in cast(dict[str, object], cast(object, kwargs)):
+            raise TypeError("Eleanor.run() got an unexpected keyword argument 'executor'")
         verbose = kwargs.get("verbose", False)
         show_progress = kwargs.get("show_progress", False)
 
@@ -351,7 +348,7 @@ class Eleanor(object):
 
         with ExitStack() as stack:
             run_executor = stack.enter_context(
-                self._executor_scope(executor, parallel=parallel),
+                self._executor_scope(parallel=parallel),
             )
             run_sink = stack.enter_context(
                 self._sink_scope(output_sink, verbose=verbose),

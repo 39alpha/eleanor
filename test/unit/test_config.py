@@ -18,18 +18,18 @@ class TestConfig(TestCase):
 
     def test_parallel_config_defaults(self):
         """
-        Ensure that :class:`ParallelConfig` defaults to multiprocessing with one chunk per worker.
+        Ensure that :class:`ParallelConfig` defaults to multiprocessing with a multi-chunk worker batch.
         """
         cfg = ParallelConfig()
-        self.assertEqual(cfg.backend, 'multiprocessing')
-        self.assertEqual(cfg.chunks_per_worker, 1)
+        self.assertEqual(cfg.backend, "multiprocessing")
+        self.assertEqual(cfg.chunks_per_worker, 10)
 
     def test_parallel_config_validation(self):
         """
         Ensure invalid backend names and chunk values raise configuration errors.
         """
         with self.assertRaises(EleanorConfigurationException):
-            ParallelConfig(backend='bogus')
+            ParallelConfig(backend="bogus")
         with self.assertRaises(EleanorConfigurationException):
             ParallelConfig(chunks_per_worker=0)
 
@@ -41,15 +41,15 @@ class TestConfig(TestCase):
         database_config = database_config_from_config(cfg)
         self.assertIsNone(database_config.username)
         self.assertIsNone(database_config.password)
-        self.assertEqual(cfg.parallel.backend, 'multiprocessing')
-        self.assertEqual(cfg.parallel.chunks_per_worker, 1)
+        self.assertEqual(cfg.parallel.backend, "multiprocessing")
+        self.assertEqual(cfg.parallel.chunks_per_worker, 10)
 
     def test_config_from_yaml(self):
         """
         Ensure that YAML configuration files are parsed correctly.
         """
         with TemporaryDirectory() as tmp:
-            path = join(tmp, 'config.yaml')
+            path = join(tmp, "config.yaml")
             content = textwrap.dedent("""\
                 output:
                   type: postgres
@@ -64,21 +64,21 @@ class TestConfig(TestCase):
                       password: secret
                       sslmode: require
             """)
-            with open(path, 'w') as f:
+            with open(path, "w") as f:
                 f.write(content)
 
             cfg = Config.from_yaml(path)
             database_config = database_config_from_config(cfg)
-            self.assertEqual(database_config.database, 'sample')
+            self.assertEqual(database_config.database, "sample")
             self.assertEqual(database_config.port, 5432)
-            self.assertEqual(database_config.sslmode, 'require')
+            self.assertEqual(database_config.sslmode, "require")
 
     def test_config_from_toml(self):
         """
         Ensure that TOML configuration files are parsed correctly.
         """
         with TemporaryDirectory() as tmp:
-            path = join(tmp, 'config.toml')
+            path = join(tmp, "config.toml")
             content = textwrap.dedent("""\
                 [output]
                 type = "postgres"
@@ -95,15 +95,15 @@ class TestConfig(TestCase):
                 backend = "serial"
                 chunks_per_worker = 3
             """)
-            with open(path, 'w') as f:
+            with open(path, "w") as f:
                 f.write(content)
 
             cfg = Config.from_toml(path)
             database_config = database_config_from_config(cfg)
-            self.assertEqual(database_config.database, 'sample')
+            self.assertEqual(database_config.database, "sample")
             self.assertEqual(database_config.port, 5432)
-            self.assertEqual(database_config.sslmode, 'require')
-            self.assertEqual(cfg.parallel.backend, 'serial')
+            self.assertEqual(database_config.sslmode, "require")
+            self.assertEqual(cfg.parallel.backend, "serial")
             self.assertEqual(cfg.parallel.chunks_per_worker, 3)
 
     def test_config_from_json(self):
@@ -111,37 +111,37 @@ class TestConfig(TestCase):
         Ensure that JSON configuration files are parsed correctly.
         """
         with TemporaryDirectory() as tmp:
-            path = join(tmp, 'config.json')
+            path = join(tmp, "config.json")
             raw = {
-                'output': {
-                    'type': 'postgres',
-                    'args': {
-                        'database': {
-                            'dialect': 'postgresql',
-                            'dbapi': 'psycopg',
-                            'host': 'localhost',
-                            'port': 5432,
-                            'database': 'sample',
-                            'username': 'alice',
-                            'password': 'secret',
-                            'sslmode': 'require',
+                "output": {
+                    "type": "postgres",
+                    "args": {
+                        "database": {
+                            "dialect": "postgresql",
+                            "dbapi": "psycopg",
+                            "host": "localhost",
+                            "port": 5432,
+                            "database": "sample",
+                            "username": "alice",
+                            "password": "secret",
+                            "sslmode": "require",
                         },
                     },
                 },
-                'parallel': {
-                    'backend': 'serial',
-                    'chunks_per_worker': 8,
+                "parallel": {
+                    "backend": "serial",
+                    "chunks_per_worker": 8,
                 },
             }
-            with open(path, 'w') as f:
+            with open(path, "w") as f:
                 json.dump(raw, f)
 
             cfg = Config.from_json(path)
             database_config = database_config_from_config(cfg)
-            self.assertEqual(database_config.database, 'sample')
+            self.assertEqual(database_config.database, "sample")
             self.assertEqual(database_config.port, 5432)
-            self.assertEqual(database_config.sslmode, 'require')
-            self.assertEqual(cfg.parallel.backend, 'serial')
+            self.assertEqual(database_config.sslmode, "require")
+            self.assertEqual(cfg.parallel.backend, "serial")
             self.assertEqual(cfg.parallel.chunks_per_worker, 8)
 
     def test_config_from_file_dispatches_by_extension(self):
@@ -149,8 +149,8 @@ class TestConfig(TestCase):
         Ensure that :meth:`Config.from_file` dispatches loaders by file extension.
         """
         with TemporaryDirectory() as tmp:
-            yaml_path = join(tmp, 'config.yml')
-            with open(yaml_path, 'w') as f:
+            yaml_path = join(tmp, "config.yml")
+            with open(yaml_path, "w") as f:
                 f.write(
                     "output:\n"
                     "  type: postgres\n"
@@ -165,15 +165,15 @@ class TestConfig(TestCase):
                 )
 
             cfg = Config.from_file(yaml_path)
-            self.assertEqual(database_config_from_config(cfg).username, 'alice')
+            self.assertEqual(database_config_from_config(cfg).username, "alice")
 
     def test_config_from_file_dispatches_yaml_extension(self):
         """
         Ensure that :meth:`Config.from_file` dispatches the explicit .yaml extension.
         """
         with TemporaryDirectory() as tmp:
-            yaml_path = join(tmp, 'config.yaml')
-            with open(yaml_path, 'w') as f:
+            yaml_path = join(tmp, "config.yaml")
+            with open(yaml_path, "w") as f:
                 f.write(
                     "output:\n"
                     "  type: postgres\n"
@@ -188,38 +188,38 @@ class TestConfig(TestCase):
                 )
 
             cfg = Config.from_file(yaml_path)
-            self.assertEqual(database_config_from_config(cfg).database, 'sample')
+            self.assertEqual(database_config_from_config(cfg).database, "sample")
 
     def test_config_from_file_dispatches_toml_extension(self):
         """
         Ensure that :meth:`Config.from_file` dispatches the .toml extension.
         """
         with TemporaryDirectory() as tmp:
-            toml_path = join(tmp, 'config.toml')
-            with open(toml_path, 'w') as f:
+            toml_path = join(tmp, "config.toml")
+            with open(toml_path, "w") as f:
                 f.write(
                     "[output]\n"
-                    "type = \"postgres\"\n"
+                    'type = "postgres"\n'
                     "[output.args.database]\n"
-                    "dialect = \"postgresql\"\n"
-                    "dbapi = \"psycopg\"\n"
-                    "host = \"localhost\"\n"
-                    "database = \"sample\"\n"
-                    "username = \"alice\"\n"
-                    "password = \"secret\"\n"
+                    'dialect = "postgresql"\n'
+                    'dbapi = "psycopg"\n'
+                    'host = "localhost"\n'
+                    'database = "sample"\n'
+                    'username = "alice"\n'
+                    'password = "secret"\n'
                 )
 
             cfg = Config.from_file(toml_path)
-            self.assertEqual(database_config_from_config(cfg).database, 'sample')
+            self.assertEqual(database_config_from_config(cfg).database, "sample")
 
     def test_config_from_file_rejects_bad_extension(self):
         """
         Ensure that unsupported config file extensions raise wrapped parse errors.
         """
         with TemporaryDirectory() as tmp:
-            path = join(tmp, 'config.ini')
-            with open(path, 'w') as f:
-                f.write('[output]\n')
+            path = join(tmp, "config.ini")
+            with open(path, "w") as f:
+                f.write("[output]\n")
 
             with self.assertRaises(EleanorException):
                 Config.from_file(path)
@@ -235,29 +235,31 @@ class TestConfig(TestCase):
         self.assertIsNone(default_database_config.password)
 
         with TemporaryDirectory() as tmp:
-            path = join(tmp, 'config.json')
+            path = join(tmp, "config.json")
             raw = {
-                'output': {
-                    'type': 'postgres',
-                    'args': {
-                        'database': {
-                            'dialect': 'postgresql',
-                            'dbapi': 'psycopg',
-                            'host': 'localhost',
-                            'database': 'sample',
-                            'username': 'alice',
-                            'password': 'secret',
+                "output": {
+                    "type": "postgres",
+                    "args": {
+                        "database": {
+                            "dialect": "postgresql",
+                            "dbapi": "psycopg",
+                            "host": "localhost",
+                            "database": "sample",
+                            "username": "alice",
+                            "password": "secret",
                         },
                     },
                 },
             }
-            with open(path, 'w') as f:
+            with open(path, "w") as f:
                 json.dump(raw, f)
 
             from_file = load_config(path)
-            self.assertEqual(database_config_from_config(from_file).database, 'sample')
+            self.assertEqual(database_config_from_config(from_file).database, "sample")
 
-        cfg = Config(raw={'output': {'type': 'postgres', 'args': {'database': {'username': 'alice', 'password': 'secret'}}}})
+        cfg = Config(
+            raw={"output": {"type": "postgres", "args": {"database": {"username": "alice", "password": "secret"}}}}
+        )
         same = load_config(cfg)
         self.assertIs(same, cfg)
 
@@ -266,7 +268,7 @@ class TestConfig(TestCase):
         Ensure Config provides an explicit default output target for sink selection.
         """
         cfg = Config()
-        self.assertEqual(cfg.output.type, 'postgres')
+        self.assertEqual(cfg.output.type, "postgres")
 
     def test_output_config_rejects_unsupported_type(self):
         """
@@ -274,48 +276,48 @@ class TestConfig(TestCase):
         and lists available sink options.
         """
         with self.assertRaises(EleanorConfigurationException) as ctx:
-            OutputConfig(type='definitely-not-a-sink')
+            OutputConfig(type="definitely-not-a-sink")
         msg = str(ctx.exception)
-        self.assertIn('definitely-not-a-sink', msg)
-        self.assertIn('postgres', msg)
+        self.assertIn("definitely-not-a-sink", msg)
+        self.assertIn("postgres", msg)
 
     def test_output_config_accepts_plugin_type_when_registry_exposes_it(self):
         """
         Ensure OutputConfig validation follows the registry's dynamic sink names.
         """
-        with mock.patch('eleanor.config.available_outputs', return_value=frozenset({'postgres', 'csv'})):
-            cfg = OutputConfig(type='csv')
-        self.assertEqual(cfg.type, 'csv')
+        with mock.patch("eleanor.config.available_outputs", return_value=frozenset({"postgres", "csv"})):
+            cfg = OutputConfig(type="csv")
+        self.assertEqual(cfg.type, "csv")
 
     def test_output_config_from_raw_parses_args(self):
         """
         Ensure output.args is preserved as a string-keyed dict.
         """
-        cfg = Config(raw={'output': {'type': 'postgres', 'args': {'batch_size': 4, 'format': 'json'}}})
-        self.assertEqual(cfg.output.type, 'postgres')
-        self.assertEqual(cfg.output.args, {'batch_size': 4, 'format': 'json'})
+        cfg = Config(raw={"output": {"type": "postgres", "args": {"batch_size": 4, "format": "json"}}})
+        self.assertEqual(cfg.output.type, "postgres")
+        self.assertEqual(cfg.output.args, {"batch_size": 4, "format": "json"})
 
     def test_output_config_rejects_non_dict_args(self):
         """
         Ensure output.args validation rejects non-dict values.
         """
         with self.assertRaises(EleanorConfigurationException):
-            _ = OutputConfig.from_raw({'type': 'postgres', 'args': 'nope'})  # type: ignore[arg-type]
+            _ = OutputConfig.from_raw({"type": "postgres", "args": "nope"})  # type: ignore[arg-type]
 
     def test_output_config_rejects_none_args(self):
         """
         Ensure output.args validation rejects None instead of silently defaulting.
         """
         with self.assertRaises(EleanorConfigurationException):
-            _ = OutputConfig.from_raw({'type': 'postgres', 'args': None})  # type: ignore[arg-type]
+            _ = OutputConfig.from_raw({"type": "postgres", "args": None})  # type: ignore[arg-type]
 
     def test_config_parallel_raw_defaults_when_missing(self):
         """
         Ensure parallel defaults are applied when raw config omits the parallel section.
         """
-        cfg = Config(raw={'output': {'type': 'postgres', 'args': {'database': {'database': 'sample'}}}})
-        self.assertEqual(cfg.parallel.backend, 'multiprocessing')
-        self.assertEqual(cfg.parallel.chunks_per_worker, 1)
+        cfg = Config(raw={"output": {"type": "postgres", "args": {"database": {"database": "sample"}}}})
+        self.assertEqual(cfg.parallel.backend, "multiprocessing")
+        self.assertEqual(cfg.parallel.chunks_per_worker, 10)
 
     def test_config_rejects_legacy_database_key(self):
         """
@@ -324,6 +326,6 @@ class TestConfig(TestCase):
         silently producing a confusing 'no database provided' error.
         """
         with self.assertRaises(EleanorConfigurationException) as ctx:
-            Config(raw={'database': {'database': 'sample'}})  # type: ignore[typeddict-unknown-key]
-        self.assertIn('database', str(ctx.exception))
-        self.assertIn('output.args.database', str(ctx.exception))
+            Config(raw={"database": {"database": "sample"}})  # type: ignore[typeddict-unknown-key]
+        self.assertIn("database", str(ctx.exception))
+        self.assertIn("output.args.database", str(ctx.exception))

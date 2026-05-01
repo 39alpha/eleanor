@@ -1,7 +1,7 @@
 from unittest import mock
 
 from eleanor.exceptions import EleanorException
-from eleanor.executor.multiprocessing import MultiprocessingExecutor
+from eleanor.executor.multiprocessing import MultiprocessingExecutor, MultiprocessingFuture
 
 from ..common import TestCase
 
@@ -9,11 +9,15 @@ from ..common import TestCase
 class _AsyncResult:
     _value: object
 
-    def __init__(self, value):
+    def __init__(self, value, ready=True):
         self._value = value
+        self._ready = ready
 
     def get(self):
         return self._value
+
+    def ready(self):
+        return self._ready
 
 
 class _Pool:
@@ -89,3 +93,18 @@ class TestMultiprocessingExecutor(TestCase):
         executor.shutdown(wait=True)
         with self.assertRaises(EleanorException):
             executor.submit(lambda x: x, 1)
+
+    def test_pop_completed_future_prefers_ready_futures(self):
+        """
+        Ensure pop_completed_future returns a ready future before earlier
+        non-ready entries in the same queue.
+        """
+        executor = MultiprocessingExecutor(num_workers=2)
+        slow = MultiprocessingFuture(_AsyncResult(1, ready=False))
+        ready = MultiprocessingFuture(_AsyncResult(2, ready=True))
+        futures = [slow, ready]
+
+        popped = executor.pop_completed_future(futures)
+
+        self.assertIs(popped, ready)
+        self.assertEqual(futures, [slow])

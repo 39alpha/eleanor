@@ -592,6 +592,7 @@ class Eleanor(object):
             chunk_count = min(len(vs_points), executor.num_workers * chunks_per_worker)
 
             sailor_kwargs: EleanorKwargs = {**kwargs}
+            batch_outcomes: list[WriteOutcome] = []
 
             if worker_writes:
                 # Sinks that opt in to worker writes receive the sink and
@@ -622,9 +623,8 @@ class Eleanor(object):
                     )
                     outcome_futures.append(outcome_future)
 
-                batch_outcomes: list[WriteOutcome] = []
                 while outcome_futures:
-                    outcome_future = outcome_futures.pop()
+                    outcome_future = executor.pop_completed_future(outcome_futures)
                     result = outcome_future.result()
                     batch_outcomes.extend(result)
                     # Fallback batch-level ticks for executors that cannot
@@ -656,21 +656,27 @@ class Eleanor(object):
                     )
                     compute_futures.append(compute_future)
 
-                compute_results: list[ComputeResult] = []
                 while compute_futures:
-                    compute_future = compute_futures.pop()
+                    compute_future = executor.pop_completed_future(compute_futures)
                     result = compute_future.result()
-                    compute_results.extend(result)
                     if worker_sim_progress is None and sim_progress is not None and result:
                         sim_progress.tick(len(result))
-
-                # The sink owns the output bar's cadence: per-row, per-batch,
-                # or anything in between. Eleanor only hands over the handle.
-                batch_outcomes = sink.write_batch(
-                    order_id,
-                    compute_results,
-                    progress=out_progress,
-                )
+                    # Stream each resolved worker batch straight into the sink
+                    # instead of accumulating all compute payloads in-memory.
+                    # This reduces parent memory pressure and cuts time-to-
+                    # first-write for large runs.
+                    if len(result) == 0:
+                        continue
+                    # The sink owns the output bar's cadence: per-row,
+                    # per-batch, or anything in between. Eleanor only hands
+                    # over the handle.
+                    batch_outcomes.extend(
+                        sink.write_batch(
+                            order_id,
+                            result,
+                            progress=out_progress,
+                        )
+                    )
 
             outcomes.extend(batch_outcomes)
 

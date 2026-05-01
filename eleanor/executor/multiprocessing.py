@@ -22,6 +22,10 @@ class MultiprocessingFuture(AbstractFuture[T]):
     def result(self) -> T:
         return self._future.get()
 
+    @override
+    def ready(self) -> bool:
+        return self._future.ready()
+
 
 class MultiprocessingExecutor(AbstractExecutor):
     _pool: PoolClass | None

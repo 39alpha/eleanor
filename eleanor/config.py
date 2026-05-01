@@ -61,7 +61,7 @@ class OutputConfig(object):
 @dataclass
 class ParallelConfig(object):
     backend: str = "multiprocessing"
-    chunks_per_worker: int = 1
+    chunks_per_worker: int = 10
 
     def __post_init__(self):
         backends = available_executors()
@@ -76,7 +76,7 @@ class ParallelConfig(object):
     def from_raw(raw: ParallelRaw) -> "ParallelConfig":
         return ParallelConfig(
             backend=raw.get("backend", "multiprocessing"),
-            chunks_per_worker=raw.get("chunks_per_worker", 1),
+            chunks_per_worker=raw.get("chunks_per_worker", 10),
         )
 
 

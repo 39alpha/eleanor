@@ -1,7 +1,10 @@
+import time
 from abc import ABC, abstractmethod
 from collections.abc import Callable
 from types import TracebackType
 from typing import Generic, Self, TypeVar
+
+from eleanor.exceptions import EleanorException
 
 T = TypeVar("T")
 
@@ -9,6 +12,9 @@ T = TypeVar("T")
 class AbstractFuture(ABC, Generic[T]):
     @abstractmethod
     def result(self) -> T: ...
+
+    def ready(self) -> bool:
+        return True
 
 
 class AbstractExecutor(ABC):
@@ -30,6 +36,23 @@ class AbstractExecutor(ABC):
         *args: object,
         **kwargs: object,
     ) -> AbstractFuture[T]: ...
+
+    def pop_completed_future(self, futures: list[AbstractFuture[T]]) -> AbstractFuture[T]:
+        """Pop one future from ``futures`` in the backend's preferred completion order.
+
+        Backends with non-blocking completion introspection may override this to
+        pop whichever future has already completed.
+        """
+        if len(futures) == 0:
+            raise EleanorException("cannot pop a completed future from an empty list")
+
+        delay = 0.001
+        while True:
+            for idx, candidate in enumerate(futures):
+                if candidate.ready():
+                    return futures.pop(idx)
+            time.sleep(delay)
+            delay = min(delay * 2, 0.128)
 
     @abstractmethod
     def shutdown(self, wait: bool = True) -> None: ...

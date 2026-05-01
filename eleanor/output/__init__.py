@@ -100,8 +100,7 @@ def _build_csv(_config: object, *, verbose: bool = False, **args: object) -> "Cs
             stacklevel=2,
         )
 
-    from .csv import CsvSink
-    from .csv.config import CsvConfig
+    from .csv import CsvConfig, CsvSink
 
     return CsvSink(
         CsvConfig(

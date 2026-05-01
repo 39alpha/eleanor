@@ -11,8 +11,7 @@ import yaml
 from eleanor.exceptions import EleanorConfigurationException, EleanorException
 from eleanor.order import Order
 from eleanor.output import ComputeResult, _build_csv
-from eleanor.output.csv.config import CsvConfig
-from eleanor.output.csv.sink import CsvSink, _schema_path
+from eleanor.output.csv import CsvConfig, CsvSink, _schema_path
 from eleanor.output.interface import ErrorInfo
 
 from .common import TestCase
@@ -416,7 +415,7 @@ class TestCsvSink(TestCase):
             r1 = ComputeResult(point=SimpleNamespace(exit_code=5, order_id=None))
             progress = mock.Mock()
             with mock.patch(
-                "eleanor.output.csv.sink.evaluate",
+                "eleanor.output.csv.evaluate",
                 side_effect=[
                     iter([{"order_id": 1, "exit_code": None}, {"order_id": 1, "exit_code": 7}]),
                     iter([{"order_id": 1, "exit_code": 5}]),
@@ -456,8 +455,8 @@ class TestCsvSink(TestCase):
             result = ComputeResult(point=SimpleNamespace(exit_code=3, order_id=None))
             captured = io.StringIO()
             with (
-                mock.patch("eleanor.output.csv.sink.evaluate", side_effect=RuntimeError("boom")),
-                mock.patch("eleanor.output.csv.sink.sys.stderr", captured),
+                mock.patch("eleanor.output.csv.evaluate", side_effect=RuntimeError("boom")),
+                mock.patch("eleanor.output.csv.sys.stderr", captured),
             ):
                 with self.assertRaisesRegex(RuntimeError, "boom"):
                     sink.write_batch(0, [result])
@@ -484,7 +483,7 @@ class TestCsvSink(TestCase):
             ok = ComputeResult(point=SimpleNamespace(exit_code=0, order_id=None))
             bad = ComputeResult(point=SimpleNamespace(exit_code=9, order_id=None))
             with mock.patch(
-                "eleanor.output.csv.sink.evaluate",
+                "eleanor.output.csv.evaluate",
                 side_effect=[iter([{"order_id": 1, "exit_code": 0}]), RuntimeError("explode")],
             ):
                 with self.assertRaisesRegex(RuntimeError, "explode"):
@@ -504,7 +503,7 @@ class TestCsvSink(TestCase):
     def test_csv_sink_is_importable_from_output_package(self):
         """Ensure CsvSink is accessible via the eleanor.output lazy-import path."""
         import eleanor.output as out
-        from eleanor.output.csv.sink import CsvSink as sink_cls
+        from eleanor.output.csv import CsvSink as sink_cls
 
         self.assertIs(out.CsvSink, sink_cls)
 
@@ -520,7 +519,7 @@ class TestCsvSink(TestCase):
             r0 = ComputeResult(point=SimpleNamespace(exit_code=0, order_id=None))
             r1 = ComputeResult(point=SimpleNamespace(exit_code=0, order_id=None))
             with mock.patch(
-                "eleanor.output.csv.sink.evaluate",
+                "eleanor.output.csv.evaluate",
                 side_effect=[
                     iter([{"order_id": 0, "exit_code": 0}]),
                     iter([{"order_id": 0, "exit_code": 0}]),
@@ -532,7 +531,7 @@ class TestCsvSink(TestCase):
             sink.begin_run(second_order)
             r2 = ComputeResult(point=SimpleNamespace(exit_code=0, order_id=None))
             with mock.patch(
-                "eleanor.output.csv.sink.evaluate",
+                "eleanor.output.csv.evaluate",
                 side_effect=[iter([{"order_id": 1, "exit_code": 0}])],
             ):
                 second_outcomes = sink.write_batch(1, [r2])
@@ -551,7 +550,7 @@ class TestCsvSink(TestCase):
             r0 = ComputeResult(point=SimpleNamespace(exit_code=0, order_id=None))
             r1 = ComputeResult(point=SimpleNamespace(exit_code=0, order_id=None))
             with mock.patch(
-                "eleanor.output.csv.sink.evaluate",
+                "eleanor.output.csv.evaluate",
                 side_effect=[
                     iter([{"order_id": 1, "exit_code": 0}]),
                     iter([{"order_id": 1, "exit_code": 0}]),
@@ -579,7 +578,7 @@ class TestCsvSink(TestCase):
 
             r0 = ComputeResult(point=SimpleNamespace(exit_code=0, order_id=None))
             with mock.patch(
-                "eleanor.output.csv.sink.evaluate",
+                "eleanor.output.csv.evaluate",
                 side_effect=[iter([{"order_id": 10, "exit_code": 0}])],
             ):
                 outcomes = sink.write_batch(10, [r0])
@@ -655,7 +654,7 @@ class TestCsvSink(TestCase):
             empty = ComputeResult(point=SimpleNamespace(exit_code=0, order_id=None))
             bad = ComputeResult(point=SimpleNamespace(exit_code=0, order_id=None))
             with mock.patch(
-                "eleanor.output.csv.sink.evaluate",
+                "eleanor.output.csv.evaluate",
                 side_effect=[iter([]), RuntimeError("boom")],
             ):
                 with self.assertRaisesRegex(RuntimeError, "boom"):
@@ -678,7 +677,7 @@ class TestCsvSink(TestCase):
                 error=ErrorInfo(type_name="RuntimeError", message="worker died", traceback_text="tb"),
             )
             progress = mock.Mock()
-            with mock.patch("eleanor.output.csv.sink.evaluate") as mocked_evaluate:
+            with mock.patch("eleanor.output.csv.evaluate") as mocked_evaluate:
                 outcomes = sink.write_batch(0, [errored], progress=progress)
 
             self.assertEqual(len(outcomes), 1)
@@ -715,7 +714,7 @@ class TestCsvSink(TestCase):
             progress = mock.Mock()
             # ``evaluate`` is only invoked for the two healthy results.
             with mock.patch(
-                "eleanor.output.csv.sink.evaluate",
+                "eleanor.output.csv.evaluate",
                 side_effect=[
                     iter([{"order_id": 1, "exit_code": 0}]),
                     iter([{"order_id": 1, "exit_code": 0}]),
@@ -751,7 +750,7 @@ class TestCsvSink(TestCase):
             one_row = ComputeResult(point=SimpleNamespace(exit_code=0, order_id=None))
             progress = mock.Mock()
             with mock.patch(
-                "eleanor.output.csv.sink.evaluate",
+                "eleanor.output.csv.evaluate",
                 side_effect=[
                     iter([]),
                     iter([{"order_id": 0, "exit_code": 0}]),
@@ -777,7 +776,7 @@ class TestCsvSink(TestCase):
             first = ComputeResult(point=SimpleNamespace(exit_code=0, order_id=None))
             second = ComputeResult(point=SimpleNamespace(exit_code=0, order_id=None))
             with mock.patch(
-                "eleanor.output.csv.sink.evaluate",
+                "eleanor.output.csv.evaluate",
                 side_effect=[
                     iter([{"order_id": 0, "vs_index": 99, "exit_code": 0}]),
                     iter([{"order_id": 0, "vs_index": 42, "exit_code": 0}]),

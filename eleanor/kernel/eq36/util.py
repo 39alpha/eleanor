@@ -1,11 +1,13 @@
 import io
 import re
-from typing import cast
 
 from eleanor.exceptions import EleanorFileException, EleanorParserException
 from eleanor.typing import Species
 
 from .codes import RunCode
+
+_FORTRAN_FLOAT_RE: re.Pattern[str] = re.compile(r"([-\+]?\d+(\.\d+)?)([-\+]\d+)")
+_NUMERIC_FALLBACK_RE: re.Pattern[str] = re.compile(r"[0-9Ee\+\.-]+")
 
 
 def get_field(line: str, pos: int) -> str:
@@ -19,13 +21,18 @@ def field_as_float(field: str) -> float:
     """
     Parse a string from an EQ3/6 output file as a `float`
     """
-    match = re.match(r"([-\+]?\d+(\.\d+)?)([-\+]\d+)", field)
+    try:
+        return float(field)
+    except ValueError:
+        pass
+
+    match = _FORTRAN_FLOAT_RE.match(field)
     if match:
         return float(match[1] + "e" + match[3])
-    matches = cast(list[str], re.findall(r"[0-9Ee\+\.-]+", field))
-    if matches:
+    fallback = _NUMERIC_FALLBACK_RE.search(field)
+    if fallback is not None:
         try:
-            return float(matches[0])
+            return float(fallback[0])
         except ValueError:
             pass
 

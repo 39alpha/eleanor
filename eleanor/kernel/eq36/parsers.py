@@ -11,6 +11,8 @@ from eleanor.kernel.eq36.util import field_as_float
 
 path_separator = re.compile("^( -)+$")
 blank_line = re.compile(r"^\s*$")
+# Perf: module-level cache avoids re.compile overhead on repeated pattern strings
+_pattern_cache: dict[str, re.Pattern[str]] = {}
 type NumericProps = dict[str, float]
 type NumericTable = dict[str, NumericProps]
 type SolidSolutionProps = dict[str, object]
@@ -55,13 +57,19 @@ class OutputParser(ABC):
 
     def match_pattern(self, pattern: str | re.Pattern[str]) -> re.Match[str] | None:
         if isinstance(pattern, str):
-            pattern = re.compile(pattern)
+            compiled = _pattern_cache.get(pattern)
+            if compiled is None:
+                compiled = _pattern_cache[pattern] = re.compile(pattern)
+            pattern = compiled
 
         return pattern.match(self.line())
 
     def unconsume_to_pattern(self, pattern: str | re.Pattern[str]) -> None:
         if isinstance(pattern, str):
-            pattern = re.compile(pattern)
+            compiled = _pattern_cache.get(pattern)
+            if compiled is None:
+                compiled = _pattern_cache[pattern] = re.compile(pattern)
+            pattern = compiled
 
         while self.eof():
             self.retreat()
@@ -71,16 +79,32 @@ class OutputParser(ABC):
 
     def consume_to_pattern(self, pattern: str | re.Pattern[str]) -> None:
         if isinstance(pattern, str):
-            pattern = re.compile(pattern)
+            compiled = _pattern_cache.get(pattern)
+            if compiled is None:
+                compiled = _pattern_cache[pattern] = re.compile(pattern)
+            pattern = compiled
 
-        while not self.eof() and not pattern.match(self.line()):
-            self.advance()
+        # Perf: inlined eof, line, advance
+        lines = self.lines
+        line_num = self.line_num
+        num_lines = len(lines)
+        while line_num < num_lines and not pattern.match(lines[line_num]):
+            line_num += 1
+        self.line_num = line_num
 
     def consume_while_pattern(self, pattern: str | re.Pattern[str]) -> None:
         if isinstance(pattern, str):
-            pattern = re.compile(pattern)
-        while not self.eof() and pattern.match(self.line()):
-            self.advance()
+            compiled = _pattern_cache.get(pattern)
+            if compiled is None:
+                compiled = _pattern_cache[pattern] = re.compile(pattern)
+            pattern = compiled
+        # Perf: inlined eof, line, advance
+        lines = self.lines
+        line_num = self.line_num
+        num_lines = len(lines)
+        while line_num < num_lines and pattern.match(lines[line_num]):
+            line_num += 1
+        self.line_num = line_num
 
     def consume_blank_lines(self) -> None:
         self.consume_while_pattern(blank_line)
@@ -170,20 +194,19 @@ class OutputParser(ABC):
             return
 
         reactants: NumericTable = {}
-        while not self.eof() and not self.is_blank():
-            name, moles, delta_moles, mass, delta_mass = self.line().strip().split()
-            reactants[name] = {
-                "moles_remaining": field_as_float(moles),
-                "moles_reacted": field_as_float(delta_moles),
-                "mass_remaining": field_as_float(mass),
-                "mass_reacted": field_as_float(delta_mass),
-            }
-            with warnings.catch_warnings():
-                warnings.filterwarnings("ignore", category=RuntimeWarning)
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", category=RuntimeWarning)
+            while not self.eof() and not self.is_blank():
+                name, moles, delta_moles, mass, delta_mass = self.line().strip().split()
+                reactants[name] = {
+                    "moles_remaining": field_as_float(moles),
+                    "moles_reacted": field_as_float(delta_moles),
+                    "mass_remaining": field_as_float(mass),
+                    "mass_reacted": field_as_float(delta_mass),
+                }
                 for key, value in list(reactants[name].items()):
                     reactants[name][f"log_{key}"] = _safe_log10(value)
-
-            self.advance()
+                self.advance()
 
         self.consume_blank_lines()
 
@@ -228,17 +251,22 @@ class OutputParser(ABC):
 
     def read_basic_table(self, *column_names: str, row_names: list[str] | None = None) -> NumericTable:
         table: NumericTable = {}
-        while not self.eof() and not self.is_blank():
-            name, *columns = self.line().strip().split()
+        # Perf: inlined eof, is_blank, line, advance
+        lines = self.lines
+        line_num = self.line_num
+        num_lines = len(lines)
+        _blank = blank_line
+        while line_num < num_lines and not _blank.match(lines[line_num]):
+            name, *columns = lines[line_num].strip().split()
             if row_names is not None:
                 if len(table) >= len(row_names):
-                    raise EleanorParserException(f"expected {len(row_names)} rows, got more at line {self.line_num}")
+                    raise EleanorParserException(f"expected {len(row_names)} rows, got more at line {line_num}")
 
                 name = row_names[len(table)]
 
             if len(column_names) != len(columns):
                 raise EleanorParserException(
-                    f"expected {len(column_names)} columns, got {len(columns)} at line {self.line_num}"
+                    f"expected {len(column_names)} columns, got {len(columns)} at line {line_num}"
                 )
 
             table[name] = dict(
@@ -247,7 +275,8 @@ class OutputParser(ABC):
                     map(field_as_float, columns),
                 )
             )
-            self.advance()
+            line_num += 1
+        self.line_num = line_num
 
         if row_names is not None and len(table) != len(row_names):
             raise EleanorParserException(f"expected {len(row_names)} rows, got {len(table)} at line {self.line_num}")
@@ -349,10 +378,15 @@ class OutputParser(ABC):
         self.advance(n=2)
 
         aqueous: NumericTable = {}
-        while not self.eof() and not self.is_blank():
-            species, molality, log_molality, log_gamma, log_activity = self.line().strip().split()
+        # Perf: inlined eof, is_blank, line, advance
+        lines = self.lines
+        line_num = self.line_num
+        num_lines = len(lines)
+        _blank = blank_line
+        while line_num < num_lines and not _blank.match(lines[line_num]):
+            species, molality, log_molality, log_gamma, log_activity = lines[line_num].strip().split()
             if "*" in molality or "*" in log_molality or "*" in log_gamma or "*" in log_activity:
-                self.advance()
+                line_num += 1
                 continue
 
             aqueous[species] = {
@@ -361,7 +395,8 @@ class OutputParser(ABC):
                 "log_gamma": field_as_float(log_gamma),
                 "log_activity": field_as_float(log_activity),
             }
-            self.advance()
+            line_num += 1
+        self.line_num = line_num
 
         self.data["aqueous"] = aqueous
 
@@ -392,89 +427,92 @@ class OutputParser(ABC):
             return s.startswith("   ")
 
         parent_phase: str | None = None
-        while not self.eof() and not self.is_blank():
-            line, next_line = self.line(), self.peek()
-            try:
-                solid, log_moles, moles, mass, volume = self.line().strip().split()
-            except ValueError as e:
-                raise EleanorParserException(f"unexpected solid phase row format at line {self.line_num}", e)
-            if "*" in log_moles or "*" in moles or "*" in mass or "*" in volume:
-                if blank_line.match(next_line):
-                    self.advance(n=2)
-                else:
-                    self.advance(n=1)
-                continue
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", category=RuntimeWarning)
+            # Perf: inlined eof, is_blank, line, peek, advance (also removes duplicate self.line() call)
+            lines = self.lines
+            line_num = self.line_num
+            num_lines = len(lines)
+            _blank = blank_line
+            while line_num < num_lines and not _blank.match(lines[line_num]):
+                line = lines[line_num]
+                next_line = lines[line_num + 1]
+                try:
+                    solid, log_moles, moles, mass, volume = line.strip().split()
+                except ValueError as e:
+                    raise EleanorParserException(f"unexpected solid phase row format at line {line_num}", e)
+                if "*" in log_moles or "*" in moles or "*" in mass or "*" in volume:
+                    if _blank.match(next_line):
+                        line_num += 2
+                    else:
+                        line_num += 1
+                    continue
 
-            if is_end_member(line):
-                if parent_phase is None:
-                    raise EleanorParserException("unexpected end member")
+                if is_end_member(line):
+                    if parent_phase is None:
+                        raise EleanorParserException("unexpected end member")
 
-                # This line is an end member
-                end_member_props: NumericProps = {
-                    "moles": field_as_float(moles),
-                    "log_moles": field_as_float(log_moles),
-                    "mass": field_as_float(mass),
-                    "volume": field_as_float(volume),
-                }
+                    # This line is an end member
+                    end_member_props: NumericProps = {
+                        "moles": field_as_float(moles),
+                        "log_moles": field_as_float(log_moles),
+                        "mass": field_as_float(mass),
+                        "volume": field_as_float(volume),
+                    }
 
-                with warnings.catch_warnings():
-                    warnings.filterwarnings("ignore", category=RuntimeWarning)
                     end_member_props["log_mass"] = _safe_log10(end_member_props["mass"])
                     end_member_props["log_volume"] = _safe_log10(end_member_props["volume"])
 
-                end_members = cast(NumericTable, solid_solutions[parent_phase]["end_members"])
-                if solid not in end_members:
-                    end_members[solid] = end_member_props
-            elif is_end_member(next_line) and not blank_line.match(next_line):
-                # This line is a solid solution
-                parent_phase = solid
-                moles_value = field_as_float(moles)
-                log_moles_value = field_as_float(log_moles)
-                mass_value = field_as_float(mass)
-                volume_value = field_as_float(volume)
+                    end_members = cast(NumericTable, solid_solutions[parent_phase]["end_members"])
+                    if solid not in end_members:
+                        end_members[solid] = end_member_props
+                elif is_end_member(next_line) and not _blank.match(next_line):
+                    # This line is a solid solution
+                    parent_phase = solid
+                    moles_value = field_as_float(moles)
+                    log_moles_value = field_as_float(log_moles)
+                    mass_value = field_as_float(mass)
+                    volume_value = field_as_float(volume)
 
-                solid_solution_props: SolidSolutionProps = {
-                    "moles": moles_value,
-                    "log_moles": log_moles_value,
-                    "mass": mass_value,
-                    "volume": volume_value,
-                    "end_members": {},
-                }
+                    solid_solution_props: SolidSolutionProps = {
+                        "moles": moles_value,
+                        "log_moles": log_moles_value,
+                        "mass": mass_value,
+                        "volume": volume_value,
+                        "end_members": {},
+                    }
 
-                with warnings.catch_warnings():
-                    warnings.filterwarnings("ignore", category=RuntimeWarning)
                     solid_solution_props["log_mass"] = _safe_log10(mass_value)
                     solid_solution_props["log_volume"] = _safe_log10(volume_value)
 
-                if solid not in solid_solutions:
-                    solid_solutions[solid] = solid_solution_props
-            else:
-                # This line is a pure phase
-                pure_phase_props: NumericProps = {
-                    "moles": field_as_float(moles),
-                    "log_moles": field_as_float(log_moles),
-                    "mass": field_as_float(mass),
-                    "volume": field_as_float(volume),
-                }
+                    if solid not in solid_solutions:
+                        solid_solutions[solid] = solid_solution_props
+                else:
+                    # This line is a pure phase
+                    pure_phase_props: NumericProps = {
+                        "moles": field_as_float(moles),
+                        "log_moles": field_as_float(log_moles),
+                        "mass": field_as_float(mass),
+                        "volume": field_as_float(volume),
+                    }
 
-                if solid.startswith("fix_f"):
-                    pure_phase_props["log_qk"] = 0.0
-                    pure_phase_props["affinity"] = 0.0
+                    if solid.startswith("fix_f"):
+                        pure_phase_props["log_qk"] = 0.0
+                        pure_phase_props["affinity"] = 0.0
 
-                with warnings.catch_warnings():
-                    warnings.filterwarnings("ignore", category=RuntimeWarning)
                     pure_phase_props["log_mass"] = _safe_log10(pure_phase_props["mass"])
                     pure_phase_props["log_volume"] = _safe_log10(pure_phase_props["volume"])
 
-                if solid not in pure_solids:
-                    pure_solids[solid] = pure_phase_props
+                    if solid not in pure_solids:
+                        pure_solids[solid] = pure_phase_props
 
-                parent_phase = None
+                    parent_phase = None
 
-            if blank_line.match(next_line):
-                self.advance(n=2)
-            else:
-                self.advance(n=1)
+                if _blank.match(next_line):
+                    line_num += 2
+                else:
+                    line_num += 1
+            self.line_num = line_num
 
     def read_solid_phases(self) -> None:
         solids: dict[str, object] = {}
@@ -524,18 +562,24 @@ class OutputParser(ABC):
         self.consume_to_pattern(r"\s*Phase\s+Log Q/K\s+Affinity, kcal\s*")
         self.advance(n=2)
 
-        while not self.eof() and not self.is_blank():
-            if self.line().strip() == "None":
+        # Perf: inlined eof, is_blank, line, advance (also caches strip to avoid double call)
+        lines = self.lines
+        line_num = self.line_num
+        num_lines = len(lines)
+        _blank = blank_line
+        while line_num < num_lines and not _blank.match(lines[line_num]):
+            cur = lines[line_num].strip()
+            if cur == "None":
                 break
 
-            phase, log_qk, affinity, *rest = self.line().strip().split()
+            phase, log_qk, affinity, *rest = cur.split()
             if len(rest) > 1:
-                raise EleanorParserException(f"too many columns in {header} at line {self.line_num}")
+                raise EleanorParserException(f"too many columns in {header} at line {line_num}")
             elif len(rest) != 0 and rest[0] not in ["SATD", "SSATD"]:
-                raise EleanorParserException(f"unexpected value in State column of {header} at line {self.line_num}")
+                raise EleanorParserException(f"unexpected value in State column of {header} at line {line_num}")
 
             if "*" in log_qk or "*" in affinity:
-                self.advance()
+                line_num += 1
                 continue
 
             if phase in phases:
@@ -547,7 +591,8 @@ class OutputParser(ABC):
                     "affinity": field_as_float(affinity),
                 }
 
-            self.advance()
+            line_num += 1
+        self.line_num = line_num
 
     def read_pure_solid_saturation_states(self) -> None:
         if "solids" not in self.data:

@@ -680,13 +680,14 @@ class Kernel(AbstractKernel):
 
     @staticmethod
     def _as_float(value: object) -> float:
-        return float(cast(float | int, value))
+        # Parser values are already float from field_as_float; cast narrows the type.
+        return cast(float, value)
 
     @staticmethod
     def _as_opt_float(value: object) -> float | None:
         if value is None:
             return None
-        return Kernel._as_float(value)
+        return cast(float, value)
 
     @staticmethod
     def _build_pure_solid(

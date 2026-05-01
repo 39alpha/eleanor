@@ -10,8 +10,7 @@ import yaml
 
 from eleanor.exceptions import EleanorConfigurationException, EleanorException
 from eleanor.order import Order
-from eleanor.output import ComputeResult
-from eleanor.output import _build_csv
+from eleanor.output import ComputeResult, _build_csv
 from eleanor.output.csv.config import CsvConfig
 from eleanor.output.csv.sink import CsvSink, _schema_path
 from eleanor.output.interface import ErrorInfo
@@ -24,6 +23,7 @@ def _write_sidecar(
     query: dict[str, object],
     *,
     vs_points_seen: dict[int, int] | None = None,
+    order_versions: dict[int, str] | None = None,
 ) -> None:
     """Helper to spell out the on-disk sidecar shape exactly once per change."""
     with open(_schema_path(filename), "w") as handle:
@@ -31,6 +31,7 @@ def _write_sidecar(
             {
                 "query": query,
                 "vs_points_seen": {} if vs_points_seen is None else vs_points_seen,
+                "order_versions": {} if order_versions is None else order_versions,
             },
             handle,
             sort_keys=False,
@@ -64,6 +65,7 @@ def _query_without_order_id() -> dict[str, object]:
             {"path": "vs_point.exit_code", "name": "exit_code"},
         ],
     }
+
 
 def _query_with_vs_index_column() -> dict[str, object]:
     return {
@@ -180,6 +182,7 @@ class TestCsvSink(TestCase):
                 schema = yaml.safe_load(handle)
             self.assertEqual(schema["query"], _query_with_order_id())
             self.assertEqual(schema["vs_points_seen"], {})
+            self.assertEqual(schema["order_versions"], {})
 
             order = _minimal_order()
             self.assertEqual(sink.begin_run(order), 0)
@@ -187,6 +190,34 @@ class TestCsvSink(TestCase):
             with open(schema_file) as handle:
                 schema_after_begin = yaml.safe_load(handle)
             self.assertEqual(schema_after_begin["vs_points_seen"], {0: 0})
+            self.assertEqual(schema_after_begin["order_versions"], {0: order.eleanor_version})
+
+    def test_initialize_resets_sidecar_state_when_csv_deleted(self):
+        """Ensure re-initialization after CSV deletion writes empty vs_points_seen and order_versions."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            filename = f"{tmpdir}/rows.csv"
+            sink = CsvSink(CsvConfig(filename=filename, query=_query_with_order_id()))
+            sink.initialize()
+
+            order = _minimal_order()
+            order.id = 3
+            order.eleanor_version = "v1"
+            sink.begin_run(order)
+
+            schema_file = _schema_path(filename)
+            with open(schema_file) as handle:
+                before = yaml.safe_load(handle)
+            self.assertEqual(before["vs_points_seen"], {3: 0})
+            self.assertEqual(before["order_versions"], {3: "v1"})
+
+            os.remove(filename)
+            os.remove(schema_file)
+            sink.initialize()
+
+            with open(schema_file) as handle:
+                after = yaml.safe_load(handle)
+            self.assertEqual(after["vs_points_seen"], {})
+            self.assertEqual(after["order_versions"], {})
 
     def test_initialize_existing_matching_files_claims_next_order_id(self):
         """Ensure begin_run allocates max(order_id)+1 and persists a new zero-count entry."""
@@ -305,6 +336,26 @@ class TestCsvSink(TestCase):
             self.assertEqual(sink.begin_run(supplied), 1)
             self.assertEqual(supplied.id, 1)
             self.assertEqual(supplied.eleanor_version, "caller-version")
+
+    def test_begin_run_raises_on_version_mismatch_for_reused_order_id(self):
+        """Ensure persisted sidecar versions reject reusing an order id with a different eleanor_version."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            filename = f"{tmpdir}/rows.csv"
+            sink = CsvSink(CsvConfig(filename=filename, query=_query_with_order_id()))
+            sink.initialize()
+
+            first = _minimal_order()
+            first.id = 7
+            first.eleanor_version = "v1"
+            self.assertEqual(sink.begin_run(first), 7)
+            restarted = CsvSink(CsvConfig(filename=filename, query=_query_with_order_id()))
+            restarted.initialize()
+
+            mismatch = _minimal_order()
+            mismatch.id = 7
+            mismatch.eleanor_version = "v2"
+            with self.assertRaisesRegex(EleanorException, "different version of Eleanor"):
+                restarted.begin_run(mismatch)
 
     def test_begin_run_issues_sequential_ids_for_distinct_orders(self):
         """Ensure distinct order objects receive sequential IDs from one initialized sink."""
@@ -563,6 +614,34 @@ class TestCsvSink(TestCase):
                     with self.assertRaisesRegex(EleanorException, "invalid count"):
                         sink.initialize()
 
+    def test_initialize_rejects_invalid_order_versions_shapes(self):
+        """Ensure initialize rejects non-mapping or invalid-key/value order_versions payloads."""
+        cases: list[tuple[object, str]] = [
+            ("not-a-mapping", "invalid order_versions"),
+            ({True: "v1"}, "invalid key"),
+            ({1: 5}, "invalid version"),
+        ]
+        for raw_value, expected in cases:
+            with self.subTest(raw_value=raw_value):
+                with tempfile.TemporaryDirectory() as tmpdir:
+                    filename = f"{tmpdir}/rows.csv"
+                    with open(filename, "w", newline="") as handle:
+                        csv.writer(handle).writerow(["order_id", "exit_code"])
+                    with open(_schema_path(filename), "w") as handle:
+                        yaml.safe_dump(
+                            {
+                                "query": _query_with_order_id(),
+                                "vs_points_seen": {1: 0},
+                                "order_versions": raw_value,
+                            },
+                            handle,
+                            sort_keys=False,
+                        )
+
+                    sink = CsvSink(CsvConfig(filename=filename, query=_query_with_order_id()))
+                    with self.assertRaisesRegex(EleanorException, expected):
+                        sink.initialize()
+
     def test_write_batch_failure_after_empty_rows_keeps_order_count_unchanged(self):
         """Ensure empty evaluate output does not advance per-order counts across a later failure."""
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -686,6 +765,7 @@ class TestCsvSink(TestCase):
             with open(_schema_path(filename)) as handle:
                 schema = yaml.safe_load(handle)
             self.assertEqual(schema["vs_points_seen"], {0: 1})
+
     def test_write_batch_stamps_vs_index_columns_with_per_order_point_id(self):
         """Ensure query columns bound to ``vs_point.@index`` are overwritten with per-order point ids."""
         with tempfile.TemporaryDirectory() as tmpdir:

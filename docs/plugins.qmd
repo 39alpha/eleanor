@@ -55,6 +55,20 @@ output:
 
 The short-string form `navigator: random` is accepted as sugar for
 `{type: random, args: {}}`.
+### Navigator contract
+Navigator plugins must expose:
+
+- `num_systems(scale: int) -> int`: total number of VS points the navigator
+  will produce for the given scale.
+- `navigate(scale: int, batch_size: int, *args, **kwargs) -> Iterator[list[vs.Point]]`:
+  a batch iterator that yields lists of up to `batch_size` points.
+
+Eleanor passes `order_id` and `max_attempts` as keyword arguments to
+`navigate`; plugins should accept `**kwargs` to tolerate future additions.
+
+Across a complete `navigate(...)` iteration, the total number of yielded
+points must match `num_systems(scale)`. Eleanor raises an error if the
+counts diverge.
 
 ## Distributing a third-party plugin
 

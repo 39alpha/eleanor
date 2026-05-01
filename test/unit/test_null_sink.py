@@ -159,15 +159,15 @@ class TestNullSink(TestCase):
         self.assertEqual(
             outcomes,
             [
-                WriteOutcome(point_id=0, exit_code=0, committed=True),
-                WriteOutcome(point_id=1, exit_code=3, committed=True),
+                WriteOutcome(exit_code=0, committed=True),
+                WriteOutcome(exit_code=3, committed=True),
             ],
         )
         self.assertEqual(first.order_id, order_id)
         self.assertEqual(second.order_id, order_id)
 
-    def test_write_batch_point_ids_are_global_across_orders(self):
-        """Ensure NullSink point ids increment globally across all runs, not per order."""
+    def test_write_batch_commits_results_across_orders(self):
+        """Ensure NullSink reports committed outcomes across multiple runs."""
         sink = NullSink(NullConfig(support_worker_writes=False))
 
         first_order_id = sink.begin_run(_order())  # type: ignore[arg-type]
@@ -177,9 +177,8 @@ class TestNullSink(TestCase):
 
         second_order_id = sink.begin_run(_order())  # type: ignore[arg-type]
         second_outcomes = sink.write_batch(second_order_id, [ComputeResult(point=_point())])
-
-        self.assertEqual(first_outcomes[0].point_id, 0)
-        self.assertEqual(second_outcomes[0].point_id, 1)
+        self.assertTrue(first_outcomes[0].committed)
+        self.assertTrue(second_outcomes[0].committed)
 
     def test_write_batch_ticks_progress_for_each_result(self):
         """Ensure write_batch emits one progress tick per committed result."""

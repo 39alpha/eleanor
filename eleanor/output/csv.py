@@ -286,14 +286,11 @@ class CsvSink(OutputSink):
                 # and ``result.point`` may be partially constructed, so it is
                 # not safe to walk it through ``evaluate``. Mirror the
                 # PostgresSink rolled-back-savepoint convention
-                # (``point_id=None``, ``committed=False``, ``exit_code=-1``)
-                # so navigators don't count this point as completed and
-                # ``RunStats`` counts it as failed. The sink-side counter is
-                # NOT advanced -- a transport failure didn't claim a point
-                # id, and the sidecar therefore needs no update for it.
+                # (``committed=False``, ``exit_code=-1``) so ``RunStats``
+                # counts it as failed. The sink-side counter is NOT advanced
+                # for transport failures.
                 outcomes.append(
                     WriteOutcome(
-                        point_id=None,
                         exit_code=-1,
                         committed=False,
                         error_message=result.error.message,
@@ -328,16 +325,13 @@ class CsvSink(OutputSink):
             current_point_id = self._vs_points_seen[self._order_id]
             rows = _prepare_rows(self._columns, self._vs_index_columns, current_point_id, rows)
             _append_rows(self.config.filename, self._columns, rows)
-            point_id: int | None = None
             committed = False
             if rows:
                 self._rows_written = True
-                point_id = current_point_id
                 committed = True
                 self._vs_points_seen[self._order_id] += 1
             outcomes.append(
                 WriteOutcome(
-                    point_id=point_id,
                     exit_code=result.point.exit_code,
                     committed=committed,
                 )

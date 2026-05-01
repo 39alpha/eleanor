@@ -427,8 +427,6 @@ class TestCsvSink(TestCase):
             self.assertTrue(all(outcome.committed for outcome in outcomes))
             self.assertEqual(outcomes[0].exit_code, 0)
             self.assertEqual(outcomes[1].exit_code, 5)
-            self.assertEqual(outcomes[0].point_id, 0)
-            self.assertEqual(outcomes[1].point_id, 1)
             self.assertEqual(progress.tick.call_count, 2)
             self.assertIs(order.vs_points, original_vs_points)
 
@@ -507,8 +505,8 @@ class TestCsvSink(TestCase):
 
         self.assertIs(out.CsvSink, sink_cls)
 
-    def test_point_id_counter_is_per_order_not_global(self):
-        """Ensure ``WriteOutcome.point_id`` tracks each order's count and resets for new orders."""
+    def test_vs_points_seen_counter_is_per_order_not_global(self):
+        """Ensure per-order ``vs_points_seen`` counters reset for each new order."""
         with tempfile.TemporaryDirectory() as tmpdir:
             filename = f"{tmpdir}/rows.csv"
             sink = CsvSink(CsvConfig(filename=filename, query=_query_with_order_id()))
@@ -536,8 +534,11 @@ class TestCsvSink(TestCase):
             ):
                 second_outcomes = sink.write_batch(1, [r2])
 
-            self.assertEqual([o.point_id for o in first_outcomes], [0, 1])
-            self.assertEqual([o.point_id for o in second_outcomes], [0])
+            self.assertTrue(all(outcome.committed for outcome in first_outcomes))
+            self.assertTrue(second_outcomes[0].committed)
+            with open(_schema_path(filename)) as handle:
+                schema = yaml.safe_load(handle)
+            self.assertEqual(schema["vs_points_seen"], {0: 2, 1: 1})
 
     def test_write_batch_persists_advanced_vs_points_seen_for_order(self):
         """Ensure successful write_batch flushes the advanced per-order count to the sidecar."""
@@ -583,7 +584,7 @@ class TestCsvSink(TestCase):
             ):
                 outcomes = sink.write_batch(10, [r0])
 
-            self.assertEqual(outcomes[0].point_id, 100)
+            self.assertTrue(outcomes[0].committed)
             with open(_schema_path(filename)) as handle:
                 schema = yaml.safe_load(handle)
             self.assertEqual(schema["vs_points_seen"], {10: 101})
@@ -681,7 +682,6 @@ class TestCsvSink(TestCase):
                 outcomes = sink.write_batch(0, [errored], progress=progress)
 
             self.assertEqual(len(outcomes), 1)
-            self.assertIsNone(outcomes[0].point_id)
             self.assertEqual(outcomes[0].exit_code, -1)
             self.assertFalse(outcomes[0].committed)
             self.assertEqual(outcomes[0].error_message, "worker died")
@@ -721,8 +721,7 @@ class TestCsvSink(TestCase):
                 ],
             ) as mocked_evaluate:
                 outcomes = sink.write_batch(0, [ok0, errored, ok1], progress=progress)
-
-            self.assertEqual([o.point_id for o in outcomes], [0, None, 1])
+            self.assertEqual([o.exit_code for o in outcomes], [0, -1, 0])
             self.assertEqual([o.committed for o in outcomes], [True, False, True])
             self.assertEqual(outcomes[1].error_message, "transport failed")
             self.assertEqual(mocked_evaluate.call_count, 2)
@@ -757,8 +756,7 @@ class TestCsvSink(TestCase):
                 ],
             ):
                 outcomes = sink.write_batch(0, [empty, one_row], progress=progress)
-
-            self.assertEqual([o.point_id for o in outcomes], [None, 0])
+            self.assertEqual([o.exit_code for o in outcomes], [0, 0])
             self.assertEqual([o.committed for o in outcomes], [False, True])
             self.assertEqual(progress.tick.call_count, 2)
             with open(_schema_path(filename)) as handle:
@@ -783,8 +781,7 @@ class TestCsvSink(TestCase):
                 ],
             ):
                 outcomes = sink.write_batch(0, [first, second])
-
-            self.assertEqual([o.point_id for o in outcomes], [0, 1])
+            self.assertTrue(all(outcome.committed for outcome in outcomes))
             with open(filename, newline="") as handle:
                 rows = list(csv.reader(handle))
             self.assertEqual(rows[0], ["order_id", "vs_index", "exit_code"])

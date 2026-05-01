@@ -474,41 +474,31 @@ class TestEleanorDispatch(TestCase):
     """
     Tests covering ``Eleanor._dispatch`` and the process loop.
     """
-
-
     def test_dispatch_calls_process_once_in_standard_mode(self):
         """
         Ensure _dispatch begins a run via the sink and calls process once.
         """
-        from eleanor.navigator import AbstractNavigator
-
         eleanor = _make_eleanor()
         kernel = mock.Mock()
-        navigator = mock.Mock(spec=AbstractNavigator)
+        navigator = mock.Mock()
+        navigator.num_systems.return_value = 6
         order = _leaf_order()
         sink = mock.Mock()
         sink.begin_run.return_value = 5
-        eleanor.process = mock.Mock(
-            return_value=[
-                WriteOutcome(point_id=10, exit_code=0, committed=True),
-            ]
-        )
+        sink.supports_progress.return_value = False
+        eleanor.process = mock.Mock(return_value=[WriteOutcome(exit_code=0, committed=True)])
         executor = _FakeExecutor()
 
-        with mock.patch(
-            "eleanor.navigator.registry.get_factory",
-            return_value=lambda *_args, **_kw: navigator,
-        ):
-            out = eleanor._dispatch(
-                order,
-                6,
-                chunks_per_worker=1,
-                executor=executor,
-                kernel=kernel,
-                navigator=None,
-                sink=sink,
-                manager=None,
-            )
+        out = eleanor._dispatch(
+            order,
+            6,
+            chunks_per_worker=1,
+            executor=executor,
+            kernel=kernel,
+            navigator=navigator,
+            sink=sink,
+            manager=None,
+        )
 
         self.assertEqual(out, [5])
         eleanor.process.assert_called_once()
@@ -519,97 +509,80 @@ class TestEleanorDispatch(TestCase):
         """
         Ensure _dispatch hands the output handle to process() only when the
         sink advertises supports_progress=True; otherwise only the sim handle
-        travels down, keeping the output bar from rendering.
+        travels down.
         """
-        from eleanor.navigator import AbstractNavigator
-
         eleanor = _make_eleanor()
         kernel = mock.Mock()
-        navigator = mock.Mock(spec=AbstractNavigator)
+        navigator = mock.Mock()
+        navigator.num_systems.side_effect = [1, 3]
         order = _leaf_order()
         executor = _FakeExecutor()
         manager = mock.Mock()
 
-        sim_handle = mock.Mock(name="sim_handle")
-        out_handle = mock.Mock(name="out_handle")
-        progress = SimpleNamespace(sim=sim_handle, out=out_handle, join=mock.Mock())
+        sim_handle_quiet = mock.Mock(name="sim_handle_quiet")
+        out_handle_quiet = mock.Mock(name="out_handle_quiet")
+        progress_quiet = SimpleNamespace(sim=sim_handle_quiet, out=out_handle_quiet, join=mock.Mock())
 
-        # Sink opts out of progress: out_handle must never be forwarded.
         quiet_sink = mock.Mock()
         quiet_sink.begin_run.return_value = 5
         quiet_sink.supports_progress.return_value = False
         eleanor.process = mock.Mock(return_value=[])
 
-        with (
-            mock.patch("eleanor.eleanor.Progress", return_value=progress),
-            mock.patch(
-                "eleanor.navigator.registry.get_factory",
-                return_value=lambda *_args, **_kw: navigator,
-            ),
-        ):
+        with mock.patch("eleanor.eleanor.Progress", return_value=progress_quiet):
             eleanor._dispatch(
                 order,
                 1,
                 chunks_per_worker=1,
                 executor=executor,
                 kernel=kernel,
-                navigator=None,
+                navigator=navigator,
                 sink=quiet_sink,
                 manager=manager,
                 show_progress=True,
             )
 
         kwargs = eleanor.process.call_args.kwargs
-        self.assertIs(kwargs["sim_progress"], sim_handle)
+        self.assertIs(kwargs["sim_progress"], sim_handle_quiet)
         self.assertIsNone(kwargs["out_progress"])
-        # Sink opts in: the out handle is forwarded to process().
+
+        sim_handle_loud = mock.Mock(name="sim_handle_loud")
+        out_handle_loud = mock.Mock(name="out_handle_loud")
+        progress_loud = SimpleNamespace(sim=sim_handle_loud, out=out_handle_loud, join=mock.Mock())
+
         loud_sink = mock.Mock()
         loud_sink.begin_run.return_value = 6
         loud_sink.supports_progress.return_value = True
-        eleanor.process = mock.Mock(
-            return_value=[
-                WriteOutcome(point_id=10, exit_code=0, committed=True),
-            ]
-        )
+        eleanor.process = mock.Mock(return_value=[WriteOutcome(exit_code=0, committed=True)])
 
-        with (
-            mock.patch("eleanor.eleanor.Progress", return_value=progress),
-            mock.patch(
-                "eleanor.navigator.registry.get_factory",
-                return_value=lambda *_args, **_kw: navigator,
-            ),
-        ):
+        with mock.patch("eleanor.eleanor.Progress", return_value=progress_loud):
             eleanor._dispatch(
                 order,
                 3,
                 chunks_per_worker=1,
                 executor=executor,
                 kernel=kernel,
-                navigator=None,
+                navigator=navigator,
                 sink=loud_sink,
                 manager=manager,
                 show_progress=True,
             )
 
         kwargs = eleanor.process.call_args.kwargs
-        self.assertIs(kwargs["sim_progress"], sim_handle)
-        self.assertIs(kwargs["out_progress"], out_handle)
+        self.assertIs(kwargs["sim_progress"], sim_handle_loud)
+        self.assertIs(kwargs["out_progress"], out_handle_loud)
 
     def test_dispatch_signals_done_on_both_handles_in_finally(self):
         """
-        Ensure _dispatch closes the sim bar (always) and the out bar (only when
-        the sink opted in) by calling ``done()`` on each handle in the finally
-        block, even when ``process()`` raises.
+        Ensure _dispatch closes progress handles in the finally block, even
+        when process raises.
         """
-        from eleanor.navigator import AbstractNavigator
-
         eleanor = _make_eleanor()
         kernel = mock.Mock()
-        navigator = mock.Mock(spec=AbstractNavigator)
+        navigator = mock.Mock()
+        navigator.num_systems.return_value = 1
         executor = _FakeExecutor()
         manager = mock.Mock()
 
-        # --- Loud sink: both handles are live, both must be closed. ---
         sim_handle = mock.Mock(name="sim_handle")
         out_handle = mock.Mock(name="out_handle")
         progress = SimpleNamespace(sim=sim_handle, out=out_handle, join=mock.Mock())
@@ -619,20 +592,14 @@ class TestEleanorDispatch(TestCase):
         loud_sink.supports_progress.return_value = True
         eleanor.process = mock.Mock(return_value=[])
 
-        with (
-            mock.patch("eleanor.eleanor.Progress", return_value=progress),
-            mock.patch(
-                "eleanor.navigator.registry.get_factory",
-                return_value=lambda *_args, **_kw: navigator,
-            ),
-        ):
+        with mock.patch("eleanor.eleanor.Progress", return_value=progress):
             eleanor._dispatch(
                 _leaf_order(),
                 1,
                 chunks_per_worker=1,
                 executor=executor,
                 kernel=kernel,
-                navigator=None,
+                navigator=navigator,
                 sink=loud_sink,
                 manager=manager,
                 show_progress=True,
@@ -642,40 +609,17 @@ class TestEleanorDispatch(TestCase):
         out_handle.done.assert_called_once_with()
         progress.join.assert_called_once_with()
 
-        # --- Quiet sink: out_handle was never built, so done() must not be sent on it. ---
-        sim_handle = mock.Mock(name="sim_handle")
-        out_handle = mock.Mock(name="out_handle")
-        progress = SimpleNamespace(sim=sim_handle, out=out_handle, join=mock.Mock())
+    def test_dispatch_closes_progress_handles_when_process_raises(self):
+        """
+        Ensure _dispatch calls done()/join() on progress handles even when process() raises.
+        """
+        eleanor = _make_eleanor()
+        kernel = mock.Mock()
+        navigator = mock.Mock()
+        navigator.num_systems.return_value = 1
+        executor = _FakeExecutor()
+        manager = mock.Mock()
 
-        quiet_sink = mock.Mock()
-        quiet_sink.begin_run.return_value = 7
-        quiet_sink.supports_progress.return_value = False
-        eleanor.process = mock.Mock(return_value=[])
-
-        with (
-            mock.patch("eleanor.eleanor.Progress", return_value=progress),
-            mock.patch(
-                "eleanor.navigator.registry.get_factory",
-                return_value=lambda *_args, **_kw: navigator,
-            ),
-        ):
-            eleanor._dispatch(
-                _leaf_order(),
-                1,
-                chunks_per_worker=1,
-                executor=executor,
-                kernel=kernel,
-                navigator=None,
-                sink=quiet_sink,
-                manager=manager,
-                show_progress=True,
-            )
-
-        sim_handle.done.assert_called_once_with()
-        out_handle.done.assert_not_called()
-        progress.join.assert_called_once_with()
-
-        # --- Exception path: done()/join() must still fire from the finally. ---
         sim_handle = mock.Mock(name="sim_handle")
         out_handle = mock.Mock(name="out_handle")
         progress = SimpleNamespace(sim=sim_handle, out=out_handle, join=mock.Mock())
@@ -687,10 +631,6 @@ class TestEleanorDispatch(TestCase):
 
         with (
             mock.patch("eleanor.eleanor.Progress", return_value=progress),
-            mock.patch(
-                "eleanor.navigator.registry.get_factory",
-                return_value=lambda *_args, **_kw: navigator,
-            ),
             self.assertRaises(RuntimeError),
         ):
             eleanor._dispatch(
@@ -699,7 +639,7 @@ class TestEleanorDispatch(TestCase):
                 chunks_per_worker=1,
                 executor=executor,
                 kernel=kernel,
-                navigator=None,
+                navigator=navigator,
                 sink=boom_sink,
                 manager=manager,
                 show_progress=True,
@@ -709,37 +649,120 @@ class TestEleanorDispatch(TestCase):
         out_handle.done.assert_called_once_with()
         progress.join.assert_called_once_with()
 
+    def test_dispatch_raises_when_num_systems_returns_zero(self):
+        """
+        Ensure _dispatch raises a clear error when navigator.num_systems returns 0.
+        """
+        eleanor = _make_eleanor()
+        navigator = mock.Mock()
+        navigator.num_systems.return_value = 0
+        sink = mock.Mock()
+        sink.supports_progress.return_value = False
+
+        with self.assertRaisesRegex(EleanorException, "num_systems.*must be >= 1"):
+            eleanor._dispatch(
+                _leaf_order(),
+                0,
+                chunks_per_worker=1,
+                executor=_FakeExecutor(),
+                kernel=mock.Mock(),
+                navigator=navigator,
+                sink=sink,
+                manager=None,
+            )
+
+    def test_dispatch_raises_when_explicit_batch_size_is_zero(self):
+        """
+        Ensure _dispatch raises when an explicit batch_size <= 0 is supplied.
+        """
+        eleanor = _make_eleanor()
+        navigator = mock.Mock()
+        navigator.num_systems.return_value = 5
+        sink = mock.Mock()
+        sink.supports_progress.return_value = False
+
+        with self.assertRaisesRegex(EleanorException, "batch_size must be >= 1"):
+            eleanor._dispatch(
+                _leaf_order(),
+                5,
+                chunks_per_worker=1,
+                batch_size=0,
+                executor=_FakeExecutor(),
+                kernel=mock.Mock(),
+                navigator=navigator,
+                sink=sink,
+                manager=None,
+            )
+
     def test_dispatch_requires_manager_when_progress_enabled(self):
         """
         Ensure _dispatch refuses to build a Progress object without a SyncManager.
         """
-        from eleanor.navigator import AbstractNavigator
-
         eleanor = _make_eleanor()
         kernel = mock.Mock()
-        navigator = mock.Mock(spec=AbstractNavigator)
+        navigator = mock.Mock()
+        navigator.num_systems.return_value = 2
         order = _leaf_order()
         sink = mock.Mock()
         sink.begin_run.return_value = 1
+        sink.supports_progress.return_value = True
 
-        with (
-            mock.patch(
-                "eleanor.navigator.registry.get_factory",
-                return_value=lambda *_args, **_kw: navigator,
-            ),
-            self.assertRaisesRegex(EleanorException, "SyncManager"),
-        ):
+        with self.assertRaisesRegex(EleanorException, "SyncManager"):
             eleanor._dispatch(
                 order,
                 2,
                 chunks_per_worker=1,
                 executor=_FakeExecutor(),
                 kernel=kernel,
-                navigator=None,
+                navigator=navigator,
                 sink=sink,
                 manager=None,
                 show_progress=True,
             )
+
+    def test_dispatch_sets_progress_total_upfront(self):
+        """
+        Ensure _dispatch sets progress totals before process-side tick calls and never uses extend().
+        """
+        eleanor = _make_eleanor()
+        kernel = mock.Mock()
+        navigator = mock.Mock()
+        navigator.num_systems.return_value = 5
+        order = _leaf_order()
+        executor = _FakeExecutor()
+        manager = mock.Mock()
+
+        sim_handle = mock.Mock(name="sim_handle")
+        out_handle = mock.Mock(name="out_handle")
+        progress = SimpleNamespace(sim=sim_handle, out=out_handle, join=mock.Mock())
+
+        sink = mock.Mock()
+        sink.begin_run.return_value = 6
+        sink.supports_progress.return_value = True
+
+        def process_side_effect(*_args, **_kwargs):
+            sim_handle.tick(1)
+            return []
+
+        eleanor.process = mock.Mock(side_effect=process_side_effect)
+
+        with mock.patch("eleanor.eleanor.Progress", return_value=progress):
+            eleanor._dispatch(
+                order,
+                5,
+                chunks_per_worker=1,
+                executor=executor,
+                kernel=kernel,
+                navigator=navigator,
+                sink=sink,
+                manager=manager,
+                show_progress=True,
+            )
+
+        self.assertEqual(sim_handle.mock_calls[0], mock.call.total(5))
+        self.assertEqual(out_handle.mock_calls[0], mock.call.total(5))
+        sim_handle.extend.assert_not_called()
+        out_handle.extend.assert_not_called()
 
     def test_process_requires_executor(self):
         """
@@ -748,18 +771,25 @@ class TestEleanorDispatch(TestCase):
         eleanor = _make_eleanor()
         sink = mock.Mock()
         with self.assertRaises(EleanorException):
-            eleanor.process(mock.Mock(), mock.Mock(), 1, 1, executor=None, sink=sink)
+            eleanor.process(
+                mock.Mock(),
+                mock.Mock(),
+                1,
+                1,
+                batch_size=1,
+                expected_total=1,
+                executor=None,
+                sink=sink,
+            )
 
-    def test_process_batches_and_breaks_when_complete(self):
+    def test_process_batches_for_serial_sinks(self):
         """
-        Ensure process navigates, streams serial-sink writes per resolved worker
-        batch, and exits when navigator is complete.
+        Ensure process navigates and streams serial-sink writes per resolved worker batch.
         """
         eleanor = _make_eleanor()
         kernel = mock.Mock()
         navigator = mock.Mock()
-        navigator.navigate.return_value = ["a", "b"]
-        navigator.is_complete.return_value = True
+        navigator.navigate.return_value = iter([["a", "b"]])
         compute_results_a = [ComputeResult(point=SimpleNamespace(exit_code=0))]
         compute_results_b = [ComputeResult(point=SimpleNamespace(exit_code=0))]
         executor = _FakeExecutor(
@@ -770,8 +800,8 @@ class TestEleanorDispatch(TestCase):
         sink = mock.Mock()
         sink.supports_worker_writes.return_value = False
         sink.write_batch.side_effect = [
-            [WriteOutcome(point_id=10, exit_code=0, committed=True)],
-            [WriteOutcome(point_id=11, exit_code=0, committed=True)],
+            [WriteOutcome(exit_code=0, committed=True)],
+            [WriteOutcome(exit_code=0, committed=True)],
         ]
 
         eleanor.process(
@@ -779,16 +809,17 @@ class TestEleanorDispatch(TestCase):
             navigator,
             2,
             9,
+            batch_size=2,
+            expected_total=2,
             executor=executor,
             sink=sink,
             sim_progress=sim_progress,
             out_progress=out_progress,
         )
 
-        # Both bars extend by the batch size at the start of each navigator
-        # iteration.
-        sim_progress.extend.assert_any_call(2)
-        out_progress.extend.assert_any_call(2)
+        navigator.navigate.assert_called_once_with(2, 2, order_id=9, max_attempts=1)
+        sim_progress.extend.assert_not_called()
+        out_progress.extend.assert_not_called()
         self.assertEqual(executor.submit.call_count, 2)
         self.assertEqual(
             sink.write_batch.call_args_list,
@@ -798,33 +829,28 @@ class TestEleanorDispatch(TestCase):
             ],
         )
         self.assertEqual(executor.pop_completed_future.call_count, 2)
-        is_complete_args = navigator.is_complete.call_args[0][0]
-        self.assertEqual(sorted(is_complete_args), [10, 11])
 
     def test_process_respects_executor_completion_order_for_serial_sinks(self):
         """
-        Ensure process drains futures in the order selected by
-        executor.pop_completed_future rather than strict submission order.
+        Ensure process drains futures in the order selected by executor.pop_completed_future.
         """
         eleanor = _make_eleanor()
         kernel = mock.Mock()
         navigator = mock.Mock()
-        navigator.navigate.return_value = ["a", "b"]
-        navigator.is_complete.return_value = True
+        navigator.navigate.return_value = iter([["a", "b"]])
 
         compute_results_a = [ComputeResult(point=SimpleNamespace(exit_code=0, label="a"))]
         compute_results_b = [ComputeResult(point=SimpleNamespace(exit_code=0, label="b"))]
         executor = _FakeExecutor(
             submit_side_effect=[_Future(compute_results_a), _Future(compute_results_b)],
         )
-        # Simulate "second future completed first".
         executor.pop_completed_future = mock.Mock(side_effect=lambda futures: futures.pop())
 
         sink = mock.Mock()
         sink.supports_worker_writes.return_value = False
         sink.write_batch.side_effect = [
-            [WriteOutcome(point_id=20, exit_code=0, committed=True)],
-            [WriteOutcome(point_id=10, exit_code=0, committed=True)],
+            [WriteOutcome(exit_code=0, committed=True)],
+            [WriteOutcome(exit_code=0, committed=True)],
         ]
         out_progress = mock.Mock()
 
@@ -833,6 +859,8 @@ class TestEleanorDispatch(TestCase):
             navigator,
             2,
             9,
+            batch_size=2,
+            expected_total=2,
             executor=executor,
             sink=sink,
             out_progress=out_progress,
@@ -842,24 +870,19 @@ class TestEleanorDispatch(TestCase):
             [call.args[1] for call in sink.write_batch.call_args_list],
             [compute_results_b, compute_results_a],
         )
-        self.assertEqual(navigator.is_complete.call_args[0][0], [20, 10])
 
     def test_process_forwards_sink_to_workers_when_opted_in(self):
         """
-        Ensure process routes writes through workers when the sink opts in:
-        the sink/order_id/progress handles are threaded through executor.submit,
-        futures already resolve to WriteOutcomes, and sink.write_batch is not
-        called in the parent process.
+        Ensure process routes writes through workers when the sink opts in.
         """
         eleanor = _make_eleanor()
         kernel = mock.Mock()
         navigator = mock.Mock()
-        navigator.navigate.return_value = ["a", "b"]
-        navigator.is_complete.return_value = True
+        navigator.navigate.return_value = iter([["a", "b"]])
 
         worker_outcomes = [
-            WriteOutcome(point_id=201, exit_code=0, committed=True),
-            WriteOutcome(point_id=202, exit_code=0, committed=True),
+            WriteOutcome(exit_code=0, committed=True),
+            WriteOutcome(exit_code=0, committed=True),
         ]
         executor = _FakeExecutor(
             submit_side_effect=[_Future(worker_outcomes), _Future([])],
@@ -874,6 +897,8 @@ class TestEleanorDispatch(TestCase):
             navigator,
             2,
             9,
+            batch_size=2,
+            expected_total=2,
             executor=executor,
             sink=sink,
             sim_progress=sim_progress,
@@ -884,12 +909,8 @@ class TestEleanorDispatch(TestCase):
         submit_kwargs = executor.submit.call_args_list[0].kwargs
         self.assertIs(submit_kwargs["sink"], sink)
         self.assertEqual(submit_kwargs["order_id"], 9)
-        # Progress handles flow through to workers when the executor
-        # advertises supports_worker_progress=True.
         self.assertIs(submit_kwargs["sim_progress"], sim_progress)
         self.assertIs(submit_kwargs["out_progress"], out_progress)
-        is_complete_args = navigator.is_complete.call_args[0][0]
-        self.assertEqual(sorted(is_complete_args), [201, 202])
 
     def test_process_falls_back_to_batch_ticks_when_executor_cannot_carry_progress(self):
         """
@@ -899,12 +920,11 @@ class TestEleanorDispatch(TestCase):
         eleanor = _make_eleanor()
         kernel = mock.Mock()
         navigator = mock.Mock()
-        navigator.navigate.return_value = ["a", "b"]
-        navigator.is_complete.return_value = True
+        navigator.navigate.return_value = iter([["a", "b"]])
 
         worker_outcomes = [
-            WriteOutcome(point_id=1, exit_code=0, committed=True),
-            WriteOutcome(point_id=2, exit_code=1, committed=True),  # not counted as success
+            WriteOutcome(exit_code=0, committed=True),
+            WriteOutcome(exit_code=1, committed=True),
         ]
         executor = _FakeExecutor(
             submit_side_effect=[_Future(worker_outcomes), _Future([])],
@@ -921,26 +941,122 @@ class TestEleanorDispatch(TestCase):
             navigator,
             2,
             9,
+            batch_size=2,
+            expected_total=2,
             executor=executor,
             sink=sink,
             sim_progress=sim_progress,
             out_progress=out_progress,
         )
 
-        # Handles are NOT threaded into the worker when the executor cannot
-        # carry them.
         submit_kwargs = executor.submit.call_args_list[0].kwargs
         self.assertIsNone(submit_kwargs["sim_progress"])
         self.assertIsNone(submit_kwargs["out_progress"])
-        # Instead, the parent ticks once per batch: 2 results total, 1 of
-        # which is a committed success.
         sim_progress.tick.assert_called_once_with(2)
         out_progress.tick.assert_called_once_with(1)
 
+    def test_process_raises_on_navigator_underproduction(self):
+        """
+        Ensure process raises EleanorException when navigator yields fewer points than expected.
+        """
+        eleanor = _make_eleanor()
+        navigator = mock.Mock()
+        navigator.navigate.return_value = iter([])
+        sink = mock.Mock()
+        sink.supports_worker_writes.return_value = False
+
+        with self.assertRaisesRegex(EleanorException, "expected 10"):
+            eleanor.process(
+                mock.Mock(),
+                navigator,
+                10,
+                1,
+                batch_size=5,
+                expected_total=10,
+                executor=_FakeExecutor(),
+                sink=sink,
+            )
+
+    def test_process_raises_on_navigator_overproduction(self):
+        """
+        Ensure process raises EleanorException when navigator yields more points than expected.
+        """
+        eleanor = _make_eleanor()
+        navigator = mock.Mock()
+        navigator.navigate.return_value = iter([["a"] * 7])
+        sink = mock.Mock()
+        sink.supports_worker_writes.return_value = False
+        executor = _FakeExecutor(num_workers=1, submit_side_effect=[_Future([])])
+
+        with self.assertRaisesRegex(EleanorException, "expected 5"):
+            eleanor.process(
+                mock.Mock(),
+                navigator,
+                5,
+                1,
+                batch_size=7,
+                expected_total=5,
+                executor=executor,
+                sink=sink,
+            )
+
+    def test_batch_size_threads_from_run_to_process(self):
+        """
+        Ensure run(..., batch_size=50) threads batch_size into navigator.navigate.
+        """
+        eleanor = _make_eleanor()
+        order = _leaf_order()
+        sink = mock.Mock()
+        sink.begin_run.return_value = 7
+        sink.supports_worker_writes.return_value = False
+        sink.supports_progress.return_value = False
+        sink.write_batch.return_value = []
+        navigator = mock.Mock()
+        navigator.num_systems.return_value = 50
+        navigator.navigate.return_value = iter([["p"] * 50])
+        executor = _FakeExecutor(submit_side_effect=[_Future([]), _Future([])])
+
+        with (
+            mock.patch("eleanor.eleanor.build_executor", return_value=executor),
+            mock.patch.object(Eleanor, "load_output_sink", return_value=sink),
+        ):
+            _ = eleanor.run(order, 10, batch_size=50, kernel=mock.Mock(), navigator=navigator)
+
+        navigator.navigate.assert_called_once_with(10, 50, order_id=7, max_attempts=1)
+
+    def test_batch_size_defaults_to_num_systems(self):
+        """
+        Ensure _dispatch defaults batch_size to navigator.num_systems(simulation_size).
+        """
+        eleanor = _make_eleanor()
+        order = _leaf_order()
+        sink = mock.Mock()
+        sink.begin_run.return_value = 9
+        sink.supports_worker_writes.return_value = False
+        sink.supports_progress.return_value = False
+        sink.write_batch.return_value = []
+        navigator = mock.Mock()
+        navigator.num_systems.return_value = 7
+        navigator.navigate.return_value = iter([["p"] * 7])
+        executor = _FakeExecutor(num_workers=1, submit_side_effect=[_Future([])])
+
+        _ = eleanor._dispatch(
+            order,
+            3,
+            chunks_per_worker=1,
+            batch_size=None,
+            executor=executor,
+            kernel=mock.Mock(),
+            navigator=navigator,
+            sink=sink,
+            manager=None,
+        )
+
+        navigator.navigate.assert_called_once_with(3, 7, order_id=9, max_attempts=1)
+
     def test_run_uses_explicit_output_sink_override(self):
         """
-        Ensure an explicit output_sink= override is used and finalize()-d at the
-        end of run, and load_output_sink is not called.
+        Ensure an explicit output_sink= override is used and finalized at run end.
         """
         eleanor = _make_eleanor()
         order = _leaf_order()

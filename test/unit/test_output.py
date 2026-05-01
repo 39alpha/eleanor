@@ -26,9 +26,9 @@ class TestOutput(TestCase):
         """
         stats = RunStats()
         outcomes = [
-            WriteOutcome(point_id=10, exit_code=0, committed=True),
-            WriteOutcome(point_id=11, exit_code=1, committed=True),
-            WriteOutcome(point_id=None, exit_code=0, committed=False, error_message='x'),
+            WriteOutcome(exit_code=0, committed=True),
+            WriteOutcome(exit_code=1, committed=True),
+            WriteOutcome(exit_code=0, committed=False, error_message='x'),
         ]
         stats.update(outcomes)
         self.assertEqual(stats.attempted, 3)
@@ -362,9 +362,9 @@ class TestOutput(TestCase):
         self.assertEqual(fake_conn.transaction.call_count, 3)
         self.assertEqual(len(outcomes), 2)
         self.assertTrue(outcomes[0].committed)
-        self.assertEqual(outcomes[0].point_id, 42)
+        self.assertEqual(outcomes[0].exit_code, 0)
         self.assertFalse(outcomes[1].committed)
-        self.assertIsNone(outcomes[1].point_id)
+        self.assertEqual(outcomes[1].exit_code, -1)
         self.assertIsNotNone(outcomes[1].error_message)
         self.assertIn('write failed', outcomes[1].error_message)  # type: ignore[arg-type]
 
@@ -443,7 +443,7 @@ class TestOutput(TestCase):
         # Smoke test: if the call didn't raise, the default-None path is fine.
         self.assertEqual(len(outcomes), 1)
         self.assertTrue(outcomes[0].committed)
-        self.assertEqual(outcomes[0].point_id, 5)
+        self.assertEqual(outcomes[0].exit_code, 0)
 
     def test_build_postgres_recognizes_database_kwarg(self):
         """
@@ -819,8 +819,6 @@ class TestOutput(TestCase):
         # Originally-pending slots now carry the commit error.
         self.assertEqual(outcomes[0].error_message, 'commit died')
         self.assertEqual(outcomes[2].error_message, 'commit died')
-        self.assertIsNone(outcomes[0].point_id)
-        self.assertIsNone(outcomes[2].point_id)
         # The per-VS-point failure keeps its original message.
         self.assertIsNotNone(outcomes[1].error_message)
         self.assertIn('per-point oops', outcomes[1].error_message)  # type: ignore[arg-type]

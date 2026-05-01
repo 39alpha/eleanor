@@ -29,7 +29,6 @@ class ComputeResult(object):
 
 @dataclass(slots=True, frozen=True)
 class WriteOutcome(object):
-    point_id: int | None
     exit_code: int
     committed: bool
     error_message: str | None = None

@@ -1,5 +1,7 @@
 import warnings
 from abc import ABC, abstractmethod
+from collections.abc import Iterator
+from itertools import batched
 from typing import override
 
 import eleanor.variable_space as vs
@@ -20,21 +22,19 @@ class AbstractNavigator(ABC):
         self.kernel = kernel
 
     @abstractmethod
-    def navigate(self, scale: int, *args: object, **kwargs: object) -> list[vs.Point]:
+    def navigate(self, scale: int, batch_size: int, *args: object, **kwargs: object) -> Iterator[list[vs.Point]]:
         pass
 
     def num_systems(self, scale: int) -> int:
         return scale
 
-    def is_complete(self, _batch: list[int]) -> bool:
-        return True
-
 
 class Random(AbstractNavigator):
     @override
-    def navigate(self, scale: int, *args: object, **kwargs: object) -> list[vs.Point]:
+    def navigate(self, scale: int, batch_size: int, *args: object, **kwargs: object) -> Iterator[list[vs.Point]]:
         generate = cast(Callable[..., vs.Point], self.generate)
-        return [generate(*args, **kwargs) for _ in range(scale)]
+        for batch in batched((generate(*args, **kwargs) for _ in range(scale)), batch_size):
+            yield list(batch)
 
     def generate(self, *_args: object, order_id: int | None = None, **_kwargs: object) -> vs.Point:
         try:
@@ -61,11 +61,12 @@ _ = AbstractNavigator.register(Random)
 
 class LatticeNavigator(AbstractNavigator, ABC):
     @override
-    def navigate(self, scale: int, *args: object, **kwargs: object) -> list[vs.Point]:
+    def navigate(self, scale: int, batch_size: int, *args: object, **kwargs: object) -> Iterator[list[vs.Point]]:
         boatswain = Boatswain(self.order)
         _ = self.kernel.constrain(boatswain)
         iterate = cast(Callable[..., Generator[vs.Point, None, None]], self.iterate)
-        return list(iterate(boatswain, [], scale, *args, **kwargs))
+        for batch in batched(iterate(boatswain, [], scale, *args, **kwargs), batch_size):
+            yield list(batch)
 
     def iterate(
         self,
@@ -81,14 +82,11 @@ class LatticeNavigator(AbstractNavigator, ABC):
 
         if parameters:
             parameter, *rest = parameters
-            try:
-                for value in self.generate(boatswain[parameter], scale, *args, **kwargs):
-                    boatswain[parameter] = value
-                    for point in self.iterate(boatswain, rest, scale, *args, order_id=order_id, **kwargs):
-                        yield point
-                    boatswain.hardset(parameter, parameter)
-            except Exception:
-                pass
+            for value in self.generate(boatswain[parameter], scale, *args, **kwargs):
+                boatswain[parameter] = value
+                for point in self.iterate(boatswain, rest, scale, *args, order_id=order_id, **kwargs):
+                    yield point
+                boatswain.hardset(parameter, parameter)
         else:
             yield boatswain.generate_vs(order_id)
 

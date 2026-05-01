@@ -51,6 +51,7 @@ class TestCLIRun(TestCase):
             "verbose": False,
             "parallel": None,
             "chunks_per_worker": None,
+            "batch_size": None,
         }
         values.update(overrides)
         return argparse.Namespace(**values)
@@ -71,15 +72,28 @@ class TestCLIRun(TestCase):
 
     def test_init_parses_phase_two_flags(self):
         """
-        Ensure parser init wires --parallel and --chunks-per-worker options.
+        Ensure parser init wires --parallel, --chunks-per-worker, and --batch-size options.
+        """
+        parser = argparse.ArgumentParser()
+        with mock.patch("eleanor.cli.run.add_config_args"):
+            run_cli.init(parser)
+        ns = parser.parse_args(
+            ["--parallel", "serial", "--chunks-per-worker", "4", "--batch-size", "500", "order.yaml", "10"]
+        )
+        self.assertEqual(ns.parallel, "serial")
+        self.assertEqual(ns.chunks_per_worker, 4)
+        self.assertEqual(ns.batch_size, 500)
+
+    def test_batch_size_flag_absent_defaults_to_none(self):
+        """
+        Ensure omitting --batch-size leaves the parsed field as None.
         """
         parser = argparse.ArgumentParser()
         with mock.patch("eleanor.cli.run.add_config_args"):
             run_cli.init(parser)
 
-        ns = parser.parse_args(["--parallel", "serial", "--chunks-per-worker", "4", "order.yaml", "10"])
-        self.assertEqual(ns.parallel, "serial")
-        self.assertEqual(ns.chunks_per_worker, 4)
+        ns = parser.parse_args(["order.yaml", "10"])
+        self.assertIsNone(ns.batch_size)
 
     def test_execute_uses_config_parallel_defaults(self):
         """
@@ -112,6 +126,7 @@ class TestCLIRun(TestCase):
             verbose=False,
             parallel="serial",
             chunks_per_worker=6,
+            batch_size=None,
         )
 
     def test_execute_cli_flags_override_config_parallel_values(self):

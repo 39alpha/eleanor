@@ -24,6 +24,7 @@ class RunArgs(ConfigArgs):
     proportional: bool
     parallel: str | None
     chunks_per_worker: int | None
+    batch_size: int | None
 
 
 def init(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
@@ -75,6 +76,12 @@ def init(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
         type=int,
         help="number of chunks per worker (overrides configuration)",
     )
+    _ = parser.add_argument(
+        "--batch-size",
+        required=False,
+        type=int,
+        help="navigator batch size (default: all points in one batch)",
+    )
     _ = parser.add_argument("order", type=str, help="order file")
     _ = parser.add_argument("simulation_size", type=int, help="the size of the simulation")
 
@@ -92,6 +99,7 @@ def execute(parser: argparse.ArgumentParser, ns: argparse.Namespace) -> None:
     show_progress = args["progress"] and not args["verbose"]
     parallel = args["parallel"]
     chunks_per_worker = args["chunks_per_worker"]
+    batch_size = args["batch_size"]
 
     try:
         config = config_from_args(parser, args)
@@ -125,6 +133,7 @@ def execute(parser: argparse.ArgumentParser, ns: argparse.Namespace) -> None:
                     verbose=args["verbose"],
                     parallel=parallel,
                     chunks_per_worker=chunks_per_worker,
+                    batch_size=batch_size,
                 )
 
         if args["verbose"]:

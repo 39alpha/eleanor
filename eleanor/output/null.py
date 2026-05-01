@@ -37,13 +37,11 @@ class NullConfig(object):
 class NullSink(OutputSink):
     config: NullConfig
     _next_order_id: int
-    _point_id: int
     _order_id: int | None
 
     def __init__(self, config: NullConfig):
         self.config = config
         self._next_order_id = 0
-        self._point_id = 0
         self._order_id = None
 
     @override
@@ -78,12 +76,10 @@ class NullSink(OutputSink):
             result.point.order_id = order_id
             outcomes.append(
                 WriteOutcome(
-                    point_id=self._point_id,
                     exit_code=result.point.exit_code,
                     committed=True,
                 )
             )
-            self._point_id += 1
             if progress is not None:
                 progress.tick()
 

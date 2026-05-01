@@ -51,8 +51,8 @@ class TestSailor(TestCase):
         sailor = Sailor(kernel=mock.Mock())
         points = [SimpleNamespace(exit_code=0), SimpleNamespace(exit_code=0)]
         outcomes = [
-            WriteOutcome(point_id=301, exit_code=0, committed=True),
-            WriteOutcome(point_id=302, exit_code=0, committed=True),
+            WriteOutcome(exit_code=0, committed=True),
+            WriteOutcome(exit_code=0, committed=True),
         ]
         sink = mock.Mock()
         sink.write_batch.return_value = outcomes

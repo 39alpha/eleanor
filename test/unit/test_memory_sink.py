@@ -61,12 +61,10 @@ class TestMemorySink(TestCase):
 
         first_id = sink.begin_run(order)  # type: ignore[arg-type]
         orders_after_first = dict(sink._orders)
-        counts_after_first = dict(sink._point_counts)
         second_id = sink.begin_run(order)  # type: ignore[arg-type]
 
         self.assertEqual(first_id, second_id)
         self.assertEqual(sink._orders, orders_after_first)
-        self.assertEqual(sink._point_counts, counts_after_first)
 
     def test_begin_run_stamps_eleanor_version_when_absent(self):
         """Ensure begin_run fills in eleanor_version when the order did not provide one."""
@@ -121,8 +119,8 @@ class TestMemorySink(TestCase):
 
         self.assertEqual(point.order_id, order_id)
 
-    def test_write_batch_returns_committed_outcomes_with_point_ids(self):
-        """Ensure successful writes return committed outcomes with sequential per-order point ids."""
+    def test_write_batch_returns_committed_outcomes(self):
+        """Ensure successful writes return committed outcomes with source exit codes."""
         sink = MemorySink()
         order = _order()
         order_id = sink.begin_run(order)  # type: ignore[arg-type]
@@ -137,8 +135,8 @@ class TestMemorySink(TestCase):
         self.assertEqual(
             outcomes,
             [
-                WriteOutcome(point_id=0, exit_code=0, committed=True),
-                WriteOutcome(point_id=1, exit_code=3, committed=True),
+                WriteOutcome(exit_code=0, committed=True),
+                WriteOutcome(exit_code=3, committed=True),
             ],
         )
 
@@ -159,7 +157,6 @@ class TestMemorySink(TestCase):
             outcomes,
             [
                 WriteOutcome(
-                    point_id=0,
                     exit_code=7,
                     committed=True,
                 )
@@ -186,8 +183,8 @@ class TestMemorySink(TestCase):
         self.assertEqual(outcomes, [])
         self.assertEqual(order.vs_points, [])
 
-    def test_write_batch_point_ids_are_per_order(self):
-        """Ensure point id counters are isolated per order rather than global across the sink."""
+    def test_write_batch_outcomes_are_independent_per_order(self):
+        """Ensure writes for different orders produce committed outcomes in both orders."""
         sink = MemorySink()
         first_order = _order()
         second_order = _order()
@@ -196,9 +193,8 @@ class TestMemorySink(TestCase):
 
         first_outcome = sink.write_batch(first_order_id, [ComputeResult(point=_point())])  # type: ignore[arg-type]
         second_outcome = sink.write_batch(second_order_id, [ComputeResult(point=_point())])  # type: ignore[arg-type]
-
-        self.assertEqual(first_outcome[0].point_id, 0)
-        self.assertEqual(second_outcome[0].point_id, 0)
+        self.assertTrue(first_outcome[0].committed)
+        self.assertTrue(second_outcome[0].committed)
 
     def test_write_batch_ticks_progress_for_each_point(self):
         """Ensure write_batch emits one progress tick for each committed point."""

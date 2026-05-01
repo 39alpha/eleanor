@@ -661,7 +661,7 @@ class TestPostgresSinkWriteBatchIntegration(_RealPostgresTestCase):
         """
         Ensure a clean batch of two valid VS points commits both rows in
         a single outer transaction and returns ``committed=True``
-        outcomes whose ``point_id`` matches what's persisted in the DB.
+        outcomes.
         """
         sink = PostgresSink(self.config)
         order = _MinimalOrder(name='wb-happy', eleanor_version='test-1.0.0')
@@ -676,7 +676,6 @@ class TestPostgresSinkWriteBatchIntegration(_RealPostgresTestCase):
         self.assertEqual(len(outcomes), 2)
         for outcome in outcomes:
             self.assertTrue(outcome.committed)
-            self.assertIsNotNone(outcome.point_id)
 
         conn = connection.connect(self.config)
         with conn.cursor() as cur:
@@ -712,9 +711,7 @@ class TestPostgresSinkWriteBatchIntegration(_RealPostgresTestCase):
 
         self.assertEqual(len(outcomes), 2)
         self.assertTrue(outcomes[0].committed)
-        self.assertIsNotNone(outcomes[0].point_id)
         self.assertFalse(outcomes[1].committed)
-        self.assertIsNone(outcomes[1].point_id)
         self.assertIsNotNone(outcomes[1].error_message)
 
         conn = connection.connect(self.config)

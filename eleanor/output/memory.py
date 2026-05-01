@@ -12,11 +12,9 @@ from .interface import ComputeResult, OutputSink, WriteOutcome
 
 class MemorySink(OutputSink):
     _orders: dict[int, Order]
-    _point_counts: dict[int, int]
 
     def __init__(self) -> None:
         self._orders = {}
-        self._point_counts = {}
 
     @override
     def begin_run(self, order: Order) -> int:
@@ -26,7 +24,7 @@ class MemorySink(OutputSink):
 
         order_id: int
         if order.id is None:
-            order_id = max(self._point_counts.keys() or [-1]) + 1
+            order_id = max(self._orders.keys() or [-1]) + 1
         else:
             order_id = order.id
 
@@ -35,7 +33,6 @@ class MemorySink(OutputSink):
 
         order.id = order_id
         self._orders[order_id] = order
-        _ = self._point_counts.setdefault(order_id, 0)
 
         return order_id
 
@@ -57,12 +54,8 @@ class MemorySink(OutputSink):
         for result in results:
             result.point.order_id = order_id
             order.vs_points.append(result.point)
-
-            point_id = self._point_counts[order_id]
-            self._point_counts[order_id] += 1
             outcomes.append(
                 WriteOutcome(
-                    point_id=point_id,
                     exit_code=result.point.exit_code,
                     committed=True,
                 )

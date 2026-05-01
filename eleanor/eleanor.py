@@ -281,6 +281,7 @@ class Eleanor(object):
         proportional_sampling: bool = False,
         parallel: str | None = None,
         chunks_per_worker: int | None = None,
+        batch_size: int | None = None,
         kernel: AbstractKernel | None = None,
         navigator: NavigatorProtocol | None = None,
         output_sink: OutputSink | None = None,
@@ -373,6 +374,7 @@ class Eleanor(object):
                     samples,
                     *args,
                     chunks_per_worker=chunks_per_worker,
+                    batch_size=batch_size,
                     executor=run_executor,
                     kernel=effective_kernel,
                     navigator=navigator,
@@ -395,6 +397,7 @@ class Eleanor(object):
         navigator: NavigatorProtocol | None,
         sink: OutputSink,
         manager: SyncManager | None,
+        batch_size: int | None = None,
         **kwargs: Unpack[EleanorKwargs],
     ) -> list[int]:
         """Dispatch a single leaf order against the given executor/sink.
@@ -448,6 +451,16 @@ class Eleanor(object):
                 )
             navigator = built
 
+        assert navigator is not None
+        expected_total = navigator.num_systems(simulation_size)
+        if expected_total <= 0:
+            raise EleanorException(
+                f"navigator.num_systems({simulation_size}) returned {expected_total}; must be >= 1",
+            )
+        effective_batch_size = batch_size if batch_size is not None else expected_total
+        if batch_size is not None and batch_size <= 0:
+            raise EleanorException("batch_size must be >= 1")
+
         progress: Progress | None = None
         # Local handles use ``ManagedProgressHandle`` rather than the worker-
         # facing ``ProgressHandle`` so the dispatch context can call ``done()``
@@ -463,6 +476,9 @@ class Eleanor(object):
             sim_handle = progress.sim
             if sink.supports_progress():
                 out_handle = progress.out
+            sim_handle.total(expected_total)
+            if out_handle is not None:
+                out_handle.total(expected_total)
 
         order.id = sink.begin_run(order)
 
@@ -475,6 +491,8 @@ class Eleanor(object):
                 simulation_size,
                 order.id,
                 *args,
+                batch_size=effective_batch_size,
+                expected_total=expected_total,
                 executor=executor,
                 chunks_per_worker=chunks_per_worker,
                 sink=sink,
@@ -506,6 +524,8 @@ class Eleanor(object):
         simulation_size: int,
         order_id: int,
         *args: object,
+        batch_size: int,
+        expected_total: int,
         executor: AbstractExecutor | None = None,
         chunks_per_worker: int = 1,
         sink: OutputSink,
@@ -514,14 +534,11 @@ class Eleanor(object):
         **kwargs: Unpack[EleanorKwargs],
     ) -> list[WriteOutcome]:
         """Drive the navigator/executor/sink loop for a single leaf order.
-
-        :param sim_progress: Handle for the simulation bar. Extended by the
-            navigator batch size at the start of each iteration. Forwarded to
+        :param sim_progress: Handle for the simulation bar. Forwarded to
             :meth:`Sailor.dispatch` so workers can emit per-point ticks;
             when the executor does not support worker-side progress, ticks
             are emitted in the parent after each future resolves.
-        :param out_progress: Handle for the output bar. Extended by the
-            navigator batch size at the start of each iteration. Passed to
+        :param out_progress: Handle for the output bar. Passed to
             :meth:`OutputSink.write_batch`; the sink decides its own tick
             cadence. For worker-write sinks on executors without
             worker-progress support, a single batch-level tick per future is
@@ -543,15 +560,16 @@ class Eleanor(object):
         # the parent will emit coarser batch-granularity ticks instead.
         worker_sim_progress = sim_progress if executor.supports_worker_progress else None
         worker_out_progress = out_progress if executor.supports_worker_progress else None
-
-        while True:
-            vs_points = navigator.navigate(simulation_size, order_id=order_id, max_attempts=1)
-            if sim_progress is not None:
-                sim_progress.extend(len(vs_points))
-            if out_progress is not None:
-                out_progress.extend(len(vs_points))
-
-            vs_point_ids: list[int] = []
+        total_produced = 0
+        for vs_points in navigator.navigate(
+            simulation_size,
+            batch_size,
+            order_id=order_id,
+            max_attempts=1,
+        ):
+            total_produced += len(vs_points)
+            if len(vs_points) == 0:
+                continue
 
             # Cap chunk count at the number of points so we never produce
             # empty batches when num_workers * chunks_per_worker exceeds
@@ -647,12 +665,10 @@ class Eleanor(object):
 
             outcomes.extend(batch_outcomes)
 
-            for outcome in batch_outcomes:
-                if outcome.point_id is not None:
-                    vs_point_ids.append(outcome.point_id)
-
-            if navigator.is_complete(vs_point_ids):
-                break
+        if total_produced != expected_total:
+            raise EleanorException(
+                f"navigator produced {total_produced} points, expected {expected_total}",
+            )
 
         return outcomes
 

@@ -159,7 +159,7 @@ class PostgresSink(OutputSink):
         # Slots in ``outcomes`` we tentatively credit to a successful
         # savepoint; promoted to ``committed=True`` after the outer commit.
         pending_slots: list[int] = []
-        pending_results: list[tuple[int, int]] = []  # (vs_point_id, exit_code)
+        pending_results: list[int] = []
 
         conn = connection_module.connect(self.config)
         try:
@@ -171,12 +171,11 @@ class PostgresSink(OutputSink):
                     point.order_id = order_id
                     try:
                         with conn.transaction(savepoint_name=f"vs_point_{index}"):
-                            vs_id = repositories.insert_point(conn, order_id, point)
+                            _ = repositories.insert_point(conn, order_id, point)
                         pending_slots.append(len(outcomes))
-                        pending_results.append((vs_id, point.exit_code))
+                        pending_results.append(point.exit_code)
                         outcomes.append(
                             WriteOutcome(
-                                point_id=None,
                                 exit_code=-1,
                                 committed=False,
                             )
@@ -197,7 +196,6 @@ class PostgresSink(OutputSink):
                         traceback.print_exc(file=sys.stderr)
                         outcomes.append(
                             WriteOutcome(
-                                point_id=None,
                                 exit_code=-1,
                                 committed=False,
                                 error_message=str(e),
@@ -209,7 +207,6 @@ class PostgresSink(OutputSink):
             err = str(e)
             for slot in pending_slots:
                 outcomes[slot] = WriteOutcome(
-                    point_id=None,
                     exit_code=-1,
                     committed=False,
                     error_message=err,
@@ -220,9 +217,8 @@ class PostgresSink(OutputSink):
         # ``committed=True`` and tick the output bar -- once per durably
         # written row, matching the per-row cadence the docstring on
         # :meth:`OutputSink.write_batch` documents.
-        for slot, (vs_point_id, exit_code) in zip(pending_slots, pending_results):
+        for slot, exit_code in zip(pending_slots, pending_results):
             outcomes[slot] = WriteOutcome(
-                point_id=vs_point_id,
                 exit_code=exit_code,
                 committed=True,
             )

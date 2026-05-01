@@ -7,8 +7,10 @@ from .common import TestCase
 
 
 class DummyNavigator(AbstractNavigator):
-    def navigate(self, scale: int, *args, **kwargs):
-        return [f"p{i}" for i in range(scale)]
+    def navigate(self, scale: int, batch_size: int, *args, **kwargs):
+        points = [f"p{i}" for i in range(scale)]
+        for start in range(0, len(points), batch_size):
+            yield points[start : start + batch_size]
 
 
 class DummyLatticeNavigator(LatticeNavigator):
@@ -27,13 +29,12 @@ class TestNavigator(TestCase):
         """
         nav = DummyNavigator(order=mock.Mock(), kernel=mock.Mock())
         self.assertEqual(nav.num_systems(3), 3)
-        self.assertTrue(nav.is_complete([1, 2]))
 
     def test_abstract_placeholder_methods(self):
         """
         Ensure that abstract placeholder method bodies are executable when called directly.
         """
-        self.assertIsNone(AbstractNavigator.navigate(object(), 1))
+        self.assertIsNone(AbstractNavigator.navigate(object(), 1, 1))
         self.assertIsNone(LatticeNavigator.generate(object(), object(), 1))
 
     def test_random_navigate_and_num_systems(self):
@@ -42,10 +43,11 @@ class TestNavigator(TestCase):
         """
         nav = Random(order=mock.Mock(), kernel=mock.Mock())
         with mock.patch.object(Random, "generate", side_effect=["a", "b", "c"]) as gen_mock:
-            points = nav.navigate(3)
+            batches = list(nav.navigate(3, 2))
 
-        self.assertEqual(points, ["a", "b", "c"])
+        self.assertEqual(batches, [["a", "b"], ["c"]])
         self.assertEqual(gen_mock.call_count, 3)
+        self.assertTrue(all(len(batch) <= 2 for batch in batches))
         self.assertEqual(nav.num_systems(7), 7)
 
     def test_random_generate_success(self):
@@ -125,10 +127,12 @@ class TestNavigator(TestCase):
 
         nav = DummyLatticeNavigator(order=mock.Mock(), kernel=kernel)
         with mock.patch("eleanor.navigator.Boatswain", FakeBoatswain):
-            points = nav.navigate(2, order_id=5)
+            batches = list(nav.navigate(2, 1, order_id=5))
+        points = [point for batch in batches for point in batch]
 
         kernel.constrain.assert_called_once()
         self.assertEqual(points, [{"value": "v0", "order_id": 5}, {"value": "v1", "order_id": 5}])
+        self.assertEqual([len(batch) for batch in batches], [1, 1])
 
         order = mock.Mock()
         order.parameters.return_value = [
@@ -140,7 +144,7 @@ class TestNavigator(TestCase):
 
     def test_lattice_iterate_handles_generation_errors(self):
         """
-        Ensure that :meth:`LatticeNavigator.iterate` suppresses generation errors and yields no points.
+        Ensure that :meth:`LatticeNavigator.iterate` surfaces generation errors.
         """
         nav = DummyLatticeNavigator(order=mock.Mock(), kernel=mock.Mock())
         boatswain = mock.Mock()
@@ -148,9 +152,35 @@ class TestNavigator(TestCase):
         boatswain.__getitem__ = mock.Mock(return_value="seed")
 
         with mock.patch.object(DummyLatticeNavigator, "generate", side_effect=RuntimeError("bad")):
-            points = list(nav.iterate(boatswain, [], 2))
+            with self.assertRaisesRegex(RuntimeError, "bad"):
+                _ = list(nav.iterate(boatswain, [], 2))
 
-        self.assertEqual(points, [])
+    def test_random_navigate_respects_batch_size(self):
+        """
+        Ensure Random.navigate partitions output into max-size batches.
+        """
+        nav = Random(order=mock.Mock(), kernel=mock.Mock())
+        with mock.patch.object(Random, "generate", side_effect=[f"p{i}" for i in range(10)]):
+            batches = list(nav.navigate(10, 3))
+
+        self.assertEqual([len(batch) for batch in batches], [3, 3, 3, 1])
+
+    def test_lattice_navigate_respects_batch_size(self):
+        """
+        Ensure LatticeNavigator.navigate partitions iterator output by batch_size.
+        """
+        nav = DummyLatticeNavigator(order=mock.Mock(), kernel=mock.Mock())
+        with (
+            mock.patch("eleanor.navigator.Boatswain", return_value=mock.Mock()),
+            mock.patch.object(
+                DummyLatticeNavigator,
+                "iterate",
+                return_value=iter([f"p{i}" for i in range(9)]),
+            ),
+        ):
+            batches = list(nav.navigate(3, 4))
+
+        self.assertEqual([len(batch) for batch in batches], [4, 4, 1])
 
     def test_random_lattice_and_lattice_generate(self):
         """

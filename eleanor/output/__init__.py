@@ -83,6 +83,7 @@ def __getattr__(name: str) -> object:
 
 
 _KNOWN_CSV_ARGS: frozenset[str] = frozenset({"filename", "query"})
+_KNOWN_MEMORY_ARGS: frozenset[str] = frozenset()
 _KNOWN_NULL_ARGS: frozenset[str] = frozenset({"support_worker_writes"})
 _KNOWN_POSTGRES_ARGS: frozenset[str] = frozenset({"database", "bulk_load_optimization"})
 
@@ -110,6 +111,23 @@ def _build_csv(_config: object, *, verbose: bool = False, **args: object) -> "Cs
     )
 
 
+def _build_memory(_config: object, *, verbose: bool = False, **args: object) -> "MemorySink":
+    # ``verbose`` is accepted for parity with the other built-in factories but
+    # the memory sink has no verbose-only behaviour; ignore it deliberately.
+    _ = verbose
+    unknown = sorted(k for k in args if k not in _KNOWN_MEMORY_ARGS)
+    if unknown:
+        warnings.warn(
+            'built-in output sink "memory" does not accept these keyword arguments; ' + f"ignoring: {unknown}",
+            RuntimeWarning,
+            stacklevel=2,
+        )
+
+    from .memory import MemorySink
+
+    return MemorySink()
+
+
 def _build_null(_config: object, *, verbose: bool = False, **args: object) -> "NullSink":
     # ``verbose`` is accepted for parity with the other built-in factories but
     # the Null sink has no verbose-only behaviour; ignore it deliberately.
@@ -135,6 +153,7 @@ def _build_postgres(_config: object, *, verbose: bool = False, **args: object) -
             RuntimeWarning,
             stacklevel=2,
         )
+
     from ..typing import cast
     from .postgres import PostgresSink
     from .postgres.config import DatabaseConfig, DatabaseRaw
@@ -163,6 +182,7 @@ def _build_postgres(_config: object, *, verbose: bool = False, **args: object) -
 
 
 _build_csv.__eleanor_api_version__ = 1  # pyright: ignore[reportFunctionMemberAccess]
+_build_memory.__eleanor_api_version__ = 1  # pyright: ignore[reportFunctionMemberAccess]
 _build_null.__eleanor_api_version__ = 1  # pyright: ignore[reportFunctionMemberAccess]
 _build_postgres.__eleanor_api_version__ = 1  # pyright: ignore[reportFunctionMemberAccess]
 
@@ -170,6 +190,7 @@ _build_postgres.__eleanor_api_version__ = 1  # pyright: ignore[reportFunctionMem
 register_output("csv", _build_csv)
 register_output("null", _build_null)
 register_output("postgres", _build_postgres)
+register_output("memory", _build_memory)
 
 __all__ = [
     "BUILTIN_OUTPUTS",

@@ -6,6 +6,7 @@ from eleanor.cli.util import ConfigArgs, add_config_args, config_from_args, type
 from eleanor.exceptions import EleanorException
 from eleanor.executor import available_executors, build_executor
 from eleanor.order import load_order
+from eleanor.output.null import NullConfig, NullSink
 
 
 class RunArgs(ConfigArgs):
@@ -20,6 +21,7 @@ class RunArgs(ConfigArgs):
     scratch: bool
     kernel_args: list[str] | None
     progress: bool
+    null_sink: bool
     parallel: str | None
     chunks_per_worker: int | None
     batch_size: int | None
@@ -37,6 +39,12 @@ def init(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
     )
     _ = parser.add_argument("--order-id", required=False, type=int, help="override the order id")
     _ = parser.add_argument("--tag", required=False, type=str, help="override the order tag")
+    _ = parser.add_argument(
+        "--null-sink",
+        required=False,
+        action="store_true",
+        help="override config output sink with NullSink (useful for tests/benchmarks)",
+    )
     _ = parser.add_argument(
         "-p",
         "--progress",
@@ -93,9 +101,10 @@ def execute(parser: argparse.ArgumentParser, ns: argparse.Namespace) -> None:
     chunks_per_worker = args["chunks_per_worker"]
     batch_size = args["batch_size"]
     max_nav_attempts = args["max_nav_attempts"]
+    null_sink = args["null_sink"]
 
     try:
-        config = config_from_args(parser, args)
+        config = config_from_args(parser, args, require_database=not null_sink)
         if parallel is None:
             parallel = config.parallel.backend
         else:
@@ -114,6 +123,8 @@ def execute(parser: argparse.ArgumentParser, ns: argparse.Namespace) -> None:
         if args["tag"] is not None:
             order.tag = args["tag"]
 
+        output_sink = NullSink(NullConfig(support_worker_writes=parallel != "serial")) if null_sink else None
+
         with build_executor(kind=parallel, num_workers=args["num_procs"]) as executor:
             with Eleanor(config, kernel_args, executor=executor) as eleanor:
                 order_ids = eleanor.run(
@@ -126,6 +137,7 @@ def execute(parser: argparse.ArgumentParser, ns: argparse.Namespace) -> None:
                     chunks_per_worker=chunks_per_worker,
                     batch_size=batch_size,
                     max_nav_attempts=max_nav_attempts,
+                    output_sink=output_sink,
                 )
 
         if args["verbose"]:

@@ -54,7 +54,12 @@ def add_config_args(parser: argparse.ArgumentParser) -> None:
     )
 
 
-def config_from_args(parser: argparse.ArgumentParser, args: ConfigArgs) -> Config:
+def config_from_args(
+    parser: argparse.ArgumentParser,
+    args: ConfigArgs,
+    *,
+    require_database: bool = True,
+) -> Config:
     config_path = os.path.expanduser(args["config"])
     database = args["database"]
 
@@ -80,7 +85,7 @@ def config_from_args(parser: argparse.ArgumentParser, args: ConfigArgs) -> Confi
         # Keep the parsed snapshot consistent so the registry's **args splat
         # sees the override.
         config.output.args = args_raw
-    elif config.output.type == "postgres" and database_config_from_config(config).database is None:
+    elif require_database and config.output.type == "postgres" and database_config_from_config(config).database is None:
         print("error: no database provided\n", file=sys.stdout)
         parser.print_help()
         sys.exit(1)

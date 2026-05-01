@@ -5,6 +5,7 @@ from eleanor.cli import run as run_cli
 from eleanor.config import Config
 from eleanor.exceptions import EleanorException
 from eleanor.executor import registry
+from eleanor.output.null import NullSink
 
 from .common import TestCase
 
@@ -22,6 +23,7 @@ def _fake_eleanor(run_return=None):
         run_return = [1]
     eleanor.run.return_value = run_return
     return eleanor
+
 
 def _fake_executor():
     """Build an executor double that behaves as a no-op context manager."""
@@ -46,6 +48,7 @@ class TestCLIRun(TestCase):
             "simulation_size": 10,
             "scratch": False,
             "progress": False,
+            "null_sink": False,
             "verbose": False,
             "parallel": None,
             "chunks_per_worker": None,
@@ -107,6 +110,20 @@ class TestCLIRun(TestCase):
         self.assertIsNone(ns.batch_size)
         self.assertEqual(ns.max_nav_attempts, 1)
 
+    def test_init_parses_null_sink_flag(self):
+        """
+        Ensure --null-sink is parsed and defaults to False when omitted.
+        """
+        parser = argparse.ArgumentParser()
+        with mock.patch("eleanor.cli.run.add_config_args"):
+            run_cli.init(parser)
+
+        ns_enabled = parser.parse_args(["--null-sink", "order.yaml", "10"])
+        self.assertTrue(ns_enabled.null_sink)
+
+        ns_default = parser.parse_args(["order.yaml", "10"])
+        self.assertFalse(ns_default.null_sink)
+
     def test_execute_uses_config_parallel_defaults(self):
         """
         Ensure execute falls back to config parallel values when CLI flags are omitted.
@@ -138,6 +155,7 @@ class TestCLIRun(TestCase):
             chunks_per_worker=6,
             batch_size=None,
             max_nav_attempts=1,
+            output_sink=None,
         )
 
     def test_execute_cli_flags_override_config_parallel_values(self):
@@ -164,6 +182,30 @@ class TestCLIRun(TestCase):
         self.assertEqual(eleanor.run.call_args.kwargs["parallel"], "serial")
         self.assertEqual(eleanor.run.call_args.kwargs["chunks_per_worker"], 9)
         self.assertEqual(eleanor.run.call_args.kwargs["max_nav_attempts"], 1)
+
+    def test_execute_null_sink_overrides_output_sink(self):
+        """
+        Ensure --null-sink injects a NullSink override and bypasses db requirement.
+        """
+        parser = argparse.ArgumentParser()
+        ns = self._namespace(null_sink=True)
+        config = self._config(backend="serial", chunks_per_worker=2)
+        eleanor = _fake_eleanor(run_return=[11])
+        executor = _fake_executor()
+        fake_order = mock.Mock()
+
+        with (
+            mock.patch("eleanor.cli.run.config_from_args", return_value=config) as config_from_args,
+            mock.patch("eleanor.cli.run.load_order", return_value=fake_order),
+            mock.patch("eleanor.cli.run.build_executor", return_value=executor) as build_executor,
+            mock.patch("eleanor.cli.run.Eleanor", return_value=eleanor) as eleanor_cls,
+        ):
+            run_cli.execute(parser, ns)
+
+        config_from_args.assert_called_once_with(parser, mock.ANY, require_database=False)
+        build_executor.assert_called_once_with(kind="serial", num_workers=None)
+        eleanor_cls.assert_called_once_with(config, [], executor=executor)
+        self.assertIsInstance(eleanor.run.call_args.kwargs["output_sink"], NullSink)
 
     def test_execute_cli_max_nav_attempts_overrides_default(self):
         """

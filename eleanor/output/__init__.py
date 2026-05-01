@@ -37,6 +37,7 @@ if TYPE_CHECKING:
     from .interface import OutputSink as OutputSink
     from .interface import RunStats as RunStats
     from .interface import WriteOutcome as WriteOutcome
+    from .memory import MemorySink as MemorySink
     from .postgres import PostgresSink as PostgresSink
 
 
@@ -69,6 +70,10 @@ def __getattr__(name: str) -> object:
         from .csv import CsvSink
 
         return CsvSink
+    if name == "MemorySink":
+        from .memory import MemorySink
+
+        return MemorySink
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
@@ -146,6 +151,7 @@ __all__ = [
     "ComputeResult",
     "ENTRY_POINT_GROUP",
     "ErrorInfo",
+    "MemorySink",
     "OVERRIDE_ENV_VAR",
     "OutputFactory",
     "OutputSink",

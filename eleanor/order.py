@@ -150,14 +150,12 @@ def load_kernel_settings(kernel_raw: KernelRaw) -> tuple[str, KernelSettings]:
 class NavigatorProtocol(Protocol):
     """Structural protocol for navigator plugins.
 
-    All three methods listed below are verified by the ``isinstance`` check
+    Both methods listed below are verified by the ``isinstance`` check
     performed after a navigator factory returns (see :meth:`Eleanor._run`
     in :mod:`eleanor.eleanor`).
     """
 
     def navigate(self, scale: int, *args: object, **kwargs: object) -> list[vs.Point]: ...
-
-    def supports_success_sampling(self) -> bool: ...
 
     def is_complete(self, batch: list[int]) -> bool: ...
 

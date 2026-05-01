@@ -406,9 +406,9 @@ class Eleanor(object):
         enabled, so every leaf gets its own ``tqdm`` bar(s) even when the
         underlying :class:`SyncManager` is session-scoped.
 
-        ``show_progress`` and ``success_sampling`` are read from
-        :paramref:`kwargs` (the :class:`EleanorKwargs` bag) so that they
-        still flow through to :meth:`process` and the sailor chain.
+        ``show_progress`` is read from :paramref:`kwargs` (the
+        :class:`EleanorKwargs` bag) so that it still flows through to
+        :meth:`process` and the sailor chain.
 
         The output progress bar is only rendered when the active
         :class:`OutputSink` opts in via
@@ -416,7 +416,6 @@ class Eleanor(object):
         bar is shown.
         """
         show_progress = kwargs.get("show_progress", False)
-        success_sampling = kwargs.get("success_sampling", False)
 
         if executor.num_workers <= 0:
             raise EleanorException("executor num_workers must be >= 1")
@@ -449,10 +448,6 @@ class Eleanor(object):
                 )
             navigator = built
 
-        if success_sampling and not navigator.supports_success_sampling():
-            msg = f"{navigator.__class__.__module__}.{navigator.__class__.__name__} does not support success sampling"
-            raise EleanorException(msg)
-
         progress: Progress | None = None
         # Local handles use ``ManagedProgressHandle`` rather than the worker-
         # facing ``ProgressHandle`` so the dispatch context can call ``done()``
@@ -464,57 +459,30 @@ class Eleanor(object):
         if show_progress:
             if manager is None:
                 raise EleanorException("show_progress requires an active SyncManager")
-            # Under ``success_sampling`` the output bar tracks progress toward
-            # a fixed target (N successes) and should therefore ignore
-            # ``extend`` messages after its initial total is set.
-            progress = Progress(manager, out_no_total_update=success_sampling)
+            progress = Progress(manager)
             sim_handle = progress.sim
             if sink.supports_progress():
                 out_handle = progress.out
-                if success_sampling:
-                    # Seed the output bar's target immediately so it renders
-                    # with the right denominator before any sink tick arrives.
-                    out_handle.total(simulation_size)
 
         order.id = sink.begin_run(order)
 
         stats = RunStats()
 
         try:
-            if success_sampling:
-                # Each call targets exactly ``simulation_size`` new
-                # successes; pre-existing successes already in the
-                # sink's backing store are not counted.
-                while stats.succeeded < simulation_size:
-                    outcomes = self.process(
-                        kernel,
-                        navigator,
-                        simulation_size - stats.succeeded,
-                        order.id,
-                        *args,
-                        executor=executor,
-                        chunks_per_worker=chunks_per_worker,
-                        sink=sink,
-                        sim_progress=sim_handle,
-                        out_progress=out_handle,
-                        **kwargs,
-                    )
-                    stats.update(outcomes)
-            else:
-                outcomes = self.process(
-                    kernel,
-                    navigator,
-                    simulation_size,
-                    order.id,
-                    *args,
-                    executor=executor,
-                    chunks_per_worker=chunks_per_worker,
-                    sink=sink,
-                    sim_progress=sim_handle,
-                    out_progress=out_handle,
-                    **kwargs,
-                )
-                stats.update(outcomes)
+            outcomes = self.process(
+                kernel,
+                navigator,
+                simulation_size,
+                order.id,
+                *args,
+                executor=executor,
+                chunks_per_worker=chunks_per_worker,
+                sink=sink,
+                sim_progress=sim_handle,
+                out_progress=out_handle,
+                **kwargs,
+            )
+            stats.update(outcomes)
         finally:
             if progress is not None:
                 # ``sim_handle`` is co-assigned with ``progress`` above, but
@@ -553,10 +521,9 @@ class Eleanor(object):
             when the executor does not support worker-side progress, ticks
             are emitted in the parent after each future resolves.
         :param out_progress: Handle for the output bar. Extended by the
-            navigator batch size at the start of each iteration (a no-op
-            when the underlying bar has ``out_no_total_update=True``).
-            Passed to :meth:`OutputSink.write_batch`; the sink decides its
-            own tick cadence. For worker-write sinks on executors without
+            navigator batch size at the start of each iteration. Passed to
+            :meth:`OutputSink.write_batch`; the sink decides its own tick
+            cadence. For worker-write sinks on executors without
             worker-progress support, a single batch-level tick per future is
             emitted in the parent as a fallback.
         """

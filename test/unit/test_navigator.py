@@ -27,7 +27,6 @@ class TestNavigator(TestCase):
         """
         nav = DummyNavigator(order=mock.Mock(), kernel=mock.Mock())
         self.assertEqual(nav.num_systems(3), 3)
-        self.assertTrue(nav.supports_success_sampling())
         self.assertTrue(nav.is_complete([1, 2]))
 
     def test_abstract_placeholder_methods(self):
@@ -168,7 +167,6 @@ class TestNavigator(TestCase):
         lattice = Lattice(order=mock.Mock(), kernel=mock.Mock())
         self.assertEqual(lattice.generate(param, 2), ["l1", "l2"])
         param.lattice.assert_called_once_with(size=2)
-        self.assertFalse(lattice.supports_success_sampling())
 
         with self.assertRaises(ValueError):
             lattice.generate(param, 0)

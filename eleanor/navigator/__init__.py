@@ -26,9 +26,6 @@ class AbstractNavigator(ABC):
     def num_systems(self, scale: int) -> int:
         return scale
 
-    def supports_success_sampling(self) -> bool:
-        return True
-
     def is_complete(self, _batch: list[int]) -> bool:
         return True
 
@@ -120,10 +117,6 @@ class Lattice(LatticeNavigator):
             raise ValueError("")
 
         return parameter.lattice(size=scale)
-
-    @override
-    def supports_success_sampling(self) -> bool:
-        return False
 
 
 _ = LatticeNavigator.register(Lattice)

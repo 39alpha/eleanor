@@ -475,50 +475,16 @@ class TestEleanorDispatch(TestCase):
     Tests covering ``Eleanor._dispatch`` and the process loop.
     """
 
-    def test_dispatch_rejects_unsupported_success_sampling(self):
-        """
-        Ensure _dispatch raises if success_sampling is requested with unsupported navigator.
-        """
-        from eleanor.navigator import AbstractNavigator
-
-        eleanor = _make_eleanor()
-        kernel = mock.Mock()
-        navigator = mock.Mock(spec=AbstractNavigator)
-        navigator.supports_success_sampling.return_value = False
-        order = _leaf_order()
-        sink = mock.Mock()
-        sink.begin_run.return_value = 5
-
-        with (
-            mock.patch(
-                "eleanor.navigator.registry.get_factory",
-                return_value=lambda *_args, **_kw: navigator,
-            ),
-            self.assertRaises(EleanorException),
-        ):
-            eleanor._dispatch(
-                order,
-                2,
-                chunks_per_worker=1,
-                executor=_FakeExecutor(),
-                kernel=kernel,
-                navigator=None,
-                sink=sink,
-                manager=None,
-                success_sampling=True,
-            )
 
     def test_dispatch_calls_process_once_in_standard_mode(self):
         """
-        Ensure _dispatch begins a run via the sink and calls process once when not
-        in success-sampling mode.
+        Ensure _dispatch begins a run via the sink and calls process once.
         """
         from eleanor.navigator import AbstractNavigator
 
         eleanor = _make_eleanor()
         kernel = mock.Mock()
         navigator = mock.Mock(spec=AbstractNavigator)
-        navigator.supports_success_sampling.return_value = True
         order = _leaf_order()
         sink = mock.Mock()
         sink.begin_run.return_value = 5
@@ -549,60 +515,6 @@ class TestEleanorDispatch(TestCase):
         sink.begin_run.assert_called_once_with(order)
         self.assertIs(eleanor.process.call_args.kwargs["executor"], executor)
 
-    def test_dispatch_success_sampling_loops_until_target_met(self):
-        """
-        Ensure _dispatch loops in success-sampling mode until at least
-        simulation_size new successes have been recorded.
-        """
-        from eleanor.navigator import AbstractNavigator
-
-        eleanor = _make_eleanor()
-        kernel = mock.Mock()
-        navigator = mock.Mock(spec=AbstractNavigator)
-        navigator.supports_success_sampling.return_value = True
-        order = _leaf_order()
-        sink = mock.Mock()
-        sink.begin_run.return_value = 11
-        sink.supports_progress.return_value = False
-        eleanor.process = mock.Mock(
-            return_value=[
-                WriteOutcome(point_id=10, exit_code=0, committed=True),
-                WriteOutcome(point_id=11, exit_code=0, committed=True),
-            ]
-        )
-        executor = _FakeExecutor()
-        manager = mock.Mock()
-
-        progress = SimpleNamespace(
-            sim=mock.Mock(),
-            out=mock.Mock(),
-            join=mock.Mock(),
-        )
-        with (
-            mock.patch("eleanor.eleanor.Progress", return_value=progress),
-            mock.patch(
-                "eleanor.navigator.registry.get_factory",
-                return_value=lambda *_args, **_kw: navigator,
-            ),
-        ):
-            out = eleanor._dispatch(
-                order,
-                2,
-                chunks_per_worker=1,
-                executor=executor,
-                kernel=kernel,
-                navigator=None,
-                sink=sink,
-                manager=manager,
-                show_progress=True,
-                success_sampling=True,
-            )  # show_progress/success_sampling flow through kwargs
-
-        self.assertEqual(out, [11])
-        eleanor.process.assert_called_once()
-        sink.begin_run.assert_called_once_with(order)
-        progress.join.assert_called_once()
-
     def test_dispatch_constructs_out_handle_only_when_sink_supports_progress(self):
         """
         Ensure _dispatch hands the output handle to process() only when the
@@ -614,7 +526,6 @@ class TestEleanorDispatch(TestCase):
         eleanor = _make_eleanor()
         kernel = mock.Mock()
         navigator = mock.Mock(spec=AbstractNavigator)
-        navigator.supports_success_sampling.return_value = True
         order = _leaf_order()
         executor = _FakeExecutor()
         manager = mock.Mock()
@@ -651,9 +562,7 @@ class TestEleanorDispatch(TestCase):
         kwargs = eleanor.process.call_args.kwargs
         self.assertIs(kwargs["sim_progress"], sim_handle)
         self.assertIsNone(kwargs["out_progress"])
-
-        # Sink opts in: the out handle is forwarded and, under
-        # success_sampling, the output bar total is seeded up front.
+        # Sink opts in: the out handle is forwarded to process().
         loud_sink = mock.Mock()
         loud_sink.begin_run.return_value = 6
         loud_sink.supports_progress.return_value = True
@@ -680,14 +589,11 @@ class TestEleanorDispatch(TestCase):
                 sink=loud_sink,
                 manager=manager,
                 show_progress=True,
-                success_sampling=True,
             )
 
         kwargs = eleanor.process.call_args.kwargs
         self.assertIs(kwargs["sim_progress"], sim_handle)
         self.assertIs(kwargs["out_progress"], out_handle)
-        # Under success_sampling, the output bar's target was seeded to 3.
-        out_handle.total.assert_called_with(3)
 
     def test_dispatch_signals_done_on_both_handles_in_finally(self):
         """
@@ -700,7 +606,6 @@ class TestEleanorDispatch(TestCase):
         eleanor = _make_eleanor()
         kernel = mock.Mock()
         navigator = mock.Mock(spec=AbstractNavigator)
-        navigator.supports_success_sampling.return_value = True
         executor = _FakeExecutor()
         manager = mock.Mock()
 
@@ -813,7 +718,6 @@ class TestEleanorDispatch(TestCase):
         eleanor = _make_eleanor()
         kernel = mock.Mock()
         navigator = mock.Mock(spec=AbstractNavigator)
-        navigator.supports_success_sampling.return_value = True
         order = _leaf_order()
         sink = mock.Mock()
         sink.begin_run.return_value = 1
@@ -879,12 +783,10 @@ class TestEleanorDispatch(TestCase):
             sink=sink,
             sim_progress=sim_progress,
             out_progress=out_progress,
-            success_sampling=True,
         )
 
         # Both bars extend by the batch size at the start of each navigator
-        # iteration; output bar has out_no_total_update in Progress, so the
-        # extend() call is safe even under success_sampling.
+        # iteration.
         sim_progress.extend.assert_any_call(2)
         out_progress.extend.assert_any_call(2)
         self.assertEqual(executor.submit.call_count, 2)
@@ -976,7 +878,6 @@ class TestEleanorDispatch(TestCase):
             sink=sink,
             sim_progress=sim_progress,
             out_progress=out_progress,
-            success_sampling=True,
         )
 
         sink.write_batch.assert_not_called()

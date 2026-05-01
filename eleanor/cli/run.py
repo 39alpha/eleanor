@@ -22,7 +22,6 @@ class RunArgs(ConfigArgs):
     progress: bool
     combined: bool
     proportional: bool
-    success_sampling: bool
     parallel: str | None
     chunks_per_worker: int | None
 
@@ -58,12 +57,6 @@ def init(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
         required=False,
         action="store_true",
         help="use proportional sampling",
-    )
-    _ = parser.add_argument(
-        "--success-sampling",
-        required=False,
-        action="store_true",
-        help="sample size counts successes only",
     )
     _ = parser.add_argument(
         "--parallel",
@@ -129,7 +122,6 @@ def execute(parser: argparse.ArgumentParser, ns: argparse.Namespace) -> None:
                     show_progress=show_progress,
                     combined=args["combined"],
                     proportional_sampling=args["proportional"],
-                    success_sampling=args["success_sampling"],
                     verbose=args["verbose"],
                     parallel=parallel,
                     chunks_per_worker=chunks_per_worker,

@@ -66,8 +66,7 @@ class ProgressMessage(object):
     :param kind: The operation to perform on the bar:
 
         * ``'total'``  -- set the bar's absolute total to ``value``.
-        * ``'extend'`` -- add ``value`` to the bar's running total (ignored
-          when the bar has ``no_total_update=True``).
+        * ``'extend'`` -- add ``value`` to the bar's running total.
         * ``'tick'``   -- advance the bar by ``value`` completed units.
         * ``'done'``   -- freeze and close the bar at its current state.
     :param value: The argument to the operation. For ``'tick'`` the value is
@@ -172,18 +171,12 @@ class Progress(object):
 
     :param manager: The shared :class:`~multiprocessing.managers.SyncManager`
         used to allocate the cross-process queue.
-    :param out_no_total_update: When ``True``, the output bar ignores
-        ``extend`` messages after its initial total is set. Used under
-        ``success_sampling`` where the output bar tracks progress toward a
-        fixed target (N successes) rather than the growing attempt count.
     """
 
     queue: "Queue[ProgressMessage | None]"
     process: Process
-    out_no_total_update: bool
 
-    def __init__(self, manager: SyncManager, out_no_total_update: bool = False):
-        self.out_no_total_update = out_no_total_update
+    def __init__(self, manager: SyncManager):
         # SyncManager.Queue() is typed as Any by the stubs; narrow it here so
         # downstream users see the ProgressMessage shape we expect.
         self.queue = cast("Queue[ProgressMessage | None]", manager.Queue())
@@ -214,9 +207,8 @@ class Progress(object):
 
         Individual channel bars may be closed early by sending a ``"done"``
         message; any subsequent messages for that channel are discarded.
-
-        Runs in the listener subprocess. Per-channel state (bars, totals,
-        total-update policy) is kept locally; the parent's copy of ``self`` is
+        Runs in the listener subprocess. Per-channel state (bars, totals) is
+        kept locally; the parent's copy of ``self`` is
         read-only here except for resources that live in the queue itself.
         """
         bars: dict[Channel, tqdm[NoReturn] | None] = {"sim": None, "out": None}
@@ -225,7 +217,6 @@ class Progress(object):
         colours: dict[Channel, str] = {"sim": "#ec5c29", "out": "#2993ec"}
         descriptions: dict[Channel, str] = {"sim": "  sims", "out": "output"}
         description_width = max(len(description) for description in descriptions.values())
-        no_total_update: dict[Channel, bool] = {"sim": False, "out": self.out_no_total_update}
         first_total: dict[Channel, bool] = {"sim": True, "out": True}
         first_tick: dict[Channel, bool] = {"sim": True, "out": True}
         channel_done: dict[Channel, bool] = {"sim": False, "out": False}
@@ -297,7 +288,7 @@ class Progress(object):
                     bar = ensure_bar(channel)
                     bar.total = totals[channel]
                     bar.refresh()
-                elif not no_total_update[channel]:
+                else:
                     totals[channel] += msg.value
                     bar = ensure_bar(channel)
                     bar.total = totals[channel]

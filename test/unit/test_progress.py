@@ -145,11 +145,10 @@ class TestProgressLifecycle(TestCase):
         manager = _FakeManager(queue)
 
         with mock.patch.object(progress_mod, 'Process', _FakeProcess):
-            p = Progress(manager, out_no_total_update=True)
+            p = Progress(manager)
 
         self.assertTrue(p.process.started)
         self.assertIs(p.queue, queue)
-        self.assertTrue(p.out_no_total_update)
 
         sim_handle = p.sim
         out_handle = p.out
@@ -181,11 +180,10 @@ class TestProgressListener(TestCase):
         _FakeTqdm.instances = []
         _FakeTqdm.time_value = 0.0
 
-    def _run_listener(self, messages, out_no_total_update=False):
+    def _run_listener(self, messages):
         queue = _FakeQueue(messages=messages)
         p = object.__new__(Progress)
         p.queue = queue
-        p.out_no_total_update = out_no_total_update
         with mock.patch.object(progress_mod, 'tqdm', _FakeTqdm):
             p.listen()
         return queue
@@ -262,21 +260,6 @@ class TestProgressListener(TestCase):
         self.assertEqual(bars['out'].desc.strip(), 'output')
         self.assertEqual(len(bars['sim'].desc), len(bars['out'].desc))
 
-    def test_out_no_total_update_suppresses_extend_on_output_bar(self):
-        """
-        Ensure out_no_total_update=True freezes the output bar's total after seeding.
-        """
-        self._run_listener([
-            ProgressMessage(channel='out', kind='total', value=4),
-            ProgressMessage(channel='out', kind='extend', value=10),
-            ProgressMessage(channel='out', kind='tick', value=2),
-            None,
-        ], out_no_total_update=True)
-        bars = self._bars_by_channel()
-
-        # extend is ignored on the output bar under out_no_total_update.
-        self.assertEqual(bars['out'].total, 4)
-        self.assertEqual(bars['out'].update_calls, [2])
 
     def test_sim_extend_without_prior_total_seeds_initial_total(self):
         """
@@ -349,7 +332,6 @@ class TestProgressListener(TestCase):
         ])
         p = object.__new__(Progress)
         p.queue = queue
-        p.out_no_total_update = False
 
         # ``reset_timer_to_now`` reads ``bar._time()`` so it stays in the same
         # clock domain as tqdm's elapsed display; route the fake bar's clock
@@ -374,7 +356,6 @@ class TestProgressListener(TestCase):
         ])
         p = object.__new__(Progress)
         p.queue = queue
-        p.out_no_total_update = False
 
         # If ``reset_timer_to_now`` were (incorrectly) called here, both
         # fields would be 999.0 instead of the _FakeTqdm -1.0 sentinel.

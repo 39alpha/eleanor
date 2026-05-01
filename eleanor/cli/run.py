@@ -23,6 +23,7 @@ class RunArgs(ConfigArgs):
     parallel: str | None
     chunks_per_worker: int | None
     batch_size: int | None
+    max_nav_attempts: int
 
 
 def init(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
@@ -66,6 +67,13 @@ def init(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
         type=int,
         help="navigator batch size (default: all points in one batch)",
     )
+    _ = parser.add_argument(
+        "--max-nav-attempts",
+        required=False,
+        type=int,
+        default=1,
+        help="max attempts per navigation point before failing (default: %(default)s)",
+    )
     _ = parser.add_argument("order", type=str, help="order file")
     _ = parser.add_argument("simulation_size", type=int, help="the size of the simulation")
 
@@ -84,6 +92,7 @@ def execute(parser: argparse.ArgumentParser, ns: argparse.Namespace) -> None:
     parallel = args["parallel"]
     chunks_per_worker = args["chunks_per_worker"]
     batch_size = args["batch_size"]
+    max_nav_attempts = args["max_nav_attempts"]
 
     try:
         config = config_from_args(parser, args)
@@ -116,6 +125,7 @@ def execute(parser: argparse.ArgumentParser, ns: argparse.Namespace) -> None:
                     parallel=parallel,
                     chunks_per_worker=chunks_per_worker,
                     batch_size=batch_size,
+                    max_nav_attempts=max_nav_attempts,
                 )
 
         if args["verbose"]:

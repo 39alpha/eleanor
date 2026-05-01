@@ -405,6 +405,34 @@ class TestEleanorRun(TestCase):
             _ = eleanor.run(_leaf_order(), 3, kernel=mock.Mock(), navigator=_navigator(7))
 
         self.assertEqual(eleanor.process.call_args.kwargs["batch_size"], 7)
+    def test_max_nav_attempts_threads_from_run_to_process(self):
+        """Ensure run(..., max_nav_attempts=4) threads the value to process()."""
+        eleanor = _make_eleanor()
+        sink = mock.Mock()
+        sink.begin_run.return_value = 9
+        sink.supports_progress.return_value = False
+        eleanor.process = mock.Mock(return_value=[])
+
+        with (
+            mock.patch("eleanor.eleanor.build_executor", return_value=_FakeExecutor()),
+            mock.patch.object(Eleanor, "load_output_sink", return_value=sink),
+        ):
+            _ = eleanor.run(_leaf_order(), 3, max_nav_attempts=4, kernel=mock.Mock(), navigator=_navigator(7))
+
+        self.assertEqual(eleanor.process.call_args.kwargs["max_nav_attempts"], 4)
+
+    def test_run_raises_when_explicit_max_nav_attempts_is_zero(self):
+        """Ensure run() validates max_nav_attempts >= 1."""
+        eleanor = _make_eleanor()
+        sink = mock.Mock()
+        sink.supports_progress.return_value = False
+
+        with (
+            mock.patch("eleanor.eleanor.build_executor", return_value=_FakeExecutor()),
+            mock.patch.object(Eleanor, "load_output_sink", return_value=sink),
+            self.assertRaisesRegex(EleanorException, "max_nav_attempts must be >= 1"),
+        ):
+            eleanor.run(_leaf_order(), 10, kernel=mock.Mock(), navigator=_navigator(5), max_nav_attempts=0)
 
     def test_run_uses_explicit_output_sink_override(self):
         """Ensure output_sink= overrides config sink and is finalized per run."""
@@ -468,14 +496,14 @@ class TestEleanorProcess(TestCase):
             2,
             9,
             batch_size=2,
+            max_nav_attempts=3,
             expected_total=2,
             executor=executor,
             sink=sink,
             sim_progress=sim_progress,
             out_progress=out_progress,
         )
-
-        navigator.navigate.assert_called_once_with(2, 2, order_id=9, max_attempts=1)
+        navigator.navigate.assert_called_once_with(2, 2, order_id=9, max_attempts=3)
         self.assertEqual(executor.submit.call_count, 2)
         self.assertEqual(
             sink.write_batch.call_args_list,

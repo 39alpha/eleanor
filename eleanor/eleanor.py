@@ -280,6 +280,7 @@ class Eleanor(object):
         parallel: str | None = None,
         chunks_per_worker: int | None = None,
         batch_size: int | None = None,
+        max_nav_attempts: int = 1,
         kernel: AbstractKernel | None = None,
         navigator: NavigatorProtocol | None = None,
         output_sink: OutputSink | None = None,
@@ -333,6 +334,8 @@ class Eleanor(object):
                 raise EleanorException("executor num_workers must be >= 1")
             if chunks_per_worker <= 0:
                 raise EleanorException("chunks_per_worker must be >= 1")
+            if max_nav_attempts <= 0:
+                raise EleanorException("max_nav_attempts must be >= 1")
 
             if effective_kernel is None:
                 effective_kernel = self.load_kernel(order, **kwargs)
@@ -399,6 +402,7 @@ class Eleanor(object):
                     order.id,
                     *args,
                     batch_size=effective_batch_size,
+                    max_nav_attempts=max_nav_attempts,
                     expected_total=expected_total,
                     executor=run_executor,
                     chunks_per_worker=chunks_per_worker,
@@ -432,6 +436,7 @@ class Eleanor(object):
         order_id: int,
         *args: object,
         batch_size: int,
+        max_nav_attempts: int = 1,
         expected_total: int,
         executor: AbstractExecutor | None = None,
         chunks_per_worker: int = 1,
@@ -457,6 +462,8 @@ class Eleanor(object):
             raise EleanorException("executor num_workers must be >= 1")
         if chunks_per_worker <= 0:
             raise EleanorException("chunks_per_worker must be >= 1")
+        if max_nav_attempts <= 0:
+            raise EleanorException("max_nav_attempts must be >= 1")
 
         outcomes: list[WriteOutcome] = []
 
@@ -472,7 +479,7 @@ class Eleanor(object):
             simulation_size,
             batch_size,
             order_id=order_id,
-            max_attempts=1,
+            max_attempts=max_nav_attempts,
         ):
             total_produced += len(vs_points)
             if len(vs_points) == 0:

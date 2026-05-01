@@ -51,8 +51,8 @@ SuppressionRaw = TypedDict(
 )
 
 
-class SuborderRaw(TypedDict, total=False):
-    """Schema for a raw suborder document (also used for the top-level order).
+class OrderRaw(TypedDict, total=False):
+    """Schema for a raw order document.
 
     All keys are optional at the schema level; runtime validation enforces
     which are required in each concrete context.
@@ -71,21 +71,14 @@ class SuborderRaw(TypedDict, total=False):
     suppressions: list[str | SuppressionRaw]
     reactants: dict[str, ReactantRaw]
     constraints: list[RawMap]
-    suborders: "SubordersRaw | list[SuborderRaw]"
     transformers: list[str | TransformerRaw]
-
-
-class SubordersRaw(TypedDict, total=False):
-    combined: bool
-    proportional_sampling: bool
-    orders: list[SuborderRaw]
 
 
 def _require_opt_int(value: object, field_name: str) -> int | None:
     """Validate that ``value`` is an int or ``None`` at runtime.
 
     Used at the boundary between untrusted raw-dict input (YAML/TOML/JSON)
-    and the typed dataclass-backed suborder/order model. Taking ``object``
+    and the typed dataclass-backed order model. Taking ``object``
     here (rather than the TypedDict's narrower ``int | None``) is deliberate:
     it forces the ``isinstance`` check to be meaningful even when the caller
     reads a field whose ``TypedDict`` declaration promises the right type.
@@ -99,7 +92,7 @@ def _require_opt_str(value: object, field_name: str) -> str | None:
     """Validate that ``value`` is a string or ``None`` at runtime.
 
     Used at the boundary between untrusted raw-dict input (YAML/TOML/JSON)
-    and the typed dataclass-backed suborder/order model. Taking ``object``
+    and the typed dataclass-backed order model. Taking ``object``
     here (rather than the TypedDict's narrower ``str | None``) is deliberate:
     it forces the ``isinstance`` check to be meaningful even when the caller
     reads a field whose ``TypedDict`` declaration promises the right type.
@@ -217,20 +210,20 @@ class Suppression(object):
 @final
 @dataclass(init=False)
 class Order:
-    name: str | None
-    notes: str | None
-    creator: str | None
-    kernel: KernelConfig | None
-    navigator: NavigatorConfig | None
-    water_mass: Parameter | None
-    temperature: Parameter | None
-    pressure: Parameter | None
-    elements: dict[str, Parameter] | None
-    species: dict[str, Parameter] | None
-    suppressions: list[Suppression] | None
-    reactants: list[AbstractReactant] | None
-    constraints: list[ConstraintConfig] | None
-    raw: SuborderRaw
+    name: str
+    notes: str
+    creator: str
+    kernel: KernelConfig
+    navigator: NavigatorConfig
+    water_mass: Parameter
+    temperature: Parameter
+    pressure: Parameter
+    elements: dict[str, Parameter]
+    species: dict[str, Parameter]
+    suppressions: list[Suppression]
+    reactants: list[AbstractReactant]
+    constraints: list[ConstraintConfig]
+    raw: OrderRaw
     transformers: list[TransformerConfig]
     id: int | None
     vs_points: list[VSPoint]
@@ -240,74 +233,54 @@ class Order:
 
     def __init__(
         self,
-        raw: SuborderRaw,
+        raw: OrderRaw,
         order_id: int | None = None,
         tag: str | None = None,
         vs_points: list[VSPoint] | None = None,
         create_date: datetime | None = None,
-    ):
-        self.name = None
-        self.notes = None
-        self.creator = None
-        self.kernel = None
-        self.navigator = None
-        self.water_mass = None
-        self.temperature = None
-        self.pressure = None
-        self.elements = None
-        self.species = None
-        self.suppressions = None
-        self.reactants = None
-        self.constraints = None
-        self.raw = SuborderRaw()
-        self.transformers = []
-        self.id = None
-        self.vs_points = []
-        self.create_date = datetime.now()
-        self.eleanor_version = None
-        self.tag = ""
+    ) -> None:
         self.raw = raw
+        # Runtime metadata (legitimately optional / defaulted).
         self.vs_points = [] if vs_points is None else vs_points
         self.create_date = datetime.now() if create_date is None else create_date
         self.id = order_id if order_id is not None else _require_opt_int(self.raw.get("id"), "id")
-
         raw_tag = _require_opt_str(self.raw.get("tag"), "tag") or ""
         self.tag = tag if tag is not None else raw_tag
-
-        self.name = _require_str(self.raw.get("name"), "name")
-
         self.eleanor_version = None
-
-        self.__post_init__()
-
-    def __post_init__(self) -> None:
+        # Required string fields.
+        self.name = _require_str(self.raw.get("name"), "name")
         self.notes = _require_str(self.raw.get("notes", ""), "notes")
         self.creator = _require_str(self.raw.get("creator"), "creator")
-
-        if "kernel" in self.raw:
-            kernel_type, kernel_settings = load_kernel_settings(self.raw["kernel"])
-            self.kernel = KernelConfig(type=kernel_type, settings=kernel_settings)
-
+        # Kernel (required).
+        if "kernel" not in self.raw:
+            raise EleanorException("kernel is required")
+        kernel_type, kernel_settings = load_kernel_settings(self.raw["kernel"])
+        self.kernel = KernelConfig(type=kernel_type, settings=kernel_settings)
+        # Navigator (defaults to random).
         navigator_raw = self.raw.get("navigator", NavigatorRaw())
         if isinstance(navigator_raw, str):
             self.navigator = NavigatorConfig(type=navigator_raw)
         else:
             self.navigator = NavigatorConfig(**navigator_raw)
-
+        # Water mass (defaults to 1.0 if absent from raw).
         self.water_mass = Parameter.load(self.raw.get("water_mass", 1.0), "water_mass")
-
-        if "temperature" in self.raw:
-            self.temperature = Parameter.load(self.raw["temperature"], "temperature")
-
-        if "pressure" in self.raw:
-            self.pressure = Parameter.load(self.raw["pressure"], "pressure")
-
+        # Temperature (required, no default).
+        if "temperature" not in self.raw:
+            raise EleanorException("temperature is required")
+        self.temperature = Parameter.load(self.raw["temperature"], "temperature")
+        # Pressure (required, no default).
+        if "pressure" not in self.raw:
+            raise EleanorException("pressure is required")
+        self.pressure = Parameter.load(self.raw["pressure"], "pressure")
+        # Elements (required non-empty).
         elements_raw = self.raw.get("elements") or {}
         self.elements = {name: Parameter.load(value, name=name) for name, value in elements_raw.items()}
-
+        if not self.elements:
+            raise EleanorException("elements must not be empty")
+        # Species (may be empty).
         species_raw = self.raw.get("species") or {}
         self.species = {name: Parameter.load(value, name=name) for name, value in species_raw.items()}
-
+        # Suppressions (may be empty).
         suppressions_raw = self.raw.get("suppressions") or []
         self.suppressions = [
             Suppression.from_dict(SuppressionRaw(), name=value)
@@ -315,68 +288,55 @@ class Order:
             else Suppression.from_dict(value)
             for value in suppressions_raw
         ]
-
+        # Reactants (may be empty).
         reactants_raw = self.raw.get("reactants") or {}
         self.reactants = [AbstractReactant.from_dict(value, name=name) for name, value in reactants_raw.items()]
-
+        # Constraints (may be empty; no constraint-config loader yet).
         self.constraints = []
-
+        # Transformers (may be empty).
         transformers_raw = self.raw.get("transformers") or []
         self.transformers = [_build_transformer(t) for t in transformers_raw]
 
     def parameters(self) -> list[Parameter]:
-        parameters: list[Parameter] = []
-
-        if self.water_mass is not None:
-            parameters.append(self.water_mass)
-
-        if self.temperature is not None:
-            parameters.append(self.temperature)
-
-        if self.pressure is not None:
-            parameters.append(self.pressure)
-
-        if self.kernel is not None:
-            parameters.extend(self.kernel.parameters())
-
-        if self.elements is not None:
-            parameters.extend(e for e in self.elements.values())
-
-        if self.species is not None:
-            parameters.extend(s for s in self.species.values())
-
-        if self.reactants is not None:
-            for reactant in self.reactants:
-                parameters.extend(reactant.parameters())
+        parameters: list[Parameter] = [
+            self.water_mass,
+            self.temperature,
+            self.pressure,
+        ]
+        parameters.extend(self.kernel.parameters())
+        parameters.extend(self.elements.values())
+        parameters.extend(self.species.values())
+        for reactant in self.reactants:
+            parameters.extend(reactant.parameters())
 
         return parameters
 
     @staticmethod
     def from_yaml(fname: str):
         with open(fname, "rb") as handle:
-            return Order(cast(SuborderRaw, cast(object, yaml.safe_load(handle))))
+            return Order(cast(OrderRaw, cast(object, yaml.safe_load(handle))))
 
     @staticmethod
     def from_yamls(content: str):
-        return Order(cast(SuborderRaw, cast(object, yaml.safe_load(content))))
+        return Order(cast(OrderRaw, cast(object, yaml.safe_load(content))))
 
     @staticmethod
     def from_toml(fname: str):
         with open(fname, "rb") as handle:
-            return Order(cast(SuborderRaw, cast(object, tomllib.load(handle))))
+            return Order(cast(OrderRaw, cast(object, tomllib.load(handle))))
 
     @staticmethod
     def from_tomls(content: str):
-        return Order(cast(SuborderRaw, cast(object, tomllib.loads(content))))
+        return Order(cast(OrderRaw, cast(object, tomllib.loads(content))))
 
     @staticmethod
     def from_json(fname: str):
         with open(fname, "rb") as handle:
-            return Order(cast(SuborderRaw, cast(object, json.load(handle))))
+            return Order(cast(OrderRaw, cast(object, json.load(handle))))
 
     @staticmethod
     def from_jsons(content: str):
-        return Order(cast(SuborderRaw, cast(object, json.loads(content))))
+        return Order(cast(OrderRaw, cast(object, json.loads(content))))
 
     @staticmethod
     def from_file(fname: str):

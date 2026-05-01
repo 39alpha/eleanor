@@ -709,11 +709,11 @@ class TestEleanorLoaders(TestCase):
         spec.build.assert_called_once_with(settings, "arg1")
         kernel.setup.assert_called_once_with(order, alpha=1)
 
-    def test_load_kernel_rejects_missing_order_kernel(self):
-        """Ensure load_kernel raises when order has no kernel config."""
+    def test_load_kernel_raises_on_malformed_order_without_kernel(self):
+        """Ensure malformed order-like objects without kernel config fail immediately."""
         eleanor = _make_eleanor()
         order = SimpleNamespace(kernel=None)
-        with self.assertRaisesRegex(EleanorException, "order kernel is required"):
+        with self.assertRaisesRegex(AttributeError, "'NoneType' object has no attribute 'type'"):
             eleanor.load_kernel(order)
 
 

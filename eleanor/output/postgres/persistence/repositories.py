@@ -253,8 +253,7 @@ def insert_order(config: DatabaseConfig, order: Order) -> OrderRecord:
     """Insert ``order`` into the orders table and return the persisted record.
 
     The order's ``eleanor_version`` must be stamped before this call;
-    :func:`converters.order_to_row` raises if either it or ``name`` is
-    missing.
+    :func:`converters.order_to_row` raises if it is missing.
     """
     conn = connection.connect(config)
     row = converters.order_to_row(order)
@@ -265,13 +264,12 @@ def insert_order(config: DatabaseConfig, order: Order) -> OrderRecord:
             if result is None:
                 raise EleanorException("order INSERT did not return an id")
             new_id = cast(int, result[0])
-    # ``converters.order_to_row`` raises if either ``order.name`` or
-    # ``order.eleanor_version`` is ``None``, so by the time we get here
-    # they are both ``str``. The casts narrow the static type without
-    # paying for a runtime re-check.
+    # ``order.name`` is statically non-optional, and
+    # ``converters.order_to_row`` raises if ``order.eleanor_version`` is
+    # missing before we build the returned record.
     return OrderRecord(
         id=new_id,
-        name=cast(str, order.name),
+        name=order.name,
         tag=order.tag,
         eleanor_version=cast(str, order.eleanor_version),
         raw=dict(order.raw),

@@ -88,10 +88,6 @@ class Kernel(AbstractKernel):
         _ = kwargs
         if order is None:
             raise EleanorException("order is required")
-        if order.temperature is None:
-            raise EleanorException("order.temperature is required")
-        if order.pressure is None:
-            raise EleanorException("order.pressure is required")
         Tmin, Tmax = order.temperature.range()
         Trange = (np.float64(Tmin), np.float64(Tmax))
 
@@ -144,10 +140,6 @@ class Kernel(AbstractKernel):
 
     @override
     def constrain(self, boatswain: Boatswain) -> Boatswain:
-        if boatswain.order.temperature is None:
-            raise EleanorException("order.temperature is required")
-        if boatswain.order.pressure is None:
-            raise EleanorException("order.pressure is required")
         boatswain.constraints.append(
             TemperatureRangeConstraint(
                 boatswain.order.temperature,

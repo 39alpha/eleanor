@@ -76,8 +76,6 @@ def order_to_row(order: core_order.Order) -> dict[str, object]:
     The caller is responsible for stamping ``eleanor_version`` before
     handing the order over.
     """
-    if order.name is None:
-        raise EleanorException("order name is required")
     if order.eleanor_version is None:
         raise EleanorException("order eleanor_version is required before persistence")
     return {

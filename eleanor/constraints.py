@@ -71,7 +71,7 @@ class Boatswain(object):
 
         self.parameters = order.parameters()
 
-        order_constraints = self.order.constraints or []
+        order_constraints = self.order.constraints
         self.constraints = [
             loaded
             for loaded in (AbstractConstraint.from_order(self.order, c) for c in order_constraints)
@@ -141,7 +141,7 @@ class Boatswain(object):
 
             elements = [
                 vs.Element(name=e.name, log_molality=valuation[self.registry.id(e)].value)
-                for e in (self.order.elements or {}).values()
+                for e in self.order.elements.values()
             ]
 
             species = [
@@ -149,7 +149,7 @@ class Boatswain(object):
                     name=s.name,
                     value=valuation[self.registry.id(s)].value,
                 )
-                for s in (self.order.species or {}).values()
+                for s in self.order.species.values()
             ]
 
             suppressions = [
@@ -158,7 +158,7 @@ class Boatswain(object):
                     type=s.type,
                     exceptions=[vs.SuppressionException(name=name) for name in s.exceptions],
                 )
-                for s in (self.order.suppressions or [])
+                for s in self.order.suppressions
             ]
 
             mineral_reactants: list[vs.MineralReactant] = []
@@ -169,7 +169,7 @@ class Boatswain(object):
             fixed_gas_reactants: list[vs.FixedGasReactant] = []
             solid_solution_reactants: list[vs.SolidSolutionReactant] = []
             glass_reactants: list[vs.GlassReactant] = []
-            for reactant in self.order.reactants or []:
+            for reactant in self.order.reactants:
                 match reactant:
                     case MineralReactant(name, _, log_moles, titration_rate):
                         mineral_reactants.append(
@@ -264,14 +264,6 @@ class Boatswain(object):
                     case _:
                         raise Exception(f"Unexpected reactant type {reactant}")
 
-            if self.order.kernel is None:
-                raise Exception("order kernel is required")
-            if self.order.water_mass is None:
-                raise Exception("order water_mass is required")
-            if self.order.temperature is None:
-                raise Exception("order temperature is required")
-            if self.order.pressure is None:
-                raise Exception("order pressure is required")
             return vs.Point(
                 order_id=order_id,
                 kernel=deepcopy(self.order.kernel),

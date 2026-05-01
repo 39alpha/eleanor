@@ -9,12 +9,19 @@ from unittest import mock
 import yaml
 
 from eleanor.exceptions import EleanorConfigurationException, EleanorException
+from eleanor.kernel.config import Settings as KernelSettings
 from eleanor.order import Order
 from eleanor.output import ComputeResult, _build_csv
 from eleanor.output.csv import CsvConfig, CsvSink, _schema_path
 from eleanor.output.interface import ErrorInfo
 
 from .common import TestCase
+
+
+_FAKE_KERNEL_SPEC = SimpleNamespace(
+    settings_from_dict=mock.Mock(return_value=KernelSettings(timeout=None)),
+    build=mock.Mock(),
+)
 
 
 def _write_sidecar(
@@ -38,13 +45,21 @@ def _write_sidecar(
 
 
 def _minimal_order() -> Order:
-    return Order.from_yamls(
-        """
+    with mock.patch("eleanor.kernel.registry.get_factory", return_value=_FAKE_KERNEL_SPEC):
+        return Order.from_yamls(
+            """
 name: csv-order
 notes: csv sink test
 creator: test
+kernel:
+  type: eq36
+  args: {}
+temperature: 25.0
+pressure: 1.0
+elements:
+  Na: 1.0
 """
-    )
+        )
 
 
 def _query_with_order_id() -> dict[str, object]:

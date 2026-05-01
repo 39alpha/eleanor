@@ -616,11 +616,10 @@ class TestConverterErrorAndReactantPaths(TestCase):
                 42, 'order.raw',
             )
 
-    def test_order_to_row_raises_on_missing_name(self):
+    def test_order_to_row_allows_missing_name(self):
         """
-        Ensure :func:`order_to_row` rejects an order without ``name``
-        before psycopg's NOT NULL would. The error message mentions the
-        offending field so callers can fix it.
+        Ensure :func:`order_to_row` leaves ``name`` enforcement to DB-level
+        constraints and only performs the sink-required metadata checks.
         """
         order = SimpleNamespace(
             name=None,
@@ -629,8 +628,9 @@ class TestConverterErrorAndReactantPaths(TestCase):
             raw={},
             create_date=datetime(2026, 1, 1),
         )
-        with self.assertRaisesRegex(EleanorException, 'name is required'):
-            _ = converters.order_to_row(order)  # type: ignore[arg-type]
+        row = converters.order_to_row(order)  # type: ignore[arg-type]
+        self.assertIn('name', row)
+        self.assertIsNone(row['name'])
 
     def test_order_to_row_raises_on_missing_eleanor_version(self):
         """

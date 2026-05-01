@@ -338,8 +338,6 @@ class Eleanor(object):
                 effective_kernel = self.load_kernel(order, **kwargs)
 
             if navigator is None:
-                if order.navigator is None:
-                    raise EleanorException("order navigator is required")
                 from .navigator.registry import get_factory as get_navigator_factory
 
                 navigator_factory = get_navigator_factory(order.navigator.type)
@@ -601,8 +599,6 @@ class Eleanor(object):
         return built
 
     def load_kernel(self, order: Order, **kwargs: Unpack[EleanorKwargs]) -> AbstractKernel:
-        if order.kernel is None:
-            raise EleanorException("order kernel is required")
         spec = get_kernel_spec(order.kernel.type)
         settings = order.kernel.resolved_settings()
         try:

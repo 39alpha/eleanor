@@ -3,7 +3,6 @@ from unittest import mock
 
 from eleanor.eleanor import Eleanor
 from eleanor.exceptions import EleanorException
-from eleanor.order import LeafPlan
 from eleanor.output import ComputeResult, OutputSink, WriteOutcome
 
 from .common import TestCase
@@ -56,36 +55,26 @@ def _make_eleanor():
 
 
 def _leaf_order(navigator_type="random", transformers=None):
-    """Produce an order-like ``SimpleNamespace`` that looks like a leaf order.
-
-    The returned namespace carries a minimal ``iter_leaves`` so
-    ``Eleanor.run`` can walk it without crashing; it yields a single
-    ``LeafPlan`` pointing back at the order itself.
-    """
-    ns = SimpleNamespace(
-        suborders=None,
+    """Produce a minimal order-like ``SimpleNamespace`` for ``Eleanor.run``."""
+    return SimpleNamespace(
         transformers=transformers if transformers is not None else [],
         navigator=SimpleNamespace(type=navigator_type, args={}),
         id=None,
     )
 
-    def iter_leaves(combined=False, proportional_sampling=False):
-        _ = combined, proportional_sampling
-        return iter([LeafPlan(order=ns, sample_fraction=1.0, umbrella=None)])
 
-    ns.iter_leaves = iter_leaves
-    return ns
+def _navigator(num_systems=1):
+    navigator = mock.Mock()
+    navigator.num_systems.return_value = num_systems
+    navigator.navigate.return_value = iter([[]])
+    return navigator
 
 
 class TestEleanorConstruction(TestCase):
-    """
-    Tests covering ``Eleanor.__init__`` and the session/per-run scopes.
-    """
+    """Tests covering ``Eleanor`` construction/session lifecycle."""
 
     def test_init_stashes_config_and_kernel_args(self):
-        """
-        Ensure the constructor stashes config, copies kernel_args, and stashes num_procs.
-        """
+        """Ensure constructor stores config, kernel_args copy, and num_procs."""
         fake_config = SimpleNamespace(
             database="db-config",
             output=SimpleNamespace(type="postgres", args={}),
@@ -101,27 +90,22 @@ class TestEleanorConstruction(TestCase):
         self.assertIsNone(eleanor._manager)
         self.assertIsNone(eleanor._output_sink)
 
-    def test_init_defaults_kernel_args_to_empty_list(self):
-        """
-        Ensure omitted ``kernel_args`` defaults to an empty list and is not shared with the caller.
-        """
+    def test_init_defensively_copies_kernel_args(self):
+        """Ensure constructor copies kernel_args so caller-side mutations do not leak in."""
         fake_config = SimpleNamespace(
             database="db-config",
             output=SimpleNamespace(type="postgres", args={}),
             parallel=SimpleNamespace(backend="multiprocessing", chunks_per_worker=1),
         )
-        eleanor = Eleanor(fake_config)
-        self.assertEqual(eleanor.kernel_args, [])
-        src = ["a"]
-        e2 = Eleanor(fake_config, src)
-        src.append("b")
-        self.assertEqual(e2.kernel_args, ["a"])
+        kernel_args = ["k0"]
+        eleanor = Eleanor(fake_config, kernel_args)
+
+        kernel_args.append("k1")
+
+        self.assertEqual(eleanor.kernel_args, ["k0"])
 
     def test_enter_builds_executor_and_exit_tears_down_all(self):
-        """
-        Ensure __enter__ builds an executor and __exit__ finalizes sink,
-        shuts down manager, and shuts down executor in that order.
-        """
+        """Ensure __enter__/__exit__ set up and tear down session resources."""
         eleanor = _make_eleanor()
         executor = _FakeExecutor()
         manager = mock.Mock()
@@ -131,49 +115,22 @@ class TestEleanorConstruction(TestCase):
             with eleanor:
                 build_executor.assert_called_once_with(kind="multiprocessing", num_workers=None)
                 self.assertIs(eleanor._executor, executor)
-                # Simulate lazy-initialization by run()
                 eleanor._manager = manager
                 eleanor._output_sink = sink
 
         sink.finalize.assert_called_once()
         manager.shutdown.assert_called_once()
         executor.shutdown.assert_called_once_with(wait=True)
-        self.assertFalse(eleanor._entered)
-        self.assertIsNone(eleanor._executor)
-        self.assertIsNone(eleanor._manager)
-        self.assertIsNone(eleanor._output_sink)
-
-    def test_exit_still_tears_down_after_failure_in_one_resource(self):
-        """
-        Ensure __exit__ continues to shut down remaining resources even when
-        an earlier resource's teardown raises.
-        """
-        eleanor = _make_eleanor()
-        executor = _FakeExecutor()
-        manager = mock.Mock()
-        sink = mock.Mock()
-        sink.finalize.side_effect = RuntimeError("boom")
-
-        with mock.patch("eleanor.eleanor.build_executor", return_value=executor):
-            with self.assertRaisesRegex(RuntimeError, "boom"):
-                with eleanor:
-                    eleanor._manager = manager
-                    eleanor._output_sink = sink
-
-        manager.shutdown.assert_called_once()
-        executor.shutdown.assert_called_once_with(wait=True)
 
     def test_run_failure_inside_with_still_tears_down_at_exit(self):
-        """
-        Ensure an exception raised during run() does not leak the session
-        executor or sink: __exit__ is still entered and tears them down.
-        """
+        """Ensure session resources are torn down when run() raises."""
         eleanor = _make_eleanor()
         order = _leaf_order()
         session_executor = _FakeExecutor()
         sink = mock.Mock()
         sink.begin_run.return_value = 7
-        eleanor._dispatch = mock.Mock(side_effect=RuntimeError("dispatch failed"))
+        sink.supports_progress.return_value = False
+        eleanor.process = mock.Mock(side_effect=RuntimeError("dispatch failed"))
 
         with (
             mock.patch("eleanor.eleanor.build_executor", return_value=session_executor),
@@ -181,86 +138,56 @@ class TestEleanorConstruction(TestCase):
         ):
             with self.assertRaisesRegex(RuntimeError, "dispatch failed"):
                 with eleanor:
-                    eleanor.run(order, 5)
+                    eleanor.run(order, 5, kernel=mock.Mock(), navigator=_navigator(1))
 
-        # Session sink finalized at __exit__, executor shut down, state cleared.
         sink.finalize.assert_called_once()
         session_executor.shutdown.assert_called_once_with(wait=True)
-        self.assertIsNone(eleanor._executor)
-        self.assertIsNone(eleanor._output_sink)
 
-    def test_progress_is_per_leaf_with_shared_manager(self):
-        """
-        Ensure a combined two-leaf run with show_progress=True builds a
-        fresh Progress for each leaf while reusing the same SyncManager.
-        """
+    def test_run_still_tears_down_executor_and_manager_when_sink_finalize_fails(self):
+        """Ensure per-run teardown still closes manager/executor if sink.finalize() raises."""
         eleanor = _make_eleanor()
-        umbrella = _leaf_order()
-        leaf_a = _leaf_order()
-        leaf_b = _leaf_order()
-        root = SimpleNamespace(
-            transformers=[],
-            iter_leaves=mock.Mock(
-                return_value=iter(
-                    [
-                        LeafPlan(order=leaf_a, sample_fraction=1.0, umbrella=umbrella),
-                        LeafPlan(order=leaf_b, sample_fraction=1.0, umbrella=umbrella),
-                    ]
-                )
-            ),
-        )
-
-        session_executor = _FakeExecutor()
-        session_manager = mock.Mock()
+        order = _leaf_order()
+        executor = _FakeExecutor()
+        manager = mock.Mock()
+        sim_handle = mock.Mock()
+        progress = SimpleNamespace(sim=sim_handle, out=mock.Mock(), join=mock.Mock())
         sink = mock.Mock()
-        sink.begin_run.return_value = 77
-
-        seen_managers = []
-
-        def dispatch(order, samples, *a, manager, **kw):
-            seen_managers.append(manager)
-            return [77]
-
-        eleanor._dispatch = mock.Mock(side_effect=dispatch)
+        sink.begin_run.return_value = 7
+        sink.supports_progress.return_value = False
+        sink.finalize.side_effect = RuntimeError("sink finalize failed")
+        eleanor.process = mock.Mock(return_value=[])
 
         with (
-            mock.patch("eleanor.eleanor.build_executor", return_value=session_executor),
-            mock.patch("eleanor.eleanor.Manager", return_value=session_manager),
+            mock.patch("eleanor.eleanor.build_executor", return_value=executor),
+            mock.patch("eleanor.eleanor.Manager", return_value=manager),
+            mock.patch("eleanor.eleanor.Progress", return_value=progress),
             mock.patch.object(Eleanor, "load_output_sink", return_value=sink),
+            self.assertRaisesRegex(RuntimeError, "sink finalize failed"),
         ):
-            with eleanor:
-                _ = eleanor.run(root, 10, combined=True, show_progress=True)
+            eleanor.run(order, 5, kernel=mock.Mock(), navigator=_navigator(1), show_progress=True)
 
-        # Both leaves observed the same SyncManager instance.
-        self.assertEqual(len(seen_managers), 2)
-        self.assertIs(seen_managers[0], session_manager)
-        self.assertIs(seen_managers[1], session_manager)
-        # The manager is shut down exactly once at __exit__.
-        session_manager.shutdown.assert_called_once()
+        manager.shutdown.assert_called_once()
+        executor.shutdown.assert_called_once_with(wait=True)
 
 
 class TestEleanorRun(TestCase):
-    """
-    Tests covering ``Eleanor.run`` in leaf and multi-leaf shapes.
-    """
+    """Tests covering ``Eleanor.run`` single-order dispatch semantics."""
 
     def test_run_without_with_builds_and_tears_down_resources(self):
-        """
-        Ensure run() outside of ``with`` builds a per-run executor and
-        sink, finalizes the sink at the end of run, and tears the executor down.
-        """
+        """Ensure run() outside ``with`` builds/tears down executor and sink."""
         eleanor = _make_eleanor()
         order = _leaf_order()
         executor = _FakeExecutor()
         sink = mock.Mock()
         sink.begin_run.return_value = 7
-        eleanor._dispatch = mock.Mock(return_value=[7])
+        sink.supports_progress.return_value = False
+        eleanor.process = mock.Mock(return_value=[])
 
         with (
             mock.patch("eleanor.eleanor.build_executor", return_value=executor) as build_executor,
             mock.patch.object(Eleanor, "load_output_sink", return_value=sink) as load_sink,
         ):
-            out = eleanor.run(order, 5)
+            out = eleanor.run(order, 5, kernel=mock.Mock(), navigator=_navigator(1))
 
         self.assertEqual(out, [7])
         build_executor.assert_called_once_with(kind="multiprocessing", num_workers=None)
@@ -269,277 +196,136 @@ class TestEleanorRun(TestCase):
         executor.shutdown.assert_called_once_with(wait=True)
 
     def test_run_inside_with_reuses_session_executor_and_defers_finalize(self):
-        """
-        Ensure two consecutive run() calls inside ``with`` see the same executor
-        and the sink's finalize is deferred until __exit__.
-        """
+        """Ensure runs inside a session reuse executor and defer sink finalize."""
         eleanor = _make_eleanor()
         order1 = _leaf_order()
         order2 = _leaf_order()
         session_executor = _FakeExecutor()
         sink = mock.Mock()
+        sink.begin_run.return_value = 7
+        sink.supports_progress.return_value = False
         seen_executors = []
 
-        def dispatch(order, samples, *a, executor, **kw):
-            seen_executors.append(executor)
-            return [sink.begin_run.return_value]
+        def process(*_args, **kwargs):
+            seen_executors.append(kwargs["executor"])
+            return []
 
-        eleanor._dispatch = mock.Mock(side_effect=dispatch)
+        eleanor.process = mock.Mock(side_effect=process)
 
         with (
             mock.patch("eleanor.eleanor.build_executor", return_value=session_executor),
             mock.patch.object(Eleanor, "load_output_sink", return_value=sink),
         ):
             with eleanor:
-                _ = eleanor.run(order1, 5)
-                _ = eleanor.run(order2, 5)
+                _ = eleanor.run(order1, 5, kernel=mock.Mock(), navigator=_navigator(1))
+                _ = eleanor.run(order2, 5, kernel=mock.Mock(), navigator=_navigator(1))
 
         self.assertEqual(len(seen_executors), 2)
         self.assertIs(seen_executors[0], session_executor)
         self.assertIs(seen_executors[1], session_executor)
-        # finalize once at __exit__, not per-run
         sink.finalize.assert_called_once()
-        session_executor.shutdown.assert_called_once_with(wait=True)
 
-    def test_run_applies_transformers_before_walking_leaves(self):
-        """
-        Ensure run() loads the kernel and rewrites the order before walking the suborder tree.
-        """
+    def test_run_applies_transformers_before_dispatch(self):
+        """Ensure transformed orders are what begin_run/process receive."""
         eleanor = _make_eleanor()
         original = _leaf_order(transformers=[SimpleNamespace(type="t")])
         transformed = _leaf_order()
         kernel = mock.Mock()
-        eleanor.load_kernel = mock.Mock(return_value=kernel)
-        eleanor._dispatch = mock.Mock(return_value=[42])
-
-        executor = _FakeExecutor()
+        navigator = _navigator(1)
         sink = mock.Mock()
         sink.begin_run.return_value = 42
-        seen_orders = []
-
-        def dispatch(order, *a, **kw):
-            seen_orders.append(order)
-            return [42]
-
-        eleanor._dispatch.side_effect = dispatch
+        sink.supports_progress.return_value = False
+        eleanor.load_kernel = mock.Mock(return_value=kernel)
+        eleanor.process = mock.Mock(return_value=[])
 
         with (
             mock.patch("eleanor.eleanor.transform", return_value=transformed) as transform_fn,
-            mock.patch("eleanor.eleanor.build_executor", return_value=executor),
+            mock.patch("eleanor.eleanor.build_executor", return_value=_FakeExecutor()),
             mock.patch.object(Eleanor, "load_output_sink", return_value=sink),
         ):
-            out = eleanor.run(original, 3, verbose=True)
+            out = eleanor.run(original, 3, navigator=navigator, verbose=True)
 
         self.assertEqual(out, [42])
         eleanor.load_kernel.assert_called_once_with(original, verbose=True)
         transform_fn.assert_called_once_with(original, kernel, overrides=None)
-        # the dispatched order is the post-transform one
-        self.assertEqual(len(seen_orders), 1)
-        self.assertIs(seen_orders[0], transformed)
-        # and the same kernel is forwarded to _dispatch (not re-loaded per leaf)
-        self.assertIs(eleanor._dispatch.call_args.kwargs["kernel"], kernel)
+        sink.begin_run.assert_called_once_with(transformed)
+        self.assertIs(eleanor.process.call_args.args[0], kernel)
 
-    def test_run_combined_calls_begin_run_once_per_umbrella(self):
-        """
-        Ensure combined runs call sink.begin_run(umbrella) exactly once regardless
-        of how many leaves share the umbrella, and each leaf's order.id is set to
-        the umbrella's id before dispatch.
-        """
-        eleanor = _make_eleanor()
-        umbrella = _leaf_order()
-        leaf_a = _leaf_order()
-        leaf_b = _leaf_order()
-        # Skip iter_leaves by patching the order's method.
-        root = SimpleNamespace(
-            transformers=[],
-            iter_leaves=mock.Mock(
-                return_value=iter(
-                    [
-                        LeafPlan(order=leaf_a, sample_fraction=1.0, umbrella=umbrella),
-                        LeafPlan(order=leaf_b, sample_fraction=1.0, umbrella=umbrella),
-                    ]
-                )
-            ),
-        )
-
-        executor = _FakeExecutor()
-        sink = mock.Mock()
-        sink.begin_run.return_value = 77
-        dispatched_calls = []
-
-        def dispatch(order, samples, *a, **kw):
-            dispatched_calls.append((order, order.id))
-            return [order.id]
-
-        eleanor._dispatch = mock.Mock(side_effect=dispatch)
-
-        with (
-            mock.patch("eleanor.eleanor.build_executor", return_value=executor),
-            mock.patch.object(Eleanor, "load_output_sink", return_value=sink),
-        ):
-            out = eleanor.run(root, 10, combined=True)
-
-        self.assertEqual(out, [77])
-        sink.begin_run.assert_called_once_with(umbrella)
-        self.assertEqual(len(dispatched_calls), 2)
-        self.assertEqual(dispatched_calls[0], (leaf_a, 77))
-        self.assertEqual(dispatched_calls[1], (leaf_b, 77))
-
-    def test_run_proportional_scales_samples_per_leaf(self):
-        """
-        Ensure proportional sampling multiplies simulation_size by leaf.sample_fraction.
-        """
-        eleanor = _make_eleanor()
-        leaf_a = _leaf_order()
-        leaf_b = _leaf_order()
-        root = SimpleNamespace(
-            transformers=[],
-            iter_leaves=mock.Mock(
-                return_value=iter(
-                    [
-                        LeafPlan(order=leaf_a, sample_fraction=0.25, umbrella=None),
-                        LeafPlan(order=leaf_b, sample_fraction=0.75, umbrella=None),
-                    ]
-                )
-            ),
-        )
-
-        executor = _FakeExecutor()
-        sink = mock.Mock()
-        sink.begin_run.return_value = 5
-        sizes = []
-
-        def dispatch(order, samples, *a, **kw):
-            sizes.append(samples)
-            return [sink.begin_run.return_value]
-
-        eleanor._dispatch = mock.Mock(side_effect=dispatch)
-
-        with (
-            mock.patch("eleanor.eleanor.build_executor", return_value=executor),
-            mock.patch.object(Eleanor, "load_output_sink", return_value=sink),
-        ):
-            _ = eleanor.run(root, 100, proportional_sampling=True)
-
-        self.assertEqual(sizes, [25, 75])
-
-    def test_run_single_leaf_passes_order_with_preset_id_to_dispatch(self):
-        """
-        Ensure a caller-supplied order.id on a non-split order is forwarded to _dispatch
-        unchanged: the caller is responsible for pre-setting the id before calling run().
-        """
+    def test_run_single_leaf_passes_order_with_preset_id_to_begin_run(self):
+        """Ensure begin_run is called with caller-supplied order ids intact."""
         eleanor = _make_eleanor()
         order = _leaf_order()
         order.id = 99
-
-        executor = _FakeExecutor()
         sink = mock.Mock()
-        seen = {}
-
-        def dispatch(order, samples, *a, **kw):
-            seen["order_id"] = order.id
-            return [99]
-
-        eleanor._dispatch = mock.Mock(side_effect=dispatch)
-
-        with (
-            mock.patch("eleanor.eleanor.build_executor", return_value=executor),
-            mock.patch.object(Eleanor, "load_output_sink", return_value=sink),
-        ):
-            _ = eleanor.run(order, 4)
-
-        self.assertEqual(seen["order_id"], 99)
-
-    def test_run_raises_when_order_yields_no_leaves(self):
-        """
-        Ensure run() raises EleanorException when iter_leaves produces no leaves.
-        """
-        eleanor = _make_eleanor()
-        empty_order = SimpleNamespace(
-            transformers=[],
-            iter_leaves=mock.Mock(return_value=iter([])),
-        )
-        executor = _FakeExecutor()
-        sink = mock.Mock()
-
-        with (
-            mock.patch("eleanor.eleanor.build_executor", return_value=executor),
-            mock.patch.object(Eleanor, "load_output_sink", return_value=sink),
-            self.assertRaisesRegex(EleanorException, "no dispatchable leaves"),
-        ):
-            eleanor.run(empty_order, 10)
-
-
-class TestEleanorDispatch(TestCase):
-    """
-    Tests covering ``Eleanor._dispatch`` and the process loop.
-    """
-    def test_dispatch_calls_process_once_in_standard_mode(self):
-        """
-        Ensure _dispatch begins a run via the sink and calls process once.
-        """
-        eleanor = _make_eleanor()
-        kernel = mock.Mock()
-        navigator = mock.Mock()
-        navigator.num_systems.return_value = 6
-        order = _leaf_order()
-        sink = mock.Mock()
-        sink.begin_run.return_value = 5
+        sink.begin_run.return_value = 99
         sink.supports_progress.return_value = False
-        eleanor.process = mock.Mock(return_value=[WriteOutcome(exit_code=0, committed=True)])
-        executor = _FakeExecutor()
+        eleanor.process = mock.Mock(return_value=[])
 
-        out = eleanor._dispatch(
-            order,
-            6,
-            chunks_per_worker=1,
-            executor=executor,
-            kernel=kernel,
-            navigator=navigator,
-            sink=sink,
-            manager=None,
-        )
+        with (
+            mock.patch("eleanor.eleanor.build_executor", return_value=_FakeExecutor()),
+            mock.patch.object(Eleanor, "load_output_sink", return_value=sink),
+        ):
+            _ = eleanor.run(order, 4, kernel=mock.Mock(), navigator=_navigator(1))
 
-        self.assertEqual(out, [5])
-        eleanor.process.assert_called_once()
         sink.begin_run.assert_called_once_with(order)
-        self.assertIs(eleanor.process.call_args.kwargs["executor"], executor)
+        self.assertEqual(order.id, 99)
 
-    def test_dispatch_constructs_out_handle_only_when_sink_supports_progress(self):
-        """
-        Ensure _dispatch hands the output handle to process() only when the
-        sink advertises supports_progress=True; otherwise only the sim handle
-        travels down.
-        """
+    def test_run_rejects_per_run_executor_kwarg(self):
+        """Ensure run() rejects removed ``executor=`` kwargs."""
+        eleanor = _make_eleanor()
+        with self.assertRaisesRegex(TypeError, "unexpected keyword argument 'executor'"):
+            eleanor.run(_leaf_order(), 1, executor=_FakeExecutor())
+
+    def test_run_raises_when_num_systems_returns_zero(self):
+        """Ensure run() validates navigator.num_systems >= 1."""
+        eleanor = _make_eleanor()
+        navigator = _navigator(0)
+        sink = mock.Mock()
+        sink.supports_progress.return_value = False
+
+        with (
+            mock.patch("eleanor.eleanor.build_executor", return_value=_FakeExecutor()),
+            mock.patch.object(Eleanor, "load_output_sink", return_value=sink),
+            self.assertRaisesRegex(EleanorException, "num_systems.*must be >= 1"),
+        ):
+            eleanor.run(_leaf_order(), 10, kernel=mock.Mock(), navigator=navigator)
+
+    def test_run_raises_when_explicit_batch_size_is_zero(self):
+        """Ensure run() validates explicit batch_size >= 1."""
+        eleanor = _make_eleanor()
+        sink = mock.Mock()
+        sink.supports_progress.return_value = False
+
+        with (
+            mock.patch("eleanor.eleanor.build_executor", return_value=_FakeExecutor()),
+            mock.patch.object(Eleanor, "load_output_sink", return_value=sink),
+            self.assertRaisesRegex(EleanorException, "batch_size must be >= 1"),
+        ):
+            eleanor.run(_leaf_order(), 10, kernel=mock.Mock(), navigator=_navigator(5), batch_size=0)
+
+    def test_run_constructs_out_handle_only_when_sink_supports_progress(self):
+        """Ensure process gets out_progress only for sinks that opt into progress."""
         eleanor = _make_eleanor()
         kernel = mock.Mock()
-        navigator = mock.Mock()
-        navigator.num_systems.side_effect = [1, 3]
-        order = _leaf_order()
+        navigator = _navigator(3)
         executor = _FakeExecutor()
         manager = mock.Mock()
 
         sim_handle_quiet = mock.Mock(name="sim_handle_quiet")
         out_handle_quiet = mock.Mock(name="out_handle_quiet")
         progress_quiet = SimpleNamespace(sim=sim_handle_quiet, out=out_handle_quiet, join=mock.Mock())
-
         quiet_sink = mock.Mock()
         quiet_sink.begin_run.return_value = 5
         quiet_sink.supports_progress.return_value = False
         eleanor.process = mock.Mock(return_value=[])
 
-        with mock.patch("eleanor.eleanor.Progress", return_value=progress_quiet):
-            eleanor._dispatch(
-                order,
-                1,
-                chunks_per_worker=1,
-                executor=executor,
-                kernel=kernel,
-                navigator=navigator,
-                sink=quiet_sink,
-                manager=manager,
-                show_progress=True,
-            )
+        with (
+            mock.patch("eleanor.eleanor.build_executor", return_value=executor),
+            mock.patch("eleanor.eleanor.Manager", return_value=manager),
+            mock.patch.object(Eleanor, "load_output_sink", return_value=quiet_sink),
+            mock.patch("eleanor.eleanor.Progress", return_value=progress_quiet),
+        ):
+            eleanor.run(_leaf_order(), 3, kernel=kernel, navigator=navigator, show_progress=True)
 
         kwargs = eleanor.process.call_args.kwargs
         self.assertIs(kwargs["sim_progress"], sim_handle_quiet)
@@ -548,226 +334,100 @@ class TestEleanorDispatch(TestCase):
         sim_handle_loud = mock.Mock(name="sim_handle_loud")
         out_handle_loud = mock.Mock(name="out_handle_loud")
         progress_loud = SimpleNamespace(sim=sim_handle_loud, out=out_handle_loud, join=mock.Mock())
-
-        loud_sink = mock.Mock()
-        loud_sink.begin_run.return_value = 6
-        loud_sink.supports_progress.return_value = True
-        eleanor.process = mock.Mock(return_value=[WriteOutcome(exit_code=0, committed=True)])
-
-        with mock.patch("eleanor.eleanor.Progress", return_value=progress_loud):
-            eleanor._dispatch(
-                order,
-                3,
-                chunks_per_worker=1,
-                executor=executor,
-                kernel=kernel,
-                navigator=navigator,
-                sink=loud_sink,
-                manager=manager,
-                show_progress=True,
-            )
-
-        kwargs = eleanor.process.call_args.kwargs
-        self.assertIs(kwargs["sim_progress"], sim_handle_loud)
-        self.assertIs(kwargs["out_progress"], out_handle_loud)
-
-    def test_dispatch_signals_done_on_both_handles_in_finally(self):
-        """
-        Ensure _dispatch closes progress handles in the finally block, even
-        when process raises.
-        """
-        eleanor = _make_eleanor()
-        kernel = mock.Mock()
-        navigator = mock.Mock()
-        navigator.num_systems.return_value = 1
-        executor = _FakeExecutor()
-        manager = mock.Mock()
-
-        sim_handle = mock.Mock(name="sim_handle")
-        out_handle = mock.Mock(name="out_handle")
-        progress = SimpleNamespace(sim=sim_handle, out=out_handle, join=mock.Mock())
-
         loud_sink = mock.Mock()
         loud_sink.begin_run.return_value = 6
         loud_sink.supports_progress.return_value = True
         eleanor.process = mock.Mock(return_value=[])
 
-        with mock.patch("eleanor.eleanor.Progress", return_value=progress):
-            eleanor._dispatch(
-                _leaf_order(),
-                1,
-                chunks_per_worker=1,
-                executor=executor,
-                kernel=kernel,
-                navigator=navigator,
-                sink=loud_sink,
-                manager=manager,
-                show_progress=True,
-            )
+        with (
+            mock.patch("eleanor.eleanor.build_executor", return_value=executor),
+            mock.patch("eleanor.eleanor.Manager", return_value=manager),
+            mock.patch.object(Eleanor, "load_output_sink", return_value=loud_sink),
+            mock.patch("eleanor.eleanor.Progress", return_value=progress_loud),
+        ):
+            eleanor.run(_leaf_order(), 3, kernel=kernel, navigator=navigator, show_progress=True)
 
-        sim_handle.done.assert_called_once_with()
-        out_handle.done.assert_called_once_with()
-        progress.join.assert_called_once_with()
+        kwargs = eleanor.process.call_args.kwargs
+        self.assertIs(kwargs["sim_progress"], sim_handle_loud)
+        self.assertIs(kwargs["out_progress"], out_handle_loud)
 
-    def test_dispatch_closes_progress_handles_when_process_raises(self):
-        """
-        Ensure _dispatch calls done()/join() on progress handles even when process() raises.
-        """
+    def test_run_closes_progress_handles_when_process_raises(self):
+        """Ensure progress handles are closed/joined even if process raises."""
         eleanor = _make_eleanor()
-        kernel = mock.Mock()
-        navigator = mock.Mock()
-        navigator.num_systems.return_value = 1
-        executor = _FakeExecutor()
-        manager = mock.Mock()
-
         sim_handle = mock.Mock(name="sim_handle")
         out_handle = mock.Mock(name="out_handle")
         progress = SimpleNamespace(sim=sim_handle, out=out_handle, join=mock.Mock())
-
-        boom_sink = mock.Mock()
-        boom_sink.begin_run.return_value = 8
-        boom_sink.supports_progress.return_value = True
+        sink = mock.Mock()
+        sink.begin_run.return_value = 8
+        sink.supports_progress.return_value = True
         eleanor.process = mock.Mock(side_effect=RuntimeError("boom"))
 
         with (
+            mock.patch("eleanor.eleanor.build_executor", return_value=_FakeExecutor()),
+            mock.patch.object(Eleanor, "load_output_sink", return_value=sink),
             mock.patch("eleanor.eleanor.Progress", return_value=progress),
             self.assertRaises(RuntimeError),
         ):
-            eleanor._dispatch(
-                _leaf_order(),
-                1,
-                chunks_per_worker=1,
-                executor=executor,
-                kernel=kernel,
-                navigator=navigator,
-                sink=boom_sink,
-                manager=manager,
-                show_progress=True,
-            )
+            eleanor.run(_leaf_order(), 1, kernel=mock.Mock(), navigator=_navigator(1), show_progress=True)
 
         sim_handle.done.assert_called_once_with()
         out_handle.done.assert_called_once_with()
         progress.join.assert_called_once_with()
 
-    def test_dispatch_raises_when_num_systems_returns_zero(self):
-        """
-        Ensure _dispatch raises a clear error when navigator.num_systems returns 0.
-        """
+    def test_batch_size_threads_from_run_to_process(self):
+        """Ensure run(..., batch_size=50) threads the value to process()."""
         eleanor = _make_eleanor()
-        navigator = mock.Mock()
-        navigator.num_systems.return_value = 0
         sink = mock.Mock()
+        sink.begin_run.return_value = 7
         sink.supports_progress.return_value = False
+        eleanor.process = mock.Mock(return_value=[])
 
-        with self.assertRaisesRegex(EleanorException, "num_systems.*must be >= 1"):
-            eleanor._dispatch(
-                _leaf_order(),
-                0,
-                chunks_per_worker=1,
-                executor=_FakeExecutor(),
-                kernel=mock.Mock(),
-                navigator=navigator,
-                sink=sink,
-                manager=None,
-            )
+        with (
+            mock.patch("eleanor.eleanor.build_executor", return_value=_FakeExecutor()),
+            mock.patch.object(Eleanor, "load_output_sink", return_value=sink),
+        ):
+            _ = eleanor.run(_leaf_order(), 10, batch_size=50, kernel=mock.Mock(), navigator=_navigator(50))
 
-    def test_dispatch_raises_when_explicit_batch_size_is_zero(self):
-        """
-        Ensure _dispatch raises when an explicit batch_size <= 0 is supplied.
-        """
+        self.assertEqual(eleanor.process.call_args.kwargs["batch_size"], 50)
+
+    def test_batch_size_defaults_to_num_systems(self):
+        """Ensure run() defaults batch_size to navigator.num_systems(simulation_size)."""
         eleanor = _make_eleanor()
-        navigator = mock.Mock()
-        navigator.num_systems.return_value = 5
         sink = mock.Mock()
+        sink.begin_run.return_value = 9
         sink.supports_progress.return_value = False
+        eleanor.process = mock.Mock(return_value=[])
 
-        with self.assertRaisesRegex(EleanorException, "batch_size must be >= 1"):
-            eleanor._dispatch(
-                _leaf_order(),
-                5,
-                chunks_per_worker=1,
-                batch_size=0,
-                executor=_FakeExecutor(),
-                kernel=mock.Mock(),
-                navigator=navigator,
-                sink=sink,
-                manager=None,
-            )
+        with (
+            mock.patch("eleanor.eleanor.build_executor", return_value=_FakeExecutor()),
+            mock.patch.object(Eleanor, "load_output_sink", return_value=sink),
+        ):
+            _ = eleanor.run(_leaf_order(), 3, kernel=mock.Mock(), navigator=_navigator(7))
 
-    def test_dispatch_requires_manager_when_progress_enabled(self):
-        """
-        Ensure _dispatch refuses to build a Progress object without a SyncManager.
-        """
+        self.assertEqual(eleanor.process.call_args.kwargs["batch_size"], 7)
+
+    def test_run_uses_explicit_output_sink_override(self):
+        """Ensure output_sink= overrides config sink and is finalized per run."""
         eleanor = _make_eleanor()
-        kernel = mock.Mock()
-        navigator = mock.Mock()
-        navigator.num_systems.return_value = 2
-        order = _leaf_order()
-        sink = mock.Mock()
-        sink.begin_run.return_value = 1
-        sink.supports_progress.return_value = True
+        provided_sink = mock.Mock()
+        provided_sink.begin_run.return_value = 7
+        provided_sink.supports_progress.return_value = False
+        eleanor.load_output_sink = mock.Mock()
+        eleanor.process = mock.Mock(return_value=[])
 
-        with self.assertRaisesRegex(EleanorException, "SyncManager"):
-            eleanor._dispatch(
-                order,
-                2,
-                chunks_per_worker=1,
-                executor=_FakeExecutor(),
-                kernel=kernel,
-                navigator=navigator,
-                sink=sink,
-                manager=None,
-                show_progress=True,
-            )
+        with mock.patch("eleanor.eleanor.build_executor", return_value=_FakeExecutor()):
+            out = eleanor.run(_leaf_order(), 1, output_sink=provided_sink, kernel=mock.Mock(), navigator=_navigator(1))
 
-    def test_dispatch_sets_progress_total_upfront(self):
-        """
-        Ensure _dispatch sets progress totals before process-side tick calls and never uses extend().
-        """
-        eleanor = _make_eleanor()
-        kernel = mock.Mock()
-        navigator = mock.Mock()
-        navigator.num_systems.return_value = 5
-        order = _leaf_order()
-        executor = _FakeExecutor()
-        manager = mock.Mock()
+        self.assertEqual(out, [7])
+        eleanor.load_output_sink.assert_not_called()
+        provided_sink.finalize.assert_called_once()
 
-        sim_handle = mock.Mock(name="sim_handle")
-        out_handle = mock.Mock(name="out_handle")
-        progress = SimpleNamespace(sim=sim_handle, out=out_handle, join=mock.Mock())
 
-        sink = mock.Mock()
-        sink.begin_run.return_value = 6
-        sink.supports_progress.return_value = True
-
-        def process_side_effect(*_args, **_kwargs):
-            sim_handle.tick(1)
-            return []
-
-        eleanor.process = mock.Mock(side_effect=process_side_effect)
-
-        with mock.patch("eleanor.eleanor.Progress", return_value=progress):
-            eleanor._dispatch(
-                order,
-                5,
-                chunks_per_worker=1,
-                executor=executor,
-                kernel=kernel,
-                navigator=navigator,
-                sink=sink,
-                manager=manager,
-                show_progress=True,
-            )
-
-        self.assertEqual(sim_handle.mock_calls[0], mock.call.total(5))
-        self.assertEqual(out_handle.mock_calls[0], mock.call.total(5))
-        sim_handle.extend.assert_not_called()
-        out_handle.extend.assert_not_called()
+class TestEleanorProcess(TestCase):
+    """Tests covering ``Eleanor.process`` behavior."""
 
     def test_process_requires_executor(self):
-        """
-        Ensure process raises if no process executor is provided.
-        """
+        """Ensure process raises if no process executor is provided."""
         eleanor = _make_eleanor()
         sink = mock.Mock()
         with self.assertRaises(EleanorException):
@@ -783,9 +443,7 @@ class TestEleanorDispatch(TestCase):
             )
 
     def test_process_batches_for_serial_sinks(self):
-        """
-        Ensure process navigates and streams serial-sink writes per resolved worker batch.
-        """
+        """Ensure process streams serial-sink writes per resolved worker batch."""
         eleanor = _make_eleanor()
         kernel = mock.Mock()
         navigator = mock.Mock()
@@ -818,8 +476,6 @@ class TestEleanorDispatch(TestCase):
         )
 
         navigator.navigate.assert_called_once_with(2, 2, order_id=9, max_attempts=1)
-        sim_progress.extend.assert_not_called()
-        out_progress.extend.assert_not_called()
         self.assertEqual(executor.submit.call_count, 2)
         self.assertEqual(
             sink.write_batch.call_args_list,
@@ -828,12 +484,9 @@ class TestEleanorDispatch(TestCase):
                 mock.call(9, compute_results_b, progress=out_progress),
             ],
         )
-        self.assertEqual(executor.pop_completed_future.call_count, 2)
 
     def test_process_respects_executor_completion_order_for_serial_sinks(self):
-        """
-        Ensure process drains futures in the order selected by executor.pop_completed_future.
-        """
+        """Ensure process drains futures in executor-selected completion order."""
         eleanor = _make_eleanor()
         kernel = mock.Mock()
         navigator = mock.Mock()
@@ -872,9 +525,7 @@ class TestEleanorDispatch(TestCase):
         )
 
     def test_process_forwards_sink_to_workers_when_opted_in(self):
-        """
-        Ensure process routes writes through workers when the sink opts in.
-        """
+        """Ensure process routes writes through workers when sink opts in."""
         eleanor = _make_eleanor()
         kernel = mock.Mock()
         navigator = mock.Mock()
@@ -905,7 +556,6 @@ class TestEleanorDispatch(TestCase):
             out_progress=out_progress,
         )
 
-        sink.write_batch.assert_not_called()
         submit_kwargs = executor.submit.call_args_list[0].kwargs
         self.assertIs(submit_kwargs["sink"], sink)
         self.assertEqual(submit_kwargs["order_id"], 9)
@@ -913,10 +563,7 @@ class TestEleanorDispatch(TestCase):
         self.assertIs(submit_kwargs["out_progress"], out_progress)
 
     def test_process_falls_back_to_batch_ticks_when_executor_cannot_carry_progress(self):
-        """
-        Ensure process emits coarse batch-level ticks in the parent when the
-        executor cannot forward a ProgressHandle into its workers.
-        """
+        """Ensure coarse batch ticks are emitted when worker progress is unavailable."""
         eleanor = _make_eleanor()
         kernel = mock.Mock()
         navigator = mock.Mock()
@@ -956,9 +603,7 @@ class TestEleanorDispatch(TestCase):
         out_progress.tick.assert_called_once_with(1)
 
     def test_process_raises_on_navigator_underproduction(self):
-        """
-        Ensure process raises EleanorException when navigator yields fewer points than expected.
-        """
+        """Ensure process raises when navigator yields fewer points than expected."""
         eleanor = _make_eleanor()
         navigator = mock.Mock()
         navigator.navigate.return_value = iter([])
@@ -978,9 +623,7 @@ class TestEleanorDispatch(TestCase):
             )
 
     def test_process_raises_on_navigator_overproduction(self):
-        """
-        Ensure process raises EleanorException when navigator yields more points than expected.
-        """
+        """Ensure process raises when navigator yields more points than expected."""
         eleanor = _make_eleanor()
         navigator = mock.Mock()
         navigator.navigate.return_value = iter([["a"] * 7])
@@ -1000,91 +643,12 @@ class TestEleanorDispatch(TestCase):
                 sink=sink,
             )
 
-    def test_batch_size_threads_from_run_to_process(self):
-        """
-        Ensure run(..., batch_size=50) threads batch_size into navigator.navigate.
-        """
-        eleanor = _make_eleanor()
-        order = _leaf_order()
-        sink = mock.Mock()
-        sink.begin_run.return_value = 7
-        sink.supports_worker_writes.return_value = False
-        sink.supports_progress.return_value = False
-        sink.write_batch.return_value = []
-        navigator = mock.Mock()
-        navigator.num_systems.return_value = 50
-        navigator.navigate.return_value = iter([["p"] * 50])
-        executor = _FakeExecutor(submit_side_effect=[_Future([]), _Future([])])
-
-        with (
-            mock.patch("eleanor.eleanor.build_executor", return_value=executor),
-            mock.patch.object(Eleanor, "load_output_sink", return_value=sink),
-        ):
-            _ = eleanor.run(order, 10, batch_size=50, kernel=mock.Mock(), navigator=navigator)
-
-        navigator.navigate.assert_called_once_with(10, 50, order_id=7, max_attempts=1)
-
-    def test_batch_size_defaults_to_num_systems(self):
-        """
-        Ensure _dispatch defaults batch_size to navigator.num_systems(simulation_size).
-        """
-        eleanor = _make_eleanor()
-        order = _leaf_order()
-        sink = mock.Mock()
-        sink.begin_run.return_value = 9
-        sink.supports_worker_writes.return_value = False
-        sink.supports_progress.return_value = False
-        sink.write_batch.return_value = []
-        navigator = mock.Mock()
-        navigator.num_systems.return_value = 7
-        navigator.navigate.return_value = iter([["p"] * 7])
-        executor = _FakeExecutor(num_workers=1, submit_side_effect=[_Future([])])
-
-        _ = eleanor._dispatch(
-            order,
-            3,
-            chunks_per_worker=1,
-            batch_size=None,
-            executor=executor,
-            kernel=mock.Mock(),
-            navigator=navigator,
-            sink=sink,
-            manager=None,
-        )
-
-        navigator.navigate.assert_called_once_with(3, 7, order_id=9, max_attempts=1)
-
-    def test_run_uses_explicit_output_sink_override(self):
-        """
-        Ensure an explicit output_sink= override is used and finalized at run end.
-        """
-        eleanor = _make_eleanor()
-        order = _leaf_order()
-        provided_sink = mock.Mock()
-        provided_sink.begin_run.return_value = 7
-        eleanor._dispatch = mock.Mock(return_value=[7])
-        eleanor.load_output_sink = mock.Mock()
-        executor = _FakeExecutor()
-
-        with (
-            mock.patch("eleanor.eleanor.build_executor", return_value=executor),
-        ):
-            out = eleanor.run(order, 1, output_sink=provided_sink)
-
-        self.assertEqual(out, [7])
-        eleanor.load_output_sink.assert_not_called()
-        provided_sink.finalize.assert_called_once()
-
 
 class TestEleanorLoaders(TestCase):
-    """
-    Tests covering ``Eleanor.load_output_sink`` and ``Eleanor.load_kernel``.
-    """
+    """Tests covering ``Eleanor.load_output_sink`` and ``Eleanor.load_kernel``."""
 
     def test_load_output_sink_uses_registry_factory_and_args(self):
-        """
-        Ensure load_output_sink resolves the configured sink factory and forwards output.args.
-        """
+        """Ensure load_output_sink resolves configured factory and output args."""
         eleanor = _make_eleanor()
         eleanor.config.output = SimpleNamespace(type="plugin", args={"mode": "append"})
 
@@ -1109,9 +673,7 @@ class TestEleanorLoaders(TestCase):
         factory.assert_called_once_with(eleanor.config, verbose=True, mode="append")
 
     def test_load_output_sink_rejects_invalid_plugin_return(self):
-        """
-        Ensure load_output_sink enforces that factories return OutputSink instances.
-        """
+        """Ensure load_output_sink enforces OutputSink return type."""
         eleanor = _make_eleanor()
         eleanor.config.output = SimpleNamespace(type="plugin", args={})
         factory = mock.Mock(return_value=object())
@@ -1123,9 +685,7 @@ class TestEleanorLoaders(TestCase):
             eleanor.load_output_sink()
 
     def test_load_kernel_constructs_and_sets_up_kernel(self):
-        """
-        Ensure load_kernel takes the order as a parameter and delegates to spec.build/setup on it.
-        """
+        """Ensure load_kernel delegates to spec.build/setup with order context."""
         from eleanor.kernel.config import Settings as KernelSettings
         from eleanor.kernel.interface import AbstractKernel
 
@@ -1150,9 +710,7 @@ class TestEleanorLoaders(TestCase):
         kernel.setup.assert_called_once_with(order, alpha=1)
 
     def test_load_kernel_rejects_missing_order_kernel(self):
-        """
-        Ensure load_kernel raises EleanorException when the order has no kernel config.
-        """
+        """Ensure load_kernel raises when order has no kernel config."""
         eleanor = _make_eleanor()
         order = SimpleNamespace(kernel=None)
         with self.assertRaisesRegex(EleanorException, "order kernel is required"):
@@ -1160,37 +718,32 @@ class TestEleanorLoaders(TestCase):
 
 
 class TestEleanorConstructorOverrides(TestCase):
-    """
-    Tests covering the constructor-level ``executor=`` and ``output_sink=``
-    override parameters.
-    """
+    """Tests covering constructor-level executor/output sink overrides."""
 
     def test_constructor_executor_used_for_all_runs_in_session(self):
-        """
-        Ensure a constructor-supplied executor is used for every run() in the
-        session and that build_executor is never called.
-        """
+        """Ensure constructor executor override is reused across runs."""
         eleanor = _make_eleanor()
         ctor_executor = _FakeExecutor()
         eleanor._executor_override = ctor_executor
 
-        order = _leaf_order()
-        sink = mock.Mock()
         seen_executors = []
 
-        def dispatch(order, samples, *a, executor, **kw):
-            seen_executors.append(executor)
-            return [sink.begin_run.return_value]
+        def process(*_args, **kwargs):
+            seen_executors.append(kwargs["executor"])
+            return []
 
-        eleanor._dispatch = mock.Mock(side_effect=dispatch)
+        eleanor.process = mock.Mock(side_effect=process)
+        sink = mock.Mock()
+        sink.begin_run.return_value = 7
+        sink.supports_progress.return_value = False
 
         with (
             mock.patch("eleanor.eleanor.build_executor") as build_executor,
             mock.patch.object(Eleanor, "load_output_sink", return_value=sink),
         ):
             with eleanor:
-                _ = eleanor.run(order, 5)
-                _ = eleanor.run(order, 5)
+                _ = eleanor.run(_leaf_order(), 5, kernel=mock.Mock(), navigator=_navigator(1))
+                _ = eleanor.run(_leaf_order(), 5, kernel=mock.Mock(), navigator=_navigator(1))
 
         build_executor.assert_not_called()
         self.assertEqual(len(seen_executors), 2)
@@ -1198,16 +751,14 @@ class TestEleanorConstructorOverrides(TestCase):
         self.assertIs(seen_executors[1], ctor_executor)
 
     def test_unentered_executor_override_not_entered_or_shut_down_by_eleanor(self):
-        """
-        Ensure Eleanor reuses an unentered constructor-supplied executor
-        as-is and does not manage its lifecycle.
-        """
+        """Ensure Eleanor does not manage lifecycle of caller-owned executor override."""
         eleanor = _make_eleanor()
-        ctor_executor = _FakeExecutor()  # not entered by caller
+        ctor_executor = _FakeExecutor()
         eleanor._executor_override = ctor_executor
-        order = _leaf_order()
+        eleanor.process = mock.Mock(return_value=[])
         sink = mock.Mock()
-        eleanor._dispatch = mock.Mock(return_value=[1])
+        sink.begin_run.return_value = 1
+        sink.supports_progress.return_value = False
 
         with (
             mock.patch("eleanor.eleanor.build_executor"),
@@ -1215,106 +766,88 @@ class TestEleanorConstructorOverrides(TestCase):
         ):
             with eleanor:
                 self.assertEqual(ctor_executor.enter_count, 0)
-                _ = eleanor.run(order, 1)
+                _ = eleanor.run(_leaf_order(), 1, kernel=mock.Mock(), navigator=_navigator(1))
                 self.assertEqual(ctor_executor.enter_count, 0)
 
         ctor_executor.shutdown.assert_not_called()
 
     def test_caller_entered_executor_not_shut_down_by_eleanor(self):
-        """
-        Ensure Eleanor does not shut down a constructor-supplied executor that
-        the caller already entered.
-        """
+        """Ensure Eleanor does not shut down pre-entered executor overrides."""
         eleanor = _make_eleanor()
         ctor_executor = _FakeExecutor()
-        ctor_executor.__enter__()  # caller enters it first
+        ctor_executor.__enter__()
         eleanor._executor_override = ctor_executor
-        order = _leaf_order()
+        eleanor.process = mock.Mock(return_value=[])
         sink = mock.Mock()
-        eleanor._dispatch = mock.Mock(return_value=[1])
+        sink.begin_run.return_value = 1
+        sink.supports_progress.return_value = False
 
         with (
             mock.patch("eleanor.eleanor.build_executor"),
             mock.patch.object(Eleanor, "load_output_sink", return_value=sink),
         ):
             with eleanor:
-                _ = eleanor.run(order, 1)
+                _ = eleanor.run(_leaf_order(), 1, kernel=mock.Mock(), navigator=_navigator(1))
                 self.assertEqual(ctor_executor.enter_count, 1)
 
         ctor_executor.shutdown.assert_not_called()
 
-    def test_run_rejects_per_run_executor_kwarg(self):
-        """
-        Ensure run() no longer accepts per-run executor overrides.
-        """
-        eleanor = _make_eleanor()
-        with self.assertRaisesRegex(TypeError, "unexpected keyword argument 'executor'"):
-            eleanor.run(_leaf_order(), 1, executor=_FakeExecutor())
-
     def test_constructor_output_sink_used_for_all_runs_in_session(self):
-        """
-        Ensure a constructor-supplied output_sink is used for every run() in
-        the session and that load_output_sink is never called.
-        """
+        """Ensure constructor output sink override is reused across runs."""
         eleanor = _make_eleanor()
         ctor_sink = mock.Mock()
         ctor_sink.begin_run.return_value = 7
+        ctor_sink.supports_progress.return_value = False
         eleanor._output_sink_override = ctor_sink
-
-        order = _leaf_order()
-        eleanor._dispatch = mock.Mock(return_value=[7])
+        eleanor.process = mock.Mock(return_value=[])
 
         with (
             mock.patch("eleanor.eleanor.build_executor", return_value=_FakeExecutor()),
             mock.patch.object(Eleanor, "load_output_sink") as load_sink,
         ):
             with eleanor:
-                _ = eleanor.run(order, 5)
-                _ = eleanor.run(order, 5)
+                _ = eleanor.run(_leaf_order(), 5, kernel=mock.Mock(), navigator=_navigator(1))
+                _ = eleanor.run(_leaf_order(), 5, kernel=mock.Mock(), navigator=_navigator(1))
 
         load_sink.assert_not_called()
-        # Both runs reached _dispatch, meaning the sink was supplied without error.
-        self.assertEqual(eleanor._dispatch.call_count, 2)
-        self.assertIs(eleanor._dispatch.call_args_list[0].kwargs["sink"], ctor_sink)
-        self.assertIs(eleanor._dispatch.call_args_list[1].kwargs["sink"], ctor_sink)
+        self.assertEqual(ctor_sink.begin_run.call_count, 2)
 
     def test_constructor_output_sink_not_finalized_at_exit(self):
-        """
-        Ensure the constructor-supplied output_sink is not finalized when the
-        context manager exits — the caller retains ownership.
-        """
+        """Ensure constructor output sink is not finalize()-d by Eleanor."""
         eleanor = _make_eleanor()
         ctor_sink = mock.Mock()
         ctor_sink.begin_run.return_value = 3
+        ctor_sink.supports_progress.return_value = False
         eleanor._output_sink_override = ctor_sink
-
-        order = _leaf_order()
-        eleanor._dispatch = mock.Mock(return_value=[3])
+        eleanor.process = mock.Mock(return_value=[])
 
         with (
             mock.patch("eleanor.eleanor.build_executor", return_value=_FakeExecutor()),
             mock.patch.object(Eleanor, "load_output_sink"),
         ):
             with eleanor:
-                _ = eleanor.run(order, 1)
+                _ = eleanor.run(_leaf_order(), 1, kernel=mock.Mock(), navigator=_navigator(1))
 
         ctor_sink.finalize.assert_not_called()
 
     def test_per_run_output_sink_overrides_constructor_output_sink(self):
-        """
-        Ensure a per-run output_sink= kwarg takes precedence over the
-        constructor-supplied sink, and is finalized at run end.
-        """
+        """Ensure per-run output_sink= wins over constructor override and finalizes."""
         eleanor = _make_eleanor()
         ctor_sink = mock.Mock()
         per_run_sink = mock.Mock()
         per_run_sink.begin_run.return_value = 5
+        per_run_sink.supports_progress.return_value = False
         eleanor._output_sink_override = ctor_sink
-        eleanor._dispatch = mock.Mock(return_value=[5])
+        eleanor.process = mock.Mock(return_value=[])
 
         with mock.patch("eleanor.eleanor.build_executor", return_value=_FakeExecutor()):
-            eleanor.run(_leaf_order(), 1, output_sink=per_run_sink)
+            eleanor.run(
+                _leaf_order(),
+                1,
+                output_sink=per_run_sink,
+                kernel=mock.Mock(),
+                navigator=_navigator(1),
+            )
 
-        self.assertIs(eleanor._dispatch.call_args.kwargs["sink"], per_run_sink)
         per_run_sink.finalize.assert_called_once()
         ctor_sink.finalize.assert_not_called()

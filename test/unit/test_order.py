@@ -9,8 +9,6 @@ from eleanor.order import (
     ConstraintConfig,
     NavigatorConfig,
     Order,
-    Suborder,
-    Suborders,
     Suppression,
     TransformerConfig,
     load_order,
@@ -75,102 +73,6 @@ class TestOrder(TestCase):
         with self.assertRaises(EleanorException):
             Suppression.from_dict({"name": "x", "except": [1]})
 
-    def test_suborder_volume_and_suborders(self):
-        """
-        Ensure suborder/suborders volume aggregation behavior is computed as expected.
-        """
-        sub = Suborder(
-            kernel=SimpleNamespace(parameters=lambda: [SimpleNamespace(volume=lambda: 2.0)]),
-            water_mass=SimpleNamespace(volume=lambda: 23.0),
-            temperature=SimpleNamespace(volume=lambda: 3.0),
-            pressure=SimpleNamespace(volume=lambda: 5.0),
-            elements={"Na": SimpleNamespace(volume=lambda: 7.0)},
-            species={"Cl": SimpleNamespace(volume=lambda: 11.0)},
-            reactants=[SimpleNamespace(volume=lambda: 13.0)],
-            constraints=[SimpleNamespace(volume=lambda: 17.0)],
-        )
-        sub.suborders = SimpleNamespace(volume=lambda: 19.0)
-        self.assertEqual(sub.volume(), 2.0 * 23.0 * 3.0 * 5.0 * 7.0 * 11.0 * 13.0 * 17.0 * 19.0)
-
-        raw = {"orders": [{"name": "a", "creator": "u"}, {"name": "b", "creator": "u"}], "combined": True}
-        subs = Suborders(raw)
-        self.assertTrue(subs.combined)
-        self.assertEqual(len(subs.suborders), 2)
-        self.assertEqual(subs.volume(), 2.0)  # each minimal suborder volume == 1.0
-
-        subs2 = Suborders([{"name": "a", "creator": "u"}])
-        self.assertFalse(subs2.combined)
-        self.assertEqual(subs2.volume(), 1.0)
-
-    def test_suborder_from_dict_parsing(self):
-        """
-        Ensure suborder parsing handles optional fields and delegated loaders.
-        """
-        from eleanor.kernel.config import Settings as KernelSettings
-
-        fake_settings = KernelSettings(timeout=None)
-        fake_spec = SimpleNamespace(
-            settings_from_dict=mock.Mock(return_value=fake_settings),
-            build=mock.Mock(),
-        )
-
-        raw = {
-            "name": "base",
-            "notes": "n",
-            "creator": "c",
-            "kernel": {"type": "eq36", "args": {"foo": "bar"}},
-            "navigator": "Random",
-            "temperature": 25.0,
-            "pressure": 1.0,
-            "elements": {"Na": 1.0},
-            "species": {"H+": 2.0},
-            "suppressions": ["Calcite", {"name": "Quartz"}],
-            "reactants": {"R": {"type": "mineral", "amount": 1.0}},
-            "constraints": [],
-            "suborders": [{"name": "child", "creator": "c"}],
-        }
-
-        with (
-            mock.patch("eleanor.kernel.registry.get_factory", return_value=fake_spec),
-            mock.patch("eleanor.order.AbstractReactant.from_dict", return_value="reactant") as reactant_from_dict,
-        ):
-            sub = Suborder.from_dict(raw)
-
-        fake_spec.settings_from_dict.assert_called_once_with({"foo": "bar"})
-
-        self.assertEqual(sub.name, "base")
-        self.assertEqual(sub.notes, "n")
-        self.assertEqual(sub.creator, "c")
-        self.assertEqual(sub.navigator.type, "Random")
-        self.assertIsNotNone(sub.kernel)
-        self.assertEqual(list(sub.elements.keys()), ["Na"])
-        self.assertEqual(list(sub.species.keys()), ["H+"])
-        self.assertEqual(len(sub.suppressions), 2)
-        self.assertEqual(sub.reactants, ["reactant"])
-        self.assertEqual(len(sub.suborders.suborders), 1)
-        reactant_from_dict.assert_called_once()
-
-    def test_suborder_from_dict_none_and_validation_errors(self):
-        """
-        Ensure suborder parsing handles None input and raises on invalid metadata types.
-        """
-        sub = Suborder.from_dict(None)
-        self.assertEqual(sub.raw, {})
-
-        with self.assertRaises(EleanorException):
-            Suborder.from_dict({"name": 1})
-        with self.assertRaises(EleanorException):
-            Suborder.from_dict({"name": "x", "notes": 1})
-        with self.assertRaises(EleanorException):
-            Suborder.from_dict({"name": "x", "creator": 1})
-
-    def test_suborder_navigator_dict_branch(self):
-        """
-        Ensure suborder parsing accepts navigator dict objects.
-        """
-        sub = Suborder.from_dict({"navigator": {"type": "my_plugin", "args": {"seed": 1}}})
-        self.assertEqual(sub.navigator.type, "my_plugin")
-        self.assertEqual(sub.navigator.args, {"seed": 1})
 
     def test_order_core_methods(self):
         """
@@ -184,7 +86,6 @@ class TestOrder(TestCase):
             "elements": {"Na": 1.0},
             "species": {"H+": 2.0},
             "reactants": {},
-            "suborders": [{"name": "child", "creator": "user", "temperature": 50.0}],
         }
         with mock.patch("eleanor.order.AbstractReactant.from_dict", return_value="reactant"):
             order = Order(raw)
@@ -192,10 +93,22 @@ class TestOrder(TestCase):
         params = order.parameters()
         self.assertTrue(any(isinstance(p, ValueParameter) for p in params))
 
-        split = order.split_suborders()
-        self.assertEqual(len(split), 1)
-        self.assertEqual(split[0].name, "child")
-        self.assertEqual(split[0].temperature.value, 50.0)
+    def test_order_ignores_suborders_key(self):
+        """
+        Ensure Order construction succeeds when raw contains suborders and ignores that content.
+        """
+        order = Order(
+            {
+                "name": "o",
+                "creator": "u",
+                "temperature": 25.0,
+                "suborders": [{"name": "child", "temperature": 100.0}],
+            }
+        )
+
+        self.assertEqual(order.name, "o")
+        self.assertIsNotNone(order.temperature)
+        self.assertEqual(order.temperature.value, 25.0)
 
     def test_order_reads_id_from_raw(self):
         """

@@ -16,8 +16,7 @@ from .reflection import (
 )
 
 # Default depth limit for ``enumerate_shortname_paths`` BFS. Sized to comfortably
-# cover Eleanor's real ``Order`` tree (which currently bottoms out around six
-# hops through ``Order → Suborders → Suborder → ...`` plus collection wrappers)
+# cover Eleanor's real ``Order`` dataclass field graph plus collection wrappers,
 # while still bounding the walk against pathological/recursive type graphs.
 # Increase only with a corresponding test exercising the new depth.
 _DEFAULT_SHORTNAME_MAX_DEPTH: int = 8

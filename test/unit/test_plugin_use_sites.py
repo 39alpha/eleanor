@@ -18,7 +18,7 @@ from eleanor.executor import AbstractExecutor, build_executor
 from eleanor.executor.registry import registry as executor_registry
 from eleanor.kernel.registry import KernelSpec, registry as kernel_registry
 from eleanor.navigator.registry import registry as navigator_registry
-from eleanor.order import LeafPlan, NavigatorProtocol  # noqa: F401
+from eleanor.order import NavigatorProtocol  # noqa: F401
 from eleanor.output import OutputSink  # noqa: F401
 from eleanor.output.registry import registry as output_registry
 from eleanor.transformer import AbstractTransformer, transform
@@ -301,11 +301,11 @@ class TestLoadOutputSinkErrorWrapping(_RegistrySnapshot, TestCase):
 
 class TestDispatchNavigatorErrorWrapping(_RegistrySnapshot, TestCase):
     """
-    Tests of the navigator-loading wrapper in :meth:`Eleanor._dispatch`.
+    Tests of the navigator-loading wrapper reached via :meth:`Eleanor.run`.
 
-    The dispatcher only reaches the navigator-construction branch when a
-    ``navigator`` is not pre-supplied. We pin ``executor`` and other
-    arguments to minimal mocks so the test can assert on the wrapper alone.
+    ``run`` only reaches navigator construction when ``navigator`` is not
+    supplied; these tests pin kernel/executor/sink to minimal stubs so they
+    assert only on navigator-factory error handling.
     """
 
     def setUp(self) -> None:
@@ -314,17 +314,17 @@ class TestDispatchNavigatorErrorWrapping(_RegistrySnapshot, TestCase):
     def tearDown(self) -> None:
         self._restore()
 
-    def _make_eleanor(self) -> Eleanor:
+    def _make_eleanor(self, executor) -> Eleanor:
         config = SimpleNamespace(
             database="db",
             output=SimpleNamespace(type="postgres", args={}),
             parallel=SimpleNamespace(backend="multiprocessing", chunks_per_worker=1),
         )
-        return Eleanor(config, [])
+        return Eleanor(config, [], executor=executor)
 
     def _order_with_navigator(self, navigator_type: str):
         return SimpleNamespace(
-            kernel=None,
+            transformers=[],
             navigator=SimpleNamespace(type=navigator_type, args={}),
             id=None,
         )
@@ -342,17 +342,15 @@ class TestDispatchNavigatorErrorWrapping(_RegistrySnapshot, TestCase):
 
         _stamp(factory, 1)
         navigator_registry.register("flawed", factory)
-        eleanor = self._make_eleanor()
+        executor = self._executor_stub()
+        eleanor = self._make_eleanor(executor)
+        sink = mock.Mock()
         with self.assertRaisesRegex(EleanorException, 'navigator plugin "flawed" failed to instantiate'):
-            _ = eleanor._dispatch(
+            _ = eleanor.run(
                 self._order_with_navigator("flawed"),  # type: ignore[arg-type]
-                1,
-                chunks_per_worker=1,
-                executor=self._executor_stub(),  # type: ignore[arg-type]
+                simulation_size=1,
                 kernel=mock.Mock(),
-                navigator=None,
-                sink=mock.Mock(),
-                manager=None,
+                output_sink=sink,
             )
 
     def test_unrelated_typeerror_propagates(self):
@@ -365,15 +363,13 @@ class TestDispatchNavigatorErrorWrapping(_RegistrySnapshot, TestCase):
 
         _stamp(factory, 1)
         navigator_registry.register("typeerror", factory)
-        eleanor = self._make_eleanor()
+        executor = self._executor_stub()
+        eleanor = self._make_eleanor(executor)
+        sink = mock.Mock()
         with self.assertRaisesRegex(TypeError, "unexpected keyword argument"):
-            _ = eleanor._dispatch(
+            _ = eleanor.run(
                 self._order_with_navigator("typeerror"),  # type: ignore[arg-type]
-                1,
-                chunks_per_worker=1,
-                executor=self._executor_stub(),  # type: ignore[arg-type]
+                simulation_size=1,
                 kernel=mock.Mock(),
-                navigator=None,
-                sink=mock.Mock(),
-                manager=None,
+                output_sink=sink,
             )

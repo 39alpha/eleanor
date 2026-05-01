@@ -277,8 +277,6 @@ class Eleanor(object):
         order: Order,
         simulation_size: int,
         *args: object,
-        combined: bool = False,
-        proportional_sampling: bool = False,
         parallel: str | None = None,
         chunks_per_worker: int | None = None,
         batch_size: int | None = None,
@@ -289,11 +287,7 @@ class Eleanor(object):
         **kwargs: Unpack[EleanorKwargs],
     ) -> list[int]:
         """Dispatch ``order`` against ``simulation_size`` VS points.
-
-        The order's suborder tree (if any) is flattened into a stream of
-        leaves via :meth:`Order.iter_leaves`; each leaf is dispatched in
-        turn against a shared executor / sink / manager. See the class
-        docstring for the session-vs-per-run resource model.
+        See the class docstring for the session-vs-per-run resource model.
 
         If an explicit ``output_sink`` is supplied, Eleanor takes the full
         sink lifecycle for the duration of this :meth:`run` call:
@@ -313,13 +307,11 @@ class Eleanor(object):
             parallel = default_parallel
         if chunks_per_worker is None:
             chunks_per_worker = default_chunks_per_worker
-
-        # Apply transformers before walking the tree: they can rewrite
-        # suborders and other order-scoped state, so the walk must see
-        # the transformed order.
+        # Apply transformers before dispatch: they can rewrite order-scoped
+        # state, so dispatch must see the transformed order.
         # ``effective_kernel`` captures the kernel used for this run: when
         # transformers are applied it is loaded once here and reused for
-        # every leaf, so kernel construction happens at most once per
+        # dispatch, so kernel construction happens at most once per
         # ``run()`` call.
         effective_kernel = kernel
         if transformers is not None or len(order.transformers) != 0:
@@ -337,185 +329,102 @@ class Eleanor(object):
             run_manager: SyncManager | None = None
             if show_progress:
                 run_manager = stack.enter_context(self._manager_scope())
+            if run_executor.num_workers <= 0:
+                raise EleanorException("executor num_workers must be >= 1")
+            if chunks_per_worker <= 0:
+                raise EleanorException("chunks_per_worker must be >= 1")
 
-            leaves = list(
-                order.iter_leaves(
-                    combined=combined,
-                    proportional_sampling=proportional_sampling,
+            if effective_kernel is None:
+                effective_kernel = self.load_kernel(order, **kwargs)
+
+            if navigator is None:
+                if order.navigator is None:
+                    raise EleanorException("order navigator is required")
+                from .navigator.registry import get_factory as get_navigator_factory
+
+                navigator_factory = get_navigator_factory(order.navigator.type)
+                version = resolve_api_version(navigator_factory)
+                try:
+                    built = navigator_factory(order, effective_kernel, **order.navigator.args)
+                except TypeError as e:
+                    if not is_abstract_instantiation_error(e):
+                        raise
+                    version_suffix = "" if version is None else f" (API v{version})"
+                    raise EleanorException(
+                        f'navigator plugin "{order.navigator.type}" failed to instantiate{version_suffix}: {e}',
+                    ) from e
+                if not isinstance(built, NavigatorProtocol):
+                    raise EleanorException(
+                        f'navigator plugin "{order.navigator.type}" returned '
+                        + f"{type(built).__name__}, expected an AbstractNavigator",
+                    )
+                navigator = built
+
+            assert navigator is not None
+            expected_total = navigator.num_systems(simulation_size)
+            if expected_total <= 0:
+                raise EleanorException(
+                    f"navigator.num_systems({simulation_size}) returned {expected_total}; must be >= 1",
                 )
-            )
-            if not leaves:
-                raise EleanorException("order produced no dispatchable leaves")
+            effective_batch_size = batch_size if batch_size is not None else expected_total
+            if batch_size is not None and batch_size <= 0:
+                raise EleanorException("batch_size must be >= 1")
 
-            # Resolve umbrella order ids up front so ``begin_run`` runs
-            # once per distinct umbrella regardless of how many leaves
-            # share it.
-            #
-            # Using ``id()`` as the key is safe: ``iter_leaves`` stores
-            # the exact same ``Order`` object on every leaf in a combined
-            # subtree (the pre-split ancestor node), so Python object
-            # identity is the correct equality check here.
-            umbrella_ids: dict[int, int] = {}
-            for leaf in leaves:
-                if leaf.umbrella is None:
-                    continue
-                key = id(leaf.umbrella)
-                if key not in umbrella_ids:
-                    umbrella_ids[key] = run_sink.begin_run(leaf.umbrella)
+            progress: Progress | None = None
+            # Local handles use ``ManagedProgressHandle`` rather than the worker-
+            # facing ``ProgressHandle`` so the dispatch context can call ``done()``
+            # at teardown.  Anywhere these are forwarded to a producer
+            # (``process()`` / ``Sailor.dispatch`` / ``OutputSink.write_batch``)
+            # they implicitly narrow to ``ProgressHandle``, which omits ``done()``.
+            sim_handle: ManagedProgressHandle | None = None
+            out_handle: ManagedProgressHandle | None = None
+            if show_progress:
+                if run_manager is None:
+                    raise EleanorException("show_progress requires an active SyncManager")
+                progress = Progress(run_manager)
+                sim_handle = progress.sim
+                if run_sink.supports_progress():
+                    out_handle = progress.out
+                sim_handle.total(expected_total)
+                if out_handle is not None:
+                    out_handle.total(expected_total)
 
-            order_ids: set[int] = set()
-            for leaf in leaves:
-                samples = round(simulation_size * leaf.sample_fraction)
-                if leaf.umbrella is not None:
-                    leaf.order.id = umbrella_ids[id(leaf.umbrella)]
+            order.id = run_sink.begin_run(order)
 
-                dispatched = self._dispatch(
-                    leaf.order,
-                    samples,
+            stats = RunStats()
+
+            try:
+                outcomes = self.process(
+                    effective_kernel,
+                    navigator,
+                    simulation_size,
+                    order.id,
                     *args,
-                    chunks_per_worker=chunks_per_worker,
-                    batch_size=batch_size,
+                    batch_size=effective_batch_size,
+                    expected_total=expected_total,
                     executor=run_executor,
-                    kernel=effective_kernel,
-                    navigator=navigator,
+                    chunks_per_worker=chunks_per_worker,
                     sink=run_sink,
-                    manager=run_manager,
+                    sim_progress=sim_handle,
+                    out_progress=out_handle,
                     **kwargs,
                 )
-                order_ids.update(dispatched)
+                stats.update(outcomes)
+            finally:
+                if progress is not None:
+                    # ``sim_handle`` is co-assigned with ``progress`` above, but
+                    # the type checker can't infer that link from the
+                    # ``progress is not None`` narrowing alone.  Closing the sim
+                    # bar via ``progress.sim.done()`` keeps the live invariant
+                    # — "progress drives sim" — as the single discriminant.
+                    # ``out_handle`` legitimately may be ``None`` here when the
+                    # active sink does not opt in to progress reporting.
+                    progress.sim.done()
+                    if out_handle is not None:
+                        out_handle.done()
+                    progress.join()
 
-            return sorted(order_ids)
-
-    def _dispatch(
-        self,
-        order: Order,
-        simulation_size: int,
-        *args: object,
-        chunks_per_worker: int,
-        executor: AbstractExecutor,
-        kernel: AbstractKernel | None,
-        navigator: NavigatorProtocol | None,
-        sink: OutputSink,
-        manager: SyncManager | None,
-        batch_size: int | None = None,
-        **kwargs: Unpack[EleanorKwargs],
-    ) -> list[int]:
-        """Dispatch a single leaf order against the given executor/sink.
-
-        The caller is responsible for resolving the executor, sink and
-        (if progress is requested) manager scopes; this method neither
-        builds nor tears them down. It does, however, construct a fresh
-        :class:`~eleanor.progress.Progress` for each leaf when progress is
-        enabled, so every leaf gets its own ``tqdm`` bar(s) even when the
-        underlying :class:`SyncManager` is session-scoped.
-
-        ``show_progress`` is read from :paramref:`kwargs` (the
-        :class:`EleanorKwargs` bag) so that it still flows through to
-        :meth:`process` and the sailor chain.
-
-        The output progress bar is only rendered when the active
-        :class:`OutputSink` opts in via
-        :meth:`~OutputSink.supports_progress`; otherwise only the simulation
-        bar is shown.
-        """
-        show_progress = kwargs.get("show_progress", False)
-
-        if executor.num_workers <= 0:
-            raise EleanorException("executor num_workers must be >= 1")
-        if chunks_per_worker <= 0:
-            raise EleanorException("chunks_per_worker must be >= 1")
-
-        if kernel is None:
-            kernel = self.load_kernel(order, **kwargs)
-
-        if navigator is None:
-            if order.navigator is None:
-                raise EleanorException("order navigator is required")
-            from .navigator.registry import get_factory as get_navigator_factory
-
-            navigator_factory = get_navigator_factory(order.navigator.type)
-            version = resolve_api_version(navigator_factory)
-            try:
-                built = navigator_factory(order, kernel, **order.navigator.args)
-            except TypeError as e:
-                if not is_abstract_instantiation_error(e):
-                    raise
-                version_suffix = "" if version is None else f" (API v{version})"
-                raise EleanorException(
-                    f'navigator plugin "{order.navigator.type}" failed to instantiate{version_suffix}: {e}',
-                ) from e
-            if not isinstance(built, NavigatorProtocol):
-                raise EleanorException(
-                    f'navigator plugin "{order.navigator.type}" returned '
-                    + f"{type(built).__name__}, expected an AbstractNavigator",
-                )
-            navigator = built
-
-        assert navigator is not None
-        expected_total = navigator.num_systems(simulation_size)
-        if expected_total <= 0:
-            raise EleanorException(
-                f"navigator.num_systems({simulation_size}) returned {expected_total}; must be >= 1",
-            )
-        effective_batch_size = batch_size if batch_size is not None else expected_total
-        if batch_size is not None and batch_size <= 0:
-            raise EleanorException("batch_size must be >= 1")
-
-        progress: Progress | None = None
-        # Local handles use ``ManagedProgressHandle`` rather than the worker-
-        # facing ``ProgressHandle`` so the dispatch context can call ``done()``
-        # at teardown.  Anywhere these are forwarded to a producer
-        # (``process()`` / ``Sailor.dispatch`` / ``OutputSink.write_batch``)
-        # they implicitly narrow to ``ProgressHandle``, which omits ``done()``.
-        sim_handle: ManagedProgressHandle | None = None
-        out_handle: ManagedProgressHandle | None = None
-        if show_progress:
-            if manager is None:
-                raise EleanorException("show_progress requires an active SyncManager")
-            progress = Progress(manager)
-            sim_handle = progress.sim
-            if sink.supports_progress():
-                out_handle = progress.out
-            sim_handle.total(expected_total)
-            if out_handle is not None:
-                out_handle.total(expected_total)
-
-        order.id = sink.begin_run(order)
-
-        stats = RunStats()
-
-        try:
-            outcomes = self.process(
-                kernel,
-                navigator,
-                simulation_size,
-                order.id,
-                *args,
-                batch_size=effective_batch_size,
-                expected_total=expected_total,
-                executor=executor,
-                chunks_per_worker=chunks_per_worker,
-                sink=sink,
-                sim_progress=sim_handle,
-                out_progress=out_handle,
-                **kwargs,
-            )
-            stats.update(outcomes)
-        finally:
-            if progress is not None:
-                # ``sim_handle`` is co-assigned with ``progress`` above, but
-                # the type checker can't infer that link from the
-                # ``progress is not None`` narrowing alone.  Closing the sim
-                # bar via ``progress.sim.done()`` keeps the live invariant
-                # — "progress drives sim" — as the single discriminant.
-                # ``out_handle`` legitimately may be ``None`` here when the
-                # active sink does not opt in to progress reporting.
-                progress.sim.done()
-                if out_handle is not None:
-                    out_handle.done()
-                progress.join()
-
-        return [order.id]
+            return [order.id]
 
     def process(
         self,

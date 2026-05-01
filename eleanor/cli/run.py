@@ -20,8 +20,6 @@ class RunArgs(ConfigArgs):
     scratch: bool
     kernel_args: list[str] | None
     progress: bool
-    combined: bool
-    proportional: bool
     parallel: str | None
     chunks_per_worker: int | None
     batch_size: int | None
@@ -44,20 +42,6 @@ def init(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
         required=False,
         action="store_true",
         help="enable progress bars (disabled by --verbose)",
-    )
-    _ = parser.add_argument(
-        "-C",
-        "--combined",
-        required=False,
-        action="store_true",
-        help="store suborders as a single order",
-    )
-    _ = parser.add_argument(
-        "-P",
-        "--proportional",
-        required=False,
-        action="store_true",
-        help="use proportional sampling",
     )
     _ = parser.add_argument(
         "--parallel",
@@ -128,8 +112,6 @@ def execute(parser: argparse.ArgumentParser, ns: argparse.Namespace) -> None:
                     args["simulation_size"],
                     scratch=args["scratch"],
                     show_progress=show_progress,
-                    combined=args["combined"],
-                    proportional_sampling=args["proportional"],
                     verbose=args["verbose"],
                     parallel=parallel,
                     chunks_per_worker=chunks_per_worker,

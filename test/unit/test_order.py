@@ -11,7 +11,6 @@ from eleanor.order import (
     NavigatorConfig,
     Order,
     Suppression,
-    TransformerConfig,
     load_order,
 )
 from eleanor.parameters import ValueParameter
@@ -72,18 +71,6 @@ class TestOrder(TestCase):
         nav2 = NavigatorConfig("my_plugin", args={"seed": 42})
         self.assertEqual(nav2.type, "my_plugin")
         self.assertEqual(nav2.args, {"seed": 42})
-
-    def test_transformer_config_init(self):
-        """
-        Ensure transformer config parsing preserves short names and args.
-        """
-        tf = TransformerConfig("transformer")
-        self.assertEqual(tf.type, "transformer")
-        self.assertEqual(tf.args, {})
-
-        tf2 = TransformerConfig("my_transformer", args={"x": 1})
-        self.assertEqual(tf2.type, "my_transformer")
-        self.assertEqual(tf2.args, {"x": 1})
 
     def test_suppression(self):
         """
@@ -212,25 +199,6 @@ class TestOrder(TestCase):
         )
         self.assertIsNotNone(order.kernel)
         self.assertEqual(order.navigator.type, "Random")
-
-    def test_order_transformer_configs_parse_and_validate(self):
-        """
-        Ensure order transformer configs support string/dict forms and reject invalid entries.
-        """
-        order = _make_order(
-            transformers=[
-                "my_transformer_a",
-                {"type": "my_transformer", "args": {"filename": "x.csv"}},
-            ],
-        )
-        self.assertEqual(len(order.transformers), 2)
-        self.assertEqual(order.transformers[0].type, "my_transformer_a")
-        self.assertEqual(order.transformers[1].type, "my_transformer")
-        self.assertEqual(order.transformers[1].args, {"filename": "x.csv"})
-
-        with mock.patch("eleanor.kernel.registry.get_factory", return_value=_FAKE_KERNEL_SPEC):
-            with self.assertRaises(EleanorException):
-                Order(_minimal_raw(transformers=[123]))
 
     def test_order_parameters_includes_kernel_and_reactant_parameters(self):
         """

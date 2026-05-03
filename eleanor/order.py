@@ -34,11 +34,6 @@ class NavigatorRaw(TypedDict, total=False):
     args: RawMap
 
 
-class TransformerRaw(TypedDict, total=False):
-    type: str
-    args: RawMap
-
-
 # ``except`` is a Python keyword, so the functional TypedDict syntax is used.
 SuppressionRaw = TypedDict(
     "SuppressionRaw",
@@ -71,7 +66,6 @@ class OrderRaw(TypedDict, total=False):
     suppressions: list[str | SuppressionRaw]
     reactants: dict[str, ReactantRaw]
     constraints: list[RawMap]
-    transformers: list[str | TransformerRaw]
 
 
 def _require_opt_int(value: object, field_name: str) -> int | None:
@@ -106,21 +100,6 @@ def _require_str(value: object, field_name: str) -> str:
     if not isinstance(value, str):
         raise EleanorException(f"{field_name} must be a string")
     return value
-
-
-def _build_transformer(value: object) -> "TransformerConfig":
-    """Construct a :class:`TransformerConfig` from its raw string/dict form.
-
-    Accepting ``object`` rather than ``str | TransformerRaw`` keeps the
-    ``isinstance`` checks meaningful to the type checker: the TypedDict
-    declaration is aspirational, so a raw ``123`` from YAML still has to
-    be rejected at runtime.
-    """
-    if isinstance(value, str):
-        return TransformerConfig(type=value)
-    if isinstance(value, dict):
-        return TransformerConfig(**cast(TransformerRaw, cast(object, value)))
-    raise EleanorException(f'invalid transformer config "{value}"')
 
 
 def load_kernel_settings(kernel_raw: KernelRaw) -> tuple[str, KernelSettings]:
@@ -170,16 +149,6 @@ class NavigatorConfig(object):
 
 
 @dataclass(init=False)
-class TransformerConfig(object):
-    type: str
-    args: RawMap
-
-    def __init__(self, type: str, args: RawMap | None = None):
-        self.type = type
-        self.args = args if args is not None else {}
-
-
-@dataclass(init=False)
 class Suppression(object):
     name: str | None
     type: str | None
@@ -224,7 +193,6 @@ class Order:
     reactants: list[AbstractReactant]
     constraints: list[ConstraintConfig]
     raw: OrderRaw
-    transformers: list[TransformerConfig]
     id: int | None
     vs_points: list[VSPoint]
     create_date: datetime
@@ -293,9 +261,6 @@ class Order:
         self.reactants = [AbstractReactant.from_dict(value, name=name) for name, value in reactants_raw.items()]
         # Constraints (may be empty; no constraint-config loader yet).
         self.constraints = []
-        # Transformers (may be empty).
-        transformers_raw = self.raw.get("transformers") or []
-        self.transformers = [_build_transformer(t) for t in transformers_raw]
 
     def parameters(self) -> list[Parameter]:
         parameters: list[Parameter] = [

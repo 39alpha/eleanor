@@ -54,10 +54,9 @@ def _make_eleanor():
     return Eleanor(fake_config, ["arg1"])
 
 
-def _leaf_order(navigator_type="random", transformers=None):
+def _leaf_order(navigator_type="random"):
     """Produce a minimal order-like ``SimpleNamespace`` for ``Eleanor.run``."""
     return SimpleNamespace(
-        transformers=transformers if transformers is not None else [],
         navigator=SimpleNamespace(type=navigator_type, args={}),
         id=None,
     )
@@ -224,32 +223,6 @@ class TestEleanorRun(TestCase):
         self.assertIs(seen_executors[0], session_executor)
         self.assertIs(seen_executors[1], session_executor)
         sink.finalize.assert_called_once()
-
-    def test_run_applies_transformers_before_dispatch(self):
-        """Ensure transformed orders are what begin_run/process receive."""
-        eleanor = _make_eleanor()
-        original = _leaf_order(transformers=[SimpleNamespace(type="t")])
-        transformed = _leaf_order()
-        kernel = mock.Mock()
-        navigator = _navigator(1)
-        sink = mock.Mock()
-        sink.begin_run.return_value = 42
-        sink.supports_progress.return_value = False
-        eleanor.load_kernel = mock.Mock(return_value=kernel)
-        eleanor.process = mock.Mock(return_value=[])
-
-        with (
-            mock.patch("eleanor.eleanor.transform", return_value=transformed) as transform_fn,
-            mock.patch("eleanor.eleanor.build_executor", return_value=_FakeExecutor()),
-            mock.patch.object(Eleanor, "load_output_sink", return_value=sink),
-        ):
-            out = eleanor.run(original, 3, navigator=navigator, verbose=True)
-
-        self.assertEqual(out, [42])
-        eleanor.load_kernel.assert_called_once_with(original, verbose=True)
-        transform_fn.assert_called_once_with(original, kernel, overrides=None)
-        sink.begin_run.assert_called_once_with(transformed)
-        self.assertIs(eleanor.process.call_args.args[0], kernel)
 
     def test_run_single_leaf_passes_order_with_preset_id_to_begin_run(self):
         """Ensure begin_run is called with caller-supplied order ids intact."""

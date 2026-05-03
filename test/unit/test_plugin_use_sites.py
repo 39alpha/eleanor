@@ -21,8 +21,6 @@ from eleanor.navigator.registry import registry as navigator_registry
 from eleanor.order import NavigatorProtocol  # noqa: F401
 from eleanor.output import OutputSink  # noqa: F401
 from eleanor.output.registry import registry as output_registry
-from eleanor.transformer import AbstractTransformer, transform
-from eleanor.transformer.registry import registry as transformer_registry
 
 from .common import TestCase
 
@@ -116,70 +114,6 @@ class TestBuildExecutorErrorWrapping(_RegistrySnapshot, TestCase):
         executor_registry.register("badreturn", factory)
         with self.assertRaisesRegex(EleanorException, "expected an AbstractExecutor"):
             _ = build_executor(kind="badreturn")
-
-
-class _StubKernel(SimpleNamespace):
-    """Stand-in for an AbstractKernel used in transformer tests."""
-
-
-class TestTransformerErrorWrapping(_RegistrySnapshot, TestCase):
-    """
-    Tests of the use-site wrapper in :func:`eleanor.transformer.transform`.
-    """
-
-    def setUp(self) -> None:
-        self._snapshot(transformer_registry)
-
-    def tearDown(self) -> None:
-        self._restore()
-
-    def _order_with_transformers(self, transformer_type: str):
-        order = SimpleNamespace(
-            transformers=[SimpleNamespace(type=transformer_type, args={})],
-        )
-        return order
-
-    def test_abstract_subclass_typeerror_is_wrapped(self):
-        """
-        Ensure an incomplete AbstractTransformer subclass is rethrown as EleanorException.
-        """
-
-        class _Incomplete(AbstractTransformer):
-            pass
-
-        def factory(**_args):
-            return _Incomplete()  # pyright: ignore[reportAbstractUsage]
-
-        _stamp(factory, 1)
-        transformer_registry.register("incomplete", factory)
-        with self.assertRaisesRegex(EleanorException, 'transformer plugin "incomplete" failed to instantiate'):
-            _ = transform(self._order_with_transformers("incomplete"), _StubKernel())  # type: ignore[arg-type]
-
-    def test_unrelated_typeerror_propagates(self):
-        """
-        Ensure non-abstract TypeErrors thrown inside the factory propagate.
-        """
-
-        def factory(**_args):
-            raise TypeError("expected str, got bytes")
-
-        _stamp(factory, 1)
-        transformer_registry.register("kaboom", factory)
-        with self.assertRaisesRegex(TypeError, "expected str, got bytes"):
-            _ = transform(self._order_with_transformers("kaboom"), _StubKernel())  # type: ignore[arg-type]
-
-    def test_non_transformer_return_is_rejected(self):
-        """
-        Ensure a factory returning something other than AbstractTransformer is rejected.
-        """
-
-        def factory(**_args):
-            return "not a transformer"
-
-        _stamp(factory, 1)
-        transformer_registry.register("nontransformer", factory)
-        with self.assertRaisesRegex(EleanorException, "expected an AbstractTransformer"):
-            _ = transform(self._order_with_transformers("nontransformer"), _StubKernel())  # type: ignore[arg-type]
 
 
 class TestLoadKernelErrorWrapping(_RegistrySnapshot, TestCase):
@@ -324,7 +258,6 @@ class TestDispatchNavigatorErrorWrapping(_RegistrySnapshot, TestCase):
 
     def _order_with_navigator(self, navigator_type: str):
         return SimpleNamespace(
-            transformers=[],
             navigator=SimpleNamespace(type=navigator_type, args={}),
             id=None,
         )

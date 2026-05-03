@@ -16,14 +16,11 @@ from .output.interface import ComputeResult, OutputSink, RunStats, WriteOutcome
 from .output.registry import get_factory as get_output_factory
 from .plugin import is_abstract_instantiation_error, resolve_api_version
 from .progress import ManagedProgressHandle, Progress, ProgressHandle
-from .transformer import transform
 from .typing import EleanorKwargs, Self, Unpack, cast
 from .util import chunks
 
 if TYPE_CHECKING:
     from collections.abc import Generator
-
-    from .transformer import AbstractTransformer
 
 
 class Eleanor(object):
@@ -284,7 +281,6 @@ class Eleanor(object):
         kernel: AbstractKernel | None = None,
         navigator: NavigatorProtocol | None = None,
         output_sink: OutputSink | None = None,
-        transformers: "list[AbstractTransformer] | None" = None,
         **kwargs: Unpack[EleanorKwargs],
     ) -> list[int]:
         """Dispatch ``order`` against ``simulation_size`` VS points.
@@ -308,17 +304,6 @@ class Eleanor(object):
             parallel = default_parallel
         if chunks_per_worker is None:
             chunks_per_worker = default_chunks_per_worker
-        # Apply transformers before dispatch: they can rewrite order-scoped
-        # state, so dispatch must see the transformed order.
-        # ``effective_kernel`` captures the kernel used for this run: when
-        # transformers are applied it is loaded once here and reused for
-        # dispatch, so kernel construction happens at most once per
-        # ``run()`` call.
-        effective_kernel = kernel
-        if transformers is not None or len(order.transformers) != 0:
-            if effective_kernel is None:
-                effective_kernel = self.load_kernel(order, **kwargs)
-            order = transform(order, effective_kernel, overrides=transformers)
 
         with ExitStack() as stack:
             run_executor = stack.enter_context(
@@ -337,8 +322,8 @@ class Eleanor(object):
             if max_nav_attempts <= 0:
                 raise EleanorException("max_nav_attempts must be >= 1")
 
-            if effective_kernel is None:
-                effective_kernel = self.load_kernel(order, **kwargs)
+            if kernel is None:
+                kernel = self.load_kernel(order, **kwargs)
 
             if navigator is None:
                 from .navigator.registry import get_factory as get_navigator_factory
@@ -346,7 +331,7 @@ class Eleanor(object):
                 navigator_factory = get_navigator_factory(order.navigator.type)
                 version = resolve_api_version(navigator_factory)
                 try:
-                    built = navigator_factory(order, effective_kernel, **order.navigator.args)
+                    built = navigator_factory(order, kernel, **order.navigator.args)
                 except TypeError as e:
                     if not is_abstract_instantiation_error(e):
                         raise
@@ -396,7 +381,7 @@ class Eleanor(object):
 
             try:
                 outcomes = self.process(
-                    effective_kernel,
+                    kernel,
                     navigator,
                     simulation_size,
                     order.id,

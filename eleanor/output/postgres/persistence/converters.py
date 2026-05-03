@@ -91,11 +91,10 @@ def order_to_row(order: core_order.Order) -> dict[str, object]:
 class OrderRecord(object):
     """Read-side projection of an ``orders`` row.
 
-    The full ``Order`` dataclass tree is rich (suborders, transformers,
-    parameters); reconstructing it from a single row is more work than
-    the sink's read paths actually need. ``OrderRecord`` carries only the
-    fields :meth:`PostgresSink.begin_run` consults: identifying metadata
-    plus the raw config dict for any future EQL-driven re-parsing.
+    The full ``Order`` dataclass tree is rich; reconstructing it from a single
+    row is more work than the sink's read paths actually need. ``OrderRecord``
+    carries only the fields :meth:`PostgresSink.begin_run` consults: identifying
+    metadata plus the raw config dict for any future EQL-driven re-parsing.
     """
 
     id: int

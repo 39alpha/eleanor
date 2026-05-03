@@ -1,14 +1,14 @@
 """
 Generic plugin registry shared by all of eleanor's extension points.
 
-Each extension point (executor, kernel, navigator, output, transformer)
+Each extension point (executor, kernel, navigator, output)
 instantiates a :class:`PluginRegistry` seeded with the built-in factories it
 ships with, and consumers go through the registry instead of importing
 implementations directly. Third-party plugins advertise themselves through a
 per-extension ``eleanor.<kinds>`` entry-point group; see
 :mod:`eleanor.executor.registry`, :mod:`eleanor.kernel.registry`,
-:mod:`eleanor.navigator.registry`, :mod:`eleanor.output.registry`, and
-:mod:`eleanor.transformer.registry` for the concrete wiring.
+:mod:`eleanor.navigator.registry`, and :mod:`eleanor.output.registry` for the
+concrete wiring.
 
 The registry is generic over the factory shape of each extension point. The
 shared behaviour is:

@@ -110,7 +110,7 @@ class TestCheckApiVersion(TestCase):
         """
         with self.assertRaises(EleanorException):
             _ = check_api_version(
-                kind="transformer",
+                kind="navigator",
                 name="plugin",
                 declared=1,
                 current=3,
@@ -263,16 +263,15 @@ class TestPluginApiVersionsMap(TestCase):
 
     def test_includes_all_builtin_extension_points(self):
         """
-        Ensure the five built-in extension points are advertised.
+        Ensure the four built-in extension points are advertised.
         """
         # Importing the per-extension-point modules populates the map.
         import eleanor.executor  # noqa: F401
         import eleanor.kernel  # noqa: F401
         import eleanor.navigator  # noqa: F401
         import eleanor.output  # noqa: F401
-        import eleanor.transformer  # noqa: F401
 
-        for kind in ("executor", "kernel", "navigator", "output", "transformer"):
+        for kind in ("executor", "kernel", "navigator", "output"):
             self.assertIn(kind, PLUGIN_API_VERSIONS, msg=f"{kind} missing from PLUGIN_API_VERSIONS")
 
     def test_returns_current_floor_pair(self):

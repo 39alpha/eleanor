@@ -2,7 +2,7 @@
 title: Plugins
 ---
 
-Eleanor exposes five extension points that share a single plugin model: a
+Eleanor exposes four extension points that share a single plugin model: a
 generic in-process registry, lazy entry-point discovery, and a common
 collision/override policy. The registry primitive lives at
 `eleanor.plugin.PluginRegistry`; each extension point instantiates it with its
@@ -15,7 +15,6 @@ own factory shape and built-in seed set.
 | Executor      | `eleanor.executors`      | `Callable[[int | None], AbstractExecutor]`                  |
 | Kernel        | `eleanor.kernels`        | `KernelSpec` (or a zero-arg callable returning one)         |
 | Navigator     | `eleanor.navigators`     | `Callable[[Order, Kernel, **args], AbstractNavigator]`      |
-| Transformer   | `eleanor.transformers`   | `Callable[[**args], AbstractTransformer]`                   |
 | Output sink   | `eleanor.outputs`        | `Callable[[Config, **args], OutputSink]`                    |
 
 Output sink registries also forward `verbose` as an optional keyword argument
@@ -28,7 +27,7 @@ is set.
 
 ## Configuration shape
 
-Kernel, navigator, transformer, and output sink selection all use the same
+Kernel, navigator, and output sink selection all use the same
 `{type, args}` shape (with kernel
 deferring settings parsing to the plugin's `KernelSpec.settings_from_dict`):
 
@@ -42,11 +41,6 @@ kernel:
 navigator:
   type: random
   args: {seed: 42}
-
-transformers:
-  - type: my_transformer
-    args:
-      mode: campaign_defaults
 
 output:
   type: postgres
@@ -116,7 +110,6 @@ Every extension point supports two non-packaged registration paths:
        simulation_size,
        executor=MyExecutor(num_workers=4),
        navigator=my_navigator_instance,
-       transformers=[my_transformer_instance],
        kernel=my_kernel_instance,
        output_sink=my_output_sink_instance,
    )

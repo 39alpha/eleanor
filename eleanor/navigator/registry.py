@@ -11,8 +11,7 @@ Each registered factory is a callable invoked as
 block from the order file's ``navigator`` section. Factories are typed as
 ``Callable[..., object]`` so this module has no structural dependency on
 :mod:`eleanor.navigator` itself; callers validate the returned navigator
-against :class:`~eleanor.navigator.AbstractNavigator` (or the
-:class:`~eleanor.order.NavigatorProtocol` structural alternative) before use.
+against :class:`~eleanor.navigator.AbstractNavigator` before use.
 
 Navigator plugins declare API compatibility via a module- or function-level
 ``__eleanor_api_version__`` attribute. Registration checks this against this

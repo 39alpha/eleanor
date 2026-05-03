@@ -11,15 +11,14 @@ original traceback survives.
 from abc import ABC, abstractmethod
 from types import SimpleNamespace
 from unittest import mock
-
-from eleanor.eleanor import Eleanor
 from eleanor.exceptions import EleanorException
-from eleanor.executor import AbstractExecutor, build_executor
+from eleanor.executor import AbstractExecutor, load_executor
 from eleanor.executor.registry import registry as executor_registry
+from eleanor.kernel import load_kernel
 from eleanor.kernel.registry import KernelSpec, registry as kernel_registry
+from eleanor.navigator import load_navigator
 from eleanor.navigator.registry import registry as navigator_registry
-from eleanor.order import NavigatorProtocol  # noqa: F401
-from eleanor.output import OutputSink  # noqa: F401
+from eleanor.output import load_output_sink
 from eleanor.output.registry import registry as output_registry
 
 from .common import TestCase
@@ -44,9 +43,9 @@ class _RegistrySnapshot:
         self._registry._discovered = self._saved_discovered
 
 
-class TestBuildExecutorErrorWrapping(_RegistrySnapshot, TestCase):
+class TestLoadExecutorErrorWrapping(_RegistrySnapshot, TestCase):
     """
-    Tests of the use-site wrapper in :func:`eleanor.executor.build_executor`.
+    Tests of the use-site wrapper in :func:`eleanor.executor.load_executor`.
     """
 
     def setUp(self) -> None:
@@ -71,7 +70,7 @@ class TestBuildExecutorErrorWrapping(_RegistrySnapshot, TestCase):
         _stamp(factory, 1)
         executor_registry.register("incomplete", factory)
         with self.assertRaisesRegex(EleanorException, 'executor plugin "incomplete" failed to instantiate'):
-            _ = build_executor(kind="incomplete")
+            _ = load_executor(kind="incomplete")
 
     def test_abstract_subclass_typeerror_message_includes_api_version(self):
         """
@@ -87,7 +86,7 @@ class TestBuildExecutorErrorWrapping(_RegistrySnapshot, TestCase):
         _stamp(factory, 1)
         executor_registry.register("incomplete2", factory)
         with self.assertRaisesRegex(EleanorException, r"API v1"):
-            _ = build_executor(kind="incomplete2")
+            _ = load_executor(kind="incomplete2")
 
     def test_unrelated_typeerror_propagates(self):
         """
@@ -100,7 +99,7 @@ class TestBuildExecutorErrorWrapping(_RegistrySnapshot, TestCase):
         _stamp(factory, 1)
         executor_registry.register("typeerror", factory)
         with self.assertRaisesRegex(TypeError, "is not iterable"):
-            _ = build_executor(kind="typeerror")
+            _ = load_executor(kind="typeerror")
 
     def test_non_executor_return_is_rejected(self):
         """
@@ -113,12 +112,12 @@ class TestBuildExecutorErrorWrapping(_RegistrySnapshot, TestCase):
         _stamp(factory, 1)
         executor_registry.register("badreturn", factory)
         with self.assertRaisesRegex(EleanorException, "expected an AbstractExecutor"):
-            _ = build_executor(kind="badreturn")
+            _ = load_executor(kind="badreturn")
 
 
 class TestLoadKernelErrorWrapping(_RegistrySnapshot, TestCase):
     """
-    Tests of the use-site wrapper in :meth:`Eleanor.load_kernel`.
+    Tests of the use-site wrapper in :func:`eleanor.kernel.load_kernel`.
     """
 
     def setUp(self) -> None:
@@ -127,13 +126,6 @@ class TestLoadKernelErrorWrapping(_RegistrySnapshot, TestCase):
     def tearDown(self) -> None:
         self._restore()
 
-    def _make_eleanor(self) -> Eleanor:
-        config = SimpleNamespace(
-            database="db",
-            output=SimpleNamespace(type="postgres", args={}),
-            parallel=SimpleNamespace(backend="multiprocessing", chunks_per_worker=1),
-        )
-        return Eleanor(config, ["arg1"])
 
     def _make_order(self, kernel_type: str):
         return SimpleNamespace(
@@ -157,9 +149,8 @@ class TestLoadKernelErrorWrapping(_RegistrySnapshot, TestCase):
             plugin_api_version=1,
         )
         kernel_registry.register("flawed", spec)
-        eleanor = self._make_eleanor()
         with self.assertRaisesRegex(EleanorException, 'kernel plugin "flawed" failed to instantiate'):
-            _ = eleanor.load_kernel(self._make_order("flawed"))  # type: ignore[arg-type]
+            _ = load_kernel(self._make_order("flawed"), ["arg1"])  # type: ignore[arg-type]
 
     def test_unrelated_typeerror_propagates(self):
         """
@@ -175,14 +166,13 @@ class TestLoadKernelErrorWrapping(_RegistrySnapshot, TestCase):
             plugin_api_version=1,
         )
         kernel_registry.register("typeerror", spec)
-        eleanor = self._make_eleanor()
         with self.assertRaisesRegex(TypeError, "argument count mismatch"):
-            _ = eleanor.load_kernel(self._make_order("typeerror"))  # type: ignore[arg-type]
+            _ = load_kernel(self._make_order("typeerror"), ["arg1"])  # type: ignore[arg-type]
 
 
 class TestLoadOutputSinkErrorWrapping(_RegistrySnapshot, TestCase):
     """
-    Tests of the use-site wrapper in :meth:`Eleanor.load_output_sink`.
+    Tests of the use-site wrapper in :func:`eleanor.output.load_output_sink`.
     """
 
     def setUp(self) -> None:
@@ -191,13 +181,6 @@ class TestLoadOutputSinkErrorWrapping(_RegistrySnapshot, TestCase):
     def tearDown(self) -> None:
         self._restore()
 
-    def _make_eleanor(self, sink_type: str) -> Eleanor:
-        config = SimpleNamespace(
-            database="db",
-            output=SimpleNamespace(type=sink_type, args={}),
-            parallel=SimpleNamespace(backend="multiprocessing", chunks_per_worker=1),
-        )
-        return Eleanor(config, [])
 
     def test_abstract_subclass_typeerror_is_wrapped(self):
         """
@@ -214,9 +197,9 @@ class TestLoadOutputSinkErrorWrapping(_RegistrySnapshot, TestCase):
 
         _stamp(factory, 1)
         output_registry.register("flawed", factory)
-        eleanor = self._make_eleanor("flawed")
+        config = SimpleNamespace(output=SimpleNamespace(type="flawed", args={}))
         with self.assertRaisesRegex(EleanorException, 'output sink plugin "flawed" failed to instantiate'):
-            _ = eleanor.load_output_sink()
+            _ = load_output_sink(config)
 
     def test_unrelated_typeerror_propagates(self):
         """
@@ -228,18 +211,14 @@ class TestLoadOutputSinkErrorWrapping(_RegistrySnapshot, TestCase):
 
         _stamp(factory, 1)
         output_registry.register("typeerror", factory)
-        eleanor = self._make_eleanor("typeerror")
+        config = SimpleNamespace(output=SimpleNamespace(type="typeerror", args={}))
         with self.assertRaisesRegex(TypeError, "unsupported operand"):
-            _ = eleanor.load_output_sink()
+            _ = load_output_sink(config)
 
 
-class TestDispatchNavigatorErrorWrapping(_RegistrySnapshot, TestCase):
+class TestLoadNavigatorErrorWrapping(_RegistrySnapshot, TestCase):
     """
-    Tests of the navigator-loading wrapper reached via :meth:`Eleanor.run`.
-
-    ``run`` only reaches navigator construction when ``navigator`` is not
-    supplied; these tests pin kernel/executor/sink to minimal stubs so they
-    assert only on navigator-factory error handling.
+    Tests of the use-site wrapper in :func:`eleanor.navigator.load_navigator`.
     """
 
     def setUp(self) -> None:
@@ -248,22 +227,12 @@ class TestDispatchNavigatorErrorWrapping(_RegistrySnapshot, TestCase):
     def tearDown(self) -> None:
         self._restore()
 
-    def _make_eleanor(self, executor) -> Eleanor:
-        config = SimpleNamespace(
-            database="db",
-            output=SimpleNamespace(type="postgres", args={}),
-            parallel=SimpleNamespace(backend="multiprocessing", chunks_per_worker=1),
-        )
-        return Eleanor(config, [], executor=executor)
 
     def _order_with_navigator(self, navigator_type: str):
         return SimpleNamespace(
             navigator=SimpleNamespace(type=navigator_type, args={}),
             id=None,
         )
-
-    def _executor_stub(self):
-        return SimpleNamespace(num_workers=1)
 
     def test_abstract_subclass_typeerror_is_wrapped(self):
         """
@@ -275,16 +244,8 @@ class TestDispatchNavigatorErrorWrapping(_RegistrySnapshot, TestCase):
 
         _stamp(factory, 1)
         navigator_registry.register("flawed", factory)
-        executor = self._executor_stub()
-        eleanor = self._make_eleanor(executor)
-        sink = mock.Mock()
         with self.assertRaisesRegex(EleanorException, 'navigator plugin "flawed" failed to instantiate'):
-            _ = eleanor.run(
-                self._order_with_navigator("flawed"),  # type: ignore[arg-type]
-                simulation_size=1,
-                kernel=mock.Mock(),
-                output_sink=sink,
-            )
+            _ = load_navigator(self._order_with_navigator("flawed"), mock.Mock())  # type: ignore[arg-type]
 
     def test_unrelated_typeerror_propagates(self):
         """
@@ -296,13 +257,5 @@ class TestDispatchNavigatorErrorWrapping(_RegistrySnapshot, TestCase):
 
         _stamp(factory, 1)
         navigator_registry.register("typeerror", factory)
-        executor = self._executor_stub()
-        eleanor = self._make_eleanor(executor)
-        sink = mock.Mock()
         with self.assertRaisesRegex(TypeError, "unexpected keyword argument"):
-            _ = eleanor.run(
-                self._order_with_navigator("typeerror"),  # type: ignore[arg-type]
-                simulation_size=1,
-                kernel=mock.Mock(),
-                output_sink=sink,
-            )
+            _ = load_navigator(self._order_with_navigator("typeerror"), mock.Mock())  # type: ignore[arg-type]

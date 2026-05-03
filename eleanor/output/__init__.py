@@ -20,6 +20,8 @@ actually called.
 import warnings
 from typing import TYPE_CHECKING
 
+from ..exceptions import EleanorException
+from ..plugin import is_abstract_instantiation_error, resolve_api_version
 from .registry import (
     BUILTIN_OUTPUTS,
     ENTRY_POINT_GROUP,
@@ -31,6 +33,19 @@ from .registry import (
 )
 
 if TYPE_CHECKING:
+    from typing import Protocol
+
+    class _OutputConfig(Protocol):
+        @property
+        def type(self) -> str: ...
+
+        @property
+        def args(self) -> dict[str, object]: ...
+
+    class _LoaderConfig(Protocol):
+        @property
+        def output(self) -> _OutputConfig: ...
+
     from .csv import CsvSink as CsvSink
     from .interface import ComputeResult as ComputeResult
     from .interface import ErrorInfo as ErrorInfo
@@ -191,6 +206,29 @@ register_output("null", _build_null)
 register_output("postgres", _build_postgres)
 register_output("memory", _build_memory)
 
+
+def load_output_sink(config: "_LoaderConfig", verbose: bool = False) -> "OutputSink":
+    factory = get_factory(config.output.type)
+    version = resolve_api_version(factory)
+    try:
+        built = factory(config, verbose=verbose, **config.output.args)
+    except TypeError as e:
+        if not is_abstract_instantiation_error(e):
+            raise
+        version_suffix = "" if version is None else f" (API v{version})"
+        raise EleanorException(
+            f'output sink plugin "{config.output.type}" failed to instantiate{version_suffix}: {e}',
+        ) from e
+
+    from .interface import OutputSink
+
+    if not isinstance(built, OutputSink):
+        raise EleanorException(
+            f'output sink plugin "{config.output.type}" returned ' + f"{type(built).__name__}, expected an OutputSink",
+        )
+    return built
+
+
 __all__ = [
     "BUILTIN_OUTPUTS",
     "CsvSink",
@@ -207,5 +245,6 @@ __all__ = [
     "WriteOutcome",
     "available_outputs",
     "get_factory",
+    "load_output_sink",
     "register_output",
 ]

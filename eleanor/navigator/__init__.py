@@ -7,9 +7,11 @@ from typing import override
 import eleanor.variable_space as vs
 
 from ..constraints import Boatswain
+from ..exceptions import EleanorException
 from ..kernel.interface import AbstractKernel
 from ..order import Order
 from ..parameters import Parameter, ValueParameter
+from ..plugin import is_abstract_instantiation_error, resolve_api_version
 from ..typing import Callable, Generator, cast
 
 
@@ -154,6 +156,27 @@ register_navigator("random", _builtin_navigator(Random))
 register_navigator("random_lattice", _builtin_navigator(RandomLattice))
 register_navigator("lattice", _builtin_navigator(Lattice))
 
+
+def load_navigator(order: Order, kernel: AbstractKernel) -> AbstractNavigator:
+    navigator_factory = get_factory(order.navigator.type)
+    version = resolve_api_version(navigator_factory)
+    try:
+        built = navigator_factory(order, kernel, **order.navigator.args)
+    except TypeError as e:
+        if not is_abstract_instantiation_error(e):
+            raise
+        version_suffix = "" if version is None else f" (API v{version})"
+        raise EleanorException(
+            f'navigator plugin "{order.navigator.type}" failed to instantiate{version_suffix}: {e}',
+        ) from e
+    if not isinstance(built, AbstractNavigator):
+        raise EleanorException(
+            f'navigator plugin "{order.navigator.type}" returned '
+            + f"{type(built).__name__}, expected an AbstractNavigator",
+        )
+    return built
+
+
 __all__ = [
     "AbstractNavigator",
     "BUILTIN_NAVIGATORS",
@@ -166,5 +189,6 @@ __all__ = [
     "RandomLattice",
     "available_navigators",
     "get_factory",
+    "load_navigator",
     "register_navigator",
 ]

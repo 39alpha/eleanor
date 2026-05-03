@@ -25,7 +25,7 @@ __all__ = [
     "OVERRIDE_ENV_VAR",
     "SerialExecutor",
     "available_executors",
-    "build_executor",
+    "load_executor",
     "get_factory",
     "register_executor",
 ]
@@ -61,7 +61,7 @@ register_executor("serial", _build_serial)
 register_executor("multiprocessing", _build_multiprocessing)
 
 
-def build_executor(kind: str = "multiprocessing", *, num_workers: int | None = None) -> AbstractExecutor:
+def load_executor(kind: str = "multiprocessing", *, num_workers: int | None = None) -> AbstractExecutor:
     """Construct an :class:`AbstractExecutor` for the given executor name.
 
     :param kind: the executor name. Must be one of :func:`available_executors`,

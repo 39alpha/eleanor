@@ -138,12 +138,12 @@ class TestCLIRun(TestCase):
         with (
             mock.patch("eleanor.cli.run.config_from_args", return_value=config),
             mock.patch("eleanor.cli.run.load_order", return_value=fake_order),
-            mock.patch("eleanor.cli.run.build_executor", return_value=executor) as build_executor,
+            mock.patch("eleanor.cli.run.load_executor", return_value=executor) as load_executor,
             mock.patch("eleanor.cli.run.Eleanor", return_value=eleanor) as eleanor_cls,
         ):
             run_cli.execute(parser, ns)
 
-        build_executor.assert_called_once_with(kind="serial", num_workers=3)
+        load_executor.assert_called_once_with(kind="serial", num_workers=3)
         eleanor_cls.assert_called_once_with(config, [], executor=executor)
         eleanor.run.assert_called_once_with(
             fake_order,
@@ -172,12 +172,12 @@ class TestCLIRun(TestCase):
         with (
             mock.patch("eleanor.cli.run.config_from_args", return_value=config),
             mock.patch("eleanor.cli.run.load_order", return_value=fake_order),
-            mock.patch("eleanor.cli.run.build_executor", return_value=executor) as build_executor,
+            mock.patch("eleanor.cli.run.load_executor", return_value=executor) as load_executor,
             mock.patch("eleanor.cli.run.Eleanor", return_value=eleanor) as eleanor_cls,
         ):
             run_cli.execute(parser, ns)
 
-        build_executor.assert_called_once_with(kind="serial", num_workers=None)
+        load_executor.assert_called_once_with(kind="serial", num_workers=None)
         eleanor_cls.assert_called_once_with(config, [], executor=executor)
         self.assertEqual(eleanor.run.call_args.kwargs["parallel"], "serial")
         self.assertEqual(eleanor.run.call_args.kwargs["chunks_per_worker"], 9)
@@ -197,13 +197,13 @@ class TestCLIRun(TestCase):
         with (
             mock.patch("eleanor.cli.run.config_from_args", return_value=config) as config_from_args,
             mock.patch("eleanor.cli.run.load_order", return_value=fake_order),
-            mock.patch("eleanor.cli.run.build_executor", return_value=executor) as build_executor,
+            mock.patch("eleanor.cli.run.load_executor", return_value=executor) as load_executor,
             mock.patch("eleanor.cli.run.Eleanor", return_value=eleanor) as eleanor_cls,
         ):
             run_cli.execute(parser, ns)
 
         config_from_args.assert_called_once_with(parser, mock.ANY, require_database=False)
-        build_executor.assert_called_once_with(kind="serial", num_workers=None)
+        load_executor.assert_called_once_with(kind="serial", num_workers=None)
         eleanor_cls.assert_called_once_with(config, [], executor=executor)
         self.assertIsInstance(eleanor.run.call_args.kwargs["output_sink"], NullSink)
 
@@ -221,7 +221,7 @@ class TestCLIRun(TestCase):
         with (
             mock.patch("eleanor.cli.run.config_from_args", return_value=config),
             mock.patch("eleanor.cli.run.load_order", return_value=fake_order),
-            mock.patch("eleanor.cli.run.build_executor", return_value=executor),
+            mock.patch("eleanor.cli.run.load_executor", return_value=executor),
             mock.patch("eleanor.cli.run.Eleanor", return_value=eleanor),
         ):
             run_cli.execute(parser, ns)
@@ -241,7 +241,7 @@ class TestCLIRun(TestCase):
         with (
             mock.patch("eleanor.cli.run.config_from_args", return_value=config),
             mock.patch("eleanor.cli.run.load_order", return_value=fake_order),
-            mock.patch("eleanor.cli.run.build_executor"),
+            mock.patch("eleanor.cli.run.load_executor"),
             mock.patch("eleanor.cli.run.Eleanor", return_value=eleanor),
         ):
             run_cli.execute(parser, ns)
@@ -295,12 +295,12 @@ class TestCLIRun(TestCase):
         with (
             mock.patch("eleanor.cli.run.config_from_args", return_value=config),
             mock.patch("eleanor.cli.run.load_order", return_value=fake_order),
-            mock.patch("eleanor.cli.run.build_executor", return_value=executor) as build_executor,
+            mock.patch("eleanor.cli.run.load_executor", return_value=executor) as load_executor,
             mock.patch("eleanor.cli.run.Eleanor", return_value=eleanor) as eleanor_cls,
         ):
             run_cli.execute(parser, ns)
 
-        build_executor.assert_called_once_with(kind="multiprocessing", num_workers=None)
+        load_executor.assert_called_once_with(kind="multiprocessing", num_workers=None)
         eleanor_cls.assert_called_once_with(config, [], executor=executor)
         self.assertEqual(fake_order.id, 321)
         self.assertIs(eleanor.run.call_args.args[0], fake_order)
@@ -319,12 +319,12 @@ class TestCLIRun(TestCase):
         with (
             mock.patch("eleanor.cli.run.config_from_args", return_value=config),
             mock.patch("eleanor.cli.run.load_order", return_value=fake_order),
-            mock.patch("eleanor.cli.run.build_executor", return_value=executor) as build_executor,
+            mock.patch("eleanor.cli.run.load_executor", return_value=executor) as load_executor,
             mock.patch("eleanor.cli.run.Eleanor", return_value=eleanor) as eleanor_cls,
         ):
             run_cli.execute(parser, ns)
 
-        build_executor.assert_called_once_with(kind="multiprocessing", num_workers=None)
+        load_executor.assert_called_once_with(kind="multiprocessing", num_workers=None)
         eleanor_cls.assert_called_once_with(config, [], executor=executor)
         self.assertEqual(fake_order.tag, "experiment-1")
         self.assertIs(eleanor.run.call_args.args[0], fake_order)
@@ -358,7 +358,7 @@ class TestCLIRun(TestCase):
             with (
                 mock.patch("eleanor.cli.run.config_from_args", return_value=config),
                 mock.patch("eleanor.cli.run.load_order", return_value=fake_order),
-                mock.patch("eleanor.cli.run.build_executor", return_value=executor) as build_executor,
+                mock.patch("eleanor.cli.run.load_executor", return_value=executor) as load_executor,
                 mock.patch("eleanor.cli.run.Eleanor", return_value=eleanor) as eleanor_cls,
             ):
                 run_cli.execute(parser, ns)
@@ -367,7 +367,7 @@ class TestCLIRun(TestCase):
             registry.registry._registry.update(saved_entries)
             registry.registry._discovered = saved_discovered
 
-        build_executor.assert_called_once_with(kind="plugin", num_workers=None)
+        load_executor.assert_called_once_with(kind="plugin", num_workers=None)
         eleanor_cls.assert_called_once_with(config, [], executor=executor)
         self.assertEqual(eleanor.run.call_args.kwargs["parallel"], "plugin")
 
@@ -386,12 +386,12 @@ class TestCLIRun(TestCase):
         with (
             mock.patch("eleanor.cli.run.config_from_args", return_value=config),
             mock.patch("eleanor.cli.run.load_order", return_value=fake_order),
-            mock.patch("eleanor.cli.run.build_executor", return_value=executor) as build_executor,
+            mock.patch("eleanor.cli.run.load_executor", return_value=executor) as load_executor,
             mock.patch("eleanor.cli.run.Eleanor", return_value=eleanor) as eleanor_cls,
         ):
             run_cli.execute(parser, ns)
 
-        build_executor.assert_called_once_with(kind="serial", num_workers=5)
+        load_executor.assert_called_once_with(kind="serial", num_workers=5)
         executor.__enter__.assert_called_once_with()
         executor.__exit__.assert_called_once_with(None, None, None)
         eleanor_cls.assert_called_once_with(config, [], executor=executor)

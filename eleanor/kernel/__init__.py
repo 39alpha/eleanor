@@ -16,9 +16,18 @@ The heavy dependencies of each built-in (for example eq36's numpy / Fortran
 :mod:`eleanor.kernel` does not drag them in.
 """
 
-from eleanor.exceptions import EleanorException
+from typing import TYPE_CHECKING
 
-from .registry import KernelSpec, register_kernel
+from eleanor.exceptions import EleanorException
+from eleanor.plugin import is_abstract_instantiation_error
+
+from .registry import KernelSpec, get_factory, register_kernel
+
+if TYPE_CHECKING:
+    from eleanor.order import Order
+    from eleanor.typing import EleanorKwargs, Unpack
+
+    from .interface import AbstractKernel
 
 
 def _build_eq36_settings(raw: dict[str, object]) -> object:
@@ -69,3 +78,29 @@ register_kernel(
         plugin_api_version=1,
     ),
 )
+
+
+def load_kernel(
+    order: "Order",
+    kernel_args: list[object],
+    **kwargs: "Unpack[EleanorKwargs]",
+) -> "AbstractKernel":
+    spec = get_factory(order.kernel.type)
+    settings = order.kernel.resolved_settings()
+    try:
+        kernel = spec.build(settings, *kernel_args)
+    except TypeError as e:
+        if not is_abstract_instantiation_error(e):
+            raise
+        raise EleanorException(
+            f'kernel plugin "{order.kernel.type}" failed to instantiate ' + f"(API v{spec.plugin_api_version}): {e}",
+        ) from e
+    from .interface import AbstractKernel
+
+    if not isinstance(kernel, AbstractKernel):
+        raise EleanorException(
+            f'kernel plugin "{order.kernel.type}" returned ' + f"{type(kernel).__name__}, expected an AbstractKernel",
+        )
+    kernel.setup(order, **kwargs)
+    kernel.validate_order(order)
+    return kernel

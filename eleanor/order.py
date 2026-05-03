@@ -1,14 +1,12 @@
 import json
 import os.path
 import tomllib
-from collections.abc import Iterator
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Protocol, TypedDict, final, runtime_checkable
+from typing import TypedDict, final
 
 import yaml
 
-import eleanor.variable_space as vs
 from eleanor.variable_space import Point as VSPoint
 
 from .exceptions import EleanorException
@@ -114,20 +112,6 @@ def load_kernel_settings(kernel_raw: KernelRaw) -> tuple[str, KernelSettings]:
     kernel_args_items = cast(dict[object, object], kernel_args_raw).items()
     kernel_args: dict[str, object] = {str(k): v for k, v in kernel_args_items}
     return kernel_type, resolve_kernel_settings(kernel_type, kernel_args)
-
-
-@runtime_checkable
-class NavigatorProtocol(Protocol):
-    """Structural protocol for navigator plugins.
-
-    :meth:`navigate` and :meth:`num_systems` are verified by the
-    ``isinstance`` check performed after a navigator factory returns
-    (see :meth:`Eleanor.run` in :mod:`eleanor.eleanor`).
-    """
-
-    def navigate(self, scale: int, batch_size: int, *args: object, **kwargs: object) -> Iterator[list[vs.Point]]: ...
-
-    def num_systems(self, scale: int) -> int: ...
 
 
 @dataclass

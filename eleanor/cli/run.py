@@ -4,7 +4,7 @@ from traceback import print_exception
 from eleanor import Eleanor
 from eleanor.cli.util import ConfigArgs, add_config_args, config_from_args, typed_args
 from eleanor.exceptions import EleanorException
-from eleanor.executor import available_executors, build_executor
+from eleanor.executor import available_executors, load_executor
 from eleanor.order import load_order
 from eleanor.output.null import NullConfig, NullSink
 
@@ -125,7 +125,7 @@ def execute(parser: argparse.ArgumentParser, ns: argparse.Namespace) -> None:
 
         output_sink = NullSink(NullConfig(support_worker_writes=parallel != "serial")) if null_sink else None
 
-        with build_executor(kind=parallel, num_workers=args["num_procs"]) as executor:
+        with load_executor(kind=parallel, num_workers=args["num_procs"]) as executor:
             with Eleanor(config, kernel_args, executor=executor) as eleanor:
                 order_ids = eleanor.run(
                     order,

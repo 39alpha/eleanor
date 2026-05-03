@@ -8,13 +8,13 @@ from eleanor.sailor import Sailor
 
 from .config import Config
 from .exceptions import EleanorException
-from .executor import AbstractExecutor, AbstractFuture, build_executor
+from .executor import AbstractExecutor, AbstractFuture, load_executor
+from .kernel import load_kernel
 from .kernel.interface import AbstractKernel
-from .kernel.registry import get_factory as get_kernel_spec
-from .order import NavigatorProtocol, Order
+from .navigator import AbstractNavigator, load_navigator
+from .order import Order
+from .output import load_output_sink
 from .output.interface import ComputeResult, OutputSink, RunStats, WriteOutcome
-from .output.registry import get_factory as get_output_factory
-from .plugin import is_abstract_instantiation_error, resolve_api_version
 from .progress import ManagedProgressHandle, Progress, ProgressHandle
 from .typing import EleanorKwargs, Self, Unpack, cast
 from .util import chunks
@@ -100,7 +100,7 @@ class Eleanor(object):
         """
         if self._executor_override is None:
             parallel, _ = self._parallel_defaults()
-            self._executor = build_executor(kind=parallel, num_workers=self.num_procs)
+            self._executor = load_executor(kind=parallel, num_workers=self.num_procs)
             _ = self._executor.__enter__()
         self._entered = True
         return self
@@ -175,7 +175,7 @@ class Eleanor(object):
         if self._entered and self._executor is not None:
             yield self._executor
             return
-        with build_executor(kind=parallel, num_workers=self.num_procs) as executor:
+        with load_executor(kind=parallel, num_workers=self.num_procs) as executor:
             yield executor
 
     @contextmanager
@@ -251,15 +251,14 @@ class Eleanor(object):
 
         if self._entered:
             if self._output_sink is None:
-                self._output_sink = self.load_output_sink(verbose=verbose)
+                self._output_sink = load_output_sink(self.config, verbose=verbose)
                 self._output_sink.initialize()
             try:
                 yield self._output_sink
             finally:
                 self._output_sink.finalize_run()
             return
-
-        sink = self.load_output_sink(verbose=verbose)
+        sink = load_output_sink(self.config, verbose=verbose)
         sink.initialize()
         try:
             yield sink
@@ -279,7 +278,7 @@ class Eleanor(object):
         batch_size: int | None = None,
         max_nav_attempts: int = 1,
         kernel: AbstractKernel | None = None,
-        navigator: NavigatorProtocol | None = None,
+        navigator: AbstractNavigator | None = None,
         output_sink: OutputSink | None = None,
         **kwargs: Unpack[EleanorKwargs],
     ) -> list[int]:
@@ -323,30 +322,10 @@ class Eleanor(object):
                 raise EleanorException("max_nav_attempts must be >= 1")
 
             if kernel is None:
-                kernel = self.load_kernel(order, **kwargs)
+                kernel = load_kernel(order, self.kernel_args, **kwargs)
 
             if navigator is None:
-                from .navigator.registry import get_factory as get_navigator_factory
-
-                navigator_factory = get_navigator_factory(order.navigator.type)
-                version = resolve_api_version(navigator_factory)
-                try:
-                    built = navigator_factory(order, kernel, **order.navigator.args)
-                except TypeError as e:
-                    if not is_abstract_instantiation_error(e):
-                        raise
-                    version_suffix = "" if version is None else f" (API v{version})"
-                    raise EleanorException(
-                        f'navigator plugin "{order.navigator.type}" failed to instantiate{version_suffix}: {e}',
-                    ) from e
-                if not isinstance(built, NavigatorProtocol):
-                    raise EleanorException(
-                        f'navigator plugin "{order.navigator.type}" returned '
-                        + f"{type(built).__name__}, expected an AbstractNavigator",
-                    )
-                navigator = built
-
-            assert navigator is not None
+                navigator = load_navigator(order, kernel)
             expected_total = navigator.num_systems(simulation_size)
             if expected_total <= 0:
                 raise EleanorException(
@@ -416,7 +395,7 @@ class Eleanor(object):
     def process(
         self,
         kernel: AbstractKernel,
-        navigator: NavigatorProtocol,
+        navigator: AbstractNavigator,
         simulation_size: int,
         order_id: int,
         *args: object,
@@ -570,44 +549,3 @@ class Eleanor(object):
             )
 
         return outcomes
-
-    def load_output_sink(self, verbose: bool = False) -> OutputSink:
-        factory = get_output_factory(self.config.output.type)
-        version = resolve_api_version(factory)
-        try:
-            built = factory(self.config, verbose=verbose, **self.config.output.args)
-        except TypeError as e:
-            if not is_abstract_instantiation_error(e):
-                raise
-            version_suffix = "" if version is None else f" (API v{version})"
-            raise EleanorException(
-                f'output sink plugin "{self.config.output.type}" failed to instantiate{version_suffix}: {e}',
-            ) from e
-        if not isinstance(built, OutputSink):
-            raise EleanorException(
-                f'output sink plugin "{self.config.output.type}" returned '
-                + f"{type(built).__name__}, expected an OutputSink",
-            )
-        return built
-
-    def load_kernel(self, order: Order, **kwargs: Unpack[EleanorKwargs]) -> AbstractKernel:
-        spec = get_kernel_spec(order.kernel.type)
-        settings = order.kernel.resolved_settings()
-        try:
-            kernel = spec.build(settings, *self.kernel_args)
-        except TypeError as e:
-            if not is_abstract_instantiation_error(e):
-                raise
-            raise EleanorException(
-                f'kernel plugin "{order.kernel.type}" failed to instantiate '
-                + f"(API v{spec.plugin_api_version}): {e}",
-            ) from e
-        if not isinstance(kernel, AbstractKernel):
-            raise EleanorException(
-                f'kernel plugin "{order.kernel.type}" returned '
-                + f"{type(kernel).__name__}, expected an AbstractKernel",
-            )
-        kernel.setup(order, **kwargs)
-        kernel.validate_order(order)
-
-        return kernel

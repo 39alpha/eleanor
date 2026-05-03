@@ -3,7 +3,8 @@ from unittest import mock
 
 from eleanor.eleanor import Eleanor
 from eleanor.exceptions import EleanorException
-from eleanor.output import ComputeResult, OutputSink, WriteOutcome
+from eleanor.kernel import load_kernel
+from eleanor.output import ComputeResult, OutputSink, WriteOutcome, load_output_sink
 
 from .common import TestCase
 
@@ -110,9 +111,9 @@ class TestEleanorConstruction(TestCase):
         manager = mock.Mock()
         sink = mock.Mock()
 
-        with mock.patch("eleanor.eleanor.build_executor", return_value=executor) as build_executor:
+        with mock.patch("eleanor.eleanor.load_executor", return_value=executor) as load_executor:
             with eleanor:
-                build_executor.assert_called_once_with(kind="multiprocessing", num_workers=None)
+                load_executor.assert_called_once_with(kind="multiprocessing", num_workers=None)
                 self.assertIs(eleanor._executor, executor)
                 eleanor._manager = manager
                 eleanor._output_sink = sink
@@ -132,8 +133,8 @@ class TestEleanorConstruction(TestCase):
         eleanor.process = mock.Mock(side_effect=RuntimeError("dispatch failed"))
 
         with (
-            mock.patch("eleanor.eleanor.build_executor", return_value=session_executor),
-            mock.patch.object(Eleanor, "load_output_sink", return_value=sink),
+            mock.patch("eleanor.eleanor.load_executor", return_value=session_executor),
+             mock.patch("eleanor.eleanor.load_output_sink", return_value=sink),
         ):
             with self.assertRaisesRegex(RuntimeError, "dispatch failed"):
                 with eleanor:
@@ -157,10 +158,10 @@ class TestEleanorConstruction(TestCase):
         eleanor.process = mock.Mock(return_value=[])
 
         with (
-            mock.patch("eleanor.eleanor.build_executor", return_value=executor),
+            mock.patch("eleanor.eleanor.load_executor", return_value=executor),
             mock.patch("eleanor.eleanor.Manager", return_value=manager),
             mock.patch("eleanor.eleanor.Progress", return_value=progress),
-            mock.patch.object(Eleanor, "load_output_sink", return_value=sink),
+            mock.patch("eleanor.eleanor.load_output_sink", return_value=sink),
             self.assertRaisesRegex(RuntimeError, "sink finalize failed"),
         ):
             eleanor.run(order, 5, kernel=mock.Mock(), navigator=_navigator(1), show_progress=True)
@@ -183,14 +184,14 @@ class TestEleanorRun(TestCase):
         eleanor.process = mock.Mock(return_value=[])
 
         with (
-            mock.patch("eleanor.eleanor.build_executor", return_value=executor) as build_executor,
-            mock.patch.object(Eleanor, "load_output_sink", return_value=sink) as load_sink,
+            mock.patch("eleanor.eleanor.load_executor", return_value=executor) as load_executor,
+            mock.patch("eleanor.eleanor.load_output_sink", return_value=sink) as load_sink,
         ):
             out = eleanor.run(order, 5, kernel=mock.Mock(), navigator=_navigator(1))
 
         self.assertEqual(out, [7])
-        build_executor.assert_called_once_with(kind="multiprocessing", num_workers=None)
-        load_sink.assert_called_once_with(verbose=False)
+        load_executor.assert_called_once_with(kind="multiprocessing", num_workers=None)
+        load_sink.assert_called_once_with(eleanor.config, verbose=False)
         sink.finalize.assert_called_once()
         executor.shutdown.assert_called_once_with(wait=True)
 
@@ -212,8 +213,8 @@ class TestEleanorRun(TestCase):
         eleanor.process = mock.Mock(side_effect=process)
 
         with (
-            mock.patch("eleanor.eleanor.build_executor", return_value=session_executor),
-            mock.patch.object(Eleanor, "load_output_sink", return_value=sink),
+            mock.patch("eleanor.eleanor.load_executor", return_value=session_executor),
+            mock.patch("eleanor.eleanor.load_output_sink", return_value=sink),
         ):
             with eleanor:
                 _ = eleanor.run(order1, 5, kernel=mock.Mock(), navigator=_navigator(1))
@@ -235,8 +236,8 @@ class TestEleanorRun(TestCase):
         eleanor.process = mock.Mock(return_value=[])
 
         with (
-            mock.patch("eleanor.eleanor.build_executor", return_value=_FakeExecutor()),
-            mock.patch.object(Eleanor, "load_output_sink", return_value=sink),
+            mock.patch("eleanor.eleanor.load_executor", return_value=_FakeExecutor()),
+            mock.patch("eleanor.eleanor.load_output_sink", return_value=sink),
         ):
             _ = eleanor.run(order, 4, kernel=mock.Mock(), navigator=_navigator(1))
 
@@ -257,8 +258,8 @@ class TestEleanorRun(TestCase):
         sink.supports_progress.return_value = False
 
         with (
-            mock.patch("eleanor.eleanor.build_executor", return_value=_FakeExecutor()),
-            mock.patch.object(Eleanor, "load_output_sink", return_value=sink),
+            mock.patch("eleanor.eleanor.load_executor", return_value=_FakeExecutor()),
+            mock.patch("eleanor.eleanor.load_output_sink", return_value=sink),
             self.assertRaisesRegex(EleanorException, "num_systems.*must be >= 1"),
         ):
             eleanor.run(_leaf_order(), 10, kernel=mock.Mock(), navigator=navigator)
@@ -270,8 +271,8 @@ class TestEleanorRun(TestCase):
         sink.supports_progress.return_value = False
 
         with (
-            mock.patch("eleanor.eleanor.build_executor", return_value=_FakeExecutor()),
-            mock.patch.object(Eleanor, "load_output_sink", return_value=sink),
+            mock.patch("eleanor.eleanor.load_executor", return_value=_FakeExecutor()),
+            mock.patch("eleanor.eleanor.load_output_sink", return_value=sink),
             self.assertRaisesRegex(EleanorException, "batch_size must be >= 1"),
         ):
             eleanor.run(_leaf_order(), 10, kernel=mock.Mock(), navigator=_navigator(5), batch_size=0)
@@ -293,9 +294,9 @@ class TestEleanorRun(TestCase):
         eleanor.process = mock.Mock(return_value=[])
 
         with (
-            mock.patch("eleanor.eleanor.build_executor", return_value=executor),
+            mock.patch("eleanor.eleanor.load_executor", return_value=executor),
             mock.patch("eleanor.eleanor.Manager", return_value=manager),
-            mock.patch.object(Eleanor, "load_output_sink", return_value=quiet_sink),
+            mock.patch("eleanor.eleanor.load_output_sink", return_value=quiet_sink),
             mock.patch("eleanor.eleanor.Progress", return_value=progress_quiet),
         ):
             eleanor.run(_leaf_order(), 3, kernel=kernel, navigator=navigator, show_progress=True)
@@ -313,9 +314,9 @@ class TestEleanorRun(TestCase):
         eleanor.process = mock.Mock(return_value=[])
 
         with (
-            mock.patch("eleanor.eleanor.build_executor", return_value=executor),
+            mock.patch("eleanor.eleanor.load_executor", return_value=executor),
             mock.patch("eleanor.eleanor.Manager", return_value=manager),
-            mock.patch.object(Eleanor, "load_output_sink", return_value=loud_sink),
+            mock.patch("eleanor.eleanor.load_output_sink", return_value=loud_sink),
             mock.patch("eleanor.eleanor.Progress", return_value=progress_loud),
         ):
             eleanor.run(_leaf_order(), 3, kernel=kernel, navigator=navigator, show_progress=True)
@@ -336,8 +337,8 @@ class TestEleanorRun(TestCase):
         eleanor.process = mock.Mock(side_effect=RuntimeError("boom"))
 
         with (
-            mock.patch("eleanor.eleanor.build_executor", return_value=_FakeExecutor()),
-            mock.patch.object(Eleanor, "load_output_sink", return_value=sink),
+            mock.patch("eleanor.eleanor.load_executor", return_value=_FakeExecutor()),
+            mock.patch("eleanor.eleanor.load_output_sink", return_value=sink),
             mock.patch("eleanor.eleanor.Progress", return_value=progress),
             self.assertRaises(RuntimeError),
         ):
@@ -356,8 +357,8 @@ class TestEleanorRun(TestCase):
         eleanor.process = mock.Mock(return_value=[])
 
         with (
-            mock.patch("eleanor.eleanor.build_executor", return_value=_FakeExecutor()),
-            mock.patch.object(Eleanor, "load_output_sink", return_value=sink),
+            mock.patch("eleanor.eleanor.load_executor", return_value=_FakeExecutor()),
+            mock.patch("eleanor.eleanor.load_output_sink", return_value=sink),
         ):
             _ = eleanor.run(_leaf_order(), 10, batch_size=50, kernel=mock.Mock(), navigator=_navigator(50))
 
@@ -372,8 +373,8 @@ class TestEleanorRun(TestCase):
         eleanor.process = mock.Mock(return_value=[])
 
         with (
-            mock.patch("eleanor.eleanor.build_executor", return_value=_FakeExecutor()),
-            mock.patch.object(Eleanor, "load_output_sink", return_value=sink),
+            mock.patch("eleanor.eleanor.load_executor", return_value=_FakeExecutor()),
+            mock.patch("eleanor.eleanor.load_output_sink", return_value=sink),
         ):
             _ = eleanor.run(_leaf_order(), 3, kernel=mock.Mock(), navigator=_navigator(7))
 
@@ -387,8 +388,8 @@ class TestEleanorRun(TestCase):
         eleanor.process = mock.Mock(return_value=[])
 
         with (
-            mock.patch("eleanor.eleanor.build_executor", return_value=_FakeExecutor()),
-            mock.patch.object(Eleanor, "load_output_sink", return_value=sink),
+            mock.patch("eleanor.eleanor.load_executor", return_value=_FakeExecutor()),
+            mock.patch("eleanor.eleanor.load_output_sink", return_value=sink),
         ):
             _ = eleanor.run(_leaf_order(), 3, max_nav_attempts=4, kernel=mock.Mock(), navigator=_navigator(7))
 
@@ -401,8 +402,8 @@ class TestEleanorRun(TestCase):
         sink.supports_progress.return_value = False
 
         with (
-            mock.patch("eleanor.eleanor.build_executor", return_value=_FakeExecutor()),
-            mock.patch.object(Eleanor, "load_output_sink", return_value=sink),
+            mock.patch("eleanor.eleanor.load_executor", return_value=_FakeExecutor()),
+            mock.patch("eleanor.eleanor.load_output_sink", return_value=sink),
             self.assertRaisesRegex(EleanorException, "max_nav_attempts must be >= 1"),
         ):
             eleanor.run(_leaf_order(), 10, kernel=mock.Mock(), navigator=_navigator(5), max_nav_attempts=0)
@@ -413,14 +414,15 @@ class TestEleanorRun(TestCase):
         provided_sink = mock.Mock()
         provided_sink.begin_run.return_value = 7
         provided_sink.supports_progress.return_value = False
-        eleanor.load_output_sink = mock.Mock()
         eleanor.process = mock.Mock(return_value=[])
-
-        with mock.patch("eleanor.eleanor.build_executor", return_value=_FakeExecutor()):
+        with (
+            mock.patch("eleanor.eleanor.load_executor", return_value=_FakeExecutor()),
+            mock.patch("eleanor.eleanor.load_output_sink") as load_sink,
+        ):
             out = eleanor.run(_leaf_order(), 1, output_sink=provided_sink, kernel=mock.Mock(), navigator=_navigator(1))
 
         self.assertEqual(out, [7])
-        eleanor.load_output_sink.assert_not_called()
+        load_sink.assert_not_called()
         provided_sink.finalize.assert_called_once()
 
 
@@ -646,44 +648,46 @@ class TestEleanorProcess(TestCase):
 
 
 class TestEleanorLoaders(TestCase):
-    """Tests covering ``Eleanor.load_output_sink`` and ``Eleanor.load_kernel``."""
+    """Tests covering module-level plugin loader helpers."""
 
     def test_load_output_sink_uses_registry_factory_and_args(self):
         """Ensure load_output_sink resolves configured factory and output args."""
-        eleanor = _make_eleanor()
-        eleanor.config.output = SimpleNamespace(type="plugin", args={"mode": "append"})
+        config = SimpleNamespace(
+            output=SimpleNamespace(type="plugin", args={"mode": "append"}),
+        )
 
         class _Sink(OutputSink):
             def begin_run(self, order):
                 _ = order
+                return 1
 
-            def write_batch(self, order_id, results):
+            def write_batch(self, order_id, results, progress=None):
                 _ = order_id
                 _ = results
+                _ = progress
                 return []
 
             def finalize_run(self):
                 return None
 
         factory = mock.Mock(return_value=_Sink())
-        with mock.patch("eleanor.eleanor.get_output_factory", return_value=factory) as get_factory_mock:
-            sink = eleanor.load_output_sink(verbose=True)
+        with mock.patch("eleanor.output.get_factory", return_value=factory) as get_factory_mock:
+            sink = load_output_sink(config, verbose=True)
 
         self.assertIsInstance(sink, OutputSink)
         get_factory_mock.assert_called_once_with("plugin")
-        factory.assert_called_once_with(eleanor.config, verbose=True, mode="append")
+        factory.assert_called_once_with(config, verbose=True, mode="append")
 
     def test_load_output_sink_rejects_invalid_plugin_return(self):
         """Ensure load_output_sink enforces OutputSink return type."""
-        eleanor = _make_eleanor()
-        eleanor.config.output = SimpleNamespace(type="plugin", args={})
+        config = SimpleNamespace(output=SimpleNamespace(type="plugin", args={}))
         factory = mock.Mock(return_value=object())
 
         with (
-            mock.patch("eleanor.eleanor.get_output_factory", return_value=factory),
+            mock.patch("eleanor.output.get_factory", return_value=factory),
             self.assertRaisesRegex(EleanorException, "expected an OutputSink"),
         ):
-            eleanor.load_output_sink()
+            _ = load_output_sink(config)
 
     def test_load_kernel_constructs_and_sets_up_kernel(self):
         """Ensure load_kernel delegates to spec.build/setup with order context."""
@@ -702,20 +706,20 @@ class TestEleanorLoaders(TestCase):
             settings_from_dict=mock.Mock(),
             build=mock.Mock(return_value=kernel),
         )
-        with mock.patch("eleanor.eleanor.get_kernel_spec", return_value=spec) as get_spec_mock:
-            out = eleanor.load_kernel(order, alpha=1)
+        with mock.patch("eleanor.kernel.get_factory", return_value=spec) as get_spec_mock:
+            out = load_kernel(order, ["arg1"], alpha=1)
 
         self.assertIs(out, kernel)
         get_spec_mock.assert_called_once_with("eq36")
         spec.build.assert_called_once_with(settings, "arg1")
         kernel.setup.assert_called_once_with(order, alpha=1)
+        kernel.validate_order.assert_called_once_with(order)
 
     def test_load_kernel_raises_on_malformed_order_without_kernel(self):
         """Ensure malformed order-like objects without kernel config fail immediately."""
-        eleanor = _make_eleanor()
         order = SimpleNamespace(kernel=None)
         with self.assertRaisesRegex(AttributeError, "'NoneType' object has no attribute 'type'"):
-            eleanor.load_kernel(order)
+            _ = load_kernel(order, ["arg1"])
 
 
 class TestEleanorConstructorOverrides(TestCase):
@@ -739,14 +743,14 @@ class TestEleanorConstructorOverrides(TestCase):
         sink.supports_progress.return_value = False
 
         with (
-            mock.patch("eleanor.eleanor.build_executor") as build_executor,
-            mock.patch.object(Eleanor, "load_output_sink", return_value=sink),
+            mock.patch("eleanor.eleanor.load_executor") as load_executor,
+            mock.patch("eleanor.eleanor.load_output_sink", return_value=sink),
         ):
             with eleanor:
                 _ = eleanor.run(_leaf_order(), 5, kernel=mock.Mock(), navigator=_navigator(1))
                 _ = eleanor.run(_leaf_order(), 5, kernel=mock.Mock(), navigator=_navigator(1))
 
-        build_executor.assert_not_called()
+        load_executor.assert_not_called()
         self.assertEqual(len(seen_executors), 2)
         self.assertIs(seen_executors[0], ctor_executor)
         self.assertIs(seen_executors[1], ctor_executor)
@@ -762,8 +766,8 @@ class TestEleanorConstructorOverrides(TestCase):
         sink.supports_progress.return_value = False
 
         with (
-            mock.patch("eleanor.eleanor.build_executor"),
-            mock.patch.object(Eleanor, "load_output_sink", return_value=sink),
+            mock.patch("eleanor.eleanor.load_executor"),
+            mock.patch("eleanor.eleanor.load_output_sink", return_value=sink),
         ):
             with eleanor:
                 self.assertEqual(ctor_executor.enter_count, 0)
@@ -784,8 +788,8 @@ class TestEleanorConstructorOverrides(TestCase):
         sink.supports_progress.return_value = False
 
         with (
-            mock.patch("eleanor.eleanor.build_executor"),
-            mock.patch.object(Eleanor, "load_output_sink", return_value=sink),
+            mock.patch("eleanor.eleanor.load_executor"),
+            mock.patch("eleanor.eleanor.load_output_sink", return_value=sink),
         ):
             with eleanor:
                 _ = eleanor.run(_leaf_order(), 1, kernel=mock.Mock(), navigator=_navigator(1))
@@ -803,8 +807,8 @@ class TestEleanorConstructorOverrides(TestCase):
         eleanor.process = mock.Mock(return_value=[])
 
         with (
-            mock.patch("eleanor.eleanor.build_executor", return_value=_FakeExecutor()),
-            mock.patch.object(Eleanor, "load_output_sink") as load_sink,
+            mock.patch("eleanor.eleanor.load_executor", return_value=_FakeExecutor()),
+            mock.patch("eleanor.eleanor.load_output_sink") as load_sink,
         ):
             with eleanor:
                 _ = eleanor.run(_leaf_order(), 5, kernel=mock.Mock(), navigator=_navigator(1))
@@ -823,8 +827,8 @@ class TestEleanorConstructorOverrides(TestCase):
         eleanor.process = mock.Mock(return_value=[])
 
         with (
-            mock.patch("eleanor.eleanor.build_executor", return_value=_FakeExecutor()),
-            mock.patch.object(Eleanor, "load_output_sink"),
+            mock.patch("eleanor.eleanor.load_executor", return_value=_FakeExecutor()),
+            mock.patch("eleanor.eleanor.load_output_sink"),
         ):
             with eleanor:
                 _ = eleanor.run(_leaf_order(), 1, kernel=mock.Mock(), navigator=_navigator(1))
@@ -841,7 +845,7 @@ class TestEleanorConstructorOverrides(TestCase):
         eleanor._output_sink_override = ctor_sink
         eleanor.process = mock.Mock(return_value=[])
 
-        with mock.patch("eleanor.eleanor.build_executor", return_value=_FakeExecutor()):
+        with mock.patch("eleanor.eleanor.load_executor", return_value=_FakeExecutor()):
             eleanor.run(
                 _leaf_order(),
                 1,

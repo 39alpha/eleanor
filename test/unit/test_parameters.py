@@ -69,11 +69,11 @@ class TestParameters(TestCase):
         """
         Ensure refine/restrict/fix collapse degenerate list/range parameters to value parameters.
         """
-        r = RangeParameter("x", None, 1.0, 1.0)
-        self.assertIsInstance(Parameter.refine(r), ValueParameter)
+        p = RangeParameter("x", None, 1.0, 1.0)
+        self.assertIsInstance(Parameter.refine(p), ValueParameter)
 
-        l = ListParameter("x", None, [2.0, 2.0])
-        self.assertIsInstance(Parameter.refine(l), ValueParameter)
+        p = ListParameter("x", None, [2.0, 2.0])
+        self.assertIsInstance(Parameter.refine(p), ValueParameter)
 
         p = RangeParameter("x", None, 0.0, 2.0)
         fixed = p.fix(1.0)

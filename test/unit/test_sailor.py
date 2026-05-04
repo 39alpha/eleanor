@@ -77,11 +77,15 @@ class TestSailor(TestCase):
         sailor = Sailor(kernel=mock.Mock())
         sim_progress = mock.Mock()
 
-        with mock.patch.object(Sailor, "work", side_effect=[
-            SimpleNamespace(exit_code=0),
-            SimpleNamespace(exit_code=0),
-            SimpleNamespace(exit_code=0),
-        ]):
+        with mock.patch.object(
+            Sailor,
+            "work",
+            side_effect=[
+                SimpleNamespace(exit_code=0),
+                SimpleNamespace(exit_code=0),
+                SimpleNamespace(exit_code=0),
+            ],
+        ):
             _ = sailor.dispatch([object(), object(), object()], sim_progress=sim_progress)
 
         self.assertEqual(sim_progress.tick.call_count, 3)
@@ -206,8 +210,8 @@ class TestSailor(TestCase):
         """
         Ensure scratch collection returns zipped bytes and falls back to null-byte payload on errors.
         """
-        from tempfile import TemporaryDirectory
         from os.path import join
+        from tempfile import TemporaryDirectory
 
         with TemporaryDirectory() as tmp:
             with open(join(tmp, "a.txt"), "w") as f:

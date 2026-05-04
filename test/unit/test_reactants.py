@@ -30,9 +30,7 @@ class TestReactants(TestCase):
         Ensure that :meth:`AbstractReactant.from_dict` dispatches to the matching subclass.
         """
         raw = {"name": "r", "type": "mineral", "amount": 1.0}
-        with mock.patch(
-            "eleanor.reactants.MineralReactant.from_dict", return_value="mineral-reactant"
-        ) as m:
+        with mock.patch("eleanor.reactants.MineralReactant.from_dict", return_value="mineral-reactant") as m:
             out = AbstractReactant.from_dict(raw)
         m.assert_called_once_with(raw, None)
         self.assertEqual(out, "mineral-reactant")
@@ -79,6 +77,7 @@ class TestReactants(TestCase):
         """
         Ensure that the explicit unexpected-type fallback in dispatch raises :class:`EleanorException`.
         """
+
         class FakeReactantType:
             MINERAL = "mineral"
             AQUEOUS = "aqueous"
@@ -142,9 +141,7 @@ class TestReactants(TestCase):
         with self.assertRaises(EleanorException):
             GasReactant.from_dict({"name": "g", "type": "aqueous", "amount": 1.0})
         with self.assertRaises(EleanorException):
-            SpecialReactant.from_dict(
-                {"name": "s", "type": "gas", "amount": 1.0, "composition": {"Na": 1}}
-            )
+            SpecialReactant.from_dict({"name": "s", "type": "gas", "amount": 1.0, "composition": {"Na": 1}})
         with self.assertRaises(EleanorException):
             ElementReactant.from_dict({"name": "e", "type": "gas", "amount": 1.0})
 
@@ -152,9 +149,7 @@ class TestReactants(TestCase):
         """
         Ensure that :class:`FixedGasReactant` parsing/volume logic works for valid configs.
         """
-        reactant = FixedGasReactant.from_dict(
-            {"name": "co2", "type": "fixed gas", "amount": 1.0, "fugacity": 0.1}
-        )
+        reactant = FixedGasReactant.from_dict({"name": "co2", "type": "fixed gas", "amount": 1.0, "fugacity": 0.1})
         self.assertEqual(reactant.type, ReactantType.FIXED_GAS)
         self.assertIsInstance(reactant.amount, ValueParameter)
         self.assertIsInstance(reactant.fugacity, ValueParameter)
@@ -291,9 +286,7 @@ class TestReactants(TestCase):
         """
         Ensure GlassReactantOxide.from_dict validates composition and fraction requirements.
         """
-        oxide = GlassReactantOxide.from_dict(
-            {"name": "SiO2", "composition": {"Si": 1, "O": 2}, "fraction": 0.5}
-        )
+        oxide = GlassReactantOxide.from_dict({"name": "SiO2", "composition": {"Si": 1, "O": 2}, "fraction": 0.5})
         self.assertEqual(oxide.name, "SiO2")
         self.assertEqual(oxide.composition, {"Si": 1, "O": 2})
         self.assertEqual(oxide.fraction, 0.5)
@@ -318,7 +311,12 @@ class TestReactants(TestCase):
         self.assertEqual(oxide.relative_rate.value, 2.5)
 
         oxide_range = GlassReactantOxide.from_dict(
-            {"name": "SiO2", "composition": {"Si": 1, "O": 2}, "fraction": 0.5, "relative_rate": {"min": 0.5, "max": 2.0}}
+            {
+                "name": "SiO2",
+                "composition": {"Si": 1, "O": 2},
+                "fraction": 0.5,
+                "relative_rate": {"min": 0.5, "max": 2.0},
+            }
         )
         self.assertEqual(oxide_range.relative_rate.name, "relative_rate")
 
@@ -384,9 +382,7 @@ class TestReactants(TestCase):
                     "name": "single",
                     "type": "glass",
                     "amount": 1.0,
-                    "oxides": {
-                        "SiO2": {"name": "SiO2", "composition": {"Si": 1, "O": 2}, "fraction": 0.5}
-                    },
+                    "oxides": {"SiO2": {"name": "SiO2", "composition": {"Si": 1, "O": 2}, "fraction": 0.5}},
                 }
             )
 

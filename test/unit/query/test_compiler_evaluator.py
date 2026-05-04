@@ -200,7 +200,5 @@ class TestCompilerEvaluator(TestCase):
         Ensure the default column name for a meta-accessor terminal drops
         the leading ``@`` (spec §8.5).
         """
-        compiled = compile_query(
-            Sample, {"row_scope": "point_map[*]", "columns": ["point_map.@key"]}
-        )
+        compiled = compile_query(Sample, {"row_scope": "point_map[*]", "columns": ["point_map.@key"]})
         self.assertEqual([c.spec.name for c in compiled.compiled_columns], ["key"])

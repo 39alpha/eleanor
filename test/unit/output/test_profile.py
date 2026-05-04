@@ -5,6 +5,7 @@ psycopg connection. End-to-end behaviour (cursor_factory swapping,
 ``executemany`` row-counting against actual psycopg) is exercised by the
 real-PG integration suite.
 """
+
 from types import SimpleNamespace
 from unittest import mock
 
@@ -73,14 +74,14 @@ class TestStatementProfilerCounters(TestCase):
         cursor = SimpleNamespace(rowcount=1)
         prof._record_before(  # pyright: ignore[reportPrivateUsage]
             cursor,
-            'INSERT INTO foo (a) VALUES (%(a)s)',
-            {'a': 1},
+            "INSERT INTO foo (a) VALUES (%(a)s)",
+            {"a": 1},
             executemany=False,
         )
         prof._record_after(cursor, elapsed=0.001)  # pyright: ignore[reportPrivateUsage]
 
-        self.assertEqual(prof.insert_statements_by_table['foo'], 1)
-        self.assertEqual(prof.insert_rows_by_table['foo'], 1)
+        self.assertEqual(prof.insert_statements_by_table["foo"], 1)
+        self.assertEqual(prof.insert_rows_by_table["foo"], 1)
         self.assertEqual(prof.total_statements, 1)
 
     def test_records_executemany_row_count_from_params_seq(self):
@@ -91,14 +92,14 @@ class TestStatementProfilerCounters(TestCase):
         cursor = SimpleNamespace(rowcount=3)
         prof._record_before(  # pyright: ignore[reportPrivateUsage]
             cursor,
-            'INSERT INTO foo (a) VALUES (%(a)s)',
-            [{'a': 1}, {'a': 2}, {'a': 3}],
+            "INSERT INTO foo (a) VALUES (%(a)s)",
+            [{"a": 1}, {"a": 2}, {"a": 3}],
             executemany=True,
         )
         prof._record_after(cursor, elapsed=0.001)  # pyright: ignore[reportPrivateUsage]
 
-        self.assertEqual(prof.insert_statements_by_table['foo'], 1)
-        self.assertEqual(prof.insert_rows_by_table['foo'], 3)
+        self.assertEqual(prof.insert_statements_by_table["foo"], 1)
+        self.assertEqual(prof.insert_rows_by_table["foo"], 3)
 
     def test_reconciles_rowcount_against_parameter_estimate(self):
         """
@@ -112,13 +113,13 @@ class TestStatementProfilerCounters(TestCase):
         # an executemany), while ``cursor.rowcount=42`` is the truth.
         prof._record_before(  # pyright: ignore[reportPrivateUsage]
             cursor,
-            'INSERT INTO foo (a) VALUES (%(a)s)',
-            {'a': 1},
+            "INSERT INTO foo (a) VALUES (%(a)s)",
+            {"a": 1},
             executemany=False,
         )
         prof._record_after(cursor, elapsed=0.0)  # pyright: ignore[reportPrivateUsage]
 
-        self.assertEqual(prof.insert_rows_by_table['foo'], 42)
+        self.assertEqual(prof.insert_rows_by_table["foo"], 42)
         self.assertEqual(prof.total_rows_inserted, 42)
 
     def test_records_copy_statement_as_bulk_write(self):
@@ -133,18 +134,17 @@ class TestStatementProfilerCounters(TestCase):
         cursor = SimpleNamespace(rowcount=1500)
         prof._record_before(  # pyright: ignore[reportPrivateUsage]
             cursor,
-            'COPY "equilibrium_aqueous_species" ("equilibrium_space_id", "name") '
-            'FROM STDIN WITH (FORMAT BINARY)',
+            'COPY "equilibrium_aqueous_species" ("equilibrium_space_id", "name") FROM STDIN WITH (FORMAT BINARY)',
             None,
             executemany=False,
         )
         prof._record_after(cursor, elapsed=0.01)  # pyright: ignore[reportPrivateUsage]
 
-        self.assertEqual(prof.insert_statements_by_table['equilibrium_aqueous_species'], 1)
-        self.assertEqual(prof.insert_rows_by_table['equilibrium_aqueous_species'], 1500)
+        self.assertEqual(prof.insert_statements_by_table["equilibrium_aqueous_species"], 1)
+        self.assertEqual(prof.insert_rows_by_table["equilibrium_aqueous_species"], 1500)
         self.assertEqual(prof.total_rows_inserted, 1500)
         # COPY must not also leak into the ``other_statements`` keyword bucket.
-        self.assertNotIn('COPY', prof.other_statements)
+        self.assertNotIn("COPY", prof.other_statements)
 
     def test_buckets_non_insert_statements(self):
         """
@@ -152,16 +152,16 @@ class TestStatementProfilerCounters(TestCase):
         """
         prof = StatementProfiler()
         cursor = SimpleNamespace(rowcount=-1)
-        prof._record_before(cursor, 'BEGIN', None, executemany=False)  # pyright: ignore[reportPrivateUsage]
+        prof._record_before(cursor, "BEGIN", None, executemany=False)  # pyright: ignore[reportPrivateUsage]
         prof._record_after(cursor, elapsed=0.0)  # pyright: ignore[reportPrivateUsage]
-        prof._record_before(cursor, 'COMMIT', None, executemany=False)  # pyright: ignore[reportPrivateUsage]
+        prof._record_before(cursor, "COMMIT", None, executemany=False)  # pyright: ignore[reportPrivateUsage]
         prof._record_after(cursor, elapsed=0.0)  # pyright: ignore[reportPrivateUsage]
-        prof._record_before(cursor, 'SELECT 1', None, executemany=False)  # pyright: ignore[reportPrivateUsage]
+        prof._record_before(cursor, "SELECT 1", None, executemany=False)  # pyright: ignore[reportPrivateUsage]
         prof._record_after(cursor, elapsed=0.0)  # pyright: ignore[reportPrivateUsage]
 
-        self.assertEqual(prof.other_statements['BEGIN'], 1)
-        self.assertEqual(prof.other_statements['COMMIT'], 1)
-        self.assertEqual(prof.other_statements['SELECT'], 1)
+        self.assertEqual(prof.other_statements["BEGIN"], 1)
+        self.assertEqual(prof.other_statements["COMMIT"], 1)
+        self.assertEqual(prof.other_statements["SELECT"], 1)
 
     def test_report_renders_without_error(self):
         """
@@ -173,15 +173,15 @@ class TestStatementProfilerCounters(TestCase):
         cursor = SimpleNamespace(rowcount=1)
         prof._record_before(  # pyright: ignore[reportPrivateUsage]
             cursor,
-            'INSERT INTO orders (a) VALUES (%(a)s)',
-            {'a': 1},
+            "INSERT INTO orders (a) VALUES (%(a)s)",
+            {"a": 1},
             executemany=False,
         )
         prof._record_after(cursor, elapsed=0.001)  # pyright: ignore[reportPrivateUsage]
 
         report = prof.report()
-        self.assertIn('Total statements', report)
-        self.assertIn('orders', report)
+        self.assertIn("Total statements", report)
+        self.assertIn("orders", report)
 
 
 class TestStatementProfilerConnectionRetrofit(TestCase):
@@ -204,7 +204,7 @@ class TestStatementProfilerConnectionRetrofit(TestCase):
         fake_conn.cursor_factory = original_factory
         with mock.patch.dict(
             connection_module._connections,  # pyright: ignore[reportPrivateUsage]
-            {('cfg-key', 0): fake_conn},
+            {("cfg-key", 0): fake_conn},
             clear=False,
         ):
             with StatementProfiler():
@@ -219,8 +219,8 @@ class TestToText(TestCase):
         """Ensure ``sql.SQL`` and ``sql.Composed`` go through ``as_string(None)``."""
         from psycopg import sql
 
-        self.assertEqual(_to_text(sql.SQL('SELECT 1')), 'SELECT 1')
-        composed = sql.SQL('INSERT INTO {t} (a) VALUES (%s)').format(t=sql.Identifier('foo'))
+        self.assertEqual(_to_text(sql.SQL("SELECT 1")), "SELECT 1")
+        composed = sql.SQL("INSERT INTO {t} (a) VALUES (%s)").format(t=sql.Identifier("foo"))
         self.assertIn('INSERT INTO "foo"', _to_text(composed))
 
     def test_decodes_bytes_to_utf8_with_replacement(self):
@@ -229,18 +229,18 @@ class TestToText(TestCase):
         ``errors='replace'`` -- the profiler must never raise on a query
         that happens to contain non-utf8 bytes.
         """
-        self.assertEqual(_to_text(b'SELECT 1'), 'SELECT 1')
-        self.assertEqual(_to_text(b'SELECT \xff'), 'SELECT \ufffd')
+        self.assertEqual(_to_text(b"SELECT 1"), "SELECT 1")
+        self.assertEqual(_to_text(b"SELECT \xff"), "SELECT \ufffd")
 
     def test_falls_back_to_str_for_unknown_query_shapes(self):
         """Ensure non-SQL/Composed/bytes inputs fall through to :func:`str`."""
-        self.assertEqual(_to_text('SELECT 1'), 'SELECT 1')
+        self.assertEqual(_to_text("SELECT 1"), "SELECT 1")
 
         class _Custom:
             def __str__(self) -> str:
-                return 'COPY foo FROM STDIN'
+                return "COPY foo FROM STDIN"
 
-        self.assertEqual(_to_text(_Custom()), 'COPY foo FROM STDIN')
+        self.assertEqual(_to_text(_Custom()), "COPY foo FROM STDIN")
 
 
 class TestStatementProfilerWiringEdges(TestCase):
@@ -254,9 +254,10 @@ class TestStatementProfilerWiringEdges(TestCase):
         test directly invoking ``_wrapped_connect``).
         """
         prof = StatementProfiler()
-        cfg = DatabaseConfig(database='db', username='u', password='p')
+        cfg = DatabaseConfig(database="db", username="u", password="p")
         with self.assertRaisesRegex(
-            RuntimeError, '_real_connect not captured',
+            RuntimeError,
+            "_real_connect not captured",
         ):
             _ = prof._wrapped_connect(cfg)  # pyright: ignore[reportPrivateUsage]
 
@@ -269,13 +270,13 @@ class TestStatementProfilerWiringEdges(TestCase):
         """
         prof = StatementProfiler()
         cursor = SimpleNamespace(rowcount=-1)
-        prof._record_before(cursor, 'BEGIN', None, executemany=False)  # pyright: ignore[reportPrivateUsage]
+        prof._record_before(cursor, "BEGIN", None, executemany=False)  # pyright: ignore[reportPrivateUsage]
         prof._record_after(cursor, elapsed=0.0)  # pyright: ignore[reportPrivateUsage]
 
         report = prof.report()
-        self.assertIn('Other statements:', report)
-        self.assertIn('BEGIN', report)
-        self.assertEqual(prof.other_statements['BEGIN'], 1)
+        self.assertIn("Other statements:", report)
+        self.assertIn("BEGIN", report)
+        self.assertEqual(prof.other_statements["BEGIN"], 1)
 
 
 class TestProfilingCursorPassthrough(TestCase):
@@ -291,13 +292,13 @@ class TestProfilingCursorPassthrough(TestCase):
         cursor = _ProfilingCursor.__new__(_ProfilingCursor)
         sentinel = object()
         with (
-            mock.patch.object(profile_module, '_active', None),
+            mock.patch.object(profile_module, "_active", None),
             mock.patch(
-                'eleanor.output.postgres.tools.profile.psycopg.Cursor.execute',
+                "eleanor.output.postgres.tools.profile.psycopg.Cursor.execute",
                 return_value=sentinel,
             ) as super_execute,
         ):
-            got = cursor.execute('SELECT 1', None)
+            got = cursor.execute("SELECT 1", None)
         self.assertIs(got, sentinel)
         super_execute.assert_called_once()
 
@@ -306,13 +307,13 @@ class TestProfilingCursorPassthrough(TestCase):
         cursor = _ProfilingCursor.__new__(_ProfilingCursor)
         sentinel = object()
         with (
-            mock.patch.object(profile_module, '_active', None),
+            mock.patch.object(profile_module, "_active", None),
             mock.patch(
-                'eleanor.output.postgres.tools.profile.psycopg.Cursor.executemany',
+                "eleanor.output.postgres.tools.profile.psycopg.Cursor.executemany",
                 return_value=sentinel,
             ) as super_executemany,
         ):
-            got = cursor.executemany('INSERT INTO foo VALUES (%s)', [(1,), (2,)])
+            got = cursor.executemany("INSERT INTO foo VALUES (%s)", [(1,), (2,)])
         self.assertIs(got, sentinel)
         super_executemany.assert_called_once()
 
@@ -324,12 +325,12 @@ class TestProfilingCursorPassthrough(TestCase):
         cm.__enter__.return_value = copy_obj
         cm.__exit__.return_value = False
         with (
-            mock.patch.object(profile_module, '_active', None),
+            mock.patch.object(profile_module, "_active", None),
             mock.patch(
-                'eleanor.output.postgres.tools.profile.psycopg.Cursor.copy',
+                "eleanor.output.postgres.tools.profile.psycopg.Cursor.copy",
                 return_value=cm,
             ) as super_copy,
         ):
-            with cursor.copy('COPY foo FROM STDIN') as cp:
+            with cursor.copy("COPY foo FROM STDIN") as cp:
                 self.assertIs(cp, copy_obj)
         super_copy.assert_called_once()

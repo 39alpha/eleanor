@@ -5,7 +5,7 @@ from unittest import mock
 
 from eleanor.exceptions import EleanorException
 from eleanor.kernel.eq36.kernel import Kernel
-from eleanor.kernel.eq36.settings import Eq3Config, Eq6Config, IOPT_1, IOPT_4, Settings
+from eleanor.kernel.eq36.settings import IOPT_1, IOPT_4, Eq3Config, Eq6Config, Settings
 from eleanor.kernel.exceptions import EleanorKernelException
 from eleanor.variable_space import (
     AqueousReactant,
@@ -23,23 +23,25 @@ from ...common import TestCase
 
 
 class _DummyPoint:
-    def __init__(self,
-                 settings,
-                 suppressions=None,
-                 has_reactants=False,
-                 water_mass=1.0,
-                 temperature=25.0,
-                 pressure=10.0,
-                 species=None,
-                 elements=None,
-                 mineral_reactants=None,
-                 solid_solution_reactants=None,
-                 special_reactants=None,
-                 element_reactants=None,
-                 aqueous_reactants=None,
-                 gas_reactants=None,
-                 fixed_gas_reactants=None,
-                 glass_reactants=None):
+    def __init__(
+        self,
+        settings,
+        suppressions=None,
+        has_reactants=False,
+        water_mass=1.0,
+        temperature=25.0,
+        pressure=10.0,
+        species=None,
+        elements=None,
+        mineral_reactants=None,
+        solid_solution_reactants=None,
+        special_reactants=None,
+        element_reactants=None,
+        aqueous_reactants=None,
+        gas_reactants=None,
+        fixed_gas_reactants=None,
+        glass_reactants=None,
+    ):
         self.kernel = SimpleNamespace(settings=settings)
         self.suppressions = [] if suppressions is None else suppressions
         self._has_reactants = has_reactants
@@ -71,15 +73,19 @@ class _DummyPoint:
 
     def reactant_count(self):
         base = sum(
-            map(len, [
-                self.mineral_reactants,
-                self.aqueous_reactants,
-                self.gas_reactants,
-                self.element_reactants,
-                self.special_reactants,
-                self.fixed_gas_reactants,
-                self.solid_solution_reactants,
-            ]))
+            map(
+                len,
+                [
+                    self.mineral_reactants,
+                    self.aqueous_reactants,
+                    self.gas_reactants,
+                    self.element_reactants,
+                    self.special_reactants,
+                    self.fixed_gas_reactants,
+                    self.solid_solution_reactants,
+                ],
+            )
+        )
         return base + sum(len(getattr(glass, "oxides", [])) for glass in self.glass_reactants)
 
 
@@ -247,7 +253,8 @@ class TestEq36Kernel(TestCase):
 
         self.assertIs(data1, first)
         print_mock.assert_called_once_with(
-            "warning: multiple data1 files pass through temperature 25.0 and pressure 10.0; choosing first")
+            "warning: multiple data1 files pass through temperature 25.0 and pressure 10.0; choosing first"
+        )
 
     def test_run_eq3_only_finds_data1_and_sets_eq3_timestamps(self):
         """
@@ -308,7 +315,9 @@ class TestEq36Kernel(TestCase):
             mock.patch("eleanor.kernel.eq36.kernel.read_pickup_lines", return_value=pickup_lines) as read_pickup_lines,
             mock.patch.object(kernel, "write_eq6_input", return_value="problem.6i") as write_eq6_input,
             mock.patch("eleanor.kernel.eq36.kernel.eq6") as eq6_mock,
-            mock.patch("eleanor.kernel.eq36.kernel.Kernel.read_eq6_output", return_value=eq6_results) as read_eq6_output,
+            mock.patch(
+                "eleanor.kernel.eq36.kernel.Kernel.read_eq6_output", return_value=eq6_results
+            ) as read_eq6_output,
         ):
             output = kernel.run(point, verbose=True)
 
@@ -390,7 +399,8 @@ class TestEq36Kernel(TestCase):
         base_cfg = Eq3Config()
         verbose_cfg = Eq3Config(iopt_1=IOPT_1.FLOW_THROUGH_SYS)
         expected_line = "  iopt1-10= {0: >5}{1: >5}{2: >5}{3: >5}{4: >5}{5: >5}{6: >5}{7: >5}{8: >5}{9: >5}".format(
-            *verbose_cfg.iopt[:10])
+            *verbose_cfg.iopt[:10]
+        )
         handle = io.StringIO()
 
         with mock.patch.object(base_cfg, "make_verbose", return_value=verbose_cfg) as make_verbose:
@@ -453,14 +463,18 @@ class TestEq36Kernel(TestCase):
         accepted = SimpleNamespace(tp_curve=SimpleNamespace(set_domain=mock.Mock(return_value=True)))
 
         with (
-            mock.patch("eleanor.kernel.eq36.kernel.tool_room.WorkingDirectory",
-                       return_value=contextlib.nullcontext()) as wd_mock,
-            mock.patch("eleanor.kernel.eq36.kernel.tool_room.find_files",
-                       return_value=([], ["first.d1", "second.d1"])) as find_files_mock,
-            mock.patch("eleanor.kernel.eq36.kernel.os.path.realpath",
-                       side_effect=lambda path: f"/abs/{path}") as realpath_mock,
-            mock.patch("eleanor.kernel.eq36.kernel.Data1.from_file",
-                       side_effect=[rejected, accepted]) as from_file_mock,
+            mock.patch(
+                "eleanor.kernel.eq36.kernel.tool_room.WorkingDirectory", return_value=contextlib.nullcontext()
+            ) as wd_mock,
+            mock.patch(
+                "eleanor.kernel.eq36.kernel.tool_room.find_files", return_value=([], ["first.d1", "second.d1"])
+            ) as find_files_mock,
+            mock.patch(
+                "eleanor.kernel.eq36.kernel.os.path.realpath", side_effect=lambda path: f"/abs/{path}"
+            ) as realpath_mock,
+            mock.patch(
+                "eleanor.kernel.eq36.kernel.Data1.from_file", side_effect=[rejected, accepted]
+            ) as from_file_mock,
         ):
             kernel.setup(order)
 
@@ -485,8 +499,7 @@ class TestEq36Kernel(TestCase):
         rejected = SimpleNamespace(tp_curve=SimpleNamespace(set_domain=mock.Mock(return_value=False)))
 
         with (
-            mock.patch("eleanor.kernel.eq36.kernel.tool_room.WorkingDirectory",
-                       return_value=contextlib.nullcontext()),
+            mock.patch("eleanor.kernel.eq36.kernel.tool_room.WorkingDirectory", return_value=contextlib.nullcontext()),
             mock.patch("eleanor.kernel.eq36.kernel.tool_room.find_files", return_value=([], ["only.d1"])),
             mock.patch("eleanor.kernel.eq36.kernel.os.path.realpath", side_effect=lambda path: path),
             mock.patch("eleanor.kernel.eq36.kernel.Data1.from_file", return_value=rejected),
@@ -509,8 +522,7 @@ class TestEq36Kernel(TestCase):
         rejected = SimpleNamespace(tp_curve=SimpleNamespace(set_domain=mock.Mock(return_value=False)))
 
         with (
-            mock.patch("eleanor.kernel.eq36.kernel.tool_room.WorkingDirectory",
-                       return_value=contextlib.nullcontext()),
+            mock.patch("eleanor.kernel.eq36.kernel.tool_room.WorkingDirectory", return_value=contextlib.nullcontext()),
             mock.patch("eleanor.kernel.eq36.kernel.tool_room.find_files", return_value=([], ["only.d1"])),
             mock.patch("eleanor.kernel.eq36.kernel.os.path.realpath", side_effect=lambda path: path),
             mock.patch("eleanor.kernel.eq36.kernel.Data1.from_file", return_value=rejected),
@@ -589,11 +601,13 @@ class TestEq36Kernel(TestCase):
         kernel._setup = True
         settings = self._settings()
         settings.redox_species = "fO2"
-        point = _DummyPoint(settings,
-                            species=[
-                                SimpleNamespace(name="O2(g)", value=-60.0),
-                                SimpleNamespace(name="H+", value=-7.0),
-                            ])
+        point = _DummyPoint(
+            settings,
+            species=[
+                SimpleNamespace(name="O2(g)", value=-60.0),
+                SimpleNamespace(name="H+", value=-7.0),
+            ],
+        )
         handle = _NamedStringIO("problem.3i")
 
         path = kernel.write_eq3_input(point, data1=SimpleNamespace(get_basis_species=lambda _x: None), file=handle)
@@ -612,9 +626,7 @@ class TestEq36Kernel(TestCase):
         kernel._setup = True
         settings = self._settings()
         settings.redox_species = "fO2"
-        point = _DummyPoint(settings,
-                            water_mass=0.5,
-                            species=[SimpleNamespace(name="O2(g)", value=-60.0)])
+        point = _DummyPoint(settings, water_mass=0.5, species=[SimpleNamespace(name="O2(g)", value=-60.0)])
         handle = _NamedStringIO("problem.3i")
 
         kernel.write_eq3_input(point, data1=SimpleNamespace(get_basis_species=lambda _x: None), file=handle)
@@ -631,9 +643,11 @@ class TestEq36Kernel(TestCase):
         kernel._setup = True
         settings = self._settings()
         settings.redox_species = "fO2"
-        point = _DummyPoint(settings,
-                            species=[SimpleNamespace(name="O2(g)", value=-60.0)],
-                            elements=[SimpleNamespace(name="Na", log_molality=-3.0)])
+        point = _DummyPoint(
+            settings,
+            species=[SimpleNamespace(name="O2(g)", value=-60.0)],
+            elements=[SimpleNamespace(name="Na", log_molality=-3.0)],
+        )
         handle = _NamedStringIO("problem.3i")
         data1 = SimpleNamespace(get_basis_species=lambda _name: None)
 
@@ -825,7 +839,8 @@ class TestEq36Kernel(TestCase):
                         SimpleNamespace(element="O", count=2),
                     ],
                 )
-            ])
+            ]
+        )
 
         point = _DummyPoint(
             settings,
@@ -980,6 +995,7 @@ class TestEq36Kernel(TestCase):
 
         self.assertEqual(path, "problem.6i")
         self.assertIn("nxopt=  0", output)
+
     def test_write_eq6_input_rejects_suppression_without_name_and_type(self):
         """
         Ensure write_eq6_input rejects suppressions that provide neither a type nor a name.
@@ -1158,6 +1174,7 @@ class TestEq36Kernel(TestCase):
         """
         Ensure read_eq6_output with track_path=False returns only the last parsed step.
         """
+
         def _step(log_xi):
             return {
                 "log_xi": log_xi,

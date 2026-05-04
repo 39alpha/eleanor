@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from types import SimpleNamespace
 
 from eleanor.exceptions import EleanorException
-from eleanor.kernel.eq36.constraints import TPCurveConstraint, TemperatureRangeConstraint
+from eleanor.kernel.eq36.constraints import TemperatureRangeConstraint, TPCurveConstraint
 from eleanor.parameters import (
     ListParameter,
     NormalParameter,

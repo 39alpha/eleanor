@@ -27,33 +27,28 @@ class TestVariableSpace(TestCase):
             species = []
         if reactant_sizes is None:
             reactant_sizes = [0, 0, 0, 0, 0, 0, 0]
-        mineral = [MineralReactant(name=f"m{i}", log_moles=0.0, titration_rate=1.0)
-                   for i in range(reactant_sizes[0])]
-        aqueous = [AqueousReactant(name=f"a{i}", log_moles=0.0, titration_rate=1.0)
-                   for i in range(reactant_sizes[1])]
-        gas = [GasReactant(name=f"g{i}", log_moles=0.0, titration_rate=1.0)
-               for i in range(reactant_sizes[2])]
-        element = [ElementReactant(name=f"e{i}", log_moles=0.0, titration_rate=1.0)
-                   for i in range(reactant_sizes[3])]
+        mineral = [MineralReactant(name=f"m{i}", log_moles=0.0, titration_rate=1.0) for i in range(reactant_sizes[0])]
+        aqueous = [AqueousReactant(name=f"a{i}", log_moles=0.0, titration_rate=1.0) for i in range(reactant_sizes[1])]
+        gas = [GasReactant(name=f"g{i}", log_moles=0.0, titration_rate=1.0) for i in range(reactant_sizes[2])]
+        element = [ElementReactant(name=f"e{i}", log_moles=0.0, titration_rate=1.0) for i in range(reactant_sizes[3])]
         special = [
             SpecialReactant(
                 name=f"s{i}",
                 log_moles=0.0,
                 titration_rate=1.0,
                 composition=[SpecialReactantComposition(element="Na", count=1)],
-            ) for i in range(reactant_sizes[4])
+            )
+            for i in range(reactant_sizes[4])
         ]
-        fixed_gas = [
-            FixedGasReactant(name=f"fg{i}", log_moles=0.0, log_fugacity=0.0)
-            for i in range(reactant_sizes[5])
-        ]
+        fixed_gas = [FixedGasReactant(name=f"fg{i}", log_moles=0.0, log_fugacity=0.0) for i in range(reactant_sizes[5])]
         solid_solution = [
             SolidSolutionReactant(
                 name=f"ss{i}",
                 log_moles=0.0,
                 titration_rate=1.0,
                 end_members=[SolidSolutionReactantEndMembers(name="em", fraction=1.0)],
-            ) for i in range(reactant_sizes[6])
+            )
+            for i in range(reactant_sizes[6])
         ]
         return Point(
             kernel=KernelConfig(type="eq36", settings=Settings(timeout=1)),

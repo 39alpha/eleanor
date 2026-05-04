@@ -356,9 +356,10 @@ class TestScopeCoverage(TestCase):
         verify ``resolve_row_scope`` rejects it with ``InvalidRowScope``.
         """
         leaf_path = parse_path("point.index")
-        with mock.patch.object(
-            scope_module, "_enumerate_with_diagnostic", return_value=([leaf_path], False)
-        ), self.assertRaises(InvalidRowScope):
+        with (
+            mock.patch.object(scope_module, "_enumerate_with_diagnostic", return_value=([leaf_path], False)),
+            self.assertRaises(InvalidRowScope),
+        ):
             scope_module.resolve_row_scope(Sample, "index")
 
 
@@ -585,9 +586,7 @@ class TestCompilerCoverage(TestCase):
             element_kind=DataclassField(name="point", dataclass_type=Point, optional=False),
             optional=False,
         )
-        missing_filter = compiler_module.MatchFilter(
-            (Predicate(field="missing", value="1", value_quoted=False),)
-        )
+        missing_filter = compiler_module.MatchFilter((Predicate(field="missing", value="1", value_quoted=False),))
         with self.assertRaises(InvalidFilter):
             reflection_module.resolve_match_filter(good_list, missing_filter, "p", "points")
 
@@ -711,9 +710,7 @@ class TestEvaluatorCoverage(TestCase):
             {"row_scope": "order", "columns": [{"path": "order.points", "name": "points"}]},
             allow_container_terminals=True,
         ).compiled_columns[0]
-        value, missing, _ = evaluator_module._evaluate_column_path(
-            container_column, {"order": make_sample()}, {}
-        )
+        value, missing, _ = evaluator_module._evaluate_column_path(container_column, {"order": make_sample()}, {})
         self.assertFalse(missing)
         self.assertIsInstance(value, list)
 
@@ -741,9 +738,7 @@ class TestEvaluatorCoverage(TestCase):
         )
         # Anchor alias is in ``binding`` (so the head-lookup branch passes)
         # but absent from ``meta_binding``: defensive miss.
-        value, missing, segment = evaluator_module._evaluate_column_path(
-            meta_column, {"point": object()}, {}
-        )
+        value, missing, segment = evaluator_module._evaluate_column_path(meta_column, {"point": object()}, {})
         self.assertIsNone(value)
         self.assertTrue(missing)
         self.assertEqual(segment, "point")
@@ -755,9 +750,7 @@ class TestEvaluatorCoverage(TestCase):
         for the row-scope walker variant.
         """
         self.assertEqual(
-            evaluator_module._segment_values_with_meta(
-                None, (CompiledIterFilter(),), path_text="x"
-            ),
+            evaluator_module._segment_values_with_meta(None, (CompiledIterFilter(),), path_text="x"),
             [],
         )
 
@@ -792,9 +785,7 @@ class TestEvaluatorCoverage(TestCase):
         of the module's stable surface.
         """
         self.assertEqual(
-            evaluator_module._segment_values(
-                [1, 2, 3], (CompiledIterFilter(),), path_text="x"
-            ),
+            evaluator_module._segment_values([1, 2, 3], (CompiledIterFilter(),), path_text="x"),
             [1, 2, 3],
         )
 
@@ -807,28 +798,20 @@ class TestEvaluatorCoverage(TestCase):
         match-only row_scope segments such as ``points[index=1]``.
         """
         match_hit = CompiledMatchFilter(
-            predicates=(
-                CompiledPredicate(field="index", value="1", value_quoted=False, coerced_value=1),
-            ),
+            predicates=(CompiledPredicate(field="index", value="1", value_quoted=False, coerced_value=1),),
         )
         points = [
             Point(index=1, chemistry=None, minerals=[]),
             Point(index=2, chemistry=None, minerals=[]),
         ]
-        result = evaluator_module._segment_values_with_meta(
-            points, (match_hit,), path_text="points[index=1]"
-        )
+        result = evaluator_module._segment_values_with_meta(points, (match_hit,), path_text="points[index=1]")
         self.assertEqual([(value, position) for value, position in result], [(points[0], None)])
 
         match_miss = CompiledMatchFilter(
-            predicates=(
-                CompiledPredicate(field="index", value="99", value_quoted=False, coerced_value=99),
-            ),
+            predicates=(CompiledPredicate(field="index", value="99", value_quoted=False, coerced_value=99),),
         )
         self.assertEqual(
-            evaluator_module._segment_values_with_meta(
-                points, (match_miss,), path_text="points[index=99]"
-            ),
+            evaluator_module._segment_values_with_meta(points, (match_miss,), path_text="points[index=99]"),
             [],
         )
 

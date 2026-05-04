@@ -64,10 +64,10 @@ class TestRegisterExecutor(_RegistryTestCase):
         Ensure register_executor exposes the factory through the registry.
         """
         factory, sentinel = _make_factory()
-        register_executor('fake', factory)
+        register_executor("fake", factory)
 
-        self.assertIn('fake', available_executors())
-        self.assertIs(get_factory('fake')(2), sentinel)
+        self.assertIn("fake", available_executors())
+        self.assertIs(get_factory("fake")(2), sentinel)
         factory.assert_called_once_with(2)
 
     def test_register_is_idempotent_for_same_factory(self):
@@ -75,25 +75,25 @@ class TestRegisterExecutor(_RegistryTestCase):
         Ensure re-registering the same factory under the same name is a no-op.
         """
         factory, _ = _make_factory()
-        register_executor('fake', factory)
+        register_executor("fake", factory)
         # No warning should be raised on the second call.
         with warnings.catch_warnings():
-            warnings.simplefilter('error')
-            register_executor('fake', factory)
-        self.assertIs(registry._registry['fake'], factory)
+            warnings.simplefilter("error")
+            register_executor("fake", factory)
+        self.assertIs(registry._registry["fake"], factory)
 
     def test_register_rejects_builtin_override_without_env(self):
         """
         Ensure built-in executors cannot be overridden by default.
         """
-        builtin_name = 'serial'
+        builtin_name = "serial"
         original = registry._registry[builtin_name]
         replacement, _ = _make_factory()
 
-        with mock.patch.dict('os.environ', {}, clear=False):
+        with mock.patch.dict("os.environ", {}, clear=False):
             # Ensure the override env var is unset.
-            __import__('os').environ.pop(OVERRIDE_ENV_VAR, None)
-            with self.assertWarnsRegex(RuntimeWarning, 'refusing to override built-in'):
+            __import__("os").environ.pop(OVERRIDE_ENV_VAR, None)
+            with self.assertWarnsRegex(RuntimeWarning, "refusing to override built-in"):
                 register_executor(builtin_name, replacement)
 
         self.assertIs(registry._registry[builtin_name], original)
@@ -102,12 +102,12 @@ class TestRegisterExecutor(_RegistryTestCase):
         """
         Ensure built-in executors can be overridden when the override env var is set.
         """
-        builtin_name = 'serial'
+        builtin_name = "serial"
         original = registry._registry[builtin_name]
         replacement, _ = _make_factory()
 
         try:
-            with mock.patch.dict('os.environ', {OVERRIDE_ENV_VAR: '1'}):
+            with mock.patch.dict("os.environ", {OVERRIDE_ENV_VAR: "1"}):
                 register_executor(builtin_name, replacement)
             self.assertIs(registry._registry[builtin_name], replacement)
         finally:
@@ -119,12 +119,12 @@ class TestRegisterExecutor(_RegistryTestCase):
         """
         first, _ = _make_factory()
         second, _ = _make_factory()
-        register_executor('clash', first)
+        register_executor("clash", first)
 
-        with self.assertWarnsRegex(RuntimeWarning, 'is already registered'):
-            register_executor('clash', second)
+        with self.assertWarnsRegex(RuntimeWarning, "is already registered"):
+            register_executor("clash", second)
 
-        self.assertIs(registry._registry['clash'], first)
+        self.assertIs(registry._registry["clash"], first)
 
     def test_register_rejects_empty_name(self):
         """
@@ -132,14 +132,14 @@ class TestRegisterExecutor(_RegistryTestCase):
         """
         factory, _ = _make_factory()
         with self.assertRaises(EleanorException):
-            register_executor('', factory)
+            register_executor("", factory)
 
     def test_register_rejects_non_callable_factory(self):
         """
         Ensure register_executor validates the factory argument.
         """
         with self.assertRaises(EleanorException):
-            register_executor('broken', object())  # type: ignore[arg-type]
+            register_executor("broken", object())  # type: ignore[arg-type]
 
 
 class TestEntryPointDiscovery(_RegistryTestCase):
@@ -157,13 +157,13 @@ class TestEntryPointDiscovery(_RegistryTestCase):
         Ensure entry points in the ``eleanor.executors`` group populate the registry.
         """
         factory, sentinel = _make_factory()
-        ep = _FakeEntryPoint('plugin', 'pkg.mod:build', lambda: factory)
+        ep = _FakeEntryPoint("plugin", "pkg.mod:build", lambda: factory)
 
-        with mock.patch('eleanor.plugin.entry_points', return_value=[ep]):
+        with mock.patch("eleanor.plugin.entry_points", return_value=[ep]):
             executors = available_executors()
 
-        self.assertIn('plugin', executors)
-        self.assertIs(get_factory('plugin')(4), sentinel)
+        self.assertIn("plugin", executors)
+        self.assertIs(get_factory("plugin")(4), sentinel)
         factory.assert_called_once_with(4)
 
     def test_discovery_warns_and_continues_on_load_failure(self):
@@ -173,45 +173,45 @@ class TestEntryPointDiscovery(_RegistryTestCase):
         good_factory, sentinel = _make_factory()
 
         def _fail():
-            raise ImportError('boom')
+            raise ImportError("boom")
 
-        failing_ep = _FakeEntryPoint('broken', 'pkg.broken:build', _fail)
-        working_ep = _FakeEntryPoint('working', 'pkg.ok:build', lambda: good_factory)
+        failing_ep = _FakeEntryPoint("broken", "pkg.broken:build", _fail)
+        working_ep = _FakeEntryPoint("working", "pkg.ok:build", lambda: good_factory)
 
         with mock.patch(
-            'eleanor.plugin.entry_points',
+            "eleanor.plugin.entry_points",
             return_value=[failing_ep, working_ep],
         ):
             with self.assertWarnsRegex(RuntimeWarning, 'failed to load executor entry point "broken"'):
                 executors = available_executors()
 
-        self.assertNotIn('broken', executors)
-        self.assertIn('working', executors)
+        self.assertNotIn("broken", executors)
+        self.assertIn("working", executors)
 
     def test_discovery_rejects_non_callable_entry_point(self):
         """
         Ensure entry points that do not resolve to callables are skipped with a warning.
         """
-        not_callable_ep = _FakeEntryPoint('bad', 'pkg.bad:NOT_CALLABLE', lambda: 42)
+        not_callable_ep = _FakeEntryPoint("bad", "pkg.bad:NOT_CALLABLE", lambda: 42)
 
         with mock.patch(
-            'eleanor.plugin.entry_points',
+            "eleanor.plugin.entry_points",
             return_value=[not_callable_ep],
         ):
-            with self.assertWarnsRegex(RuntimeWarning, 'is invalid'):
+            with self.assertWarnsRegex(RuntimeWarning, "is invalid"):
                 executors = available_executors()
 
-        self.assertNotIn('bad', executors)
+        self.assertNotIn("bad", executors)
 
     def test_discovery_runs_at_most_once(self):
         """
         Ensure repeated calls do not re-query entry points.
         """
         ep_call = mock.MagicMock(return_value=[])
-        with mock.patch('eleanor.plugin.entry_points', ep_call):
+        with mock.patch("eleanor.plugin.entry_points", ep_call):
             available_executors()
             available_executors()
-            get_factory('serial')
+            get_factory("serial")
         self.assertEqual(ep_call.call_count, 1)
 
     def test_discovery_rejects_builtin_name_from_plugin(self):
@@ -219,14 +219,14 @@ class TestEntryPointDiscovery(_RegistryTestCase):
         Ensure a plugin that tries to register a built-in name is rejected with a warning.
         """
         replacement, _ = _make_factory()
-        ep = _FakeEntryPoint('serial', 'bad_plugin:build', lambda: replacement)
-        original = registry._registry['serial']
+        ep = _FakeEntryPoint("serial", "bad_plugin:build", lambda: replacement)
+        original = registry._registry["serial"]
 
-        with mock.patch('eleanor.plugin.entry_points', return_value=[ep]):
-            with self.assertWarnsRegex(RuntimeWarning, 'refusing to override built-in'):
+        with mock.patch("eleanor.plugin.entry_points", return_value=[ep]):
+            with self.assertWarnsRegex(RuntimeWarning, "refusing to override built-in"):
                 available_executors()
 
-        self.assertIs(registry._registry['serial'], original)
+        self.assertIs(registry._registry["serial"], original)
 
     def test_discovery_skips_too_new_api_plugin_with_warning(self):
         """
@@ -253,15 +253,15 @@ class TestGetFactory(_RegistryTestCase):
         """
         registry._discovered = False
         plugin_factory, _ = _make_factory()
-        ep = _FakeEntryPoint('plugin', 'pkg:build', lambda: plugin_factory)
+        ep = _FakeEntryPoint("plugin", "pkg:build", lambda: plugin_factory)
 
-        with mock.patch('eleanor.plugin.entry_points', return_value=[ep]):
+        with mock.patch("eleanor.plugin.entry_points", return_value=[ep]):
             with self.assertRaises(EleanorException) as ctx:
-                get_factory('nope')
+                get_factory("nope")
 
         message = str(ctx.exception)
-        self.assertIn('nope', message)
-        self.assertIn('plugin', message)
+        self.assertIn("nope", message)
+        self.assertIn("plugin", message)
         for builtin in sorted(BUILTIN_EXECUTORS):
             self.assertIn(builtin, message)
 
@@ -276,9 +276,10 @@ class TestRegistrySurface(TestCase):
         Ensure the module-level ``registry`` attribute is a PluginRegistry instance.
         """
         from eleanor.plugin import PluginRegistry
+
         self.assertIsInstance(registry_module.registry, PluginRegistry)
-        self.assertEqual(registry_module.registry.kind, 'executor')
-        self.assertEqual(registry_module.registry.entry_point_group, 'eleanor.executors')
+        self.assertEqual(registry_module.registry.kind, "executor")
+        self.assertEqual(registry_module.registry.entry_point_group, "eleanor.executors")
 
     def test_builtin_executors_is_registry_builtins(self):
         """

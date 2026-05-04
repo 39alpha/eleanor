@@ -3,6 +3,7 @@ import warnings
 from unittest import mock
 
 import numpy as np
+
 from eleanor.exceptions import EleanorException, EleanorFileException, EleanorParserException
 from eleanor.kernel.eq36.codes import RunCode
 from eleanor.kernel.eq36.parsers import OutputParser, OutputParser3, OutputParser6
@@ -11,7 +12,6 @@ from ...common import TestCase
 
 
 class DummyOutputParser(OutputParser):
-
     def read_elemental_composition(self):
         pass
 
@@ -95,12 +95,7 @@ class TestEq36Parsers(TestCase):
         """
         Ensure a None reactant summary yields an explicit empty structure.
         """
-        parser = self._parser(
-            "--- Reactant Summary ---\n"
-            " Reactant Moles Delta moles Mass, g Delta mass, g\n"
-            "\n"
-            "None\n"
-        )
+        parser = self._parser("--- Reactant Summary ---\n Reactant Moles Delta moles Mass, g Delta mass, g\n\nNone\n")
 
         parser.read_reactants()
 
@@ -111,10 +106,7 @@ class TestEq36Parsers(TestCase):
         """
         Ensure row_names length is enforced when more table rows are present.
         """
-        parser = self._parser(
-            "a 1.0\n"
-            "b 2.0\n"
-        )
+        parser = self._parser("a 1.0\nb 2.0\n")
 
         with self.assertRaises(EleanorParserException):
             parser.read_basic_table("x", row_names=["only_one"])
@@ -123,10 +115,7 @@ class TestEq36Parsers(TestCase):
         """
         Ensure row_names length is enforced when fewer table rows are present.
         """
-        parser = self._parser(
-            "a 1.0\n"
-            "\n"
-        )
+        parser = self._parser("a 1.0\n\n")
 
         with self.assertRaises(EleanorParserException):
             parser.read_basic_table("x", row_names=["row1", "row2"])
@@ -135,17 +124,11 @@ class TestEq36Parsers(TestCase):
         """
         Ensure read_log_property requires key to be a string.
         """
-        parser_missing = self._parser(
-            "Oxygen fugacity=1.0 bars\n"
-            "Log oxygen fugacity=0.0\n"
-        )
+        parser_missing = self._parser("Oxygen fugacity=1.0 bars\nLog oxygen fugacity=0.0\n")
         with self.assertRaises(EleanorParserException):
             parser_missing.read_log_property("Oxygen fugacity", units=["bars", "bar"])
 
-        parser_nonstring = self._parser(
-            "Oxygen fugacity=1.0 bars\n"
-            "Log oxygen fugacity=0.0\n"
-        )
+        parser_nonstring = self._parser("Oxygen fugacity=1.0 bars\nLog oxygen fugacity=0.0\n")
         with self.assertRaises(EleanorParserException):
             parser_nonstring.read_log_property("Oxygen fugacity", key=1, units=["bars", "bar"])
 
@@ -218,10 +201,7 @@ class TestEq36Parsers(TestCase):
         """
         Ensure advance_to_xi_step rejects Xi markers not followed by a path separator.
         """
-        parser = self._parser(
-            "Stepping to Xi\n"
-            "Xi=0\n"
-        )
+        parser = self._parser("Stepping to Xi\nXi=0\n")
         with self.assertRaisesRegex(EleanorParserException, "expected path separator after Stepping to Xi"):
             parser.advance_to_xi_step()
 
@@ -230,11 +210,7 @@ class TestEq36Parsers(TestCase):
         Ensure OutputParser6.parse surfaces a strict error when Xi step separators are missing.
         """
         parser = OutputParser6(
-            io.StringIO(
-                "Stepping to Xi\n"
-                "Xi=0\n"
-                " --- The reaction path has terminated normally ---\n"
-            )
+            io.StringIO("Stepping to Xi\nXi=0\n --- The reaction path has terminated normally ---\n")
         )
         with self.assertRaisesRegex(EleanorParserException, "expected path separator after Stepping to Xi"):
             parser.parse()
@@ -296,12 +272,7 @@ class TestEq36Parsers(TestCase):
         Ensure liquid saturation-state parsing stores normal rows and skips starred rows.
         """
         parser = self._parser(
-            " --- Saturation States of Pure Liquids ---\n"
-            " Phase Log Q/K Affinity, kcal\n"
-            " hdr\n"
-            "H2O -0.1 1.2\n"
-            "OIL * *\n"
-            "\n"
+            " --- Saturation States of Pure Liquids ---\n Phase Log Q/K Affinity, kcal\n hdr\nH2O -0.1 1.2\nOIL * *\n\n"
         )
 
         parser.read_liquid_saturation_states()
@@ -316,11 +287,7 @@ class TestEq36Parsers(TestCase):
         Ensure pure-solid saturation-state wrapper initializes containers and parses values.
         """
         parser = self._parser(
-            " --- Saturation States of Pure Solids ---\n"
-            " Phase Log Q/K Affinity, kcal\n"
-            " hdr\n"
-            "CALCITE -1.5 3.0\n"
-            "\n"
+            " --- Saturation States of Pure Solids ---\n Phase Log Q/K Affinity, kcal\n hdr\nCALCITE -1.5 3.0\n\n"
         )
 
         parser.read_pure_solid_saturation_states()
@@ -335,11 +302,7 @@ class TestEq36Parsers(TestCase):
         Ensure solid-solution saturation wrapper backfills missing end-member fields from pure solids.
         """
         parser = self._parser(
-            " --- Saturation States of Solid Solutions ---\n"
-            " Phase Log Q/K Affinity, kcal\n"
-            " hdr\n"
-            "None\n"
-            "\n"
+            " --- Saturation States of Solid Solutions ---\n Phase Log Q/K Affinity, kcal\n hdr\nNone\n\n"
         )
         parser.data = {
             "solids": {
@@ -389,11 +352,7 @@ class TestEq36Parsers(TestCase):
         """
         Ensure mineral parsing updates the expected phase while preserving other fields.
         """
-        parser = self._parser(
-            " Mineral Log Q/K Aff, kcal State\n"
-            "h1\n"
-            "SS1 -1.2 3.4 SATD\n"
-        )
+        parser = self._parser(" Mineral Log Q/K Aff, kcal State\nh1\nSS1 -1.2 3.4 SATD\n")
         phases = {"SS1": {"existing": 1.0}}
 
         parser.read_mineral("Solid Solution Product Phases", phases, expected_phase="SS1")
@@ -406,11 +365,7 @@ class TestEq36Parsers(TestCase):
         """
         Ensure mineral parsing skips rows where thermodynamic values are starred.
         """
-        parser = self._parser(
-            " Mineral Log Q/K Aff, kcal State\n"
-            "h1\n"
-            "SS1 * *\n"
-        )
+        parser = self._parser(" Mineral Log Q/K Aff, kcal State\nh1\nSS1 * *\n")
         phases = {"SS1": {"existing": 1.0}}
 
         parser.read_mineral("Solid Solution Product Phases", phases, expected_phase="SS1")
@@ -421,11 +376,7 @@ class TestEq36Parsers(TestCase):
         """
         Ensure mineral parsing rejects unrecognized state tokens.
         """
-        parser = self._parser(
-            " Mineral Log Q/K Aff, kcal State\n"
-            "h1\n"
-            "SS1 -1.2 3.4 INVALID\n"
-        )
+        parser = self._parser(" Mineral Log Q/K Aff, kcal State\nh1\nSS1 -1.2 3.4 INVALID\n")
         phases = {"SS1": {}}
 
         with self.assertRaises(EleanorParserException):
@@ -435,11 +386,7 @@ class TestEq36Parsers(TestCase):
         """
         Ensure mineral parsing raises a parser error when expected_phase does not match the parsed mineral name.
         """
-        parser = self._parser(
-            " Mineral Log Q/K Aff, kcal State\n"
-            "h1\n"
-            "SS1 -1.2 3.4 SATD\n"
-        )
+        parser = self._parser(" Mineral Log Q/K Aff, kcal State\nh1\nSS1 -1.2 3.4 SATD\n")
         phases = {"SS1": {}}
 
         with self.assertRaises(EleanorParserException):
@@ -449,11 +396,7 @@ class TestEq36Parsers(TestCase):
         """
         Ensure end-member saturation parsing updates known entries and skips starred rows.
         """
-        parser = self._parser(
-            "EM1 -2.0 1.0\n"
-            "EM2 * *\n"
-            "\n"
-        )
+        parser = self._parser("EM1 -2.0 1.0\nEM2 * *\n\n")
         end_members = {"EM1": {"x": 0.5}, "EM2": {"x": 0.4}}
 
         parser.read_end_member_saturations("Solid Solution Product Phases", end_members)
@@ -467,10 +410,7 @@ class TestEq36Parsers(TestCase):
         """
         Ensure end-member saturation parsing raises a parser error for unknown end members.
         """
-        parser = self._parser(
-            "UNKNOWN -2.0 1.0\n"
-            "\n"
-        )
+        parser = self._parser("UNKNOWN -2.0 1.0\n\n")
         with self.assertRaises(EleanorParserException):
             parser.read_end_member_saturations("Solid Solution Product Phases", {"EM1": {"x": 0.5}})
 
@@ -548,10 +488,7 @@ class TestEq36Parsers(TestCase):
         """
         Ensure read_product_phases raises when the requested section header is absent.
         """
-        parser = self._parser(
-            " --- Some Other Section ---\n"
-            "body\n"
-        )
+        parser = self._parser(" --- Some Other Section ---\nbody\n")
         with self.assertRaises(EleanorParserException):
             parser.read_product_phases("Solid Solution Product Phases")
 
@@ -559,10 +496,7 @@ class TestEq36Parsers(TestCase):
         """
         Ensure missing-header failures do not mutate parser.data.
         """
-        parser = self._parser(
-            " --- Some Other Section ---\n"
-            "body\n"
-        )
+        parser = self._parser(" --- Some Other Section ---\nbody\n")
         parser.data = {"preexisting": {"x": 1}}
         with self.assertRaises(EleanorParserException):
             parser.read_product_phases("Solid Solution Product Phases")
@@ -622,12 +556,7 @@ class TestEq36Parsers(TestCase):
         Ensure OutputParser6 elemental-composition parsing rejects unknown table headers.
         """
         parser = OutputParser6(
-            io.StringIO(
-                " --- Elemental Composition of the Aqueous Solution ---\n"
-                "h1\n"
-                " Element unexpected columns\n"
-                "h2\n"
-            )
+            io.StringIO(" --- Elemental Composition of the Aqueous Solution ---\nh1\n Element unexpected columns\nh2\n")
         )
 
         with self.assertRaises(EleanorParserException):
@@ -663,12 +592,7 @@ class TestEq36Parsers(TestCase):
         Ensure OutputParser6 sensible-composition parsing rejects unknown table headers.
         """
         parser = OutputParser6(
-            io.StringIO(
-                " --- Sensible Composition of the Aqueous Solution ---\n"
-                "h1\n"
-                " Species unexpected columns\n"
-                "h2\n"
-            )
+            io.StringIO(" --- Sensible Composition of the Aqueous Solution ---\nh1\n Species unexpected columns\nh2\n")
         )
 
         with self.assertRaises(EleanorParserException):
@@ -807,9 +731,11 @@ class TestEq36Parsers(TestCase):
         """
         parser = OutputParser6(io.StringIO(""))
 
-        with mock.patch.object(parser, "advance_to_xi_step", return_value=False), \
-             mock.patch.object(parser, "parse_step") as parse_step, \
-             mock.patch.object(parser, "check_path_termination") as check_path_termination:
+        with (
+            mock.patch.object(parser, "advance_to_xi_step", return_value=False),
+            mock.patch.object(parser, "parse_step") as parse_step,
+            mock.patch.object(parser, "check_path_termination") as check_path_termination,
+        ):
             result = parser.parse()
 
         self.assertIs(result, parser)
@@ -826,25 +752,27 @@ class TestEq36Parsers(TestCase):
             if key is not None:
                 parser.data[key] = 1.0
 
-        with mock.patch.object(parser, "consume_blank_lines"), \
-             mock.patch.object(parser, "advance"), \
-             mock.patch.object(parser, "read_basic_property", side_effect=fake_read_basic_property), \
-             mock.patch.object(parser, "read_reactants"), \
-             mock.patch.object(parser, "read_elemental_composition"), \
-             mock.patch.object(parser, "read_numerical_composition"), \
-             mock.patch.object(parser, "read_sensible_composition"), \
-             mock.patch.object(parser, "read_pH_like"), \
-             mock.patch.object(parser, "read_bulk_properties"), \
-             mock.patch.object(parser, "read_charge_balance"), \
-             mock.patch.object(parser, "read_aqueous_solute"), \
-             mock.patch.object(parser, "read_redox_reactions"), \
-             mock.patch.object(parser, "read_solid_phases"), \
-             mock.patch.object(parser, "read_aqueous_saturation_states"), \
-             mock.patch.object(parser, "read_pure_solid_saturation_states"), \
-             mock.patch.object(parser, "read_liquid_saturation_states"), \
-             mock.patch.object(parser, "read_solid_solution_saturation_states"), \
-             mock.patch.object(parser, "read_product_phases"), \
-             mock.patch.object(parser, "read_fugacities"):
+        with (
+            mock.patch.object(parser, "consume_blank_lines"),
+            mock.patch.object(parser, "advance"),
+            mock.patch.object(parser, "read_basic_property", side_effect=fake_read_basic_property),
+            mock.patch.object(parser, "read_reactants"),
+            mock.patch.object(parser, "read_elemental_composition"),
+            mock.patch.object(parser, "read_numerical_composition"),
+            mock.patch.object(parser, "read_sensible_composition"),
+            mock.patch.object(parser, "read_pH_like"),
+            mock.patch.object(parser, "read_bulk_properties"),
+            mock.patch.object(parser, "read_charge_balance"),
+            mock.patch.object(parser, "read_aqueous_solute"),
+            mock.patch.object(parser, "read_redox_reactions"),
+            mock.patch.object(parser, "read_solid_phases"),
+            mock.patch.object(parser, "read_aqueous_saturation_states"),
+            mock.patch.object(parser, "read_pure_solid_saturation_states"),
+            mock.patch.object(parser, "read_liquid_saturation_states"),
+            mock.patch.object(parser, "read_solid_solution_saturation_states"),
+            mock.patch.object(parser, "read_product_phases"),
+            mock.patch.object(parser, "read_fugacities"),
+        ):
             result = parser.parse_step()
 
         self.assertIs(result, parser)
@@ -866,10 +794,12 @@ class TestEq36Parsers(TestCase):
             if key is not None:
                 parser.data[key] = 1.0
 
-        with mock.patch.object(parser, "consume_blank_lines"), \
-             mock.patch.object(parser, "advance"), \
-             mock.patch.object(parser, "read_basic_property", side_effect=fake_read_basic_property), \
-             mock.patch.object(parser, "read_reactants", side_effect=RuntimeError("boom")):
+        with (
+            mock.patch.object(parser, "consume_blank_lines"),
+            mock.patch.object(parser, "advance"),
+            mock.patch.object(parser, "read_basic_property", side_effect=fake_read_basic_property),
+            mock.patch.object(parser, "read_reactants", side_effect=RuntimeError("boom")),
+        ):
             with self.assertRaisesRegex(EleanorParserException, "failed to parse EQ6 output"):
                 parser.parse_step()
 
@@ -879,9 +809,11 @@ class TestEq36Parsers(TestCase):
         """
         parser = OutputParser6(io.StringIO(""))
 
-        with mock.patch.object(parser, "advance_to_xi_step", side_effect=[True, True, False]), \
-             mock.patch.object(parser, "parse_step") as parse_step, \
-             mock.patch.object(parser, "check_path_termination") as check_path_termination:
+        with (
+            mock.patch.object(parser, "advance_to_xi_step", side_effect=[True, True, False]),
+            mock.patch.object(parser, "parse_step") as parse_step,
+            mock.patch.object(parser, "check_path_termination") as check_path_termination,
+        ):
             result = parser.parse()
 
         self.assertIs(result, parser)
@@ -894,10 +826,12 @@ class TestEq36Parsers(TestCase):
         """
         parser = OutputParser3(io.StringIO("Normal exit\n"))
 
-        with mock.patch.object(parser, "consume_to_pattern"), \
-             mock.patch.object(parser, "advance"), \
-             mock.patch.object(parser, "read_basic_property"), \
-             mock.patch.object(parser, "read_elemental_composition", side_effect=RuntimeError("boom")):
+        with (
+            mock.patch.object(parser, "consume_to_pattern"),
+            mock.patch.object(parser, "advance"),
+            mock.patch.object(parser, "read_basic_property"),
+            mock.patch.object(parser, "read_elemental_composition", side_effect=RuntimeError("boom")),
+        ):
             with self.assertRaisesRegex(EleanorParserException, "failed to parse EQ3 output"):
                 parser.parse()
 
@@ -907,24 +841,26 @@ class TestEq36Parsers(TestCase):
         """
         parser = OutputParser3(io.StringIO("not normal exit\n"))
 
-        with mock.patch.object(parser, "consume_to_pattern"), \
-             mock.patch.object(parser, "advance"), \
-             mock.patch.object(parser, "read_basic_property"), \
-             mock.patch.object(parser, "read_elemental_composition"), \
-             mock.patch.object(parser, "read_numerical_composition"), \
-             mock.patch.object(parser, "read_sensible_composition"), \
-             mock.patch.object(parser, "read_bulk_properties"), \
-             mock.patch.object(parser, "read_pH_like"), \
-             mock.patch.object(parser, "read_alkalinity"), \
-             mock.patch.object(parser, "read_charge_balance"), \
-             mock.patch.object(parser, "read_aqueous_solute"), \
-             mock.patch.object(parser, "read_redox_reactions"), \
-             mock.patch.object(parser, "read_aqueous_saturation_states"), \
-             mock.patch.object(parser, "read_pure_solid_saturation_states"), \
-             mock.patch.object(parser, "read_liquid_saturation_states"), \
-             mock.patch.object(parser, "read_solid_solution_saturation_states"), \
-             mock.patch.object(parser, "read_product_phases"), \
-             mock.patch.object(parser, "read_fugacities"):
+        with (
+            mock.patch.object(parser, "consume_to_pattern"),
+            mock.patch.object(parser, "advance"),
+            mock.patch.object(parser, "read_basic_property"),
+            mock.patch.object(parser, "read_elemental_composition"),
+            mock.patch.object(parser, "read_numerical_composition"),
+            mock.patch.object(parser, "read_sensible_composition"),
+            mock.patch.object(parser, "read_bulk_properties"),
+            mock.patch.object(parser, "read_pH_like"),
+            mock.patch.object(parser, "read_alkalinity"),
+            mock.patch.object(parser, "read_charge_balance"),
+            mock.patch.object(parser, "read_aqueous_solute"),
+            mock.patch.object(parser, "read_redox_reactions"),
+            mock.patch.object(parser, "read_aqueous_saturation_states"),
+            mock.patch.object(parser, "read_pure_solid_saturation_states"),
+            mock.patch.object(parser, "read_liquid_saturation_states"),
+            mock.patch.object(parser, "read_solid_solution_saturation_states"),
+            mock.patch.object(parser, "read_product_phases"),
+            mock.patch.object(parser, "read_fugacities"),
+        ):
             with self.assertRaises(EleanorException) as cm:
                 parser.parse()
 
@@ -981,10 +917,7 @@ class TestEq36Parsers(TestCase):
         """
         Ensure read_alkalinity exits without creating data when alkalinity is explicitly not defined.
         """
-        parser = self._parser(
-            "prefix\n"
-            "Alkalinity is not defined in this run\n"
-        )
+        parser = self._parser("prefix\nAlkalinity is not defined in this run\n")
 
         parser.read_alkalinity()
 
@@ -1070,12 +1003,7 @@ class TestEq36Parsers(TestCase):
         """
         Ensure read_solid_blocks parses solid solutions, their end members, and pure solids.
         """
-        parser = self._parser(
-            "SS1 -1.0 1.0 10.0 100.0\n"
-            "   EM1 -2.0 0.5 5.0 50.0\n"
-            "CALCITE -3.0 2.0 20.0 200.0\n"
-            "\n"
-        )
+        parser = self._parser("SS1 -1.0 1.0 10.0 100.0\n   EM1 -2.0 0.5 5.0 50.0\nCALCITE -3.0 2.0 20.0 200.0\n\n")
         pure_solids = {}
         solid_solutions = {}
 
@@ -1101,10 +1029,7 @@ class TestEq36Parsers(TestCase):
         """
         Ensure read_solid_blocks raises when an end-member appears without a parent solid solution.
         """
-        parser = self._parser(
-            "   EM1 -2.0 0.5 5.0 50.0\n"
-            "\n"
-        )
+        parser = self._parser("   EM1 -2.0 0.5 5.0 50.0\n\n")
 
         with self.assertRaisesRegex(EleanorParserException, "unexpected end member"):
             parser.read_solid_blocks({}, {})
@@ -1113,11 +1038,7 @@ class TestEq36Parsers(TestCase):
         """
         Ensure read_solid_blocks skips starred rows and assigns default saturation values for fix_f phases.
         """
-        parser = self._parser(
-            "STAR * * * *\n"
-            "fix_fCO2 -1.0 1.0 10.0 100.0\n"
-            "\n"
-        )
+        parser = self._parser("STAR * * * *\nfix_fCO2 -1.0 1.0 10.0 100.0\n\n")
         pure_solids = {}
         solid_solutions = {}
 
@@ -1199,10 +1120,7 @@ class TestEq36Parsers(TestCase):
         """
         Ensure malformed/non-data rows in read_solid_blocks are surfaced as EleanorParserException.
         """
-        parser = self._parser(
-            "None\n"
-            "\n"
-        )
+        parser = self._parser("None\n\n")
 
         with self.assertRaises(EleanorParserException):
             parser.read_solid_blocks({}, {})
@@ -1422,12 +1340,7 @@ class TestEq36Parsers(TestCase):
         """
         Ensure advance_to_xi_step returns True and positions cursor after the path separator.
         """
-        parser = self._parser(
-            "preface\n"
-            "Stepping to Xi\n"
-            " - - -\n"
-            "Xi=1\n"
-        )
+        parser = self._parser("preface\nStepping to Xi\n - - -\nXi=1\n")
         self.assertTrue(parser.advance_to_xi_step())
         self.assertEqual(parser.line().strip(), "Xi=1")
 
@@ -1559,12 +1472,7 @@ class TestEq36Parsers(TestCase):
         Ensure OutputParser6 numerical-composition parsing rejects unknown table headers.
         """
         parser = OutputParser6(
-            io.StringIO(
-                " --- Numerical Composition of the Aqueous Solution ---\n"
-                "h1\n"
-                " Species unknown columns\n"
-                "h2\n"
-            )
+            io.StringIO(" --- Numerical Composition of the Aqueous Solution ---\nh1\n Species unknown columns\nh2\n")
         )
 
         with self.assertRaises(EleanorParserException):
@@ -1665,11 +1573,7 @@ class TestEq36Parsers(TestCase):
         """
         Ensure read_solid_blocks uses two-line advance for starred rows followed by a blank line.
         """
-        parser = self._parser(
-            "PHASE * * * *\n"
-            "\n"
-            "\n"
-        )
+        parser = self._parser("PHASE * * * *\n\n\n")
         parser.read_solid_blocks({}, {})
         self.assertEqual(parser.line_num, 2)
 
@@ -1677,11 +1581,7 @@ class TestEq36Parsers(TestCase):
         """
         Ensure read_mineral rejects rows with more than one state column.
         """
-        parser = self._parser(
-            " Mineral Log Q/K Aff, kcal State\n"
-            "h1\n"
-            "SS1 -1.2 3.4 SATD EXTRA\n"
-        )
+        parser = self._parser(" Mineral Log Q/K Aff, kcal State\nh1\nSS1 -1.2 3.4 SATD EXTRA\n")
         phases = {"SS1": {}}
         with self.assertRaises(EleanorParserException):
             parser.read_mineral("Solid Solution Product Phases", phases, expected_phase="SS1")
@@ -1690,10 +1590,7 @@ class TestEq36Parsers(TestCase):
         """
         Ensure read_end_member_saturations rejects rows with extra state columns.
         """
-        parser = self._parser(
-            "EM1 -2.0 1.0 SATD EXTRA\n"
-            "\n"
-        )
+        parser = self._parser("EM1 -2.0 1.0 SATD EXTRA\n\n")
         with self.assertRaises(EleanorParserException):
             parser.read_end_member_saturations("Solid Solution Product Phases", {"EM1": {}})
 
@@ -1701,10 +1598,7 @@ class TestEq36Parsers(TestCase):
         """
         Ensure read_end_member_saturations rejects unknown state tokens.
         """
-        parser = self._parser(
-            "EM1 -2.0 1.0 INVALID\n"
-            "\n"
-        )
+        parser = self._parser("EM1 -2.0 1.0 INVALID\n\n")
         with self.assertRaises(EleanorParserException):
             parser.read_end_member_saturations("Solid Solution Product Phases", {"EM1": {}})
 
@@ -1749,11 +1643,7 @@ class TestEq36Parsers(TestCase):
         Ensure read_solid_solution_saturation_states initializes missing containers, then currently raises if pure_solids is absent.
         """
         parser = self._parser(
-            " --- Saturation States of Solid Solutions ---\n"
-            " Phase Log Q/K Affinity, kcal\n"
-            " hdr\n"
-            "None\n"
-            "\n"
+            " --- Saturation States of Solid Solutions ---\n Phase Log Q/K Affinity, kcal\n hdr\nNone\n\n"
         )
         parser.data = {}
         with self.assertRaises(KeyError):
@@ -1779,13 +1669,14 @@ class TestEq36Parsers(TestCase):
             def match(self, _line):
                 return _FakeMatch()
 
-        with mock.patch("eleanor.kernel.eq36.parsers.re.compile", return_value=_FakePattern()), \
-             mock.patch.object(parser, "unconsume_to_pattern"):
+        with (
+            mock.patch("eleanor.kernel.eq36.parsers.re.compile", return_value=_FakePattern()),
+            mock.patch.object(parser, "unconsume_to_pattern"),
+        ):
             with self.assertRaises(EleanorException) as cm:
                 parser.check_path_termination()
 
         self.assertEqual(cm.exception.code, RunCode.EQ6_EARLY_TERMINATION)
-
 
     def test_outputparser3_read_bulk_properties_parses_and_computes_logs(self):
         """
@@ -1866,24 +1757,26 @@ class TestEq36Parsers(TestCase):
         """
         parser = OutputParser3(io.StringIO("Normal exit\n"))
 
-        with mock.patch.object(parser, "consume_to_pattern"), \
-             mock.patch.object(parser, "advance"), \
-             mock.patch.object(parser, "read_basic_property"), \
-             mock.patch.object(parser, "read_elemental_composition"), \
-             mock.patch.object(parser, "read_numerical_composition"), \
-             mock.patch.object(parser, "read_sensible_composition"), \
-             mock.patch.object(parser, "read_bulk_properties"), \
-             mock.patch.object(parser, "read_pH_like"), \
-             mock.patch.object(parser, "read_alkalinity"), \
-             mock.patch.object(parser, "read_charge_balance"), \
-             mock.patch.object(parser, "read_aqueous_solute"), \
-             mock.patch.object(parser, "read_redox_reactions"), \
-             mock.patch.object(parser, "read_aqueous_saturation_states"), \
-             mock.patch.object(parser, "read_pure_solid_saturation_states"), \
-             mock.patch.object(parser, "read_liquid_saturation_states"), \
-             mock.patch.object(parser, "read_solid_solution_saturation_states"), \
-             mock.patch.object(parser, "read_product_phases"), \
-             mock.patch.object(parser, "read_fugacities"):
+        with (
+            mock.patch.object(parser, "consume_to_pattern"),
+            mock.patch.object(parser, "advance"),
+            mock.patch.object(parser, "read_basic_property"),
+            mock.patch.object(parser, "read_elemental_composition"),
+            mock.patch.object(parser, "read_numerical_composition"),
+            mock.patch.object(parser, "read_sensible_composition"),
+            mock.patch.object(parser, "read_bulk_properties"),
+            mock.patch.object(parser, "read_pH_like"),
+            mock.patch.object(parser, "read_alkalinity"),
+            mock.patch.object(parser, "read_charge_balance"),
+            mock.patch.object(parser, "read_aqueous_solute"),
+            mock.patch.object(parser, "read_redox_reactions"),
+            mock.patch.object(parser, "read_aqueous_saturation_states"),
+            mock.patch.object(parser, "read_pure_solid_saturation_states"),
+            mock.patch.object(parser, "read_liquid_saturation_states"),
+            mock.patch.object(parser, "read_solid_solution_saturation_states"),
+            mock.patch.object(parser, "read_product_phases"),
+            mock.patch.object(parser, "read_fugacities"),
+        ):
             result = parser.parse()
 
         self.assertIs(result, parser)
@@ -1906,11 +1799,7 @@ class TestEq36Parsers(TestCase):
         Ensure liquid saturation-state parser rejects unknown state tokens.
         """
         parser = self._parser(
-            " --- Saturation States of Pure Liquids ---\n"
-            " Phase Log Q/K Affinity, kcal\n"
-            " hdr\n"
-            "H2O -1.0 2.0 INVALID\n"
-            "\n"
+            " --- Saturation States of Pure Liquids ---\n Phase Log Q/K Affinity, kcal\n hdr\nH2O -1.0 2.0 INVALID\n\n"
         )
 
         with self.assertRaises(EleanorParserException):

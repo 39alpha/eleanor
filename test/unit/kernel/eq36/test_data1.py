@@ -1,5 +1,6 @@
-import numpy as np
 from unittest import mock
+
+import numpy as np
 
 from eleanor.kernel.eq36.data1 import BasisSpecies, Data1, TPCurve
 from eleanor.kernel.eq36.libeq36 import Data

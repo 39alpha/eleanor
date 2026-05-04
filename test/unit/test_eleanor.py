@@ -134,7 +134,7 @@ class TestEleanorConstruction(TestCase):
 
         with (
             mock.patch("eleanor.eleanor.load_executor", return_value=session_executor),
-             mock.patch("eleanor.eleanor.load_output_sink", return_value=sink),
+            mock.patch("eleanor.eleanor.load_output_sink", return_value=sink),
         ):
             with self.assertRaisesRegex(RuntimeError, "dispatch failed"):
                 with eleanor:
@@ -379,6 +379,7 @@ class TestEleanorRun(TestCase):
             _ = eleanor.run(_leaf_order(), 3, kernel=mock.Mock(), navigator=_navigator(7))
 
         self.assertEqual(eleanor.process.call_args.kwargs["batch_size"], 7)
+
     def test_max_nav_attempts_threads_from_run_to_process(self):
         """Ensure run(..., max_nav_attempts=4) threads the value to process()."""
         eleanor = _make_eleanor()
@@ -694,7 +695,7 @@ class TestEleanorLoaders(TestCase):
         from eleanor.kernel.config import Settings as KernelSettings
         from eleanor.kernel.interface import AbstractKernel
 
-        eleanor = _make_eleanor()
+        _ = _make_eleanor()
         settings = KernelSettings(timeout=None)
         kernel_cfg = mock.Mock()
         kernel_cfg.type = "eq36"

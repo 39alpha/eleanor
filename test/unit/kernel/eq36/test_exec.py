@@ -113,5 +113,7 @@ class TestEq36Exec(TestCase):
             eq6("sample.d1", "sample.6i", timeout=18)
 
         run_mock.assert_any_call("eqpt", "sample.d0", fname="sample.d0", code=RunCode.EQPT_ERROR)
-        run_mock.assert_any_call("eq3nr", "sample.d1", "sample.3i", timeout=None, fname="sample.3i", code=RunCode.EQ3_ERROR)
+        run_mock.assert_any_call(
+            "eq3nr", "sample.d1", "sample.3i", timeout=None, fname="sample.3i", code=RunCode.EQ3_ERROR
+        )
         run_mock.assert_any_call("eq6", "sample.d1", "sample.6i", timeout=18, fname="sample.6i", code=RunCode.EQ6_ERROR)

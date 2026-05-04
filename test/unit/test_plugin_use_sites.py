@@ -11,11 +11,13 @@ original traceback survives.
 from abc import ABC, abstractmethod
 from types import SimpleNamespace
 from unittest import mock
+
 from eleanor.exceptions import EleanorException
 from eleanor.executor import AbstractExecutor, load_executor
 from eleanor.executor.registry import registry as executor_registry
 from eleanor.kernel import load_kernel
-from eleanor.kernel.registry import KernelSpec, registry as kernel_registry
+from eleanor.kernel.registry import KernelSpec
+from eleanor.kernel.registry import registry as kernel_registry
 from eleanor.navigator import load_navigator
 from eleanor.navigator.registry import registry as navigator_registry
 from eleanor.output import load_output_sink
@@ -126,7 +128,6 @@ class TestLoadKernelErrorWrapping(_RegistrySnapshot, TestCase):
     def tearDown(self) -> None:
         self._restore()
 
-
     def _make_order(self, kernel_type: str):
         return SimpleNamespace(
             kernel=SimpleNamespace(
@@ -181,7 +182,6 @@ class TestLoadOutputSinkErrorWrapping(_RegistrySnapshot, TestCase):
     def tearDown(self) -> None:
         self._restore()
 
-
     def test_abstract_subclass_typeerror_is_wrapped(self):
         """
         Ensure an incomplete OutputSink subclass produces an EleanorException.
@@ -226,7 +226,6 @@ class TestLoadNavigatorErrorWrapping(_RegistrySnapshot, TestCase):
 
     def tearDown(self) -> None:
         self._restore()
-
 
     def _order_with_navigator(self, navigator_type: str):
         return SimpleNamespace(

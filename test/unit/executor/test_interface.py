@@ -40,7 +40,6 @@ class TestExecutorInterface(TestCase):
     Tests of executor interface-level behavior and factory helpers.
     """
 
-
     def test_context_manager_calls_shutdown(self):
         """
         Ensure AbstractExecutor context-manager exit calls shutdown.
@@ -49,7 +48,6 @@ class TestExecutorInterface(TestCase):
         with executor as active:
             self.assertIs(active, executor)
         self.assertEqual(executor.shutdown_calls, 1)
-
 
     def test_normalize_num_workers(self):
         """
@@ -64,8 +62,8 @@ class TestExecutorInterface(TestCase):
         """
         Ensure serial executor selection returns a SerialExecutor instance.
         """
-        with self.assertWarnsRegex(RuntimeWarning, 'num_workers is ignored for serial executor'):
-            out = load_executor(kind='serial', num_workers=8)
+        with self.assertWarnsRegex(RuntimeWarning, "num_workers is ignored for serial executor"):
+            out = load_executor(kind="serial", num_workers=8)
         self.assertIsInstance(out, SerialExecutor)
 
     def test_load_executor_multiprocessing_normalizes_workers(self):
@@ -79,7 +77,7 @@ class TestExecutorInterface(TestCase):
             "eleanor.executor.MultiprocessingExecutor",
             return_value=sentinel,
         ) as mp_executor:
-            out = load_executor(kind='multiprocessing', num_workers=0)
+            out = load_executor(kind="multiprocessing", num_workers=0)
         self.assertIs(out, sentinel)
         mp_executor.assert_called_once_with(num_workers=1)
 
@@ -87,8 +85,8 @@ class TestExecutorInterface(TestCase):
         """
         Ensure unsupported executor names raise EleanorException with a helpful choices list.
         """
-        with self.assertRaisesRegex(EleanorException, 'unsupported executor'):
-            load_executor(kind='bad-backend')
+        with self.assertRaisesRegex(EleanorException, "unsupported executor"):
+            load_executor(kind="bad-backend")
 
     def test_load_executor_registry_contains_builtins(self):
         """
@@ -97,16 +95,16 @@ class TestExecutorInterface(TestCase):
         live = available_executors()
         # The two built-ins must always be present; plugins (e.g. eleanor_mpi)
         # may add more.
-        self.assertIn('serial', live)
-        self.assertIn('multiprocessing', live)
-        self.assertNotIn('bad-backend', live)
+        self.assertIn("serial", live)
+        self.assertIn("multiprocessing", live)
+        self.assertNotIn("bad-backend", live)
 
     def test_load_executor_rejects_unknown_kwargs(self):
         """
         Ensure unexpected keyword arguments to load_executor are rejected (not silently swallowed).
         """
         with self.assertRaises(TypeError):
-            load_executor(kind='serial', num_worker=4)  # type: ignore[call-arg]
+            load_executor(kind="serial", num_worker=4)  # type: ignore[call-arg]
 
     def test_abstract_executor_default_supports_worker_progress(self):
         """

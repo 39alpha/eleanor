@@ -163,9 +163,7 @@ class TestColumns(TestCase):
         """
         table = self._point_scope()
         with self.assertRaises(UnknownScope):
-            validate_column_paths(
-                desugar_columns(["ghost.index"], table), table, allow_container_terminals=False
-            )
+            validate_column_paths(desugar_columns(["ghost.index"], table), table, allow_container_terminals=False)
         with self.assertRaises(InvalidFilter):
             validate_column_paths(
                 desugar_columns(["point[index=1].index"], table),
@@ -173,9 +171,7 @@ class TestColumns(TestCase):
                 allow_container_terminals=False,
             )
         with self.assertRaises(InvalidPath):
-            validate_column_paths(
-                desugar_columns(["point.minerals"], table), table, allow_container_terminals=False
-            )
+            validate_column_paths(desugar_columns(["point.minerals"], table), table, allow_container_terminals=False)
 
     def test_validate_column_paths_can_allow_container_terminals(self):
         """

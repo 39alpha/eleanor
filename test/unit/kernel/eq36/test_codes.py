@@ -23,4 +23,3 @@ class TestEq36Codes(TestCase):
         """
         with self.assertRaises(TypeError):
             str(RunCode.EQ3_EARLY_TERMINATION)
-

@@ -16,4 +16,3 @@ class TestSerialExecutor(TestCase):
         future = executor.submit(lambda x, y: x + y, 2, 3)
         self.assertEqual(executor.num_workers, 1)
         self.assertEqual(future.result(), 5)
-

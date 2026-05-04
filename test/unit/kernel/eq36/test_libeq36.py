@@ -13,15 +13,15 @@ class TestEq36Libeq36(TestCase):
     @staticmethod
     def _successful_header_side_effect(*args):
         for i, value in [
-            (1, 1),   # ikta_asv
-            (2, 1),   # ipbt_asv
-            (3, 1),   # ipch_asv
-            (4, 1),   # ipcv_asv
-            (5, 1),   # jpfc_asv
-            (6, 1),   # napa_asv
-            (7, 1),   # narx_asv
-            (8, 1),   # nata_asv
-            (9, 1),   # nbta_asv
+            (1, 1),  # ikta_asv
+            (2, 1),  # ipbt_asv
+            (3, 1),  # ipch_asv
+            (4, 1),  # ipcv_asv
+            (5, 1),  # jpfc_asv
+            (6, 1),  # napa_asv
+            (7, 1),  # narx_asv
+            (8, 1),  # nata_asv
+            (9, 1),  # nbta_asv
             (10, 1),  # ncta_asv
             (11, 1),  # ngta_asv
             (12, 1),  # nlta_asv

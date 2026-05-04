@@ -17,7 +17,6 @@ from eleanor.output.interface import ErrorInfo
 
 from .common import TestCase
 
-
 _FAKE_KERNEL_SPEC = SimpleNamespace(
     settings_from_dict=mock.Mock(return_value=KernelSettings(timeout=None)),
     build=mock.Mock(),

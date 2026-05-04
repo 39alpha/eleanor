@@ -5,6 +5,7 @@ the tests pin down the dispatch contract (drop -> drop_indexes,
 recreate -> recreate_indexes) and the early-exit when the loaded
 config carries no database name.
 """
+
 import argparse
 from unittest import mock
 
@@ -22,17 +23,19 @@ class TestBulkLoadCli(TestCase):
         """Build the argparse-namespace shape execute consumes."""
         return argparse.Namespace(
             action=action,
-            config='/fake.yaml',
-            database='demo_db',
+            config="/fake.yaml",
+            database="demo_db",
         )
 
     def _config(self) -> Config:
-        return Config(raw={
-            'output': {
-                'type': 'postgres',
-                'args': {'database': {'database': 'demo_db'}},
-            },
-        })
+        return Config(
+            raw={
+                "output": {
+                    "type": "postgres",
+                    "args": {"database": {"database": "demo_db"}},
+                },
+            }
+        )
 
     def test_drop_action_dispatches_to_repository_drop_indexes(self):
         """
@@ -41,27 +44,27 @@ class TestBulkLoadCli(TestCase):
         """
         cfg = self._config()
         with (
-            mock.patch('eleanor.cli.bulkload.config_from_args', return_value=cfg),
-            mock.patch('eleanor.cli.bulkload.drop_indexes') as drop_indexes,
-            mock.patch('eleanor.cli.bulkload.recreate_indexes') as recreate_indexes,
+            mock.patch("eleanor.cli.bulkload.config_from_args", return_value=cfg),
+            mock.patch("eleanor.cli.bulkload.drop_indexes") as drop_indexes,
+            mock.patch("eleanor.cli.bulkload.recreate_indexes") as recreate_indexes,
         ):
-            bulkload.execute(argparse.ArgumentParser(), self._ns('drop'))
+            bulkload.execute(argparse.ArgumentParser(), self._ns("drop"))
 
         drop_indexes.assert_called_once()
         recreate_indexes.assert_not_called()
         passed = drop_indexes.call_args.args[0]
         self.assertIsInstance(passed, DatabaseConfig)
-        self.assertEqual(passed.database, 'demo_db')
+        self.assertEqual(passed.database, "demo_db")
 
     def test_recreate_action_dispatches_to_repository_recreate_indexes(self):
         """Ensure 'eleanor bulkload recreate' calls the recreate repository helper."""
         cfg = self._config()
         with (
-            mock.patch('eleanor.cli.bulkload.config_from_args', return_value=cfg),
-            mock.patch('eleanor.cli.bulkload.drop_indexes') as drop_indexes,
-            mock.patch('eleanor.cli.bulkload.recreate_indexes') as recreate_indexes,
+            mock.patch("eleanor.cli.bulkload.config_from_args", return_value=cfg),
+            mock.patch("eleanor.cli.bulkload.drop_indexes") as drop_indexes,
+            mock.patch("eleanor.cli.bulkload.recreate_indexes") as recreate_indexes,
         ):
-            bulkload.execute(argparse.ArgumentParser(), self._ns('recreate'))
+            bulkload.execute(argparse.ArgumentParser(), self._ns("recreate"))
 
         recreate_indexes.assert_called_once()
         drop_indexes.assert_not_called()
@@ -73,14 +76,14 @@ class TestBulkLoadCli(TestCase):
         name. The CLI must not silently no-op against the local default
         database.
         """
-        bare = Config(raw={'output': {'type': 'postgres', 'args': {}}})
+        bare = Config(raw={"output": {"type": "postgres", "args": {}}})
         with (
-            mock.patch('eleanor.cli.bulkload.config_from_args', return_value=bare),
-            mock.patch('eleanor.cli.bulkload.drop_indexes') as drop_indexes,
-            mock.patch('eleanor.cli.bulkload.recreate_indexes') as recreate_indexes,
+            mock.patch("eleanor.cli.bulkload.config_from_args", return_value=bare),
+            mock.patch("eleanor.cli.bulkload.drop_indexes") as drop_indexes,
+            mock.patch("eleanor.cli.bulkload.recreate_indexes") as recreate_indexes,
         ):
             with self.assertRaises(SystemExit) as ctx:
-                bulkload.execute(argparse.ArgumentParser(), self._ns('drop'))
+                bulkload.execute(argparse.ArgumentParser(), self._ns("drop"))
 
         self.assertEqual(ctx.exception.code, 1)
         drop_indexes.assert_not_called()
@@ -95,9 +98,9 @@ class TestBulkLoadCli(TestCase):
         """
         parser = argparse.ArgumentParser()
         _ = bulkload.init(parser)
-        self.assertIs(parser.get_default('func'), bulkload.execute)
+        self.assertIs(parser.get_default("func"), bulkload.execute)
         choices: set[str] = set()
         for action in parser._actions:  # pyright: ignore[reportPrivateUsage]
-            if action.dest == 'action' and action.choices is not None:
+            if action.dest == "action" and action.choices is not None:
                 choices = set(action.choices)
-        self.assertEqual(choices, {'drop', 'recreate'})
+        self.assertEqual(choices, {"drop", "recreate"})

@@ -36,7 +36,6 @@ def _stamp(factory, version: int = 1):
 
 
 class _NavigatorRegistryTestCase(TestCase):
-
     def setUp(self) -> None:
         self._saved_entries = dict(registry._registry)
         self._saved_discovered = registry._discovered
@@ -56,24 +55,24 @@ class TestBuiltinNavigators(TestCase):
         """
         Ensure ``random``, ``random_lattice`` and ``lattice`` are all registered as built-ins.
         """
-        self.assertIn('random', BUILTIN_NAVIGATORS)
-        self.assertIn('random_lattice', BUILTIN_NAVIGATORS)
-        self.assertIn('lattice', BUILTIN_NAVIGATORS)
+        self.assertIn("random", BUILTIN_NAVIGATORS)
+        self.assertIn("random_lattice", BUILTIN_NAVIGATORS)
+        self.assertIn("lattice", BUILTIN_NAVIGATORS)
         self.assertTrue(BUILTIN_NAVIGATORS.issubset(available_navigators()))
 
     def test_builtin_factory_returns_navigator_subclass(self):
         """
         Ensure the built-in factories instantiate the correct navigator class.
         """
-        factory = get_factory('random')
+        factory = get_factory("random")
         nav = factory(order=mock.Mock(), kernel=mock.Mock())
         self.assertIsInstance(nav, Random)
 
-        factory = get_factory('random_lattice')
+        factory = get_factory("random_lattice")
         nav = factory(order=mock.Mock(), kernel=mock.Mock())
         self.assertIsInstance(nav, RandomLattice)
 
-        factory = get_factory('lattice')
+        factory = get_factory("lattice")
         nav = factory(order=mock.Mock(), kernel=mock.Mock())
         self.assertIsInstance(nav, Lattice)
 
@@ -92,16 +91,16 @@ class TestRegisterNavigator(_NavigatorRegistryTestCase):
             return mock.Mock()
 
         _stamp(factory)
-        register_navigator('plugin', factory)
-        self.assertIs(get_factory('plugin'), factory)
-        self.assertIn('plugin', available_navigators())
+        register_navigator("plugin", factory)
+        self.assertIs(get_factory("plugin"), factory)
+        self.assertIn("plugin", available_navigators())
 
     def test_unknown_name_raises(self):
         """
         Ensure ``get_factory`` raises for unknown names.
         """
         with self.assertRaises(EleanorException):
-            get_factory('nope')
+            get_factory("nope")
 
     def test_discovery_skips_too_new_api_plugin_with_warning(self):
         """

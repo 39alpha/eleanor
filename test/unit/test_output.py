@@ -8,8 +8,7 @@ from unittest import mock
 from eleanor.config import Config
 from eleanor.exceptions import EleanorConfigurationException, EleanorException
 from eleanor.order import Order
-from eleanor.output import ComputeResult, ErrorInfo, OutputSink, PostgresSink, RunStats, WriteOutcome
-from eleanor.output import _build_postgres
+from eleanor.output import ComputeResult, ErrorInfo, OutputSink, PostgresSink, RunStats, WriteOutcome, _build_postgres
 from eleanor.output.postgres.config import DatabaseConfig
 
 from .common import TestCase
@@ -28,7 +27,7 @@ class TestOutput(TestCase):
         outcomes = [
             WriteOutcome(exit_code=0, committed=True),
             WriteOutcome(exit_code=1, committed=True),
-            WriteOutcome(exit_code=0, committed=False, error_message='x'),
+            WriteOutcome(exit_code=0, committed=False, error_message="x"),
         ]
         stats.update(outcomes)
         self.assertEqual(stats.attempted, 3)
@@ -47,6 +46,7 @@ class TestOutput(TestCase):
         Ensure OutputSink subclasses that do not override supports_worker_writes
         opt out of worker-side writes by default.
         """
+
         class MinimalSink(OutputSink):
             def begin_run(self, order: Order) -> int:
                 _ = order
@@ -67,6 +67,7 @@ class TestOutput(TestCase):
         opt out of the output bar by default -- protecting third-party sinks
         from silent breakage when the progress protocol evolves.
         """
+
         class MinimalSink(OutputSink):
             def begin_run(self, order: Order) -> int:
                 _ = order
@@ -85,7 +86,7 @@ class TestOutput(TestCase):
         """
         Ensure PostgresSink opts in to worker-side writes.
         """
-        cfg = DatabaseConfig(database='db', username='u', password='p')
+        cfg = DatabaseConfig(database="db", username="u", password="p")
         sink = PostgresSink(cfg)
         self.assertTrue(sink.supports_worker_writes())
 
@@ -93,7 +94,7 @@ class TestOutput(TestCase):
         """
         Ensure PostgresSink opts in to per-row output progress reporting.
         """
-        cfg = DatabaseConfig(database='db', username='u', password='p')
+        cfg = DatabaseConfig(database="db", username="u", password="p")
         sink = PostgresSink(cfg)
         self.assertTrue(sink.supports_progress())
 
@@ -101,7 +102,7 @@ class TestOutput(TestCase):
         """
         Ensure sink-specific dialect validation rejects non-postgresql configs.
         """
-        cfg = DatabaseConfig(dialect='sqlite', database='db', username='u', password='p')
+        cfg = DatabaseConfig(dialect="sqlite", database="db", username="u", password="p")
         with self.assertRaises(EleanorConfigurationException):
             _ = PostgresSink(cfg)
 
@@ -111,11 +112,11 @@ class TestOutput(TestCase):
         with the active config, and -- with bulk_load_optimization off --
         does NOT call drop_indexes.
         """
-        cfg = DatabaseConfig(database='db', username='u', password='p')
+        cfg = DatabaseConfig(database="db", username="u", password="p")
         sink = PostgresSink(cfg)
         with (
-            mock.patch('eleanor.output.postgres.sink.repositories.setup_schema') as setup_schema,
-            mock.patch('eleanor.output.postgres.sink.repositories.drop_indexes') as drop_indexes,
+            mock.patch("eleanor.output.postgres.sink.repositories.setup_schema") as setup_schema,
+            mock.patch("eleanor.output.postgres.sink.repositories.drop_indexes") as drop_indexes,
         ):
             sink.initialize()
         setup_schema.assert_called_once_with(cfg)
@@ -129,16 +130,16 @@ class TestOutput(TestCase):
         The order matters: tables must exist before we try to alter
         them on a fresh database.
         """
-        cfg = DatabaseConfig(database='db', username='u', password='p')
+        cfg = DatabaseConfig(database="db", username="u", password="p")
         sink = PostgresSink(cfg, bulk_load_optimization=True)
         manager = mock.MagicMock()
         with (
             mock.patch(
-                'eleanor.output.postgres.sink.repositories.setup_schema',
+                "eleanor.output.postgres.sink.repositories.setup_schema",
                 manager.setup_schema,
             ),
             mock.patch(
-                'eleanor.output.postgres.sink.repositories.drop_indexes',
+                "eleanor.output.postgres.sink.repositories.drop_indexes",
                 manager.drop_indexes,
             ),
         ):
@@ -149,7 +150,7 @@ class TestOutput(TestCase):
         # we use that ordering to pin the schema-then-drop sequence.
         self.assertEqual(
             [c[0] for c in manager.method_calls],
-            ['setup_schema', 'drop_indexes'],
+            ["setup_schema", "drop_indexes"],
         )
 
     def test_postgres_finalize_closes_connection(self):
@@ -158,11 +159,11 @@ class TestOutput(TestCase):
         through ``connection_module.close_connection``, and -- with
         bulk_load_optimization off -- does NOT call recreate_indexes.
         """
-        cfg = DatabaseConfig(database='db', username='u', password='p')
+        cfg = DatabaseConfig(database="db", username="u", password="p")
         sink = PostgresSink(cfg)
         with (
-            mock.patch('eleanor.output.postgres.sink.connection_module.close_connection') as close,
-            mock.patch('eleanor.output.postgres.sink.repositories.recreate_indexes') as recreate,
+            mock.patch("eleanor.output.postgres.sink.connection_module.close_connection") as close,
+            mock.patch("eleanor.output.postgres.sink.repositories.recreate_indexes") as recreate,
         ):
             sink.finalize()
         close.assert_called_once_with(cfg)
@@ -177,16 +178,16 @@ class TestOutput(TestCase):
         uses the same connection cache, so it must run before
         ``close_connection`` evicts the cached entry.
         """
-        cfg = DatabaseConfig(database='db', username='u', password='p')
+        cfg = DatabaseConfig(database="db", username="u", password="p")
         sink = PostgresSink(cfg, bulk_load_optimization=True)
         manager = mock.MagicMock()
         with (
             mock.patch(
-                'eleanor.output.postgres.sink.repositories.recreate_indexes',
+                "eleanor.output.postgres.sink.repositories.recreate_indexes",
                 manager.recreate_indexes,
             ),
             mock.patch(
-                'eleanor.output.postgres.sink.connection_module.close_connection',
+                "eleanor.output.postgres.sink.connection_module.close_connection",
                 manager.close_connection,
             ),
         ):
@@ -195,7 +196,7 @@ class TestOutput(TestCase):
         manager.close_connection.assert_called_once_with(cfg)
         self.assertEqual(
             [c[0] for c in manager.method_calls],
-            ['recreate_indexes', 'close_connection'],
+            ["recreate_indexes", "close_connection"],
         )
 
     def test_postgres_finalize_still_closes_connection_when_recreate_raises(self):
@@ -206,18 +207,18 @@ class TestOutput(TestCase):
         exception must propagate to the caller (so the failure isn't
         silently swallowed) but the libpq socket must not leak.
         """
-        cfg = DatabaseConfig(database='db', username='u', password='p')
+        cfg = DatabaseConfig(database="db", username="u", password="p")
         sink = PostgresSink(cfg, bulk_load_optimization=True)
         with (
             mock.patch(
-                'eleanor.output.postgres.sink.repositories.recreate_indexes',
-                side_effect=RuntimeError('check constraint violated'),
+                "eleanor.output.postgres.sink.repositories.recreate_indexes",
+                side_effect=RuntimeError("check constraint violated"),
             ),
             mock.patch(
-                'eleanor.output.postgres.sink.connection_module.close_connection',
+                "eleanor.output.postgres.sink.connection_module.close_connection",
             ) as close,
         ):
-            with self.assertRaisesRegex(RuntimeError, 'check constraint violated'):
+            with self.assertRaisesRegex(RuntimeError, "check constraint violated"):
                 sink.finalize()
         close.assert_called_once_with(cfg)
 
@@ -226,7 +227,7 @@ class TestOutput(TestCase):
         Ensure PostgresSink.finalize_run is a no-op today (reserved for
         the bulk-load follow-up).
         """
-        cfg = DatabaseConfig(database='db', username='u', password='p')
+        cfg = DatabaseConfig(database="db", username="u", password="p")
         sink = PostgresSink(cfg)
         # Just verify it returns without raising / reaching the connection layer.
         sink.finalize_run()
@@ -235,20 +236,20 @@ class TestOutput(TestCase):
         """
         Ensure begin_run returns existing order.id and copies stored eleanor_version when unset.
         """
-        cfg = DatabaseConfig(database='db', username='u', password='p')
+        cfg = DatabaseConfig(database="db", username="u", password="p")
         sink = PostgresSink(cfg)
 
         order = SimpleNamespace(id=17, eleanor_version=None)
-        existing = SimpleNamespace(id=17, eleanor_version='v1')
+        existing = SimpleNamespace(id=17, eleanor_version="v1")
 
         with (
-            mock.patch('eleanor.output.postgres.sink.repositories.get_order', return_value=existing) as get_order,
-            mock.patch('eleanor.output.postgres.sink.repositories.insert_order') as insert_order,
+            mock.patch("eleanor.output.postgres.sink.repositories.get_order", return_value=existing) as get_order,
+            mock.patch("eleanor.output.postgres.sink.repositories.insert_order") as insert_order,
         ):
             order_id = sink.begin_run(order)  # type: ignore[arg-type]
 
         self.assertEqual(order_id, 17)
-        self.assertEqual(order.eleanor_version, 'v1')
+        self.assertEqual(order.eleanor_version, "v1")
         get_order.assert_called_once_with(cfg, 17)
         insert_order.assert_not_called()
 
@@ -256,15 +257,15 @@ class TestOutput(TestCase):
         """
         Ensure begin_run inserts a caller-preassigned id when no matching row exists.
         """
-        cfg = DatabaseConfig(database='db', username='u', password='p')
+        cfg = DatabaseConfig(database="db", username="u", password="p")
         sink = PostgresSink(cfg)
 
         order = SimpleNamespace(id=99, eleanor_version=None)
 
         with (
-            mock.patch('eleanor.output.postgres.sink.repositories.get_order', return_value=None),
+            mock.patch("eleanor.output.postgres.sink.repositories.get_order", return_value=None),
             mock.patch(
-                'eleanor.output.postgres.sink.repositories.insert_order',
+                "eleanor.output.postgres.sink.repositories.insert_order",
                 return_value=SimpleNamespace(id=99),
             ) as insert_order,
         ):
@@ -279,15 +280,15 @@ class TestOutput(TestCase):
         """
         Ensure begin_run rejects extending an order from a different Eleanor version.
         """
-        cfg = DatabaseConfig(database='db', username='u', password='p')
+        cfg = DatabaseConfig(database="db", username="u", password="p")
         sink = PostgresSink(cfg)
 
-        order = SimpleNamespace(id=17, eleanor_version='v2')
-        existing = SimpleNamespace(id=17, eleanor_version='v1')
+        order = SimpleNamespace(id=17, eleanor_version="v2")
+        existing = SimpleNamespace(id=17, eleanor_version="v1")
 
         with (
-            mock.patch('eleanor.output.postgres.sink.repositories.get_order', return_value=existing),
-            self.assertRaisesRegex(EleanorException, 'different version of Eleanor'),
+            mock.patch("eleanor.output.postgres.sink.repositories.get_order", return_value=existing),
+            self.assertRaisesRegex(EleanorException, "different version of Eleanor"),
         ):
             sink.begin_run(order)  # type: ignore[arg-type]
 
@@ -295,13 +296,13 @@ class TestOutput(TestCase):
         """
         Ensure begin_run writes a new order and returns its generated id.
         """
-        cfg = DatabaseConfig(database='db', username='u', password='p')
+        cfg = DatabaseConfig(database="db", username="u", password="p")
         sink = PostgresSink(cfg)
 
         order = SimpleNamespace(id=None, eleanor_version=None)
         with (
             mock.patch(
-                'eleanor.output.postgres.sink.repositories.insert_order',
+                "eleanor.output.postgres.sink.repositories.insert_order",
                 return_value=SimpleNamespace(id=42),
             ) as insert_order,
         ):
@@ -316,10 +317,10 @@ class TestOutput(TestCase):
         """
         Ensure ErrorInfo stores serializable error metadata fields.
         """
-        error = ErrorInfo(type_name='RuntimeError', message='boom', traceback_text='traceback')
-        self.assertEqual(error.type_name, 'RuntimeError')
-        self.assertEqual(error.message, 'boom')
-        self.assertEqual(error.traceback_text, 'traceback')
+        error = ErrorInfo(type_name="RuntimeError", message="boom", traceback_text="traceback")
+        self.assertEqual(error.type_name, "RuntimeError")
+        self.assertEqual(error.message, "boom")
+        self.assertEqual(error.traceback_text, "traceback")
 
     def test_write_batch_recovers_per_point_on_write_failure(self):
         """
@@ -327,7 +328,7 @@ class TestOutput(TestCase):
         keeps processing the batch, committing the surviving rows in a
         single outer commit.
         """
-        cfg = DatabaseConfig(database='db', username='u', password='p')
+        cfg = DatabaseConfig(database="db", username="u", password="p")
         sink = PostgresSink(cfg)
 
         good_point = SimpleNamespace(exit_code=0, order_id=None)
@@ -343,16 +344,16 @@ class TestOutput(TestCase):
 
         def insert_point(_conn, _order_id, point):
             if point is bad_point:
-                raise RuntimeError('write failed')
+                raise RuntimeError("write failed")
             return 42
 
         with (
             mock.patch(
-                'eleanor.output.postgres.sink.connection_module.connect',
+                "eleanor.output.postgres.sink.connection_module.connect",
                 return_value=fake_conn,
             ),
             mock.patch(
-                'eleanor.output.postgres.sink.repositories.insert_point',
+                "eleanor.output.postgres.sink.repositories.insert_point",
                 side_effect=insert_point,
             ),
         ):
@@ -366,14 +367,14 @@ class TestOutput(TestCase):
         self.assertFalse(outcomes[1].committed)
         self.assertEqual(outcomes[1].exit_code, -1)
         self.assertIsNotNone(outcomes[1].error_message)
-        self.assertIn('write failed', outcomes[1].error_message)  # type: ignore[arg-type]
+        self.assertIn("write failed", outcomes[1].error_message)  # type: ignore[arg-type]
 
     def test_write_batch_ticks_progress_only_for_committed_rows(self):
         """
         Ensure PostgresSink.write_batch emits one progress tick per durably-
         written row and no tick for a row that failed to write.
         """
-        cfg = DatabaseConfig(database='db', username='u', password='p')
+        cfg = DatabaseConfig(database="db", username="u", password="p")
         sink = PostgresSink(cfg)
 
         good_a = SimpleNamespace(exit_code=0, order_id=None)
@@ -390,7 +391,7 @@ class TestOutput(TestCase):
 
         def insert_point(_conn, _order_id, point):
             if point is bad:
-                raise RuntimeError('write failed')
+                raise RuntimeError("write failed")
             if point is good_a:
                 return 10
             return 11
@@ -398,11 +399,11 @@ class TestOutput(TestCase):
         progress = mock.Mock()
         with (
             mock.patch(
-                'eleanor.output.postgres.sink.connection_module.connect',
+                "eleanor.output.postgres.sink.connection_module.connect",
                 return_value=fake_conn,
             ),
             mock.patch(
-                'eleanor.output.postgres.sink.repositories.insert_point',
+                "eleanor.output.postgres.sink.repositories.insert_point",
                 side_effect=insert_point,
             ),
         ):
@@ -419,7 +420,7 @@ class TestOutput(TestCase):
         """
         Ensure PostgresSink.write_batch tolerates progress=None (the default).
         """
-        cfg = DatabaseConfig(database='db', username='u', password='p')
+        cfg = DatabaseConfig(database="db", username="u", password="p")
         sink = PostgresSink(cfg)
 
         point = SimpleNamespace(exit_code=0, order_id=None)
@@ -430,11 +431,11 @@ class TestOutput(TestCase):
 
         with (
             mock.patch(
-                'eleanor.output.postgres.sink.connection_module.connect',
+                "eleanor.output.postgres.sink.connection_module.connect",
                 return_value=fake_conn,
             ),
             mock.patch(
-                'eleanor.output.postgres.sink.repositories.insert_point',
+                "eleanor.output.postgres.sink.repositories.insert_point",
                 return_value=5,
             ),
         ):
@@ -451,14 +452,16 @@ class TestOutput(TestCase):
         without warning. The registry splats ``output.args`` as kwargs, so the
         factory must treat ``database`` as a recognized name.
         """
-        cfg = Config(raw={
-            'output': {
-                'type': 'postgres',
-                'args': {'database': {'database': 'db', 'username': 'u', 'password': 'p'}},
-            },
-        })
+        cfg = Config(
+            raw={
+                "output": {
+                    "type": "postgres",
+                    "args": {"database": {"database": "db", "username": "u", "password": "p"}},
+                },
+            }
+        )
         with warnings.catch_warnings(record=True) as caught:
-            warnings.simplefilter('always')
+            warnings.simplefilter("always")
             sink = _build_postgres(cfg, **cfg.output.args)
         self.assertIsInstance(sink, PostgresSink)
         self.assertEqual([w for w in caught if issubclass(w.category, RuntimeWarning)], [])
@@ -467,18 +470,20 @@ class TestOutput(TestCase):
         """
         Ensure the postgres factory warns about kwargs other than ``database``.
         """
-        cfg = Config(raw={
-            'output': {
-                'type': 'postgres',
-                'args': {'database': {'database': 'db', 'username': 'u', 'password': 'p'}},
-            },
-        })
+        cfg = Config(
+            raw={
+                "output": {
+                    "type": "postgres",
+                    "args": {"database": {"database": "db", "username": "u", "password": "p"}},
+                },
+            }
+        )
         with warnings.catch_warnings(record=True) as caught:
-            warnings.simplefilter('always')
-            _ = _build_postgres(cfg, database=cfg.output.args['database'], foo=1)
+            warnings.simplefilter("always")
+            _ = _build_postgres(cfg, database=cfg.output.args["database"], foo=1)
         runtime_warnings = [w for w in caught if issubclass(w.category, RuntimeWarning)]
         self.assertEqual(len(runtime_warnings), 1)
-        self.assertIn('foo', str(runtime_warnings[0].message))
+        self.assertIn("foo", str(runtime_warnings[0].message))
 
     def test_build_postgres_without_database_kwarg_uses_default_config(self):
         """
@@ -487,25 +492,27 @@ class TestOutput(TestCase):
         still produce a usable ``PostgresSink`` -- the dialect default is
         ``'postgresql'`` so the sink's own dialect check passes.
         """
-        cfg = Config(raw={'output': {'type': 'postgres', 'args': {}}})
+        cfg = Config(raw={"output": {"type": "postgres", "args": {}}})
         sink = _build_postgres(cfg)
         self.assertIsInstance(sink, PostgresSink)
-        self.assertEqual(sink.config.dialect, 'postgresql')
+        self.assertEqual(sink.config.dialect, "postgresql")
 
     def test_build_postgres_propagates_verbose(self):
         """
         Ensure the ``verbose`` kwarg threads from the factory into the sink
         so verbose runs flip the same flag the sink consults internally.
         """
-        cfg = Config(raw={
-            'output': {
-                'type': 'postgres',
-                'args': {'database': {'database': 'db', 'username': 'u', 'password': 'p'}},
-            },
-        })
+        cfg = Config(
+            raw={
+                "output": {
+                    "type": "postgres",
+                    "args": {"database": {"database": "db", "username": "u", "password": "p"}},
+                },
+            }
+        )
         sink = _build_postgres(
             cfg,
-            database=cfg.output.args['database'],
+            database=cfg.output.args["database"],
             verbose=True,
         )
         self.assertTrue(sink.verbose)
@@ -519,23 +526,25 @@ class TestOutput(TestCase):
         keeping it off the connection-config dataclass keeps the
         connection-cache key stable across runs that toggle it.
         """
-        cfg = Config(raw={
-            'output': {
-                'type': 'postgres',
-                'args': {
-                    'database': {'database': 'db', 'username': 'u', 'password': 'p'},
-                    'bulk_load_optimization': True,
+        cfg = Config(
+            raw={
+                "output": {
+                    "type": "postgres",
+                    "args": {
+                        "database": {"database": "db", "username": "u", "password": "p"},
+                        "bulk_load_optimization": True,
+                    },
                 },
-            },
-        })
+            }
+        )
         with warnings.catch_warnings(record=True) as caught:
-            warnings.simplefilter('always')
+            warnings.simplefilter("always")
             sink = _build_postgres(cfg, **cfg.output.args)
         self.assertIsInstance(sink, PostgresSink)
         self.assertTrue(sink.bulk_load_optimization)
         # The factory must NOT have stuffed the flag onto the
         # connection-config dataclass; that field no longer exists.
-        self.assertFalse(hasattr(sink.config, 'bulk_load_optimization'))
+        self.assertFalse(hasattr(sink.config, "bulk_load_optimization"))
         # And it must not have warned about an unknown kwarg.
         self.assertEqual(
             [w for w in caught if issubclass(w.category, RuntimeWarning)],
@@ -548,12 +557,14 @@ class TestOutput(TestCase):
         config doesn't mention it -- matching the safe-default contract
         documented on :class:`PostgresSink`.
         """
-        cfg = Config(raw={
-            'output': {
-                'type': 'postgres',
-                'args': {'database': {'database': 'db', 'username': 'u', 'password': 'p'}},
-            },
-        })
+        cfg = Config(
+            raw={
+                "output": {
+                    "type": "postgres",
+                    "args": {"database": {"database": "db", "username": "u", "password": "p"}},
+                },
+            }
+        )
         sink = _build_postgres(cfg, **cfg.output.args)
         self.assertFalse(sink.bulk_load_optimization)
 
@@ -564,23 +575,23 @@ class TestOutput(TestCase):
         ``eleanor_version`` -- the existing id is returned without re-
         inserting.
         """
-        cfg = DatabaseConfig(database='db', username='u', password='p')
+        cfg = DatabaseConfig(database="db", username="u", password="p")
         sink = PostgresSink(cfg)
 
-        order = SimpleNamespace(id=17, eleanor_version='v1')
-        existing = SimpleNamespace(id=17, eleanor_version='v1')
+        order = SimpleNamespace(id=17, eleanor_version="v1")
+        existing = SimpleNamespace(id=17, eleanor_version="v1")
 
         with (
             mock.patch(
-                'eleanor.output.postgres.sink.repositories.get_order',
+                "eleanor.output.postgres.sink.repositories.get_order",
                 return_value=existing,
             ) as get_order,
-            mock.patch('eleanor.output.postgres.sink.repositories.insert_order') as insert_order,
+            mock.patch("eleanor.output.postgres.sink.repositories.insert_order") as insert_order,
         ):
             order_id = sink.begin_run(order)  # type: ignore[arg-type]
 
         self.assertEqual(order_id, 17)
-        self.assertEqual(order.eleanor_version, 'v1')
+        self.assertEqual(order.eleanor_version, "v1")
         get_order.assert_called_once_with(cfg, 17)
         insert_order.assert_not_called()
 
@@ -590,18 +601,18 @@ class TestOutput(TestCase):
         is already set and the order has no id yet -- only the unset case
         gets the running ``__version__`` stamped on it.
         """
-        cfg = DatabaseConfig(database='db', username='u', password='p')
+        cfg = DatabaseConfig(database="db", username="u", password="p")
         sink = PostgresSink(cfg)
 
-        order = SimpleNamespace(id=None, eleanor_version='custom-v1')
+        order = SimpleNamespace(id=None, eleanor_version="custom-v1")
         with mock.patch(
-            'eleanor.output.postgres.sink.repositories.insert_order',
+            "eleanor.output.postgres.sink.repositories.insert_order",
             return_value=SimpleNamespace(id=42),
         ) as insert_order:
             order_id = sink.begin_run(order)  # type: ignore[arg-type]
 
         self.assertEqual(order_id, 42)
-        self.assertEqual(order.eleanor_version, 'custom-v1')
+        self.assertEqual(order.eleanor_version, "custom-v1")
         insert_order.assert_called_once_with(cfg, order)
 
     def test_write_batch_with_empty_results_returns_empty_outcomes(self):
@@ -611,7 +622,7 @@ class TestOutput(TestCase):
         outcomes list is empty. Callers (notably the executor loop) treat
         an empty list as "this batch contributed zero rows".
         """
-        cfg = DatabaseConfig(database='db', username='u', password='p')
+        cfg = DatabaseConfig(database="db", username="u", password="p")
         sink = PostgresSink(cfg)
 
         fake_conn = mock.MagicMock()
@@ -619,11 +630,11 @@ class TestOutput(TestCase):
 
         with (
             mock.patch(
-                'eleanor.output.postgres.sink.connection_module.connect',
+                "eleanor.output.postgres.sink.connection_module.connect",
                 return_value=fake_conn,
             ),
             mock.patch(
-                'eleanor.output.postgres.sink.repositories.insert_point',
+                "eleanor.output.postgres.sink.repositories.insert_point",
             ) as insert_point,
         ):
             outcomes = sink.write_batch(order_id=7, results=[])
@@ -638,7 +649,7 @@ class TestOutput(TestCase):
         side effect so downstream code can read ``point.order_id`` without
         consulting the batch context.
         """
-        cfg = DatabaseConfig(database='db', username='u', password='p')
+        cfg = DatabaseConfig(database="db", username="u", password="p")
         sink = PostgresSink(cfg)
 
         point_a = SimpleNamespace(exit_code=0, order_id=None)
@@ -650,11 +661,11 @@ class TestOutput(TestCase):
 
         with (
             mock.patch(
-                'eleanor.output.postgres.sink.connection_module.connect',
+                "eleanor.output.postgres.sink.connection_module.connect",
                 return_value=fake_conn,
             ),
             mock.patch(
-                'eleanor.output.postgres.sink.repositories.insert_point',
+                "eleanor.output.postgres.sink.repositories.insert_point",
                 return_value=1,
             ),
         ):
@@ -673,7 +684,7 @@ class TestOutput(TestCase):
         wrote less than expected; the silent-failure regression is the
         whole reason this branch exists.
         """
-        cfg = DatabaseConfig(database='db', username='u', password='p')
+        cfg = DatabaseConfig(database="db", username="u", password="p")
         sink = PostgresSink(cfg)
 
         good = SimpleNamespace(exit_code=0, order_id=None)
@@ -685,20 +696,20 @@ class TestOutput(TestCase):
 
         def insert_point(_conn, _order_id, point):
             if point is bad:
-                raise ValueError('inner write failed')
+                raise ValueError("inner write failed")
             return 9
 
         captured = io.StringIO()
         with (
             mock.patch(
-                'eleanor.output.postgres.sink.connection_module.connect',
+                "eleanor.output.postgres.sink.connection_module.connect",
                 return_value=fake_conn,
             ),
             mock.patch(
-                'eleanor.output.postgres.sink.repositories.insert_point',
+                "eleanor.output.postgres.sink.repositories.insert_point",
                 side_effect=insert_point,
             ),
-            mock.patch('eleanor.output.postgres.sink.sys.stderr', captured),
+            mock.patch("eleanor.output.postgres.sink.sys.stderr", captured),
         ):
             outcomes = sink.write_batch(order_id=7, results=results)
 
@@ -708,10 +719,10 @@ class TestOutput(TestCase):
         text = captured.getvalue()
         # The summary line carries the failing VS index + exception class
         # + message; the traceback follows.
-        self.assertIn('VS point index 1', text)
-        self.assertIn('ValueError', text)
-        self.assertIn('inner write failed', text)
-        self.assertIn('Traceback', text)
+        self.assertIn("VS point index 1", text)
+        self.assertIn("ValueError", text)
+        self.assertIn("inner write failed", text)
+        self.assertIn("Traceback", text)
 
     def test_postgres_lazy_re_exports_resolve_via_getattr(self):
         """
@@ -726,8 +737,14 @@ class TestOutput(TestCase):
         import eleanor.output.postgres as postgres_pkg
         from eleanor.output.postgres.config import (
             DatabaseConfig as _DatabaseConfig,
+        )
+        from eleanor.output.postgres.config import (
             DatabaseRaw as _DatabaseRaw,
+        )
+        from eleanor.output.postgres.config import (
             PostgresArgsRaw as _PostgresArgsRaw,
+        )
+        from eleanor.output.postgres.config import (
             database_config_from_config as _database_config_from_config,
         )
         from eleanor.output.postgres.sink import PostgresSink as _PostgresSink
@@ -737,7 +754,7 @@ class TestOutput(TestCase):
         self.assertIs(postgres_pkg.PostgresArgsRaw, _PostgresArgsRaw)
         self.assertIs(postgres_pkg.database_config_from_config, _database_config_from_config)
         self.assertIs(postgres_pkg.PostgresSink, _PostgresSink)
-        with self.assertRaisesRegex(AttributeError, 'no attribute'):
+        with self.assertRaisesRegex(AttributeError, "no attribute"):
             _ = postgres_pkg.nonexistent_symbol  # type: ignore[attr-defined]
 
     def test_write_batch_outer_commit_failure_demotes_pending_slots(self):
@@ -748,7 +765,7 @@ class TestOutput(TestCase):
         error message recorded inside the loop) untouched. Progress is not
         ticked because no row durably committed.
         """
-        cfg = DatabaseConfig(database='db', username='u', password='p')
+        cfg = DatabaseConfig(database="db", username="u", password="p")
         sink = PostgresSink(cfg)
 
         good_a = SimpleNamespace(exit_code=0, order_id=None)
@@ -764,7 +781,7 @@ class TestOutput(TestCase):
             def __init__(self, exc: BaseException) -> None:
                 self.exc = exc
 
-            def __enter__(self) -> '_RaisesOnExit':
+            def __enter__(self) -> "_RaisesOnExit":
                 return self
 
             def __exit__(
@@ -785,7 +802,7 @@ class TestOutput(TestCase):
         # completes normally and the failure surfaces only at the outermost
         # ``__exit__``.
         fake_conn.transaction.side_effect = [
-            _RaisesOnExit(RuntimeError('commit died')),
+            _RaisesOnExit(RuntimeError("commit died")),
             nullcontext(),
             nullcontext(),
             nullcontext(),
@@ -793,17 +810,17 @@ class TestOutput(TestCase):
 
         def insert_point(_conn, _order_id, point):
             if point is bad:
-                raise ValueError('per-point oops')
+                raise ValueError("per-point oops")
             return 11 if point is good_a else 22
 
         progress = mock.Mock()
         with (
             mock.patch(
-                'eleanor.output.postgres.sink.connection_module.connect',
+                "eleanor.output.postgres.sink.connection_module.connect",
                 return_value=fake_conn,
             ),
             mock.patch(
-                'eleanor.output.postgres.sink.repositories.insert_point',
+                "eleanor.output.postgres.sink.repositories.insert_point",
                 side_effect=insert_point,
             ),
         ):
@@ -817,10 +834,10 @@ class TestOutput(TestCase):
         for outcome in outcomes:
             self.assertFalse(outcome.committed)
         # Originally-pending slots now carry the commit error.
-        self.assertEqual(outcomes[0].error_message, 'commit died')
-        self.assertEqual(outcomes[2].error_message, 'commit died')
+        self.assertEqual(outcomes[0].error_message, "commit died")
+        self.assertEqual(outcomes[2].error_message, "commit died")
         # The per-VS-point failure keeps its original message.
         self.assertIsNotNone(outcomes[1].error_message)
-        self.assertIn('per-point oops', outcomes[1].error_message)  # type: ignore[arg-type]
+        self.assertIn("per-point oops", outcomes[1].error_message)  # type: ignore[arg-type]
         # No row durably committed, so progress was never ticked.
         progress.tick.assert_not_called()

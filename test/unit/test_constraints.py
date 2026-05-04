@@ -55,7 +55,9 @@ class DummyOrder:
     Minimal order-like object used to exercise Boatswain logic.
     """
 
-    def __init__(self, *, parameters, water_mass=None, temperature, pressure, elements, species, suppressions, reactants):
+    def __init__(
+        self, *, parameters, water_mass=None, temperature, pressure, elements, species, suppressions, reactants
+    ):
         self._parameters = parameters
         self.constraints = []
         self.water_mass = water_mass
@@ -238,12 +240,40 @@ class TestConstraints(TestCase):
         cl = ValueParameter("Cl", None, -1.0)
         species = ValueParameter("Quartz(aq)", None, 0.5)
 
-        mineral = MineralReactant("calcite", ReactantType.MINERAL, ValueParameter("amount", None, -3.0), ValueParameter("titration_rate", None, 1.0))
-        aqueous = AqueousReactant("na_cl", ReactantType.AQUEOUS, ValueParameter("amount", None, -2.0), ValueParameter("titration_rate", None, 1.0))
-        gas = GasReactant("co2(g)", ReactantType.GAS, ValueParameter("amount", None, -4.0), ValueParameter("titration_rate", None, 1.0))
-        element = ElementReactant("Na", ReactantType.ELEMENT, ValueParameter("amount", None, -6.0), ValueParameter("titration_rate", None, 1.0))
-        special = SpecialReactant("seawater", ReactantType.SPECIAL, ValueParameter("amount", None, -5.0), ValueParameter("titration_rate", None, 1.0), {"Na": 1, "Cl": 1})
-        fixed_gas = FixedGasReactant("co2", ReactantType.FIXED_GAS, ValueParameter("amount", None, -1.0), ValueParameter("fugacity", None, -2.0))
+        mineral = MineralReactant(
+            "calcite",
+            ReactantType.MINERAL,
+            ValueParameter("amount", None, -3.0),
+            ValueParameter("titration_rate", None, 1.0),
+        )
+        aqueous = AqueousReactant(
+            "na_cl",
+            ReactantType.AQUEOUS,
+            ValueParameter("amount", None, -2.0),
+            ValueParameter("titration_rate", None, 1.0),
+        )
+        gas = GasReactant(
+            "co2(g)",
+            ReactantType.GAS,
+            ValueParameter("amount", None, -4.0),
+            ValueParameter("titration_rate", None, 1.0),
+        )
+        element = ElementReactant(
+            "Na",
+            ReactantType.ELEMENT,
+            ValueParameter("amount", None, -6.0),
+            ValueParameter("titration_rate", None, 1.0),
+        )
+        special = SpecialReactant(
+            "seawater",
+            ReactantType.SPECIAL,
+            ValueParameter("amount", None, -5.0),
+            ValueParameter("titration_rate", None, 1.0),
+            {"Na": 1, "Cl": 1},
+        )
+        fixed_gas = FixedGasReactant(
+            "co2", ReactantType.FIXED_GAS, ValueParameter("amount", None, -1.0), ValueParameter("fugacity", None, -2.0)
+        )
         solid = SolidSolutionReactant(
             "solidmix",
             ReactantType.SOLID_SOLUTION,

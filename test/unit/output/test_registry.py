@@ -55,15 +55,15 @@ class TestBuiltinOutputs(TestCase):
         """
         Ensure ``postgres`` is always present in the output registry.
         """
-        self.assertIn('postgres', BUILTIN_OUTPUTS)
-        self.assertIn('postgres', available_outputs())
+        self.assertIn("postgres", BUILTIN_OUTPUTS)
+        self.assertIn("postgres", available_outputs())
 
     def test_csv_is_registered(self):
         """
         Ensure ``csv`` is always present in the output registry.
         """
-        self.assertIn('csv', BUILTIN_OUTPUTS)
-        self.assertIn('csv', available_outputs())
+        self.assertIn("csv", BUILTIN_OUTPUTS)
+        self.assertIn("csv", available_outputs())
 
 
 class TestRegisterOutput(_OutputRegistryTestCase):
@@ -76,17 +76,17 @@ class TestRegisterOutput(_OutputRegistryTestCase):
         Ensure a plugin output factory can be registered and retrieved by name.
         """
         factory = _make_factory()
-        register_output('plugin', factory)
+        register_output("plugin", factory)
 
-        self.assertIn('plugin', available_outputs())
-        self.assertIs(get_factory('plugin'), factory)
+        self.assertIn("plugin", available_outputs())
+        self.assertIs(get_factory("plugin"), factory)
 
     def test_unknown_name_raises(self):
         """
         Ensure ``get_factory`` raises for unknown names.
         """
         with self.assertRaises(EleanorException):
-            get_factory('nope')
+            get_factory("nope")
 
     def test_register_rejects_builtin_override_without_env(self):
         """
@@ -94,28 +94,28 @@ class TestRegisterOutput(_OutputRegistryTestCase):
         """
         import os
 
-        original = registry._registry['postgres']
+        original = registry._registry["postgres"]
         replacement = _make_factory()
 
-        with mock.patch.dict('os.environ', {}, clear=False):
+        with mock.patch.dict("os.environ", {}, clear=False):
             os.environ.pop(OVERRIDE_ENV_VAR, None)
-            with self.assertWarnsRegex(RuntimeWarning, 'refusing to override built-in'):
-                register_output('postgres', replacement)
+            with self.assertWarnsRegex(RuntimeWarning, "refusing to override built-in"):
+                register_output("postgres", replacement)
 
-        self.assertIs(registry._registry['postgres'], original)
+        self.assertIs(registry._registry["postgres"], original)
 
     def test_register_allows_builtin_override_with_env(self):
         """
         Ensure built-in outputs can be overridden when the override env var is set.
         """
-        original = registry._registry['postgres']
+        original = registry._registry["postgres"]
         replacement = _make_factory()
         try:
-            with mock.patch.dict('os.environ', {OVERRIDE_ENV_VAR: '1'}):
-                register_output('postgres', replacement)
-            self.assertIs(registry._registry['postgres'], replacement)
+            with mock.patch.dict("os.environ", {OVERRIDE_ENV_VAR: "1"}):
+                register_output("postgres", replacement)
+            self.assertIs(registry._registry["postgres"], replacement)
         finally:
-            registry._registry['postgres'] = original
+            registry._registry["postgres"] = original
 
 
 class TestEntryPointDiscovery(_OutputRegistryTestCase):
@@ -132,13 +132,13 @@ class TestEntryPointDiscovery(_OutputRegistryTestCase):
         Ensure entry points in the ``eleanor.outputs`` group populate the registry.
         """
         factory = _make_factory()
-        ep = _FakeEntryPoint('plugin', 'pkg.mod:build_sink', lambda: factory)
+        ep = _FakeEntryPoint("plugin", "pkg.mod:build_sink", lambda: factory)
 
-        with mock.patch('eleanor.plugin.entry_points', return_value=[ep]):
+        with mock.patch("eleanor.plugin.entry_points", return_value=[ep]):
             outputs = available_outputs()
 
-        self.assertIn('plugin', outputs)
-        self.assertIs(get_factory('plugin'), factory)
+        self.assertIn("plugin", outputs)
+        self.assertIs(get_factory("plugin"), factory)
 
     def test_discovery_warns_and_continues_on_load_failure(self):
         """
@@ -147,29 +147,29 @@ class TestEntryPointDiscovery(_OutputRegistryTestCase):
         good_factory = _make_factory()
 
         def _fail():
-            raise ImportError('boom')
+            raise ImportError("boom")
 
-        failing_ep = _FakeEntryPoint('broken', 'pkg.bad:build', _fail)
-        working_ep = _FakeEntryPoint('working', 'pkg.ok:build', lambda: good_factory)
+        failing_ep = _FakeEntryPoint("broken", "pkg.bad:build", _fail)
+        working_ep = _FakeEntryPoint("working", "pkg.ok:build", lambda: good_factory)
 
-        with mock.patch('eleanor.plugin.entry_points', return_value=[failing_ep, working_ep]):
+        with mock.patch("eleanor.plugin.entry_points", return_value=[failing_ep, working_ep]):
             with self.assertWarnsRegex(RuntimeWarning, 'failed to load output entry point "broken"'):
                 outputs = available_outputs()
 
-        self.assertNotIn('broken', outputs)
-        self.assertIn('working', outputs)
+        self.assertNotIn("broken", outputs)
+        self.assertIn("working", outputs)
 
     def test_discovery_rejects_non_callable_entry_point(self):
         """
         Ensure non-callable entry-point payloads are skipped with a warning.
         """
-        bad_ep = _FakeEntryPoint('bad', 'pkg.bad:NOT_CALLABLE', lambda: 42)
+        bad_ep = _FakeEntryPoint("bad", "pkg.bad:NOT_CALLABLE", lambda: 42)
 
-        with mock.patch('eleanor.plugin.entry_points', return_value=[bad_ep]):
-            with self.assertWarnsRegex(RuntimeWarning, 'is invalid'):
+        with mock.patch("eleanor.plugin.entry_points", return_value=[bad_ep]):
+            with self.assertWarnsRegex(RuntimeWarning, "is invalid"):
                 outputs = available_outputs()
 
-        self.assertNotIn('bad', outputs)
+        self.assertNotIn("bad", outputs)
 
     def test_discovery_skips_too_new_api_plugin_with_warning(self):
         """

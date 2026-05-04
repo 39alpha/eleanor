@@ -9,6 +9,7 @@ layer), but coverage of their bodies pins down their public contracts:
 * :func:`tools.scratch.load_scratch_entry` is a thin pass-through to
   :func:`repositories.get_scratch_entry`.
 """
+
 import io
 from unittest import mock
 
@@ -31,7 +32,7 @@ class TestDumpSchema(TestCase):
         line per declared index. Statements terminate with a semicolon
         so the output is directly pipe-able into ``psql``.
         """
-        cfg = DatabaseConfig(database='db', username='u', password='p')
+        cfg = DatabaseConfig(database="db", username="u", password="p")
         buf = io.StringIO()
         dump_schema(cfg, buf)
         output = buf.getvalue()
@@ -45,10 +46,10 @@ class TestDumpSchema(TestCase):
         # designed to be runnable without further processing).
         for line in output.splitlines():
             stripped = line.strip()
-            if stripped.startswith(('CREATE TABLE', 'CREATE INDEX', 'CREATE UNIQUE INDEX')):
+            if stripped.startswith(("CREATE TABLE", "CREATE INDEX", "CREATE UNIQUE INDEX")):
                 self.assertTrue(
-                    stripped.endswith(';') or stripped.endswith('('),
-                    f'statement {stripped!r} should end with semicolon or open paren',
+                    stripped.endswith(";") or stripped.endswith("("),
+                    f"statement {stripped!r} should end with semicolon or open paren",
                 )
 
     def test_dump_schema_does_not_consult_database(self):
@@ -57,10 +58,10 @@ class TestDumpSchema(TestCase):
         the persistence connection module: the helper is documented as
         producing static DDL that doesn't depend on any live database.
         """
-        cfg = DatabaseConfig(database='db', username='u', password='p')
+        cfg = DatabaseConfig(database="db", username="u", password="p")
         buf = io.StringIO()
         with mock.patch(
-            'eleanor.output.postgres.persistence.connection.connect',
+            "eleanor.output.postgres.persistence.connection.connect",
         ) as connect:
             dump_schema(cfg, buf)
         connect.assert_not_called()
@@ -75,10 +76,10 @@ class TestLoadScratchEntry(TestCase):
         :func:`repositories.get_scratch_entry` and forwards the active
         :class:`DatabaseConfig` and ``variable_space_id`` unchanged.
         """
-        cfg = DatabaseConfig(database='db', username='u', password='p')
-        entry = ScratchEntry(variable_space_id=11, exit_code=0, zip=b'payload')
+        cfg = DatabaseConfig(database="db", username="u", password="p")
+        entry = ScratchEntry(variable_space_id=11, exit_code=0, zip=b"payload")
         with mock.patch(
-            'eleanor.output.postgres.tools.scratch.get_scratch_entry',
+            "eleanor.output.postgres.tools.scratch.get_scratch_entry",
             return_value=entry,
         ) as get_scratch_entry:
             got = load_scratch_entry(cfg, 11)

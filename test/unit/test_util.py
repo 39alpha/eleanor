@@ -1,9 +1,8 @@
+import datetime
+import hashlib
 import os
 from os.path import join, realpath
 from tempfile import TemporaryDirectory
-import datetime
-import hashlib
-from unittest import mock
 
 import numpy as np
 
@@ -28,9 +27,9 @@ class TestUtils(TestCase):
         Ensure that :class:`WorkingDirectory` changes directory to the desired path and back again.
         """
         cwd = os.getcwd()
-        new_dir = realpath(join(cwd, '..'))
+        new_dir = realpath(join(cwd, ".."))
 
-        wd = util.WorkingDirectory('..')
+        wd = util.WorkingDirectory("..")
 
         self.assertEqual(wd.path, new_dir)
         self.assertEqual(wd.cwd, cwd)
@@ -51,9 +50,9 @@ class TestUtils(TestCase):
         """
         cwd = os.getcwd()
 
-        wd = util.WorkingDirectory('not-real')
+        wd = util.WorkingDirectory("not-real")
 
-        self.assertEqual(wd.path, join(cwd, 'not-real'))
+        self.assertEqual(wd.path, join(cwd, "not-real"))
         self.assertEqual(wd.cwd, cwd)
 
         with self.assertRaises(FileNotFoundError):
@@ -61,7 +60,7 @@ class TestUtils(TestCase):
                 pass
 
         self.assertEqual(os.getcwd(), cwd)
-        self.assertEqual(wd.path, join(cwd, 'not-real'))
+        self.assertEqual(wd.path, join(cwd, "not-real"))
         self.assertEqual(wd.cwd, cwd)
 
     def test_working_directory_handles_error(self):
@@ -71,17 +70,17 @@ class TestUtils(TestCase):
         """
         cwd = os.getcwd()
 
-        wd = util.WorkingDirectory('..')
+        wd = util.WorkingDirectory("..")
 
-        self.assertEqual(wd.path, realpath(join(cwd, '..')))
+        self.assertEqual(wd.path, realpath(join(cwd, "..")))
         self.assertEqual(wd.cwd, cwd)
 
         with self.assertRaises(ValueError):
             with wd:
-                raise ValueError('whomp')
+                raise ValueError("whomp")
 
         self.assertEqual(os.getcwd(), cwd)
-        self.assertEqual(wd.path, realpath(join(cwd, '..')))
+        self.assertEqual(wd.path, realpath(join(cwd, "..")))
         self.assertEqual(wd.cwd, cwd)
 
     def test_working_directory_can_be_nested(self):
@@ -277,6 +276,7 @@ class TestUtils(TestCase):
         value = util.convert_to_number("7", [np.integer])
         self.assertIsInstance(value, np.integer)
         self.assertEqual(int(value), 7)
+
     def test_convert_to_number_numpy_floating_passthrough(self):
         """
         Ensure that existing numpy floating values pass through unchanged when already typed.
@@ -290,4 +290,3 @@ class TestUtils(TestCase):
         Ensure that :func:`is_list_of` accepts tuple type constraints with optional None values.
         """
         self.assertTrue(util.is_list_of([1, None, 2.0], (int, float), allowNone=True))
-

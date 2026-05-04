@@ -329,9 +329,7 @@ class TestAqueousSpeciesTablePreset(TestCase):
         # Each compiled column's path predicate should preserve the raw name
         # via the quoted form, so the predicate's coerced value matches the
         # input name byte-for-byte.
-        for column, expected in zip(
-            compiled.compiled_columns, ["weird name", 'has"quote'], strict=True
-        ):
+        for column, expected in zip(compiled.compiled_columns, ["weird name", 'has"quote'], strict=True):
             terminal_filters = column.compiled_path.segments[-2].filters
             assert len(terminal_filters) == 1
             match_filter = terminal_filters[0]

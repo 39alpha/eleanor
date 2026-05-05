@@ -23,6 +23,8 @@ from types import SimpleNamespace
 from typing import cast
 from unittest import mock
 
+import numpy as np
+
 from eleanor.exceptions import EleanorException
 from eleanor.kernel.config import Config as KernelConfig
 from eleanor.kernel.eq36.settings import IOPG_1, Eq3Config, Eq6Config
@@ -229,31 +231,31 @@ class TestConverterShapes(TestCase):
 
         point = core_es.Point(
             stage="eq3",
-            temperature=25.0,
-            pressure=1.0,
-            pH=7.0,
-            log_fO2=-60.0,
-            log_activity_water=-0.01,
-            mole_fraction_water=0.98,
-            log_gamma_water=0.02,
-            Eh=0.1,
-            pe=4.0,
-            Ah=1.2,
-            log_ionic_strength=-2.0,
-            log_stoichiometric_ionic_strength=-1.8,
-            log_ionic_asymmetry=-2.2,
-            log_stoichiometric_ionic_asymmetry=-2.1,
-            osmotic_coefficient=0.8,
-            stoichiometric_osmotic_coefficient=0.81,
-            log_sum_molalities=-1.0,
-            log_sum_stoichiometric_molalities=-0.9,
-            charge_imbalance=0.0,
-            solute_mass=0.1,
-            solvent_mass=1.0,
-            solution_mass=1.1,
-            tds=100.0,
-            solute_fraction=0.1,
-            solvent_fraction=0.9,
+            temperature=np.float64(25.0),
+            pressure=np.float64(1.0),
+            pH=np.float64(7.0),
+            log_fO2=-np.float64(60.0),
+            log_activity_water=-np.float64(0.01),
+            mole_fraction_water=np.float64(0.98),
+            log_gamma_water=np.float64(0.02),
+            Eh=np.float64(0.1),
+            pe=np.float64(4.0),
+            Ah=np.float64(1.2),
+            log_ionic_strength=-np.float64(2.0),
+            log_stoichiometric_ionic_strength=-np.float64(1.8),
+            log_ionic_asymmetry=-np.float64(2.2),
+            log_stoichiometric_ionic_asymmetry=-np.float64(2.1),
+            osmotic_coefficient=np.float64(0.8),
+            stoichiometric_osmotic_coefficient=np.float64(0.81),
+            log_sum_molalities=-np.float64(1.0),
+            log_sum_stoichiometric_molalities=-np.float64(0.9),
+            charge_imbalance=np.float64(0.0),
+            solute_mass=np.float64(0.1),
+            solvent_mass=np.float64(1.0),
+            solution_mass=np.float64(1.1),
+            tds=np.float64(100.0),
+            solute_fraction=np.float64(0.1),
+            solvent_fraction=np.float64(0.9),
             elements=[],
             aqueous_species=[],
             pure_solids=[],
@@ -277,8 +279,8 @@ class TestConverterShapes(TestCase):
 
         solid = core_es.PureSolid(
             name="Calcite",
-            log_qk=0.2,
-            affinity=1.0,
+            log_qk=np.float64(0.2),
+            affinity=np.float64(1.0),
             # log_moles / log_mass / log_volume left at their None defaults.
         )
         row = converters.es_pure_solid_to_row(solid, equilibrium_space_id=5)
@@ -700,28 +702,28 @@ class TestConverterErrorAndReactantPaths(TestCase):
         cases = [
             (
                 converters.mineral_reactant_to_row(
-                    core_vs.MineralReactant(name="m", log_moles=0.0, titration_rate=1.0),
+                    core_vs.MineralReactant(name="m", log_moles=np.float64(0.0), titration_rate=np.float64(1.0)),
                     variable_space_id=7,
                 ),
                 schema.MINERAL_REACTANTS,
             ),
             (
                 converters.aqueous_reactant_to_row(
-                    core_vs.AqueousReactant(name="a", log_moles=0.0, titration_rate=1.0),
+                    core_vs.AqueousReactant(name="a", log_moles=np.float64(0.0), titration_rate=np.float64(1.0)),
                     variable_space_id=7,
                 ),
                 schema.AQUEOUS_REACTANTS,
             ),
             (
                 converters.gas_reactant_to_row(
-                    core_vs.GasReactant(name="g", log_moles=0.0, titration_rate=1.0),
+                    core_vs.GasReactant(name="g", log_moles=np.float64(0.0), titration_rate=np.float64(1.0)),
                     variable_space_id=7,
                 ),
                 schema.GAS_REACTANTS,
             ),
             (
                 converters.element_reactant_to_row(
-                    core_vs.ElementReactant(name="e", log_moles=0.0, titration_rate=1.0),
+                    core_vs.ElementReactant(name="e", log_moles=np.float64(0.0), titration_rate=np.float64(1.0)),
                     variable_space_id=7,
                 ),
                 schema.ELEMENT_REACTANTS,
@@ -730,8 +732,8 @@ class TestConverterErrorAndReactantPaths(TestCase):
                 converters.special_reactant_to_row(
                     core_vs.SpecialReactant(
                         name="s",
-                        log_moles=0.0,
-                        titration_rate=1.0,
+                        log_moles=np.float64(0.0),
+                        titration_rate=np.float64(1.0),
                         composition=[],
                     ),
                     variable_space_id=7,
@@ -742,8 +744,8 @@ class TestConverterErrorAndReactantPaths(TestCase):
                 converters.solid_solution_reactant_to_row(
                     core_vs.SolidSolutionReactant(
                         name="ss",
-                        log_moles=0.0,
-                        titration_rate=1.0,
+                        log_moles=np.float64(0.0),
+                        titration_rate=np.float64(1.0),
                         end_members=[],
                     ),
                     variable_space_id=7,
@@ -754,8 +756,8 @@ class TestConverterErrorAndReactantPaths(TestCase):
                 converters.glass_reactant_to_row(
                     core_vs.GlassReactant(
                         name="glass",
-                        log_moles=0.0,
-                        titration_rate=1.0,
+                        log_moles=np.float64(0.0),
+                        titration_rate=np.float64(1.0),
                         oxides=[],
                     ),
                     variable_space_id=7,
@@ -790,7 +792,7 @@ class TestConverterErrorAndReactantPaths(TestCase):
         import eleanor.variable_space as core_vs
 
         row = converters.fixed_gas_reactant_to_row(
-            core_vs.FixedGasReactant(name="O2(g)", log_moles=-2.0, log_fugacity=-2.0),
+            core_vs.FixedGasReactant(name="O2(g)", log_moles=-np.float64(2.0), log_fugacity=-np.float64(2.0)),
             variable_space_id=7,
         )
         expected = {c.name for c in schema.FIXED_GAS_REACTANTS.columns if not c.identity}
@@ -804,9 +806,9 @@ class TestConverterErrorAndReactantPaths(TestCase):
         oxide_row = converters.glass_reactant_oxide_to_row(
             core_vs.GlassReactantOxide(
                 name="SiO2",
-                fraction=0.5,
-                log_moles=-1.0,
-                titration_rate=1.0,
+                fraction=np.float64(0.5),
+                log_moles=-np.float64(1.0),
+                titration_rate=np.float64(1.0),
                 composition=[],
             ),
             glass_reactant_id=3,
@@ -830,12 +832,12 @@ class TestConverterErrorAndReactantPaths(TestCase):
         row = converters.es_reactant_to_row(
             core_es.Reactant(
                 name="forsterite",
-                affinity=1.0,
-                relative_rate=1.0,
-                log_moles_reacted=-2.0,
-                log_moles_remaining=-1.0,
-                log_mass_reacted=-2.0,
-                log_mass_remaining=-1.0,
+                affinity=np.float64(1.0),
+                relative_rate=np.float64(1.0),
+                log_moles_reacted=-np.float64(2.0),
+                log_moles_remaining=-np.float64(1.0),
+                log_mass_reacted=-np.float64(2.0),
+                log_mass_remaining=-np.float64(1.0),
             ),
             equilibrium_space_id=11,
         )

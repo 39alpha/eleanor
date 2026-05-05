@@ -3,7 +3,6 @@ import hashlib
 import os
 from os.path import join, realpath
 from tempfile import TemporaryDirectory
-from typing import cast
 
 import numpy as np
 
@@ -106,10 +105,10 @@ class TestUtils(TestCase):
         """
         Ensure that :class:`NumberFormat` formats values correctly and rejects invalid precision.
         """
-        self.assertEqual(util.NumberFormat.FLOATING.fmt(1.23456, 2), "1.23")
-        self.assertEqual(util.NumberFormat.SCIENTIFIC.fmt(123.0, 2), "1.23E+02")
+        self.assertEqual(util.NumberFormat.FLOATING.fmt(np.float64(1.23456), 2), "1.23")
+        self.assertEqual(util.NumberFormat.SCIENTIFIC.fmt(np.float64(123.0), 2), "1.23E+02")
         with self.assertRaises(EleanorException):
-            util.NumberFormat.FLOATING.fmt(1.23, -1)
+            util.NumberFormat.FLOATING.fmt(np.float64(1.23), -1)
 
     def test_log_rng_and_norm_list(self):
         """
@@ -229,9 +228,7 @@ class TestUtils(TestCase):
         Ensure that :func:`convert_to_number` converts valid values and fails invalid ones.
         """
         self.assertEqual(util.convert_to_number("2"), 2)
-        self.assertAlmostEqual(util.convert_to_number("2.5"), 2.5)
-        self.assertEqual(util.convert_to_number(cast(int, cast(object, np.int64(7)))), np.int64(7))
-        self.assertIsInstance(util.convert_to_number("2.5", [np.floating]), np.floating)
+        self.assertAlmostEqual(util.convert_to_number("2.5"), np.float64(2.5))
         with self.assertRaises(EleanorException):
             util.convert_to_number("not-a-number")
 
@@ -271,21 +268,13 @@ class TestUtils(TestCase):
         value = util.mapreduce(lambda x: x * x, lambda a, b: a + b, [1, 2, 3], 0)
         self.assertEqual(value, 14)
 
-    def test_convert_to_number_numpy_integer_target(self):
-        """
-        Ensure that :func:`convert_to_number` returns a numpy integer when requested.
-        """
-        value = util.convert_to_number("7", [np.integer])
-        self.assertIsInstance(value, np.integer)
-        self.assertEqual(int(value), 7)
-
     def test_convert_to_number_numpy_floating_passthrough(self):
         """
         Ensure that existing numpy floating values pass through unchanged when already typed.
         """
         value = np.float64(1.25)
-        result = util.convert_to_number(value, [np.floating])
-        self.assertIs(result, value)
+        result = util.convert_to_number(value)
+        self.assertIsInstance(result, np.float64)
 
     def test_is_list_of_with_tuple_and_allow_none(self):
         """

@@ -1,6 +1,7 @@
-import math
 from abc import ABC, abstractmethod
 from copy import deepcopy
+
+import numpy as np
 
 import eleanor.variable_space as vs
 
@@ -17,6 +18,7 @@ from .reactants import (
     SolidSolutionReactant,
     SpecialReactant,
 )
+from .typing import cast
 
 
 class AbstractConstraint(ABC):
@@ -249,7 +251,7 @@ class Boatswain(object):
                                     vs.GlassReactantOxide(
                                         name=name,
                                         fraction=oxide.fraction,
-                                        log_moles=math.log10(oxide.fraction) + log_moles,
+                                        log_moles=cast(np.float64, np.log10(oxide.fraction)) + log_moles,
                                         titration_rate=titration_rate
                                         * valuation[self.registry.id(oxide.relative_rate)].value,
                                         composition=[

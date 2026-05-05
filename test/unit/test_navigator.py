@@ -2,6 +2,8 @@ from collections.abc import Iterator
 from typing import cast, override
 from unittest import mock
 
+import numpy as np
+
 import eleanor.variable_space as vs
 from eleanor.navigator import AbstractNavigator, Lattice, LatticeNavigator, Random, RandomLattice
 from eleanor.parameters import Parameter, RangeParameter, ValueParameter
@@ -161,8 +163,8 @@ class TestNavigator(TestCase):
 
         order = mock.Mock()
         order.parameters.return_value = [
-            ValueParameter("a", None, 1),
-            RangeParameter("b", None, 0, 1),
+            ValueParameter("a", None, np.float64(1)),
+            RangeParameter("b", None, np.float64(0), np.float64(1)),
         ]
         nav2 = DummyLatticeNavigator(order=order, kernel=mock.Mock())
         self.assertEqual(nav2.num_systems(3), 3)

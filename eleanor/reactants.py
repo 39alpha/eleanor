@@ -4,6 +4,8 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import TypedDict, override
 
+import numpy as np
+
 from .exceptions import EleanorException
 from .parameters import Parameter, ParameterSource, ValueParameter
 from .typing import cast
@@ -17,7 +19,7 @@ class GlassOxideRaw(TypedDict, total=False):
 
     name: str | None
     composition: dict[str, int]
-    fraction: float
+    fraction: float | np.float64
     relative_rate: ParameterSource
 
 
@@ -59,10 +61,12 @@ def _require_dict[T](value: object, field_name: str) -> dict[str, T]:
     return cast(dict[str, T], cast(object, value))
 
 
-def _require_float(value: object, field_name: str) -> float:
-    if not isinstance(value, float):
-        raise EleanorException(f"{field_name} must be a floating-point number")
-    return value
+def _require_float(value: object, field_name: str) -> np.float64:
+    if isinstance(value, float):
+        return np.float64(value)
+    if isinstance(value, np.floating):
+        return cast(np.float64, value)
+    raise EleanorException(f"{field_name} must be a floating-point number")
 
 
 class ReactantType(StrEnum):
@@ -115,7 +119,7 @@ class AbstractReactant(ABC):
                 raise EleanorException(f'unexpected reactant type "{reactant_type}"')
 
     @abstractmethod
-    def volume(self) -> float:
+    def volume(self) -> np.float64:
         raise NotImplementedError
 
 
@@ -143,7 +147,7 @@ class TitratedReactant(AbstractReactant):
         return cls(name, reactant_type, amount, titration_rate)
 
     @override
-    def volume(self) -> float:
+    def volume(self) -> np.float64:
         return self.amount.volume() * self.titration_rate.volume()
 
 
@@ -219,7 +223,7 @@ class FixedGasReactant(AbstractReactant):
         return cls(name, reactant_type, amount, fugacity)
 
     @override
-    def volume(self) -> float:
+    def volume(self) -> np.float64:
         return self.amount.volume() * self.fugacity.volume()
 
 
@@ -312,7 +316,7 @@ class SolidSolutionReactant(TitratedReactant):
         return cls(base.name, base.type, base.amount, base.titration_rate, end_members)
 
     @override
-    def volume(self) -> float:
+    def volume(self) -> np.float64:
         volume = super(SolidSolutionReactant, self).volume()
         volume += mapreduce(lambda em: em.volume(), operator.mul, self.end_members.values(), 1.0)
         return volume
@@ -325,7 +329,7 @@ _ = TitratedReactant.register(SolidSolutionReactant)
 class GlassReactantOxide(object):
     name: str
     composition: dict[str, int]
-    fraction: float
+    fraction: np.float64
     relative_rate: Parameter
 
     @classmethod

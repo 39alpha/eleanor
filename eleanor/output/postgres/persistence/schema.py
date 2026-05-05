@@ -45,7 +45,7 @@ class ColumnDef(object):
     """A single column in a :class:`TableDef`.
 
     ``default`` is a raw SQL fragment (e.g. ``"''"`` for an empty string,
-    ``"'-Infinity'::double precision"`` for ``-math.inf``); the emitter
+    ``"'-Infinity'::double precision"`` for ``-np.inf``); the emitter
     splices it directly into the ``DEFAULT ...`` clause.
 
     ``identity`` marks an auto-incrementing integer primary key; the
@@ -426,7 +426,7 @@ def _es_id_fk_column() -> ColumnDef:
 
 
 def _double_neg_inf() -> str:
-    """SQL literal for ``-math.inf`` in a ``DOUBLE PRECISION`` column."""
+    """SQL literal for ``-np.inf`` in a ``DOUBLE PRECISION`` column."""
     return "'-Infinity'::double precision"
 
 

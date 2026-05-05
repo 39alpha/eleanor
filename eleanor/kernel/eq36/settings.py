@@ -2,26 +2,24 @@ from copy import copy
 from dataclasses import dataclass, field
 from enum import IntEnum
 
+import numpy as np
+
 from eleanor.exceptions import EleanorException
 from eleanor.kernel.config import Settings as KernelSettings
 from eleanor.kernel.exceptions import EleanorKernelException
-from eleanor.typing import Number, Self, TypeVar, cast
+from eleanor.typing import Self, TypeVar, cast
 
 SettingT = TypeVar("SettingT", bound=IntEnum)
 
 
-def _get_float(cfg: dict[str, object], key: str, default: float) -> float:
-    """Read ``key`` from ``cfg`` and coerce to ``float``, using ``default`` if missing.
-
-    Consolidates the ``float(cast(Number | str, cfg.get(key, default)))``
-    pattern so the numeric-cast boilerplate lives in a single place.
-    """
-    return float(cast(Number | str, cfg.get(key, default)))
+def _get_float(cfg: dict[str, object], key: str, default: np.float64 | int | float) -> np.float64:
+    """Read ``key`` from ``cfg`` and coerce to ``np.float64``, using ``default`` if missing."""
+    return np.float64(cast(int | float | str, cfg.get(key, default)))
 
 
 def _get_int(cfg: dict[str, object], key: str, default: int) -> int:
     """Read ``key`` from ``cfg`` and coerce to ``int``, using ``default`` if missing."""
-    return int(cast(Number | str, cfg.get(key, default)))
+    return int(cast(int | float | str, cfg.get(key, default)))
 
 
 def get_setting(cfg: dict[str, object], setting: type[SettingT], default: SettingT | None = None) -> SettingT:
@@ -633,28 +631,28 @@ class Eq3Config(object):
 class Eq6Config(object):
     id: int | None = None
     jtemp: JTEMP = JTEMP.CONSTANT_T
-    ttk1: float = 0
-    ttk2: float = 0
-    xi_min: float = 0
-    xi_max: float = 100
-    time_min: float = 0
-    time_max: float = 1e38
-    ph_min: float = -1e38
-    ph_max: float = 1e38
-    eh_min: float = -1e38
-    eh_max: float = 1e38
-    log_fO2_min: float = -1e38
-    log_fO2_max: float = 1e38
-    aw_min: float = -1e38
-    aw_max: float = 1e38
-    xi_print_interval: float = 1e38
-    log_xi_print_interval: float = 1e38
-    time_print_interval: float = 1e38
-    log_time_print_interval: float = 1e38
-    ph_print_interval: float = 1e38
-    eh_print_interval: float = 1e38
-    log_fO2_print_interval: float = 1e38
-    aw_print_interval: float = 1e38
+    ttk1: np.float64 = np.float64(0)
+    ttk2: np.float64 = np.float64(0)
+    xi_min: np.float64 = np.float64(0)
+    xi_max: np.float64 = np.float64(100)
+    time_min: np.float64 = np.float64(0)
+    time_max: np.float64 = np.float64(1e38)
+    ph_min: np.float64 = np.float64(-1e38)
+    ph_max: np.float64 = np.float64(1e38)
+    eh_min: np.float64 = np.float64(-1e38)
+    eh_max: np.float64 = np.float64(1e38)
+    log_fO2_min: np.float64 = np.float64(-1e38)
+    log_fO2_max: np.float64 = np.float64(1e38)
+    aw_min: np.float64 = np.float64(-1e38)
+    aw_max: np.float64 = np.float64(1e38)
+    xi_print_interval: np.float64 = np.float64(1e38)
+    log_xi_print_interval: np.float64 = np.float64(1e38)
+    time_print_interval: np.float64 = np.float64(1e38)
+    log_time_print_interval: np.float64 = np.float64(1e38)
+    ph_print_interval: np.float64 = np.float64(1e38)
+    eh_print_interval: np.float64 = np.float64(1e38)
+    log_fO2_print_interval: np.float64 = np.float64(1e38)
+    aw_print_interval: np.float64 = np.float64(1e38)
     steps_print_interval: int = 10000
     iopt_1: IOPT_1 = IOPT_1.CLOSED_SYS
     iopt_2: IOPT_2 = IOPT_2.ARBITRARY_KINETICS

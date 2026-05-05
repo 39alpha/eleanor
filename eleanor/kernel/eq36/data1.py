@@ -7,8 +7,8 @@ from eleanor.typing import Array1D, cast
 
 from .libeq36 import read_data1
 
-type FloatRange = tuple[float | np.float64, float | np.float64]
-type CartesianCoord = tuple[float | np.float64, float | np.float64]
+type FloatRange = tuple[np.float64, np.float64]
+type CartesianCoord = tuple[np.float64, np.float64]
 
 
 @dataclass
@@ -16,7 +16,7 @@ class BasisSpecies(object):
     name: str
     composition: dict[str, int]
     charge: int
-    volume: float | None
+    volume: np.float64 | None
 
 
 @dataclass
@@ -49,12 +49,12 @@ class TPCurve(object):
         tmp_left = cast(object, np.dot(coeff_left, self.T["mid"] ** np.arange(len(coeff_left))))
         if not isinstance(tmp_left, np.float64):
             raise TypeError(tmp_left)
-        left = np.float64(tmp_left)
+        left = tmp_left
 
         tmp_right = cast(object, np.dot(coeff_right, self.T["mid"] ** np.arange(len(coeff_right))))
         if not isinstance(tmp_right, np.float64):
             raise TypeError(tmp_right)
-        right = np.float64(tmp_right)
+        right = tmp_right
 
         if not np.isclose(left, right):
             raise ValueError("provided polynomials differ at the common temperature")
@@ -63,13 +63,13 @@ class TPCurve(object):
         self.domain = [(self.T["min"], self.T["max"])]
         return self
 
-    def temperature_in_domain(self, T: float | np.float32 | np.float64) -> bool:
+    def temperature_in_domain(self, T: np.float64) -> bool:
         for subdomain in self.domain:
             if subdomain[0] <= T and T <= subdomain[1]:
                 return True
         return False
 
-    def __call__(self, T: float | np.float64) -> np.float64:
+    def __call__(self, T: np.float64) -> np.float64:
         if not self.temperature_in_domain(T):
             msg = f"the provided temperature ({T}) is not in the restricted domain {self.domain}"
             raise ValueError(msg)
@@ -78,7 +78,7 @@ class TPCurve(object):
         value = cast(object, np.dot(coefficients, T ** np.arange(len(coefficients))))
         if not isinstance(value, np.float64):
             raise TypeError(value)
-        return np.float64(value)
+        return value
 
     def set_domain(self, temperature_range: FloatRange, pressure_range: FloatRange):
         Tmin, Tmax = temperature_range

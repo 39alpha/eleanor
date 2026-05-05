@@ -13,19 +13,19 @@ sink actually reads: orders (for ``get_order``) and scratch (for
 ``get_scratch_entry``). Tests round-trip via ``from_*_row(to_*_row(...))``
 without ever touching a DB.
 
-``-math.inf`` is materialised explicitly for the three saturation-state
+``-np.inf`` is materialised explicitly for the three saturation-state
 tables (``equilibrium_pure_solids``, ``equilibrium_solid_solutions``,
 ``equilibrium_end_members``). Their ``log_moles`` / ``log_mass`` /
 ``log_volume`` columns are ``NOT NULL`` with a ``-Infinity`` default at
 the schema level, but bulk INSERTs ship every key explicitly (so the
-column default never triggers); the converter substitutes ``-math.inf``
+column default never triggers); the converter substitutes ``-np.inf``
 whenever the dataclass field is ``None``.
 """
 
-import math
 from dataclasses import dataclass
 from datetime import datetime
 
+import numpy as np
 from psycopg.types.json import Jsonb
 
 import eleanor.equilibrium_space as core_es
@@ -38,8 +38,8 @@ from ....kernel.config import resolve_settings as resolve_kernel_settings
 from ....typing import cast
 
 
-def _or_neg_inf(value: float | None) -> float:
-    """Return ``value`` or ``-math.inf`` when ``value`` is ``None``.
+def _or_neg_inf(value: np.float64 | None) -> np.float64:
+    """Return ``value`` or ``-np.inf`` when ``value`` is ``None``.
 
     Used by the saturation-state ES tables (``equilibrium_pure_solids``,
     ``equilibrium_solid_solutions``, ``equilibrium_end_members``). Their
@@ -48,7 +48,21 @@ def _or_neg_inf(value: float | None) -> float:
     key explicitly, so the column default never fires; we materialise
     ``-Infinity`` here.
     """
-    return value if value is not None else -math.inf
+    return value if value is not None else np.float64(-np.inf)
+
+
+def _coerce_numpy_scalars(d: dict[str, object]) -> dict[str, object]:
+    out: dict[str, object] = {}
+    for k, v in d.items():
+        if isinstance(v, np.floating):
+            out[k] = v.item()
+        elif isinstance(v, np.integer):
+            out[k] = v.item()
+        elif isinstance(v, dict):
+            out[k] = _coerce_numpy_scalars(cast(dict[str, object], v))
+        else:
+            out[k] = v
+    return out
 
 
 def _normalise_dict(value: object, field_name: str) -> dict[str, object]:
@@ -66,7 +80,7 @@ def _normalise_dict(value: object, field_name: str) -> dict[str, object]:
         value = asdict(value)
     if not isinstance(value, dict):
         raise EleanorException(f"{field_name} must serialize to a dict")
-    return cast(dict[str, object], value)
+    return _coerce_numpy_scalars(cast(dict[str, object], value))
 
 
 def order_to_row(order: core_order.Order) -> dict[str, object]:
@@ -191,8 +205,8 @@ def suppression_exception_to_row(
 
 def _reactant_row(
     name: str,
-    log_moles: float,
-    titration_rate: float,
+    log_moles: np.float64,
+    titration_rate: np.float64,
     variable_space_id: int,
 ) -> dict[str, object]:
     return {

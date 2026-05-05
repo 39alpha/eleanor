@@ -1,5 +1,4 @@
 import io
-import math
 import os.path
 import sys
 from datetime import datetime
@@ -16,7 +15,7 @@ from eleanor.exceptions import EleanorException
 from eleanor.kernel.exceptions import EleanorKernelException
 from eleanor.kernel.interface import AbstractKernel
 from eleanor.order import Order
-from eleanor.typing import EleanorKwargs, Number, Unpack, cast
+from eleanor.typing import EleanorKwargs, Unpack, cast
 from eleanor.util import NumberFormat
 
 from .constraints import TemperatureRangeConstraint, TPCurveConstraint
@@ -72,7 +71,7 @@ class Kernel(AbstractKernel):
         _ = copyfile(settings.data1_file, os.path.join(dir, os.path.basename(settings.data1_file)))
 
     @override
-    def get_atomic_weight(self, element: str) -> float | None:
+    def get_atomic_weight(self, element: str) -> np.float64 | None:
         if not self._setup or len(self._data1s) == 0:
             raise EleanorException("cannot get atomic masses untilt the kernel is setup")
         return self._data1s[0].elements.get(element)
@@ -88,11 +87,8 @@ class Kernel(AbstractKernel):
         _ = kwargs
         if order is None:
             raise EleanorException("order is required")
-        Tmin, Tmax = order.temperature.range()
-        Trange = (np.float64(Tmin), np.float64(Tmax))
-
-        Pmin, Pmax = order.pressure.range()
-        Prange = (np.float64(Pmin), np.float64(Pmax))
+        Trange = order.temperature.range()
+        Prange = order.pressure.range()
 
         with tool_room.WorkingDirectory(self.data1_dir):
             _, data1_files, *_ = tool_room.find_files(".d1")
@@ -158,8 +154,8 @@ class Kernel(AbstractKernel):
         return boatswain
 
     def find_data1(self, vs_point: vs.Point, verbose: bool = False) -> Data1:
-        T: Number = vs_point.temperature
-        P: Number = vs_point.pressure
+        T: np.float64 = vs_point.temperature
+        P: np.float64 = vs_point.pressure
 
         d1s: list[Data1] = []
         for data1 in self._data1s:
@@ -268,7 +264,7 @@ class Kernel(AbstractKernel):
             redox_species = "None"
         else:
             use_other_species = 1
-            value = NumberFormat.SCIENTIFIC.fmt(0, precision=5)
+            value = NumberFormat.SCIENTIFIC.fmt(np.float64(0), precision=5)
             redox_species = settings.redox_species
 
         print("* General", file=file)
@@ -439,7 +435,7 @@ class Kernel(AbstractKernel):
 
             for component in sr.composition:
                 element, count = component.element, component.count
-                c = NumberFormat.SCIENTIFIC.fmt(count, precision=5)
+                c = NumberFormat.SCIENTIFIC.fmt(np.float64(count), precision=5)
                 print("   {element: <2}          {count}".format(element=element, count=c), file=file)
 
             print("   endit.", file=file)
@@ -463,7 +459,7 @@ class Kernel(AbstractKernel):
 
                 for component in oxide.composition:
                     element, count = component.element, component.count
-                    c = NumberFormat.SCIENTIFIC.fmt(count, precision=5)
+                    c = NumberFormat.SCIENTIFIC.fmt(np.float64(count), precision=5)
                     print("   {element: <2}          {count}".format(element=element, count=c), file=file)
 
                 print("   endit.", file=file)
@@ -679,24 +675,24 @@ class Kernel(AbstractKernel):
         return {name: Kernel._as_map(props) for name, props in table.items()}
 
     @staticmethod
-    def _as_float(value: object) -> float:
-        # Parser values are already float from field_as_float; cast narrows the type.
-        return cast(float, value)
+    def _as_float(value: object) -> np.float64:
+        # Parser values are already np.float64 from field_as_float; cast narrows the type.
+        return cast(np.float64, value)
 
     @staticmethod
-    def _as_opt_float(value: object) -> float | None:
+    def _as_opt_float(value: object) -> np.float64 | None:
         if value is None:
             return None
-        return cast(float, value)
+        return cast(np.float64, value)
 
     @staticmethod
     def _build_pure_solid(
         name: str,
-        log_qk: float,
-        affinity: float,
-        log_moles: float | None,
-        log_mass: float | None,
-        log_volume: float | None,
+        log_qk: np.float64,
+        affinity: np.float64,
+        log_moles: np.float64 | None,
+        log_mass: np.float64 | None,
+        log_volume: np.float64 | None,
     ) -> es.PureSolid:
         return es.PureSolid(
             name=name,
@@ -734,8 +730,8 @@ class Kernel(AbstractKernel):
             aqueous_species.append(
                 es.AqueousSpecies(
                     name=name,
-                    log_molality=-math.inf if molality == 0 else Kernel._as_float(props["log_molality"]),
-                    log_activity=-math.inf if log_activity == -99999 else log_activity,
+                    log_molality=np.float64(-np.inf) if molality == 0 else Kernel._as_float(props["log_molality"]),
+                    log_activity=np.float64(-np.inf) if log_activity == -99999 else log_activity,
                     log_gamma=Kernel._as_float(props["log_gamma"]),
                 )
             )
@@ -751,9 +747,11 @@ class Kernel(AbstractKernel):
                     name=name,
                     log_qk=Kernel._as_float(props["log_qk"]),
                     affinity=Kernel._as_float(props["affinity"]),
-                    log_moles=-math.inf if moles == -99999 else Kernel._as_opt_float(props.get("log_moles")),
-                    log_mass=-math.inf if mass == -99999 else Kernel._as_opt_float(props.get("log_mass")),
-                    log_volume=-math.inf if volume == -99999 else Kernel._as_opt_float(props.get("log_volume")),
+                    log_moles=np.float64(-np.inf) if moles == -99999 else Kernel._as_opt_float(props.get("log_moles")),
+                    log_mass=np.float64(-np.inf) if mass == -99999 else Kernel._as_opt_float(props.get("log_mass")),
+                    log_volume=np.float64(-np.inf)
+                    if volume == -99999
+                    else Kernel._as_opt_float(props.get("log_volume")),
                 )
             )
 
@@ -883,8 +881,8 @@ class Kernel(AbstractKernel):
                 aqueous_species.append(
                     es.AqueousSpecies(
                         name=name,
-                        log_molality=-math.inf if molality == 0 else Kernel._as_float(props["log_molality"]),
-                        log_activity=-math.inf if log_activity == -99999 else log_activity,
+                        log_molality=np.float64(-np.inf) if molality == 0 else Kernel._as_float(props["log_molality"]),
+                        log_activity=np.float64(-np.inf) if log_activity == -99999 else log_activity,
                         log_gamma=Kernel._as_float(props["log_gamma"]),
                     )
                 )
@@ -897,7 +895,7 @@ class Kernel(AbstractKernel):
                         name=name,
                         log_qk=Kernel._as_float(props["log_qk"]),
                         affinity=Kernel._as_float(props["affinity"]),
-                        log_moles=-math.inf if moles == 0 else Kernel._as_opt_float(props.get("log_moles")),
+                        log_moles=np.float64(-np.inf) if moles == 0 else Kernel._as_opt_float(props.get("log_moles")),
                         log_mass=Kernel._as_opt_float(props.get("log_mass")),
                         log_volume=Kernel._as_opt_float(props.get("log_volume")),
                     )

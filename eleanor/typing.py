@@ -25,7 +25,6 @@ __all__ = [
     "Generator",
     "ModuleType",
     "NDArray",
-    "Number",
     "Self",
     "Species",
     "TypeAlias",
@@ -35,8 +34,6 @@ __all__ = [
     "cast",
     "override",
 ]
-
-Number: TypeAlias = int | float
 
 
 class EleanorKwargs(TypedDict, total=False):

@@ -10,7 +10,7 @@ from typing import Protocol, TypeVar, cast
 import numpy as np
 
 from .exceptions import EleanorException
-from .typing import NDArray, Number
+from .typing import NDArray
 
 MapInputT = TypeVar("MapInputT")
 ReduceT = TypeVar("ReduceT")
@@ -95,7 +95,7 @@ class NumberFormat(StrEnum):
     FLOATING = "f"
 
     # TODO: Handle units
-    def fmt(self, value: Number, precision: int) -> str:
+    def fmt(self, value: np.float64, precision: int) -> str:
         """
         Format a numeric value as a string to some precision.
 
@@ -225,38 +225,21 @@ def hash_dir(path: str, hasher: HashLike | None = None) -> str:
     return hasher.hexdigest()
 
 
-def convert_to_number(value: Number | str, types: list[type[object]] | None = None) -> Number:
-    def _as_number(v: object) -> Number:
-        """Widen a numeric-like value (including numpy scalars) to ``Number``.
-
-        ``np.int64`` is not a subclass of Python's ``int`` and ``np.integer``
-        therefore isn't assignable to ``Number``; this helper hides the
-        required cast at a single point instead of duplicating it at every
-        call site.
-        """
-        return cast(Number, v)
-
-    if types is None:
-        return convert_to_number(value, [int, np.integer, float, np.floating])
-    if len(types) == 0:
-        raise EleanorException("could not convert string to numeric type")
-    if isinstance(value, tuple(types)):
-        return _as_number(value)
-
-    remaining: list[type[object]] = []
-    try:
-        t, *remaining = types
-        if t is np.floating:
-            return _as_number(np.float64(value))
-        if t is np.integer:
-            return _as_number(np.int64(value))
-        if t is int:
+def convert_to_number(value: int | float | np.floating | str) -> int | np.float64:
+    if isinstance(value, int) and not isinstance(value, bool):
+        return value
+    if isinstance(value, (float, np.floating)):
+        return np.float64(value)
+    if isinstance(value, str):
+        try:
             return int(value)
-        if t is float:
-            return float(value)
-        raise EleanorException("could not convert string to numeric type")
-    except ValueError:
-        return convert_to_number(value, remaining)
+        except ValueError:
+            pass
+        try:
+            return np.float64(value)
+        except ValueError:
+            pass
+    raise EleanorException("could not convert value to numeric type")
 
 
 def is_list_of(value: object, types: type | tuple[type, ...], allowNone: bool = False) -> bool:

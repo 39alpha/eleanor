@@ -1,6 +1,8 @@
 import enum
 from typing import Literal
 
+import numpy as np
+
 from .errors import InvalidFilterValue, ParseError
 
 type MissingPolicy = Literal["blank", "null", "error"]
@@ -26,9 +28,9 @@ def coerce_filter_value(target: type[object], raw: str, *, path: str, predicate:
         except ValueError as exc:
             raise InvalidFilterValue(path, predicate, raw, target) from exc
 
-    if target is float:
+    if target is float or target is np.float64:
         try:
-            return float(raw)
+            return np.float64(raw)
         except ValueError as exc:
             raise InvalidFilterValue(path, predicate, raw, target) from exc
 

@@ -1,6 +1,8 @@
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING
 
+import numpy as np
+
 import eleanor.equilibrium_space as es
 import eleanor.variable_space as vs
 from eleanor.constraints import Boatswain
@@ -44,6 +46,6 @@ class AbstractKernel(ABC):
         _ = dir
         _ = kwargs
 
-    def get_atomic_weight(self, element: str) -> float | None:
+    def get_atomic_weight(self, element: str) -> np.float64 | None:
         _ = element
         return None

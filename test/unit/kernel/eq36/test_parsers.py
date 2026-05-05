@@ -360,7 +360,7 @@ class TestEq36Parsers(TestCase):
             "EM2 * * * *\n"
             "\n"
         )
-        end_members = {"EM1": {"preexisting": 9.0}}
+        end_members: dict[str, dict[str, np.float64]] = {"EM1": {"preexisting": np.float64(9.0)}}
 
         parser.read_end_members(end_members)
 
@@ -420,7 +420,7 @@ class TestEq36Parsers(TestCase):
         Ensure end-member saturation parsing updates known entries and skips starred rows.
         """
         parser = self._parser("EM1 -2.0 1.0\nEM2 * *\n\n")
-        end_members = {"EM1": {"x": 0.5}, "EM2": {"x": 0.4}}
+        end_members: dict[str, dict[str, np.float64]] = {"EM1": {"x": np.float64(0.5)}, "EM2": {"x": np.float64(0.4)}}
 
         parser.read_end_member_saturations("Solid Solution Product Phases", end_members)
 
@@ -435,7 +435,7 @@ class TestEq36Parsers(TestCase):
         """
         parser = self._parser("UNKNOWN -2.0 1.0\n\n")
         with self.assertRaises(EleanorParserException):
-            parser.read_end_member_saturations("Solid Solution Product Phases", {"EM1": {"x": 0.5}})
+            parser.read_end_member_saturations("Solid Solution Product Phases", {"EM1": {"x": np.float64(0.5)}})
 
     def test_read_product_phases_parses_block_and_hands_off_to_fugacities(self):
         """

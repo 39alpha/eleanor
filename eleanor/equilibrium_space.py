@@ -2,143 +2,145 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import final
 
+import numpy as np
+
 
 @final
 @dataclass
 class Element(object):
     name: str
-    log_molality: float
-    mass_fraction: float
+    log_molality: np.float64
+    mass_fraction: np.float64
 
 
 @final
 @dataclass
 class AqueousSpecies(object):
     name: str
-    log_molality: float
-    log_activity: float
-    log_gamma: float
+    log_molality: np.float64
+    log_activity: np.float64
+    log_gamma: np.float64
 
 
 @final
 @dataclass
 class PureSolid(object):
     name: str
-    log_qk: float
-    affinity: float
-    log_moles: float | None = None
-    log_mass: float | None = None
-    log_volume: float | None = None
+    log_qk: np.float64
+    affinity: np.float64
+    log_moles: np.float64 | None = None
+    log_mass: np.float64 | None = None
+    log_volume: np.float64 | None = None
 
 
 @final
 @dataclass
 class EndMember(object):
     name: str
-    log_qk: float
-    affinity: float
-    log_moles: float | None = None
-    log_mass: float | None = None
-    log_volume: float | None = None
+    log_qk: np.float64
+    affinity: np.float64
+    log_moles: np.float64 | None = None
+    log_mass: np.float64 | None = None
+    log_volume: np.float64 | None = None
 
 
 @final
 @dataclass
 class SolidSolution(object):
     name: str
-    log_qk: float
-    affinity: float
+    log_qk: np.float64
+    affinity: np.float64
     end_members: list[EndMember]
-    log_moles: float | None = None
-    log_mass: float | None = None
-    log_volume: float | None = None
+    log_moles: np.float64 | None = None
+    log_mass: np.float64 | None = None
+    log_volume: np.float64 | None = None
 
 
 @final
 @dataclass
 class Gas(object):
     name: str
-    log_fugacity: float
+    log_fugacity: np.float64
 
 
 @final
 @dataclass
 class Reactant(object):
     name: str
-    affinity: float
-    relative_rate: float
-    log_moles_reacted: float
-    log_moles_remaining: float
-    log_mass_reacted: float
-    log_mass_remaining: float
+    affinity: np.float64
+    relative_rate: np.float64
+    log_moles_reacted: np.float64
+    log_moles_remaining: np.float64
+    log_mass_reacted: np.float64
+    log_mass_remaining: np.float64
 
 
 @final
 @dataclass
 class RedoxReaction(object):
     couple: str
-    Eh: float
-    pe: float
-    log_fO2: float
-    Ah: float
+    Eh: np.float64
+    pe: np.float64
+    log_fO2: np.float64
+    Ah: np.float64
 
 
 @final
 @dataclass(kw_only=True)
 class Point(object):
     stage: str
-    temperature: float
-    pressure: float
-    pH: float
-    log_fO2: float
-    log_activity_water: float
-    mole_fraction_water: float
-    log_gamma_water: float
-    Eh: float
-    pe: float
-    Ah: float
-    log_ionic_strength: float
-    log_stoichiometric_ionic_strength: float
-    log_ionic_asymmetry: float
-    log_stoichiometric_ionic_asymmetry: float
-    osmotic_coefficient: float
-    stoichiometric_osmotic_coefficient: float
-    log_sum_molalities: float
-    log_sum_stoichiometric_molalities: float
-    charge_imbalance: float
-    solute_mass: float
-    solvent_mass: float
-    solution_mass: float
-    tds: float
-    solute_fraction: float
-    solvent_fraction: float
+    temperature: np.float64
+    pressure: np.float64
+    pH: np.float64
+    log_fO2: np.float64
+    log_activity_water: np.float64
+    mole_fraction_water: np.float64
+    log_gamma_water: np.float64
+    Eh: np.float64
+    pe: np.float64
+    Ah: np.float64
+    log_ionic_strength: np.float64
+    log_stoichiometric_ionic_strength: np.float64
+    log_ionic_asymmetry: np.float64
+    log_stoichiometric_ionic_asymmetry: np.float64
+    osmotic_coefficient: np.float64
+    stoichiometric_osmotic_coefficient: np.float64
+    log_sum_molalities: np.float64
+    log_sum_stoichiometric_molalities: np.float64
+    charge_imbalance: np.float64
+    solute_mass: np.float64
+    solvent_mass: np.float64
+    solution_mass: np.float64
+    tds: np.float64
+    solute_fraction: np.float64
+    solvent_fraction: np.float64
     elements: list[Element]
     aqueous_species: list[AqueousSpecies]
     pure_solids: list[PureSolid]
     solid_solutions: list[SolidSolution]
     gases: list[Gas]
     redox_reactions: list[RedoxReaction]
-    log_xi: float | None = None
-    pcH: float | None = None
-    pHCl: float | None = None
-    solution_volume: float | None = None
-    expected_charge_imbalance: float | None = None
-    sigma: float | None = None
-    charge_discrepancy: float | None = None
-    anions: float | None = None
-    cations: float | None = None
-    total_charge: float | None = None
-    mean_charge: float | None = None
-    extended_alkalinity: float | None = None
-    overall_affinity: float | None = None
-    reactant_mass_reacted: float | None = None
-    reactant_mass_remaining: float | None = None
-    solid_mass_change: float | None = None
-    solid_mass_created: float | None = None
-    solid_mass_destroyed: float | None = None
-    solid_volume_change: float | None = None
-    solid_volume_created: float | None = None
-    solid_volume_destroyed: float | None = None
+    log_xi: np.float64 | None = None
+    pcH: np.float64 | None = None
+    pHCl: np.float64 | None = None
+    solution_volume: np.float64 | None = None
+    expected_charge_imbalance: np.float64 | None = None
+    sigma: np.float64 | None = None
+    charge_discrepancy: np.float64 | None = None
+    anions: np.float64 | None = None
+    cations: np.float64 | None = None
+    total_charge: np.float64 | None = None
+    mean_charge: np.float64 | None = None
+    extended_alkalinity: np.float64 | None = None
+    overall_affinity: np.float64 | None = None
+    reactant_mass_reacted: np.float64 | None = None
+    reactant_mass_remaining: np.float64 | None = None
+    solid_mass_change: np.float64 | None = None
+    solid_mass_created: np.float64 | None = None
+    solid_mass_destroyed: np.float64 | None = None
+    solid_volume_change: np.float64 | None = None
+    solid_volume_created: np.float64 | None = None
+    solid_volume_destroyed: np.float64 | None = None
     reactants: list[Reactant] = field(default_factory=list)
     start_date: datetime | None = None
     complete_date: datetime | None = None

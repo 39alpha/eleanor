@@ -5,6 +5,8 @@ from types import SimpleNamespace
 from typing import cast
 from unittest import mock
 
+import numpy as np
+
 from eleanor.exceptions import EleanorException
 from eleanor.kernel.config import Settings as KernelSettings
 from eleanor.order import (
@@ -214,8 +216,8 @@ class TestOrder(TestCase):
         Ensure :meth:`Order.parameters` includes kernel and reactant-derived parameter lists.
         """
         order = _make_order()
-        kparam = ValueParameter("k", None, 1.0)
-        rparam = ValueParameter("r", None, 2.0)
+        kparam = ValueParameter("k", None, np.float64(1.0))
+        rparam = ValueParameter("r", None, np.float64(2.0))
         setattr(order, "kernel", SimpleNamespace(parameters=lambda: [kparam]))
         setattr(order, "reactants", [SimpleNamespace(parameters=lambda: [rparam])])
 

@@ -27,7 +27,6 @@ Layered coverage:
   surfaces in the report.
 """
 
-import math
 import os
 import unittest
 import unittest.mock as mock
@@ -35,6 +34,7 @@ import urllib.parse
 from datetime import datetime
 from typing import cast, override
 
+import numpy as np
 import psycopg
 from psycopg import sql
 
@@ -108,7 +108,10 @@ def _make_kernel() -> KernelConfig:
     return KernelConfig(type="test-kernel", settings=KernelSettings(timeout=None))
 
 
-def _make_vs_point(*, water_mass: float = 1.0) -> core_vs.Point:
+_DEFAULT_WATER_MASS: np.float64 = np.float64(1.0)
+
+
+def _make_vs_point(*, water_mass: np.float64 = _DEFAULT_WATER_MASS) -> core_vs.Point:
     """Return a :class:`core_vs.Point` with empty side-collections by default.
 
     Tests overlay specific child collections (``elements``, ``species``,
@@ -119,8 +122,8 @@ def _make_vs_point(*, water_mass: float = 1.0) -> core_vs.Point:
     return core_vs.Point(
         kernel=_make_kernel(),
         water_mass=water_mass,
-        temperature=25.0,
-        pressure=1.0,
+        temperature=np.float64(25.0),
+        pressure=np.float64(1.0),
         elements=[],
         species=[],
         suppressions=[],
@@ -154,31 +157,31 @@ def _make_es_point(
     now = datetime.now()
     return core_es.Point(
         stage="eq3",
-        temperature=25.0,
-        pressure=1.0,
-        pH=7.0,
-        log_fO2=-60.0,
-        log_activity_water=-0.01,
-        mole_fraction_water=0.98,
-        log_gamma_water=0.02,
-        Eh=0.1,
-        pe=4.0,
-        Ah=1.2,
-        log_ionic_strength=-2.0,
-        log_stoichiometric_ionic_strength=-1.8,
-        log_ionic_asymmetry=-2.2,
-        log_stoichiometric_ionic_asymmetry=-2.1,
-        osmotic_coefficient=0.8,
-        stoichiometric_osmotic_coefficient=0.81,
-        log_sum_molalities=-1.0,
-        log_sum_stoichiometric_molalities=-0.9,
-        charge_imbalance=0.0,
-        solute_mass=0.1,
-        solvent_mass=1.0,
-        solution_mass=1.1,
-        tds=100.0,
-        solute_fraction=0.1,
-        solvent_fraction=0.9,
+        temperature=np.float64(25.0),
+        pressure=np.float64(1.0),
+        pH=np.float64(7.0),
+        log_fO2=-np.float64(60.0),
+        log_activity_water=-np.float64(0.01),
+        mole_fraction_water=np.float64(0.98),
+        log_gamma_water=np.float64(0.02),
+        Eh=np.float64(0.1),
+        pe=np.float64(4.0),
+        Ah=np.float64(1.2),
+        log_ionic_strength=-np.float64(2.0),
+        log_stoichiometric_ionic_strength=-np.float64(1.8),
+        log_ionic_asymmetry=-np.float64(2.2),
+        log_stoichiometric_ionic_asymmetry=-np.float64(2.1),
+        osmotic_coefficient=np.float64(0.8),
+        stoichiometric_osmotic_coefficient=np.float64(0.81),
+        log_sum_molalities=-np.float64(1.0),
+        log_sum_stoichiometric_molalities=-np.float64(0.9),
+        charge_imbalance=np.float64(0.0),
+        solute_mass=np.float64(0.1),
+        solvent_mass=np.float64(1.0),
+        solution_mass=np.float64(1.1),
+        tds=np.float64(100.0),
+        solute_fraction=np.float64(0.1),
+        solvent_fraction=np.float64(0.9),
         elements=elements or [],
         aqueous_species=aqueous_species or [],
         pure_solids=pure_solids or [],
@@ -324,10 +327,10 @@ class TestRepositoriesIntegration(_RealPostgresTestCase):
 
         point = _make_vs_point()
         point.elements = [
-            core_vs.Element(name="Na", log_molality=-1.0),
-            core_vs.Element(name="Cl", log_molality=-1.0),
+            core_vs.Element(name="Na", log_molality=-np.float64(1.0)),
+            core_vs.Element(name="Cl", log_molality=-np.float64(1.0)),
         ]
-        point.species = [core_vs.Species(name="H+", value=-7.0)]
+        point.species = [core_vs.Species(name="H+", value=-np.float64(7.0))]
         point.suppressions = [
             core_vs.Suppression(
                 name="graphite",
@@ -341,25 +344,25 @@ class TestRepositoriesIntegration(_RealPostgresTestCase):
         # aqueous, gas, element, fixed_gas) all run end-to-end on a real
         # Postgres.
         point.mineral_reactants = [
-            core_vs.MineralReactant(name="forsterite", log_moles=0.0, titration_rate=1.0),
+            core_vs.MineralReactant(name="forsterite", log_moles=np.float64(0.0), titration_rate=np.float64(1.0)),
         ]
         point.aqueous_reactants = [
-            core_vs.AqueousReactant(name="Na+", log_moles=-1.0, titration_rate=1.0),
+            core_vs.AqueousReactant(name="Na+", log_moles=-np.float64(1.0), titration_rate=np.float64(1.0)),
         ]
         point.gas_reactants = [
-            core_vs.GasReactant(name="CO2(g)", log_moles=-3.0, titration_rate=1.0),
+            core_vs.GasReactant(name="CO2(g)", log_moles=-np.float64(3.0), titration_rate=np.float64(1.0)),
         ]
         point.element_reactants = [
-            core_vs.ElementReactant(name="Fe", log_moles=-6.0, titration_rate=1.0),
+            core_vs.ElementReactant(name="Fe", log_moles=-np.float64(6.0), titration_rate=np.float64(1.0)),
         ]
         point.fixed_gas_reactants = [
-            core_vs.FixedGasReactant(name="O2(g)", log_moles=-2.0, log_fugacity=-2.0),
+            core_vs.FixedGasReactant(name="O2(g)", log_moles=-np.float64(2.0), log_fugacity=-np.float64(2.0)),
         ]
         point.special_reactants = [
             core_vs.SpecialReactant(
                 name="custom-mineral",
-                log_moles=0.0,
-                titration_rate=1.0,
+                log_moles=np.float64(0.0),
+                titration_rate=np.float64(1.0),
                 composition=[
                     core_vs.SpecialReactantComposition(element="Fe", count=1),
                     core_vs.SpecialReactantComposition(element="O", count=2),
@@ -369,14 +372,14 @@ class TestRepositoriesIntegration(_RealPostgresTestCase):
         point.glass_reactants = [
             core_vs.GlassReactant(
                 name="basalt-glass",
-                log_moles=-1.0,
-                titration_rate=1.0,
+                log_moles=-np.float64(1.0),
+                titration_rate=np.float64(1.0),
                 oxides=[
                     core_vs.GlassReactantOxide(
                         name="SiO2",
-                        fraction=0.5,
-                        log_moles=-1.0,
-                        titration_rate=1.0,
+                        fraction=np.float64(0.5),
+                        log_moles=-np.float64(1.0),
+                        titration_rate=np.float64(1.0),
                         composition=[
                             core_vs.GlassReactantOxideComposition(element="Si", count=1),
                             core_vs.GlassReactantOxideComposition(element="O", count=2),
@@ -384,9 +387,9 @@ class TestRepositoriesIntegration(_RealPostgresTestCase):
                     ),
                     core_vs.GlassReactantOxide(
                         name="MgO",
-                        fraction=0.5,
-                        log_moles=-1.0,
-                        titration_rate=1.0,
+                        fraction=np.float64(0.5),
+                        log_moles=-np.float64(1.0),
+                        titration_rate=np.float64(1.0),
                         composition=[
                             core_vs.GlassReactantOxideComposition(element="Mg", count=1),
                             core_vs.GlassReactantOxideComposition(element="O", count=1),
@@ -398,11 +401,11 @@ class TestRepositoriesIntegration(_RealPostgresTestCase):
         point.solid_solution_reactants = [
             core_vs.SolidSolutionReactant(
                 name="ss-reactant-0",
-                log_moles=0.0,
-                titration_rate=1.0,
+                log_moles=np.float64(0.0),
+                titration_rate=np.float64(1.0),
                 end_members=[
-                    core_vs.SolidSolutionReactantEndMembers(name="em-a", fraction=0.5),
-                    core_vs.SolidSolutionReactantEndMembers(name="em-b", fraction=0.5),
+                    core_vs.SolidSolutionReactantEndMembers(name="em-a", fraction=np.float64(0.5)),
+                    core_vs.SolidSolutionReactantEndMembers(name="em-b", fraction=np.float64(0.5)),
                 ],
             ),
         ]
@@ -411,65 +414,65 @@ class TestRepositoriesIntegration(_RealPostgresTestCase):
         point.es_points = [
             _make_es_point(
                 elements=[
-                    core_es.Element(name="Na", log_molality=-1.0, mass_fraction=0.5),
+                    core_es.Element(name="Na", log_molality=-np.float64(1.0), mass_fraction=np.float64(0.5)),
                 ],
                 aqueous_species=[
                     core_es.AqueousSpecies(
                         name="Na+",
-                        log_molality=-1.0,
-                        log_activity=-1.1,
-                        log_gamma=-0.1,
+                        log_molality=-np.float64(1.0),
+                        log_activity=-np.float64(1.1),
+                        log_gamma=-np.float64(0.1),
                     ),
                 ],
                 pure_solids=[
-                    core_es.PureSolid(name="Halite", log_qk=0.0, affinity=0.0),
+                    core_es.PureSolid(name="Halite", log_qk=np.float64(0.0), affinity=np.float64(0.0)),
                 ],
-                gases=[core_es.Gas(name="CO2(g)", log_fugacity=-3.5)],
+                gases=[core_es.Gas(name="CO2(g)", log_fugacity=-np.float64(3.5))],
                 # ES-side reactants are accumulated in the same
                 # VS-point-pooled fashion as the other ES leaf tables.
                 reactants=[
                     core_es.Reactant(
                         name="forsterite",
-                        affinity=1.0,
-                        relative_rate=1.0,
-                        log_moles_reacted=-2.0,
-                        log_moles_remaining=-1.0,
-                        log_mass_reacted=-2.0,
-                        log_mass_remaining=-1.0,
+                        affinity=np.float64(1.0),
+                        relative_rate=np.float64(1.0),
+                        log_moles_reacted=-np.float64(2.0),
+                        log_moles_remaining=-np.float64(1.0),
+                        log_mass_reacted=-np.float64(2.0),
+                        log_mass_remaining=-np.float64(1.0),
                     ),
                 ],
                 redox_reactions=[
                     core_es.RedoxReaction(
                         couple="O2/H2O",
-                        Eh=0.8,
-                        pe=13.5,
-                        log_fO2=-60.0,
-                        Ah=1.0,
+                        Eh=np.float64(0.8),
+                        pe=np.float64(13.5),
+                        log_fO2=-np.float64(60.0),
+                        Ah=np.float64(1.0),
                     ),
                 ],
                 solid_solutions=[
                     core_es.SolidSolution(
                         name="ss0",
-                        log_qk=0.0,
-                        affinity=0.0,
-                        log_moles=-math.inf,
-                        log_mass=-math.inf,
-                        log_volume=-math.inf,
+                        log_qk=np.float64(0.0),
+                        affinity=np.float64(0.0),
+                        log_moles=np.float64(-np.inf),
+                        log_mass=np.float64(-np.inf),
+                        log_volume=np.float64(-np.inf),
                         end_members=[
-                            core_es.EndMember(name="ss0_em0", log_qk=0.0, affinity=0.0),
-                            core_es.EndMember(name="ss0_em1", log_qk=0.0, affinity=0.0),
+                            core_es.EndMember(name="ss0_em0", log_qk=np.float64(0.0), affinity=np.float64(0.0)),
+                            core_es.EndMember(name="ss0_em1", log_qk=np.float64(0.0), affinity=np.float64(0.0)),
                         ],
                     ),
                 ],
             ),
             _make_es_point(
-                elements=[core_es.Element(name="Cl", log_molality=-1.0, mass_fraction=0.5)],
+                elements=[core_es.Element(name="Cl", log_molality=-np.float64(1.0), mass_fraction=np.float64(0.5))],
                 aqueous_species=[
                     core_es.AqueousSpecies(
                         name="Cl-",
-                        log_molality=-1.0,
-                        log_activity=-1.1,
-                        log_gamma=-0.1,
+                        log_molality=-np.float64(1.0),
+                        log_activity=-np.float64(1.1),
+                        log_gamma=-np.float64(0.1),
                     ),
                 ],
             ),
@@ -532,6 +535,107 @@ class TestRepositoriesIntegration(_RealPostgresTestCase):
 
         self.assertGreater(vs_id, 0)
 
+    def test_insert_point_float64_values_round_trip(self):
+        """
+        Ensure np.float64 values survive the Postgres write/read round-trip
+        across multiple tables and value categories: positive, negative,
+        zero, and -Infinity.
+        """
+        import math
+
+        order_id, conn = self._make_order_and_vs("float64-roundtrip")
+
+        point = _make_vs_point(water_mass=np.float64(0.987654321))
+        point.elements = [
+            core_vs.Element(name="Na", log_molality=-np.float64(3.456)),
+        ]
+        point.es_points = [
+            _make_es_point(
+                elements=[
+                    core_es.Element(name="Ca", log_molality=-np.float64(4.567), mass_fraction=np.float64(0.00123)),
+                ],
+                aqueous_species=[
+                    core_es.AqueousSpecies(
+                        name="HCO3-",
+                        log_molality=-np.float64(2.345),
+                        log_activity=-np.float64(2.456),
+                        log_gamma=-np.float64(0.111),
+                    ),
+                ],
+                solid_solutions=[
+                    core_es.SolidSolution(
+                        name="ss-rt",
+                        log_qk=np.float64(0.0),
+                        affinity=np.float64(0.0),
+                        log_moles=np.float64(-np.inf),
+                        log_mass=np.float64(-np.inf),
+                        log_volume=np.float64(-np.inf),
+                        end_members=[],
+                    ),
+                ],
+            ),
+        ]
+
+        with conn.transaction(savepoint_name="vs_rt"):
+            vs_id = repositories.insert_point(conn, order_id, point)
+
+        with conn.cursor() as cur:
+            # variable_space: positive float, zero implicit in charge_imbalance via _make_es_point
+            cur.execute(
+                "SELECT water_mass, temperature, pressure FROM variable_space WHERE id = %s",
+                (vs_id,),
+            )
+            vs_row = cur.fetchone()
+            assert vs_row is not None
+            self.assertEqual(vs_row[0], 0.987654321)
+            self.assertEqual(vs_row[1], 25.0)
+            self.assertEqual(vs_row[2], 1.0)
+
+            # VS-side elements: negative float
+            cur.execute(
+                "SELECT log_molality FROM elements WHERE variable_space_id = %s AND name = 'Na'",
+                (vs_id,),
+            )
+            el_row = cur.fetchone()
+            assert el_row is not None
+            self.assertEqual(el_row[0], -3.456)
+
+            # equilibrium_space: zero (charge_imbalance) and typical scalars
+            cur.execute(
+                "SELECT temperature, pressure, charge_imbalance FROM equilibrium_space WHERE variable_space_id = %s",
+                (vs_id,),
+            )
+            es_row = cur.fetchone()
+            assert es_row is not None
+            self.assertEqual(es_row[0], 25.0)
+            self.assertEqual(es_row[1], 1.0)
+            self.assertEqual(es_row[2], 0.0)
+
+            # ES elements: small positive fraction
+            cur.execute("SELECT log_molality, mass_fraction FROM equilibrium_elements WHERE name = 'Ca'")
+            ee_row = cur.fetchone()
+            assert ee_row is not None
+            self.assertEqual(ee_row[0], -4.567)
+            self.assertEqual(ee_row[1], 0.00123)
+
+            # ES aqueous species: three distinct negative values
+            cur.execute(
+                "SELECT log_molality, log_activity, log_gamma FROM equilibrium_aqueous_species WHERE name = 'HCO3-'"
+            )
+            aq_row = cur.fetchone()
+            assert aq_row is not None
+            self.assertEqual(aq_row[0], -2.345)
+            self.assertEqual(aq_row[1], -2.456)
+            self.assertEqual(aq_row[2], -0.111)
+
+            # ES solid solutions: -Infinity round-trip
+            cur.execute("SELECT log_moles, log_mass, log_volume FROM equilibrium_solid_solutions WHERE name = 'ss-rt'")
+            ss_row = cur.fetchone()
+            assert ss_row is not None
+            self.assertEqual(ss_row[0], -math.inf)
+            self.assertEqual(ss_row[1], -math.inf)
+            self.assertEqual(ss_row[2], -math.inf)
+
     def test_insert_point_chunks_solid_solutions_under_low_param_cap(self):
         """
         Ensure ``_bulk_insert_returning_ids`` chunks the SS fan-out under
@@ -547,14 +651,14 @@ class TestRepositoriesIntegration(_RealPostgresTestCase):
                 solid_solutions=[
                     core_es.SolidSolution(
                         name=f"ss{i}",
-                        log_qk=float(i),
-                        affinity=0.0,
-                        log_moles=-math.inf,
-                        log_mass=-math.inf,
-                        log_volume=-math.inf,
+                        log_qk=np.float64(i),
+                        affinity=np.float64(0.0),
+                        log_moles=np.float64(-np.inf),
+                        log_mass=np.float64(-np.inf),
+                        log_volume=np.float64(-np.inf),
                         end_members=[
-                            core_es.EndMember(name=f"ss{i}_em0", log_qk=0.0, affinity=0.0),
-                            core_es.EndMember(name=f"ss{i}_em1", log_qk=0.0, affinity=0.0),
+                            core_es.EndMember(name=f"ss{i}_em0", log_qk=np.float64(0.0), affinity=np.float64(0.0)),
+                            core_es.EndMember(name=f"ss{i}_em1", log_qk=np.float64(0.0), affinity=np.float64(0.0)),
                         ],
                     )
                     for i in range(n_ss)
@@ -614,9 +718,9 @@ class TestRepositoriesIntegration(_RealPostgresTestCase):
                 aqueous_species=[
                     core_es.AqueousSpecies(
                         name=f"sp{i}",
-                        log_molality=-1.0,
-                        log_activity=-1.1,
-                        log_gamma=-0.1,
+                        log_molality=-np.float64(1.0),
+                        log_activity=-np.float64(1.1),
+                        log_gamma=-np.float64(0.1),
                     )
                     for i in range(n_aq)
                 ],
@@ -700,8 +804,8 @@ class TestPostgresSinkWriteBatchIntegration(_RealPostgresTestCase):
         order = _MinimalOrder(name="wb-happy", eleanor_version="test-1.0.0")
         order_id = sink.begin_run(_as_order(order))
 
-        point_a = _make_vs_point(water_mass=1.0)
-        point_b = _make_vs_point(water_mass=2.0)
+        point_a = _make_vs_point(water_mass=np.float64(1.0))
+        point_b = _make_vs_point(water_mass=np.float64(2.0))
         results = [ComputeResult(point=point_a), ComputeResult(point=point_b)]
 
         outcomes = sink.write_batch(order_id=order_id, results=results)
@@ -732,8 +836,8 @@ class TestPostgresSinkWriteBatchIntegration(_RealPostgresTestCase):
         order = _MinimalOrder(name="wb-savepoint", eleanor_version="test-1.0.0")
         order_id = sink.begin_run(_as_order(order))
 
-        good = _make_vs_point(water_mass=1.0)
-        bad = _make_vs_point(water_mass=2.0)
+        good = _make_vs_point(water_mass=np.float64(1.0))
+        bad = _make_vs_point(water_mass=np.float64(2.0))
         # ``variable_space.water_mass`` is NOT NULL -- forcing it to None
         # surfaces a real ``psycopg.errors.NotNullViolation`` from inside
         # ``insert_point``, which the per-VS-point savepoint must catch.
@@ -785,15 +889,15 @@ class TestStatementProfilerIntegration(_RealPostgresTestCase):
         # is 1000 rows, so a 5-row leaf insert deliberately stays on the
         # ``executemany`` branch and exercises the matching profiler
         # override).
-        point.elements = [core_vs.Element(name=f"el{i}", log_molality=-1.0) for i in range(5)]
+        point.elements = [core_vs.Element(name=f"el{i}", log_molality=-np.float64(1.0)) for i in range(5)]
         point.es_points = [
             _make_es_point(
                 aqueous_species=[
                     core_es.AqueousSpecies(
                         name=f"sp{i}",
-                        log_molality=-1.0,
-                        log_activity=-1.1,
-                        log_gamma=-0.1,
+                        log_molality=-np.float64(1.0),
+                        log_activity=-np.float64(1.1),
+                        log_gamma=-np.float64(0.1),
                     )
                     for i in range(n_aq)
                 ],

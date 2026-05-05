@@ -1,9 +1,10 @@
 import io
-import math
 import re
 import warnings
 from abc import ABC, abstractmethod
 from typing import Self, cast, override
+
+import numpy as np
 
 from eleanor.exceptions import EleanorException, EleanorFileException, EleanorParserException
 from eleanor.kernel.eq36.codes import RunCode
@@ -13,18 +14,18 @@ path_separator = re.compile("^( -)+$")
 blank_line = re.compile(r"^\s*$")
 # Perf: module-level cache avoids re.compile overhead on repeated pattern strings
 _pattern_cache: dict[str, re.Pattern[str]] = {}
-type NumericProps = dict[str, float]
+type NumericProps = dict[str, np.float64]
 type NumericTable = dict[str, NumericProps]
 type SolidSolutionProps = dict[str, object]
 type SolidSolutionTable = dict[str, SolidSolutionProps]
 
 
-def _safe_log10(value: float) -> float:
+def _safe_log10(value: np.float64) -> np.float64:
     if value > 0:
-        return math.log10(value)
+        return cast(np.float64, np.log10(value))
     if value == 0:
-        return float("-inf")
-    return float("nan")
+        return np.float64("-inf")
+    return np.float64("nan")
 
 
 class OutputParser(ABC):
@@ -131,11 +132,11 @@ class OutputParser(ABC):
 
         return True
 
-    def read_key_value(self) -> tuple[str, float]:
+    def read_key_value(self) -> tuple[str, np.float64]:
         key, value = self.line().strip().split("=")
         return key, field_as_float(value)
 
-    def read_key_value_unit(self) -> tuple[str, float, str]:
+    def read_key_value_unit(self) -> tuple[str, np.float64, str]:
         key, value = self.line().strip().split("=")
         value, unit = value.strip().split()
         return key, field_as_float(value), unit
@@ -497,8 +498,8 @@ class OutputParser(ABC):
                     }
 
                     if solid.startswith("fix_f"):
-                        pure_phase_props["log_qk"] = 0.0
-                        pure_phase_props["affinity"] = 0.0
+                        pure_phase_props["log_qk"] = np.float64(0.0)
+                        pure_phase_props["affinity"] = np.float64(0.0)
 
                     pure_phase_props["log_mass"] = _safe_log10(pure_phase_props["mass"])
                     pure_phase_props["log_volume"] = _safe_log10(pure_phase_props["volume"])
@@ -917,7 +918,7 @@ class OutputParser3(OutputParser):
                 "solute_mass",
                 "solution_mass",
             ]:
-                value = cast(float, self.data[key])
+                value = cast(np.float64, self.data[key])
                 self.data[f"log_{key}"] = _safe_log10(value)
 
     @override
@@ -1155,7 +1156,7 @@ class OutputParser6(OutputParser):
                 "solute_mass",
                 "solution_mass",
             ]:
-                value = cast(float, self.data[key])
+                value = cast(np.float64, self.data[key])
                 self.data[f"log_{key}"] = _safe_log10(value)
 
         self.read_alkalinity()
@@ -1177,20 +1178,20 @@ class OutputParser6(OutputParser):
             "Actual Charge imbalance", key="charge_imbalance_per_unit_solution", units=["eq/kg.solu"]
         )
         self.data["charge_imbalance_per_unit_solution"] = (
-            cast(float, self.data["charge_imbalance_per_unit_solution"]) * 1e-3
+            cast(np.float64, self.data["charge_imbalance_per_unit_solution"]) * 1e-3
         )
         self.read_basic_property(
             "Expected Charge imbalance", key="expected_charge_imbalance_per_unit_solution", units=["eq/kg.solu"]
         )
         self.data["expected_charge_imbalance_per_unit_solution"] = (
-            cast(float, self.data["expected_charge_imbalance_per_unit_solution"]) * 1e-3
+            cast(np.float64, self.data["expected_charge_imbalance_per_unit_solution"]) * 1e-3
         )
         self.read_basic_property("Charge discrepancy", key="charge_discrepancy_per_unit_solution", units=["eq/kg.solu"])
         self.data["charge_discrepancy_per_unit_solution"] = (
-            cast(float, self.data["charge_discrepancy_per_unit_solution"]) * 1e-3
+            cast(np.float64, self.data["charge_discrepancy_per_unit_solution"]) * 1e-3
         )
         self.read_basic_property("Sigma |equivalents|", key="sigma_per_unit_solution", units=["eq/kg.solu"])
-        self.data["sigma_per_unit_solution"] = cast(float, self.data["sigma_per_unit_solution"]) * 1e-3
+        self.data["sigma_per_unit_solution"] = cast(np.float64, self.data["sigma_per_unit_solution"]) * 1e-3
 
         self.advance()
 
@@ -1203,7 +1204,7 @@ class OutputParser6(OutputParser):
             self.advance()
             with warnings.catch_warnings():
                 warnings.filterwarnings("ignore", category=RuntimeWarning)
-                xi = cast(float, self.data["xi"])
+                xi = cast(np.float64, self.data["xi"])
                 self.data["log_xi"] = _safe_log10(xi)
             self.consume_blank_lines()
             self.read_basic_property("Temperature", key="temperature", units=["celsius", "c"])

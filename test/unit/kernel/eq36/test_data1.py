@@ -96,12 +96,12 @@ class TestEq36Data1(TestCase):
             ),
         )
         self.assertIs(c.reset_domain(), c)
-        self.assertTrue(c.temperature_in_domain(1.0))
-        self.assertFalse(c.temperature_in_domain(20.0))
-        self.assertEqual(float(c(0.0)), 2.0)
-        self.assertEqual(float(c(10.0)), 12.0)
+        self.assertTrue(c.temperature_in_domain(np.float64(1.0)))
+        self.assertFalse(c.temperature_in_domain(np.float64(20.0)))
+        self.assertEqual(float(c(np.float64(0.0))), np.float64(2.0))
+        self.assertEqual(float(c(np.float64(10.0))), np.float64(12.0))
         with self.assertRaises(ValueError):
-            c(99.0)
+            c(np.float64(99.0))
 
     def test_tpcurve_call_requires_float64_dot_result(self):
         """
@@ -110,7 +110,7 @@ class TestEq36Data1(TestCase):
         c = self._curve()
         with mock.patch("numpy.dot", return_value=1.0):
             with self.assertRaises(TypeError):
-                c(1.0)
+                c(np.float64(1.0))
 
     def test_tpcurve_set_domain_zero_intersections_branches(self):
         """
@@ -118,15 +118,15 @@ class TestEq36Data1(TestCase):
         """
         with mock.patch.object(TPCurve, "find_boundary_intersections", return_value=[]):
             c = self._curve()
-            self.assertFalse(c.set_domain((20.0, 30.0), (0.0, 2.0)))
+            self.assertFalse(c.set_domain((np.float64(20.0), np.float64(30.0)), (np.float64(0.0), np.float64(2.0))))
             self.assertEqual(c.domain, [])
             c = self._curve()
 
             with self.assertRaises(Exception):
-                c.set_domain((0.0, 3.0), (0.0, 2.0))
+                c.set_domain((np.float64(0.0), np.float64(3.0)), (np.float64(0.0), np.float64(2.0)))
             c = self._curve()
 
-            self.assertTrue(c.set_domain((-1.0, 11.0), (0.0, 2.0)))
+            self.assertTrue(c.set_domain((-np.float64(1.0), np.float64(11.0)), (np.float64(0.0), np.float64(2.0))))
             self.assertEqual(c.domain, [(0.0, 10.0)])
 
     def test_tpcurve_set_domain_one_and_multiple_intersections(self):
@@ -136,11 +136,11 @@ class TestEq36Data1(TestCase):
         c = self._curve()
         with mock.patch.object(TPCurve, "find_boundary_intersections", return_value=[(5.0, 1.0)]):
             c = self._curve()
-            self.assertTrue(c.set_domain((5.0, 5.0), (0.0, 2.0)))
+            self.assertTrue(c.set_domain((np.float64(5.0), np.float64(5.0)), (np.float64(0.0), np.float64(2.0))))
             self.assertEqual(c.domain, [(5.0, 5.0)])
             c = self._curve()
 
-            self.assertTrue(c.set_domain((0.0, 10.0), (0.0, 2.0)))
+            self.assertTrue(c.set_domain((np.float64(0.0), np.float64(10.0)), (np.float64(0.0), np.float64(2.0))))
             self.assertEqual(c.domain, [(0.0, 5.0), (5.0, 10.0)])
 
         with mock.patch.object(
@@ -149,7 +149,7 @@ class TestEq36Data1(TestCase):
             return_value=[(1.0, 1.0), (3.0, 1.0), (8.0, 1.0)],
         ):
             c = self._curve()
-            self.assertTrue(c.set_domain((0.0, 10.0), (0.0, 2.0)))
+            self.assertTrue(c.set_domain((np.float64(0.0), np.float64(10.0)), (np.float64(0.0), np.float64(2.0))))
             self.assertEqual(c.domain, [(1.0, 3.0), (3.0, 8.0)])
 
     def test_tpcurve_find_intersections_union_and_sample(self):
@@ -157,18 +157,20 @@ class TestEq36Data1(TestCase):
         Ensure intersection detection, domain unioning, and sampling flow execute as expected.
         """
         c = self._curve()
-        intersections = c.find_boundary_intersections((0.0, 10.0), (1.0, 2.0))
+        intersections = c.find_boundary_intersections(
+            (np.float64(0.0), np.float64(10.0)), (np.float64(1.0), np.float64(2.0))
+        )
         self.assertTrue((0.0, 1.0) in intersections and (10.0, 1.0) in intersections)
 
         c1 = self._curve()
-        c1.domain = [(0.0, 2.0), (3.0, 4.0)]
+        c1.domain = [(np.float64(0.0), np.float64(2.0)), (np.float64(3.0), np.float64(4.0))]
         c2 = self._curve()
-        c2.domain = [(1.0, 3.5)]
+        c2.domain = [(np.float64(1.0), np.float64(3.5))]
         self.assertEqual(TPCurve.union_domains([]), [])
         self.assertEqual(TPCurve.union_domains([c1, c2]), [(0.0, 4.0)])
 
         c3 = self._curve()
-        c3.domain = [(0.0, 2.0)]
+        c3.domain = [(np.float64(0.0), np.float64(2.0))]
         with (
             mock.patch("numpy.random.uniform", return_value=np.array([0.5, 1.5])),
             mock.patch("numpy.random.randint", side_effect=[0, 0]),
@@ -183,8 +185,10 @@ class TestEq36Data1(TestCase):
         Ensure find_boundary_intersections skips candidate temperatures outside the active curve domain.
         """
         c = self._curve()
-        c.domain = [(1.0, 2.0)]
-        intersections = c.find_boundary_intersections((0.0, 2.0), (1.0, 1.0))
+        c.domain = [(np.float64(1.0), np.float64(2.0))]
+        intersections = c.find_boundary_intersections(
+            (np.float64(0.0), np.float64(2.0)), (np.float64(1.0), np.float64(1.0))
+        )
         self.assertFalse(any(t == 0.0 for t, _ in intersections))
 
     def test_tpcurve_find_intersections_includes_right_polynomial_roots(self):
@@ -193,7 +197,9 @@ class TestEq36Data1(TestCase):
         """
         c = self._curve()
         with mock.patch("numpy.roots", return_value=np.array([8.0])):
-            intersections = c.find_boundary_intersections((0.0, 10.0), (1.0, 1.0))
+            intersections = c.find_boundary_intersections(
+                (np.float64(0.0), np.float64(10.0)), (np.float64(1.0), np.float64(1.0))
+            )
         self.assertIn((8.0, 1.0), intersections)
 
     def test_tpcurve_union_domains_disjoint_subdomains(self):
@@ -201,9 +207,9 @@ class TestEq36Data1(TestCase):
         Ensure union_domains preserves separated intervals when subdomains do not overlap.
         """
         c1 = self._curve()
-        c1.domain = [(0.0, 1.0)]
+        c1.domain = [(np.float64(0.0), np.float64(1.0))]
         c2 = self._curve()
-        c2.domain = [(3.0, 4.0)]
+        c2.domain = [(np.float64(3.0), np.float64(4.0))]
         self.assertEqual(TPCurve.union_domains([c1, c2]), [(0.0, 1.0), (3.0, 4.0)])
 
     def test_tpcurve_sample_adjusts_across_domain_steps(self):
@@ -211,9 +217,9 @@ class TestEq36Data1(TestCase):
         Ensure sample shifts candidate temperatures across gaps between disjoint domain intervals.
         """
         c1 = self._curve()
-        c1.domain = [(0.0, 1.0)]
+        c1.domain = [(np.float64(0.0), np.float64(1.0))]
         c2 = self._curve()
-        c2.domain = [(3.0, 4.0)]
+        c2.domain = [(np.float64(3.0), np.float64(4.0))]
         with (
             mock.patch("numpy.random.uniform", return_value=np.array([0.2, 1.8])),
             mock.patch("numpy.random.randint", side_effect=[0, 0]),

@@ -3,6 +3,8 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import final
 
+import numpy as np
+
 import eleanor.equilibrium_space as es
 
 from .kernel.config import Config as KernelConfig
@@ -27,32 +29,32 @@ class Suppression(object):
 @dataclass
 class MineralReactant(object):
     name: str
-    log_moles: float
-    titration_rate: float
+    log_moles: np.float64
+    titration_rate: np.float64
 
 
 @final
 @dataclass
 class AqueousReactant(object):
     name: str
-    log_moles: float
-    titration_rate: float
+    log_moles: np.float64
+    titration_rate: np.float64
 
 
 @final
 @dataclass
 class GasReactant(object):
     name: str
-    log_moles: float
-    titration_rate: float
+    log_moles: np.float64
+    titration_rate: np.float64
 
 
 @final
 @dataclass
 class ElementReactant(object):
     name: str
-    log_moles: float
-    titration_rate: float
+    log_moles: np.float64
+    titration_rate: np.float64
 
 
 @final
@@ -66,8 +68,8 @@ class SpecialReactantComposition(object):
 @dataclass
 class SpecialReactant(object):
     name: str
-    log_moles: float
-    titration_rate: float
+    log_moles: np.float64
+    titration_rate: np.float64
     composition: list[SpecialReactantComposition]
 
 
@@ -82,9 +84,9 @@ class GlassReactantOxideComposition(object):
 @dataclass
 class GlassReactantOxide(object):
     name: str
-    fraction: float
-    log_moles: float
-    titration_rate: float
+    fraction: np.float64
+    log_moles: np.float64
+    titration_rate: np.float64
     composition: list[GlassReactantOxideComposition]
 
 
@@ -92,8 +94,8 @@ class GlassReactantOxide(object):
 @dataclass
 class GlassReactant(object):
     name: str
-    log_moles: float
-    titration_rate: float
+    log_moles: np.float64
+    titration_rate: np.float64
     oxides: list[GlassReactantOxide]
 
 
@@ -101,23 +103,23 @@ class GlassReactant(object):
 @dataclass
 class FixedGasReactant(object):
     name: str
-    log_moles: float
-    log_fugacity: float
+    log_moles: np.float64
+    log_fugacity: np.float64
 
 
 @final
 @dataclass
 class SolidSolutionReactantEndMembers(object):
     name: str
-    fraction: float
+    fraction: np.float64
 
 
 @final
 @dataclass
 class SolidSolutionReactant(object):
     name: str
-    log_moles: float
-    titration_rate: float
+    log_moles: np.float64
+    titration_rate: np.float64
     end_members: list[SolidSolutionReactantEndMembers]
 
 
@@ -125,14 +127,14 @@ class SolidSolutionReactant(object):
 @dataclass
 class Element(object):
     name: str
-    log_molality: float
+    log_molality: np.float64
 
 
 @final
 @dataclass
 class Species(object):
     name: str
-    value: float
+    value: np.float64
 
 
 @final
@@ -145,9 +147,9 @@ class Scratch(object):
 @dataclass
 class Point(object):
     kernel: KernelConfig
-    water_mass: float
-    temperature: float
-    pressure: float
+    water_mass: np.float64
+    temperature: np.float64
+    pressure: np.float64
     elements: list[Element]
     species: list[Species]
     suppressions: list[Suppression]

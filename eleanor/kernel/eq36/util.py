@@ -1,6 +1,8 @@
 import io
 import re
 
+import numpy as np
+
 from eleanor.exceptions import EleanorFileException, EleanorParserException
 from eleanor.typing import Species
 
@@ -17,22 +19,22 @@ def get_field(line: str, pos: int) -> str:
     return line.split()[pos]
 
 
-def field_as_float(field: str) -> float:
+def field_as_float(field: str) -> np.float64:
     """
     Parse a string from an EQ3/6 output file as a `float`
     """
     try:
-        return float(field)
+        return np.float64(field)
     except ValueError:
         pass
 
     match = _FORTRAN_FLOAT_RE.match(field)
     if match:
-        return float(match[1] + "e" + match[3])
+        return np.float64(match[1] + "e" + match[3])
     fallback = _NUMERIC_FALLBACK_RE.search(field)
     if fallback is not None:
         try:
-            return float(fallback[0])
+            return np.float64(fallback[0])
         except ValueError:
             pass
 

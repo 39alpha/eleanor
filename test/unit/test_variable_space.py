@@ -1,3 +1,5 @@
+import numpy as np
+
 from eleanor.kernel.config import Config as KernelConfig
 from eleanor.kernel.config import Settings
 from eleanor.variable_space import (
@@ -27,34 +29,49 @@ class TestVariableSpace(TestCase):
             species = []
         if reactant_sizes is None:
             reactant_sizes = [0, 0, 0, 0, 0, 0, 0]
-        mineral = [MineralReactant(name=f"m{i}", log_moles=0.0, titration_rate=1.0) for i in range(reactant_sizes[0])]
-        aqueous = [AqueousReactant(name=f"a{i}", log_moles=0.0, titration_rate=1.0) for i in range(reactant_sizes[1])]
-        gas = [GasReactant(name=f"g{i}", log_moles=0.0, titration_rate=1.0) for i in range(reactant_sizes[2])]
-        element = [ElementReactant(name=f"e{i}", log_moles=0.0, titration_rate=1.0) for i in range(reactant_sizes[3])]
+        mineral = [
+            MineralReactant(name=f"m{i}", log_moles=np.float64(0.0), titration_rate=np.float64(1.0))
+            for i in range(reactant_sizes[0])
+        ]
+        aqueous = [
+            AqueousReactant(name=f"a{i}", log_moles=np.float64(0.0), titration_rate=np.float64(1.0))
+            for i in range(reactant_sizes[1])
+        ]
+        gas = [
+            GasReactant(name=f"g{i}", log_moles=np.float64(0.0), titration_rate=np.float64(1.0))
+            for i in range(reactant_sizes[2])
+        ]
+        element = [
+            ElementReactant(name=f"e{i}", log_moles=np.float64(0.0), titration_rate=np.float64(1.0))
+            for i in range(reactant_sizes[3])
+        ]
         special = [
             SpecialReactant(
                 name=f"s{i}",
-                log_moles=0.0,
-                titration_rate=1.0,
+                log_moles=np.float64(0.0),
+                titration_rate=np.float64(1.0),
                 composition=[SpecialReactantComposition(element="Na", count=1)],
             )
             for i in range(reactant_sizes[4])
         ]
-        fixed_gas = [FixedGasReactant(name=f"fg{i}", log_moles=0.0, log_fugacity=0.0) for i in range(reactant_sizes[5])]
+        fixed_gas = [
+            FixedGasReactant(name=f"fg{i}", log_moles=np.float64(0.0), log_fugacity=np.float64(0.0))
+            for i in range(reactant_sizes[5])
+        ]
         solid_solution = [
             SolidSolutionReactant(
                 name=f"ss{i}",
-                log_moles=0.0,
-                titration_rate=1.0,
-                end_members=[SolidSolutionReactantEndMembers(name="em", fraction=1.0)],
+                log_moles=np.float64(0.0),
+                titration_rate=np.float64(1.0),
+                end_members=[SolidSolutionReactantEndMembers(name="em", fraction=np.float64(1.0))],
             )
             for i in range(reactant_sizes[6])
         ]
         return Point(
             kernel=KernelConfig(type="eq36", settings=Settings(timeout=1)),
-            water_mass=1.0,
-            temperature=25.0,
-            pressure=1.0,
+            water_mass=np.float64(1.0),
+            temperature=np.float64(25.0),
+            pressure=np.float64(1.0),
             elements=[],
             species=species,
             suppressions=[],
@@ -72,8 +89,8 @@ class TestVariableSpace(TestCase):
         """
         Ensure species helper methods detect constraints and resolve species by name.
         """
-        s1 = Species(name="H+", value=1.0)
-        s2 = Species(name="OH-", value=2.0)
+        s1 = Species(name="H+", value=np.float64(1.0))
+        s2 = Species(name="OH-", value=np.float64(2.0))
         p = self._make_point(species=[s1, s2])
 
         self.assertTrue(p.has_species_constraint("H+"))

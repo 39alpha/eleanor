@@ -1,6 +1,7 @@
-import math
 from dataclasses import dataclass
 from typing import override
+
+import numpy as np
 
 from eleanor.constraints import AbstractConstraint
 from eleanor.exceptions import EleanorException
@@ -13,7 +14,7 @@ from eleanor.parameters import (
     Valuation,
     ValueParameter,
 )
-from eleanor.typing import Number, cast
+from eleanor.typing import cast
 
 from .data1 import Data1
 
@@ -21,8 +22,8 @@ from .data1 import Data1
 @dataclass
 class TemperatureRangeConstraint(AbstractConstraint):
     temperature: Parameter
-    min_t: float
-    max_t: float
+    min_t: np.float64
+    max_t: np.float64
 
     def __init__(self, temperature: Parameter, data1s: list[Data1]):
         self.temperature = temperature
@@ -30,8 +31,8 @@ class TemperatureRangeConstraint(AbstractConstraint):
         if len(data1s) == 0:
             raise EleanorException("at least one data1 file must be provided")
 
-        self.min_t = math.inf
-        self.max_t = -math.inf
+        self.min_t = np.float64(np.inf)
+        self.max_t = np.float64(-np.inf)
 
         for data1 in data1s:
             if data1.tp_curve is not None:
@@ -115,10 +116,10 @@ class TPCurveConstraint(AbstractConstraint):
         T = input.value
 
         try:
-            values: list[Number] = []
+            values: list[np.float64] = []
             for data1 in self.data1s:
                 if data1.tp_curve is not None and data1.tp_curve.temperature_in_domain(T):
-                    P = cast(Number | None, data1.tp_curve(T))
+                    P = cast(np.float64 | None, data1.tp_curve(T))
                     if P is None:
                         continue
                     if refined.in_domain(refined.fix(P)):

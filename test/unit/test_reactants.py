@@ -1,6 +1,8 @@
 from typing import cast
 from unittest import mock
 
+import numpy as np
+
 from eleanor.exceptions import EleanorException
 from eleanor.parameters import ValueParameter
 from eleanor.reactants import (
@@ -329,16 +331,16 @@ class TestReactants(TestCase):
         """
         Ensure GlassReactant.parameters() includes base amount, titration_rate, and per-oxide relative rates.
         """
-        sio2_rate = ValueParameter("relative_rate", None, 2.0)
-        na2o_rate = ValueParameter("relative_rate", None, 0.5)
+        sio2_rate = ValueParameter("relative_rate", None, np.float64(2.0))
+        na2o_rate = ValueParameter("relative_rate", None, np.float64(0.5))
         reactant = GlassReactant(
             "glass",
             ReactantType.GLASS,
-            ValueParameter("amount", None, 1.0),
-            ValueParameter("titration_rate", None, 1.0),
+            ValueParameter("amount", None, np.float64(1.0)),
+            ValueParameter("titration_rate", None, np.float64(1.0)),
             {
-                "SiO2": GlassReactantOxide("SiO2", {"Si": 1, "O": 2}, 0.5, sio2_rate),
-                "Na2O": GlassReactantOxide("Na2O", {"Na": 2, "O": 1}, 0.5, na2o_rate),
+                "SiO2": GlassReactantOxide("SiO2", {"Si": 1, "O": 2}, np.float64(0.5), sio2_rate),
+                "Na2O": GlassReactantOxide("Na2O", {"Na": 2, "O": 1}, np.float64(0.5), na2o_rate),
             },
         )
         params = reactant.parameters()

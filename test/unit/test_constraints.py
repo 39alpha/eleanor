@@ -2,6 +2,8 @@ from dataclasses import dataclass
 from typing import cast, override
 from unittest import mock
 
+import numpy as np
+
 from eleanor.constraints import AbstractConstraint, Boatswain
 from eleanor.kernel.config import Config as KernelConfig
 from eleanor.kernel.config import Settings
@@ -28,7 +30,7 @@ class EchoConstraint(AbstractConstraint):
     Test helper that fixes one dependent parameter to a chosen value.
     """
 
-    def __init__(self, independent: Parameter, dependent: Parameter, value: float) -> None:
+    def __init__(self, independent: Parameter, dependent: Parameter, value: np.float64) -> None:
         self._independent = independent
         self._dependent = dependent
         self._value = value
@@ -92,12 +94,12 @@ class TestConstraints(TestCase):
         """
         Ensure dependency checks and resolution gatekeeping behave as expected.
         """
-        p_ind = ValueParameter("ind", None, 1.0)
-        p_dep = RangeParameter("dep", None, 0.0, 10.0)
+        p_ind = ValueParameter("ind", None, np.float64(1.0))
+        p_dep = RangeParameter("dep", None, np.float64(0.0), np.float64(10.0))
         registry = ParameterRegistry()
         registry.add_parameters([p_ind, p_dep])
         valuation = registry.valuation()
-        constraint = EchoConstraint(p_ind, p_dep, 2.5)
+        constraint = EchoConstraint(p_ind, p_dep, np.float64(2.5))
 
         self.assertTrue(constraint.depends_on(p_ind))
         self.assertTrue(constraint.constrains(p_dep))
@@ -114,12 +116,12 @@ class TestConstraints(TestCase):
         """
         Ensure resolving with unresolved independent parameters raises.
         """
-        p_ind = RangeParameter("ind", None, 0.0, 1.0)
-        p_dep = RangeParameter("dep", None, 0.0, 1.0)
+        p_ind = RangeParameter("ind", None, np.float64(0.0), np.float64(1.0))
+        p_dep = RangeParameter("dep", None, np.float64(0.0), np.float64(1.0))
         registry = ParameterRegistry()
         registry.add_parameters([p_ind, p_dep])
         valuation = registry.valuation()
-        constraint = EchoConstraint(p_ind, p_dep, 0.5)
+        constraint = EchoConstraint(p_ind, p_dep, np.float64(0.5))
 
         self.assertFalse(constraint.is_resolvable(registry, valuation))
         with self.assertRaises(Exception):
@@ -154,11 +156,11 @@ class TestConstraints(TestCase):
         """
         Ensure Boatswain item access and refinement checks enforce registry/domain constraints.
         """
-        temp = RangeParameter("temperature", None, 10.0, 20.0)
-        pressure = ValueParameter("pressure", None, 1.0)
+        temp = RangeParameter("temperature", None, np.float64(10.0), np.float64(20.0))
+        pressure = ValueParameter("pressure", None, np.float64(1.0))
         order = DummyOrder(
             parameters=[temp, pressure],
-            temperature=temp.fix(15.0),
+            temperature=temp.fix(np.float64(15.0)),
             pressure=pressure,
             elements={},
             species={},
@@ -172,7 +174,7 @@ class TestConstraints(TestCase):
         if not isinstance(start, RangeParameter):
             raise AssertionError("expected RangeParameter")
         self.assertEqual(start.min, 10.0)
-        boatswain[temp] = temp.fix(12.0)
+        boatswain[temp] = temp.fix(np.float64(12.0))
         updated = boatswain[temp]
         self.assertIsInstance(updated, ValueParameter)
         if not isinstance(updated, ValueParameter):
@@ -180,24 +182,26 @@ class TestConstraints(TestCase):
         self.assertEqual(updated.value, 12.0)
 
         with self.assertRaises(Exception):
-            boatswain[ValueParameter("missing", None, 1.0)] = ValueParameter("missing", None, 1.0)
+            boatswain[ValueParameter("missing", None, np.float64(1.0))] = ValueParameter(
+                "missing", None, np.float64(1.0)
+            )
 
         with self.assertRaises(Exception):
-            boatswain[temp] = temp.fix(50.0)
+            boatswain[temp] = temp.fix(np.float64(50.0))
 
-        boatswain.hardset(temp, temp.fix(11.0))
+        boatswain.hardset(temp, temp.fix(np.float64(11.0)))
         with self.assertRaises(Exception):
-            boatswain[temp] = temp.fix(12.0)
+            boatswain[temp] = temp.fix(np.float64(12.0))
 
     def test_boatswain_setitem_parameter_id_not_in_valuations(self):
         """
         Ensure setitem raises when registry returns an unknown parameter id.
         """
-        temp = RangeParameter("temperature", None, 10.0, 20.0)
-        pressure = ValueParameter("pressure", None, 1.0)
+        temp = RangeParameter("temperature", None, np.float64(10.0), np.float64(20.0))
+        pressure = ValueParameter("pressure", None, np.float64(1.0))
         order = DummyOrder(
             parameters=[temp, pressure],
-            temperature=temp.fix(15.0),
+            temperature=temp.fix(np.float64(15.0)),
             pressure=pressure,
             elements={},
             species={},
@@ -207,15 +211,15 @@ class TestConstraints(TestCase):
         boatswain = Boatswain(_as_order(order))
         with mock.patch.object(boatswain.registry, "id", return_value=999):
             with self.assertRaises(Exception):
-                boatswain[temp] = temp.fix(12.0)
+                boatswain[temp] = temp.fix(np.float64(12.0))
 
     def test_boatswain_constrain_tracks_fully_and_under_constrained(self):
         """
         Ensure constrain resolves what it can and returns fully constrained non-value parameters.
         """
-        p_fixed = ValueParameter("fixed", None, 1.0)
-        p_target = RangeParameter("target", None, 0.0, 5.0)
-        p_other = RangeParameter("other", None, 10.0, 20.0)
+        p_fixed = ValueParameter("fixed", None, np.float64(1.0))
+        p_target = RangeParameter("target", None, np.float64(0.0), np.float64(5.0))
+        p_other = RangeParameter("other", None, np.float64(10.0), np.float64(20.0))
 
         order = DummyOrder(
             parameters=[p_fixed, p_target, p_other],
@@ -226,8 +230,8 @@ class TestConstraints(TestCase):
             suppressions=[],
             reactants=[],
         )
-        c_resolvable = EchoConstraint(p_fixed, p_target, 3.0)
-        c_unresolved = EchoConstraint(p_other, p_target, 2.0)
+        c_resolvable = EchoConstraint(p_fixed, p_target, np.float64(3.0))
+        c_unresolved = EchoConstraint(p_other, p_target, np.float64(2.0))
 
         boatswain = Boatswain(_as_order(order), c_resolvable, c_unresolved)
         fully = boatswain.constrain()
@@ -246,10 +250,10 @@ class TestConstraints(TestCase):
         """
         Ensure parameters constrained by unresolved constraints are tracked as under-constrained.
         """
-        p_fixed = ValueParameter("fixed", None, 1.0)
-        p_independent = RangeParameter("independent", None, 0.0, 5.0)
-        p_dependent = RangeParameter("dependent", None, 10.0, 20.0)
-        unresolved = EchoConstraint(p_independent, p_dependent, 15.0)
+        p_fixed = ValueParameter("fixed", None, np.float64(1.0))
+        p_independent = RangeParameter("independent", None, np.float64(0.0), np.float64(5.0))
+        p_dependent = RangeParameter("dependent", None, np.float64(10.0), np.float64(20.0))
+        unresolved = EchoConstraint(p_independent, p_dependent, np.float64(15.0))
 
         order = DummyOrder(
             parameters=[p_fixed, p_independent, p_dependent],
@@ -270,62 +274,72 @@ class TestConstraints(TestCase):
         """
         Ensure generate_vs materializes a variable-space Point for each supported reactant mapping branch.
         """
-        water_mass = ValueParameter("water_mass", None, 1.0)
-        temperature = ValueParameter("temperature", None, 25.0)
-        pressure = ValueParameter("pressure", None, 1.0)
-        na = ValueParameter("Na", None, -1.0)
-        cl = ValueParameter("Cl", None, -1.0)
-        species = ValueParameter("Quartz(aq)", None, 0.5)
+        water_mass = ValueParameter("water_mass", None, np.float64(1.0))
+        temperature = ValueParameter("temperature", None, np.float64(25.0))
+        pressure = ValueParameter("pressure", None, np.float64(1.0))
+        na = ValueParameter("Na", None, -np.float64(1.0))
+        cl = ValueParameter("Cl", None, -np.float64(1.0))
+        species = ValueParameter("Quartz(aq)", None, np.float64(0.5))
 
         mineral = MineralReactant(
             "calcite",
             ReactantType.MINERAL,
-            ValueParameter("amount", None, -3.0),
-            ValueParameter("titration_rate", None, 1.0),
+            ValueParameter("amount", None, -np.float64(3.0)),
+            ValueParameter("titration_rate", None, np.float64(1.0)),
         )
         aqueous = AqueousReactant(
             "na_cl",
             ReactantType.AQUEOUS,
-            ValueParameter("amount", None, -2.0),
-            ValueParameter("titration_rate", None, 1.0),
+            ValueParameter("amount", None, -np.float64(2.0)),
+            ValueParameter("titration_rate", None, np.float64(1.0)),
         )
         gas = GasReactant(
             "co2(g)",
             ReactantType.GAS,
-            ValueParameter("amount", None, -4.0),
-            ValueParameter("titration_rate", None, 1.0),
+            ValueParameter("amount", None, -np.float64(4.0)),
+            ValueParameter("titration_rate", None, np.float64(1.0)),
         )
         element = ElementReactant(
             "Na",
             ReactantType.ELEMENT,
-            ValueParameter("amount", None, -6.0),
-            ValueParameter("titration_rate", None, 1.0),
+            ValueParameter("amount", None, -np.float64(6.0)),
+            ValueParameter("titration_rate", None, np.float64(1.0)),
         )
         special = SpecialReactant(
             "seawater",
             ReactantType.SPECIAL,
-            ValueParameter("amount", None, -5.0),
-            ValueParameter("titration_rate", None, 1.0),
+            ValueParameter("amount", None, -np.float64(5.0)),
+            ValueParameter("titration_rate", None, np.float64(1.0)),
             {"Na": 1, "Cl": 1},
         )
         fixed_gas = FixedGasReactant(
-            "co2", ReactantType.FIXED_GAS, ValueParameter("amount", None, -1.0), ValueParameter("fugacity", None, -2.0)
+            "co2",
+            ReactantType.FIXED_GAS,
+            ValueParameter("amount", None, -np.float64(1.0)),
+            ValueParameter("fugacity", None, -np.float64(2.0)),
         )
         solid = SolidSolutionReactant(
             "solidmix",
             ReactantType.SOLID_SOLUTION,
-            ValueParameter("amount", None, -2.0),
-            ValueParameter("titration_rate", None, 1.0),
-            {"em1": ValueParameter("fraction", None, 0.25), "em2": ValueParameter("fraction", None, 0.75)},
+            ValueParameter("amount", None, -np.float64(2.0)),
+            ValueParameter("titration_rate", None, np.float64(1.0)),
+            {
+                "em1": ValueParameter("fraction", None, np.float64(0.25)),
+                "em2": ValueParameter("fraction", None, np.float64(0.75)),
+            },
         )
         glass = GlassReactant(
             "glassmix",
             ReactantType.GLASS,
-            ValueParameter("amount", None, -1.0),
-            ValueParameter("titration_rate", None, 1.0),
+            ValueParameter("amount", None, -np.float64(1.0)),
+            ValueParameter("titration_rate", None, np.float64(1.0)),
             {
-                "SiO2": GlassReactantOxide("SiO2", {"Si": 1, "O": 2}, 0.5, ValueParameter("relative_rate", None, 1.0)),
-                "Na2O": GlassReactantOxide("Na2O", {"Na": 2, "O": 1}, 0.5, ValueParameter("relative_rate", None, 1.0)),
+                "SiO2": GlassReactantOxide(
+                    "SiO2", {"Si": 1, "O": 2}, np.float64(0.5), ValueParameter("relative_rate", None, np.float64(1.0))
+                ),
+                "Na2O": GlassReactantOxide(
+                    "Na2O", {"Na": 2, "O": 1}, np.float64(0.5), ValueParameter("relative_rate", None, np.float64(1.0))
+                ),
             },
         )
 
@@ -365,9 +379,9 @@ class TestConstraints(TestCase):
         """
         Ensure generate_vs passes a non-default water_mass value through to the resulting Point.
         """
-        water_mass = ValueParameter("water_mass", None, 0.5)
-        temperature = ValueParameter("temperature", None, 25.0)
-        pressure = ValueParameter("pressure", None, 1.0)
+        water_mass = ValueParameter("water_mass", None, np.float64(0.5))
+        temperature = ValueParameter("temperature", None, np.float64(25.0))
+        pressure = ValueParameter("pressure", None, np.float64(1.0))
 
         order = DummyOrder(
             parameters=[water_mass, temperature, pressure],
@@ -388,20 +402,20 @@ class TestConstraints(TestCase):
         """
         Ensure generate_vs computes per-oxide absolute titration rates as base_rate * relative_rate.
         """
-        water_mass = ValueParameter("water_mass", None, 1.0)
-        temperature = ValueParameter("temperature", None, 25.0)
-        pressure = ValueParameter("pressure", None, 1.0)
+        water_mass = ValueParameter("water_mass", None, np.float64(1.0))
+        temperature = ValueParameter("temperature", None, np.float64(25.0))
+        pressure = ValueParameter("pressure", None, np.float64(1.0))
 
-        sio2_rate = ValueParameter("relative_rate", None, 2.0)
-        na2o_rate = ValueParameter("relative_rate", None, 0.5)
+        sio2_rate = ValueParameter("relative_rate", None, np.float64(2.0))
+        na2o_rate = ValueParameter("relative_rate", None, np.float64(0.5))
         glass = GlassReactant(
             "glassmix",
             ReactantType.GLASS,
-            ValueParameter("amount", None, -1.0),
-            ValueParameter("titration_rate", None, 3.0),
+            ValueParameter("amount", None, -np.float64(1.0)),
+            ValueParameter("titration_rate", None, np.float64(3.0)),
             {
-                "SiO2": GlassReactantOxide("SiO2", {"Si": 1, "O": 2}, 0.5, sio2_rate),
-                "Na2O": GlassReactantOxide("Na2O", {"Na": 2, "O": 1}, 0.5, na2o_rate),
+                "SiO2": GlassReactantOxide("SiO2", {"Si": 1, "O": 2}, np.float64(0.5), sio2_rate),
+                "Na2O": GlassReactantOxide("Na2O", {"Na": 2, "O": 1}, np.float64(0.5), na2o_rate),
             },
         )
 
@@ -433,10 +447,10 @@ class TestConstraints(TestCase):
         """
         Ensure generate_vs wraps internal errors for unknown reactants and unrefined parameters.
         """
-        water_mass = ValueParameter("water_mass", None, 1.0)
-        temperature = ValueParameter("temperature", None, 25.0)
-        pressure = ValueParameter("pressure", None, 1.0)
-        na = ValueParameter("Na", None, -1.0)
+        water_mass = ValueParameter("water_mass", None, np.float64(1.0))
+        temperature = ValueParameter("temperature", None, np.float64(25.0))
+        pressure = ValueParameter("pressure", None, np.float64(1.0))
+        na = ValueParameter("Na", None, -np.float64(1.0))
 
         order_bad_reactant = DummyOrder(
             parameters=[water_mass, temperature, pressure, na],
@@ -452,7 +466,7 @@ class TestConstraints(TestCase):
         with self.assertRaises(Exception):
             boatswain_bad_reactant.generate_vs()
 
-        p_unrefined = RangeParameter("unrefined", None, 0.0, 1.0)
+        p_unrefined = RangeParameter("unrefined", None, np.float64(0.0), np.float64(1.0))
         order_unrefined = DummyOrder(
             parameters=[water_mass, temperature, pressure, p_unrefined],
             water_mass=water_mass,

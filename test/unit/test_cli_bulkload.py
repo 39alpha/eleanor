@@ -9,7 +9,7 @@ config carries no database name.
 import argparse
 from unittest import mock
 
-from eleanor.cli import bulkload
+from eleanor.cli import bulkload  # pyright: ignore[reportPrivateImportUsage]
 from eleanor.config import Config
 from eleanor.output.postgres.config import DatabaseConfig
 
@@ -100,7 +100,7 @@ class TestBulkLoadCli(TestCase):
         _ = bulkload.init(parser)
         self.assertIs(parser.get_default("func"), bulkload.execute)
         choices: set[str] = set()
-        for action in parser._actions:  # pyright: ignore[reportPrivateUsage]
+        for action in parser._actions:
             if action.dest == "action" and action.choices is not None:
                 choices = set(action.choices)
         self.assertEqual(choices, {"drop", "recreate"})

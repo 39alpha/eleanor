@@ -1,10 +1,12 @@
 from dataclasses import dataclass
+from typing import cast, override
 from unittest import mock
 
 from eleanor.constraints import AbstractConstraint, Boatswain
 from eleanor.kernel.config import Config as KernelConfig
 from eleanor.kernel.config import Settings
-from eleanor.parameters import ParameterRegistry, RangeParameter, ValueParameter
+from eleanor.order import ConstraintConfig, Order
+from eleanor.parameters import Parameter, ParameterRegistry, RangeParameter, Valuation, ValueParameter
 from eleanor.reactants import (
     AqueousReactant,
     ElementReactant,
@@ -26,20 +28,24 @@ class EchoConstraint(AbstractConstraint):
     Test helper that fixes one dependent parameter to a chosen value.
     """
 
-    def __init__(self, independent, dependent, value):
+    def __init__(self, independent: Parameter, dependent: Parameter, value: float) -> None:
         self._independent = independent
         self._dependent = dependent
         self._value = value
 
     @property
-    def independent_parameters(self):
+    @override
+    def independent_parameters(self) -> list[Parameter]:
         return [self._independent]
 
     @property
-    def dependent_parameters(self):
+    @override
+    def dependent_parameters(self) -> list[Parameter]:
         return [self._dependent]
 
-    def apply(self, registry, _valuation):
+    @override
+    def apply(self, registry: ParameterRegistry, valuation: Valuation) -> Valuation:
+        _ = valuation
         return {registry.id(self._dependent): self._dependent.fix(self._value)}
 
 
@@ -73,6 +79,10 @@ class DummyOrder:
         return self._parameters
 
 
+def _as_order(order: DummyOrder) -> Order:
+    return cast(Order, cast(object, order))
+
+
 class TestConstraints(TestCase):
     """
     Tests of the eleanor.constraints module.
@@ -94,7 +104,11 @@ class TestConstraints(TestCase):
         self.assertTrue(constraint.is_resolvable(registry, valuation))
 
         constraint.resolve(registry, valuation)
-        self.assertEqual(valuation[registry.id(p_dep)].value, 2.5)
+        resolved = valuation[registry.id(p_dep)]
+        self.assertIsInstance(resolved, ValueParameter)
+        if not isinstance(resolved, ValueParameter):
+            raise AssertionError("expected ValueParameter")
+        self.assertEqual(resolved.value, 2.5)
 
     def test_abstract_constraint_unresolvable_raises(self):
         """
@@ -115,15 +129,26 @@ class TestConstraints(TestCase):
         """
         Ensure placeholder :meth:`AbstractConstraint.from_order` is executable.
         """
-        self.assertIsNone(AbstractConstraint.from_order(object(), object()))
+        dummy_order = cast(Order, object())
+        dummy_constraint_config = cast(ConstraintConfig, object())
+        self.assertIsNone(AbstractConstraint.from_order(dummy_order, dummy_constraint_config))
 
     def test_abstract_constraint_placeholder_methods_are_executable(self):
         """
         Ensure abstract placeholder bodies can be executed directly.
         """
-        self.assertIsNone(AbstractConstraint.independent_parameters.fget(object()))
-        self.assertIsNone(AbstractConstraint.dependent_parameters.fget(object()))
-        self.assertIsNone(AbstractConstraint.apply(object(), object(), object()))
+        abstract_constraint = cast(AbstractConstraint, object())
+        registry = cast(ParameterRegistry, object())
+        valuation = cast(Valuation, object())
+        independent_getter = AbstractConstraint.independent_parameters.fget
+        dependent_getter = AbstractConstraint.dependent_parameters.fget
+        self.assertIsNotNone(independent_getter)
+        self.assertIsNotNone(dependent_getter)
+        if independent_getter is None or dependent_getter is None:
+            raise AssertionError("property getter unexpectedly missing")
+        self.assertIsNone(independent_getter(abstract_constraint))
+        self.assertIsNone(dependent_getter(abstract_constraint))
+        self.assertIsNone(AbstractConstraint.apply(abstract_constraint, registry, valuation))
 
     def test_boatswain_get_set_hardset_and_domain_errors(self):
         """
@@ -140,11 +165,19 @@ class TestConstraints(TestCase):
             suppressions=[],
             reactants=[],
         )
-        boatswain = Boatswain(order)
+        boatswain = Boatswain(_as_order(order))
 
-        self.assertEqual(boatswain[temp].min, 10.0)
+        start = boatswain[temp]
+        self.assertIsInstance(start, RangeParameter)
+        if not isinstance(start, RangeParameter):
+            raise AssertionError("expected RangeParameter")
+        self.assertEqual(start.min, 10.0)
         boatswain[temp] = temp.fix(12.0)
-        self.assertEqual(boatswain[temp].value, 12.0)
+        updated = boatswain[temp]
+        self.assertIsInstance(updated, ValueParameter)
+        if not isinstance(updated, ValueParameter):
+            raise AssertionError("expected ValueParameter")
+        self.assertEqual(updated.value, 12.0)
 
         with self.assertRaises(Exception):
             boatswain[ValueParameter("missing", None, 1.0)] = ValueParameter("missing", None, 1.0)
@@ -171,7 +204,7 @@ class TestConstraints(TestCase):
             suppressions=[],
             reactants=[],
         )
-        boatswain = Boatswain(order)
+        boatswain = Boatswain(_as_order(order))
         with mock.patch.object(boatswain.registry, "id", return_value=999):
             with self.assertRaises(Exception):
                 boatswain[temp] = temp.fix(12.0)
@@ -196,13 +229,17 @@ class TestConstraints(TestCase):
         c_resolvable = EchoConstraint(p_fixed, p_target, 3.0)
         c_unresolved = EchoConstraint(p_other, p_target, 2.0)
 
-        boatswain = Boatswain(order, c_resolvable, c_unresolved)
+        boatswain = Boatswain(_as_order(order), c_resolvable, c_unresolved)
         fully = boatswain.constrain()
 
         self.assertIn(p_other, fully)
         self.assertEqual(len(boatswain.constraints), 1)
         self.assertIs(boatswain.constraints[0], c_unresolved)
-        self.assertEqual(boatswain[p_target].value, 3.0)
+        constrained = boatswain[p_target]
+        self.assertIsInstance(constrained, ValueParameter)
+        if not isinstance(constrained, ValueParameter):
+            raise AssertionError("expected ValueParameter")
+        self.assertEqual(constrained.value, 3.0)
         self.assertEqual(boatswain.parameters, [])
 
     def test_boatswain_constrain_tracks_under_constrained_branch(self):
@@ -223,7 +260,7 @@ class TestConstraints(TestCase):
             suppressions=[],
             reactants=[],
         )
-        boatswain = Boatswain(order, unresolved)
+        boatswain = Boatswain(_as_order(order), unresolved)
         fully = boatswain.constrain()
 
         self.assertIn(p_independent, fully)
@@ -293,7 +330,7 @@ class TestConstraints(TestCase):
         )
 
         reactants = [mineral, aqueous, gas, element, special, fixed_gas, solid, glass]
-        params = [water_mass, temperature, pressure, na, cl, species]
+        params: list[Parameter] = [water_mass, temperature, pressure, na, cl, species]
         for reactant in reactants:
             params.extend(reactant.parameters())
 
@@ -307,7 +344,7 @@ class TestConstraints(TestCase):
             suppressions=[DummySuppression(name=None, type="mineral", exceptions=["Quartz"])],
             reactants=reactants,
         )
-        boatswain = Boatswain(order)
+        boatswain = Boatswain(_as_order(order))
 
         point = boatswain.generate_vs(order_id=42)
 
@@ -342,7 +379,7 @@ class TestConstraints(TestCase):
             suppressions=[],
             reactants=[],
         )
-        boatswain = Boatswain(order)
+        boatswain = Boatswain(_as_order(order))
         point = boatswain.generate_vs()
 
         self.assertEqual(point.water_mass, 0.5)
@@ -368,7 +405,7 @@ class TestConstraints(TestCase):
             },
         )
 
-        params = [water_mass, temperature, pressure]
+        params: list[Parameter] = [water_mass, temperature, pressure]
         params.extend(glass.parameters())
 
         order = DummyOrder(
@@ -381,7 +418,7 @@ class TestConstraints(TestCase):
             suppressions=[],
             reactants=[glass],
         )
-        boatswain = Boatswain(order)
+        boatswain = Boatswain(_as_order(order))
         point = boatswain.generate_vs()
 
         self.assertEqual(len(point.glass_reactants), 1)
@@ -411,7 +448,7 @@ class TestConstraints(TestCase):
             suppressions=[],
             reactants=[object()],
         )
-        boatswain_bad_reactant = Boatswain(order_bad_reactant)
+        boatswain_bad_reactant = Boatswain(_as_order(order_bad_reactant))
         with self.assertRaises(Exception):
             boatswain_bad_reactant.generate_vs()
 
@@ -426,6 +463,6 @@ class TestConstraints(TestCase):
             suppressions=[],
             reactants=[],
         )
-        boatswain_unrefined = Boatswain(order_unrefined)
+        boatswain_unrefined = Boatswain(_as_order(order_unrefined))
         with self.assertRaises(Exception):
             boatswain_unrefined.generate_vs()

@@ -1,3 +1,6 @@
+from multiprocessing.managers import SyncManager
+from queue import Queue
+from typing import cast, override
 from unittest import mock
 
 import eleanor.progress as progress_mod
@@ -88,6 +91,14 @@ class _FakeManager:
         return self._queue
 
 
+def _typed_progress_queue(queue: _FakeQueue) -> "Queue[ProgressMessage | None]":
+    return cast("Queue[ProgressMessage | None]", cast(object, queue))
+
+
+def _typed_manager(manager: _FakeManager) -> SyncManager:
+    return cast(SyncManager, cast(object, manager))
+
+
 class TestChannelHandle(TestCase):
     """Tests of the picklable per-channel handle used by workers."""
 
@@ -96,8 +107,8 @@ class TestChannelHandle(TestCase):
         Ensure _ChannelHandle emits ProgressMessages tagged with the correct channel and kind.
         """
         queue = _FakeQueue()
-        sim = _ChannelHandle(queue, "sim")
-        out = _ChannelHandle(queue, "out")
+        sim = _ChannelHandle(_typed_progress_queue(queue), "sim")
+        out = _ChannelHandle(_typed_progress_queue(queue), "out")
 
         sim.total(10)
         sim.tick()
@@ -129,7 +140,7 @@ class TestChannelHandle(TestCase):
         import pickle
 
         queue = _FakeQueue()
-        sim = _ChannelHandle(queue, "sim")
+        sim = _ChannelHandle(_typed_progress_queue(queue), "sim")
         copy = pickle.loads(pickle.dumps(sim))
 
         # The wrapper must survive pickling as a _ChannelHandle with the same channel.
@@ -148,17 +159,17 @@ class TestProgressLifecycle(TestCase):
         manager = _FakeManager(queue)
 
         with mock.patch.object(progress_mod, "Process", _FakeProcess):
-            p = Progress(manager)
-
-        self.assertTrue(p.process.started)
+            p = Progress(_typed_manager(manager))
+        fake_process = cast(_FakeProcess, cast(object, p.process))
+        self.assertTrue(fake_process.started)
         self.assertIs(p.queue, queue)
 
         sim_handle = p.sim
         out_handle = p.out
         self.assertIsInstance(sim_handle, _ChannelHandle)
         self.assertIsInstance(out_handle, _ChannelHandle)
-        self.assertEqual(sim_handle._channel, "sim")
-        self.assertEqual(out_handle._channel, "out")
+        self.assertEqual(cast(_ChannelHandle, sim_handle)._channel, "sim")
+        self.assertEqual(cast(_ChannelHandle, out_handle)._channel, "out")
 
     def test_join_puts_sentinel_and_waits_for_listener(self):
         """
@@ -168,17 +179,18 @@ class TestProgressLifecycle(TestCase):
         manager = _FakeManager(queue)
 
         with mock.patch.object(progress_mod, "Process", _FakeProcess):
-            p = Progress(manager)
+            p = Progress(_typed_manager(manager))
             p.join()
 
         self.assertEqual(queue.puts, [None])
         self.assertTrue(queue.join_called)
-        self.assertTrue(p.process.joined)
+        self.assertTrue(cast(_FakeProcess, cast(object, p.process)).joined)
 
 
 class TestProgressListener(TestCase):
     """Tests of :meth:`Progress.listen` message handling."""
 
+    @override
     def setUp(self):
         _FakeTqdm.instances = []
         _FakeTqdm.time_value = 0.0
@@ -186,7 +198,7 @@ class TestProgressListener(TestCase):
     def _run_listener(self, messages):
         queue = _FakeQueue(messages=messages)
         p = object.__new__(Progress)
-        p.queue = queue
+        setattr(p, "queue", queue)
         with mock.patch.object(progress_mod, "tqdm", _FakeTqdm):
             p.listen()
         return queue
@@ -349,7 +361,7 @@ class TestProgressListener(TestCase):
             ]
         )
         p = object.__new__(Progress)
-        p.queue = queue
+        setattr(p, "queue", queue)
 
         # ``reset_timer_to_now`` reads ``bar._time()`` so it stays in the same
         # clock domain as tqdm's elapsed display; route the fake bar's clock
@@ -375,7 +387,7 @@ class TestProgressListener(TestCase):
             ]
         )
         p = object.__new__(Progress)
-        p.queue = queue
+        setattr(p, "queue", queue)
 
         # If ``reset_timer_to_now`` were (incorrectly) called here, both
         # fields would be 999.0 instead of the _FakeTqdm -1.0 sentinel.

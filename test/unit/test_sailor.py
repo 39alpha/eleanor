@@ -1,11 +1,17 @@
 from types import SimpleNamespace
+from typing import cast
 from unittest import mock
 
 from eleanor.exceptions import EleanorException
 from eleanor.output import ComputeResult, WriteOutcome
 from eleanor.sailor import Sailor
+from eleanor.variable_space import Point
 
 from .common import TestCase
+
+
+def _vs_point(**kwargs: object) -> Point:
+    return cast(Point, cast(object, SimpleNamespace(**kwargs)))
 
 
 class TestSailor(TestCase):
@@ -21,12 +27,12 @@ class TestSailor(TestCase):
         points = [SimpleNamespace(exit_code=0), SimpleNamespace(exit_code=0)]
 
         with mock.patch.object(Sailor, "work", side_effect=points) as work_mock:
-            results = sailor.dispatch([object(), object()])
+            results = sailor.dispatch([_vs_point(), _vs_point()])
 
         self.assertEqual(len(results), 2)
         self.assertTrue(all(isinstance(result, ComputeResult) for result in results))
-        self.assertIs(results[0].point, points[0])
-        self.assertIs(results[1].point, points[1])
+        self.assertIs(cast(ComputeResult, results[0]).point, points[0])
+        self.assertIs(cast(ComputeResult, results[1]).point, points[1])
         self.assertEqual(work_mock.call_count, 2)
 
     def test_dispatch_single_point_returns_compute_result(self):
@@ -37,11 +43,11 @@ class TestSailor(TestCase):
 
         point = SimpleNamespace(exit_code=0)
         with mock.patch.object(Sailor, "work", return_value=point):
-            results = sailor.dispatch(object())
+            results = sailor.dispatch(_vs_point())
 
         self.assertEqual(len(results), 1)
         self.assertIsInstance(results[0], ComputeResult)
-        self.assertIs(results[0].point, point)
+        self.assertIs(cast(ComputeResult, results[0]).point, point)
 
     def test_dispatch_routes_through_sink_when_provided(self):
         """
@@ -58,7 +64,7 @@ class TestSailor(TestCase):
         sink.write_batch.return_value = outcomes
 
         with mock.patch.object(Sailor, "work", side_effect=points):
-            results = sailor.dispatch([object(), object()], sink=sink, order_id=42)
+            results = sailor.dispatch([_vs_point(), _vs_point()], sink=sink, order_id=42)
 
         self.assertEqual(results, outcomes)
         sink.write_batch.assert_called_once()
@@ -86,7 +92,7 @@ class TestSailor(TestCase):
                 SimpleNamespace(exit_code=0),
             ],
         ):
-            _ = sailor.dispatch([object(), object(), object()], sim_progress=sim_progress)
+            _ = sailor.dispatch([_vs_point(), _vs_point(), _vs_point()], sim_progress=sim_progress)
 
         self.assertEqual(sim_progress.tick.call_count, 3)
 
@@ -100,7 +106,7 @@ class TestSailor(TestCase):
         out_progress = mock.Mock()
 
         with mock.patch.object(Sailor, "work", return_value=SimpleNamespace(exit_code=0)):
-            _ = sailor.dispatch([object()], sink=sink, order_id=1, out_progress=out_progress)
+            _ = sailor.dispatch([_vs_point()], sink=sink, order_id=1, out_progress=out_progress)
 
         sink.write_batch.assert_called_once()
         self.assertIs(sink.write_batch.call_args.kwargs["progress"], out_progress)
@@ -112,7 +118,7 @@ class TestSailor(TestCase):
         sailor = Sailor(kernel=mock.Mock())
 
         with mock.patch.object(Sailor, "work", return_value=SimpleNamespace(exit_code=0)):
-            results = sailor.dispatch([object(), object()])
+            results = sailor.dispatch([_vs_point(), _vs_point()])
 
         # No exception, no interaction with a progress handle; just the compute path.
         self.assertEqual(len(results), 2)
@@ -125,7 +131,7 @@ class TestSailor(TestCase):
         sink = mock.Mock()
         with mock.patch.object(Sailor, "work", return_value=SimpleNamespace(exit_code=0)):
             with self.assertRaises(EleanorException):
-                sailor.dispatch([object()], sink=sink)
+                sailor.dispatch([_vs_point()], sink=sink)
         sink.write_batch.assert_not_called()
 
     def test_dispatch_serializes_error_metadata_and_clears_exception(self):
@@ -136,12 +142,14 @@ class TestSailor(TestCase):
 
         point = SimpleNamespace(exit_code=1, exception=RuntimeError("boom"))
         with mock.patch.object(Sailor, "work", return_value=point):
-            results = sailor.dispatch([object()])
+            results = sailor.dispatch([_vs_point()])
 
         self.assertEqual(len(results), 1)
-        self.assertIsNotNone(results[0].error)
-        self.assertEqual(results[0].error.type_name, "RuntimeError")  # type: ignore[union-attr]
-        self.assertEqual(results[0].error.message, "boom")  # type: ignore[union-attr]
+        result = cast(ComputeResult, results[0])
+        self.assertIsNotNone(result.error)
+        assert result.error is not None
+        self.assertEqual(result.error.type_name, "RuntimeError")
+        self.assertEqual(result.error.message, "boom")
         self.assertIsNone(point.exception)
 
     def test_work_success_and_scratch(self):
@@ -151,8 +159,7 @@ class TestSailor(TestCase):
         kernel = mock.Mock()
         kernel.run.return_value = ["eq"]
         sailor = Sailor(kernel=kernel)
-
-        vs_point = SimpleNamespace()
+        vs_point = _vs_point()
         out = sailor.work(vs_point, scratch=False)
         self.assertIs(out, vs_point)
         self.assertEqual(vs_point.exit_code, 0)
@@ -162,11 +169,13 @@ class TestSailor(TestCase):
         kernel.copy_data.assert_not_called()
 
         kernel.reset_mock()
-        vs_point2 = SimpleNamespace()
+        vs_point2 = _vs_point()
         out2 = sailor.work(vs_point2, scratch=True)
         self.assertIs(out2, vs_point2)
         kernel.copy_data.assert_called_once_with(vs_point2)
         self.assertTrue(hasattr(vs_point2, "scratch"))
+        self.assertIsNotNone(vs_point2.scratch)
+        assert vs_point2.scratch is not None
         self.assertIsInstance(vs_point2.scratch.zip, bytes)
 
     def test_work_handles_eleonor_exception_and_generic_exception(self):
@@ -177,7 +186,7 @@ class TestSailor(TestCase):
         sailor = Sailor(kernel=kernel)
 
         kernel.run.side_effect = EleanorException("boom", code=9)
-        vs_point = SimpleNamespace()
+        vs_point = _vs_point()
         out = sailor.work(vs_point, verbose=False)
         self.assertIs(out, vs_point)
         self.assertEqual(vs_point.exit_code, 9)
@@ -186,7 +195,7 @@ class TestSailor(TestCase):
 
         kernel.reset_mock()
         kernel.run.side_effect = RuntimeError("oops")
-        vs_point2 = SimpleNamespace(exit_code=0)
+        vs_point2 = _vs_point(exit_code=0)
         out2 = sailor.work(vs_point2, verbose=False)
         self.assertIs(out2, vs_point2)
         self.assertEqual(vs_point2.exit_code, -1)
@@ -199,7 +208,7 @@ class TestSailor(TestCase):
         kernel = mock.Mock()
         kernel.run.side_effect = RuntimeError("oops")
         sailor = Sailor(kernel=kernel)
-        vs_point = SimpleNamespace(exit_code=0)
+        vs_point = _vs_point(exit_code=0)
 
         with mock.patch("eleanor.sailor.print_exception") as print_mock:
             sailor.work(vs_point, verbose=True)
@@ -218,8 +227,10 @@ class TestSailor(TestCase):
                 f.write("abc")
             scratch = Sailor.collect_scratch(tmp)
             self.assertIsNotNone(scratch)
+            assert scratch is not None
             self.assertTrue(isinstance(scratch.zip, bytes) and len(scratch.zip) > 0)
 
         with mock.patch("eleanor.sailor.zipfile.ZipFile", side_effect=RuntimeError("zip error")):
             scratch = Sailor.collect_scratch(".")
+        assert scratch is not None
         self.assertEqual(scratch.zip, bytes("\0", "ascii"))

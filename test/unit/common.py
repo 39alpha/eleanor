@@ -1,5 +1,12 @@
 import unittest
 from os.path import abspath, dirname, join, realpath
+from typing import Any, cast
+
+type AnyDict = dict[str, Any]  # pyright: ignore[reportExplicitAny]
+
+
+def as_any_dict(value: object) -> AnyDict:
+    return cast(AnyDict, value)
 
 
 class TestCase(unittest.TestCase):

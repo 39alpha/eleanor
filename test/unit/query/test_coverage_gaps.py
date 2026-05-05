@@ -210,8 +210,8 @@ class TestReflectionCoverage(TestCase):
         # list/dict origin branches: get_origin returns list/dict but get_args
         # is empty. Modern lowercase `list`/`dict` (bare) take a different path
         # (LeafField), so they don't substitute here.
-        list_kind = classify_field("x", List)  # pyright: ignore[reportDeprecated]
-        dict_kind = classify_field("y", Dict)  # pyright: ignore[reportDeprecated]
+        list_kind = classify_field("x", List)
+        dict_kind = classify_field("y", Dict)
         self.assertIsInstance(list_kind, ListField)
         self.assertIsInstance(dict_kind, DictField)
 
@@ -571,7 +571,7 @@ class TestCompilerCoverage(TestCase):
         ``test_compile_additional_filter_branches`` exercises the same
         branches via ``compile_query``.
         """
-        match_filter = compiler_module.MatchFilter((Predicate(field="x", value="1", value_quoted=False),))
+        match_filter = compiler_module.MatchFilter((Predicate(field="x", value="1", value_quoted=False),))  # pyright: ignore[reportPrivateImportUsage]
         leaf = LeafField(name="v", declared_type=int, optional=False)
         with self.assertRaises(InvalidFilter):
             reflection_module.resolve_match_filter(leaf, match_filter, "p", "x")
@@ -586,7 +586,7 @@ class TestCompilerCoverage(TestCase):
             element_kind=DataclassField(name="point", dataclass_type=Point, optional=False),
             optional=False,
         )
-        missing_filter = compiler_module.MatchFilter((Predicate(field="missing", value="1", value_quoted=False),))
+        missing_filter = compiler_module.MatchFilter((Predicate(field="missing", value="1", value_quoted=False),))  # pyright: ignore[reportPrivateImportUsage]
         with self.assertRaises(InvalidFilter):
             reflection_module.resolve_match_filter(good_list, missing_filter, "p", "points")
 

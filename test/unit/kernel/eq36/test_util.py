@@ -1,4 +1,5 @@
 import io
+from typing import cast
 from unittest import mock
 
 from eleanor.exceptions import EleanorFileException, EleanorParserException
@@ -32,13 +33,13 @@ class TestEq36Util(TestCase):
             rl.assert_called_once_with("problem.3p")
 
         handle = io.StringIO("head\n*---\nline1\nline2\n")
-        self.assertEqual(read_pickup_lines(handle), ["line1\n", "line2\n"])
+        self.assertEqual(read_pickup_lines(cast(io.TextIOWrapper, cast(object, handle))), ["line1\n", "line2\n"])
 
         with mock.patch("builtins.open", return_value=io.StringIO("head\n*---\nline1\n")):
             self.assertEqual(read_pickup_lines("file.3p"), ["line1\n"])
 
         with self.assertRaises(EleanorFileException) as cm:
-            read_pickup_lines(io.StringIO("no separator\n"))
+            read_pickup_lines(cast(io.TextIOWrapper, cast(object, io.StringIO("no separator\n"))))
         self.assertEqual(cm.exception.code, RunCode.FILE_ERROR_3P)
 
         with mock.patch("builtins.open", side_effect=FileNotFoundError("missing")):
@@ -103,14 +104,14 @@ class TestEq36Util(TestCase):
         Ensure pickup parsing returns empty content when separator is the final line.
         """
         handle = io.StringIO("header\n*---\n")
-        self.assertEqual(read_pickup_lines(handle), [])
+        self.assertEqual(read_pickup_lines(cast(io.TextIOWrapper, cast(object, handle))), [])
 
     def test_determine_species_parses_all_sections_and_applies_suppression(self):
         """
         Ensure determine_species parses major report sections and filters suppressed entries.
         """
         elements, aqueous, solids, solid_solutions, _, gases = determine_species(
-            io.StringIO(self._determine_species_full_text())
+            cast(io.TextIOWrapper, cast(object, io.StringIO(self._determine_species_full_text())))
         )
         self.assertEqual(elements, ["K"])
         self.assertEqual(aqueous, ["HCO3-"])
@@ -137,7 +138,9 @@ class TestEq36Util(TestCase):
             "CO2(g)                    x\n"
             "\n"
         )
-        elements, aqueous, solids, solid_solutions, _, gases = determine_species(io.StringIO(text))
+        elements, aqueous, solids, solid_solutions, _, gases = determine_species(
+            cast(io.TextIOWrapper, cast(object, io.StringIO(text)))
+        )
         self.assertEqual(elements, [])
         self.assertEqual(aqueous, [])
         self.assertEqual(solids, [])
@@ -200,7 +203,7 @@ class TestEq36Util(TestCase):
         Ensure suppressed solid solutions are removed from parsed solid solution list.
         """
         elements, aqueous, solids, solid_solutions, _, gases = determine_species(
-            io.StringIO(self._determine_species_text())
+            cast(io.TextIOWrapper, cast(object, io.StringIO(self._determine_species_text())))
         )
         self.assertEqual(elements, [])
         self.assertEqual(aqueous, [])

@@ -3,10 +3,12 @@ import hashlib
 import os
 from os.path import join, realpath
 from tempfile import TemporaryDirectory
+from typing import cast
 
 import numpy as np
 
 import eleanor.util as util
+from eleanor.exceptions import EleanorException
 
 from .common import TestCase
 
@@ -106,7 +108,7 @@ class TestUtils(TestCase):
         """
         self.assertEqual(util.NumberFormat.FLOATING.fmt(1.23456, 2), "1.23")
         self.assertEqual(util.NumberFormat.SCIENTIFIC.fmt(123.0, 2), "1.23E+02")
-        with self.assertRaises(util.EleanorException):
+        with self.assertRaises(EleanorException):
             util.NumberFormat.FLOATING.fmt(1.23, -1)
 
     def test_log_rng_and_norm_list(self):
@@ -228,9 +230,9 @@ class TestUtils(TestCase):
         """
         self.assertEqual(util.convert_to_number("2"), 2)
         self.assertAlmostEqual(util.convert_to_number("2.5"), 2.5)
-        self.assertEqual(util.convert_to_number(np.int64(7)), np.int64(7))
+        self.assertEqual(util.convert_to_number(cast(int, cast(object, np.int64(7)))), np.int64(7))
         self.assertIsInstance(util.convert_to_number("2.5", [np.floating]), np.floating)
-        with self.assertRaises(util.EleanorException):
+        with self.assertRaises(EleanorException):
             util.convert_to_number("not-a-number")
 
     def test_is_list_of(self):

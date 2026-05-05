@@ -2,6 +2,7 @@ import json
 from os.path import join
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
+from typing import cast
 from unittest import mock
 
 from eleanor.exceptions import EleanorException
@@ -10,7 +11,9 @@ from eleanor.order import (
     ConstraintConfig,
     NavigatorConfig,
     Order,
+    OrderRaw,
     Suppression,
+    SuppressionRaw,
     load_order,
 )
 from eleanor.parameters import ValueParameter
@@ -50,7 +53,13 @@ def _make_order(
     """Build an Order with the kernel registry mocked out."""
     effective = raw if raw is not None else _minimal_raw(**overrides)
     with mock.patch("eleanor.kernel.registry.get_factory", return_value=_FAKE_KERNEL_SPEC):
-        return Order(effective, order_id=order_id, tag=tag, vs_points=vs_points, create_date=create_date)
+        return Order(
+            cast(OrderRaw, cast(object, effective)),
+            order_id=order_id,
+            tag=tag,
+            vs_points=vs_points,
+            create_date=create_date,
+        )
 
 
 class TestOrder(TestCase):
@@ -89,11 +98,11 @@ class TestOrder(TestCase):
         self.assertEqual(s2.type, "mineral")
 
         with self.assertRaises(EleanorException):
-            Suppression.from_dict({"name": 1})
+            Suppression.from_dict(cast(SuppressionRaw, cast(object, {"name": 1})))
         with self.assertRaises(EleanorException):
-            Suppression.from_dict({"name": "x", "type": 2})
+            Suppression.from_dict(cast(SuppressionRaw, cast(object, {"name": "x", "type": 2})))
         with self.assertRaises(EleanorException):
-            Suppression.from_dict({"name": "x", "except": [1]})
+            Suppression.from_dict(cast(SuppressionRaw, cast(object, {"name": "x", "except": [1]})))
 
     def test_order_core_methods(self):
         """
@@ -126,7 +135,7 @@ class TestOrder(TestCase):
         )
 
         self.assertEqual(order.name, "o")
-        self.assertEqual(order.temperature.value, 25.0)
+        self.assertEqual(cast(ValueParameter, order.temperature).value, 25.0)
 
     def test_order_reads_id_from_raw(self):
         """
@@ -185,11 +194,11 @@ class TestOrder(TestCase):
         Ensure order validation and kernel/navigator parsing branches behave correctly.
         """
         with self.assertRaises(EleanorException):
-            Order(_minimal_raw(name=1))
+            Order(cast(OrderRaw, cast(object, _minimal_raw(name=1))))
         with self.assertRaises(EleanorException):
-            Order(_minimal_raw(notes=1))
+            Order(cast(OrderRaw, cast(object, _minimal_raw(notes=1))))
         with self.assertRaises(EleanorException):
-            Order(_minimal_raw(creator=1))
+            Order(cast(OrderRaw, cast(object, _minimal_raw(creator=1))))
 
         order = _make_order(
             name="o",
@@ -207,8 +216,8 @@ class TestOrder(TestCase):
         order = _make_order()
         kparam = ValueParameter("k", None, 1.0)
         rparam = ValueParameter("r", None, 2.0)
-        order.kernel = SimpleNamespace(parameters=lambda: [kparam])
-        order.reactants = [SimpleNamespace(parameters=lambda: [rparam])]
+        setattr(order, "kernel", SimpleNamespace(parameters=lambda: [kparam]))
+        setattr(order, "reactants", [SimpleNamespace(parameters=lambda: [rparam])])
 
         params = order.parameters()
         self.assertIn(kparam, params)

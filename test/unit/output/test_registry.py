@@ -1,3 +1,4 @@
+from typing import override
 from unittest import mock
 
 from eleanor.exceptions import EleanorException
@@ -8,7 +9,7 @@ from eleanor.output import (
     get_factory,
     register_output,
 )
-from eleanor.output.registry import registry
+from eleanor.output.registry import OutputFactory, registry
 
 from ..common import TestCase
 
@@ -36,10 +37,15 @@ class _FakeEntryPoint:
 class _OutputRegistryTestCase(TestCase):
     """Base class that snapshots / restores output registry state between tests."""
 
+    _saved_entries: dict[str, OutputFactory] = {}
+    _saved_discovered: bool = False
+
+    @override
     def setUp(self) -> None:
         self._saved_entries = dict(registry._registry)
         self._saved_discovered = registry._discovered
 
+    @override
     def tearDown(self) -> None:
         registry._registry.clear()
         registry._registry.update(self._saved_entries)
@@ -123,6 +129,7 @@ class TestEntryPointDiscovery(_OutputRegistryTestCase):
     Tests of lazy entry-point discovery on the output sink registry.
     """
 
+    @override
     def setUp(self) -> None:
         super().setUp()
         registry._discovered = False

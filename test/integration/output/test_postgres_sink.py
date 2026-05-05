@@ -33,13 +33,16 @@ import unittest
 import unittest.mock as mock
 import urllib.parse
 from datetime import datetime
+from typing import cast, override
 
 import psycopg
+from psycopg import sql
 
 import eleanor.equilibrium_space as core_es
 import eleanor.variable_space as core_vs
 from eleanor.kernel.config import Config as KernelConfig
 from eleanor.kernel.config import Settings as KernelSettings
+from eleanor.order import Order
 from eleanor.output.interface import ComputeResult
 from eleanor.output.postgres.config import DatabaseConfig
 from eleanor.output.postgres.persistence import (
@@ -88,6 +91,10 @@ class _MinimalOrder:
         self.eleanor_version: str | None = eleanor_version
         self.raw: dict[str, object] = {"name": name}
         self.create_date: datetime = datetime.now()
+
+
+def _as_order(order: _MinimalOrder) -> Order:
+    return cast(Order, cast(object, order))
 
 
 def _make_kernel() -> KernelConfig:
@@ -191,15 +198,17 @@ def _make_es_point(
 class _RealPostgresTestCase(unittest.TestCase):
     """Common scaffolding: real connection, clean schema per test."""
 
-    config: DatabaseConfig
+    config: DatabaseConfig = cast(DatabaseConfig, cast(object, None))
 
     @classmethod
+    @override
     def setUpClass(cls) -> None:
         cfg = _config_from_env()
         if cfg is None:
             raise unittest.SkipTest(f"{_DATABASE_URL_ENV} not set")
         cls.config = cfg
 
+    @override
     def setUp(self) -> None:
         # Drop and recreate the public schema so each test starts clean.
         # We open a fresh connection for the DROP/CREATE so we never have
@@ -220,6 +229,7 @@ class _RealPostgresTestCase(unittest.TestCase):
         # Re-establish the persistence-layer cache and emit our DDL.
         schema.ensure_schema(connection.connect(self.config))
 
+    @override
     def tearDown(self) -> None:
         connection.close_connection(self.config)
 
@@ -251,7 +261,7 @@ class TestPostgresSinkIntegration(_RealPostgresTestCase):
         identifying metadata.
         """
         order = _MinimalOrder(name="integration-smoke", eleanor_version="test-0.0.0")
-        record: OrderRecord = repositories.insert_order(self.config, order)  # type: ignore[arg-type]
+        record: OrderRecord = repositories.insert_order(self.config, _as_order(order))
         self.assertEqual(record.name, "integration-smoke")
         self.assertEqual(record.eleanor_version, "test-0.0.0")
 
@@ -300,7 +310,7 @@ class TestRepositoriesIntegration(_RealPostgresTestCase):
     def _make_order_and_vs(self, name: str) -> tuple[int, psycopg.Connection]:
         """Insert an ``orders`` row and return ``(order_id, connection)``."""
         order = _MinimalOrder(name=name, eleanor_version="test-0.0.0")
-        record = repositories.insert_order(self.config, order)  # type: ignore[arg-type]
+        record = repositories.insert_order(self.config, _as_order(order))
         return record.id, connection.connect(self.config)
 
     def test_insert_point_round_trip_persists_full_subtree(self):
@@ -499,7 +509,7 @@ class TestRepositoriesIntegration(_RealPostgresTestCase):
                 ("equilibrium_solid_solutions", 1),
                 ("equilibrium_end_members", 2),
             ):
-                cur.execute(f"SELECT count(*) FROM {table}")
+                cur.execute(sql.SQL("SELECT count(*) FROM {}").format(sql.Identifier(table)))
                 row = cur.fetchone()
                 assert row is not None
                 self.assertEqual(
@@ -619,7 +629,7 @@ class TestRepositoriesIntegration(_RealPostgresTestCase):
         with mock.patch.object(
             repositories,
             "_bulk_copy",
-            wraps=repositories._bulk_copy,  # pyright: ignore[reportPrivateUsage]
+            wraps=repositories._bulk_copy,
         ) as bulk_copy_spy:
             with conn.transaction(savepoint_name="vs_copy"):
                 _ = repositories.insert_point(conn, order_id, point)
@@ -688,7 +698,7 @@ class TestPostgresSinkWriteBatchIntegration(_RealPostgresTestCase):
         """
         sink = PostgresSink(self.config)
         order = _MinimalOrder(name="wb-happy", eleanor_version="test-1.0.0")
-        order_id = sink.begin_run(order)  # type: ignore[arg-type]
+        order_id = sink.begin_run(_as_order(order))
 
         point_a = _make_vs_point(water_mass=1.0)
         point_b = _make_vs_point(water_mass=2.0)
@@ -720,14 +730,14 @@ class TestPostgresSinkWriteBatchIntegration(_RealPostgresTestCase):
         """
         sink = PostgresSink(self.config)
         order = _MinimalOrder(name="wb-savepoint", eleanor_version="test-1.0.0")
-        order_id = sink.begin_run(order)  # type: ignore[arg-type]
+        order_id = sink.begin_run(_as_order(order))
 
         good = _make_vs_point(water_mass=1.0)
         bad = _make_vs_point(water_mass=2.0)
         # ``variable_space.water_mass`` is NOT NULL -- forcing it to None
         # surfaces a real ``psycopg.errors.NotNullViolation`` from inside
         # ``insert_point``, which the per-VS-point savepoint must catch.
-        bad.water_mass = None  # type: ignore[assignment]
+        bad.water_mass = None  # pyright: ignore[reportAttributeAccessIssue]
 
         results = [ComputeResult(point=good), ComputeResult(point=bad)]
         outcomes = sink.write_batch(order_id=order_id, results=results)
@@ -766,7 +776,7 @@ class TestStatementProfilerIntegration(_RealPostgresTestCase):
         """
         sink = PostgresSink(self.config)
         order = _MinimalOrder(name="profiler-smoke", eleanor_version="test-1.0.0")
-        order_id = sink.begin_run(order)  # type: ignore[arg-type]
+        order_id = sink.begin_run(_as_order(order))
 
         n_aq = 1500
         point = _make_vs_point()

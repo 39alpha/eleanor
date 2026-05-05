@@ -7,6 +7,8 @@ desugar against Eleanor's real data-model dataclasses (``Order``, ``ESPoint``,
 required aliases, error shapes) and the bundle wiring on ``compile_query``.
 """
 
+from typing import cast
+
 import eleanor.query.presets as presets_module
 from eleanor.equilibrium_space import AqueousSpecies
 from eleanor.order import Order
@@ -51,7 +53,7 @@ class TestBuiltinPresetsRegistry(TestCase):
         Ensure callers can't mutate the canonical bundle in place.
         """
         with self.assertRaises(TypeError):
-            BUILTIN_PRESETS["new"] = lambda _scope, _args: []  # pyright: ignore[reportIndexIssue]
+            cast(dict[str, object], BUILTIN_PRESETS)["new"] = lambda _scope, _args: []
 
 
 class TestRunMetadataPreset(TestCase):

@@ -1,10 +1,15 @@
 from types import SimpleNamespace
+from typing import cast, override
 from unittest import mock
 
+from eleanor.config import Config
 from eleanor.eleanor import Eleanor
 from eleanor.exceptions import EleanorException
+from eleanor.executor import AbstractExecutor
 from eleanor.kernel import load_kernel
+from eleanor.order import Order
 from eleanor.output import ComputeResult, OutputSink, WriteOutcome, load_output_sink
+from eleanor.variable_space import Point
 
 from .common import TestCase
 
@@ -23,7 +28,7 @@ class _Future:
 class _FakeExecutor:
     """Minimal ``AbstractExecutor`` stand-in with recording ``submit``/``shutdown``."""
 
-    supports_worker_progress = True
+    supports_worker_progress: bool = True
 
     def __init__(self, num_workers=2, submit_side_effect=None):
         self._num_workers = num_workers
@@ -47,23 +52,55 @@ class _FakeExecutor:
 
 def _make_eleanor():
     """Construct an ``Eleanor`` backed by a stubbed config."""
-    fake_config = SimpleNamespace(
-        database="db-config",
-        output=SimpleNamespace(type="postgres", args={}),
-        parallel=SimpleNamespace(backend="multiprocessing", chunks_per_worker=1),
+    fake_config = cast(
+        Config,
+        cast(
+            object,
+            SimpleNamespace(
+                database="db-config",
+                output=SimpleNamespace(type="postgres", args={}),
+                parallel=SimpleNamespace(backend="multiprocessing", chunks_per_worker=1),
+            ),
+        ),
     )
-    return Eleanor(fake_config, ["arg1"])
+    kernel_args: list[object] = ["arg1"]
+    return Eleanor(fake_config, kernel_args)
 
 
-def _leaf_order(navigator_type="random"):
+def _leaf_order(navigator_type="random") -> Order:
     """Produce a minimal order-like ``SimpleNamespace`` for ``Eleanor.run``."""
-    return SimpleNamespace(
-        navigator=SimpleNamespace(type=navigator_type, args={}),
-        id=None,
+    return cast(
+        Order,
+        cast(
+            object,
+            SimpleNamespace(
+                navigator=SimpleNamespace(type=navigator_type, args={}),
+                id=None,
+            ),
+        ),
     )
 
 
-def _navigator(num_systems=1):
+def _point(*, exit_code: int = 0, **kwargs: object) -> Point:
+    return cast(Point, cast(object, SimpleNamespace(exit_code=exit_code, **kwargs)))
+
+
+def _as_executor(executor: _FakeExecutor) -> AbstractExecutor:
+    return cast(AbstractExecutor, cast(object, executor))
+
+
+class _LoaderOutputConfig:
+    def __init__(self, *, sink_type: str, args: dict[str, object]):
+        self.type = sink_type
+        self.args = args
+
+
+class _LoaderConfig:
+    def __init__(self, output: _LoaderOutputConfig):
+        self.output = output
+
+
+def _navigator(num_systems: int = 1):
     navigator = mock.Mock()
     navigator.num_systems.return_value = num_systems
     navigator.navigate.return_value = iter([[]])
@@ -75,12 +112,9 @@ class TestEleanorConstruction(TestCase):
 
     def test_init_stashes_config_and_kernel_args(self):
         """Ensure constructor stores config, kernel_args copy, and num_procs."""
-        fake_config = SimpleNamespace(
-            database="db-config",
-            output=SimpleNamespace(type="postgres", args={}),
-            parallel=SimpleNamespace(backend="multiprocessing", chunks_per_worker=1),
-        )
-        eleanor = Eleanor(fake_config, ["k"], num_procs=4)
+        fake_config = _make_eleanor().config
+        kernel_args: list[object] = ["k"]
+        eleanor = Eleanor(fake_config, kernel_args, num_procs=4)
 
         self.assertIs(eleanor.config, fake_config)
         self.assertEqual(eleanor.kernel_args, ["k"])
@@ -92,12 +126,8 @@ class TestEleanorConstruction(TestCase):
 
     def test_init_defensively_copies_kernel_args(self):
         """Ensure constructor copies kernel_args so caller-side mutations do not leak in."""
-        fake_config = SimpleNamespace(
-            database="db-config",
-            output=SimpleNamespace(type="postgres", args={}),
-            parallel=SimpleNamespace(backend="multiprocessing", chunks_per_worker=1),
-        )
-        kernel_args = ["k0"]
+        fake_config = _make_eleanor().config
+        kernel_args: list[object] = ["k0"]
         eleanor = Eleanor(fake_config, kernel_args)
 
         kernel_args.append("k1")
@@ -248,7 +278,7 @@ class TestEleanorRun(TestCase):
         """Ensure run() rejects removed ``executor=`` kwargs."""
         eleanor = _make_eleanor()
         with self.assertRaisesRegex(TypeError, "unexpected keyword argument 'executor'"):
-            eleanor.run(_leaf_order(), 1, executor=_FakeExecutor())
+            eleanor.run(_leaf_order(), 1, executor=_FakeExecutor())  # pyright: ignore[reportCallIssue]
 
     def test_run_raises_when_num_systems_returns_zero(self):
         """Ensure run() validates navigator.num_systems >= 1."""
@@ -452,8 +482,8 @@ class TestEleanorProcess(TestCase):
         kernel = mock.Mock()
         navigator = mock.Mock()
         navigator.navigate.return_value = iter([["a", "b"]])
-        compute_results_a = [ComputeResult(point=SimpleNamespace(exit_code=0))]
-        compute_results_b = [ComputeResult(point=SimpleNamespace(exit_code=0))]
+        compute_results_a = [ComputeResult(point=_point(exit_code=0))]
+        compute_results_b = [ComputeResult(point=_point(exit_code=0))]
         executor = _FakeExecutor(
             submit_side_effect=[_Future(compute_results_a), _Future(compute_results_b)],
         )
@@ -474,7 +504,7 @@ class TestEleanorProcess(TestCase):
             batch_size=2,
             max_nav_attempts=3,
             expected_total=2,
-            executor=executor,
+            executor=_as_executor(executor),
             sink=sink,
             sim_progress=sim_progress,
             out_progress=out_progress,
@@ -496,12 +526,16 @@ class TestEleanorProcess(TestCase):
         navigator = mock.Mock()
         navigator.navigate.return_value = iter([["a", "b"]])
 
-        compute_results_a = [ComputeResult(point=SimpleNamespace(exit_code=0, label="a"))]
-        compute_results_b = [ComputeResult(point=SimpleNamespace(exit_code=0, label="b"))]
+        compute_results_a = [ComputeResult(point=_point(exit_code=0, label="a"))]
+        compute_results_b = [ComputeResult(point=_point(exit_code=0, label="b"))]
         executor = _FakeExecutor(
             submit_side_effect=[_Future(compute_results_a), _Future(compute_results_b)],
         )
-        executor.pop_completed_future = mock.Mock(side_effect=lambda futures: futures.pop())
+
+        def _pop_last(futures: list[object]) -> object:
+            return futures.pop()
+
+        executor.pop_completed_future = mock.Mock(side_effect=_pop_last)
 
         sink = mock.Mock()
         sink.supports_worker_writes.return_value = False
@@ -518,7 +552,7 @@ class TestEleanorProcess(TestCase):
             9,
             batch_size=2,
             expected_total=2,
-            executor=executor,
+            executor=_as_executor(executor),
             sink=sink,
             out_progress=out_progress,
         )
@@ -554,7 +588,7 @@ class TestEleanorProcess(TestCase):
             9,
             batch_size=2,
             expected_total=2,
-            executor=executor,
+            executor=_as_executor(executor),
             sink=sink,
             sim_progress=sim_progress,
             out_progress=out_progress,
@@ -594,7 +628,7 @@ class TestEleanorProcess(TestCase):
             9,
             batch_size=2,
             expected_total=2,
-            executor=executor,
+            executor=_as_executor(executor),
             sink=sink,
             sim_progress=sim_progress,
             out_progress=out_progress,
@@ -622,7 +656,7 @@ class TestEleanorProcess(TestCase):
                 1,
                 batch_size=5,
                 expected_total=10,
-                executor=_FakeExecutor(),
+                executor=_as_executor(_FakeExecutor()),
                 sink=sink,
             )
 
@@ -643,7 +677,7 @@ class TestEleanorProcess(TestCase):
                 1,
                 batch_size=7,
                 expected_total=5,
-                executor=executor,
+                executor=_as_executor(executor),
                 sink=sink,
             )
 
@@ -653,21 +687,22 @@ class TestEleanorLoaders(TestCase):
 
     def test_load_output_sink_uses_registry_factory_and_args(self):
         """Ensure load_output_sink resolves configured factory and output args."""
-        config = SimpleNamespace(
-            output=SimpleNamespace(type="plugin", args={"mode": "append"}),
-        )
+        config = _LoaderConfig(_LoaderOutputConfig(sink_type="plugin", args={"mode": "append"}))
 
         class _Sink(OutputSink):
+            @override
             def begin_run(self, order):
                 _ = order
                 return 1
 
+            @override
             def write_batch(self, order_id, results, progress=None):
                 _ = order_id
                 _ = results
                 _ = progress
                 return []
 
+            @override
             def finalize_run(self):
                 return None
 
@@ -681,7 +716,7 @@ class TestEleanorLoaders(TestCase):
 
     def test_load_output_sink_rejects_invalid_plugin_return(self):
         """Ensure load_output_sink enforces OutputSink return type."""
-        config = SimpleNamespace(output=SimpleNamespace(type="plugin", args={}))
+        config = _LoaderConfig(_LoaderOutputConfig(sink_type="plugin", args={}))
         factory = mock.Mock(return_value=object())
 
         with (
@@ -700,15 +735,16 @@ class TestEleanorLoaders(TestCase):
         kernel_cfg = mock.Mock()
         kernel_cfg.type = "eq36"
         kernel_cfg.resolved_settings.return_value = settings
-        order = SimpleNamespace(kernel=kernel_cfg)
+        order = cast(Order, cast(object, SimpleNamespace(kernel=kernel_cfg)))
 
         kernel = mock.Mock(spec=AbstractKernel)
         spec = SimpleNamespace(
             settings_from_dict=mock.Mock(),
             build=mock.Mock(return_value=kernel),
         )
+        kernel_args: list[object] = ["arg1"]
         with mock.patch("eleanor.kernel.get_factory", return_value=spec) as get_spec_mock:
-            out = load_kernel(order, ["arg1"], alpha=1)
+            out = load_kernel(order, kernel_args, alpha=1)  # pyright: ignore[reportCallIssue]
 
         self.assertIs(out, kernel)
         get_spec_mock.assert_called_once_with("eq36")
@@ -718,7 +754,7 @@ class TestEleanorLoaders(TestCase):
 
     def test_load_kernel_raises_on_malformed_order_without_kernel(self):
         """Ensure malformed order-like objects without kernel config fail immediately."""
-        order = SimpleNamespace(kernel=None)
+        order = cast(Order, cast(object, SimpleNamespace(kernel=None)))
         with self.assertRaisesRegex(AttributeError, "'NoneType' object has no attribute 'type'"):
             _ = load_kernel(order, ["arg1"])
 
@@ -730,7 +766,7 @@ class TestEleanorConstructorOverrides(TestCase):
         """Ensure constructor executor override is reused across runs."""
         eleanor = _make_eleanor()
         ctor_executor = _FakeExecutor()
-        eleanor._executor_override = ctor_executor
+        setattr(eleanor, "_executor_override", ctor_executor)
 
         seen_executors = []
 
@@ -760,7 +796,7 @@ class TestEleanorConstructorOverrides(TestCase):
         """Ensure Eleanor does not manage lifecycle of caller-owned executor override."""
         eleanor = _make_eleanor()
         ctor_executor = _FakeExecutor()
-        eleanor._executor_override = ctor_executor
+        setattr(eleanor, "_executor_override", ctor_executor)
         eleanor.process = mock.Mock(return_value=[])
         sink = mock.Mock()
         sink.begin_run.return_value = 1
@@ -782,7 +818,7 @@ class TestEleanorConstructorOverrides(TestCase):
         eleanor = _make_eleanor()
         ctor_executor = _FakeExecutor()
         ctor_executor.__enter__()
-        eleanor._executor_override = ctor_executor
+        setattr(eleanor, "_executor_override", ctor_executor)
         eleanor.process = mock.Mock(return_value=[])
         sink = mock.Mock()
         sink.begin_run.return_value = 1

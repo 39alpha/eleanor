@@ -1,3 +1,4 @@
+from typing import override
 from unittest import mock
 
 from eleanor.exceptions import EleanorException
@@ -8,13 +9,14 @@ from eleanor.executor.serial import SerialExecutor
 from ..common import TestCase
 
 
-class _Future(AbstractFuture):
+class _Future(AbstractFuture[object]):
     _value: object
 
-    def __init__(self, value):
+    def __init__(self, value: object):
         self._value = value
 
-    def result(self):
+    @override
+    def result(self) -> object:
         return self._value
 
 
@@ -25,12 +27,15 @@ class _Executor(AbstractExecutor):
         self.shutdown_calls = 0
 
     @property
+    @override
     def num_workers(self) -> int:
         return 2
 
+    @override
     def submit(self, fn, *args, **kwargs):
         return _Future(fn(*args, **kwargs))
 
+    @override
     def shutdown(self, wait: bool = True) -> None:
         self.shutdown_calls += 1
 
@@ -104,7 +109,7 @@ class TestExecutorInterface(TestCase):
         Ensure unexpected keyword arguments to load_executor are rejected (not silently swallowed).
         """
         with self.assertRaises(TypeError):
-            load_executor(kind="serial", num_worker=4)  # type: ignore[call-arg]
+            load_executor(kind="serial", num_worker=4)  # pyright: ignore[reportCallIssue]
 
     def test_abstract_executor_default_supports_worker_progress(self):
         """

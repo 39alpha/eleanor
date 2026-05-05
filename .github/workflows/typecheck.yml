@@ -35,5 +35,8 @@ jobs:
       - name: Sync dependencies (incl. dev group)
         run: uv sync --python 3.14 --group dev
 
-      - name: Run basedpyright
+      - name: Run basedpyright (eleanor)
         run: uv run --python 3.14 basedpyright eleanor
+
+      - name: Run basedpyright (test)
+        run: uv run --python 3.14 basedpyright -p test/pyrightconfig.json

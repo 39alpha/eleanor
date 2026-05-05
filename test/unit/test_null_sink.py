@@ -1,26 +1,23 @@
 import warnings
 from types import SimpleNamespace
+from typing import cast
 from unittest import mock
 
 from eleanor.exceptions import EleanorConfigurationException, EleanorException
+from eleanor.order import Order
 from eleanor.output import ComputeResult, NullSink, WriteOutcome, _build_null
 from eleanor.output.null import NullConfig
+from eleanor.variable_space import Point
 
 from .common import TestCase
 
 
-def _order(*, order_id: int | None = None, eleanor_version: str | None = None) -> SimpleNamespace:
-    return SimpleNamespace(
-        id=order_id,
-        eleanor_version=eleanor_version,
-    )
+def _order(*, order_id: int | None = None, eleanor_version: str | None = None) -> Order:
+    return cast(Order, cast(object, SimpleNamespace(id=order_id, eleanor_version=eleanor_version)))
 
 
-def _point(*, exit_code: int = 0, order_id: int | None = None) -> SimpleNamespace:
-    return SimpleNamespace(
-        exit_code=exit_code,
-        order_id=order_id,
-    )
+def _point(*, exit_code: int = 0, order_id: int | None = None) -> Point:
+    return cast(Point, cast(object, SimpleNamespace(exit_code=exit_code, order_id=order_id)))
 
 
 class TestNullSink(TestCase):

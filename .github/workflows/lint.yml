@@ -28,10 +28,8 @@ jobs:
         # does not need.
         run: uv sync --python 3.14 --group dev --no-install-project
 
-      # Tests are intentionally excluded for now — they aren't clean and we
-      # don't want them blocking PRs.
       - name: Lint (ruff check)
-        run: uv run --python 3.14 --no-project ruff check eleanor
+        run: uv run --python 3.14 --no-project ruff check eleanor test
 
       - name: Format check (ruff format --check)
-        run: uv run --python 3.14 --no-project ruff format --check eleanor
+        run: uv run --python 3.14 --no-project ruff format --check eleanor test

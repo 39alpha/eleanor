@@ -1,4 +1,5 @@
 import warnings
+from typing import override
 from unittest import mock
 
 from eleanor.exceptions import EleanorException
@@ -6,6 +7,7 @@ from eleanor.executor import registry as registry_module
 from eleanor.executor.registry import (
     BUILTIN_EXECUTORS,
     OVERRIDE_ENV_VAR,
+    ExecutorFactory,
     available_executors,
     get_factory,
     register_executor,
@@ -44,10 +46,15 @@ class _FakeEntryPoint:
 class _RegistryTestCase(TestCase):
     """Base class that snapshots / restores registry state between tests."""
 
+    _saved_entries: dict[str, ExecutorFactory] = {}
+    _saved_discovered: bool = False
+
+    @override
     def setUp(self) -> None:
         self._saved_entries = dict(registry._registry)
         self._saved_discovered = registry._discovered
 
+    @override
     def tearDown(self) -> None:
         registry._registry.clear()
         registry._registry.update(self._saved_entries)
@@ -139,7 +146,7 @@ class TestRegisterExecutor(_RegistryTestCase):
         Ensure register_executor validates the factory argument.
         """
         with self.assertRaises(EleanorException):
-            register_executor("broken", object())  # type: ignore[arg-type]
+            register_executor("broken", object())  # pyright: ignore[reportArgumentType]
 
 
 class TestEntryPointDiscovery(_RegistryTestCase):
@@ -147,6 +154,7 @@ class TestEntryPointDiscovery(_RegistryTestCase):
     Tests of entry-point discovery on the executor registry.
     """
 
+    @override
     def setUp(self) -> None:
         super().setUp()
         # Force discovery to re-run for each test.
@@ -170,7 +178,7 @@ class TestEntryPointDiscovery(_RegistryTestCase):
         """
         Ensure a failing entry point emits a RuntimeWarning and does not abort discovery of others.
         """
-        good_factory, sentinel = _make_factory()
+        good_factory, _sentinel = _make_factory()
 
         def _fail():
             raise ImportError("boom")

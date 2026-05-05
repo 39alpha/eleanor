@@ -1,3 +1,4 @@
+from typing import cast
 from unittest import mock
 
 from eleanor.exceptions import EleanorException
@@ -8,9 +9,11 @@ from eleanor.reactants import (
     ElementReactant,
     FixedGasReactant,
     GasReactant,
+    GlassOxideRaw,
     GlassReactant,
     GlassReactantOxide,
     MineralReactant,
+    ReactantRaw,
     ReactantType,
     SolidSolutionReactant,
     SpecialReactant,
@@ -29,7 +32,7 @@ class TestReactants(TestCase):
         """
         Ensure that :meth:`AbstractReactant.from_dict` dispatches to the matching subclass.
         """
-        raw = {"name": "r", "type": "mineral", "amount": 1.0}
+        raw = cast(ReactantRaw, cast(object, {"name": "r", "type": "mineral", "amount": 1.0}))
         with mock.patch("eleanor.reactants.MineralReactant.from_dict", return_value="mineral-reactant") as m:
             out = AbstractReactant.from_dict(raw)
         m.assert_called_once_with(raw, None)
@@ -49,7 +52,7 @@ class TestReactants(TestCase):
             ("glass", "eleanor.reactants.GlassReactant.from_dict"),
         ]
         for reactant_type, target in cases:
-            raw = {"name": "r", "type": reactant_type, "amount": 1.0}
+            raw: dict[str, object] = {"name": "r", "type": reactant_type, "amount": 1.0}
             if reactant_type == "special":
                 raw["composition"] = {"Na": 1}
             if reactant_type == "fixed gas":
@@ -63,7 +66,7 @@ class TestReactants(TestCase):
                 }
             with self.subTest(reactant_type=reactant_type):
                 with mock.patch(target, return_value=f"{reactant_type}-reactant") as m:
-                    out = AbstractReactant.from_dict(raw)
+                    out = AbstractReactant.from_dict(cast(ReactantRaw, cast(object, raw)))
                 m.assert_called_once_with(raw, None)
                 self.assertEqual(out, f"{reactant_type}-reactant")
 
@@ -71,7 +74,7 @@ class TestReactants(TestCase):
         """
         Ensure the abstract placeholder body for :meth:`AbstractReactant.parameters` is executable.
         """
-        self.assertEqual(AbstractReactant.parameters(object()), [])
+        self.assertEqual(AbstractReactant.parameters(cast(AbstractReactant, object())), [])
 
     def test_abstract_reactant_unexpected_type_branch(self):
         """
@@ -99,7 +102,7 @@ class TestReactants(TestCase):
         """
         Ensure that :class:`TitratedReactant` parses defaults and computes volume multiplicatively.
         """
-        raw = {"name": "calcite", "type": "mineral", "amount": 2.0}
+        raw = cast(ReactantRaw, cast(object, {"name": "calcite", "type": "mineral", "amount": 2.0}))
         reactant = TitratedReactant.from_dict(raw)
         self.assertEqual(reactant.name, "calcite")
         self.assertEqual(reactant.type, ReactantType.MINERAL)
@@ -291,10 +294,12 @@ class TestReactants(TestCase):
         self.assertEqual(oxide.composition, {"Si": 1, "O": 2})
         self.assertEqual(oxide.fraction, 0.5)
         self.assertIsInstance(oxide.relative_rate, ValueParameter)
-        self.assertEqual(oxide.relative_rate.value, 1.0)
+        self.assertEqual(cast(ValueParameter, oxide.relative_rate).value, 1.0)
 
         with self.assertRaises(EleanorException):
-            GlassReactantOxide.from_dict({"name": "x", "composition": "invalid", "fraction": 0.5})
+            GlassReactantOxide.from_dict(
+                cast(GlassOxideRaw, cast(object, {"name": "x", "composition": "invalid", "fraction": 0.5}))
+            )
         with self.assertRaises(EleanorException):
             GlassReactantOxide.from_dict({"name": "x", "composition": {"Si": 1}, "fraction": 1})
         with self.assertRaises(EleanorException):
@@ -308,7 +313,7 @@ class TestReactants(TestCase):
             {"name": "SiO2", "composition": {"Si": 1, "O": 2}, "fraction": 0.5, "relative_rate": 2.5}
         )
         self.assertIsInstance(oxide.relative_rate, ValueParameter)
-        self.assertEqual(oxide.relative_rate.value, 2.5)
+        self.assertEqual(cast(ValueParameter, oxide.relative_rate).value, 2.5)
 
         oxide_range = GlassReactantOxide.from_dict(
             {

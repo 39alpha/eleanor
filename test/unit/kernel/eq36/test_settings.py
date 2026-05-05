@@ -7,7 +7,7 @@ from eleanor.kernel.eq36.settings import (
     IOPT_2,
     IOPT_4,
     IOPT_19,
-    EleanorKernelException,
+    EleanorKernelException,  # pyright: ignore[reportPrivateImportUsage]
     Eq3Config,
     Eq6Config,
     Settings,
@@ -97,8 +97,11 @@ class TestEq36Settings(TestCase):
         self.assertTrue(cfg.track_path)
         self.assertEqual(cfg.basis_map, {"Na+": "NaOH(aq)"})
         self.assertEqual(cfg.redox_species, "pe")
-        self.assertIsNotNone(cfg.eq6_config)
-        self.assertEqual(cfg.eq6_config.steps_print_interval, 77)
+        eq6 = cfg.eq6_config
+        self.assertIsNotNone(eq6)
+        if eq6 is None:
+            raise AssertionError("expected eq6_config to be present")
+        self.assertEqual(eq6.steps_print_interval, 77)
 
     def test_from_dict_eq6_disabled(self):
         """

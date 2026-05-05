@@ -1,32 +1,51 @@
 import io
 import warnings
+from typing import cast, override
 from unittest import mock
 
 import numpy as np
 
 from eleanor.exceptions import EleanorException, EleanorFileException, EleanorParserException
 from eleanor.kernel.eq36.codes import RunCode
-from eleanor.kernel.eq36.parsers import OutputParser, OutputParser3, OutputParser6
+from eleanor.kernel.eq36.parsers import OutputParser
+from eleanor.kernel.eq36.parsers import OutputParser3 as _OutputParser3
+from eleanor.kernel.eq36.parsers import OutputParser6 as _OutputParser6
 
-from ...common import TestCase
+from ...common import AnyDict, TestCase, as_any_dict
+
+
+class OutputParser3(_OutputParser3):
+    data: AnyDict
+
+
+class OutputParser6(_OutputParser6):
+    data: AnyDict
 
 
 class DummyOutputParser(OutputParser):
+    data: AnyDict
+
+    @override
     def read_elemental_composition(self):
         pass
 
+    @override
     def read_numerical_composition(self):
         pass
 
+    @override
     def read_sensible_composition(self):
         pass
 
+    @override
     def read_bulk_properties(self):
         pass
 
+    @override
     def read_charge_balance(self):
         pass
 
+    @override
     def parse(self):
         return self
 
@@ -130,7 +149,7 @@ class TestEq36Parsers(TestCase):
 
         parser_nonstring = self._parser("Oxygen fugacity=1.0 bars\nLog oxygen fugacity=0.0\n")
         with self.assertRaises(EleanorParserException):
-            parser_nonstring.read_log_property("Oxygen fugacity", key=1, units=["bars", "bar"])
+            parser_nonstring.read_log_property("Oxygen fugacity", key=cast(str, cast(object, 1)), units=["bars", "bar"])
 
     def test_read_reactants_nonpositive_values_emit_no_warnings_and_keep_ideals(self):
         """
@@ -158,7 +177,7 @@ class TestEq36Parsers(TestCase):
             parser.read_reactants()
 
         self.assertEqual(len(captured), 0)
-        reactant = parser.data["reactants"]["reactants"]["R1"]
+        reactant = as_any_dict(as_any_dict(as_any_dict(parser.data)["reactants"])["reactants"])["R1"]
         self.assertTrue(np.isneginf(reactant["log_moles_remaining"]))
         self.assertTrue(np.isnan(reactant["log_moles_reacted"]))
         self.assertTrue(np.isneginf(reactant["log_mass_remaining"]))
@@ -228,7 +247,7 @@ class TestEq36Parsers(TestCase):
             "DOLOMITE * *\n"
             "\n"
         )
-        phases = {"CALCITE": {"existing": 9.0}}
+        phases: dict[str, dict[str, object]] = {"CALCITE": {"existing": 9.0}}
 
         parser.read_saturation_states("Saturation States of Pure Solids", phases)
 
@@ -278,9 +297,10 @@ class TestEq36Parsers(TestCase):
         parser.read_liquid_saturation_states()
 
         self.assertIn("liquids", parser.data)
-        self.assertEqual(parser.data["liquids"]["H2O"]["log_qk"], -0.1)
-        self.assertEqual(parser.data["liquids"]["H2O"]["affinity"], 1.2)
-        self.assertNotIn("OIL", parser.data["liquids"])
+        liquids = as_any_dict(as_any_dict(parser.data)["liquids"])
+        self.assertEqual(liquids["H2O"]["log_qk"], -0.1)
+        self.assertEqual(liquids["H2O"]["affinity"], 1.2)
+        self.assertNotIn("OIL", liquids)
 
     def test_read_pure_solid_saturation_states_initializes_and_parses(self):
         """
@@ -293,9 +313,10 @@ class TestEq36Parsers(TestCase):
         parser.read_pure_solid_saturation_states()
 
         self.assertIn("solids", parser.data)
-        self.assertIn("pure_solids", parser.data["solids"])
-        self.assertEqual(parser.data["solids"]["pure_solids"]["CALCITE"]["log_qk"], -1.5)
-        self.assertEqual(parser.data["solids"]["pure_solids"]["CALCITE"]["affinity"], 3.0)
+        solids = as_any_dict(as_any_dict(parser.data)["solids"])
+        self.assertIn("pure_solids", solids)
+        self.assertEqual(solids["pure_solids"]["CALCITE"]["log_qk"], -1.5)
+        self.assertEqual(solids["pure_solids"]["CALCITE"]["affinity"], 3.0)
 
     def test_read_solid_solution_saturation_states_backfills_end_member_fields(self):
         """
@@ -321,7 +342,9 @@ class TestEq36Parsers(TestCase):
 
         parser.read_solid_solution_saturation_states()
 
-        em_props = parser.data["solids"]["solid_solutions"]["SS1"]["end_members"]["EM1"]
+        em_props = as_any_dict(as_any_dict(as_any_dict(as_any_dict(parser.data)["solids"])["solid_solutions"])["SS1"])[
+            "end_members"
+        ]["EM1"]
         self.assertEqual(em_props["log_qk"], -9.0)
         self.assertEqual(em_props["affinity"], 5.0)
 
@@ -353,7 +376,7 @@ class TestEq36Parsers(TestCase):
         Ensure mineral parsing updates the expected phase while preserving other fields.
         """
         parser = self._parser(" Mineral Log Q/K Aff, kcal State\nh1\nSS1 -1.2 3.4 SATD\n")
-        phases = {"SS1": {"existing": 1.0}}
+        phases: dict[str, dict[str, object]] = {"SS1": {"existing": 1.0}}
 
         parser.read_mineral("Solid Solution Product Phases", phases, expected_phase="SS1")
 
@@ -366,7 +389,7 @@ class TestEq36Parsers(TestCase):
         Ensure mineral parsing skips rows where thermodynamic values are starred.
         """
         parser = self._parser(" Mineral Log Q/K Aff, kcal State\nh1\nSS1 * *\n")
-        phases = {"SS1": {"existing": 1.0}}
+        phases: dict[str, dict[str, object]] = {"SS1": {"existing": 1.0}}
 
         parser.read_mineral("Solid Solution Product Phases", phases, expected_phase="SS1")
 

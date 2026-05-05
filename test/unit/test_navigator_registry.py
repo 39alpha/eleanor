@@ -1,3 +1,4 @@
+from typing import override
 from unittest import mock
 
 from eleanor.exceptions import EleanorException
@@ -10,7 +11,7 @@ from eleanor.navigator import (
     get_factory,
     register_navigator,
 )
-from eleanor.navigator.registry import registry
+from eleanor.navigator.registry import NavigatorFactory, registry
 
 from .common import TestCase
 
@@ -36,10 +37,15 @@ def _stamp(factory, version: int = 1):
 
 
 class _NavigatorRegistryTestCase(TestCase):
+    _saved_entries: dict[str, NavigatorFactory] = {}
+    _saved_discovered: bool = False
+
+    @override
     def setUp(self) -> None:
         self._saved_entries = dict(registry._registry)
         self._saved_discovered = registry._discovered
 
+    @override
     def tearDown(self) -> None:
         registry._registry.clear()
         registry._registry.update(self._saved_entries)

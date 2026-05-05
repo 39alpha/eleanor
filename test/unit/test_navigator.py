@@ -1,21 +1,43 @@
+from collections.abc import Iterator
+from typing import cast, override
 from unittest import mock
 
+import eleanor.variable_space as vs
 from eleanor.navigator import AbstractNavigator, Lattice, LatticeNavigator, Random, RandomLattice
-from eleanor.parameters import RangeParameter, ValueParameter
+from eleanor.parameters import Parameter, RangeParameter, ValueParameter
 
 from .common import TestCase
 
 
 class DummyNavigator(AbstractNavigator):
-    def navigate(self, scale: int, batch_size: int, *args, **kwargs):
-        points = [f"p{i}" for i in range(scale)]
+    @override
+    def navigate(
+        self,
+        scale: int,
+        batch_size: int,
+        *args: object,
+        **kwargs: object,
+    ) -> Iterator[list[vs.Point]]:
+        _ = args
+        _ = kwargs
+        points = [cast(vs.Point, cast(object, f"p{i}")) for i in range(scale)]
         for start in range(0, len(points), batch_size):
             yield points[start : start + batch_size]
 
 
 class DummyLatticeNavigator(LatticeNavigator):
-    def generate(self, parameter, scale: int, *args, **kwargs):
-        return [f"v{i}" for i in range(scale)]
+    @override
+    def generate(
+        self,
+        parameter: Parameter,
+        scale: int,
+        *args: object,
+        **kwargs: object,
+    ) -> list[ValueParameter]:
+        _ = parameter
+        _ = args
+        _ = kwargs
+        return cast(list[ValueParameter], [f"v{i}" for i in range(scale)])
 
 
 class TestNavigator(TestCase):
@@ -34,8 +56,11 @@ class TestNavigator(TestCase):
         """
         Ensure that abstract placeholder method bodies are executable when called directly.
         """
-        self.assertIsNone(AbstractNavigator.navigate(object(), 1, 1))
-        self.assertIsNone(LatticeNavigator.generate(object(), object(), 1))
+        abstract_navigator = cast(AbstractNavigator, object())
+        lattice_navigator = cast(LatticeNavigator, object())
+        parameter = cast(Parameter, object())
+        self.assertIsNone(AbstractNavigator.navigate(abstract_navigator, 1, 1))
+        self.assertIsNone(LatticeNavigator.generate(lattice_navigator, parameter, 1))
 
     def test_random_navigate_and_num_systems(self):
         """
@@ -82,7 +107,7 @@ class TestNavigator(TestCase):
 
         with mock.patch("eleanor.navigator.Boatswain", FakeBoatswain):
             nav = Random(order=mock.Mock(), kernel=kernel)
-            point = nav.generate(order_id=11)
+            point = cast(dict[str, object], cast(object, nav.generate(order_id=11)))
 
         kernel.constrain.assert_called_once()
         self.assertEqual(point["order_id"], 11)

@@ -7,13 +7,21 @@ real-PG integration suite.
 """
 
 from types import SimpleNamespace
+from typing import cast, override
 from unittest import mock
+
+from psycopg import Cursor
+from psycopg.rows import TupleRow
 
 import eleanor.output.postgres.tools.profile as profile_module
 from eleanor.output.postgres.config import DatabaseConfig
 from eleanor.output.postgres.tools.profile import StatementProfiler, _ProfilingCursor, _to_text
 
 from ..common import TestCase
+
+
+def _cursor(rowcount: int) -> Cursor[TupleRow]:
+    return cast(Cursor[TupleRow], cast(object, SimpleNamespace(rowcount=rowcount)))
 
 
 class TestStatementProfilerLifecycle(TestCase):
@@ -71,14 +79,14 @@ class TestStatementProfilerCounters(TestCase):
         per-table statement and row counters.
         """
         prof = StatementProfiler()
-        cursor = SimpleNamespace(rowcount=1)
-        prof._record_before(  # pyright: ignore[reportPrivateUsage]
+        cursor = _cursor(1)
+        prof._record_before(
             cursor,
             "INSERT INTO foo (a) VALUES (%(a)s)",
             {"a": 1},
             executemany=False,
         )
-        prof._record_after(cursor, elapsed=0.001)  # pyright: ignore[reportPrivateUsage]
+        prof._record_after(cursor, elapsed=0.001)
 
         self.assertEqual(prof.insert_statements_by_table["foo"], 1)
         self.assertEqual(prof.insert_rows_by_table["foo"], 1)
@@ -89,14 +97,14 @@ class TestStatementProfilerCounters(TestCase):
         Ensure executemany INSERTs credit one statement and ``len(params)`` rows.
         """
         prof = StatementProfiler()
-        cursor = SimpleNamespace(rowcount=3)
-        prof._record_before(  # pyright: ignore[reportPrivateUsage]
+        cursor = _cursor(3)
+        prof._record_before(
             cursor,
             "INSERT INTO foo (a) VALUES (%(a)s)",
             [{"a": 1}, {"a": 2}, {"a": 3}],
             executemany=True,
         )
-        prof._record_after(cursor, elapsed=0.001)  # pyright: ignore[reportPrivateUsage]
+        prof._record_after(cursor, elapsed=0.001)
 
         self.assertEqual(prof.insert_statements_by_table["foo"], 1)
         self.assertEqual(prof.insert_rows_by_table["foo"], 3)
@@ -108,16 +116,16 @@ class TestStatementProfilerCounters(TestCase):
         ``insertmanyvalues`` path where many rows ship in one statement.
         """
         prof = StatementProfiler()
-        cursor = SimpleNamespace(rowcount=42)
+        cursor = _cursor(42)
         # Parameter-based estimate would credit 1 row (single dict, not
         # an executemany), while ``cursor.rowcount=42`` is the truth.
-        prof._record_before(  # pyright: ignore[reportPrivateUsage]
+        prof._record_before(
             cursor,
             "INSERT INTO foo (a) VALUES (%(a)s)",
             {"a": 1},
             executemany=False,
         )
-        prof._record_after(cursor, elapsed=0.0)  # pyright: ignore[reportPrivateUsage]
+        prof._record_after(cursor, elapsed=0.0)
 
         self.assertEqual(prof.insert_rows_by_table["foo"], 42)
         self.assertEqual(prof.total_rows_inserted, 42)
@@ -131,14 +139,14 @@ class TestStatementProfilerCounters(TestCase):
         batches through COPY instead of executemany.
         """
         prof = StatementProfiler()
-        cursor = SimpleNamespace(rowcount=1500)
-        prof._record_before(  # pyright: ignore[reportPrivateUsage]
+        cursor = _cursor(1500)
+        prof._record_before(
             cursor,
             'COPY "equilibrium_aqueous_species" ("equilibrium_space_id", "name") FROM STDIN WITH (FORMAT BINARY)',
             None,
             executemany=False,
         )
-        prof._record_after(cursor, elapsed=0.01)  # pyright: ignore[reportPrivateUsage]
+        prof._record_after(cursor, elapsed=0.01)
 
         self.assertEqual(prof.insert_statements_by_table["equilibrium_aqueous_species"], 1)
         self.assertEqual(prof.insert_rows_by_table["equilibrium_aqueous_species"], 1500)
@@ -151,13 +159,13 @@ class TestStatementProfilerCounters(TestCase):
         Ensure non-INSERT statements are bucketed by their leading keyword.
         """
         prof = StatementProfiler()
-        cursor = SimpleNamespace(rowcount=-1)
-        prof._record_before(cursor, "BEGIN", None, executemany=False)  # pyright: ignore[reportPrivateUsage]
-        prof._record_after(cursor, elapsed=0.0)  # pyright: ignore[reportPrivateUsage]
-        prof._record_before(cursor, "COMMIT", None, executemany=False)  # pyright: ignore[reportPrivateUsage]
-        prof._record_after(cursor, elapsed=0.0)  # pyright: ignore[reportPrivateUsage]
-        prof._record_before(cursor, "SELECT 1", None, executemany=False)  # pyright: ignore[reportPrivateUsage]
-        prof._record_after(cursor, elapsed=0.0)  # pyright: ignore[reportPrivateUsage]
+        cursor = _cursor(-1)
+        prof._record_before(cursor, "BEGIN", None, executemany=False)
+        prof._record_after(cursor, elapsed=0.0)
+        prof._record_before(cursor, "COMMIT", None, executemany=False)
+        prof._record_after(cursor, elapsed=0.0)
+        prof._record_before(cursor, "SELECT 1", None, executemany=False)
+        prof._record_after(cursor, elapsed=0.0)
 
         self.assertEqual(prof.other_statements["BEGIN"], 1)
         self.assertEqual(prof.other_statements["COMMIT"], 1)
@@ -170,14 +178,14 @@ class TestStatementProfilerCounters(TestCase):
         this is a smoke test of the formatter.
         """
         prof = StatementProfiler()
-        cursor = SimpleNamespace(rowcount=1)
-        prof._record_before(  # pyright: ignore[reportPrivateUsage]
+        cursor = _cursor(1)
+        prof._record_before(
             cursor,
             "INSERT INTO orders (a) VALUES (%(a)s)",
             {"a": 1},
             executemany=False,
         )
-        prof._record_after(cursor, elapsed=0.001)  # pyright: ignore[reportPrivateUsage]
+        prof._record_after(cursor, elapsed=0.001)
 
         report = prof.report()
         self.assertIn("Total statements", report)
@@ -203,7 +211,7 @@ class TestStatementProfilerConnectionRetrofit(TestCase):
         original_factory = mock.sentinel.original_factory
         fake_conn.cursor_factory = original_factory
         with mock.patch.dict(
-            connection_module._connections,  # pyright: ignore[reportPrivateUsage]
+            connection_module._connections,
             {("cfg-key", 0): fake_conn},
             clear=False,
         ):
@@ -237,6 +245,7 @@ class TestToText(TestCase):
         self.assertEqual(_to_text("SELECT 1"), "SELECT 1")
 
         class _Custom:
+            @override
             def __str__(self) -> str:
                 return "COPY foo FROM STDIN"
 
@@ -259,7 +268,7 @@ class TestStatementProfilerWiringEdges(TestCase):
             RuntimeError,
             "_real_connect not captured",
         ):
-            _ = prof._wrapped_connect(cfg)  # pyright: ignore[reportPrivateUsage]
+            _ = prof._wrapped_connect(cfg)
 
     def test_report_renders_other_statements_section_with_recorded_kinds(self):
         """
@@ -269,9 +278,9 @@ class TestStatementProfilerWiringEdges(TestCase):
         that section's loop body never runs.
         """
         prof = StatementProfiler()
-        cursor = SimpleNamespace(rowcount=-1)
-        prof._record_before(cursor, "BEGIN", None, executemany=False)  # pyright: ignore[reportPrivateUsage]
-        prof._record_after(cursor, elapsed=0.0)  # pyright: ignore[reportPrivateUsage]
+        cursor = _cursor(-1)
+        prof._record_before(cursor, "BEGIN", None, executemany=False)
+        prof._record_after(cursor, elapsed=0.0)
 
         report = prof.report()
         self.assertIn("Other statements:", report)

@@ -20,16 +20,22 @@ import os
 from contextlib import nullcontext
 from datetime import datetime
 from types import SimpleNamespace
+from typing import cast
 from unittest import mock
 
 from eleanor.exceptions import EleanorException
 from eleanor.kernel.config import Config as KernelConfig
-from eleanor.kernel.eq36.settings import Eq3Config, Eq6Config
+from eleanor.kernel.eq36.settings import IOPG_1, Eq3Config, Eq6Config
 from eleanor.kernel.eq36.settings import Settings as Eq36Settings
+from eleanor.order import Order
 from eleanor.output.postgres.config import DatabaseConfig
 from eleanor.output.postgres.persistence import connection, converters, repositories, schema
 
 from ..common import TestCase
+
+
+def _as_order(order: SimpleNamespace) -> Order:
+    return cast(Order, cast(object, order))
 
 
 class TestSchemaDdlEmission(TestCase):
@@ -164,7 +170,7 @@ class TestSchemaDdlEmission(TestCase):
         full = f"{long_table}_{long_column}_fkey"
         self.assertGreater(len(full), 63)
         self.assertEqual(
-            len(schema._fk_constraint_name(long_table, long_column)),  # pyright: ignore[reportPrivateUsage]
+            len(schema._fk_constraint_name(long_table, long_column)),
             63,
         )
 
@@ -202,7 +208,7 @@ class TestConverterShapes(TestCase):
             type="eq36",
             settings=Eq36Settings(
                 timeout=None,
-                model="b-dot",
+                model=IOPG_1.B_DOT,
                 charge_balance="Cl-",
                 eq3_config=Eq3Config(),
                 eq6_config=Eq6Config(),
@@ -290,7 +296,7 @@ class TestConverterShapes(TestCase):
             type="eq36",
             settings=Eq36Settings(
                 timeout=None,
-                model="b-dot",
+                model=IOPG_1.B_DOT,
                 charge_balance="Cl-",
                 eq3_config=Eq3Config(),
                 eq6_config=Eq6Config(),
@@ -298,14 +304,17 @@ class TestConverterShapes(TestCase):
         )
         forward = converters.kernel_to_row(kernel, variable_space_id=99)
         # Drop the Jsonb wrapper to mimic what psycopg returns on read.
+        settings_obj = getattr(forward["settings"], "obj")
         round_trip_row = {
             "id": forward["id"],
             "type": forward["type"],
-            "settings": forward["settings"].obj,  # type: ignore[attr-defined]
+            "settings": settings_obj,
         }
         restored = converters.row_to_kernel_config(round_trip_row)
         self.assertEqual(restored.type, "eq36")
         self.assertIsInstance(restored.settings, Eq36Settings)
+        if not isinstance(restored.settings, Eq36Settings):
+            raise AssertionError("expected Eq36Settings")
         self.assertEqual(restored.settings.charge_balance, "Cl-")
 
     def test_scratch_entry_shape(self):
@@ -336,7 +345,7 @@ class TestOrderRecordRoundTrip(TestCase):
         Ensure :func:`converters.row_to_order_record` projects a row dict
         into the right ``OrderRecord`` shape.
         """
-        row = {
+        row: dict[str, object] = {
             "id": 7,
             "name": "demo",
             "tag": "",
@@ -395,7 +404,7 @@ class TestBulkInsertHelpers(TestCase):
             {"a": 5, "b": 50, "c": 500},
         ]
         with mock.patch.object(repositories, "_MAX_BIND_PARAMS_PER_STATEMENT", 6):
-            ids = repositories._bulk_insert_returning_ids(  # pyright: ignore[reportPrivateUsage]
+            ids = repositories._bulk_insert_returning_ids(
                 cursor,
                 "equilibrium_space",
                 rows,
@@ -418,7 +427,7 @@ class TestBulkInsertHelpers(TestCase):
             mock.patch.object(repositories, "_COPY_ROW_THRESHOLD", 3),
             mock.patch.object(repositories, "_bulk_copy") as bulk_copy,
         ):
-            repositories._bulk_insert(  # pyright: ignore[reportPrivateUsage]
+            repositories._bulk_insert(
                 cursor,
                 "equilibrium_elements",
                 rows,
@@ -438,7 +447,7 @@ class TestBulkInsertHelpers(TestCase):
             mock.patch.object(repositories, "_COPY_ROW_THRESHOLD", 3),
             mock.patch.object(repositories, "_bulk_copy") as bulk_copy,
         ):
-            repositories._bulk_insert(  # pyright: ignore[reportPrivateUsage]
+            repositories._bulk_insert(
                 cursor,
                 "equilibrium_elements",
                 rows,
@@ -460,7 +469,7 @@ class TestBulkInsertHelpers(TestCase):
             {"equilibrium_space_id": 7, "name": "Cl", "log_molality": -1.2, "mass_fraction": 0.4},
         ]
 
-        repositories._bulk_copy(  # pyright: ignore[reportPrivateUsage]
+        repositories._bulk_copy(
             cursor,
             "equilibrium_elements",
             rows,
@@ -489,7 +498,7 @@ class TestBulkInsertHelpers(TestCase):
         this so empty leaf collections don't emit no-op INSERTs.
         """
         cursor = mock.MagicMock()
-        ids = repositories._bulk_insert_returning_ids(  # pyright: ignore[reportPrivateUsage]
+        ids = repositories._bulk_insert_returning_ids(
             cursor,
             "equilibrium_space",
             [],
@@ -505,7 +514,7 @@ class TestBulkInsertHelpers(TestCase):
         emit a stray ``COPY ... FROM STDIN`` to the wire.
         """
         cursor = mock.MagicMock()
-        repositories._bulk_copy(  # pyright: ignore[reportPrivateUsage]
+        repositories._bulk_copy(
             cursor,
             "equilibrium_elements",
             [],
@@ -519,7 +528,7 @@ class TestBulkInsertHelpers(TestCase):
         rows list.
         """
         cursor = mock.MagicMock()
-        repositories._bulk_insert(  # pyright: ignore[reportPrivateUsage]
+        repositories._bulk_insert(
             cursor,
             "equilibrium_elements",
             [],
@@ -580,7 +589,7 @@ class TestRepositoryErrorPaths(TestCase):
             return_value=fake_conn,
         ):
             with self.assertRaisesRegex(EleanorException, "order INSERT did not return an id"):
-                _ = repositories.insert_order(cfg, order)  # type: ignore[arg-type]
+                _ = repositories.insert_order(cfg, _as_order(order))
 
     def test_get_order_returns_none_when_no_row_matches(self):
         """
@@ -622,7 +631,7 @@ class TestRepositoryErrorPaths(TestCase):
             EleanorException,
             "variable_space INSERT did not return an id",
         ):
-            _ = repositories._insert_variable_space_and_pair(  # pyright: ignore[reportPrivateUsage]
+            _ = repositories._insert_variable_space_and_pair(
                 cursor,
                 point,
                 order_id=1,
@@ -640,7 +649,7 @@ class TestConverterErrorAndReactantPaths(TestCase):
         dataclass either.
         """
         with self.assertRaisesRegex(EleanorException, "must serialize to a dict"):
-            _ = converters._normalise_dict(  # pyright: ignore[reportPrivateUsage]
+            _ = converters._normalise_dict(
                 42,
                 "order.raw",
             )
@@ -657,7 +666,7 @@ class TestConverterErrorAndReactantPaths(TestCase):
             raw={},
             create_date=datetime(2026, 1, 1),
         )
-        row = converters.order_to_row(order)  # type: ignore[arg-type]
+        row = converters.order_to_row(_as_order(order))
         self.assertIn("name", row)
         self.assertIsNone(row["name"])
 
@@ -676,7 +685,7 @@ class TestConverterErrorAndReactantPaths(TestCase):
             create_date=datetime(2026, 1, 1),
         )
         with self.assertRaisesRegex(EleanorException, "eleanor_version is required"):
-            _ = converters.order_to_row(order)  # type: ignore[arg-type]
+            _ = converters.order_to_row(_as_order(order))
 
     def test_reactant_family_converters_emit_uniform_row_shape(self):
         """
@@ -854,11 +863,15 @@ class TestConnectionCacheBehaviour(TestCase):
 
         with (
             mock.patch.dict(
-                connection._connections,  # pyright: ignore[reportPrivateUsage]
+                connection._connections,
                 {(cfg, os.getpid()): dead},
                 clear=False,
             ),
-            mock.patch.object(connection.psycopg, "connect", return_value=fresh) as connect,
+            mock.patch.object(
+                connection.psycopg,  # pyright: ignore[reportPrivateImportUsage]
+                "connect",
+                return_value=fresh,
+            ) as connect,
         ):
             got = connection.connect(cfg)
 
@@ -882,14 +895,14 @@ class TestConnectionCacheBehaviour(TestCase):
 
         # Replace the cache contents under control so we don't disturb
         # any real cached connections held by other tests.
-        original = dict(connection._connections)  # pyright: ignore[reportPrivateUsage]
-        connection._connections.clear()  # pyright: ignore[reportPrivateUsage]
-        connection._connections[(cfg_a, os.getpid())] = broken  # pyright: ignore[reportPrivateUsage]
-        connection._connections[(cfg_b, os.getpid())] = ok  # pyright: ignore[reportPrivateUsage]
+        original = dict(connection._connections)
+        connection._connections.clear()
+        connection._connections[(cfg_a, os.getpid())] = broken
+        connection._connections[(cfg_b, os.getpid())] = ok
         try:
-            connection._close_all_connections()  # pyright: ignore[reportPrivateUsage]
+            connection._close_all_connections()
         finally:
-            connection._connections.update(original)  # pyright: ignore[reportPrivateUsage]
+            connection._connections.update(original)
 
         # Both connections were drained from the cache (the cleanup
         # ran ``popitem`` on each one). The exception from ``broken``
@@ -897,7 +910,7 @@ class TestConnectionCacheBehaviour(TestCase):
         self.assertEqual(
             len(
                 set(connection._connections.keys())
-                & {  # pyright: ignore[reportPrivateUsage]
+                & {
                     (cfg_a, os.getpid()),
                     (cfg_b, os.getpid()),
                 }
@@ -1040,7 +1053,7 @@ class TestBulkLoadLifecycle(TestCase):
                     f"missing ADD CHECK for {check.name!r}",
                 )
             for fk in table.foreign_keys:
-                fk_name = schema._fk_constraint_name(table.name, fk.column)  # pyright: ignore[reportPrivateUsage]
+                fk_name = schema._fk_constraint_name(table.name, fk.column)
                 self.assertTrue(
                     any(f'ADD CONSTRAINT "{fk_name}"' in s and "FOREIGN KEY" in s for s in statements),
                     f"missing ADD FK for {fk_name!r}",

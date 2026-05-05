@@ -173,7 +173,7 @@ class TestResolveApiVersion(TestCase):
         """
         module_name = "test_plugin_api_version_fake_mod"
         module = types.ModuleType(module_name)
-        module.__eleanor_api_version__ = 5  # pyright: ignore[reportAttributeAccessIssue]
+        setattr(module, "__eleanor_api_version__", 5)
         sys.modules[module_name] = module
         try:
 
@@ -266,10 +266,6 @@ class TestPluginApiVersionsMap(TestCase):
         Ensure the four built-in extension points are advertised.
         """
         # Importing the per-extension-point modules populates the map.
-        import eleanor.executor  # noqa: F401
-        import eleanor.kernel  # noqa: F401
-        import eleanor.navigator  # noqa: F401
-        import eleanor.output  # noqa: F401
 
         for kind in ("executor", "kernel", "navigator", "output"):
             self.assertIn(kind, PLUGIN_API_VERSIONS, msg=f"{kind} missing from PLUGIN_API_VERSIONS")
@@ -278,7 +274,6 @@ class TestPluginApiVersionsMap(TestCase):
         """
         Ensure each entry is a ``(current, floor)`` pair of integers.
         """
-        import eleanor.executor  # noqa: F401
 
         current, floor = PLUGIN_API_VERSIONS["executor"]
         self.assertIsInstance(current, int)

@@ -1,3 +1,4 @@
+from typing import cast
 from unittest import mock
 
 import numpy as np
@@ -14,20 +15,53 @@ class TestEq36Data1(TestCase):
     """
 
     def _curve(self):
-        return TPCurve({"min": 0.0, "mid": 5.0, "max": 10.0}, (np.array([1.0]), np.array([1.0])))
+        return TPCurve(
+            {"min": np.float64(0.0), "mid": np.float64(5.0), "max": np.float64(10.0)},
+            (np.array([1.0], dtype=np.float64), np.array([1.0], dtype=np.float64)),
+        )
 
     def test_tpcurve_init_validation_errors(self):
         """
         Ensure TPCurve validates input temperature metadata and polynomial shape/content.
         """
         with self.assertRaises(ValueError):
-            TPCurve({"min": 0.0, "max": 10.0}, [np.array([1.0]), np.array([1.0])])
+            TPCurve(
+                cast(dict[str, np.float64], cast(object, {"min": np.float64(0.0), "max": np.float64(10.0)})),
+                (np.array([1.0], dtype=np.float64), np.array([1.0], dtype=np.float64)),
+            )
         with self.assertRaises(ValueError):
-            TPCurve({"min": 0.0, "mid": 5.0, "max": 10.0}, [np.array([1.0])])
+            TPCurve(
+                {"min": np.float64(0.0), "mid": np.float64(5.0), "max": np.float64(10.0)},
+                cast(
+                    tuple[
+                        np.ndarray[tuple[int], np.dtype[np.float64]],
+                        np.ndarray[tuple[int], np.dtype[np.float64]],
+                    ],
+                    cast(object, [np.array([1.0])]),
+                ),
+            )
         with self.assertRaises(ValueError):
-            TPCurve({"min": 0.0, "mid": 5.0, "max": 10.0}, [np.array([]), np.array([1.0])])
+            TPCurve(
+                {"min": np.float64(0.0), "mid": np.float64(5.0), "max": np.float64(10.0)},
+                cast(
+                    tuple[
+                        np.ndarray[tuple[int], np.dtype[np.float64]],
+                        np.ndarray[tuple[int], np.dtype[np.float64]],
+                    ],
+                    cast(object, [np.array([]), np.array([1.0])]),
+                ),
+            )
         with self.assertRaises(ValueError):
-            TPCurve({"min": 0.0, "mid": 5.0, "max": 10.0}, [np.array([1.0]), np.array([2.0])])
+            TPCurve(
+                {"min": np.float64(0.0), "mid": np.float64(5.0), "max": np.float64(10.0)},
+                cast(
+                    tuple[
+                        np.ndarray[tuple[int], np.dtype[np.float64]],
+                        np.ndarray[tuple[int], np.dtype[np.float64]],
+                    ],
+                    cast(object, [np.array([1.0]), np.array([2.0])]),
+                ),
+            )
 
     def test_tpcurve_init_requires_float64_dot_results(self):
         """
@@ -35,17 +69,32 @@ class TestEq36Data1(TestCase):
         """
         with mock.patch("numpy.dot", side_effect=[1.0, np.float64(1.0)]):
             with self.assertRaises(TypeError):
-                TPCurve({"min": 0.0, "mid": 5.0, "max": 10.0}, (np.array([1.0]), np.array([1.0])))
+                TPCurve(
+                    {"min": np.float64(0.0), "mid": np.float64(5.0), "max": np.float64(10.0)},
+                    (np.array([1.0], dtype=np.float64), np.array([1.0], dtype=np.float64)),
+                )
 
         with mock.patch("numpy.dot", side_effect=[np.float64(1.0), 1.0]):
             with self.assertRaises(TypeError):
-                TPCurve({"min": 0.0, "mid": 5.0, "max": 10.0}, (np.array([1.0]), np.array([1.0])))
+                TPCurve(
+                    {"min": np.float64(0.0), "mid": np.float64(5.0), "max": np.float64(10.0)},
+                    (np.array([1.0], dtype=np.float64), np.array([1.0], dtype=np.float64)),
+                )
 
     def test_tpcurve_domain_and_call(self):
         """
         Ensure domain helpers and polynomial evaluation dispatch behave as expected.
         """
-        c = TPCurve({"min": 0.0, "mid": 5.0, "max": 10.0}, [np.array([2.0, 1.0]), np.array([2.0, 1.0])])
+        c = TPCurve(
+            {"min": np.float64(0.0), "mid": np.float64(5.0), "max": np.float64(10.0)},
+            cast(
+                tuple[
+                    np.ndarray[tuple[int], np.dtype[np.float64]],
+                    np.ndarray[tuple[int], np.dtype[np.float64]],
+                ],
+                cast(object, [np.array([2.0, 1.0]), np.array([2.0, 1.0])]),
+            ),
+        )
         self.assertIs(c.reset_domain(), c)
         self.assertTrue(c.temperature_in_domain(1.0))
         self.assertFalse(c.temperature_in_domain(20.0))
@@ -207,12 +256,15 @@ class TestEq36Data1(TestCase):
         """
         d = Data1(
             filename="x",
-            elements={"H": 1.0},
+            elements={"H": np.float64(1.0)},
             basis_species={"H+": BasisSpecies("H+", {"H": 1}, 1, None)},
             solid_solutions={},
             tp_curve=None,
         )
-        self.assertEqual(d.get_basis_species("H").name, "H+")
+        h_basis = d.get_basis_species("H")
+        self.assertIsNotNone(h_basis)
+        assert h_basis is not None
+        self.assertEqual(h_basis.name, "H+")
         self.assertIsNone(d.get_basis_species("Na"))
 
         with mock.patch("eleanor.kernel.eq36.data1.read_data1", return_value=self._read_data1_payload()):
@@ -297,7 +349,7 @@ class TestEq36Data1(TestCase):
         """
         d = Data1(
             filename="x",
-            elements={"H": 1.0},
+            elements={"H": np.float64(1.0)},
             basis_species={
                 "H+": BasisSpecies("H+", {"H": 1}, 1, None),
                 "H2+": BasisSpecies("H2+", {"H": 2}, 2, None),

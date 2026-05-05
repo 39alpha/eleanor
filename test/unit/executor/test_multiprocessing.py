@@ -1,6 +1,9 @@
+from multiprocessing.pool import ApplyResult
+from typing import cast
 from unittest import mock
 
 from eleanor.exceptions import EleanorException
+from eleanor.executor.interface import AbstractFuture
 from eleanor.executor.multiprocessing import MultiprocessingExecutor, MultiprocessingFuture
 
 from ..common import TestCase
@@ -63,10 +66,11 @@ class TestMultiprocessingExecutor(TestCase):
 
         pool = executor._pool
         self.assertIsNotNone(pool)
+        typed_pool = cast(_Pool, cast(object, pool))
         executor.shutdown(wait=True)
-        pool.close.assert_called_once()
-        pool.join.assert_called_once()
-        pool.terminate.assert_not_called()
+        typed_pool.close.assert_called_once()
+        typed_pool.join.assert_called_once()
+        typed_pool.terminate.assert_not_called()
 
     def test_shutdown_wait_false_terminates_pool(self):
         """
@@ -78,10 +82,11 @@ class TestMultiprocessingExecutor(TestCase):
 
         pool = executor._pool
         self.assertIsNotNone(pool)
+        typed_pool = cast(_Pool, cast(object, pool))
         executor.shutdown(wait=False)
-        pool.terminate.assert_called_once()
-        pool.close.assert_not_called()
-        pool.join.assert_not_called()
+        typed_pool.terminate.assert_called_once()
+        typed_pool.close.assert_not_called()
+        typed_pool.join.assert_not_called()
 
     def test_submit_after_shutdown_raises(self):
         """
@@ -100,9 +105,9 @@ class TestMultiprocessingExecutor(TestCase):
         non-ready entries in the same queue.
         """
         executor = MultiprocessingExecutor(num_workers=2)
-        slow = MultiprocessingFuture(_AsyncResult(1, ready=False))
-        ready = MultiprocessingFuture(_AsyncResult(2, ready=True))
-        futures = [slow, ready]
+        slow = MultiprocessingFuture(cast(ApplyResult[int], cast(object, _AsyncResult(1, ready=False))))
+        ready = MultiprocessingFuture(cast(ApplyResult[int], cast(object, _AsyncResult(2, ready=True))))
+        futures: list[AbstractFuture[int]] = [slow, ready]
 
         popped = executor.pop_completed_future(futures)
 

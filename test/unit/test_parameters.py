@@ -1,3 +1,4 @@
+from typing import cast
 from unittest import mock
 
 import numpy as np
@@ -7,6 +8,7 @@ from eleanor.parameters import (
     ListParameter,
     NormalParameter,
     Parameter,
+    ParameterRaw,
     ParameterRegistry,
     RangeParameter,
     ValueParameter,
@@ -24,20 +26,21 @@ class TestParameters(TestCase):
         """
         Ensure abstract placeholder bodies on :class:`Parameter` are executable directly.
         """
-        self.assertFalse(Parameter.in_domain(object(), None))
-        self.assertEqual(Parameter.range(object()), (0, 0))
-        self.assertEqual(Parameter.volume(object()), 1.0)
-        self.assertIsNone(Parameter.random(object()))
-        self.assertIsNone(Parameter.lattice(object()))
+        placeholder = cast(Parameter, object())
+        self.assertFalse(Parameter.in_domain(placeholder, cast(Parameter, cast(object, None))))
+        self.assertEqual(Parameter.range(placeholder), (0, 0))
+        self.assertEqual(Parameter.volume(placeholder), 1.0)
+        self.assertIsNone(Parameter.random(placeholder))
+        self.assertIsNone(Parameter.lattice(placeholder))
 
     def test_parameter_from_dict_validation(self):
         """
         Ensure :meth:`Parameter.from_dict` validates required name/type metadata.
         """
         with self.assertRaises(EleanorException):
-            Parameter.from_dict({"name": 1, "value": 1.0})
+            Parameter.from_dict(cast(ParameterRaw, cast(object, {"name": 1, "value": 1.0})))
         with self.assertRaises(EleanorException):
-            Parameter.from_dict({"name": "x", "type": 1, "value": 1.0})
+            Parameter.from_dict(cast(ParameterRaw, cast(object, {"name": "x", "type": 1, "value": 1.0})))
         with self.assertRaises(EleanorException):
             Parameter.from_dict({"name": "x"})
 
@@ -47,19 +50,20 @@ class TestParameters(TestCase):
         """
         p0 = Parameter.from_dict({"name": "x", "value": 2})
         self.assertIsInstance(p0, ValueParameter)
-        self.assertEqual(p0.value, 2)
+        self.assertEqual(cast(ValueParameter, p0).value, 2)
 
         p1 = Parameter.from_dict({"name": "x", "values": [3, 1, 2]})
         self.assertIsInstance(p1, ListParameter)
-        self.assertEqual(p1.values, [1, 2, 3])
+        self.assertEqual(cast(ListParameter, p1).values, [1, 2, 3])
 
         p2 = Parameter.from_dict({"name": "x", "min": 5, "max": 2})
         self.assertIsInstance(p2, RangeParameter)
-        self.assertEqual((p2.min, p2.max), (2, 5))
+        p2_range = cast(RangeParameter, p2)
+        self.assertEqual((p2_range.min, p2_range.max), (2, 5))
 
         p3 = Parameter.from_dict({"name": "x", "mean": 0.0, "stddev": 2.0})
         self.assertIsInstance(p3, NormalParameter)
-        self.assertEqual(p3.stddev, 2.0)
+        self.assertEqual(cast(NormalParameter, p3).stddev, 2.0)
 
         self.assertIsInstance(Parameter.load({"value": 1.0}, "a"), ValueParameter)
         self.assertIsInstance(Parameter.load([1.0, 2.0], "a"), ListParameter)
@@ -78,7 +82,7 @@ class TestParameters(TestCase):
         p = RangeParameter("x", None, 0.0, 2.0)
         fixed = p.fix(1.0)
         self.assertIsInstance(fixed, ValueParameter)
-        self.assertEqual(fixed.value, 1.0)
+        self.assertEqual(cast(ValueParameter, fixed).value, 1.0)
 
     def test_value_parameter_methods(self):
         """
@@ -106,7 +110,7 @@ class TestParameters(TestCase):
         self.assertTrue(p.in_domain(RangeParameter("x", None, 1.5, 2.5)))
         self.assertTrue(p.in_domain(ListParameter("x", None, [1.0, 2.0, 3.0])))
         self.assertFalse(p.in_domain(ListParameter("x", None, [0.0, 2.0])))
-        self.assertFalse(p.in_domain(object()))
+        self.assertFalse(p.in_domain(cast(Parameter, object())))
         self.assertEqual(p.range(), (1.0, 3.0))
         self.assertEqual(p.volume(), 2.0)
 
@@ -133,7 +137,7 @@ class TestParameters(TestCase):
         self.assertFalse(p.in_domain(RangeParameter("x", None, 1.0, 2.0)))
         self.assertTrue(p.in_domain(ListParameter("x", None, [1.0, 2.0])))
         self.assertFalse(p.in_domain(ListParameter("x", None, [1.0, 4.0])))
-        self.assertFalse(p.in_domain(object()))
+        self.assertFalse(p.in_domain(cast(Parameter, object())))
         self.assertEqual(p.range(), (1.0, 3.0))
         self.assertEqual(p.volume(), 3)
 
@@ -153,7 +157,7 @@ class TestParameters(TestCase):
         self.assertEqual(p1.stddev, 1.0)
         self.assertEqual(p1.range(), (-float("inf"), float("inf")))
         self.assertEqual(p1.volume(), 1.0)
-        self.assertTrue(p1.in_domain(object()))
+        self.assertTrue(p1.in_domain(cast(Parameter, object())))
 
         with mock.patch("eleanor.parameters.scipy.stats.norm.rvs", return_value=np.array([0.1, -0.2])):
             out0 = p0.random(size=2)

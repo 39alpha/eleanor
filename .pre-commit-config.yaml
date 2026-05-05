@@ -6,25 +6,32 @@ repos:
     rev: v0.15.12
     hooks:
       # Lint (pycodestyle E/W + Pyflakes F + isort I), with autofix.
-      # Tests are intentionally excluded for now — they aren't clean and we
-      # don't want them blocking commits.
       - id: ruff-check
         args: [--fix]
-        files: ^eleanor/.*\.py$
+        files: ^(eleanor|test)/.*\.py$
       # Format (replaces yapf). Same scope as ruff-check.
       - id: ruff-format
-        files: ^eleanor/.*\.py$
+        files: ^(eleanor|test)/.*\.py$
 
   - repo: local
     hooks:
-      # Type-check eleanor/ with basedpyright. Runs as a single invocation
-      # over the whole package (pass_filenames: false) because pyright/
-      # basedpyright works best at project granularity. Tests are excluded
-      # for the same reason as the ruff hooks above.
+      # Type-check eleanor/ with basedpyright (strict defaults).
+      # Runs as a single invocation over the whole package
+      # (pass_filenames: false) because pyright/basedpyright works best
+      # at project granularity.
       - id: basedpyright
-        name: basedpyright
+        name: basedpyright (eleanor)
         entry: uv run basedpyright eleanor
         language: system
         types: [python]
         files: ^eleanor/.*\.py$
+        pass_filenames: false
+      # Type-check test/ with the test-specific config that suppresses
+      # rules inherent to test code (e.g. reportPrivateUsage).
+      - id: basedpyright-test
+        name: basedpyright (test)
+        entry: uv run basedpyright -p test/pyrightconfig.json
+        language: system
+        types: [python]
+        files: ^test/.*\.py$
         pass_filenames: false

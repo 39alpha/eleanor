@@ -32,7 +32,7 @@ class OutputParser(ABC):
     lines: list[str]
     data: dict[str, object]
 
-    def __init__(self, file: io.TextIOWrapper):
+    def __init__(self, file: io.TextIOBase):
         self.line_num = 0
         self.lines = file.readlines()
         self.data = {}
@@ -800,7 +800,7 @@ class OutputParser(ABC):
 
 
 class OutputParser3(OutputParser):
-    def __init__(self, file: str | io.TextIOWrapper | None = None):
+    def __init__(self, file: str | io.TextIOBase | None = None):
         if file is None:
             file = "problem.3o"
 
@@ -1002,7 +1002,7 @@ class OutputParser6(OutputParser):
     path: list[dict[str, object]]
     data: dict[str, object]
 
-    def __init__(self, file: str | io.TextIOWrapper | None = None):
+    def __init__(self, file: str | io.TextIOBase | None = None):
         self.path = []
 
         if file is None:

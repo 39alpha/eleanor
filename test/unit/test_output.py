@@ -3,8 +3,10 @@ import warnings
 from collections.abc import Sequence
 from contextlib import nullcontext
 from types import SimpleNamespace
+from typing import cast, override
 from unittest import mock
 
+import eleanor.variable_space as vs
 from eleanor.config import Config
 from eleanor.exceptions import EleanorConfigurationException, EleanorException
 from eleanor.order import Order
@@ -12,6 +14,14 @@ from eleanor.output import ComputeResult, ErrorInfo, OutputSink, PostgresSink, R
 from eleanor.output.postgres.config import DatabaseConfig
 
 from .common import TestCase
+
+
+def _as_order(order: SimpleNamespace) -> Order:
+    return cast(Order, cast(object, order))
+
+
+def _as_point(point: SimpleNamespace) -> vs.Point:
+    return cast(vs.Point, cast(object, point))
 
 
 class TestOutput(TestCase):
@@ -39,7 +49,7 @@ class TestOutput(TestCase):
         Ensure OutputSink cannot be instantiated directly.
         """
         with self.assertRaises(TypeError):
-            OutputSink()  # type: ignore[abstract]
+            OutputSink()  # pyright: ignore[reportAbstractUsage]
 
     def test_output_sink_defaults_to_no_worker_writes(self):
         """
@@ -48,14 +58,17 @@ class TestOutput(TestCase):
         """
 
         class MinimalSink(OutputSink):
+            @override
             def begin_run(self, order: Order) -> int:
                 _ = order
                 return 0
 
+            @override
             def write_batch(self, order_id: int, results: Sequence[ComputeResult], progress=None) -> list[WriteOutcome]:
                 _ = progress
                 return []
 
+            @override
             def finalize_run(self) -> None:
                 pass
 
@@ -69,14 +82,17 @@ class TestOutput(TestCase):
         """
 
         class MinimalSink(OutputSink):
+            @override
             def begin_run(self, order: Order) -> int:
                 _ = order
                 return 0
 
+            @override
             def write_batch(self, order_id: int, results: Sequence[ComputeResult], progress=None) -> list[WriteOutcome]:
                 _ = progress
                 return []
 
+            @override
             def finalize_run(self) -> None:
                 pass
 
@@ -246,7 +262,7 @@ class TestOutput(TestCase):
             mock.patch("eleanor.output.postgres.sink.repositories.get_order", return_value=existing) as get_order,
             mock.patch("eleanor.output.postgres.sink.repositories.insert_order") as insert_order,
         ):
-            order_id = sink.begin_run(order)  # type: ignore[arg-type]
+            order_id = sink.begin_run(_as_order(order))
 
         self.assertEqual(order_id, 17)
         self.assertEqual(order.eleanor_version, "v1")
@@ -269,7 +285,7 @@ class TestOutput(TestCase):
                 return_value=SimpleNamespace(id=99),
             ) as insert_order,
         ):
-            order_id = sink.begin_run(order)  # type: ignore[arg-type]
+            order_id = sink.begin_run(_as_order(order))
 
         self.assertEqual(order_id, 99)
         self.assertEqual(order.id, 99)
@@ -290,7 +306,7 @@ class TestOutput(TestCase):
             mock.patch("eleanor.output.postgres.sink.repositories.get_order", return_value=existing),
             self.assertRaisesRegex(EleanorException, "different version of Eleanor"),
         ):
-            sink.begin_run(order)  # type: ignore[arg-type]
+            sink.begin_run(_as_order(order))
 
     def test_postgres_begin_run_writes_new_order_and_returns_id(self):
         """
@@ -306,7 +322,7 @@ class TestOutput(TestCase):
                 return_value=SimpleNamespace(id=42),
             ) as insert_order,
         ):
-            order_id = sink.begin_run(order)  # type: ignore[arg-type]
+            order_id = sink.begin_run(_as_order(order))
 
         self.assertEqual(order_id, 42)
         self.assertEqual(order.id, 42)
@@ -333,7 +349,7 @@ class TestOutput(TestCase):
 
         good_point = SimpleNamespace(exit_code=0, order_id=None)
         bad_point = SimpleNamespace(exit_code=0, order_id=None)
-        results = [ComputeResult(point=good_point), ComputeResult(point=bad_point)]
+        results = [ComputeResult(point=_as_point(good_point)), ComputeResult(point=_as_point(bad_point))]
 
         # ``conn.transaction()`` is used both for the outer batch transaction
         # and the per-VS-point savepoint. ``nullcontext`` is a stateless
@@ -366,8 +382,11 @@ class TestOutput(TestCase):
         self.assertEqual(outcomes[0].exit_code, 0)
         self.assertFalse(outcomes[1].committed)
         self.assertEqual(outcomes[1].exit_code, -1)
-        self.assertIsNotNone(outcomes[1].error_message)
-        self.assertIn("write failed", outcomes[1].error_message)  # type: ignore[arg-type]
+        error_message = outcomes[1].error_message
+        self.assertIsNotNone(error_message)
+        if error_message is None:
+            raise AssertionError("expected error_message on failed outcome")
+        self.assertIn("write failed", error_message)
 
     def test_write_batch_ticks_progress_only_for_committed_rows(self):
         """
@@ -381,9 +400,9 @@ class TestOutput(TestCase):
         bad = SimpleNamespace(exit_code=0, order_id=None)
         good_b = SimpleNamespace(exit_code=0, order_id=None)
         results = [
-            ComputeResult(point=good_a),
-            ComputeResult(point=bad),
-            ComputeResult(point=good_b),
+            ComputeResult(point=_as_point(good_a)),
+            ComputeResult(point=_as_point(bad)),
+            ComputeResult(point=_as_point(good_b)),
         ]
 
         fake_conn = mock.MagicMock()
@@ -424,7 +443,7 @@ class TestOutput(TestCase):
         sink = PostgresSink(cfg)
 
         point = SimpleNamespace(exit_code=0, order_id=None)
-        results = [ComputeResult(point=point)]
+        results = [ComputeResult(point=_as_point(point))]
 
         fake_conn = mock.MagicMock()
         fake_conn.transaction.return_value = nullcontext()
@@ -462,7 +481,7 @@ class TestOutput(TestCase):
         )
         with warnings.catch_warnings(record=True) as caught:
             warnings.simplefilter("always")
-            sink = _build_postgres(cfg, **cfg.output.args)
+            sink = _build_postgres(cfg, database=cfg.output.args["database"])
         self.assertIsInstance(sink, PostgresSink)
         self.assertEqual([w for w in caught if issubclass(w.category, RuntimeWarning)], [])
 
@@ -539,7 +558,11 @@ class TestOutput(TestCase):
         )
         with warnings.catch_warnings(record=True) as caught:
             warnings.simplefilter("always")
-            sink = _build_postgres(cfg, **cfg.output.args)
+            sink = _build_postgres(
+                cfg,
+                database=cfg.output.args["database"],
+                bulk_load_optimization=cfg.output.args["bulk_load_optimization"],
+            )
         self.assertIsInstance(sink, PostgresSink)
         self.assertTrue(sink.bulk_load_optimization)
         # The factory must NOT have stuffed the flag onto the
@@ -565,7 +588,7 @@ class TestOutput(TestCase):
                 },
             }
         )
-        sink = _build_postgres(cfg, **cfg.output.args)
+        sink = _build_postgres(cfg, database=cfg.output.args["database"])
         self.assertFalse(sink.bulk_load_optimization)
 
     def test_postgres_begin_run_returns_existing_id_when_versions_match(self):
@@ -588,7 +611,7 @@ class TestOutput(TestCase):
             ) as get_order,
             mock.patch("eleanor.output.postgres.sink.repositories.insert_order") as insert_order,
         ):
-            order_id = sink.begin_run(order)  # type: ignore[arg-type]
+            order_id = sink.begin_run(_as_order(order))
 
         self.assertEqual(order_id, 17)
         self.assertEqual(order.eleanor_version, "v1")
@@ -609,7 +632,7 @@ class TestOutput(TestCase):
             "eleanor.output.postgres.sink.repositories.insert_order",
             return_value=SimpleNamespace(id=42),
         ) as insert_order:
-            order_id = sink.begin_run(order)  # type: ignore[arg-type]
+            order_id = sink.begin_run(_as_order(order))
 
         self.assertEqual(order_id, 42)
         self.assertEqual(order.eleanor_version, "custom-v1")
@@ -654,7 +677,7 @@ class TestOutput(TestCase):
 
         point_a = SimpleNamespace(exit_code=0, order_id=None)
         point_b = SimpleNamespace(exit_code=0, order_id=99)
-        results = [ComputeResult(point=point_a), ComputeResult(point=point_b)]
+        results = [ComputeResult(point=_as_point(point_a)), ComputeResult(point=_as_point(point_b))]
 
         fake_conn = mock.MagicMock()
         fake_conn.transaction.return_value = nullcontext()
@@ -689,7 +712,7 @@ class TestOutput(TestCase):
 
         good = SimpleNamespace(exit_code=0, order_id=None)
         bad = SimpleNamespace(exit_code=0, order_id=None)
-        results = [ComputeResult(point=good), ComputeResult(point=bad)]
+        results = [ComputeResult(point=_as_point(good)), ComputeResult(point=_as_point(bad))]
 
         fake_conn = mock.MagicMock()
         fake_conn.transaction.return_value = nullcontext()
@@ -772,9 +795,9 @@ class TestOutput(TestCase):
         bad = SimpleNamespace(exit_code=0, order_id=None)
         good_b = SimpleNamespace(exit_code=1, order_id=None)
         results = [
-            ComputeResult(point=good_a),
-            ComputeResult(point=bad),
-            ComputeResult(point=good_b),
+            ComputeResult(point=_as_point(good_a)),
+            ComputeResult(point=_as_point(bad)),
+            ComputeResult(point=_as_point(good_b)),
         ]
 
         class _RaisesOnExit:
@@ -837,7 +860,10 @@ class TestOutput(TestCase):
         self.assertEqual(outcomes[0].error_message, "commit died")
         self.assertEqual(outcomes[2].error_message, "commit died")
         # The per-VS-point failure keeps its original message.
-        self.assertIsNotNone(outcomes[1].error_message)
-        self.assertIn("per-point oops", outcomes[1].error_message)  # type: ignore[arg-type]
+        commit_error = outcomes[1].error_message
+        self.assertIsNotNone(commit_error)
+        if commit_error is None:
+            raise AssertionError("expected per-point error message")
+        self.assertIn("per-point oops", commit_error)
         # No row durably committed, so progress was never ticked.
         progress.tick.assert_not_called()

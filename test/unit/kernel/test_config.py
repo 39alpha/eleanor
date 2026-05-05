@@ -23,7 +23,7 @@ class TestKernelConfig(TestCase):
         Ensure :meth:`Config.resolved_settings` rejects raw dict payloads.
         """
         config = Config(type="eq36", settings=Settings(timeout=None))
-        config.settings = {"timeout": 12}  # type: ignore[assignment]
+        setattr(config, "settings", {"timeout": 12})
         with self.assertRaises(EleanorException):
             config.resolved_settings()
 
@@ -42,7 +42,7 @@ class TestKernelConfig(TestCase):
         Ensure :meth:`Config.resolved_settings` raises on unexpected payload types.
         """
         config = Config(type="eq36", settings=Settings(timeout=None))
-        config.settings = 42  # type: ignore[assignment]
+        setattr(config, "settings", 42)
 
         with self.assertRaises(EleanorException):
             config.resolved_settings()

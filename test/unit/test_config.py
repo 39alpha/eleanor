@@ -2,9 +2,10 @@ import json
 import textwrap
 from os.path import join
 from tempfile import TemporaryDirectory
+from typing import cast
 from unittest import mock
 
-from eleanor.config import Config, OutputConfig, ParallelConfig, load_config
+from eleanor.config import Config, ConfigRaw, OutputConfig, OutputRaw, ParallelConfig, load_config
 from eleanor.exceptions import EleanorConfigurationException, EleanorException
 from eleanor.output.postgres.config import database_config_from_config
 
@@ -302,14 +303,14 @@ class TestConfig(TestCase):
         Ensure output.args validation rejects non-dict values.
         """
         with self.assertRaises(EleanorConfigurationException):
-            _ = OutputConfig.from_raw({"type": "postgres", "args": "nope"})  # type: ignore[arg-type]
+            _ = OutputConfig.from_raw(cast(OutputRaw, cast(object, {"type": "postgres", "args": "nope"})))
 
     def test_output_config_rejects_none_args(self):
         """
         Ensure output.args validation rejects None instead of silently defaulting.
         """
         with self.assertRaises(EleanorConfigurationException):
-            _ = OutputConfig.from_raw({"type": "postgres", "args": None})  # type: ignore[arg-type]
+            _ = OutputConfig.from_raw(cast(OutputRaw, cast(object, {"type": "postgres", "args": None})))
 
     def test_config_parallel_raw_defaults_when_missing(self):
         """
@@ -326,6 +327,6 @@ class TestConfig(TestCase):
         silently producing a confusing 'no database provided' error.
         """
         with self.assertRaises(EleanorConfigurationException) as ctx:
-            Config(raw={"database": {"database": "sample"}})  # type: ignore[typeddict-unknown-key]
+            Config(raw=cast(ConfigRaw, cast(object, {"database": {"database": "sample"}})))  # type: ignore[typeddict-unknown-key]
         self.assertIn("database", str(ctx.exception))
         self.assertIn("output.args.database", str(ctx.exception))

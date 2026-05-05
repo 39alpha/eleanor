@@ -1,7 +1,7 @@
 import argparse
 from unittest import mock
 
-from eleanor.cli import run as run_cli
+from eleanor.cli import run as run_cli  # pyright: ignore[reportPrivateImportUsage]
 from eleanor.config import Config
 from eleanor.exceptions import EleanorException
 from eleanor.executor import registry

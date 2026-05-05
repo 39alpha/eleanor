@@ -48,7 +48,7 @@ def _make_registry(**overrides):
         builtins={"b1": _builtin},
     )
     defaults.update(overrides)
-    return PluginRegistry(**defaults)
+    return PluginRegistry(**defaults)  # pyright: ignore[reportArgumentType]
 
 
 class TestPluginRegistryBasics(TestCase):
@@ -375,7 +375,7 @@ class TestApiVersionEnforcement(TestCase):
         registry = self._versioned_registry(current=2, floor=1)
         module_name = "test_plugin_widget_mod"
         module = types.ModuleType(module_name)
-        module.__eleanor_api_version__ = 2  # pyright: ignore[reportAttributeAccessIssue]
+        setattr(module, "__eleanor_api_version__", 2)
         sys.modules[module_name] = module
         try:
 

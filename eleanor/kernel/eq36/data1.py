@@ -7,8 +7,8 @@ from eleanor.typing import Array1D, cast
 
 from .libeq36 import read_data1
 
-type FloatRange = tuple[np.float64, np.float64]
-type CartesianCoord = tuple[np.float64, np.float64]
+type FloatRange = tuple[float | np.float64, float | np.float64]
+type CartesianCoord = tuple[float | np.float64, float | np.float64]
 
 
 @dataclass

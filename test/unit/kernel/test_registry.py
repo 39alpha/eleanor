@@ -1,3 +1,4 @@
+from typing import override
 from unittest import mock
 
 from eleanor.exceptions import EleanorException
@@ -16,10 +17,15 @@ from ..common import TestCase
 class _KernelRegistryTestCase(TestCase):
     """Base class that snapshots / restores kernel registry state between tests."""
 
+    _saved_entries: dict[str, KernelSpec] = {}
+    _saved_discovered: bool = False
+
+    @override
     def setUp(self) -> None:
         self._saved_entries = dict(registry._registry)
         self._saved_discovered = registry._discovered
 
+    @override
     def tearDown(self) -> None:
         registry._registry.clear()
         registry._registry.update(self._saved_entries)
@@ -89,7 +95,7 @@ class TestRegisterKernel(_KernelRegistryTestCase):
         Ensure factory callables that don't return a KernelSpec are rejected.
         """
         with self.assertRaises(EleanorException):
-            register_kernel("bad", lambda: "not a spec")
+            register_kernel("bad", lambda: "not a spec")  # pyright: ignore[reportArgumentType]
 
     def test_register_rejects_bool_plugin_api_version(self):
         """
@@ -102,7 +108,7 @@ class TestRegisterKernel(_KernelRegistryTestCase):
         bad_spec = KernelSpec(
             settings_from_dict=mock.Mock(),
             build=mock.Mock(),
-            plugin_api_version=True,  # type: ignore[arg-type]
+            plugin_api_version=True,
         )
         with self.assertRaisesRegex(EleanorException, "plugin_api_version must be int"):
             register_kernel("bad", bad_spec)
@@ -114,7 +120,7 @@ class TestRegisterKernel(_KernelRegistryTestCase):
         bad_spec = KernelSpec(
             settings_from_dict=mock.Mock(),
             build=mock.Mock(),
-            plugin_api_version=1.5,  # type: ignore[arg-type]
+            plugin_api_version=1.5,  # pyright: ignore[reportArgumentType]
         )
         with self.assertRaisesRegex(EleanorException, "plugin_api_version must be int"):
             register_kernel("bad", bad_spec)
@@ -135,6 +141,7 @@ class TestEntryPointDiscovery(_KernelRegistryTestCase):
     Tests of lazy entry-point discovery on the kernel registry.
     """
 
+    @override
     def setUp(self) -> None:
         super().setUp()
         registry._discovered = False

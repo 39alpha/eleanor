@@ -100,14 +100,23 @@ def close_connection(config: DatabaseConfig) -> None:
 
 def _close_all_connections() -> None:
     """Close every memoized connection in this process. Used by :mod:`atexit`."""
-    while _connections:
-        _, conn = _connections.popitem()
+    closed_connections: list[tuple[DatabaseConfig, int]] = []
+
+    for key, conn in _connections.items():
+        if key[1] != os.getpid():
+            continue
+
         if not conn.closed:
             try:
                 conn.close()
             except Exception:
                 # Best-effort cleanup; never raise from atexit.
                 pass
+
+        closed_connections.append(key)
+
+    for key in closed_connections:
+        del _connections[key]
 
 
 # Configure psycopg3's JSON encoder at import time. Installs our

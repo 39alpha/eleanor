@@ -907,20 +907,45 @@ class TestConnectionCacheBehaviour(TestCase):
             connection._connections.update(original)
 
         # Both connections were drained from the cache (the cleanup
-        # ran ``popitem`` on each one). The exception from ``broken``
+        # ran ``del`` on each one). The exception from ``broken``
         # was swallowed, and the surviving entry's ``close`` ran.
-        self.assertEqual(
-            len(
-                set(connection._connections.keys())
-                & {
-                    (cfg_a, os.getpid()),
-                    (cfg_b, os.getpid()),
-                }
-            ),
-            0,
-        )
+        self.assertEqual(len(connection._connections.keys()), 0)
         self.assertEqual(broken.close.call_count, 1)
         self.assertEqual(ok.close.call_count, 1)
+
+    def test_close_all_connections_only_closes_locally_owned_connections(self):
+        """
+        Ensure :func:`_close_all_connections` only closes connections owned
+        by the local process.
+        """
+        cfg_a = DatabaseConfig(database="a", username="u", password="p")
+        cfg_b = DatabaseConfig(database="b", username="u", password="p")
+        local = mock.MagicMock()
+        local.closed = False
+        local.close.side_effect = RuntimeError("close blew up")
+        foreign = mock.MagicMock()
+        foreign.closed = False
+
+        # Replace the cache contents under control so we don't disturb
+        # any real cached connections held by other tests.
+        original = dict(connection._connections)
+        connection._connections.clear()
+        connection._connections[(cfg_a, os.getpid())] = local
+        connection._connections[(cfg_b, os.getpid() + 1)] = foreign
+        try:
+            connection._close_all_connections()
+        finally:
+            connection._connections.update(original)
+
+        # Only the local connection was drained from the cache (the
+        # cleanup ran ``del`` on it). The exception from ``local``
+        # was swallowed, and the surviving entry's ``close`` was not
+        # called.
+        self.assertEqual(len(connection._connections.keys()), 1)
+        self.assertNotIn((cfg_a, os.getpid()), connection._connections)
+        self.assertIn((cfg_b, os.getpid() + 1), connection._connections)
+        self.assertEqual(local.close.call_count, 1)
+        self.assertEqual(foreign.close.call_count, 0)
 
 
 class TestBulkLoadLifecycle(TestCase):

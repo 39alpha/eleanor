@@ -144,8 +144,6 @@ class OutputParser(ABC):
     _stoichiometric_ionic_asymmetry: np.float64
     _log_ionic_strength: np.float64
     _log_stoichiometric_ionic_strength: np.float64
-    _log_ionic_asymmetry: np.float64
-    _log_stoichiometric_ionic_asymmetry: np.float64
     _log_sum_molalities: np.float64
     _log_sum_stoichiometric_molalities: np.float64
     _solvent_mass: np.float64
@@ -210,8 +208,6 @@ class OutputParser(ABC):
 
         self._log_ionic_strength = np.float64(0.0)
         self._log_stoichiometric_ionic_strength = np.float64(0.0)
-        self._log_ionic_asymmetry = np.float64(0.0)
-        self._log_stoichiometric_ionic_asymmetry = np.float64(0.0)
         self._log_sum_molalities = np.float64(0.0)
         self._log_sum_stoichiometric_molalities = np.float64(0.0)
 
@@ -937,8 +933,6 @@ class OutputParser3(OutputParser):
             warnings.filterwarnings("ignore", category=RuntimeWarning)
             self._log_ionic_strength = _safe_log10(self._ionic_strength)
             self._log_stoichiometric_ionic_strength = _safe_log10(self._stoichiometric_ionic_strength)
-            self._log_ionic_asymmetry = _safe_log10(self._ionic_asymmetry)
-            self._log_stoichiometric_ionic_asymmetry = _safe_log10(self._stoichiometric_ionic_asymmetry)
             self._log_sum_molalities = _safe_log10(self._sum_molalities)
             self._log_sum_stoichiometric_molalities = _safe_log10(self._sum_stoichiometric_molalities)
 
@@ -980,8 +974,8 @@ class OutputParser3(OutputParser):
             pHCl=self._pHCl,
             log_ionic_strength=self._log_ionic_strength,
             log_stoichiometric_ionic_strength=self._log_stoichiometric_ionic_strength,
-            log_ionic_asymmetry=self._log_ionic_asymmetry,
-            log_stoichiometric_ionic_asymmetry=self._log_stoichiometric_ionic_asymmetry,
+            ionic_asymmetry=self._ionic_asymmetry,
+            stoichiometric_ionic_asymmetry=self._stoichiometric_ionic_asymmetry,
             osmotic_coefficient=self._osmotic_coefficient,
             stoichiometric_osmotic_coefficient=self._stoichiometric_osmotic_coefficient,
             log_sum_molalities=self._log_sum_molalities,
@@ -1160,8 +1154,6 @@ class OutputParser6(OutputParser):
             warnings.filterwarnings("ignore", category=RuntimeWarning)
             self._log_ionic_strength = _safe_log10(self._ionic_strength)
             self._log_stoichiometric_ionic_strength = _safe_log10(self._stoichiometric_ionic_strength)
-            self._log_ionic_asymmetry = _safe_log10(self._ionic_asymmetry)
-            self._log_stoichiometric_ionic_asymmetry = _safe_log10(self._stoichiometric_ionic_asymmetry)
             self._log_sum_molalities = _safe_log10(self._sum_molalities)
             self._log_sum_stoichiometric_molalities = _safe_log10(self._sum_stoichiometric_molalities)
         self.read_alkalinity()
@@ -1207,8 +1199,8 @@ class OutputParser6(OutputParser):
             log_sum_stoichiometric_molalities=self._log_sum_stoichiometric_molalities,
             log_ionic_strength=self._log_ionic_strength,
             log_stoichiometric_ionic_strength=self._log_stoichiometric_ionic_strength,
-            log_ionic_asymmetry=self._log_ionic_asymmetry,
-            log_stoichiometric_ionic_asymmetry=self._log_stoichiometric_ionic_asymmetry,
+            ionic_asymmetry=self._ionic_asymmetry,
+            stoichiometric_ionic_asymmetry=self._stoichiometric_ionic_asymmetry,
             solute_mass=self._solute_mass,
             solvent_mass=self._solvent_mass,
             solution_mass=self._solution_mass,

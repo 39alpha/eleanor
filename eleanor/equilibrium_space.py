@@ -101,8 +101,8 @@ class Point(object):
     Ah: np.float64
     log_ionic_strength: np.float64
     log_stoichiometric_ionic_strength: np.float64
-    log_ionic_asymmetry: np.float64
-    log_stoichiometric_ionic_asymmetry: np.float64
+    ionic_asymmetry: np.float64
+    stoichiometric_ionic_asymmetry: np.float64
     osmotic_coefficient: np.float64
     stoichiometric_osmotic_coefficient: np.float64
     log_sum_molalities: np.float64

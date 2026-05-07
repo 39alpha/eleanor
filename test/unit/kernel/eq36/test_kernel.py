@@ -1077,253 +1077,70 @@ class TestEq36Kernel(TestCase):
         self.assertIn("nxopt=  1", output)
         self.assertIn("nxopex=  0", output)
 
-    def test_read_eq3_output_maps_parser_data_and_applies_sentinel_conversions(self):
+    def test_read_eq3_output_returns_parser_point_passthrough(self):
         """
-        Ensure read_eq3_output maps parser payload fields and converts sentinel values to -inf as expected.
+        Ensure read_eq3_output returns parser.point directly.
         """
-        eq3_data = {
-            "temperature": 25.0,
-            "pressure": 10.0,
-            "log_fO2": -60.0,
-            "log_activity_water": -0.01,
-            "mole_fraction_water": 0.98,
-            "log_activity_coefficient_water": 0.02,
-            "osmotic_coefficient": 0.8,
-            "stoichiometric_osmotic_coefficient": 0.81,
-            "log_sum_molalities": -1.0,
-            "log_sum_stoichiometric_molalities": -0.9,
-            "log_ionic_strength": -2.0,
-            "log_stoichiometric_ionic_strength": -1.8,
-            "log_ionic_asymmetry": -2.2,
-            "log_stoichiometric_ionic_asymmetry": -2.1,
-            "solvent_mass": 1.0,
-            "solute_mass": 0.1,
-            "solution_mass": 1.1,
-            "solution_volume": 1.2,
-            "solvent_fraction": 0.9,
-            "solute_fraction": 0.1,
-            "tds": 100.0,
-            "pH": {"NBS pH scale": {"pH": 7.0, "Eh": 0.1, "pe-": 4.0, "Ah": 1.2}},
-            "pcH": None,
-            "pHCl": None,
-            "cations": 1.0,
-            "anions": 1.0,
-            "total_charge": 0.0,
-            "mean_charge": 0.0,
-            "charge_imbalance": 0.0,
-            "alkalinity": {"Extended": {"Total": 2.5}},
-            "elements": {"Na": {"log_molality": -3.0, "mass_fraction": 0.2}},
-            "aqueous": {
-                "H2O": {"molality": 0.0, "log_molality": -9.0, "log_activity": -99999, "log_gamma": 0.0},
-                "Na+": {"molality": 0.1, "log_molality": -1.0, "log_activity": -1.1, "log_gamma": 0.2},
-            },
-            "solids": {
-                "pure_solids": {
-                    "Calcite": {
-                        "log_qk": 0.2,
-                        "affinity": 1.0,
-                        "moles": -99999,
-                        "log_moles": -5.0,
-                        "mass": -99999,
-                        "log_mass": -4.0,
-                        "volume": -99999,
-                        "log_volume": -3.0,
-                    }
-                },
-                "solid_solutions": {
-                    "SS1": {
-                        "log_qk": 0.1,
-                        "affinity": 0.2,
-                        "log_moles": -2.0,
-                        "log_mass": -1.5,
-                        "log_volume": -1.2,
-                        "end_members": {
-                            "EM1": {
-                                "log_qk": 0.3,
-                                "affinity": 0.4,
-                                "log_moles": -6.0,
-                                "log_mass": -5.0,
-                                "log_volume": -4.0,
-                            }
-                        },
-                    }
-                },
-            },
-            "gases": {"CO2(g)": {"log_fugacity": -3.0}},
-            "redox": {"O2/H2O": {"Eh": 0.1, "pe-": 4.0, "log_fO2": -60.0, "Ah": 1.2}},
-        }
-
-        parser = SimpleNamespace(data=eq3_data)
+        expected_point = SimpleNamespace(stage="eq3")
         parser_instance = mock.Mock()
-        parser_instance.parse.return_value = parser
+        parser_instance.parse.return_value = SimpleNamespace(point=expected_point)
+
+        with mock.patch("eleanor.kernel.eq36.kernel.OutputParser3", return_value=parser_instance) as parser_cls:
+            point = Kernel.read_eq3_output(file="custom.3o")
+
+        parser_cls.assert_called_once_with(file="custom.3o")
+        self.assertIs(point, expected_point)
+
+    def test_read_eq3_output_asserts_when_parser_point_is_missing(self):
+        """
+        Ensure read_eq3_output asserts when parser.point is None.
+        """
+        parser_instance = mock.Mock()
+        parser_instance.parse.return_value = SimpleNamespace(point=None)
 
         with mock.patch("eleanor.kernel.eq36.kernel.OutputParser3", return_value=parser_instance):
-            point = Kernel.read_eq3_output()
-
-        self.assertEqual(point.stage, "eq3")
-        self.assertEqual(point.temperature, 25.0)
-        self.assertEqual(point.extended_alkalinity, 2.5)
-        self.assertEqual(len(point.elements), 1)
-        self.assertEqual(len(point.aqueous_species), 2)
-        self.assertEqual(point.aqueous_species[0].log_molality, -float("inf"))
-        self.assertEqual(point.aqueous_species[0].log_activity, -float("inf"))
-        self.assertEqual(point.pure_solids[0].log_moles, -float("inf"))
-        self.assertEqual(point.pure_solids[0].log_mass, -float("inf"))
-        self.assertEqual(point.pure_solids[0].log_volume, -float("inf"))
+            with self.assertRaises(AssertionError):
+                Kernel.read_eq3_output()
 
     def test_read_eq6_output_track_path_false_keeps_last_step_only(self):
         """
-        Ensure read_eq6_output with track_path=False returns only the last parsed step.
+        Ensure read_eq6_output with track_path=False returns only the final parsed point.
         """
-
-        def _step(log_xi):
-            return {
-                "log_xi": log_xi,
-                "temperature": 25.0,
-                "pressure": 10.0,
-                "pH": {"NBS pH scale": {"pH": 7.0, "Eh": 0.1, "pe-": 4.0, "Ah": 1.2}},
-                "pHCl": None,
-                "log_fO2": -60.0,
-                "log_activity_water": -0.01,
-                "mole_fraction_water": 0.98,
-                "log_activity_coefficient_water": 0.02,
-                "osmotic_coefficient": 0.8,
-                "stoichiometric_osmotic_coefficient": 0.81,
-                "log_sum_molalities": -1.0,
-                "log_sum_stoichiometric_molalities": -0.9,
-                "log_ionic_strength": -2.0,
-                "log_stoichiometric_ionic_strength": -1.8,
-                "log_ionic_asymmetry": -2.2,
-                "log_stoichiometric_ionic_asymmetry": -2.1,
-                "solvent_mass": 1.0,
-                "solute_mass": 0.1,
-                "solution_mass": 1.1,
-                "solvent_fraction": 0.9,
-                "solute_fraction": 0.1,
-                "tds": 100.0,
-                "charge_imbalance": 0.0,
-                "expected_charge_imbalance": 0.0,
-                "charge_discrepancy": 0.0,
-                "sigma": 0.0,
-                "elements": {"Na": {"log_molality": -3.0, "mass_fraction": 0.2}},
-                "aqueous": {
-                    "O2(g)": {"molality": 1.0, "log_molality": 0.0, "log_activity": 0.0, "log_gamma": 0.0},
-                    "Na+": {"molality": 0.1, "log_molality": -1.0, "log_activity": -1.1, "log_gamma": 0.2},
-                },
-                "solids": {
-                    "pure_solids": {"Calcite": {"log_qk": 0.2, "affinity": 1.0, "moles": 1.0, "log_moles": -1.0}},
-                    "solid_solutions": {},
-                },
-                "gases": {"CO2(g)": {"log_fugacity": -3.0}},
-                "redox": {"O2/H2O": {"Eh": 0.1, "pe-": 4.0, "log_fO2": -60.0, "Ah": 1.2}},
-            }
-
+        first = SimpleNamespace(log_xi=-2.0)
+        last = SimpleNamespace(log_xi=-1.0)
         parser_instance = mock.Mock()
-        parser_instance.parse.return_value = SimpleNamespace(path=[_step(-2.0), _step(-1.0)])
+        parser_instance.parse.return_value = SimpleNamespace(path=[first, last])
 
-        with mock.patch("eleanor.kernel.eq36.kernel.OutputParser6", return_value=parser_instance):
-            points = Kernel.read_eq6_output(track_path=False)
+        with mock.patch("eleanor.kernel.eq36.kernel.OutputParser6", return_value=parser_instance) as parser_cls:
+            points = Kernel.read_eq6_output(file="custom.6o", track_path=False)
 
-        self.assertEqual(len(points), 1)
-        self.assertEqual(points[0].log_xi, -1.0)
-        self.assertEqual(len(points[0].aqueous_species), 1)
-        self.assertEqual(points[0].aqueous_species[0].name, "Na+")
-        self.assertEqual(points[0].reactants, [])
+        parser_cls.assert_called_once_with(file="custom.6o")
+        self.assertEqual(points, [last])
+        self.assertIs(points[0], last)
 
-    def test_read_eq6_output_track_path_true_maps_reactants_and_sentinel_branches(self):
+    def test_read_eq6_output_track_path_true_returns_full_path(self):
         """
-        Ensure read_eq6_output with track_path=True keeps all steps and applies sentinel conversions in mapped objects.
+        Ensure read_eq6_output with track_path=True returns the full parser path object.
         """
-        step = {
-            "log_xi": -1.5,
-            "temperature": 25.0,
-            "pressure": 10.0,
-            "pH": {"NBS pH scale": {"pH": 7.0, "Eh": 0.1, "pe-": 4.0, "Ah": 1.2}},
-            "pHCl": None,
-            "log_fO2": -60.0,
-            "log_activity_water": -0.01,
-            "mole_fraction_water": 0.98,
-            "log_activity_coefficient_water": 0.02,
-            "osmotic_coefficient": 0.8,
-            "stoichiometric_osmotic_coefficient": 0.81,
-            "log_sum_molalities": -1.0,
-            "log_sum_stoichiometric_molalities": -0.9,
-            "log_ionic_strength": -2.0,
-            "log_stoichiometric_ionic_strength": -1.8,
-            "log_ionic_asymmetry": -2.2,
-            "log_stoichiometric_ionic_asymmetry": -2.1,
-            "solvent_mass": 1.0,
-            "solute_mass": 0.1,
-            "solution_mass": 1.1,
-            "solvent_fraction": 0.9,
-            "solute_fraction": 0.1,
-            "tds": 100.0,
-            "charge_imbalance": 0.0,
-            "expected_charge_imbalance": 0.0,
-            "charge_discrepancy": 0.0,
-            "sigma": 0.0,
-            "reactants": {
-                "overall_affinity": 12.0,
-                "mass_reacted": 3.0,
-                "mass_remaining": 7.0,
-                "reactants": {
-                    "Calcite": {
-                        "log_moles_reacted": -1.0,
-                        "log_moles_remaining": -2.0,
-                        "log_mass_reacted": -3.0,
-                        "log_mass_remaining": -4.0,
-                        "affinity": 1.2,
-                        "relative_rate": 0.5,
-                    }
-                },
-            },
-            "solids": {
-                "created": {"mass": 1.0, "volume": 2.0},
-                "destroyed": {"mass": 0.4, "volume": 0.5},
-                "net": {"mass": 0.6, "volume": 1.5},
-                "pure_solids": {
-                    "Calcite": {"log_qk": 0.2, "affinity": 1.0, "moles": 0.0, "log_moles": -9.0, "log_mass": -4.0}
-                },
-                "solid_solutions": {
-                    "SS1": {
-                        "log_qk": 0.1,
-                        "affinity": 0.2,
-                        "log_moles": -2.0,
-                        "log_mass": -1.5,
-                        "log_volume": -1.2,
-                        "end_members": {
-                            "EM1": {
-                                "log_qk": 0.3,
-                                "affinity": 0.4,
-                                "log_moles": -6.0,
-                                "log_mass": -5.0,
-                                "log_volume": -4.0,
-                            }
-                        },
-                    }
-                },
-            },
-            "elements": {"Na": {"log_molality": -3.0, "mass_fraction": 0.2}},
-            "aqueous": {
-                "O2(g)": {"molality": 1.0, "log_molality": 0.0, "log_activity": 0.0, "log_gamma": 0.0},
-                "H2O": {"molality": 0.0, "log_molality": -9.0, "log_activity": -99999, "log_gamma": 0.0},
-            },
-            "gases": {"CO2(g)": {"log_fugacity": -3.0}},
-            "redox": {"O2/H2O": {"Eh": 0.1, "pe-": 4.0, "log_fO2": -60.0, "Ah": 1.2}},
-        }
-
+        first = SimpleNamespace(log_xi=-2.0)
+        last = SimpleNamespace(log_xi=-1.0)
+        path = [first, last]
         parser_instance = mock.Mock()
-        parser_instance.parse.return_value = SimpleNamespace(path=[step, step])
+        parser_instance.parse.return_value = SimpleNamespace(path=path)
 
         with mock.patch("eleanor.kernel.eq36.kernel.OutputParser6", return_value=parser_instance):
             points = Kernel.read_eq6_output(track_path=True)
 
-        self.assertEqual(len(points), 2)
-        self.assertEqual(points[0].overall_affinity, 12.0)
-        self.assertEqual(points[0].reactant_mass_reacted, 3.0)
-        self.assertEqual(len(points[0].reactants), 1)
-        self.assertEqual(points[0].reactants[0].name, "Calcite")
-        self.assertEqual(len(points[0].aqueous_species), 1)
-        self.assertEqual(points[0].aqueous_species[0].log_molality, -float("inf"))
-        self.assertEqual(points[0].aqueous_species[0].log_activity, -float("inf"))
-        self.assertEqual(points[0].pure_solids[0].log_moles, -float("inf"))
+        self.assertIs(points, path)
+
+    def test_read_eq6_output_track_path_false_handles_empty_paths(self):
+        """
+        Ensure read_eq6_output with track_path=False returns an empty list when no points were parsed.
+        """
+        parser_instance = mock.Mock()
+        parser_instance.parse.return_value = SimpleNamespace(path=[])
+
+        with mock.patch("eleanor.kernel.eq36.kernel.OutputParser6", return_value=parser_instance):
+            points = Kernel.read_eq6_output(track_path=False)
+
+        self.assertEqual(points, [])

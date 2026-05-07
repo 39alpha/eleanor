@@ -1,31 +1,20 @@
 import io
 import warnings
 from pathlib import Path
-from typing import cast, override
+from typing import override
 from unittest import mock
 
 import numpy as np
 
+import eleanor.equilibrium_space as es
 from eleanor.exceptions import EleanorException, EleanorFileException, EleanorParserException
 from eleanor.kernel.eq36.codes import RunCode
-from eleanor.kernel.eq36.parsers import OutputParser
-from eleanor.kernel.eq36.parsers import OutputParser3 as _OutputParser3
-from eleanor.kernel.eq36.parsers import OutputParser6 as _OutputParser6
+from eleanor.kernel.eq36.parsers import OutputParser, OutputParser3, OutputParser6
 
-from ...common import AnyDict, TestCase, as_any_dict
-
-
-class OutputParser3(_OutputParser3):
-    data: AnyDict
-
-
-class OutputParser6(_OutputParser6):
-    data: AnyDict
+from ...common import TestCase
 
 
 class DummyOutputParser(OutputParser):
-    data: AnyDict
-
     @override
     def read_elemental_composition(self):
         pass
@@ -86,11 +75,12 @@ class TestEq36Parsers(TestCase):
             parser.read_reactants()
 
         self.assertEqual(len(captured), 0)
-        reactant = as_any_dict(as_any_dict(as_any_dict(parser.data)["reactants"])["reactants"])["R1"]
-        self.assertTrue(np.isneginf(reactant["log_moles_remaining"]))
-        self.assertTrue(np.isnan(reactant["log_moles_reacted"]))
-        self.assertTrue(np.isneginf(reactant["log_mass_remaining"]))
-        self.assertTrue(np.isnan(reactant["log_mass_reacted"]))
+        self.assertEqual(len(parser._reactants), 1)
+        reactant = parser._reactants[0]
+        self.assertTrue(np.isneginf(reactant.log_moles_remaining))
+        self.assertTrue(np.isnan(reactant.log_moles_reacted))
+        self.assertTrue(np.isneginf(reactant.log_mass_remaining))
+        self.assertTrue(np.isnan(reactant.log_mass_reacted))
 
     def test_outputparser3_file_not_found_wrapped(self):
         """
@@ -135,9 +125,9 @@ class TestEq36Parsers(TestCase):
         with self.assertRaisesRegex(EleanorParserException, "expected path separator after Stepping to Xi"):
             parser.parse()
 
-    def test_read_saturation_states_rejects_invalid_state_token(self):
+    def test_read_pure_solid_saturation_states_rejects_invalid_state_token(self):
         """
-        Ensure saturation-state parsing rejects unrecognized state tokens.
+        Ensure pure-solid saturation parsing rejects unrecognized state tokens.
         """
         parser = self._parser(
             " --- Saturation States of Pure Solids ---\n"
@@ -147,7 +137,15 @@ class TestEq36Parsers(TestCase):
             "\n"
         )
         with self.assertRaises(EleanorParserException):
-            parser.read_saturation_states("Saturation States of Pure Solids", {})
+            parser.read_pure_solid_saturation_states()
+
+    def test_read_log_property_rejects_empty_name(self):
+        """
+        Ensure read_log_property rejects empty property names.
+        """
+        parser = self._parser("value=1\n")
+        with self.assertRaises(EleanorParserException):
+            parser.read_log_property("")
 
     def test_read_end_member_saturations_unknown_end_member_raises_parser_error(self):
         """
@@ -155,7 +153,7 @@ class TestEq36Parsers(TestCase):
         """
         parser = self._parser("UNKNOWN -2.0 1.0\n\n")
         with self.assertRaises(EleanorParserException):
-            parser.read_end_member_saturations("Solid Solution Product Phases", {"EM1": {"x": np.float64(0.5)}})
+            parser.read_end_member_saturations("Solid Solution Product Phases", {})
 
     def test_outputparser6_read_elemental_composition_mgkg_table(self):
         """
@@ -174,12 +172,11 @@ class TestEq36Parsers(TestCase):
 
         parser.read_elemental_composition()
 
-        na = parser.data["elements"]["Na"]
-        self.assertEqual(na["mass_fraction"], 1e-3)
-        self.assertEqual(na["molality"], 1e-2)
-        self.assertEqual(na["log_molality"], -2.0)
-        self.assertNotIn("mass_per_volume", na)
-        self.assertNotIn("molarity", na)
+        self.assertEqual(len(parser._elements), 1)
+        na = parser._elements[0]
+        self.assertEqual(na.name, "Na")
+        self.assertEqual(na.mass_fraction, 1e-3)
+        self.assertEqual(na.log_molality, -2.0)
 
     def test_outputparser6_read_elemental_composition_mgl_table(self):
         """
@@ -198,13 +195,11 @@ class TestEq36Parsers(TestCase):
 
         parser.read_elemental_composition()
 
-        na = parser.data["elements"]["Na"]
-        self.assertEqual(na["mass_per_volume"], 1e-3)
-        self.assertEqual(na["mass_fraction"], 2e-3)
-        self.assertEqual(na["molarity"], 3e-2)
-        self.assertAlmostEqual(na["log_molarity"], np.log10(3e-2))
-        self.assertEqual(na["molality"], 4e-2)
-        self.assertAlmostEqual(na["log_molality"], np.log10(4e-2))
+        self.assertEqual(len(parser._elements), 1)
+        na = parser._elements[0]
+        self.assertEqual(na.name, "Na")
+        self.assertEqual(na.mass_fraction, 2e-3)
+        self.assertAlmostEqual(na.log_molality, np.log10(4e-2))
 
     def test_outputparser6_read_numerical_composition_mgl_table(self):
         """
@@ -223,17 +218,11 @@ class TestEq36Parsers(TestCase):
 
         parser.read_numerical_composition()
 
-        hco3 = parser.data["numerical_composition"]["HCO3-"]
-        self.assertEqual(hco3["mass_per_volume"], 5e-4)
-        self.assertEqual(hco3["mass_fraction"], 6e-4)
-        self.assertEqual(hco3["molarity"], 1e-2)
-        self.assertAlmostEqual(hco3["log_molarity"], -2.0)
-        self.assertEqual(hco3["molality"], 2e-2)
-        self.assertAlmostEqual(hco3["log_molality"], np.log10(2e-2))
+        self.assertEqual(parser.line().strip(), "")
 
     def test_outputparser6_read_charge_balance_parses_and_scales_per_unit_values(self):
         """
-        Ensure OutputParser6 charge-balance parser reads totals and scales per-unit values by 1e-3.
+        Ensure OutputParser6 charge-balance parser reads expected aggregate values.
         """
         parser = OutputParser6(
             io.StringIO(
@@ -255,15 +244,10 @@ class TestEq36Parsers(TestCase):
 
         parser.read_charge_balance()
 
-        self.assertEqual(parser.data["charge_imbalance"], 1.0)
-        self.assertEqual(parser.data["expected_charge_imbalance"], 2.0)
-        self.assertEqual(parser.data["charge_discrepancy"], 3.0)
-        self.assertEqual(parser.data["sigma"], 4.0)
-        self.assertEqual(parser.data["charge_imbalance_per_unit_solution"], 0.005)
-        self.assertEqual(parser.data["expected_charge_imbalance_per_unit_solution"], 0.006)
-        self.assertEqual(parser.data["charge_discrepancy_per_unit_solution"], 0.007)
-        self.assertEqual(parser.data["sigma_per_unit_solution"], 0.008)
-        self.assertEqual(parser.data["relative_charge_discrepancy"], 9.0)
+        self.assertEqual(parser._charge_imbalance, 1.0)
+        self.assertEqual(parser._expected_charge_imbalance, 2.0)
+        self.assertEqual(parser._charge_discrepancy, 3.0)
+        self.assertEqual(parser._sigma, 4.0)
 
     def test_outputparser6_file_not_found_wrapped(self):
         """
@@ -293,13 +277,13 @@ class TestEq36Parsers(TestCase):
 
     def test_outputparser6_parse_step_appends_snapshot_and_resets_data(self):
         """
-        Ensure parse_step appends parsed step data to path and resets transient data.
+        Ensure parse_step appends parsed step data to path and resets transient state.
         """
         parser = OutputParser6(io.StringIO(""))
 
-        def fake_read_basic_property(name, key=None, **kwargs):
-            if key is not None:
-                parser.data[key] = 1.0
+        def fake_read_basic_property(name: str, units=None, advance=True):  # noqa: ARG001
+            values = {"Xi": 1.0, "Temperature": 1.0, "Pressure": 1.0}
+            return np.float64(values.get(name, 0.0))
 
         with (
             mock.patch.object(parser, "consume_blank_lines"),
@@ -327,11 +311,13 @@ class TestEq36Parsers(TestCase):
         self.assertIs(result, parser)
         self.assertEqual(len(parser.path), 1)
         step = parser.path[0]
-        self.assertEqual(step["xi"], 1.0)
-        self.assertEqual(step["temperature"], 1.0)
-        self.assertEqual(step["pressure"], 1.0)
-        self.assertEqual(step["log_xi"], 0.0)
-        self.assertEqual(parser.data, {})
+        self.assertEqual(step.stage, "eq6")
+        self.assertEqual(step.temperature, 1.0)
+        self.assertEqual(step.pressure, 1.0)
+        self.assertEqual(step.log_xi, 0.0)
+        self.assertEqual(parser._xi, 0.0)
+        self.assertEqual(parser._log_xi, 0.0)
+        self.assertEqual(parser._elements, [])
 
     def test_outputparser6_parse_step_wraps_internal_errors(self):
         """
@@ -339,9 +325,9 @@ class TestEq36Parsers(TestCase):
         """
         parser = OutputParser6(io.StringIO(""))
 
-        def fake_read_basic_property(name, key=None, **kwargs):
-            if key is not None:
-                parser.data[key] = 1.0
+        def fake_read_basic_property(name: str, units=None, advance=True):  # noqa: ARG001
+            values = {"Xi": 1.0, "Temperature": 1.0, "Pressure": 1.0}
+            return np.float64(values.get(name, 0.0))
 
         with (
             mock.patch.object(parser, "consume_blank_lines"),
@@ -361,7 +347,7 @@ class TestEq36Parsers(TestCase):
         with (
             mock.patch.object(parser, "consume_to_pattern"),
             mock.patch.object(parser, "advance"),
-            mock.patch.object(parser, "read_basic_property"),
+            mock.patch.object(parser, "read_basic_property", return_value=np.float64(1.0)),
             mock.patch.object(parser, "read_elemental_composition"),
             mock.patch.object(parser, "read_numerical_composition"),
             mock.patch.object(parser, "read_sensible_composition"),
@@ -417,10 +403,11 @@ class TestEq36Parsers(TestCase):
 
         parser.read_charge_balance()
 
-        charge_balance = parser.data["charge_balance"]
-        self.assertEqual(charge_balance["species"], "H+")
-        self.assertEqual(charge_balance["PHASE1"]["log_activity"], -1.2)
-        self.assertNotIn("concentration", charge_balance["PHASE1"])
+        self.assertEqual(parser._cations, 1.0)
+        self.assertEqual(parser._anions, 0.9)
+        self.assertEqual(parser._total_charge, 0.1)
+        self.assertEqual(parser._mean_charge, 0.05)
+        self.assertEqual(parser._charge_imbalance, 0.01)
 
     def test_outputparser6_read_numerical_composition_mgkg_table(self):
         """
@@ -439,12 +426,7 @@ class TestEq36Parsers(TestCase):
 
         parser.read_numerical_composition()
 
-        na = parser.data["numerical_composition"]["Na+"]
-        self.assertEqual(na["mass_fraction"], 1e-3)
-        self.assertEqual(na["molality"], 1e-2)
-        self.assertAlmostEqual(na["log_molality"], np.log10(1e-2))
-        self.assertNotIn("mass_per_volume", na)
-        self.assertNotIn("molarity", na)
+        self.assertEqual(parser.line().strip(), "")
 
     def test_outputparser6_read_sensible_composition_mgkg_table(self):
         """
@@ -463,12 +445,7 @@ class TestEq36Parsers(TestCase):
 
         parser.read_sensible_composition()
 
-        co2 = parser.data["sensible_composition"]["CO2(aq)"]
-        self.assertEqual(co2["mass_fraction"], 3e-4)
-        self.assertEqual(co2["molality"], 2e-3)
-        self.assertAlmostEqual(co2["log_molality"], np.log10(2e-3))
-        self.assertNotIn("mass_per_volume", co2)
-        self.assertNotIn("molarity", co2)
+        self.assertEqual(parser.line().strip(), "")
 
     def test_outputparser6_read_sensible_composition_mgl_table(self):
         """
@@ -487,17 +464,11 @@ class TestEq36Parsers(TestCase):
 
         parser.read_sensible_composition()
 
-        co2 = parser.data["sensible_composition"]["CO2(aq)"]
-        self.assertAlmostEqual(co2["mass_per_volume"], 2e-4)
-        self.assertEqual(co2["mass_fraction"], 3e-4)
-        self.assertEqual(co2["molarity"], 1e-3)
-        self.assertEqual(co2["molality"], 2e-3)
-        self.assertAlmostEqual(co2["log_molarity"], np.log10(1e-3))
-        self.assertAlmostEqual(co2["log_molality"], np.log10(2e-3))
+        self.assertEqual(parser.line().strip(), "")
 
     def test_read_alkalinity_parses_multiple_sections_and_filters_units(self):
         """
-        Ensure read_alkalinity parses through Extended, skips malformed rows, and ignores per-liter species rows.
+        Ensure read_alkalinity captures the Extended total and ignores unsupported detail rows.
         """
         parser = self._parser(
             "prefix\n"
@@ -518,19 +489,11 @@ class TestEq36Parsers(TestCase):
 
         parser.read_alkalinity()
 
-        self.assertIn("alkalinity", parser.data)
-        alkalinity = as_any_dict(parser.data["alkalinity"])
-        carbonate = as_any_dict(alkalinity["Carbonate"])
-        extended = as_any_dict(alkalinity["Extended"])
-        self.assertEqual(carbonate["Total"], 1.20)
-        self.assertEqual(carbonate["CO3--"], 0.30)
-        self.assertNotIn("HCO3-", carbonate)
-        self.assertEqual(extended["Total"], 2.20)
-        self.assertEqual(extended["OH-"], 0.90)
+        self.assertEqual(parser._extended_alkalinity, 2.20)
 
     def test_outputparser3_read_charge_balance_concentration_table_path(self):
         """
-        Ensure OutputParser3 charge-balance parser uses concentration table path and applies expected scaling.
+        Ensure OutputParser3 charge-balance parser accepts concentration-table layout.
         """
         parser = OutputParser3(
             io.StringIO(
@@ -562,14 +525,11 @@ class TestEq36Parsers(TestCase):
 
         parser.read_charge_balance()
 
-        self.assertEqual(parser.data["cations"], 1.0)
-        self.assertEqual(parser.data["anions"], 0.9)
-        charge_balance = as_any_dict(parser.data["charge_balance"])
-        phase = as_any_dict(charge_balance["PHASE1"])
-        self.assertEqual(charge_balance["species"], "Cl-")
-        self.assertEqual(phase["concentration"], 1.0)
-        self.assertEqual(phase["mass_fraction"], 2e-3)
-        self.assertEqual(phase["molality"], 0.3)
+        self.assertEqual(parser._cations, 1.0)
+        self.assertEqual(parser._anions, 0.9)
+        self.assertEqual(parser._total_charge, 0.1)
+        self.assertEqual(parser._mean_charge, 0.05)
+        self.assertEqual(parser._charge_imbalance, 0.01)
 
     def test_outputparser6_composition_readers_reject_unknown_headers(self):
         """
@@ -605,31 +565,27 @@ class TestEq36Parsers(TestCase):
         """
         with self.subTest("starred rows"):
             parser = self._parser("STAR1 * * * *\nSTAR2 * * * *\n\n")
-            pure_solids: dict[str, dict[str, np.float64]] = {}
-            solid_solutions: dict[str, dict[str, object]] = {}
-
-            parser.read_solid_blocks(pure_solids, solid_solutions)
-
-            self.assertEqual(pure_solids, {})
-            self.assertEqual(solid_solutions, {})
+            parser.read_solid_blocks()
+            self.assertEqual(parser._pure_solids, {})
+            self.assertEqual(parser._solid_solutions, {})
             self.assertEqual(parser.line_num, 3)
 
         with self.subTest("malformed row"):
             parser = self._parser("None\n\n")
             with self.assertRaises(EleanorParserException):
-                parser.read_solid_blocks({}, {})
+                parser.read_solid_blocks()
 
     def test_read_product_phases_missing_header_raises_and_does_not_mutate_data(self):
         """
-        Ensure missing product-phases headers raise and leave existing parser data untouched.
+        Ensure missing product-phases headers raise and leave existing parser solids state untouched.
         """
         parser = self._parser(" --- Some Other Section ---\nbody\n")
-        parser.data = {"preexisting": {"x": 1}}
+        snapshot = dict(parser._solid_solutions)
 
         with self.assertRaises(EleanorParserException):
             parser.read_product_phases("Solid Solution Product Phases")
 
-        self.assertEqual(parser.data, {"preexisting": {"x": 1}})
+        self.assertEqual(parser._solid_solutions, snapshot)
 
 
 class TestEq36ParsersRealOutputs(TestCase):
@@ -642,15 +598,28 @@ class TestEq36ParsersRealOutputs(TestCase):
     def _fixture_path(self, case: str, filename: str) -> str:
         return str(self.fixture_root / case / filename)
 
-    def _parse_eq3(self, case: str) -> AnyDict:
-        parser = OutputParser3(self._fixture_path(case, "problem.3o"))
-        parser.parse()
-        return parser.data
+    def _parse_eq3(self, case: str) -> es.Point:
+        parser = OutputParser3(self._fixture_path(case, "problem.3o")).parse()
+        if parser.point is None:
+            raise AssertionError("expected eq3 parser to populate point")
+        return parser.point
 
-    def _parse_eq6_path(self, case: str) -> list[AnyDict]:
-        parser = OutputParser6(self._fixture_path(case, "problem.6o"))
-        parser.parse()
-        return [as_any_dict(step) for step in parser.path]
+    def _parse_eq6_path(self, case: str) -> list[es.Point]:
+        return OutputParser6(self._fixture_path(case, "problem.6o")).parse().path
+
+    @staticmethod
+    def _find_aqueous(point: es.Point, name: str) -> es.AqueousSpecies:
+        for species in point.aqueous_species:
+            if species.name == name:
+                return species
+        raise AssertionError(f"expected aqueous species {name}")
+
+    @staticmethod
+    def _find_pure_solid(point: es.Point, name: str) -> es.PureSolid:
+        for solid in point.pure_solids:
+            if solid.name == name:
+                return solid
+        raise AssertionError(f"expected pure solid {name}")
 
     def test_outputparser3_real_outputs_have_expected_core_fields(self):
         """
@@ -681,33 +650,28 @@ class TestEq36ParsersRealOutputs(TestCase):
 
         for case, expected in expected_by_case.items():
             with self.subTest(case=case):
-                data = self._parse_eq3(case)
-                ph = as_any_dict(data["pH"])
-                nbs = as_any_dict(ph["NBS pH scale"])
-                aqueous = as_any_dict(data["aqueous"])
-                hydrogen = as_any_dict(aqueous["H+"])
-                charge_balance = as_any_dict(data["charge_balance"])
-                solids = as_any_dict(data["solids"])
-                pure_solids = as_any_dict(solids["pure_solids"])
-                barite = as_any_dict(pure_solids["barite"])
+                point = self._parse_eq3(case)
+                hydrogen = self._find_aqueous(point, "H+")
+                barite = self._find_pure_solid(point, "barite")
 
-                self.assertAlmostEqual(data["temperature"], expected["temperature"])
-                self.assertAlmostEqual(data["pressure"], expected["pressure"])
-                self.assertAlmostEqual(data["fO2"], 0.001)
-                self.assertAlmostEqual(data["log_fO2"], -3.0)
-                self.assertAlmostEqual(nbs["pH"], expected["nbs_pH"])
-                self.assertAlmostEqual(data["pcH"], expected["pcH"])
-                self.assertAlmostEqual(data["pHCl"], expected["pHCl"])
-                self.assertEqual(charge_balance["species"], "H+")
-                self.assertAlmostEqual(hydrogen["log_activity"], expected["h_log_activity"])
-                self.assertEqual(len(as_any_dict(data["elements"])), 16)
-                self.assertEqual(len(aqueous), 132)
-                self.assertEqual(len(pure_solids), 143)
-                self.assertEqual(len(as_any_dict(solids["solid_solutions"])), 27)
-                self.assertEqual(len(as_any_dict(data["gases"])), 0)
-                self.assertEqual(len(as_any_dict(data["redox"])), 1)
-                self.assertAlmostEqual(barite["log_qk"], expected["barite_log_qk"])
-                self.assertAlmostEqual(barite["affinity"], expected["barite_affinity"])
+                self.assertEqual(point.stage, "eq3")
+                self.assertAlmostEqual(float(point.temperature), expected["temperature"])
+                self.assertAlmostEqual(float(point.pressure), expected["pressure"])
+                self.assertAlmostEqual(float(point.log_fO2), -3.0)
+                self.assertAlmostEqual(float(point.pH), expected["nbs_pH"])
+                assert point.pcH is not None
+                assert point.pHCl is not None
+                self.assertAlmostEqual(float(point.pcH), expected["pcH"])
+                self.assertAlmostEqual(float(point.pHCl), expected["pHCl"])
+                self.assertAlmostEqual(float(hydrogen.log_activity), expected["h_log_activity"])
+                self.assertEqual(len(point.elements), 16)
+                self.assertEqual(len(point.aqueous_species), 132)
+                self.assertEqual(len(point.pure_solids), 143)
+                self.assertEqual(len(point.solid_solutions), 27)
+                self.assertEqual(len(point.gases), 0)
+                self.assertEqual(len(point.redox_reactions), 1)
+                self.assertAlmostEqual(float(barite.log_qk), expected["barite_log_qk"])
+                self.assertAlmostEqual(float(barite.affinity), expected["barite_affinity"])
 
     def test_outputparser6_real_outputs_have_expected_path_shape_and_endpoints(self):
         """
@@ -749,50 +713,51 @@ class TestEq36ParsersRealOutputs(TestCase):
 
                 first = path[0]
                 last = path[-1]
-                first_ph = as_any_dict(as_any_dict(first["pH"])["NBS pH scale"])
-                last_ph = as_any_dict(as_any_dict(last["pH"])["NBS pH scale"])
-                first_reactants = as_any_dict(first["reactants"])
-                last_reactants = as_any_dict(last["reactants"])
-                first_solids = as_any_dict(first["solids"])
-                last_solids = as_any_dict(last["solids"])
 
-                self.assertAlmostEqual(first["xi"], 0.0)
-                self.assertTrue(np.isneginf(first["log_xi"]))
-                self.assertAlmostEqual(last["xi"], 0.120535)
-                self.assertAlmostEqual(last["log_xi"], -0.9188868277797307)
+                self.assertEqual(first.stage, "eq6")
+                self.assertEqual(last.stage, "eq6")
+                assert first.log_xi is not None
+                assert last.log_xi is not None
+                self.assertTrue(np.isneginf(float(first.log_xi)))
+                self.assertAlmostEqual(float(last.log_xi), -0.9188868277797307)
 
-                self.assertAlmostEqual(first["temperature"], expected["temperature"])
-                self.assertAlmostEqual(first["pressure"], 300.0)
-                self.assertAlmostEqual(last["temperature"], expected["temperature"])
-                self.assertAlmostEqual(last["pressure"], 300.0)
-                self.assertAlmostEqual(first["log_fO2"], -3.0)
-                self.assertAlmostEqual(last["log_fO2"], expected["log_fO2_last"])
-                self.assertAlmostEqual(first_ph["pH"], expected["nbs_pH_first"])
-                self.assertAlmostEqual(last_ph["pH"], expected["nbs_pH_last"])
+                self.assertAlmostEqual(float(first.temperature), expected["temperature"])
+                self.assertAlmostEqual(float(first.pressure), 300.0)
+                self.assertAlmostEqual(float(last.temperature), expected["temperature"])
+                self.assertAlmostEqual(float(last.pressure), 300.0)
+                self.assertAlmostEqual(float(first.log_fO2), -3.0)
+                self.assertAlmostEqual(float(last.log_fO2), expected["log_fO2_last"])
+                self.assertAlmostEqual(float(first.pH), expected["nbs_pH_first"])
+                self.assertAlmostEqual(float(last.pH), expected["nbs_pH_last"])
 
-                self.assertEqual(len(as_any_dict(first["elements"])), 16)
-                self.assertEqual(len(as_any_dict(last["elements"])), 16)
-                self.assertEqual(len(as_any_dict(first["aqueous"])), expected["aqueous_first_count"])
-                self.assertEqual(len(as_any_dict(last["aqueous"])), expected["aqueous_last_count"])
-                self.assertEqual(len(as_any_dict(first["gases"])), 11)
-                self.assertEqual(len(as_any_dict(last["gases"])), 11)
-                self.assertEqual(len(as_any_dict(first_solids["pure_solids"])), 143)
-                self.assertEqual(len(as_any_dict(last_solids["pure_solids"])), 144)
-                self.assertEqual(len(as_any_dict(first_solids["solid_solutions"])), 27)
-                self.assertEqual(len(as_any_dict(last_solids["solid_solutions"])), 27)
-                self.assertNotIn("O2(g)", as_any_dict(first["aqueous"]))
+                self.assertEqual(len(first.elements), 16)
+                self.assertEqual(len(last.elements), 16)
+                self.assertEqual(len(first.aqueous_species), expected["aqueous_first_count"])
+                self.assertEqual(len(last.aqueous_species), expected["aqueous_last_count"])
+                self.assertEqual(len(first.gases), 11)
+                self.assertEqual(len(last.gases), 11)
+                self.assertEqual(len(first.pure_solids), 143)
+                self.assertEqual(len(last.pure_solids), 144)
+                self.assertEqual(len(first.solid_solutions), 27)
+                self.assertEqual(len(last.solid_solutions), 27)
+                self.assertFalse(any(species.name == "O2(g)" for species in first.aqueous_species))
 
-                first_reactant_names = sorted(as_any_dict(first_reactants["reactants"]).keys())
+                first_reactant_names = sorted(reactant.name for reactant in first.reactants)
                 self.assertEqual(first_reactant_names, ["olivine-ss"])
-                self.assertAlmostEqual(first_reactants["overall_affinity"], expected["overall_affinity_first"])
-                self.assertAlmostEqual(last_reactants["overall_affinity"], expected["overall_affinity_last"])
-                self.assertAlmostEqual(
-                    as_any_dict(last_solids["created"])["mass"], expected["solids_created_mass_last"]
-                )
-                self.assertAlmostEqual(as_any_dict(last_solids["net"])["mass"], expected["solids_net_mass_last"])
+                assert first.overall_affinity is not None
+                assert last.overall_affinity is not None
+                assert last.solid_mass_created is not None
+                assert last.solid_mass_change is not None
+                self.assertAlmostEqual(float(first.overall_affinity), expected["overall_affinity_first"])
+                self.assertAlmostEqual(float(last.overall_affinity), expected["overall_affinity_last"])
+                self.assertAlmostEqual(float(last.solid_mass_created), expected["solids_created_mass_last"])
+                self.assertAlmostEqual(float(last.solid_mass_change), expected["solids_net_mass_last"])
 
-                xis = [cast(float, step["xi"]) for step in path]
-                for left, right in zip(xis, xis[1:], strict=False):
+                log_xis: list[float] = []
+                for step in path:
+                    assert step.log_xi is not None
+                    log_xis.append(float(step.log_xi))
+                for left, right in zip(log_xis, log_xis[1:], strict=False):
                     self.assertLessEqual(left, right)
 
     def test_outputparser6_first_step_matches_outputparser3_initial_state(self):
@@ -804,15 +769,14 @@ class TestEq36ParsersRealOutputs(TestCase):
                 eq3 = self._parse_eq3(case)
                 eq6_first = self._parse_eq6_path(case)[0]
 
-                eq3_nbs = as_any_dict(as_any_dict(eq3["pH"])["NBS pH scale"])
-                eq6_nbs = as_any_dict(as_any_dict(eq6_first["pH"])["NBS pH scale"])
-                eq3_hydrogen = as_any_dict(as_any_dict(eq3["aqueous"])["H+"])
-                eq6_hydrogen = as_any_dict(as_any_dict(eq6_first["aqueous"])["H+"])
+                eq3_hydrogen = self._find_aqueous(eq3, "H+")
+                eq6_hydrogen = self._find_aqueous(eq6_first, "H+")
 
-                self.assertAlmostEqual(eq3["temperature"], eq6_first["temperature"])
-                self.assertAlmostEqual(eq3["pressure"], eq6_first["pressure"])
-                self.assertAlmostEqual(eq3["fO2"], eq6_first["fO2"])
-                self.assertAlmostEqual(eq3["log_fO2"], eq6_first["log_fO2"])
-                self.assertAlmostEqual(eq3_nbs["pH"], eq6_nbs["pH"])
-                self.assertAlmostEqual(eq3["pHCl"], eq6_first["pHCl"])
-                self.assertAlmostEqual(eq3_hydrogen["log_activity"], eq6_hydrogen["log_activity"])
+                self.assertAlmostEqual(float(eq3.temperature), float(eq6_first.temperature))
+                self.assertAlmostEqual(float(eq3.pressure), float(eq6_first.pressure))
+                self.assertAlmostEqual(float(eq3.log_fO2), float(eq6_first.log_fO2))
+                self.assertAlmostEqual(float(eq3.pH), float(eq6_first.pH))
+                assert eq3.pHCl is not None
+                assert eq6_first.pHCl is not None
+                self.assertAlmostEqual(float(eq3.pHCl), float(eq6_first.pHCl))
+                self.assertAlmostEqual(float(eq3_hydrogen.log_activity), float(eq6_hydrogen.log_activity))

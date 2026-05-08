@@ -43,19 +43,21 @@ PLUGIN_API_VERSION: int = 1
 MIN_SUPPORTED_API_VERSION: int = 1
 
 
+#: Canonical names of the executors shipped inside the eleanor distribution.
+#: Built-ins register their concrete factories from
+#: :mod:`eleanor.executor`'s package ``__init__``.
+BUILTIN_EXECUTORS: frozenset[str] = frozenset({"serial", "multiprocessing"})
+
 #: The shared :class:`PluginRegistry` instance backing this module's helpers.
 registry: PluginRegistry[ExecutorFactory] = PluginRegistry(
     kind="executor",
     entry_point_group=ENTRY_POINT_GROUP,
     override_env_var=OVERRIDE_ENV_VAR,
     builtins={},
-    builtin_names=frozenset({"serial", "multiprocessing"}),
+    builtin_names=BUILTIN_EXECUTORS,
     api_version=PLUGIN_API_VERSION,
     min_api_version=MIN_SUPPORTED_API_VERSION,
 )
-
-#: Canonical names of the executors shipped inside the eleanor distribution.
-BUILTIN_EXECUTORS: frozenset[str] = registry.builtins
 
 
 def register_executor(name: str, factory: ExecutorFactory) -> None:

@@ -47,19 +47,21 @@ class OutputFactory(Protocol):
     ) -> "OutputSink": ...
 
 
+#: Canonical names of the output sinks shipped inside the eleanor distribution.
+#: Built-ins register their concrete factories from
+#: :mod:`eleanor.output`'s package ``__init__``.
+BUILTIN_OUTPUTS: frozenset[str] = frozenset({"csv", "memory", "null", "postgres"})
+
 #: The shared :class:`PluginRegistry` instance backing this module's helpers.
 registry: PluginRegistry[OutputFactory] = PluginRegistry(
     kind="output",
     entry_point_group=ENTRY_POINT_GROUP,
     override_env_var=OVERRIDE_ENV_VAR,
     builtins={},
-    builtin_names=frozenset({"csv", "memory", "null", "postgres"}),
+    builtin_names=BUILTIN_OUTPUTS,
     api_version=PLUGIN_API_VERSION,
     min_api_version=MIN_SUPPORTED_API_VERSION,
 )
-
-#: Canonical names of the output sinks shipped inside the eleanor distribution.
-BUILTIN_OUTPUTS: frozenset[str] = registry.builtins
 
 
 def register_output(name: str, factory: OutputFactory) -> None:

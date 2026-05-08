@@ -70,10 +70,6 @@ class MemorySink(OutputSink):
         return None
 
     @override
-    def finalize(self) -> None:
-        return None
-
-    @override
     def supports_worker_writes(self) -> bool:
         return False
 

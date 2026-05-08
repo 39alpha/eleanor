@@ -2,6 +2,7 @@ import argparse
 from typing import Callable, Protocol, cast
 
 import eleanor.cli.bulkload as bulkload
+import eleanor.cli.doctor as doctor
 import eleanor.cli.run as run
 import eleanor.cli.schema as schema
 import eleanor.cli.scratch as scratch
@@ -25,6 +26,7 @@ def main() -> object:
     _ = schema.init(subparsers.add_parser("schema"))
     _ = scratch.init(subparsers.add_parser("scratch"))
     _ = bulkload.init(subparsers.add_parser("bulkload"))
+    _ = doctor.init(subparsers.add_parser("doctor"))
 
     args_ns = parser.parse_args()
     args = cast(CLIArgs, cast(object, args_ns))

@@ -151,7 +151,6 @@ class TestCLIRun(TestCase):
             scratch=False,
             show_progress=False,
             verbose=False,
-            parallel="serial",
             chunks_per_worker=6,
             batch_size=None,
             max_nav_attempts=1,
@@ -179,7 +178,6 @@ class TestCLIRun(TestCase):
 
         load_executor.assert_called_once_with(kind="serial", num_workers=None)
         eleanor_cls.assert_called_once_with(config, [], executor=executor)
-        self.assertEqual(eleanor.run.call_args.kwargs["parallel"], "serial")
         self.assertEqual(eleanor.run.call_args.kwargs["chunks_per_worker"], 9)
         self.assertEqual(eleanor.run.call_args.kwargs["max_nav_attempts"], 1)
 
@@ -369,7 +367,6 @@ class TestCLIRun(TestCase):
 
         load_executor.assert_called_once_with(kind="plugin", num_workers=None)
         eleanor_cls.assert_called_once_with(config, [], executor=executor)
-        self.assertEqual(eleanor.run.call_args.kwargs["parallel"], "plugin")
 
     def test_execute_builds_selected_backend_before_entering_eleanor_context(self):
         """
@@ -395,7 +392,6 @@ class TestCLIRun(TestCase):
         executor.__enter__.assert_called_once_with()
         executor.__exit__.assert_called_once_with(None, None, None)
         eleanor_cls.assert_called_once_with(config, [], executor=executor)
-        self.assertEqual(eleanor.run.call_args.kwargs["parallel"], "serial")
 
     def test_execute_rejects_unknown_parallel_backend(self):
         """

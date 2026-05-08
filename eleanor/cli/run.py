@@ -134,7 +134,6 @@ def execute(parser: argparse.ArgumentParser, ns: argparse.Namespace) -> None:
                     scratch=args["scratch"],
                     show_progress=show_progress,
                     verbose=args["verbose"],
-                    parallel=parallel,
                     chunks_per_worker=chunks_per_worker,
                     batch_size=batch_size,
                     max_nav_attempts=max_nav_attempts,

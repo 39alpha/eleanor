@@ -280,11 +280,17 @@ class TestEleanorRun(TestCase):
         sink.begin_run.assert_called_once_with(order)
         self.assertEqual(order.id, 99)
 
-    def test_run_rejects_per_run_executor_kwarg(self):
-        """Ensure run() rejects removed ``executor=`` kwargs."""
+    def test_run_rejects_retired_executor_kwarg(self):
+        """Ensure run() rejects the retired ``executor=`` kwarg."""
         eleanor = _make_eleanor()
         with self.assertRaisesRegex(TypeError, "unexpected keyword argument 'executor'"):
             eleanor.run(_leaf_order(), 1, executor=_FakeExecutor())  # pyright: ignore[reportCallIssue]
+
+    def test_run_rejects_retired_parallel_kwarg(self):
+        """Ensure run() rejects the retired ``parallel=`` kwarg."""
+        eleanor = _make_eleanor()
+        with self.assertRaisesRegex(TypeError, "unexpected keyword argument 'parallel'"):
+            eleanor.run(_leaf_order(), 1, parallel="serial")  # pyright: ignore[reportCallIssue]
 
     def test_run_raises_when_num_systems_returns_zero(self):
         """Ensure run() validates navigator.num_systems >= 1."""

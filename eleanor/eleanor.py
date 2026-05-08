@@ -100,8 +100,7 @@ class Eleanor(object):
         unbuilt until the first :meth:`run` that needs them.
         """
         if self._executor_override is None:
-            parallel, _ = self._parallel_defaults()
-            self._executor = load_executor(kind=parallel, num_workers=self.num_procs)
+            self._executor = load_executor(kind=self.config.parallel.backend, num_workers=self.num_procs)
             _ = self._executor.__enter__()
         self._entered = True
         return self
@@ -151,9 +150,6 @@ class Eleanor(object):
 
         if first_error is not None:
             raise first_error
-
-    def _parallel_defaults(self) -> tuple[str, int]:
-        return self.config.parallel.backend, self.config.parallel.chunks_per_worker
 
     @contextmanager
     def _executor_scope(
@@ -275,7 +271,6 @@ class Eleanor(object):
         order: Order,
         simulation_size: int,
         *args: object,
-        parallel: str | None = None,
         chunks_per_worker: int | None = None,
         batch_size: int | None = None,
         max_nav_attempts: int = 1,
@@ -293,22 +288,21 @@ class Eleanor(object):
         :meth:`~OutputSink.finalize_run` and :meth:`~OutputSink.finalize`
         on exit.
         """
-        # ``executor`` was a named parameter prior to this branch; the double cast
-        # lets basedpyright accept a membership test for a key outside EleanorKwargs.
-        if "executor" in cast(dict[str, object], cast(object, kwargs)):
-            raise TypeError("Eleanor.run() got an unexpected keyword argument 'executor'")
+        # Check for arguments that have been retired. The double cast lets
+        # basedpyright accept a membership test for a key outside EleanorKwargs.
+        for retired_arg in ["executor", "parallel"]:
+            if retired_arg in cast(dict[str, object], cast(object, kwargs)):
+                raise TypeError(f"Eleanor.run() got an unexpected keyword argument '{retired_arg}'")
+
         verbose = kwargs.get("verbose", False)
         show_progress = kwargs.get("show_progress", False)
 
-        default_parallel, default_chunks_per_worker = self._parallel_defaults()
-        if parallel is None:
-            parallel = default_parallel
         if chunks_per_worker is None:
-            chunks_per_worker = default_chunks_per_worker
+            chunks_per_worker = self.config.parallel.chunks_per_worker
 
         with ExitStack() as stack:
             run_executor = stack.enter_context(
-                self._executor_scope(parallel=parallel),
+                self._executor_scope(parallel=self.config.parallel.backend),
             )
             run_sink = stack.enter_context(
                 self._sink_scope(output_sink, verbose=verbose),

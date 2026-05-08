@@ -5,8 +5,7 @@ from traceback import print_exception
 
 from eleanor import Eleanor
 from eleanor.cli.util import ConfigArgs, add_config_args, config_from_args, typed_args
-from eleanor.exceptions import EleanorException
-from eleanor.executor import available_executors, load_executor
+from eleanor.executor import load_executor
 from eleanor.order import load_order
 from eleanor.output.interface import OutputSink
 from eleanor.output.null import NullConfig, NullSink
@@ -110,13 +109,6 @@ def execute(parser: argparse.ArgumentParser, ns: argparse.Namespace) -> None:
         config = config_from_args(parser, args, require_database=not null_sink)
         if parallel is None:
             parallel = config.parallel.backend
-        else:
-            executors = available_executors()
-            if parallel not in executors:
-                choices = ", ".join(sorted(executors))
-                raise EleanorException(
-                    f'unsupported executor "{parallel}"; choose from {choices}',
-                )
         if chunks_per_worker is None:
             chunks_per_worker = config.parallel.chunks_per_worker
 

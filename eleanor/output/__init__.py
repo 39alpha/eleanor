@@ -20,7 +20,7 @@ actually called.
 import warnings
 from typing import TYPE_CHECKING
 
-from ..exceptions import EleanorConfigurationException, EleanorException
+from ..exceptions import EleanorException
 from ..plugin import is_abstract_instantiation_error, resolve_api_version
 from .registry import (
     BUILTIN_OUTPUTS,
@@ -208,14 +208,11 @@ register_output("memory", _build_memory)
 
 
 def load_output_sink(config: "_LoaderConfig", verbose: bool = False) -> "OutputSink":
-    sinks = available_outputs()
-    valid_sinks = ", ".join(f'"{t}"' for t in sorted(sinks))
     if config.output.type is None:
+        sinks = available_outputs()
+        valid_sinks = ", ".join(f'"{t}"' for t in sorted(sinks))
         msg = f"no output sink type provided; choose one of {valid_sinks}"
-        raise EleanorConfigurationException(msg)
-    elif config.output.type not in sinks:
-        msg = f'the "{config.output.type}" output type is not supported; choose one of {valid_sinks}'
-        raise EleanorConfigurationException(msg)
+        raise EleanorException(msg)
 
     factory = get_factory(config.output.type)
     version = resolve_api_version(factory)
@@ -233,8 +230,8 @@ def load_output_sink(config: "_LoaderConfig", verbose: bool = False) -> "OutputS
     from .interface import OutputSink
 
     # The protocol is strong, but we want to retain the runtime check because
-    # protocols are discarded at runtime. The case here is necessary to satisfy
-    # the typechecker (which will thing the conditional is always true).
+    # protocols are discarded at runtime. The cast is necessary to satisfy
+    # the typechecker (which will think the conditional is always true).
     built_obj = cast(object, built)
     if not isinstance(built_obj, OutputSink):
         raise EleanorException(

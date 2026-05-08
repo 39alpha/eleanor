@@ -1,7 +1,7 @@
 from typing import override
 from unittest import mock
 
-from eleanor.exceptions import EleanorConfigurationException
+from eleanor.exceptions import EleanorException
 from eleanor.executor import _normalize_num_workers, available_executors, load_executor
 from eleanor.executor.interface import AbstractExecutor, AbstractFuture
 from eleanor.executor.serial import SerialExecutor
@@ -76,10 +76,10 @@ class TestExecutorInterface(TestCase):
         Ensure multiprocessing backend passes normalized worker counts to constructor.
         """
         sentinel = _Executor()
-        # The multiprocessing factory references MultiprocessingExecutor from the
-        # executor package's namespace (imported at module scope in __init__.py).
+        # The multiprocessing factory does a local import from
+        # eleanor.executor.multiprocessing, so we mock at the source module.
         with mock.patch(
-            "eleanor.executor.MultiprocessingExecutor",
+            "eleanor.executor.multiprocessing.MultiprocessingExecutor",
             return_value=sentinel,
         ) as mp_executor:
             out = load_executor(kind="multiprocessing", num_workers=0)
@@ -88,10 +88,10 @@ class TestExecutorInterface(TestCase):
 
     def test_load_executor_rejects_unknown_executor(self):
         """
-        Ensure unsupported executor names raise EleanorConfigurationException
+        Ensure unsupported executor names raise EleanorException
         with a helpful choices list.
         """
-        with self.assertRaisesRegex(EleanorConfigurationException, "parallel backend is not supported"):
+        with self.assertRaisesRegex(EleanorException, "executor is not supported"):
             load_executor(kind="bad-backend")
 
     def test_load_executor_registry_contains_builtins(self):

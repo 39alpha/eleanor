@@ -287,7 +287,7 @@ class PluginRegistry(Generic[F]):
     def get(self, name: str) -> F:
         """Return the factory registered under ``name``.
 
-        Raises :class:`EleanorException` with a helpful ``choose from`` list
+        Raises :class:`EleanorException` with a helpful ``choose one of`` list
         if the name is unknown.
         """
         self._discover_entry_points()
@@ -296,7 +296,7 @@ class PluginRegistry(Generic[F]):
         except KeyError as e:
             choices = ", ".join(sorted(self._registry))
             raise EleanorException(
-                f'unsupported {self._kind} "{name}"; choose from {choices}',
+                f'the "{name}" {self._kind} is not supported; choose one of {choices}',
             ) from e
 
     def __contains__(self, name: object) -> bool:

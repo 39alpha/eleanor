@@ -1,13 +1,24 @@
+"""Public surface of the ``eleanor.navigator`` extension point.
+
+The registry API (:func:`available_navigators`, :func:`get_factory`,
+:func:`register_navigator`) is re-exported eagerly.
+
+:class:`~eleanor.navigator.interface.AbstractNavigator` and the built-in
+navigator classes (:class:`Random`, :class:`Lattice`, :class:`RandomLattice`,
+:class:`LatticeNavigator`) are loaded on demand through :pep:`562`'s
+``__getattr__`` hook so importing :mod:`eleanor.navigator` does not pull in
+numpy or the kernel interface graph. A matching ``TYPE_CHECKING`` block keeps
+static type checkers seeing them as regular re-exports.
+
+Built-in navigator factories are defined and registered here; the heavy
+concrete-class imports are deferred inside the factory bodies.
+"""
+
 import warnings
+from typing import TYPE_CHECKING
 
 from ..exceptions import EleanorException
-from ..kernel.interface import AbstractKernel
-from ..order import Order
 from ..plugin import is_abstract_instantiation_error, resolve_api_version
-from ..typing import cast
-from .interface import AbstractNavigator
-from .lattice import Lattice, LatticeNavigator, RandomLattice
-from .random import Random
 from .registry import (
     BUILTIN_NAVIGATORS,
     ENTRY_POINT_GROUP,
@@ -18,32 +29,86 @@ from .registry import (
     register_navigator,
 )
 
-
-# Seed the registry with the built-in navigator factories. The class bodies
-# accept ``(order, kernel)`` positionally, which matches the plugin factory
-# signature; extra keyword args coming from the order file are intentionally
-# ignored since none of the built-ins consume them.
-def _builtin_navigator(cls: type[AbstractNavigator]) -> NavigatorFactory:
-    def factory(order: Order, kernel: AbstractKernel, **_args: object) -> AbstractNavigator:
-        if _args:
-            warnings.warn(
-                f'built-in navigator "{cls.__name__}" does not accept keyword ' + f"arguments; ignoring: {list(_args)}",
-                RuntimeWarning,
-                stacklevel=2,
-            )
-        return cls(order, kernel)
-
-    factory.__eleanor_api_version__ = 1  # pyright: ignore[reportFunctionMemberAccess]
-
-    return factory
+if TYPE_CHECKING:
+    from ..kernel.interface import AbstractKernel
+    from ..order import Order
+    from .interface import AbstractNavigator as AbstractNavigator
+    from .lattice import Lattice as Lattice
+    from .lattice import LatticeNavigator as LatticeNavigator
+    from .lattice import RandomLattice as RandomLattice
+    from .random import Random as Random
 
 
-register_navigator("random", _builtin_navigator(Random))
-register_navigator("random_lattice", _builtin_navigator(RandomLattice))
-register_navigator("lattice", _builtin_navigator(Lattice))
+def __getattr__(name: str) -> object:
+    if name == "AbstractNavigator":
+        from .interface import AbstractNavigator
+
+        return AbstractNavigator
+    if name == "Random":
+        from .random import Random
+
+        return Random
+    if name == "Lattice":
+        from .lattice import Lattice
+
+        return Lattice
+    if name == "LatticeNavigator":
+        from .lattice import LatticeNavigator
+
+        return LatticeNavigator
+    if name == "RandomLattice":
+        from .lattice import RandomLattice
+
+        return RandomLattice
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
-def load_navigator(order: Order, kernel: AbstractKernel) -> AbstractNavigator:
+def _build_random(order: "Order", kernel: "AbstractKernel", **_args: object) -> "AbstractNavigator":
+    if _args:
+        warnings.warn(
+            'built-in navigator "random" does not accept keyword arguments; ' + f"ignoring: {list(_args)}",
+            RuntimeWarning,
+            stacklevel=2,
+        )
+    from .random import Random
+
+    return Random(order, kernel)
+
+
+def _build_random_lattice(order: "Order", kernel: "AbstractKernel", **_args: object) -> "AbstractNavigator":
+    if _args:
+        warnings.warn(
+            'built-in navigator "random_lattice" does not accept keyword arguments; ' + f"ignoring: {list(_args)}",
+            RuntimeWarning,
+            stacklevel=2,
+        )
+    from .lattice import RandomLattice
+
+    return RandomLattice(order, kernel)
+
+
+def _build_lattice(order: "Order", kernel: "AbstractKernel", **_args: object) -> "AbstractNavigator":
+    if _args:
+        warnings.warn(
+            'built-in navigator "lattice" does not accept keyword arguments; ' + f"ignoring: {list(_args)}",
+            RuntimeWarning,
+            stacklevel=2,
+        )
+    from .lattice import Lattice
+
+    return Lattice(order, kernel)
+
+
+_build_random.__eleanor_api_version__ = 1  # pyright: ignore[reportFunctionMemberAccess]
+_build_random_lattice.__eleanor_api_version__ = 1  # pyright: ignore[reportFunctionMemberAccess]
+_build_lattice.__eleanor_api_version__ = 1  # pyright: ignore[reportFunctionMemberAccess]
+
+register_navigator("random", _build_random)
+register_navigator("random_lattice", _build_random_lattice)
+register_navigator("lattice", _build_lattice)
+
+
+def load_navigator(order: "Order", kernel: "AbstractKernel") -> "AbstractNavigator":
     navigator_factory = get_factory(order.navigator.type)
     version = resolve_api_version(navigator_factory)
     try:
@@ -56,9 +121,12 @@ def load_navigator(order: Order, kernel: AbstractKernel) -> AbstractNavigator:
             f'navigator plugin "{order.navigator.type}" failed to instantiate{version_suffix}: {e}',
         ) from e
 
+    from ..typing import cast
+    from .interface import AbstractNavigator
+
     # The protocol is strong, but we want to retain the runtime check because
-    # protocols are discarded at runtime. The case here is necessary to satisfy
-    # the typechecker (which will thing the conditional is always true).
+    # protocols are discarded at runtime. The cast is necessary to satisfy
+    # the typechecker (which will think the conditional is always true).
     built_obj = cast(object, built)
     if not isinstance(built_obj, AbstractNavigator):
         raise EleanorException(

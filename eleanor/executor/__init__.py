@@ -1,9 +1,22 @@
-import warnings
+"""Public surface of the ``eleanor.executor`` extension point.
 
-from ..exceptions import EleanorConfigurationException, EleanorException
+The registry API (:func:`available_executors`, :func:`get_factory`,
+:func:`register_executor`) is re-exported eagerly.
+
+The interface classes (:class:`AbstractExecutor`, :class:`AbstractFuture`) and
+the built-in :class:`SerialExecutor` and :class:`MultiprocessingExecutor` are
+loaded on demand through :pep:`562`'s ``__getattr__`` hook so importing
+:mod:`eleanor.executor` does not eagerly pull in the implementation modules.
+A matching ``TYPE_CHECKING`` block keeps static type checkers seeing them as
+regular re-exports. Built-in executor factories defer their concrete class
+imports to construction time.
+"""
+
+import warnings
+from typing import TYPE_CHECKING, cast
+
+from ..exceptions import EleanorException
 from ..plugin import is_abstract_instantiation_error, resolve_api_version
-from .interface import AbstractExecutor, AbstractFuture
-from .multiprocessing import MultiprocessingExecutor
 from .registry import (
     BUILTIN_EXECUTORS,
     ENTRY_POINT_GROUP,
@@ -13,7 +26,33 @@ from .registry import (
     get_factory,
     register_executor,
 )
-from .serial import SerialExecutor
+
+if TYPE_CHECKING:
+    from .interface import AbstractExecutor as AbstractExecutor
+    from .interface import AbstractFuture as AbstractFuture
+    from .multiprocessing import MultiprocessingExecutor as MultiprocessingExecutor
+    from .serial import SerialExecutor as SerialExecutor
+
+
+def __getattr__(name: str) -> object:
+    if name == "AbstractExecutor":
+        from .interface import AbstractExecutor
+
+        return AbstractExecutor
+    if name == "AbstractFuture":
+        from .interface import AbstractFuture
+
+        return AbstractFuture
+    if name == "MultiprocessingExecutor":
+        from .multiprocessing import MultiprocessingExecutor
+
+        return MultiprocessingExecutor
+    if name == "SerialExecutor":
+        from .serial import SerialExecutor
+
+        return SerialExecutor
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
 
 __all__ = [
     "AbstractExecutor",
@@ -25,8 +64,8 @@ __all__ = [
     "OVERRIDE_ENV_VAR",
     "SerialExecutor",
     "available_executors",
-    "load_executor",
     "get_factory",
+    "load_executor",
     "register_executor",
 ]
 
@@ -40,17 +79,21 @@ def _normalize_num_workers(num_workers: int | None) -> int | None:
     return num_workers
 
 
-def _build_serial(num_workers: int | None) -> AbstractExecutor:
+def _build_serial(num_workers: int | None) -> "AbstractExecutor":
     if num_workers is not None:
         warnings.warn(
             "num_workers is ignored for serial executor",
             RuntimeWarning,
             stacklevel=3,
         )
+    from .serial import SerialExecutor
+
     return SerialExecutor()
 
 
-def _build_multiprocessing(num_workers: int | None) -> AbstractExecutor:
+def _build_multiprocessing(num_workers: int | None) -> "AbstractExecutor":
+    from .multiprocessing import MultiprocessingExecutor
+
     return MultiprocessingExecutor(num_workers=_normalize_num_workers(num_workers))
 
 
@@ -61,7 +104,7 @@ register_executor("serial", _build_serial)
 register_executor("multiprocessing", _build_multiprocessing)
 
 
-def load_executor(kind: str = "multiprocessing", *, num_workers: int | None = None) -> AbstractExecutor:
+def load_executor(kind: str = "multiprocessing", *, num_workers: int | None = None) -> "AbstractExecutor":
     """Construct an :class:`AbstractExecutor` for the given executor name.
 
     :param kind: the executor name. Must be one of :func:`available_executors`,
@@ -71,11 +114,6 @@ def load_executor(kind: str = "multiprocessing", *, num_workers: int | None = No
     :param num_workers: the requested worker count. Executors are free to
         normalize or ignore this value; see the individual executor classes.
     """
-    backends = available_executors()
-    if kind not in backends:
-        msg = f'the "{kind}" parallel backend is not supported; choose from {", ".join(sorted(backends))}'
-        raise EleanorConfigurationException(msg)
-
     factory = get_factory(kind)
     version = resolve_api_version(factory)
     try:
@@ -90,9 +128,12 @@ def load_executor(kind: str = "multiprocessing", *, num_workers: int | None = No
     # ``ExecutorFactory`` declares the return type as ``AbstractExecutor``, but
     # entry-point-loaded plugins reach the registry as ``object`` and are cast
     # without runtime validation. The ``isinstance`` guard is a backstop for
-    # third-party factories that violate the contract; basedpyright cannot see
-    # past the static type, so the redundancy warning is suppressed.
-    if not isinstance(executor, AbstractExecutor):  # pyright: ignore[reportUnnecessaryIsInstance]
+    # third-party factories that violate the contract; the ``cast(object, ...)``
+    # erases the static type so basedpyright does not flag the check.
+    from .interface import AbstractExecutor
+
+    executor_obj = cast(object, executor)
+    if not isinstance(executor_obj, AbstractExecutor):
         raise EleanorException(
             f'executor plugin "{kind}" returned {type(executor).__name__}, ' + "expected an AbstractExecutor",
         )

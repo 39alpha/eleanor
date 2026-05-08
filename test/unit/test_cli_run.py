@@ -404,10 +404,12 @@ class TestCLIRun(TestCase):
         parser = argparse.ArgumentParser()
         ns = self._namespace(parallel="does-not-exist")
         config = self._config()
+        fake_order = mock.Mock()
 
         printed: list[object] = []
         with (
             mock.patch("eleanor.cli.run.config_from_args", return_value=config),
+            mock.patch("eleanor.cli.run.load_order", return_value=fake_order),
             mock.patch("eleanor.cli.run.Eleanor") as eleanor_cls,
             mock.patch("builtins.print", side_effect=lambda *a, **_k: printed.append(a)),
         ):
@@ -416,7 +418,7 @@ class TestCLIRun(TestCase):
         eleanor_cls.assert_not_called()
         joined = " ".join(str(a) for a in printed)
         self.assertIn("does-not-exist", joined)
-        self.assertIn("unsupported", joined)
+        self.assertIn("is not supported", joined)
         self.assertIn("executor", joined)
 
     def test_execute_surfaces_eleanor_exception(self):

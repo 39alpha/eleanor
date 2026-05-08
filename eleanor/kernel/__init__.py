@@ -11,6 +11,11 @@ by :mod:`eleanor.executor` and :mod:`eleanor.output` and replaces the older
 arrangement that relied on some unrelated module pre-importing
 ``eleanor.kernel.eq36`` for its registration side effect.
 
+:class:`~eleanor.kernel.interface.AbstractKernel` is loaded on demand through
+:pep:`562`'s ``__getattr__`` hook so importing :mod:`eleanor.kernel` does not
+pull in numpy or the Fortran data1 loader. A matching ``TYPE_CHECKING`` block
+keeps static type checkers seeing it as a regular re-export.
+
 The heavy dependencies of each built-in (for example eq36's numpy / Fortran
 / ORM imports) are deferred inside the factory bodies, so merely touching
 :mod:`eleanor.kernel` does not drag them in.
@@ -21,13 +26,30 @@ from typing import TYPE_CHECKING
 from eleanor.exceptions import EleanorException
 from eleanor.plugin import is_abstract_instantiation_error
 
-from .registry import KernelSpec, get_factory, register_kernel
+from .registry import (
+    BUILTIN_KERNELS,
+    ENTRY_POINT_GROUP,
+    OVERRIDE_ENV_VAR,
+    KernelFactory,
+    KernelSpec,
+    available_kernels,
+    get_factory,
+    register_kernel,
+)
 
 if TYPE_CHECKING:
     from eleanor.order import Order
     from eleanor.typing import EleanorKwargs, Unpack
 
-    from .interface import AbstractKernel
+    from .interface import AbstractKernel as AbstractKernel
+
+
+def __getattr__(name: str) -> object:
+    if name == "AbstractKernel":
+        from .interface import AbstractKernel
+
+        return AbstractKernel
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 def _build_eq36_settings(raw: dict[str, object]) -> object:
@@ -104,3 +126,17 @@ def load_kernel(
     kernel.setup(order, **kwargs)
     kernel.validate_order(order)
     return kernel
+
+
+__all__ = [
+    "AbstractKernel",
+    "BUILTIN_KERNELS",
+    "ENTRY_POINT_GROUP",
+    "KernelFactory",
+    "KernelSpec",
+    "OVERRIDE_ENV_VAR",
+    "available_kernels",
+    "get_factory",
+    "load_kernel",
+    "register_kernel",
+]

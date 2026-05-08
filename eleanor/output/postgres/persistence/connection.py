@@ -81,6 +81,9 @@ def connect(config: DatabaseConfig) -> psycopg.Connection:
         password=config.password,
         sslmode=config.sslmode,
     )
+    # Register our ``default=str`` JSON encoder on this connection only,
+    # so we never mutate psycopg's global adapters singleton.
+    set_json_dumps(_json_dumps, conn)
     _connections[key] = conn
     return conn
 
@@ -118,16 +121,5 @@ def _close_all_connections() -> None:
     for key in closed_connections:
         del _connections[key]
 
-
-# Configure psycopg3's JSON encoder at import time. Installs our
-# ``default=str`` dumper so any JSONB column accepts ``datetime`` / other
-# non-JSON-native leaves (e.g. ``orders.raw`` from a TOML config). The
-# adapter registration is global to psycopg's adapters singleton, which is
-# fine: this process is a postgres-sink process top to bottom.
-#
-# Dict-typed values are wrapped explicitly with :class:`psycopg.types.json.Jsonb`
-# at the bind site in ``repositories.py`` rather than registering a global
-# ``dict -> Jsonb`` dumper, which keeps the boundary visible at the call site.
-set_json_dumps(_json_dumps)
 
 _ = atexit.register(_close_all_connections)

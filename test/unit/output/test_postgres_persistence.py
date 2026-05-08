@@ -874,11 +874,16 @@ class TestConnectionCacheBehaviour(TestCase):
                 "connect",
                 return_value=fresh,
             ) as connect,
+            mock.patch.object(
+                connection,
+                "set_json_dumps",
+            ) as set_json,
         ):
             got = connection.connect(cfg)
 
         self.assertIs(got, fresh)
         connect.assert_called_once()
+        set_json.assert_called_once_with(connection._json_dumps, fresh)
 
     def test_close_all_connections_drains_cache_even_when_close_raises(self):
         """

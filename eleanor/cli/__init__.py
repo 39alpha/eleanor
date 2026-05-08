@@ -1,10 +1,8 @@
 import argparse
 from typing import Callable, Protocol, cast
 
-import eleanor.cli.bulkload as bulkload
+import eleanor.cli.postgres as postgres
 import eleanor.cli.run as run
-import eleanor.cli.schema as schema
-import eleanor.cli.scratch as scratch
 
 
 class CLIArgs(Protocol):
@@ -22,11 +20,17 @@ def main() -> object:
     subparsers = parser.add_subparsers(required=True, dest="command")
 
     _ = run.init(subparsers.add_parser("run"))
-    _ = schema.init(subparsers.add_parser("schema"))
-    _ = scratch.init(subparsers.add_parser("scratch"))
-    _ = bulkload.init(subparsers.add_parser("bulkload"))
+    _ = postgres.init(subparsers.add_parser("postgres"))
 
     args_ns = parser.parse_args()
     args = cast(CLIArgs, cast(object, args_ns))
-    command_parser = subparsers.choices[args.command]
+    # Nested subcommands (e.g. ``eleanor postgres schema``) stash their
+    # own parser in ``_command_parser`` so error-path ``print_help()``
+    # shows the leaf command's usage, not the group's.
+    _override = getattr(args_ns, "_command_parser", None)
+    command_parser = (
+        cast(argparse.ArgumentParser, cast(object, _override))
+        if _override is not None
+        else subparsers.choices[args.command]
+    )
     return args.func(command_parser, args_ns)

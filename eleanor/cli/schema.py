@@ -25,7 +25,7 @@ def init(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
 
     add_config_args(parser)
 
-    parser.set_defaults(func=execute)
+    parser.set_defaults(func=execute, _command_parser=parser)
 
     return parser
 

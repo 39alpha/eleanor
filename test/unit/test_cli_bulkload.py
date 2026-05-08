@@ -9,7 +9,7 @@ config carries no database name.
 import argparse
 from unittest import mock
 
-from eleanor.cli import bulkload  # pyright: ignore[reportPrivateImportUsage]
+from eleanor.cli import bulkload
 from eleanor.config import Config
 from eleanor.output.postgres.config import DatabaseConfig
 

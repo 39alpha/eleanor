@@ -1,15 +1,15 @@
-"""``eleanor bulkload`` -- drop or recreate constraints around a bulk-load window.
+"""``eleanor postgres bulkload`` -- drop or recreate constraints around a bulk-load window.
 
 Two-phase workflow for callers running an out-of-band bulk-load (e.g.
 ingesting a precomputed dataset, or a rerun that reuses a previously
 populated database):
 
-1. ``eleanor bulkload drop`` -- strip every secondary index + FK / CHECK
-   constraint declared by the schema. Subsequent INSERTs / COPYs run
-   without paying the per-row constraint-checking and index-maintenance
-   cost.
-2. ``eleanor bulkload recreate`` -- put everything back. Run this once
-   the bulk-load workload finishes; if the data violates any
+1. ``eleanor postgres bulkload drop`` -- strip every secondary index +
+   FK / CHECK constraint declared by the schema. Subsequent INSERTs /
+   COPYs run without paying the per-row constraint-checking and
+   index-maintenance cost.
+2. ``eleanor postgres bulkload recreate`` -- put everything back. Run
+   this once the bulk-load workload finishes; if the data violates any
    constraint, the recreate transaction rolls back and the failure is
    reported.
 
@@ -50,7 +50,7 @@ def init(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
 
     add_config_args(parser)
 
-    parser.set_defaults(func=execute)
+    parser.set_defaults(func=execute, _command_parser=parser)
 
     return parser
 

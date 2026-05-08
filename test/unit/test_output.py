@@ -1,4 +1,5 @@
 import io
+import logging
 import warnings
 from collections.abc import Sequence
 from contextlib import nullcontext
@@ -237,6 +238,35 @@ class TestOutput(TestCase):
             with self.assertRaisesRegex(RuntimeError, "check constraint violated"):
                 sink.finalize()
         close.assert_called_once_with(cfg)
+
+    def test_postgres_verbose_initialize_finalize_restores_psycopg_log_level(self):
+        """
+        Ensure a verbose sink snapshots the psycopg logger's level
+        during :meth:`initialize` and restores it during
+        :meth:`finalize`.  A redundant second ``initialize`` must
+        not clobber the original snapshot.
+        """
+        cfg = DatabaseConfig(database="db", username="u", password="p")
+        sink = PostgresSink(cfg, verbose=True)
+        logger = logging.getLogger("psycopg")
+        original_level = logging.WARNING
+        logger.setLevel(original_level)
+        try:
+            with mock.patch("eleanor.output.postgres.sink.repositories.setup_schema"):
+                sink.initialize()
+            self.assertEqual(logger.level, logging.DEBUG)
+            # Second initialize must NOT overwrite the snapshot.
+            with mock.patch("eleanor.output.postgres.sink.repositories.setup_schema"):
+                sink.initialize()
+            self.assertEqual(logger.level, logging.DEBUG)
+            with mock.patch(
+                "eleanor.output.postgres.sink.connection_module.close_connection",
+            ):
+                sink.finalize()
+            self.assertEqual(logger.level, original_level)
+        finally:
+            # Belt-and-suspenders: leave the logger clean for other tests.
+            logger.setLevel(logging.WARNING)
 
     def test_postgres_finalize_run_is_noop(self):
         """

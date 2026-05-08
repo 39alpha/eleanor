@@ -67,6 +67,7 @@ class PostgresSink(OutputSink):
     config: DatabaseConfig
     verbose: bool
     bulk_load_optimization: bool
+    _prev_psycopg_log_level: int | None
 
     def __init__(
         self,
@@ -77,6 +78,7 @@ class PostgresSink(OutputSink):
         self.config = config
         self.verbose = verbose
         self.bulk_load_optimization = bulk_load_optimization
+        self._prev_psycopg_log_level = None
         if self.config.dialect != "postgresql":
             msg = f'the "{self.config.dialect}" database dialect is not supported; choose "postgresql"'
             raise EleanorConfigurationException(msg)
@@ -95,13 +97,13 @@ class PostgresSink(OutputSink):
             # diagnostics through ``logging.getLogger("psycopg")``. We only
             # adjust the level here -- handler / formatter wiring is the
             # embedding application's responsibility, exactly as it is for
-            # any other library logger. Doing this in ``initialize`` rather
-            # than ``__init__`` keeps the side effect bracketed by the
-            # sink's lifetime; ``finalize`` is a deliberate no-op for the
-            # logger because we don't own the level the caller had before
-            # us and silently restoring it would surprise applications
-            # that configured logging themselves.
-            logging.getLogger(_PSYCOPG_LOGGER_NAME).setLevel(logging.DEBUG)
+            # any other library logger. The previous level is snapshotted
+            # so :meth:`finalize` can restore it.  Only snapshot once so a
+            # redundant ``initialize`` call doesn't clobber the original.
+            logger = logging.getLogger(_PSYCOPG_LOGGER_NAME)
+            if self._prev_psycopg_log_level is None:
+                self._prev_psycopg_log_level = logger.level
+            logger.setLevel(logging.DEBUG)
         # ``repositories.setup_schema`` opens a connection via
         # ``connection.connect`` and delegates to ``schema.ensure_schema``,
         # which wraps every ``CREATE TABLE`` / ``CREATE INDEX`` in a single
@@ -249,6 +251,11 @@ class PostgresSink(OutputSink):
                 repositories.recreate_indexes(self.config)
         finally:
             connection_module.close_connection(self.config)
+            if self._prev_psycopg_log_level is not None:
+                logging.getLogger(_PSYCOPG_LOGGER_NAME).setLevel(
+                    self._prev_psycopg_log_level,
+                )
+                self._prev_psycopg_log_level = None
 
     @override
     def supports_worker_writes(self) -> bool:

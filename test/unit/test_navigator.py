@@ -5,6 +5,7 @@ from unittest import mock
 import numpy as np
 
 import eleanor.variable_space as vs
+from eleanor.exceptions import EleanorException
 from eleanor.navigator import AbstractNavigator, Lattice, LatticeNavigator, Random, RandomLattice
 from eleanor.parameters import Parameter, RangeParameter, ValueParameter
 
@@ -124,6 +125,146 @@ class TestNavigator(TestCase):
             with self.assertRaises(Exception) as cm:
                 nav.generate()
         self.assertIn("failed to select VS point", str(cm.exception))
+
+    def test_random_generate_default_max_attempts_does_not_retry(self):
+        """
+        Ensure that :meth:`Random.generate` makes exactly one attempt when no
+        ``max_attempts`` is supplied. The default of 1 preserves the prior
+        single-attempt behavior so existing callers see no change.
+        """
+        nav = Random(order=mock.Mock(), kernel=mock.Mock())
+        with mock.patch(
+            "eleanor.navigator.Boatswain",
+            side_effect=RuntimeError("boom"),
+        ) as boat_class_mock:
+            with self.assertRaises(EleanorException):
+                nav.generate()
+        self.assertEqual(boat_class_mock.call_count, 1)
+
+    def test_random_generate_retries_until_success(self):
+        """
+        Ensure that :meth:`Random.generate` retries on failure and returns
+        the first successful point. After two failed Boatswain constructions
+        the third attempt succeeds and its point is returned.
+        """
+        successful_boat = mock.Mock()
+        successful_boat.constrain.return_value = []
+        successful_boat.generate_vs.return_value = "the_point"
+
+        nav = Random(order=mock.Mock(), kernel=mock.Mock())
+        with mock.patch(
+            "eleanor.navigator.Boatswain",
+            side_effect=[
+                RuntimeError("attempt-1"),
+                RuntimeError("attempt-2"),
+                successful_boat,
+            ],
+        ) as boat_class_mock:
+            point = nav.generate(max_attempts=3)
+
+        self.assertEqual(point, "the_point")
+        self.assertEqual(boat_class_mock.call_count, 3)
+        successful_boat.generate_vs.assert_called_once()
+
+    def test_random_generate_stops_retrying_once_attempt_succeeds(self):
+        """
+        Ensure that :meth:`Random.generate` does not consume retries past the
+        first success. With ``max_attempts=5`` and a successful first attempt,
+        Boatswain is constructed exactly once.
+        """
+        successful_boat = mock.Mock()
+        successful_boat.constrain.return_value = []
+        successful_boat.generate_vs.return_value = "the_point"
+
+        nav = Random(order=mock.Mock(), kernel=mock.Mock())
+        with mock.patch(
+            "eleanor.navigator.Boatswain",
+            return_value=successful_boat,
+        ) as boat_class_mock:
+            point = nav.generate(max_attempts=5)
+
+        self.assertEqual(point, "the_point")
+        self.assertEqual(boat_class_mock.call_count, 1)
+
+    def test_random_generate_retry_exhaustion_chains_last_cause(self):
+        """
+        Ensure that when every attempt fails, :meth:`Random.generate` raises
+        :class:`EleanorException` whose ``__cause__`` is the *last* underlying
+        failure. The retry loop exhausts ``max_attempts`` and then propagates
+        the most recent exception as the cause.
+        """
+        first = RuntimeError("first")
+        second = RuntimeError("second")
+        last = RuntimeError("last")
+        nav = Random(order=mock.Mock(), kernel=mock.Mock())
+        with mock.patch(
+            "eleanor.navigator.Boatswain",
+            side_effect=[first, second, last],
+        ) as boat_class_mock:
+            with self.assertRaises(EleanorException) as cm:
+                nav.generate(max_attempts=3)
+
+        self.assertIn("failed to select VS point", str(cm.exception))
+        self.assertIs(cm.exception.__cause__, last)
+        self.assertEqual(boat_class_mock.call_count, 3)
+
+    def test_random_generate_rejects_non_int_max_attempts(self):
+        """
+        Ensure that :meth:`Random.generate` rejects a non-integer
+        ``max_attempts`` with :class:`EleanorException` before any work is
+        done.
+        """
+        nav = Random(order=mock.Mock(), kernel=mock.Mock())
+        with mock.patch("eleanor.navigator.Boatswain") as boat_class_mock:
+            with self.assertRaisesRegex(EleanorException, "max_attempts must be an integer"):
+                nav.generate(max_attempts="3")
+        boat_class_mock.assert_not_called()
+
+    def test_random_generate_rejects_bool_max_attempts(self):
+        """
+        Ensure that :meth:`Random.generate` rejects a ``bool`` ``max_attempts``.
+        ``bool`` is a subclass of ``int`` in Python, so ``True``/``False``
+        would otherwise silently coerce to 1/0; the guard rejects them so
+        misuse surfaces as an error rather than as a silent zero-attempt run.
+        """
+        nav = Random(order=mock.Mock(), kernel=mock.Mock())
+        with self.assertRaisesRegex(EleanorException, "max_attempts must be an integer"):
+            nav.generate(max_attempts=True)
+
+    def test_random_generate_rejects_zero_max_attempts(self):
+        """
+        Ensure that :meth:`Random.generate` rejects ``max_attempts=0`` with
+        :class:`EleanorException` rather than silently raising the generic
+        "failed to select VS point" wrapper without ever attempting a point.
+        """
+        nav = Random(order=mock.Mock(), kernel=mock.Mock())
+        with mock.patch("eleanor.navigator.Boatswain") as boat_class_mock:
+            with self.assertRaisesRegex(EleanorException, "max_attempts must be at least one"):
+                nav.generate(max_attempts=0)
+        boat_class_mock.assert_not_called()
+
+    def test_random_generate_rejects_negative_max_attempts(self):
+        """
+        Ensure that :meth:`Random.generate` rejects a negative ``max_attempts``.
+        """
+        nav = Random(order=mock.Mock(), kernel=mock.Mock())
+        with self.assertRaisesRegex(EleanorException, "max_attempts must be at least one"):
+            nav.generate(max_attempts=-1)
+
+    def test_random_navigate_threads_max_attempts_to_generate(self):
+        """
+        Ensure that :meth:`Random.navigate` forwards ``max_attempts`` from its
+        kwargs to every :meth:`Random.generate` call. This is the wiring on
+        which :meth:`Eleanor.process` relies when it passes
+        ``max_attempts=max_nav_attempts`` to ``navigator.navigate``.
+        """
+        nav = Random(order=mock.Mock(), kernel=mock.Mock())
+        with mock.patch.object(Random, "generate", return_value="point") as gen_mock:
+            _ = list(nav.navigate(3, 2, max_attempts=5))
+
+        self.assertEqual(gen_mock.call_count, 3)
+        for call in gen_mock.call_args_list:
+            self.assertEqual(call.kwargs.get("max_attempts"), 5)
 
     def test_lattice_navigate_iterate_and_num_systems(self):
         """

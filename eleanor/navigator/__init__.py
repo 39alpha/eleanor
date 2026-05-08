@@ -38,20 +38,31 @@ class Random(AbstractNavigator):
         for batch in batched((generate(*args, **kwargs) for _ in range(scale)), batch_size):
             yield list(batch)
 
-    def generate(self, *_args: object, order_id: int | None = None, **_kwargs: object) -> vs.Point:
-        try:
-            boatswain = Boatswain(self.order)
-            _ = self.kernel.constrain(boatswain)
+    def generate(self, *_args: object, order_id: int | None = None, **kwargs: object) -> vs.Point:
+        max_attempts: object = kwargs.get("max_attempts", 1)
+        if not isinstance(max_attempts, int) or isinstance(max_attempts, bool):
+            raise EleanorException(f"max_attempts must be an integer, got {type(max_attempts).__name__}")
+        elif max_attempts < 1:
+            raise EleanorException(f"max_attempts must be at least one, got {max_attempts}")
 
-            parameters = boatswain.constrain()
-            while parameters:
-                for parameter in parameters:
-                    boatswain[parameter] = boatswain[parameter].random()[0]
+        last_exception: Exception | None = None
+        while max_attempts > 0:
+            try:
+                boatswain = Boatswain(self.order)
+                _ = self.kernel.constrain(boatswain)
+
                 parameters = boatswain.constrain()
+                while parameters:
+                    for parameter in parameters:
+                        boatswain[parameter] = boatswain[parameter].random()[0]
+                    parameters = boatswain.constrain()
 
-            return boatswain.generate_vs(order_id)
-        except Exception as e:
-            raise Exception("failed to select VS point") from e
+                return boatswain.generate_vs(order_id)
+            except Exception as e:
+                last_exception = e
+                max_attempts -= 1
+
+        raise EleanorException("failed to select VS point") from last_exception
 
     @override
     def num_systems(self, scale: int) -> int:

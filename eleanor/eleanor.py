@@ -272,7 +272,7 @@ class Eleanor(object):
         navigator: AbstractNavigator | None = None,
         output_sink: OutputSink | None = None,
         **kwargs: Unpack[EleanorKwargs],
-    ) -> list[int]:
+    ) -> int:
         """Dispatch ``order`` against ``simulation_size`` VS points.
         See the class docstring for the session-vs-per-run resource model.
 
@@ -379,7 +379,7 @@ class Eleanor(object):
                         out_handle.done()
                     progress.join()
 
-            return [order.id]
+            return order.id
 
     def process(
         self,

@@ -225,7 +225,7 @@ class TestEleanorRun(TestCase):
         ):
             out = eleanor.run(order, 5, kernel=mock.Mock(), navigator=_navigator(1))
 
-        self.assertEqual(out, [7])
+        self.assertEqual(out, 7)
         load_executor.assert_called_once_with(kind="multiprocessing", num_workers=None)
         load_sink.assert_called_once_with(eleanor.config, verbose=False)
         sink.finalize.assert_called_once()
@@ -464,7 +464,7 @@ class TestEleanorRun(TestCase):
         ):
             out = eleanor.run(_leaf_order(), 1, output_sink=provided_sink, kernel=mock.Mock(), navigator=_navigator(1))
 
-        self.assertEqual(out, [7])
+        self.assertEqual(out, 7)
         load_sink.assert_not_called()
         provided_sink.initialize.assert_not_called()
         provided_sink.finalize.assert_not_called()

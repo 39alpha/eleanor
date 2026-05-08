@@ -51,6 +51,8 @@ class OrderRaw(TypedDict, total=False):
     which are required in each concrete context.
     """
 
+    id: int | None
+    tag: str | None
     name: str | None
     notes: str | None
     creator: str | None

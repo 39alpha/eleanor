@@ -229,9 +229,14 @@ def load_output_sink(config: "_LoaderConfig", verbose: bool = False) -> "OutputS
             f'output sink plugin "{config.output.type}" failed to instantiate{version_suffix}: {e}',
         ) from e
 
+    from ..typing import cast
     from .interface import OutputSink
 
-    if not isinstance(built, OutputSink):
+    # The protocol is strong, but we want to retain the runtime check because
+    # protocols are discarded at runtime. The case here is necessary to satisfy
+    # the typechecker (which will thing the conditional is always true).
+    built_obj = cast(object, built)
+    if not isinstance(built_obj, OutputSink):
         raise EleanorException(
             f'output sink plugin "{config.output.type}" returned ' + f"{type(built).__name__}, expected an OutputSink",
         )

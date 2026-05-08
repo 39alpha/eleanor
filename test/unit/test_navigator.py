@@ -108,7 +108,7 @@ class TestNavigator(TestCase):
             def generate_vs(self, order_id):
                 return {"order_id": order_id, "values": self.values}
 
-        with mock.patch("eleanor.navigator.Boatswain", FakeBoatswain):
+        with mock.patch("eleanor.navigator.random.Boatswain", FakeBoatswain):
             nav = Random(order=mock.Mock(), kernel=kernel)
             point = cast(dict[str, object], cast(object, nav.generate(order_id=11)))
 
@@ -121,7 +121,7 @@ class TestNavigator(TestCase):
         Ensure that :meth:`Random.generate` wraps internal failures with a stable message.
         """
         nav = Random(order=mock.Mock(), kernel=mock.Mock())
-        with mock.patch("eleanor.navigator.Boatswain", side_effect=RuntimeError("boom")):
+        with mock.patch("eleanor.navigator.random.Boatswain", side_effect=RuntimeError("boom")):
             with self.assertRaises(Exception) as cm:
                 nav.generate()
         self.assertIn("failed to select VS point", str(cm.exception))
@@ -134,7 +134,7 @@ class TestNavigator(TestCase):
         """
         nav = Random(order=mock.Mock(), kernel=mock.Mock())
         with mock.patch(
-            "eleanor.navigator.Boatswain",
+            "eleanor.navigator.random.Boatswain",
             side_effect=RuntimeError("boom"),
         ) as boat_class_mock:
             with self.assertRaises(EleanorException):
@@ -153,7 +153,7 @@ class TestNavigator(TestCase):
 
         nav = Random(order=mock.Mock(), kernel=mock.Mock())
         with mock.patch(
-            "eleanor.navigator.Boatswain",
+            "eleanor.navigator.random.Boatswain",
             side_effect=[
                 RuntimeError("attempt-1"),
                 RuntimeError("attempt-2"),
@@ -178,7 +178,7 @@ class TestNavigator(TestCase):
 
         nav = Random(order=mock.Mock(), kernel=mock.Mock())
         with mock.patch(
-            "eleanor.navigator.Boatswain",
+            "eleanor.navigator.random.Boatswain",
             return_value=successful_boat,
         ) as boat_class_mock:
             point = nav.generate(max_attempts=5)
@@ -198,7 +198,7 @@ class TestNavigator(TestCase):
         last = RuntimeError("last")
         nav = Random(order=mock.Mock(), kernel=mock.Mock())
         with mock.patch(
-            "eleanor.navigator.Boatswain",
+            "eleanor.navigator.random.Boatswain",
             side_effect=[first, second, last],
         ) as boat_class_mock:
             with self.assertRaises(EleanorException) as cm:
@@ -215,7 +215,7 @@ class TestNavigator(TestCase):
         done.
         """
         nav = Random(order=mock.Mock(), kernel=mock.Mock())
-        with mock.patch("eleanor.navigator.Boatswain") as boat_class_mock:
+        with mock.patch("eleanor.navigator.random.Boatswain") as boat_class_mock:
             with self.assertRaisesRegex(EleanorException, "max_attempts must be an integer"):
                 nav.generate(max_attempts="3")
         boat_class_mock.assert_not_called()
@@ -238,7 +238,7 @@ class TestNavigator(TestCase):
         "failed to select VS point" wrapper without ever attempting a point.
         """
         nav = Random(order=mock.Mock(), kernel=mock.Mock())
-        with mock.patch("eleanor.navigator.Boatswain") as boat_class_mock:
+        with mock.patch("eleanor.navigator.random.Boatswain") as boat_class_mock:
             with self.assertRaisesRegex(EleanorException, "max_attempts must be at least one"):
                 nav.generate(max_attempts=0)
         boat_class_mock.assert_not_called()
@@ -294,7 +294,7 @@ class TestNavigator(TestCase):
                 return {"value": self.values.get("p"), "order_id": order_id}
 
         nav = DummyLatticeNavigator(order=mock.Mock(), kernel=kernel)
-        with mock.patch("eleanor.navigator.Boatswain", FakeBoatswain):
+        with mock.patch("eleanor.navigator.lattice.Boatswain", FakeBoatswain):
             batches = list(nav.navigate(2, 1, order_id=5))
         points = [point for batch in batches for point in batch]
 
@@ -339,7 +339,7 @@ class TestNavigator(TestCase):
         """
         nav = DummyLatticeNavigator(order=mock.Mock(), kernel=mock.Mock())
         with (
-            mock.patch("eleanor.navigator.Boatswain", return_value=mock.Mock()),
+            mock.patch("eleanor.navigator.lattice.Boatswain", return_value=mock.Mock()),
             mock.patch.object(
                 DummyLatticeNavigator,
                 "iterate",

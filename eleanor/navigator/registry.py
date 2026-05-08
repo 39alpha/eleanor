@@ -8,10 +8,11 @@ entry-point group.
 
 Each registered factory is a callable invoked as
 ``factory(order, kernel, **args)`` where ``args`` is the optional ``args``
-block from the order file's ``navigator`` section. Factories are typed as
-``Callable[..., object]`` so this module has no structural dependency on
-:mod:`eleanor.navigator` itself; callers validate the returned navigator
-against :class:`~eleanor.navigator.AbstractNavigator` before use.
+block from the order file's ``navigator`` section. ``NavigatorFactory`` is a
+``Protocol`` that pins the leading positional parameters and return type while
+keeping plugin-specific keyword arguments open; callers still validate the
+returned navigator against :class:`~eleanor.navigator.AbstractNavigator`
+before use.
 
 Navigator plugins declare API compatibility via a module- or function-level
 ``__eleanor_api_version__`` attribute. Registration checks this against this
@@ -19,8 +20,7 @@ module's ``PLUGIN_API_VERSION``/``MIN_SUPPORTED_API_VERSION`` policy; see
 ``AGENTS.md`` for details.
 """
 
-from collections.abc import Callable
-from typing import TypeAlias
+from typing import TYPE_CHECKING, Protocol
 
 from eleanor.plugin import PluginRegistry
 
@@ -33,9 +33,21 @@ OVERRIDE_ENV_VAR = "ELEANOR_NAVIGATOR_OVERRIDES"
 PLUGIN_API_VERSION: int = 1
 MIN_SUPPORTED_API_VERSION: int = 1
 
-#: Factory callable shape. Each registered navigator is invoked with the
-#: current order, kernel, and keyword args from the order file.
-NavigatorFactory: TypeAlias = Callable[..., object]
+if TYPE_CHECKING:
+    from eleanor.kernel.interface import AbstractKernel
+    from eleanor.navigator.interface import AbstractNavigator
+    from eleanor.order import Order
+
+
+class NavigatorFactory(Protocol):
+    def __call__(
+        self,
+        order: "Order",
+        kernel: "AbstractKernel",
+        /,
+        **kwargs: object,
+    ) -> "AbstractNavigator": ...
+
 
 #: Canonical names of the navigators shipped inside the eleanor distribution.
 #: Built-ins register their concrete factories from

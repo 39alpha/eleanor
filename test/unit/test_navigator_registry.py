@@ -71,15 +71,15 @@ class TestBuiltinNavigators(TestCase):
         Ensure the built-in factories instantiate the correct navigator class.
         """
         factory = get_factory("random")
-        nav = factory(order=mock.Mock(), kernel=mock.Mock())
+        nav = factory(mock.Mock(), mock.Mock())
         self.assertIsInstance(nav, Random)
 
         factory = get_factory("random_lattice")
-        nav = factory(order=mock.Mock(), kernel=mock.Mock())
+        nav = factory(mock.Mock(), mock.Mock())
         self.assertIsInstance(nav, RandomLattice)
 
         factory = get_factory("lattice")
-        nav = factory(order=mock.Mock(), kernel=mock.Mock())
+        nav = factory(mock.Mock(), mock.Mock())
         self.assertIsInstance(nav, Lattice)
 
 

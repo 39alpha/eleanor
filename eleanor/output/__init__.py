@@ -20,7 +20,7 @@ actually called.
 import warnings
 from typing import TYPE_CHECKING
 
-from ..exceptions import EleanorException
+from ..exceptions import EleanorConfigurationException, EleanorException
 from ..plugin import is_abstract_instantiation_error, resolve_api_version
 from .registry import (
     BUILTIN_OUTPUTS,
@@ -37,7 +37,7 @@ if TYPE_CHECKING:
 
     class _OutputConfig(Protocol):
         @property
-        def type(self) -> str: ...
+        def type(self) -> str | None: ...
 
         @property
         def args(self) -> dict[str, object]: ...
@@ -208,6 +208,15 @@ register_output("memory", _build_memory)
 
 
 def load_output_sink(config: "_LoaderConfig", verbose: bool = False) -> "OutputSink":
+    sinks = available_outputs()
+    valid_sinks = ", ".join(f'"{t}"' for t in sorted(sinks))
+    if config.output.type is None:
+        msg = f"no output sink type provided; choose one of {valid_sinks}"
+        raise EleanorConfigurationException(msg)
+    elif config.output.type not in sinks:
+        msg = f'the "{config.output.type}" output type is not supported; choose one of {valid_sinks}'
+        raise EleanorConfigurationException(msg)
+
     factory = get_factory(config.output.type)
     version = resolve_api_version(factory)
     try:

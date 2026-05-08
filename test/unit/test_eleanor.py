@@ -5,7 +5,7 @@ from unittest import mock
 
 from eleanor.config import Config
 from eleanor.eleanor import Eleanor
-from eleanor.exceptions import EleanorException, EleanorShutdown
+from eleanor.exceptions import EleanorConfigurationException, EleanorException, EleanorShutdown
 from eleanor.executor import AbstractExecutor
 from eleanor.kernel import load_kernel
 from eleanor.order import Order
@@ -91,7 +91,7 @@ def _as_executor(executor: _FakeExecutor) -> AbstractExecutor:
 
 
 class _LoaderOutputConfig:
-    def __init__(self, *, sink_type: str, args: dict[str, object]):
+    def __init__(self, *, sink_type: str | None, args: dict[str, object]):
         self.type = sink_type
         self.args = args
 
@@ -815,7 +815,10 @@ class TestEleanorLoaders(TestCase):
                 return None
 
         factory = mock.Mock(return_value=_Sink())
-        with mock.patch("eleanor.output.get_factory", return_value=factory) as get_factory_mock:
+        with (
+            mock.patch("eleanor.output.available_outputs", return_value=frozenset({"plugin"})),
+            mock.patch("eleanor.output.get_factory", return_value=factory) as get_factory_mock,
+        ):
             sink = load_output_sink(config, verbose=True)
 
         self.assertIsInstance(sink, OutputSink)
@@ -828,10 +831,24 @@ class TestEleanorLoaders(TestCase):
         factory = mock.Mock(return_value=object())
 
         with (
+            mock.patch("eleanor.output.available_outputs", return_value=frozenset({"plugin"})),
             mock.patch("eleanor.output.get_factory", return_value=factory),
             self.assertRaisesRegex(EleanorException, "expected an OutputSink"),
         ):
             _ = load_output_sink(config)
+
+    def test_load_output_sink_rejects_none_type(self):
+        """Ensure load_output_sink raises when no output type is configured."""
+        config = _LoaderConfig(_LoaderOutputConfig(sink_type=None, args={}))
+        with self.assertRaisesRegex(EleanorConfigurationException, "no output sink type provided"):
+            _ = load_output_sink(config)
+
+    def test_load_output_sink_rejects_unknown_type(self):
+        """Ensure load_output_sink raises for unregistered sink types with a helpful message."""
+        config = _LoaderConfig(_LoaderOutputConfig(sink_type="definitely-not-a-sink", args={}))
+        with self.assertRaisesRegex(EleanorConfigurationException, "definitely-not-a-sink") as ctx:
+            _ = load_output_sink(config)
+        self.assertIn("postgres", str(ctx.exception))
 
     def test_load_kernel_constructs_and_sets_up_kernel(self):
         """Ensure load_kernel delegates to spec.build/setup with order context."""

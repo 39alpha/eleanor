@@ -7,8 +7,6 @@ from typing import TypedDict
 import yaml
 
 from .exceptions import EleanorConfigurationException, EleanorException
-from .executor import available_executors
-from .output import available_outputs
 from .typing import cast
 
 
@@ -35,15 +33,8 @@ class ConfigRaw(TypedDict, total=False):
 
 @dataclass
 class OutputConfig(object):
-    type: str = "postgres"
+    type: str | None = None
     args: dict[str, object] = field(default_factory=dict)
-
-    def __post_init__(self):
-        sinks = available_outputs()
-        if self.type not in sinks:
-            valid = ", ".join(f'"{t}"' for t in sorted(sinks))
-            msg = f'the "{self.type}" output type is not supported; choose one of {valid}'
-            raise EleanorConfigurationException(msg)
 
     @staticmethod
     def from_raw(raw: OutputRaw) -> "OutputConfig":
@@ -53,7 +44,7 @@ class OutputConfig(object):
         output_args_items = cast(dict[object, object], output_args_raw).items()
         output_args: dict[str, object] = {str(k): v for k, v in output_args_items}
         return OutputConfig(
-            type=raw.get("type", "postgres"),
+            type=raw.get("type"),
             args=output_args,
         )
 
@@ -64,10 +55,6 @@ class ParallelConfig(object):
     chunks_per_worker: int = 10
 
     def __post_init__(self):
-        backends = available_executors()
-        if self.backend not in backends:
-            msg = f'the "{self.backend}" parallel backend is not supported; choose from {", ".join(sorted(backends))}'
-            raise EleanorConfigurationException(msg)
         if self.chunks_per_worker <= 0:
             msg = f'the chunks_per_worker value "{self.chunks_per_worker}" is invalid; choose a value >= 1'
             raise EleanorConfigurationException(msg)

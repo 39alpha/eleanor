@@ -1,7 +1,7 @@
 from typing import override
 from unittest import mock
 
-from eleanor.exceptions import EleanorException
+from eleanor.exceptions import EleanorConfigurationException
 from eleanor.executor import _normalize_num_workers, available_executors, load_executor
 from eleanor.executor.interface import AbstractExecutor, AbstractFuture
 from eleanor.executor.serial import SerialExecutor
@@ -88,9 +88,10 @@ class TestExecutorInterface(TestCase):
 
     def test_load_executor_rejects_unknown_executor(self):
         """
-        Ensure unsupported executor names raise EleanorException with a helpful choices list.
+        Ensure unsupported executor names raise EleanorConfigurationException
+        with a helpful choices list.
         """
-        with self.assertRaisesRegex(EleanorException, "unsupported executor"):
+        with self.assertRaisesRegex(EleanorConfigurationException, "parallel backend is not supported"):
             load_executor(kind="bad-backend")
 
     def test_load_executor_registry_contains_builtins(self):

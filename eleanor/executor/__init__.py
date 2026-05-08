@@ -1,6 +1,6 @@
 import warnings
 
-from ..exceptions import EleanorException
+from ..exceptions import EleanorConfigurationException, EleanorException
 from ..plugin import is_abstract_instantiation_error, resolve_api_version
 from .interface import AbstractExecutor, AbstractFuture
 from .multiprocessing import MultiprocessingExecutor
@@ -71,6 +71,11 @@ def load_executor(kind: str = "multiprocessing", *, num_workers: int | None = No
     :param num_workers: the requested worker count. Executors are free to
         normalize or ignore this value; see the individual executor classes.
     """
+    backends = available_executors()
+    if kind not in backends:
+        msg = f'the "{kind}" parallel backend is not supported; choose from {", ".join(sorted(backends))}'
+        raise EleanorConfigurationException(msg)
+
     factory = get_factory(kind)
     version = resolve_api_version(factory)
     try:

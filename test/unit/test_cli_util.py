@@ -58,8 +58,7 @@ class TestConfigFromArgs(TestCase):
         Ensure --database raises EleanorConfigurationException when output.type
         is not 'postgres', so the flag is never silently ignored.
         """
-        with mock.patch("eleanor.config.available_outputs", return_value=frozenset({"postgres", "csv"})):
-            non_postgres = Config(raw={"output": {"type": "csv"}})
+        non_postgres = Config(raw={"output": {"type": "csv"}})
         args: ConfigArgs = {"config": "/fake.yaml", "database": "db"}
         with mock.patch("eleanor.cli.util.load_config", return_value=non_postgres):
             with self.assertRaises(EleanorConfigurationException) as ctx:

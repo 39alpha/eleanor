@@ -68,14 +68,14 @@ class Eleanor(object):
 
     def __init__(
         self,
-        config: Config,
+        config: Config | None = None,
         kernel_args: list[object] | None = None,
         num_procs: int | None = None,
         *,
         executor: AbstractExecutor | None = None,
         output_sink: OutputSink | None = None,
     ):
-        self.config = config
+        self.config = config if config is not None else Config()
         self.kernel_args = list(kernel_args) if kernel_args is not None else []
         self.num_procs = num_procs
 

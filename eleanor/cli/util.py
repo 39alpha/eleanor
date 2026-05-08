@@ -66,8 +66,9 @@ def config_from_args(
     config = load_config(config_path)
     if database is not None:
         if config.output.type != "postgres":
+            cause = f'got "{config.output.type}"' if config.output.type is not None else "no output sink provided"
             raise EleanorConfigurationException(
-                '--database is only supported when output.type == "postgres" ' + f'(got "{config.output.type}")'
+                f'--database is only supported when output.type == "postgres" ({cause})'
             )
         output_raw = config.raw.get("output", OutputRaw())
         args_raw_obj = output_raw.get("args")

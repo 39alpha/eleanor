@@ -3,7 +3,6 @@ import textwrap
 from os.path import join
 from tempfile import TemporaryDirectory
 from typing import cast
-from unittest import mock
 
 from eleanor.config import Config, ConfigRaw, OutputConfig, OutputRaw, ParallelConfig, load_config
 from eleanor.exceptions import EleanorConfigurationException, EleanorException
@@ -27,10 +26,13 @@ class TestConfig(TestCase):
 
     def test_parallel_config_validation(self):
         """
-        Ensure invalid backend names and chunk values raise configuration errors.
+        Ensure invalid chunk values raise configuration errors at construction.
+
+        Backend name validation is deferred to :func:`load_executor`;
+        ``ParallelConfig`` itself accepts any string.
         """
-        with self.assertRaises(EleanorConfigurationException):
-            ParallelConfig(backend="bogus")
+        cfg = ParallelConfig(backend="bogus")
+        self.assertEqual(cfg.backend, "bogus")
         with self.assertRaises(EleanorConfigurationException):
             ParallelConfig(chunks_per_worker=0)
 
@@ -264,31 +266,29 @@ class TestConfig(TestCase):
         same = load_config(cfg)
         self.assertIs(same, cfg)
 
-    def test_config_has_default_output_target(self):
+    def test_config_has_no_default_output_target(self):
         """
-        Ensure Config provides an explicit default output target for sink selection.
+        Ensure Config does not silently default to a specific output type.
+
+        Callers must set ``output.type`` explicitly or supply an
+        ``output_sink=`` override to :class:`Eleanor`.
         """
         cfg = Config()
-        self.assertEqual(cfg.output.type, "postgres")
+        self.assertIsNone(cfg.output.type)
 
-    def test_output_config_rejects_unsupported_type(self):
+    def test_output_config_defers_type_validation(self):
         """
-        Ensure OutputConfig raises with a message that names the unsupported type
-        and lists available sink options.
-        """
-        with self.assertRaises(EleanorConfigurationException) as ctx:
-            OutputConfig(type="definitely-not-a-sink")
-        msg = str(ctx.exception)
-        self.assertIn("definitely-not-a-sink", msg)
-        self.assertIn("postgres", msg)
+        Ensure ``OutputConfig`` stores any type string without raising.
 
-    def test_output_config_accepts_plugin_type_when_registry_exposes_it(self):
+        Type validation is deferred to :func:`load_output_sink`, so
+        ``OutputConfig`` itself accepts arbitrary values — including
+        third-party plugin names not yet registered.
         """
-        Ensure OutputConfig validation follows the registry's dynamic sink names.
-        """
-        with mock.patch("eleanor.config.available_outputs", return_value=frozenset({"postgres", "csv"})):
-            cfg = OutputConfig(type="csv")
-        self.assertEqual(cfg.type, "csv")
+        cfg = OutputConfig(type="definitely-not-a-sink")
+        self.assertEqual(cfg.type, "definitely-not-a-sink")
+
+        cfg_plugin = OutputConfig(type="csv")
+        self.assertEqual(cfg_plugin.type, "csv")
 
     def test_output_config_from_raw_parses_args(self):
         """

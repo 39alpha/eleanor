@@ -13,6 +13,7 @@ from eleanor.exceptions import EleanorConfigurationException, EleanorException
 from eleanor.order import Order
 from eleanor.output import ComputeResult, ErrorInfo, OutputSink, PostgresSink, RunStats, WriteOutcome, _build_postgres
 from eleanor.output.postgres.config import DatabaseConfig
+from eleanor.progress import ProgressHandle
 
 from .common import TestCase
 
@@ -98,6 +99,45 @@ class TestOutput(TestCase):
                 pass
 
         self.assertFalse(MinimalSink().supports_progress())
+
+    def test_output_sink_context_manager_calls_initialize_and_finalize(self):
+        """
+        Ensure OutputSink.__enter__ calls initialize and returns the sink,
+        and __exit__ calls finalize, matching the AbstractExecutor pattern.
+        """
+
+        calls: list[str] = []
+
+        class RecordingSink(OutputSink):
+            @override
+            def initialize(self) -> None:
+                calls.append("initialize")
+
+            @override
+            def begin_run(self, order: Order) -> int:
+                _ = order
+                return 0
+
+            @override
+            def write_batch(
+                self, order_id: int, results: Sequence[ComputeResult], progress: ProgressHandle | None = None
+            ) -> list[WriteOutcome]:
+                _ = progress
+                return []
+
+            @override
+            def finalize_run(self) -> None:
+                pass
+
+            @override
+            def finalize(self) -> None:
+                calls.append("finalize")
+
+        sink = RecordingSink()
+        with sink as entered:
+            self.assertIs(entered, sink)
+            self.assertEqual(calls, ["initialize"])
+        self.assertEqual(calls, ["initialize", "finalize"])
 
     def test_postgres_sink_supports_worker_writes(self):
         """

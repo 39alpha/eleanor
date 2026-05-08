@@ -452,7 +452,7 @@ class TestEleanorRun(TestCase):
             eleanor.run(_leaf_order(), 10, kernel=mock.Mock(), navigator=_navigator(5), max_nav_attempts=0)
 
     def test_run_uses_explicit_output_sink_override(self):
-        """Ensure output_sink= overrides config sink and is finalized per run."""
+        """Ensure output_sink= overrides config sink; caller retains lifecycle ownership."""
         eleanor = _make_eleanor()
         provided_sink = mock.Mock()
         provided_sink.begin_run.return_value = 7
@@ -466,7 +466,9 @@ class TestEleanorRun(TestCase):
 
         self.assertEqual(out, [7])
         load_sink.assert_not_called()
-        provided_sink.finalize.assert_called_once()
+        provided_sink.initialize.assert_not_called()
+        provided_sink.finalize.assert_not_called()
+        provided_sink.finalize_run.assert_called_once()
 
     def test_run_finalizes_sink_on_shutdown(self):
         """Ensure run() finalizes sink state when process() raises EleanorShutdown."""
@@ -1004,7 +1006,7 @@ class TestEleanorConstructorOverrides(TestCase):
         ctor_sink.finalize.assert_not_called()
 
     def test_per_run_output_sink_overrides_constructor_output_sink(self):
-        """Ensure per-run output_sink= wins over constructor override and finalizes."""
+        """Ensure per-run output_sink= wins over constructor override; caller retains lifecycle."""
         eleanor = _make_eleanor()
         ctor_sink = mock.Mock()
         per_run_sink = mock.Mock()
@@ -1022,5 +1024,7 @@ class TestEleanorConstructorOverrides(TestCase):
                 navigator=_navigator(1),
             )
 
-        per_run_sink.finalize.assert_called_once()
+        per_run_sink.initialize.assert_not_called()
+        per_run_sink.finalize.assert_not_called()
+        per_run_sink.finalize_run.assert_called_once()
         ctor_sink.finalize.assert_not_called()

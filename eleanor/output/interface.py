@@ -2,6 +2,8 @@ from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from dataclasses import dataclass
 from traceback import format_exception
+from types import TracebackType
+from typing import Self
 
 import eleanor.variable_space as vs
 
@@ -51,14 +53,26 @@ class OutputSink(ABC):
     def initialize(self) -> None:
         """Perform once-per-sink setup before any :meth:`begin_run` is called.
 
-        Eleanor calls this method exactly once per sink instance, before
-        the first :meth:`begin_run`. Sinks may use it to open persistent
-        resources (connections, file handles), apply schema setup, or
-        enter bulk-load mode. The default implementation is a no-op.
+        Called exactly once per sink instance, before the first
+        :meth:`begin_run`. Sinks may use it to open persistent resources
+        (connections, file handles), apply schema setup, or enter
+        bulk-load mode. The default implementation is a no-op.
 
-        :meth:`initialize` and :meth:`finalize` bracket the sink's lifetime;
-        :meth:`begin_run` / :meth:`write_batch` / :meth:`finalize_run`
-        bracket each individual run within that lifetime.
+        For **config-derived** sinks (built from Eleanor's configuration),
+        Eleanor calls this method automatically. For **caller-supplied**
+        sinks — whether passed at construction
+        (``Eleanor(output_sink=...)``) or per-run
+        (``Eleanor.run(output_sink=...)``) — the caller is responsible
+        for calling :meth:`initialize` and :meth:`finalize`. The
+        recommended pattern is to use the sink as a context manager::
+
+            with MySink(...) as sink:
+                eleanor.run(..., output_sink=sink)
+
+        :meth:`initialize` and :meth:`finalize` bracket the sink's
+        lifetime; :meth:`begin_run` / :meth:`write_batch` /
+        :meth:`finalize_run` bracket each individual run within that
+        lifetime.
         """
         return None
 
@@ -124,17 +138,36 @@ class OutputSink(ABC):
     def finalize(self) -> None:
         """Perform once-per-sink teardown after all :meth:`finalize_run` cycles.
 
-        Eleanor calls this method exactly once per sink instance, after the
-        final :meth:`finalize_run` (or immediately, if no run was started).
+        Called exactly once per sink instance, after the final
+        :meth:`finalize_run` (or immediately, if no run was started).
         Sinks may use it to close persistent resources, recreate indexes
         and constraints dropped during bulk-load mode, or run any
         post-write maintenance. The default implementation is a no-op.
 
-        :meth:`finalize` and :meth:`initialize` bracket the sink's lifetime;
-        :meth:`begin_run` / :meth:`write_batch` / :meth:`finalize_run`
-        bracket each individual run within that lifetime.
+        For **caller-supplied** sinks, the caller is responsible for
+        calling this method (see :meth:`initialize` for the recommended
+        context-manager pattern).
+
+        :meth:`finalize` and :meth:`initialize` bracket the sink's
+        lifetime; :meth:`begin_run` / :meth:`write_batch` /
+        :meth:`finalize_run` bracket each individual run within that
+        lifetime.
         """
         return None
+
+    def __enter__(self) -> Self:
+        """Enter the sink's lifetime: calls :meth:`initialize`."""
+        self.initialize()
+        return self
+
+    def __exit__(
+        self,
+        _exc_type: type[BaseException] | None,
+        _exc: BaseException | None,
+        _traceback: TracebackType | None,
+    ) -> None:
+        """Exit the sink's lifetime: calls :meth:`finalize`."""
+        self.finalize()
 
     def supports_worker_writes(self) -> bool:
         """Whether :meth:`write_batch` is safe to invoke from worker processes.

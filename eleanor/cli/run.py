@@ -1,5 +1,6 @@
 import argparse
 import sys
+from contextlib import ExitStack
 from traceback import print_exception
 
 from eleanor import Eleanor
@@ -7,6 +8,7 @@ from eleanor.cli.util import ConfigArgs, add_config_args, config_from_args, type
 from eleanor.exceptions import EleanorException
 from eleanor.executor import available_executors, load_executor
 from eleanor.order import load_order
+from eleanor.output.interface import OutputSink
 from eleanor.output.null import NullConfig, NullSink
 
 
@@ -124,9 +126,11 @@ def execute(parser: argparse.ArgumentParser, ns: argparse.Namespace) -> None:
         if args["tag"] is not None:
             order.tag = args["tag"]
 
-        output_sink = NullSink(NullConfig(support_worker_writes=parallel != "serial")) if null_sink else None
-
-        with load_executor(kind=parallel, num_workers=args["num_procs"]) as executor:
+        with ExitStack() as stack:
+            output_sink: OutputSink | None = None
+            if null_sink:
+                output_sink = stack.enter_context(NullSink(NullConfig(support_worker_writes=parallel != "serial")))
+            executor = stack.enter_context(load_executor(kind=parallel, num_workers=args["num_procs"]))
             with Eleanor(config, kernel_args, executor=executor) as eleanor:
                 order_ids = eleanor.run(
                     order,

@@ -45,8 +45,14 @@ class Eleanor(object):
     Constructor-level ``executor`` and ``output_sink`` keyword arguments
     override the Config-derived defaults for every :meth:`run` call on
     this instance.  Caller retains ownership — Eleanor never shuts down
-    or finalizes them.  Per-run ``output_sink=`` kwargs on individual
-    :meth:`run` calls still take precedence.
+    or finalizes them.
+
+    Per-run ``output_sink=`` on :meth:`run` overrides the constructor-level
+    sink for that call, but the caller still owns its lifetime
+    (``initialize`` / ``finalize``).  The recommended pattern is::
+
+        with MySink(...) as sink:
+            eleanor.run(order, n, output_sink=sink)
     """
 
     config: Config
@@ -206,14 +212,11 @@ class Eleanor(object):
 
         Preference order:
 
-        * Per-run ``override`` wins. Eleanor takes the full lifecycle for the
-          single :meth:`run` call: :meth:`~OutputSink.initialize` on entry,
-          :meth:`~OutputSink.finalize_run` on exit, then
-          :meth:`~OutputSink.finalize` on exit (in that order).
-        * ``self._output_sink_override`` (constructor-level) — returned
-          as-is, caller keeps ownership of
-          :meth:`~OutputSink.initialize` / :meth:`~OutputSink.finalize`.
-          Eleanor still calls :meth:`~OutputSink.finalize_run` per run.
+        * **Caller-supplied** — ``override`` (per-run) or
+          ``self._output_sink_override`` (constructor-level).  Returned
+          as-is; the caller owns :meth:`~OutputSink.initialize` /
+          :meth:`~OutputSink.finalize`.  Eleanor only calls
+          :meth:`~OutputSink.finalize_run` on scope exit.
         * ``self._output_sink`` (session-scoped, lazily built from
           :attr:`config`) — :meth:`~OutputSink.initialize`-d at construction
           time, :meth:`~OutputSink.finalize_run`-d on every run scope exit,
@@ -229,22 +232,12 @@ class Eleanor(object):
             for the entire session. Subsequent calls with a different
             ``verbose`` value will not affect the existing sink.
         """
-        if override is not None:
-            override.initialize()
+        caller_sink = override if override is not None else self._output_sink_override
+        if caller_sink is not None:
             try:
-                yield override
+                yield caller_sink
             finally:
-                try:
-                    override.finalize_run()
-                finally:
-                    override.finalize()
-            return
-
-        if self._output_sink_override is not None:
-            try:
-                yield self._output_sink_override
-            finally:
-                self._output_sink_override.finalize_run()
+                caller_sink.finalize_run()
             return
 
         if self._entered:
@@ -256,6 +249,7 @@ class Eleanor(object):
             finally:
                 self._output_sink.finalize_run()
             return
+
         sink = load_output_sink(self.config, verbose=verbose)
         sink.initialize()
         try:
@@ -282,11 +276,10 @@ class Eleanor(object):
         """Dispatch ``order`` against ``simulation_size`` VS points.
         See the class docstring for the session-vs-per-run resource model.
 
-        If an explicit ``output_sink`` is supplied, Eleanor takes the full
-        sink lifecycle for the duration of this :meth:`run` call:
-        :meth:`~OutputSink.initialize` on entry, then
-        :meth:`~OutputSink.finalize_run` and :meth:`~OutputSink.finalize`
-        on exit.
+        If an explicit ``output_sink`` is supplied, Eleanor treats it as
+        caller-owned: the caller is responsible for
+        :meth:`~OutputSink.initialize` / :meth:`~OutputSink.finalize`.
+        Eleanor only calls :meth:`~OutputSink.finalize_run` on scope exit.
         """
         # Check for arguments that have been retired. The double cast lets
         # basedpyright accept a membership test for a key outside EleanorKwargs.

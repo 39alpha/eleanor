@@ -193,6 +193,8 @@ class TestCLIRun(TestCase):
         fake_order = mock.Mock()
 
         with (
+            mock.patch.object(NullSink, "initialize") as mock_sink_init,
+            mock.patch.object(NullSink, "finalize") as mock_sink_fin,
             mock.patch("eleanor.cli.run.config_from_args", return_value=config) as config_from_args,
             mock.patch("eleanor.cli.run.load_order", return_value=fake_order),
             mock.patch("eleanor.cli.run.load_executor", return_value=executor) as load_executor,
@@ -204,6 +206,8 @@ class TestCLIRun(TestCase):
         load_executor.assert_called_once_with(kind="serial", num_workers=None)
         eleanor_cls.assert_called_once_with(config, [], executor=executor)
         self.assertIsInstance(eleanor.run.call_args.kwargs["output_sink"], NullSink)
+        mock_sink_init.assert_called_once()
+        mock_sink_fin.assert_called_once()
 
     def test_execute_cli_max_nav_attempts_overrides_default(self):
         """
@@ -389,8 +393,8 @@ class TestCLIRun(TestCase):
             run_cli.execute(parser, ns)
 
         load_executor.assert_called_once_with(kind="serial", num_workers=5)
-        executor.__enter__.assert_called_once_with()
-        executor.__exit__.assert_called_once_with(None, None, None)
+        executor.__enter__.assert_called_once()
+        executor.__exit__.assert_called_once()
         eleanor_cls.assert_called_once_with(config, [], executor=executor)
 
     def test_execute_rejects_unknown_parallel_backend(self):

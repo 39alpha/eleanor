@@ -1,10 +1,11 @@
+from contextlib import contextmanager
 from types import SimpleNamespace
 from typing import cast, override
 from unittest import mock
 
 from eleanor.config import Config
 from eleanor.eleanor import Eleanor
-from eleanor.exceptions import EleanorException
+from eleanor.exceptions import EleanorException, EleanorShutdown
 from eleanor.executor import AbstractExecutor
 from eleanor.kernel import load_kernel
 from eleanor.order import Order
@@ -105,6 +106,11 @@ def _navigator(num_systems: int = 1):
     navigator.num_systems.return_value = num_systems
     navigator.navigate.return_value = iter([[]])
     return navigator
+
+
+@contextmanager
+def _shutdown_with_state(state: SimpleNamespace):
+    yield state
 
 
 class TestEleanorConstruction(TestCase):
@@ -456,6 +462,24 @@ class TestEleanorRun(TestCase):
         load_sink.assert_not_called()
         provided_sink.finalize.assert_called_once()
 
+    def test_run_finalizes_sink_on_shutdown(self):
+        """Ensure run() finalizes sink state when process() raises EleanorShutdown."""
+        eleanor = _make_eleanor()
+        sink = mock.Mock()
+        sink.begin_run.return_value = 7
+        sink.supports_progress.return_value = False
+        eleanor.process = mock.Mock(side_effect=EleanorShutdown("SIGTERM"))
+
+        with (
+            mock.patch("eleanor.eleanor.load_executor", return_value=_FakeExecutor()),
+            mock.patch("eleanor.eleanor.load_output_sink", return_value=sink),
+            self.assertRaises(EleanorShutdown),
+        ):
+            eleanor.run(_leaf_order(), 5, kernel=mock.Mock(), navigator=_navigator(1))
+
+        sink.finalize_run.assert_called_once_with()
+        sink.finalize.assert_called_once_with()
+
 
 class TestEleanorProcess(TestCase):
     """Tests covering ``Eleanor.process`` behavior."""
@@ -680,6 +704,90 @@ class TestEleanorProcess(TestCase):
                 executor=_as_executor(executor),
                 sink=sink,
             )
+
+    def test_process_terminates_executor_on_interrupt(self):
+        """Ensure process terminates the executor immediately when interrupted."""
+        eleanor = _make_eleanor()
+        kernel = mock.Mock()
+        navigator = mock.Mock()
+        navigator.navigate.return_value = iter([["a"]])
+        executor = _FakeExecutor(submit_side_effect=[_Future([])])
+        executor.pop_completed_future = mock.Mock(side_effect=KeyboardInterrupt)
+        shutdown = SimpleNamespace(requested=False, signal_name=None)
+        sink = mock.Mock()
+        sink.supports_worker_writes.return_value = False
+
+        with (
+            mock.patch("eleanor.eleanor.shutdown_on_signal", return_value=_shutdown_with_state(shutdown)),
+            self.assertRaises(EleanorShutdown),
+        ):
+            eleanor.process(
+                kernel,
+                navigator,
+                1,
+                9,
+                batch_size=1,
+                expected_total=1,
+                executor=_as_executor(executor),
+                sink=sink,
+            )
+
+        executor.shutdown.assert_called_once_with(wait=False)
+
+    def test_process_shutdown_carries_signal_name(self):
+        """Ensure EleanorShutdown preserves the recorded signal name."""
+        eleanor = _make_eleanor()
+        kernel = mock.Mock()
+        navigator = mock.Mock()
+        navigator.navigate.return_value = iter([["a"]])
+        executor = _FakeExecutor(submit_side_effect=[_Future([])])
+        executor.pop_completed_future = mock.Mock(side_effect=KeyboardInterrupt)
+        shutdown = SimpleNamespace(requested=True, signal_name="SIGTERM")
+        sink = mock.Mock()
+        sink.supports_worker_writes.return_value = False
+
+        with (
+            mock.patch("eleanor.eleanor.shutdown_on_signal", return_value=_shutdown_with_state(shutdown)),
+            self.assertRaises(EleanorShutdown) as raised,
+        ):
+            eleanor.process(
+                kernel,
+                navigator,
+                1,
+                9,
+                batch_size=1,
+                expected_total=1,
+                executor=_as_executor(executor),
+                sink=sink,
+            )
+
+        self.assertEqual(raised.exception.signal_name, "SIGTERM")
+
+    def test_process_skips_total_check_on_shutdown(self):
+        """Ensure interrupt-driven shutdown bypasses navigator total-mismatch validation."""
+        eleanor = _make_eleanor()
+        navigator = mock.Mock()
+        navigator.navigate.side_effect = KeyboardInterrupt
+        shutdown = SimpleNamespace(requested=True, signal_name="SIGTERM")
+        sink = mock.Mock()
+        sink.supports_worker_writes.return_value = False
+
+        with (
+            mock.patch("eleanor.eleanor.shutdown_on_signal", return_value=_shutdown_with_state(shutdown)),
+            self.assertRaises(EleanorShutdown) as raised,
+        ):
+            eleanor.process(
+                mock.Mock(),
+                navigator,
+                10,
+                1,
+                batch_size=5,
+                expected_total=10,
+                executor=_as_executor(_FakeExecutor()),
+                sink=sink,
+            )
+
+        self.assertEqual(raised.exception.signal_name, "SIGTERM")
 
 
 class TestEleanorLoaders(TestCase):

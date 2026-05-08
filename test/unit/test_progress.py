@@ -1,3 +1,4 @@
+import signal
 from multiprocessing.managers import SyncManager
 from queue import Queue
 from typing import cast, override
@@ -74,13 +75,23 @@ class _FakeProcess:
     def __init__(self, target):
         self.target = target
         self.started = False
-        self.joined = False
+        self.join_calls: list[float | None] = []
+        self.terminated = False
+        self._alive_sequence: list[bool] = [True, False]
 
     def start(self):
         self.started = True
 
-    def join(self):
-        self.joined = True
+    def join(self, timeout=None):
+        self.join_calls.append(timeout)
+
+    def is_alive(self):
+        if len(self._alive_sequence) > 1:
+            return self._alive_sequence.pop(0)
+        return self._alive_sequence[0]
+
+    def terminate(self):
+        self.terminated = True
 
 
 class _FakeManager:
@@ -180,11 +191,50 @@ class TestProgressLifecycle(TestCase):
 
         with mock.patch.object(progress_mod, "Process", _FakeProcess):
             p = Progress(_typed_manager(manager))
+            fake_process = cast(_FakeProcess, cast(object, p.process))
+            fake_process._alive_sequence = [True, False]
             p.join()
 
         self.assertEqual(queue.puts, [None])
         self.assertTrue(queue.join_called)
-        self.assertTrue(cast(_FakeProcess, cast(object, p.process)).joined)
+        self.assertEqual(fake_process.join_calls, [5.0])
+        self.assertFalse(fake_process.terminated)
+
+    def test_join_skips_queue_join_when_listener_is_dead(self):
+        """
+        Ensure :meth:`Progress.join` skips queue.join() when the listener is already dead.
+        """
+        queue = _FakeQueue()
+        manager = _FakeManager(queue)
+
+        with mock.patch.object(progress_mod, "Process", _FakeProcess):
+            p = Progress(_typed_manager(manager))
+            fake_process = cast(_FakeProcess, cast(object, p.process))
+            fake_process._alive_sequence = [False, False]
+            p.join()
+
+        self.assertEqual(queue.puts, [None])
+        self.assertFalse(queue.join_called)
+        self.assertEqual(fake_process.join_calls, [5.0])
+        self.assertFalse(fake_process.terminated)
+
+    def test_join_terminates_listener_when_join_times_out(self):
+        """
+        Ensure :meth:`Progress.join` terminates a listener process that remains alive after timeout.
+        """
+        queue = _FakeQueue()
+        manager = _FakeManager(queue)
+
+        with mock.patch.object(progress_mod, "Process", _FakeProcess):
+            p = Progress(_typed_manager(manager))
+            fake_process = cast(_FakeProcess, cast(object, p.process))
+            fake_process._alive_sequence = [True, True]
+            p.join()
+
+        self.assertEqual(queue.puts, [None])
+        self.assertTrue(queue.join_called)
+        self.assertTrue(fake_process.terminated)
+        self.assertEqual(fake_process.join_calls, [5.0, None])
 
 
 class TestProgressListener(TestCase):
@@ -199,8 +249,12 @@ class TestProgressListener(TestCase):
         queue = _FakeQueue(messages=messages)
         p = object.__new__(Progress)
         setattr(p, "queue", queue)
-        with mock.patch.object(progress_mod, "tqdm", _FakeTqdm):
+        with (
+            mock.patch.object(progress_mod, "tqdm", _FakeTqdm),
+            mock.patch("eleanor.progress.signal.signal") as signal_mock,
+        ):
             p.listen()
+        signal_mock.assert_called_once_with(signal.SIGINT, signal.SIG_IGN)
         return queue
 
     def _bars_by_channel(self):
@@ -368,7 +422,10 @@ class TestProgressListener(TestCase):
         # through ``_FakeTqdm.time_value`` so the test owns the value the
         # listener installs into ``start_t`` / ``last_print_t``.
         _FakeTqdm.time_value = 123.0
-        with mock.patch.object(progress_mod, "tqdm", _FakeTqdm):
+        with (
+            mock.patch.object(progress_mod, "tqdm", _FakeTqdm),
+            mock.patch("eleanor.progress.signal.signal"),
+        ):
             p.listen()
 
         bars = self._bars_by_channel()
@@ -392,7 +449,10 @@ class TestProgressListener(TestCase):
         # If ``reset_timer_to_now`` were (incorrectly) called here, both
         # fields would be 999.0 instead of the _FakeTqdm -1.0 sentinel.
         _FakeTqdm.time_value = 999.0
-        with mock.patch.object(progress_mod, "tqdm", _FakeTqdm):
+        with (
+            mock.patch.object(progress_mod, "tqdm", _FakeTqdm),
+            mock.patch("eleanor.progress.signal.signal"),
+        ):
             p.listen()
 
         bars = self._bars_by_channel()

@@ -24,7 +24,7 @@ class _AsyncResult:
 
 
 class _Pool:
-    def __init__(self, processes=None):
+    def __init__(self, processes=None, initializer=None):
         self.close = mock.Mock()
         self.join = mock.Mock()
         self.terminate = mock.Mock()
@@ -87,6 +87,38 @@ class TestMultiprocessingExecutor(TestCase):
         typed_pool.terminate.assert_called_once()
         typed_pool.close.assert_not_called()
         typed_pool.join.assert_not_called()
+
+    def test_exit_uses_wait_false_on_keyboard_interrupt(self):
+        """
+        Ensure __exit__ uses wait=False when unwinding from KeyboardInterrupt.
+        """
+        with mock.patch("eleanor.executor.multiprocessing.Pool", _Pool):
+            executor = MultiprocessingExecutor(num_workers=2)
+            executor.__enter__()
+
+        pool = executor._pool
+        self.assertIsNotNone(pool)
+        typed_pool = cast(_Pool, cast(object, pool))
+        executor.__exit__(KeyboardInterrupt, KeyboardInterrupt(), None)
+        typed_pool.terminate.assert_called_once()
+        typed_pool.close.assert_not_called()
+        typed_pool.join.assert_not_called()
+
+    def test_exit_uses_wait_true_on_normal_exit(self):
+        """
+        Ensure __exit__ uses wait=True on normal exit.
+        """
+        with mock.patch("eleanor.executor.multiprocessing.Pool", _Pool):
+            executor = MultiprocessingExecutor(num_workers=2)
+            executor.__enter__()
+
+        pool = executor._pool
+        self.assertIsNotNone(pool)
+        typed_pool = cast(_Pool, cast(object, pool))
+        executor.__exit__(None, None, None)
+        typed_pool.close.assert_called_once()
+        typed_pool.join.assert_called_once()
+        typed_pool.terminate.assert_not_called()
 
     def test_submit_after_shutdown_raises(self):
         """

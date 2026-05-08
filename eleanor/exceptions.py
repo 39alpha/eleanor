@@ -24,3 +24,19 @@ class EleanorParserException(EleanorException):
 
 class EleanorConfigurationException(EleanorException):
     pass
+
+
+class EleanorShutdown(KeyboardInterrupt):
+    """Signal-aware shutdown used by the run loop.
+
+    Inherits from ``KeyboardInterrupt`` (a ``BaseException``) so it propagates
+    through ``except Exception`` blocks while still unwinding all ``finally``
+    chains.
+    """
+
+    signal_name: str | None
+
+    def __init__(self, signal_name: str | None = None):
+        message = f"shutdown requested by {signal_name}" if signal_name else "shutdown requested"
+        super().__init__(message)
+        self.signal_name = signal_name

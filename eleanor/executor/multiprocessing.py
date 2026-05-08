@@ -1,4 +1,5 @@
 import os
+import signal
 from collections.abc import Callable
 from multiprocessing import Pool
 from multiprocessing.pool import ApplyResult
@@ -10,6 +11,11 @@ from eleanor.exceptions import EleanorException
 from .interface import AbstractExecutor, AbstractFuture
 
 T = TypeVar("T")
+
+
+def _ignore_sigint() -> None:
+    """Pool initializer: let the main process handle SIGINT exclusively."""
+    _ = signal.signal(signal.SIGINT, signal.SIG_IGN)
 
 
 class MultiprocessingFuture(AbstractFuture[T]):
@@ -37,7 +43,7 @@ class MultiprocessingExecutor(AbstractExecutor):
 
     @override
     def __enter__(self) -> Self:
-        self._pool = Pool(processes=self._num_workers)
+        self._pool = Pool(processes=self._num_workers, initializer=_ignore_sigint)
         return super().__enter__()
 
     @property

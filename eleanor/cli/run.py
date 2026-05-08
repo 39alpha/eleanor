@@ -1,4 +1,5 @@
 import argparse
+import sys
 from traceback import print_exception
 
 from eleanor import Eleanor
@@ -142,6 +143,10 @@ def execute(parser: argparse.ArgumentParser, ns: argparse.Namespace) -> None:
 
         if args["verbose"]:
             print("Orders created or extended:", order_ids)
+    except KeyboardInterrupt as e:
+        name = getattr(e, "signal_name", None) or "interrupt"
+        print(f"Eleanor run interrupted by {name}; sink finalized cleanly.")
+        sys.exit(130)
     except Exception as e:
         if args["verbose"]:
             print_exception(e)

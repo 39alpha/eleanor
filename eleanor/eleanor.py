@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 from eleanor.sailor import Sailor
 
 from .config import Config
-from .exceptions import EleanorException
+from .exceptions import EleanorException, EleanorShutdown
 from .executor import AbstractExecutor, AbstractFuture, load_executor
 from .kernel import load_kernel
 from .kernel.interface import AbstractKernel
@@ -16,6 +16,7 @@ from .order import Order
 from .output import load_output_sink
 from .output.interface import ComputeResult, OutputSink, RunStats, WriteOutcome
 from .progress import ManagedProgressHandle, Progress, ProgressHandle
+from .signals import shutdown_on_signal
 from .typing import EleanorKwargs, Self, Unpack, cast
 from .util import chunks
 
@@ -138,7 +139,8 @@ class Eleanor(object):
 
         if self._executor is not None:
             try:
-                self._executor.shutdown(wait=True)
+                wait = _exc_type is None or not issubclass(_exc_type, KeyboardInterrupt)
+                self._executor.shutdown(wait=wait)
             except BaseException as error:
                 if first_error is None:
                     first_error = error
@@ -439,109 +441,117 @@ class Eleanor(object):
         worker_sim_progress = sim_progress if executor.supports_worker_progress else None
         worker_out_progress = out_progress if executor.supports_worker_progress else None
         total_produced = 0
-        for vs_points in navigator.navigate(
-            simulation_size,
-            batch_size,
-            order_id=order_id,
-            max_attempts=max_nav_attempts,
-        ):
-            total_produced += len(vs_points)
-            if len(vs_points) == 0:
-                continue
-
-            # Cap chunk count at the number of points so we never produce
-            # empty batches when num_workers * chunks_per_worker exceeds
-            # len(vs_points).
-            chunk_count = min(len(vs_points), executor.num_workers * chunks_per_worker)
-
-            sailor_kwargs: EleanorKwargs = {**kwargs}
-            batch_outcomes: list[WriteOutcome] = []
-
-            if worker_writes:
-                # Sinks that opt in to worker writes receive the sink and
-                # ``order_id`` through to ``Sailor.dispatch``, which invokes
-                # ``sink.write_batch`` inside the worker. The future therefore
-                # resolves directly to a small ``list[WriteOutcome]`` payload,
-                # avoiding the IPC cost of shipping full ``ComputeResult``s
-                # (and their mapped ``vs.Point`` graph) back to the parent.
-                outcome_futures: list[AbstractFuture[list[WriteOutcome]]] = []
-                for batch in chunks(vs_points, chunk_count):
-                    # ``Sailor.dispatch`` has a ``list[ComputeResult] |
-                    # list[WriteOutcome]`` union return type, but with a sink
-                    # and ``order_id`` supplied it always returns
-                    # ``list[WriteOutcome]``. ``AbstractFuture`` is invariant
-                    # over its type parameter, so narrow the future here.
-                    outcome_future = cast(
-                        AbstractFuture[list[WriteOutcome]],
-                        executor.submit(
-                            Sailor(kernel).dispatch,
-                            batch,
-                            *args,
-                            sink=sink,
-                            order_id=order_id,
-                            sim_progress=worker_sim_progress,
-                            out_progress=worker_out_progress,
-                            **sailor_kwargs,
-                        ),
-                    )
-                    outcome_futures.append(outcome_future)
-
-                while outcome_futures:
-                    outcome_future = executor.pop_completed_future(outcome_futures)
-                    result = outcome_future.result()
-                    batch_outcomes.extend(result)
-                    # Fallback batch-level ticks for executors that cannot
-                    # forward the ProgressHandle into workers. Empty futures
-                    # are skipped so the bar never gets a spurious tick(0).
-                    if worker_sim_progress is None and sim_progress is not None and result:
-                        sim_progress.tick(len(result))
-                    if worker_out_progress is None and out_progress is not None:
-                        committed = sum(1 for o in result if o.committed and o.exit_code == 0)
-                        if committed:
-                            out_progress.tick(committed)
-            else:
-                # Serial sinks are driven by the main process: workers return
-                # full ``ComputeResult`` payloads, which are then written here.
-                compute_futures: list[AbstractFuture[list[ComputeResult]]] = []
-                for batch in chunks(vs_points, chunk_count):
-                    # See the ``worker_writes`` branch above: without a sink,
-                    # ``Sailor.dispatch`` always resolves to
-                    # ``list[ComputeResult]``, so narrow the invariant future.
-                    compute_future = cast(
-                        AbstractFuture[list[ComputeResult]],
-                        executor.submit(
-                            Sailor(kernel).dispatch,
-                            batch,
-                            *args,
-                            sim_progress=worker_sim_progress,
-                            **sailor_kwargs,
-                        ),
-                    )
-                    compute_futures.append(compute_future)
-
-                while compute_futures:
-                    compute_future = executor.pop_completed_future(compute_futures)
-                    result = compute_future.result()
-                    if worker_sim_progress is None and sim_progress is not None and result:
-                        sim_progress.tick(len(result))
-                    # Stream each resolved worker batch straight into the sink
-                    # instead of accumulating all compute payloads in-memory.
-                    # This reduces parent memory pressure and cuts time-to-
-                    # first-write for large runs.
-                    if len(result) == 0:
+        # Signal handlers are intentionally installed *after* the executor pool
+        # is constructed so worker processes inherit only the default SIGTERM
+        # disposition.
+        with shutdown_on_signal() as shutdown:
+            try:
+                for vs_points in navigator.navigate(
+                    simulation_size,
+                    batch_size,
+                    order_id=order_id,
+                    max_attempts=max_nav_attempts,
+                ):
+                    total_produced += len(vs_points)
+                    if len(vs_points) == 0:
                         continue
-                    # The sink owns the output bar's cadence: per-row,
-                    # per-batch, or anything in between. Eleanor only hands
-                    # over the handle.
-                    batch_outcomes.extend(
-                        sink.write_batch(
-                            order_id,
-                            result,
-                            progress=out_progress,
-                        )
-                    )
 
-            outcomes.extend(batch_outcomes)
+                    # Cap chunk count at the number of points so we never produce
+                    # empty batches when num_workers * chunks_per_worker exceeds
+                    # len(vs_points).
+                    chunk_count = min(len(vs_points), executor.num_workers * chunks_per_worker)
+
+                    sailor_kwargs: EleanorKwargs = {**kwargs}
+                    batch_outcomes: list[WriteOutcome] = []
+
+                    if worker_writes:
+                        # Sinks that opt in to worker writes receive the sink and
+                        # ``order_id`` through to ``Sailor.dispatch``, which invokes
+                        # ``sink.write_batch`` inside the worker. The future therefore
+                        # resolves directly to a small ``list[WriteOutcome]`` payload,
+                        # avoiding the IPC cost of shipping full ``ComputeResult``s
+                        # (and their mapped ``vs.Point`` graph) back to the parent.
+                        outcome_futures: list[AbstractFuture[list[WriteOutcome]]] = []
+                        for batch in chunks(vs_points, chunk_count):
+                            # ``Sailor.dispatch`` has a ``list[ComputeResult] |
+                            # list[WriteOutcome]`` union return type, but with a sink
+                            # and ``order_id`` supplied it always returns
+                            # ``list[WriteOutcome]``. ``AbstractFuture`` is invariant
+                            # over its type parameter, so narrow the future here.
+                            outcome_future = cast(
+                                AbstractFuture[list[WriteOutcome]],
+                                executor.submit(
+                                    Sailor(kernel).dispatch,
+                                    batch,
+                                    *args,
+                                    sink=sink,
+                                    order_id=order_id,
+                                    sim_progress=worker_sim_progress,
+                                    out_progress=worker_out_progress,
+                                    **sailor_kwargs,
+                                ),
+                            )
+                            outcome_futures.append(outcome_future)
+
+                        while outcome_futures:
+                            outcome_future = executor.pop_completed_future(outcome_futures)
+                            result = outcome_future.result()
+                            batch_outcomes.extend(result)
+                            # Fallback batch-level ticks for executors that cannot
+                            # forward the ProgressHandle into workers. Empty futures
+                            # are skipped so the bar never gets a spurious tick(0).
+                            if worker_sim_progress is None and sim_progress is not None and result:
+                                sim_progress.tick(len(result))
+                            if worker_out_progress is None and out_progress is not None:
+                                committed = sum(1 for o in result if o.committed and o.exit_code == 0)
+                                if committed:
+                                    out_progress.tick(committed)
+                    else:
+                        # Serial sinks are driven by the main process: workers return
+                        # full ``ComputeResult`` payloads, which are then written here.
+                        compute_futures: list[AbstractFuture[list[ComputeResult]]] = []
+                        for batch in chunks(vs_points, chunk_count):
+                            # See the ``worker_writes`` branch above: without a sink,
+                            # ``Sailor.dispatch`` always resolves to
+                            # ``list[ComputeResult]``, so narrow the invariant future.
+                            compute_future = cast(
+                                AbstractFuture[list[ComputeResult]],
+                                executor.submit(
+                                    Sailor(kernel).dispatch,
+                                    batch,
+                                    *args,
+                                    sim_progress=worker_sim_progress,
+                                    **sailor_kwargs,
+                                ),
+                            )
+                            compute_futures.append(compute_future)
+
+                        while compute_futures:
+                            compute_future = executor.pop_completed_future(compute_futures)
+                            result = compute_future.result()
+                            if worker_sim_progress is None and sim_progress is not None and result:
+                                sim_progress.tick(len(result))
+                            # Stream each resolved worker batch straight into the sink
+                            # instead of accumulating all compute payloads in-memory.
+                            # This reduces parent memory pressure and cuts time-to-
+                            # first-write for large runs.
+                            if len(result) == 0:
+                                continue
+                            # The sink owns the output bar's cadence: per-row,
+                            # per-batch, or anything in between. Eleanor only hands
+                            # over the handle.
+                            batch_outcomes.extend(
+                                sink.write_batch(
+                                    order_id,
+                                    result,
+                                    progress=out_progress,
+                                )
+                            )
+
+                    outcomes.extend(batch_outcomes)
+            except KeyboardInterrupt:
+                executor.shutdown(wait=False)
+                raise EleanorShutdown(shutdown.signal_name) from None
 
         if total_produced != expected_total:
             raise EleanorException(

@@ -22,6 +22,7 @@ are picklable, so they can cross the worker boundary alongside the underlying
 queue proxy.
 """
 
+import signal
 from collections.abc import Callable
 from dataclasses import dataclass
 from multiprocessing import Process
@@ -211,6 +212,7 @@ class Progress(object):
         kept locally; the parent's copy of ``self`` is
         read-only here except for resources that live in the queue itself.
         """
+        _ = signal.signal(signal.SIGINT, signal.SIG_IGN)
         bars: dict[Channel, tqdm[NoReturn] | None] = {"sim": None, "out": None}
         totals: dict[Channel, int] = {"sim": 0, "out": 0}
         positions: dict[Channel, int] = {"sim": 0, "out": 1}
@@ -341,5 +343,9 @@ class Progress(object):
     def join(self) -> None:
         """Signal the listener to shut down and wait for it to exit."""
         self.queue.put(None)
-        self.queue.join()
-        self.process.join()
+        if self.process.is_alive():
+            self.queue.join()
+        self.process.join(timeout=5.0)
+        if self.process.is_alive():
+            self.process.terminate()
+            self.process.join()

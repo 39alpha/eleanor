@@ -66,4 +66,5 @@ class AbstractExecutor(ABC):
         _exc: BaseException | None,
         _traceback: TracebackType | None,
     ) -> None:
-        self.shutdown(wait=True)
+        wait = _exc_type is None or not issubclass(_exc_type, KeyboardInterrupt)
+        self.shutdown(wait=wait)

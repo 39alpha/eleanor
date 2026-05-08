@@ -3,7 +3,7 @@ from unittest import mock
 
 from eleanor.cli import run as run_cli  # pyright: ignore[reportPrivateImportUsage]
 from eleanor.config import Config
-from eleanor.exceptions import EleanorException
+from eleanor.exceptions import EleanorException, EleanorShutdown
 from eleanor.executor import registry
 from eleanor.output.null import NullSink
 
@@ -426,3 +426,53 @@ class TestCLIRun(TestCase):
         # Sanity check that the internal code path uses EleanorException — this
         # keeps the unknown-backend error path honest if refactored.
         self.assertTrue(issubclass(EleanorException, Exception))
+
+    def test_execute_keyboard_interrupt_exits_130_with_friendly_message(self):
+        """Ensure plain KeyboardInterrupt emits the generic interrupt message and exits 130."""
+        parser = argparse.ArgumentParser()
+        ns = self._namespace()
+        config = self._config()
+        eleanor = _fake_eleanor()
+        eleanor.run.side_effect = KeyboardInterrupt()
+        executor = _fake_executor()
+        fake_order = mock.Mock()
+
+        with (
+            mock.patch("eleanor.cli.run.config_from_args", return_value=config),
+            mock.patch("eleanor.cli.run.load_order", return_value=fake_order),
+            mock.patch("eleanor.cli.run.load_executor", return_value=executor),
+            mock.patch("eleanor.cli.run.Eleanor", return_value=eleanor),
+            mock.patch("builtins.print") as print_mock,
+            mock.patch("eleanor.cli.run.sys.exit", side_effect=SystemExit(130)) as exit_mock,
+            self.assertRaises(SystemExit) as raised,
+        ):
+            run_cli.execute(parser, ns)
+
+        self.assertEqual(raised.exception.code, 130)
+        exit_mock.assert_called_once_with(130)
+        print_mock.assert_called_once_with("Eleanor run interrupted by interrupt; sink finalized cleanly.")
+
+    def test_execute_eleanor_shutdown_uses_signal_name_in_message(self):
+        """Ensure EleanorShutdown messages include the signal name and exit 130."""
+        parser = argparse.ArgumentParser()
+        ns = self._namespace()
+        config = self._config()
+        eleanor = _fake_eleanor()
+        eleanor.run.side_effect = EleanorShutdown("SIGTERM")
+        executor = _fake_executor()
+        fake_order = mock.Mock()
+
+        with (
+            mock.patch("eleanor.cli.run.config_from_args", return_value=config),
+            mock.patch("eleanor.cli.run.load_order", return_value=fake_order),
+            mock.patch("eleanor.cli.run.load_executor", return_value=executor),
+            mock.patch("eleanor.cli.run.Eleanor", return_value=eleanor),
+            mock.patch("builtins.print") as print_mock,
+            mock.patch("eleanor.cli.run.sys.exit", side_effect=SystemExit(130)) as exit_mock,
+            self.assertRaises(SystemExit) as raised,
+        ):
+            run_cli.execute(parser, ns)
+
+        self.assertEqual(raised.exception.code, 130)
+        exit_mock.assert_called_once_with(130)
+        print_mock.assert_called_once_with("Eleanor run interrupted by SIGTERM; sink finalized cleanly.")

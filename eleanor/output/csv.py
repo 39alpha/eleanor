@@ -1,3 +1,4 @@
+import copy
 import csv
 import os.path
 import sys
@@ -298,9 +299,8 @@ class CsvSink(OutputSink):
                 )
                 continue
 
-            order = self._order
+            order = copy.copy(self._order)
             assert order is not None
-            original_vs_points = order.vs_points
             order.vs_points = [result.point]
             try:
                 rows = list(evaluate(self._compiled, order))
@@ -320,8 +320,6 @@ class CsvSink(OutputSink):
                     self._order = None
                     self._order_id = None
                 raise
-            finally:
-                order.vs_points = original_vs_points
             current_point_id = self._vs_points_seen[self._order_id]
             rows = _prepare_rows(self._columns, self._vs_index_columns, current_point_id, rows)
             _append_rows(self.config.filename, self._columns, rows)

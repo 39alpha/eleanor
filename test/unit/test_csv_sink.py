@@ -460,6 +460,39 @@ class TestCsvSink(TestCase):
                 schema = yaml.safe_load(handle)
             self.assertEqual(schema["vs_points_seen"], {0: 2})
 
+    def test_write_batch_evaluates_each_point_against_order_copy(self):
+        """Ensure each evaluate call receives a per-point Order shell, not the canonical Order object."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            filename = f"{tmpdir}/rows.csv"
+            sink = CsvSink(CsvConfig(filename=filename, query=_query_with_order_id()))
+            sink.initialize()
+            order = _minimal_order()
+            sink.begin_run(order)
+            original_vs_points = order.vs_points
+
+            r0 = ComputeResult(point=_point(exit_code=0, order_id=None))
+            r1 = ComputeResult(point=_point(exit_code=5, order_id=None))
+            expected_points = [r0.point, r1.point]
+            seen_roots: list[Order] = []
+
+            def _fake_evaluate(_compiled: object, root: Order):
+                expected = expected_points[len(seen_roots)]
+                self.assertIsNot(root, order)
+                self.assertIs(order.vs_points, original_vs_points)
+                self.assertEqual(order.vs_points, [])
+                self.assertEqual(root.vs_points, [expected])
+                seen_roots.append(root)
+                return iter([{"order_id": 1, "exit_code": expected.exit_code}])
+
+            with mock.patch("eleanor.output.csv.evaluate", side_effect=_fake_evaluate):
+                outcomes = sink.write_batch(0, [r0, r1])
+
+            self.assertEqual(len(outcomes), 2)
+            self.assertTrue(all(outcome.committed for outcome in outcomes))
+            self.assertEqual(len(seen_roots), 2)
+            self.assertIs(order.vs_points, original_vs_points)
+            self.assertEqual(order.vs_points, [])
+
     def test_write_batch_failure_logs_traceback_reraises_and_keeps_zero_count_state(self):
         """Ensure evaluate failures are loud, re-raised, and preserve zero-count state for the active order."""
         with tempfile.TemporaryDirectory() as tmpdir:

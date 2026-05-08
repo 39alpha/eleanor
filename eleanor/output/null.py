@@ -39,8 +39,8 @@ class NullSink(OutputSink):
     _next_order_id: int
     _order_id: int | None
 
-    def __init__(self, config: NullConfig):
-        self.config = config
+    def __init__(self, config: NullConfig | None = None) -> None:
+        self.config = config if config is not None else NullConfig(support_worker_writes=False)
         self._next_order_id = 0
         self._order_id = None
 

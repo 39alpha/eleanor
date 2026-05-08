@@ -1,19 +1,44 @@
 """In-memory :class:`OutputSink` implementation for programmatic and test use."""
 
 from collections.abc import Sequence
-from typing import override
+from dataclasses import dataclass
+from typing import TypedDict, override
 
-from ..exceptions import EleanorException
+from ..exceptions import EleanorConfigurationException, EleanorException
 from ..order import Order
 from ..progress import ProgressHandle
 from ..version import __version__
 from .interface import ComputeResult, OutputSink, WriteOutcome
 
 
+class MemoryArgsRaw(TypedDict, total=False):
+    support_worker_writes: bool
+
+
+@dataclass(frozen=True, init=False)
+class MemoryConfig(object):
+    support_worker_writes: bool
+
+    def __init__(self, support_worker_writes: object):
+        if not isinstance(support_worker_writes, bool):
+            raise EleanorConfigurationException(
+                'output.args.support_worker_writes must be a boolean for output type "memory"'
+            )
+        object.__setattr__(self, "support_worker_writes", support_worker_writes)
+
+    @staticmethod
+    def from_raw(raw: MemoryArgsRaw) -> "MemoryConfig":
+        return MemoryConfig(
+            support_worker_writes=raw.get("support_worker_writes", False),
+        )
+
+
 class MemorySink(OutputSink):
+    config: MemoryConfig
     _orders: dict[int, Order]
 
-    def __init__(self) -> None:
+    def __init__(self, config: MemoryConfig | None = None) -> None:
+        self.config = config if config is not None else MemoryConfig(support_worker_writes=False)
         self._orders = {}
 
     @override
@@ -71,7 +96,7 @@ class MemorySink(OutputSink):
 
     @override
     def supports_worker_writes(self) -> bool:
-        return False
+        return self.config.support_worker_writes
 
     @override
     def supports_progress(self) -> bool:

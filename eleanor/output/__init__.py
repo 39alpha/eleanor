@@ -98,7 +98,7 @@ def __getattr__(name: str) -> object:
 
 
 _KNOWN_CSV_ARGS: frozenset[str] = frozenset({"filename", "query"})
-_KNOWN_MEMORY_ARGS: frozenset[str] = frozenset()
+_KNOWN_MEMORY_ARGS: frozenset[str] = frozenset({"support_worker_writes"})
 _KNOWN_NULL_ARGS: frozenset[str] = frozenset({"support_worker_writes"})
 _KNOWN_POSTGRES_ARGS: frozenset[str] = frozenset({"database", "bulk_load_optimization"})
 
@@ -137,9 +137,9 @@ def _build_memory(_config: object, *, verbose: bool = False, **args: object) -> 
             stacklevel=2,
         )
 
-    from .memory import MemorySink
+    from .memory import MemoryConfig, MemorySink
 
-    return MemorySink()
+    return MemorySink(MemoryConfig(support_worker_writes=args.get("support_worker_writes", False)))
 
 
 def _build_null(_config: object, *, verbose: bool = False, **args: object) -> "NullSink":

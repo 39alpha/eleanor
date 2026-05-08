@@ -2,9 +2,10 @@ from types import SimpleNamespace
 from typing import cast
 from unittest import mock
 
-from eleanor.exceptions import EleanorException
+from eleanor.exceptions import EleanorConfigurationException, EleanorException
 from eleanor.order import Order
 from eleanor.output import ComputeResult, ErrorInfo, MemorySink, WriteOutcome
+from eleanor.output.memory import MemoryConfig
 from eleanor.variable_space import Point
 
 from .common import TestCase
@@ -29,9 +30,29 @@ def _point(*, exit_code: int = 0, order_id: int | None = None) -> Point:
 
 
 class TestMemorySink(TestCase):
-    def test_supports_worker_writes_returns_false(self):
-        """Ensure MemorySink does not support worker-side writes."""
+    def test_supports_worker_writes_defaults_to_false(self):
+        """Ensure MemorySink defaults to no worker-side writes when config is omitted."""
         self.assertFalse(MemorySink().supports_worker_writes())
+
+    def test_supports_worker_writes_respects_config_true(self):
+        """Ensure MemorySink reports worker-write support when config enables it."""
+        config = MemoryConfig(support_worker_writes=True)
+        self.assertTrue(MemorySink(config).supports_worker_writes())
+
+    def test_supports_worker_writes_respects_config_false(self):
+        """Ensure MemorySink denies worker-write support when config disables it."""
+        config = MemoryConfig(support_worker_writes=False)
+        self.assertFalse(MemorySink(config).supports_worker_writes())
+
+    def test_memory_config_rejects_non_bool(self):
+        """Ensure MemoryConfig raises on non-boolean support_worker_writes."""
+        with self.assertRaises(EleanorConfigurationException):
+            MemoryConfig(support_worker_writes="yes")
+
+    def test_memory_config_from_raw_defaults(self):
+        """Ensure MemoryConfig.from_raw defaults support_worker_writes to False."""
+        config = MemoryConfig.from_raw({})
+        self.assertFalse(config.support_worker_writes)
 
     def test_supports_progress_returns_true(self):
         """Ensure MemorySink opts in to sink-side output progress ticks."""

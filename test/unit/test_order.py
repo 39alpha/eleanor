@@ -123,22 +123,6 @@ class TestOrder(TestCase):
         params = order.parameters()
         self.assertTrue(any(isinstance(p, ValueParameter) for p in params))
 
-    def test_order_ignores_suborders_key(self):
-        """
-        Ensure Order construction succeeds when raw contains suborders and ignores that content.
-        """
-        order = _make_order(
-            name="o",
-            creator="u",
-            temperature=25.0,
-            pressure=1.0,
-            elements={"Na": 1.0},
-            suborders=[{"name": "child", "temperature": 100.0}],
-        )
-
-        self.assertEqual(order.name, "o")
-        self.assertEqual(cast(ValueParameter, order.temperature).value, 25.0)
-
     def test_order_reads_id_from_raw(self):
         """
         Ensure Order.__init__ reads an optional numeric ``id`` from raw

@@ -30,7 +30,6 @@ _KNOWN_SEGMENT_NAMES: tuple[str, ...] = (
     "end_members",
     "elements",
     "species",
-    "suborders",
     "reactants",
     "gases",
     "redox_reactions",

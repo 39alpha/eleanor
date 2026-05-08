@@ -2,9 +2,11 @@ import argparse
 import sys
 from contextlib import ExitStack
 from traceback import print_exception
+from typing import cast
 
 from eleanor import Eleanor
 from eleanor.cli.util import ConfigArgs, add_config_args, config_from_args, typed_args
+from eleanor.exceptions import EleanorConfigurationException
 from eleanor.executor import load_executor
 from eleanor.order import load_order
 from eleanor.output.interface import OutputSink
@@ -24,6 +26,7 @@ class RunArgs(ConfigArgs):
     kernel_args: list[str] | None
     progress: bool
     null_sink: bool
+    bulk_load: bool | None
     parallel: str | None
     chunks_per_worker: int | None
     batch_size: int | None
@@ -46,6 +49,16 @@ def init(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
         required=False,
         action="store_true",
         help="override config output sink with NullSink (useful for tests/benchmarks)",
+    )
+    _ = parser.add_argument(
+        "--bulk-load",
+        required=False,
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help=(
+            "override bulk-load optimization on the postgres sink "
+            "(--bulk-load enables, --no-bulk-load disables; default: use config file)"
+        ),
     )
     _ = parser.add_argument(
         "-p",
@@ -104,9 +117,23 @@ def execute(parser: argparse.ArgumentParser, ns: argparse.Namespace) -> None:
     batch_size = args["batch_size"]
     max_nav_attempts = args["max_nav_attempts"]
     null_sink = args["null_sink"]
+    bulk_load = args["bulk_load"]
 
     try:
         config = config_from_args(parser, args, require_database=not null_sink)
+        if bulk_load is not None and not null_sink:
+            if config.output.type != "postgres":
+                cause = f'got "{config.output.type}"' if config.output.type is not None else "no output sink provided"
+                raise EleanorConfigurationException(
+                    f'--bulk-load is only supported when output.type == "postgres" ({cause})'
+                )
+            config.output.args["bulk_load_optimization"] = bulk_load
+            # Keep config.raw consistent with the parsed snapshot, matching
+            # the pattern used by --database in config_from_args.
+            raw_output = config.raw.get("output", {})
+            raw_args = cast(object, raw_output.get("args", {}))
+            if isinstance(raw_args, dict):
+                raw_args["bulk_load_optimization"] = bulk_load
         if parallel is None:
             parallel = config.parallel.backend
         if chunks_per_worker is None:

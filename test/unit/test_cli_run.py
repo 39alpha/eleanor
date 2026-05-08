@@ -49,6 +49,7 @@ class TestCLIRun(TestCase):
             "scratch": False,
             "progress": False,
             "null_sink": False,
+            "bulk_load": None,
             "verbose": False,
             "parallel": None,
             "chunks_per_worker": None,
@@ -453,6 +454,188 @@ class TestCLIRun(TestCase):
         self.assertEqual(raised.exception.code, 130)
         exit_mock.assert_called_once_with(130)
         print_mock.assert_called_once_with("Eleanor run interrupted by interrupt; sink finalized cleanly.")
+
+    def test_init_parses_bulk_load_flag(self):
+        """
+        Ensure --bulk-load / --no-bulk-load / omitted produce True / False / None.
+        """
+        parser = argparse.ArgumentParser()
+        with mock.patch("eleanor.cli.run.add_config_args"):
+            run_cli.init(parser)
+
+        ns_enabled = parser.parse_args(["--bulk-load", "order.yaml", "10"])
+        self.assertTrue(ns_enabled.bulk_load)
+
+        ns_disabled = parser.parse_args(["--no-bulk-load", "order.yaml", "10"])
+        self.assertFalse(ns_disabled.bulk_load)
+
+        ns_default = parser.parse_args(["order.yaml", "10"])
+        self.assertIsNone(ns_default.bulk_load)
+
+    def test_execute_bulk_load_sets_optimization_in_postgres_config(self):
+        """
+        Ensure --bulk-load injects bulk_load_optimization=True into config.output.args
+        when the configured sink is postgres.
+        """
+        parser = argparse.ArgumentParser()
+        ns = self._namespace(bulk_load=True)
+        config = self._config()
+        eleanor = _fake_eleanor(run_return=[1])
+        executor = _fake_executor()
+        fake_order = mock.Mock()
+
+        with (
+            mock.patch("eleanor.cli.run.config_from_args", return_value=config),
+            mock.patch("eleanor.cli.run.load_order", return_value=fake_order),
+            mock.patch("eleanor.cli.run.load_executor", return_value=executor),
+            mock.patch("eleanor.cli.run.Eleanor", return_value=eleanor),
+        ):
+            run_cli.execute(parser, ns)
+
+        self.assertTrue(config.output.args.get("bulk_load_optimization"))
+
+    def test_execute_bulk_load_rejects_non_postgres_sink(self):
+        """
+        Ensure --bulk-load raises an error (surfaced via print) when the
+        configured output sink is not postgres.
+        """
+        parser = argparse.ArgumentParser()
+        ns = self._namespace(bulk_load=True)
+        config = Config(
+            raw={
+                "output": {"type": "csv", "args": {}},
+                "parallel": {"backend": "serial", "chunks_per_worker": 1},
+            }
+        )
+
+        printed: list[object] = []
+        with (
+            mock.patch("eleanor.cli.run.config_from_args", return_value=config),
+            mock.patch("eleanor.cli.run.Eleanor") as eleanor_cls,
+            mock.patch("builtins.print", side_effect=lambda *a, **_k: printed.append(a)),
+        ):
+            run_cli.execute(parser, ns)
+
+        eleanor_cls.assert_not_called()
+        joined = " ".join(str(a) for a in printed)
+        self.assertIn("--bulk-load", joined)
+        self.assertIn("postgres", joined)
+
+    def test_execute_bulk_load_rejects_missing_output_type(self):
+        """
+        Ensure --bulk-load raises an error when output.type is None
+        (no output sink configured), covering the "no output sink provided" branch.
+        """
+        parser = argparse.ArgumentParser()
+        ns = self._namespace(bulk_load=True)
+        config = Config(
+            raw={
+                "output": {"args": {}},
+                "parallel": {"backend": "serial", "chunks_per_worker": 1},
+            }
+        )
+
+        printed: list[object] = []
+        with (
+            mock.patch("eleanor.cli.run.config_from_args", return_value=config),
+            mock.patch("eleanor.cli.run.Eleanor") as eleanor_cls,
+            mock.patch("builtins.print", side_effect=lambda *a, **_k: printed.append(a)),
+        ):
+            run_cli.execute(parser, ns)
+
+        eleanor_cls.assert_not_called()
+        joined = " ".join(str(a) for a in printed)
+        self.assertIn("--bulk-load", joined)
+        self.assertIn("no output sink provided", joined)
+
+    def test_execute_no_bulk_load_disables_config_optimization(self):
+        """
+        Ensure --no-bulk-load sets bulk_load_optimization=False in config.output.args,
+        allowing the user to override a config file that has it enabled.
+        """
+        parser = argparse.ArgumentParser()
+        ns = self._namespace(bulk_load=False)
+        # Config file has bulk_load_optimization=True
+        config = Config(
+            raw={
+                "output": {
+                    "type": "postgres",
+                    "args": {"database": {"database": "sample"}, "bulk_load_optimization": True},
+                },
+                "parallel": {"backend": "serial", "chunks_per_worker": 1},
+            }
+        )
+        eleanor = _fake_eleanor(run_return=[1])
+        executor = _fake_executor()
+        fake_order = mock.Mock()
+
+        with (
+            mock.patch("eleanor.cli.run.config_from_args", return_value=config),
+            mock.patch("eleanor.cli.run.load_order", return_value=fake_order),
+            mock.patch("eleanor.cli.run.load_executor", return_value=executor),
+            mock.patch("eleanor.cli.run.Eleanor", return_value=eleanor),
+        ):
+            run_cli.execute(parser, ns)
+
+        self.assertFalse(config.output.args.get("bulk_load_optimization"))
+
+    def test_execute_bulk_load_omitted_leaves_config_unchanged(self):
+        """
+        Ensure omitting --bulk-load / --no-bulk-load leaves config.output.args untouched,
+        so whatever the config file says is used as-is.
+        """
+        parser = argparse.ArgumentParser()
+        ns = self._namespace(bulk_load=None)
+        config = Config(
+            raw={
+                "output": {
+                    "type": "postgres",
+                    "args": {"database": {"database": "sample"}, "bulk_load_optimization": True},
+                },
+                "parallel": {"backend": "serial", "chunks_per_worker": 1},
+            }
+        )
+        eleanor = _fake_eleanor(run_return=[1])
+        executor = _fake_executor()
+        fake_order = mock.Mock()
+
+        with (
+            mock.patch("eleanor.cli.run.config_from_args", return_value=config),
+            mock.patch("eleanor.cli.run.load_order", return_value=fake_order),
+            mock.patch("eleanor.cli.run.load_executor", return_value=executor),
+            mock.patch("eleanor.cli.run.Eleanor", return_value=eleanor),
+        ):
+            run_cli.execute(parser, ns)
+
+        # The config value must be untouched (still True as loaded from the file)
+        self.assertTrue(config.output.args.get("bulk_load_optimization"))
+
+    def test_execute_bulk_load_ignored_when_null_sink(self):
+        """
+        Ensure --bulk-load is silently ignored when --null-sink is also passed,
+        since the null sink overrides the output entirely.
+        """
+        parser = argparse.ArgumentParser()
+        ns = self._namespace(bulk_load=True, null_sink=True)
+        config = self._config(backend="serial", chunks_per_worker=1)
+        eleanor = _fake_eleanor(run_return=[5])
+        executor = _fake_executor()
+        fake_order = mock.Mock()
+
+        with (
+            mock.patch.object(NullSink, "initialize"),
+            mock.patch.object(NullSink, "finalize"),
+            mock.patch("eleanor.cli.run.config_from_args", return_value=config),
+            mock.patch("eleanor.cli.run.load_order", return_value=fake_order),
+            mock.patch("eleanor.cli.run.load_executor", return_value=executor),
+            mock.patch("eleanor.cli.run.Eleanor", return_value=eleanor),
+        ):
+            run_cli.execute(parser, ns)
+
+        # bulk_load_optimization must NOT have been injected into config.output.args
+        self.assertNotIn("bulk_load_optimization", config.output.args)
+        # and the run must have completed (NullSink was used)
+        self.assertIsInstance(eleanor.run.call_args.kwargs["output_sink"], NullSink)
 
     def test_execute_eleanor_shutdown_uses_signal_name_in_message(self):
         """Ensure EleanorShutdown messages include the signal name and exit 130."""

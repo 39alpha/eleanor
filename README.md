@@ -21,7 +21,7 @@ in a Postgres. Eleanor’s modular design allows the user to swap the EQ3/6-base
 > **NOTE**: We support both Linux and MacOS systems. You might have some luck using the Linux Subsystem for Windows, but
 > we don't pretend to support it.
 
-Eleanor requires `python>=3.11` an two external runtime dependencies:
+Eleanor requires `python>=3.14` an two external runtime dependencies:
 
 1. A slightly modified version of EQ3/6 found at [39alpha/eq3_6](https://github.com/39alpha/eq3_6). Future versions will
 likely add other kernels based on other speciation tools, but EQ3/6 is what we have now.

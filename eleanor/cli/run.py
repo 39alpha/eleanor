@@ -1,10 +1,11 @@
-import argparse
 import sys
 from contextlib import ExitStack
 from traceback import print_exception
 
+import click
+
 from eleanor import Eleanor
-from eleanor.cli.util import ConfigArgs, add_config_args, config_from_args, typed_args
+from eleanor.cli.util import config_from_args, config_options
 from eleanor.exceptions import EleanorException
 from eleanor.executor import available_executors, load_executor
 from eleanor.order import load_order
@@ -12,104 +13,61 @@ from eleanor.output.interface import OutputSink
 from eleanor.output.null import NullConfig, NullSink
 
 
-class RunArgs(ConfigArgs):
-    """Argparse fields accepted by the ``run`` command."""
+def _complete_parallel(_ctx: click.Context, _param: click.Parameter, incomplete: str) -> list[str]:
+    from eleanor.executor import available_executors
 
-    order: str
-    order_id: int | None
-    tag: str | None
-    simulation_size: int
-    num_procs: int | None
-    verbose: bool
-    scratch: bool
-    kernel_args: list[str] | None
-    progress: bool
-    null_sink: bool
-    parallel: str | None
-    chunks_per_worker: int | None
-    batch_size: int | None
-    max_nav_attempts: int
+    return [name for name in sorted(available_executors()) if name.startswith(incomplete)]
 
 
-def init(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
-    parser.description = "Run eleanor"
-
-    _ = parser.add_argument("-n", "--num-procs", required=False, type=int, help="number of processes")
-    _ = parser.add_argument("-v", "--verbose", required=False, action="store_true", help="enable verbose output")
-    _ = parser.add_argument("-s", "--scratch", required=False, action="store_true", help="save scratch for all sailors")
-    _ = parser.add_argument(
-        "-k", "--kernel-args", required=False, action="append", help="arguments to pass to the kernel"
-    )
-    _ = parser.add_argument("--order-id", required=False, type=int, help="override the order id")
-    _ = parser.add_argument("--tag", required=False, type=str, help="override the order tag")
-    _ = parser.add_argument(
-        "--null-sink",
-        required=False,
-        action="store_true",
-        help="override config output sink with NullSink (useful for tests/benchmarks)",
-    )
-    _ = parser.add_argument(
-        "-p",
-        "--progress",
-        required=False,
-        action="store_true",
-        help="enable progress bars (disabled by --verbose)",
-    )
-    _ = parser.add_argument(
-        "--parallel",
-        required=False,
-        metavar="BACKEND",
-        help=(
-            "parallel backend (overrides configuration). Built-in backends are "
-            "serial and multiprocessing; additional backends may be "
-            'contributed by third-party packages via the "eleanor.executors" '
-            "entry-point group."
-        ),
-    )
-    _ = parser.add_argument(
-        "--chunks-per-worker",
-        required=False,
-        type=int,
-        help="number of chunks per worker (overrides configuration)",
-    )
-    _ = parser.add_argument(
-        "--batch-size",
-        required=False,
-        type=int,
-        help="navigator batch size (default: all points in one batch)",
-    )
-    _ = parser.add_argument(
-        "--max-nav-attempts",
-        required=False,
-        type=int,
-        default=1,
-        help="max attempts per navigation point before failing (default: %(default)s)",
-    )
-    _ = parser.add_argument("order", type=str, help="order file")
-    _ = parser.add_argument("simulation_size", type=int, help="the size of the simulation")
-
-    add_config_args(parser)
-
-    parser.set_defaults(func=execute)
-
-    return parser
-
-
-def execute(parser: argparse.ArgumentParser, ns: argparse.Namespace) -> None:
-    args = typed_args(RunArgs, ns)
-
-    kernel_args: list[object] = list(args["kernel_args"] or [])
-    show_progress = args["progress"] and not args["verbose"]
-    parallel = args["parallel"]
-    chunks_per_worker = args["chunks_per_worker"]
-    batch_size = args["batch_size"]
-    max_nav_attempts = args["max_nav_attempts"]
-    null_sink = args["null_sink"]
+@click.command()
+@click.argument("order", type=click.Path(exists=True))
+@click.argument("simulation_size", type=click.INT)
+@click.option("-n", "--num-procs", type=int, default=None, help="Number of processes.")
+@click.option("-v", "--verbose", is_flag=True, help="Enable verbose output.")
+@click.option("-s", "--scratch", is_flag=True, help="Save scratch for all sailors.")
+@click.option("-k", "--kernel-args", multiple=True, help="Arguments to pass to the kernel.")
+@click.option("--order-id", type=int, default=None, help="Override the order id.")
+@click.option("--tag", type=str, default=None, help="Override the order tag.")
+@click.option("--null-sink", is_flag=True, help="Override config output sink with NullSink.")
+@click.option("-p", "--progress", is_flag=True, help="Enable progress bars (disabled by --verbose).")
+@click.option(
+    "--parallel",
+    default=None,
+    metavar="BACKEND",
+    envvar="ELEANOR_PARALLEL",
+    shell_complete=_complete_parallel,
+    help="Parallel backend (overrides configuration).",
+)
+@click.option("--chunks-per-worker", type=int, default=None, help="Chunks per worker (overrides configuration).")
+@click.option("--batch-size", type=int, default=None, help="Navigator batch size.")
+@click.option("--max-nav-attempts", type=click.IntRange(min=1), default=1, help="Max attempts per navigation point.")
+@config_options
+def run(
+    order: str,
+    simulation_size: int,
+    num_procs: int | None,
+    verbose: bool,
+    scratch: bool,
+    kernel_args: tuple[str, ...],
+    order_id: int | None,
+    tag: str | None,
+    null_sink: bool,
+    progress: bool,
+    parallel: str | None,
+    chunks_per_worker: int | None,
+    batch_size: int | None,
+    max_nav_attempts: int,
+    config: str,
+    database: str | None,
+) -> None:
+    """Run eleanor."""
+    kernel_args_list: list[object] = list(kernel_args)
+    show_progress = progress and not verbose
 
     try:
-        config = config_from_args(parser, args, require_database=not null_sink)
+        config_obj = config_from_args(config, database, require_database=not null_sink)
         if parallel is None:
-            parallel = config.parallel.backend
+            parallel = config_obj.parallel.backend
         else:
             executors = available_executors()
             if parallel not in executors:
@@ -118,40 +76,40 @@ def execute(parser: argparse.ArgumentParser, ns: argparse.Namespace) -> None:
                     f'unsupported executor "{parallel}"; choose from {choices}',
                 )
         if chunks_per_worker is None:
-            chunks_per_worker = config.parallel.chunks_per_worker
+            chunks_per_worker = config_obj.parallel.chunks_per_worker
 
-        order = load_order(args["order"])
-        if args["order_id"] is not None:
-            order.id = args["order_id"]
-        if args["tag"] is not None:
-            order.tag = args["tag"]
+        order_obj = load_order(order)
+        if order_id is not None:
+            order_obj.id = order_id
+        if tag is not None:
+            order_obj.tag = tag
 
         with ExitStack() as stack:
             output_sink: OutputSink | None = None
             if null_sink:
                 output_sink = stack.enter_context(NullSink(NullConfig(support_worker_writes=parallel != "serial")))
-            executor = stack.enter_context(load_executor(kind=parallel, num_workers=args["num_procs"]))
-            with Eleanor(config, kernel_args, executor=executor) as eleanor:
+            executor = stack.enter_context(load_executor(kind=parallel, num_workers=num_procs))
+            with Eleanor(config_obj, kernel_args_list, executor=executor) as eleanor:
                 order_ids = eleanor.run(
-                    order,
-                    args["simulation_size"],
-                    scratch=args["scratch"],
+                    order_obj,
+                    simulation_size,
+                    scratch=scratch,
                     show_progress=show_progress,
-                    verbose=args["verbose"],
+                    verbose=verbose,
                     chunks_per_worker=chunks_per_worker,
                     batch_size=batch_size,
                     max_nav_attempts=max_nav_attempts,
                     output_sink=output_sink,
                 )
 
-        if args["verbose"]:
+        if verbose:
             print("Orders created or extended:", order_ids)
     except KeyboardInterrupt as e:
         name = getattr(e, "signal_name", None) or "interrupt"
         print(f"Eleanor run interrupted by {name}; sink finalized cleanly.")
         sys.exit(130)
     except Exception as e:
-        if args["verbose"]:
+        if verbose:
             print_exception(e)
         else:
             print(e)

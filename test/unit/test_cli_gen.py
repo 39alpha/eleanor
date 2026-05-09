@@ -1,4 +1,9 @@
-from eleanor.cli.gen import _TEMPLATE_FILES, validate_template
+from typing import override
+
+from click.testing import CliRunner
+
+from eleanor.cli import main
+from eleanor.cli.gen import _FORMATS, validate_template
 from eleanor.config import Config
 from eleanor.order import Order
 
@@ -9,19 +14,15 @@ class TestGenTemplateValidation(TestCase):
     """Ensure every shipped template parses through load_config / load_order."""
 
     def test_config_templates_are_valid(self):
-        for target, fmt in _TEMPLATE_FILES:
-            if target != "config":
-                continue
+        for fmt in _FORMATS:
             with self.subTest(fmt=fmt):
-                result = validate_template(target, fmt)
+                result = validate_template("config", fmt)
                 self.assertIsInstance(result, Config)
 
     def test_order_templates_are_valid(self):
-        for target, fmt in _TEMPLATE_FILES:
-            if target != "order":
-                continue
+        for fmt in _FORMATS:
             with self.subTest(fmt=fmt):
-                result = validate_template(target, fmt)
+                result = validate_template("order", fmt)
                 self.assertIsInstance(result, Order)
 
     def test_unknown_template_raises(self):
@@ -67,3 +68,23 @@ class TestGenTemplateCrossFormat(TestCase):
                 for r, o in zip(ref.reactants, other.reactants):
                     self.assertEqual(r.name, o.name)
                     self.assertEqual(r.type, o.type)
+
+
+class TestGenCli(TestCase):
+    """Smoke-test the Click CLI entry point."""
+
+    runner: CliRunner = CliRunner()
+
+    @override
+    def setUp(self) -> None:
+        self.runner = CliRunner()
+
+    def test_cli_emits_config_yaml(self):
+        result = self.runner.invoke(main, ["gen", "config", "--format", "yaml"])
+        self.assertEqual(result.exit_code, 0)
+        self.assertIn("output:", result.output)
+
+    def test_cli_emits_order_toml(self):
+        result = self.runner.invoke(main, ["gen", "order", "--format", "toml"])
+        self.assertEqual(result.exit_code, 0)
+        self.assertIn("[kernel]", result.output)

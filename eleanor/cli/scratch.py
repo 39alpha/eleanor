@@ -1,74 +1,50 @@
-import argparse
 import io
 import os
-import sys
 from zipfile import ZipFile
 
-from eleanor.cli.util import ConfigArgs, add_config_args, config_from_args, typed_args
+import click
+
+from eleanor.cli.util import config_from_args, config_options
 from eleanor.output.postgres.config import database_config_from_config
 from eleanor.output.postgres.tools import load_scratch_entry
 
 
-class ScratchArgs(ConfigArgs):
-    """Argparse fields accepted by the ``scratch`` command."""
+@click.command()
+@click.argument("vs_id", type=click.INT)
+@click.option("-o", "--outdir", type=click.Path(file_okay=False), default=".", help="Output directory.")
+@config_options
+def scratch(vs_id: int, outdir: str, config: str, database: str | None) -> None:
+    """Dump scratch results to a directory."""
+    variable_space_id = vs_id
+    directory = outdir
 
-    vs_id: int
-    outdir: str
-
-
-def init(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
-    parser.description = "Dump scratch results to a directory"
-
-    _ = parser.add_argument("vs_id", type=int, help="the variable space id for the scratch entry")
-    _ = parser.add_argument(
-        "-o",
-        "--outdir",
-        required=False,
-        type=str,
-        default=".",
-        help='path to the directory in which to extract the scratch files (default: "%(default)s")',
-    )
-
-    add_config_args(parser)
-
-    parser.set_defaults(func=execute)
-
-    return parser
-
-
-def execute(parser: argparse.ArgumentParser, ns: argparse.Namespace) -> None:
-    args = typed_args(ScratchArgs, ns)
-
-    variable_space_id = args["vs_id"]
-    directory = args["outdir"]
-
-    print(f"Loading {args['config']}")
-    config = config_from_args(parser, args)
-    database_config = database_config_from_config(config)
+    print(f"Loading {config}")
+    cfg = config_from_args(config, database)
+    database_config = database_config_from_config(cfg)
     if database_config.database is None:
-        print("error: no database provided\n", file=sys.stdout)
-        parser.print_help()
-        sys.exit(1)
+        raise click.ClickException("no database provided")
 
     try:
         try:
             result = load_scratch_entry(database_config, variable_space_id)
         except LookupError as missing:
             if str(missing) == "scratch":
-                raise Exception("no scratch found for variable space point") from missing
+                raise click.ClickException("no scratch found for variable space point") from missing
             raise
         if result is None:
-            raise Exception(f"no variable space point found with id {variable_space_id}")
+            raise click.ClickException(f"no variable space point found with id {variable_space_id}")
 
         print("Database:           ", database_config.database)
         print("Variable Space ID:  ", result.variable_space_id)
         print("Exit Code:          ", result.exit_code)
 
         if len(result.zip) == 0:
-            raise Exception("no data in scratch zip")
+            raise click.ClickException("no data in scratch zip")
 
         os.makedirs(directory, exist_ok=True)
         ZipFile(io.BytesIO(result.zip)).extractall(path=directory)
+    except click.ClickException:
+        raise
     except Exception as err:
-        print(f"Failed to fetch the variable space scratch: {err}", file=sys.stderr)
-        sys.exit(1)
+        click.echo(f"Failed to fetch the variable space scratch: {err}", err=True)
+        raise SystemExit(1) from err

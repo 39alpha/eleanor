@@ -1,36 +1,23 @@
-import argparse
-from typing import Callable, Protocol, cast
+import click
 
-import eleanor.cli.bulkload as bulkload
-import eleanor.cli.doctor as doctor
-import eleanor.cli.gen as gen
-import eleanor.cli.run as run
-import eleanor.cli.schema as schema
-import eleanor.cli.scratch as scratch
-
-
-class CLIArgs(Protocol):
-    command: str
-    func: Callable[[argparse.ArgumentParser, argparse.Namespace], object]
+import eleanor
+from eleanor.cli.bulkload import bulkload
+from eleanor.cli.doctor import doctor
+from eleanor.cli.gen import gen
+from eleanor.cli.run import run
+from eleanor.cli.schema import schema
+from eleanor.cli.scratch import scratch
 
 
-def main() -> object:
-    parser = argparse.ArgumentParser(
-        prog="eleanor",
-        description="Run eleanor or interact with a generated dataset",
-        allow_abbrev=True,
-    )
+@click.group()
+@click.version_option(version=eleanor.__version__, prog_name="eleanor")
+def main() -> None:
+    """Run eleanor or interact with a generated dataset."""
 
-    subparsers = parser.add_subparsers(required=True, dest="command")
 
-    _ = run.init(subparsers.add_parser("run"))
-    _ = schema.init(subparsers.add_parser("schema"))
-    _ = scratch.init(subparsers.add_parser("scratch"))
-    _ = bulkload.init(subparsers.add_parser("bulkload"))
-    _ = doctor.init(subparsers.add_parser("doctor"))
-    _ = gen.init(subparsers.add_parser("gen"))
-
-    args_ns = parser.parse_args()
-    args = cast(CLIArgs, cast(object, args_ns))
-    command_parser = subparsers.choices[args.command]
-    return args.func(command_parser, args_ns)
+main.add_command(run)
+main.add_command(schema)
+main.add_command(bulkload)
+main.add_command(doctor)
+main.add_command(gen)
+main.add_command(scratch)

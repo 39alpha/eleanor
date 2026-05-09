@@ -1,50 +1,19 @@
-import argparse
-import sys
+from typing import TextIO
 
-from eleanor.cli.util import ConfigArgs, add_config_args, config_from_args, typed_args
+import click
+
+from eleanor.cli.util import config_from_args, config_options
 from eleanor.output.postgres.config import database_config_from_config
 from eleanor.output.postgres.tools import dump_schema
 
 
-class SchemaArgs(ConfigArgs):
-    """Argparse fields accepted by the ``schema`` command."""
-
-    output: str | None
-
-
-def init(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
-    parser.description = "Dump an Eleanor database schema"
-
-    _ = parser.add_argument(
-        "-o",
-        "--output",
-        required=False,
-        type=str,
-        help="file to which to write the schema (default: STDOUT)",
-    )
-
-    add_config_args(parser)
-
-    parser.set_defaults(func=execute)
-
-    return parser
-
-
-def execute(parser: argparse.ArgumentParser, ns: argparse.Namespace) -> None:
-    args = typed_args(SchemaArgs, ns)
-
-    config = config_from_args(parser, args)
-    database_config = database_config_from_config(config)
+@click.command()
+@click.option("-o", "--output", type=click.File("w"), default="-", help="Output file (default: stdout).")
+@config_options
+def schema(output: TextIO, config: str, database: str | None) -> None:
+    """Dump an Eleanor database schema."""
+    cfg = config_from_args(config, database)
+    database_config = database_config_from_config(cfg)
     if database_config.database is None:
-        print("error: no database provided\n", file=sys.stdout)
-        parser.print_help()
-        sys.exit(1)
-
-    output = args["output"]
-    if output is None:
-        stream = sys.stdout
-    else:
-        stream = open(output, "w")
-
-    with stream:
-        dump_schema(database_config, stream)
+        raise click.ClickException("no database provided")
+    dump_schema(database_config, output)

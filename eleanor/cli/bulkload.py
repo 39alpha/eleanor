@@ -20,59 +20,32 @@ which package the same drop/recreate pair as a context manager so an
 exception inside the workload still triggers the recreate.
 """
 
-import argparse
-import sys
+import click
 
-from eleanor.cli.util import ConfigArgs, add_config_args, config_from_args, typed_args
+from eleanor.cli.util import config_from_args, config_options
 from eleanor.output.postgres.config import database_config_from_config
 from eleanor.output.postgres.persistence.repositories import drop_indexes, recreate_indexes
 
 
-class BulkLoadArgs(ConfigArgs):
-    """Argparse fields accepted by the ``bulkload`` command."""
-
-    action: str  # 'drop' | 'recreate'
-
-
-def init(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
-    parser.description = (
-        "Drop or recreate the postgres sink's secondary indexes + FK / CHECK constraints around a bulk-load window"
-    )
-
-    _ = parser.add_argument(
-        "action",
-        choices=["drop", "recreate"],
-        help=(
-            '"drop" strips every secondary index + FK / CHECK constraint; '
-            '"recreate" reattaches them from the static schema'
-        ),
-    )
-
-    add_config_args(parser)
-
-    parser.set_defaults(func=execute)
-
-    return parser
-
-
-def execute(parser: argparse.ArgumentParser, ns: argparse.Namespace) -> None:
-    args = typed_args(BulkLoadArgs, ns)
-
-    config = config_from_args(parser, args)
-    database_config = database_config_from_config(config)
+@click.command()
+@click.argument("action", type=click.Choice(["drop", "recreate"]))
+@click.option("-y", "--yes", is_flag=True, help="Skip confirmation prompt for destructive actions.")
+@config_options
+def bulkload(action: str, yes: bool, config: str, database: str | None) -> None:
+    """Drop or recreate secondary indexes + constraints around a bulk-load window."""
+    cfg = config_from_args(config, database)
+    database_config = database_config_from_config(cfg)
     if database_config.database is None:
-        print("error: no database provided\n", file=sys.stdout)
-        parser.print_help()
-        sys.exit(1)
+        raise click.ClickException("no database provided")
 
-    action = args["action"]
     if action == "drop":
+        if not yes:
+            _ = click.confirm(
+                f'This will drop all secondary indexes and constraints on "{database_config.database}". Continue?',
+                abort=True,
+            )
         drop_indexes(database_config)
     elif action == "recreate":
         recreate_indexes(database_config)
     else:
-        # ``argparse`` ``choices=`` should keep us out of this branch; the
-        # explicit raise pins it down so a future addition to ``choices``
-        # without a matching dispatch arm fails loudly instead of silently
-        # no-op'ing.
         raise ValueError(f"unknown bulkload action: {action!r}")

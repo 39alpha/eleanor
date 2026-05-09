@@ -2,9 +2,10 @@ from dataclasses import dataclass
 
 from eleanor.query import compile_query, evaluate
 from eleanor.query.errors import MultipleMatchError, ParseError, PathMissError
+from eleanor.query.reflection import DataclassField, LeafField
 
 from ..common import TestCase
-from .models import Mineral, Point, Sample, make_sample
+from .models import Chemistry, Mineral, Point, Sample, make_sample
 
 
 @dataclass
@@ -202,3 +203,55 @@ class TestCompilerEvaluator(TestCase):
         """
         compiled = compile_query(Sample, {"row_scope": "point_map[*]", "columns": ["point_map.@key"]})
         self.assertEqual([c.spec.name for c in compiled.compiled_columns], ["key"])
+
+    def test_compiled_column_terminal_kind_leaf_path(self):
+        """Ensure leaf terminal paths expose their resolved LeafField kind."""
+        compiled = compile_query(Sample, {"row_scope": "order", "columns": ["order.point.index"]})
+        terminal_kind = compiled.compiled_columns[0].terminal_kind
+        self.assertIsInstance(terminal_kind, LeafField)
+        assert isinstance(terminal_kind, LeafField)
+        self.assertIs(terminal_kind.declared_type, int)
+        self.assertFalse(terminal_kind.optional)
+
+    def test_compiled_column_terminal_kind_optional_dataclass(self):
+        """Ensure optional dataclass terminals preserve optionality in terminal_kind."""
+        compiled = compile_query(
+            Sample, {"row_scope": "order", "columns": ["order.point.chemistry"]}, allow_container_terminals=True
+        )
+        terminal_kind = compiled.compiled_columns[0].terminal_kind
+        self.assertIsInstance(terminal_kind, DataclassField)
+        assert isinstance(terminal_kind, DataclassField)
+        self.assertIs(terminal_kind.dataclass_type, Chemistry)
+        self.assertTrue(terminal_kind.optional)
+
+    def test_compiled_column_terminal_kind_list_match_filter_mid_path(self):
+        """Ensure list match-filter branches contribute to terminal kind computation."""
+        compiled = compile_query(Sample, {"row_scope": "order", "columns": ["order.points[index=1].index"]})
+        terminal_kind = compiled.compiled_columns[0].terminal_kind
+        self.assertIsInstance(terminal_kind, LeafField)
+        assert isinstance(terminal_kind, LeafField)
+        self.assertIs(terminal_kind.declared_type, int)
+
+    def test_compiled_column_terminal_kind_dict_match_filter_mid_path(self):
+        """Ensure dict match-filter branches are reflected in terminal_kind."""
+        compiled = compile_query(Sample, {"row_scope": "order", "columns": ["order.point_map[key=c].index"]})
+        terminal_kind = compiled.compiled_columns[0].terminal_kind
+        self.assertIsInstance(terminal_kind, LeafField)
+        assert isinstance(terminal_kind, LeafField)
+        self.assertIs(terminal_kind.declared_type, int)
+
+    def test_compiled_column_terminal_kind_alias_only_column(self):
+        """Ensure single-segment alias columns use the alias scope type_kind."""
+        compiled = compile_query(Sample, {"row_scope": "order", "columns": ["order"]}, allow_container_terminals=True)
+        terminal_kind = compiled.compiled_columns[0].terminal_kind
+        self.assertIsInstance(terminal_kind, DataclassField)
+        assert isinstance(terminal_kind, DataclassField)
+        self.assertIs(terminal_kind.dataclass_type, Sample)
+
+    def test_compiled_column_terminal_kind_excludes_meta_accessor(self):
+        """Ensure terminal_kind reflects path segments only; @index/@key meta is intentionally excluded."""
+        compiled = compile_query(Sample, {"row_scope": "points[*]", "columns": ["point.@index"]})
+        terminal_kind = compiled.compiled_columns[0].terminal_kind
+        self.assertIsInstance(terminal_kind, DataclassField)
+        assert isinstance(terminal_kind, DataclassField)
+        self.assertIs(terminal_kind.dataclass_type, Point)

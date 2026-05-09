@@ -683,6 +683,7 @@ class TestEvaluatorCoverage(TestCase):
                 source=BarePath(),
             ),
             compiled_path=CompiledPath(path=Path(segments=tuple()), segments=tuple()),
+            terminal_kind=None,
         )
         self.assertTrue(evaluator_module._evaluate_column_path(empty_column, {"order": make_sample()}, {})[1])
 
@@ -692,6 +693,7 @@ class TestEvaluatorCoverage(TestCase):
                 path=parse_path("missing.index"),
                 segments=(compiled.compiled_columns[0].compiled_path.segments[0],),
             ),
+            terminal_kind=compiled.compiled_columns[0].terminal_kind,
         )
         self.assertEqual(evaluator_module._evaluate_column_path(missing_alias_column, {}, {})[2], "order")
 
@@ -735,6 +737,7 @@ class TestEvaluatorCoverage(TestCase):
                 path=meta_path,
                 segments=(compiler_module.CompiledSegment(name="point", filters=tuple()),),
             ),
+            terminal_kind=None,
         )
         # Anchor alias is in ``binding`` (so the head-lookup branch passes)
         # but absent from ``meta_binding``: defensive miss.

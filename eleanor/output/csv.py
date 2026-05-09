@@ -1,6 +1,6 @@
 import copy
 import csv
-import os.path
+import os
 import sys
 import traceback
 from collections.abc import Mapping, Sequence
@@ -15,7 +15,7 @@ from ..exceptions import EleanorConfigurationException, EleanorException
 from ..order import Order
 from ..progress import ProgressHandle
 from ..query import CompiledQuery, compile_query, evaluate
-from ..query.reflection import DataclassField
+from ..query.reflection import DataclassField, LeafField
 from ..typing import cast
 from ..version import __version__
 from .interface import ComputeResult, OutputSink, WriteOutcome
@@ -124,25 +124,42 @@ def _write_schema(
         yaml.safe_dump(payload, handle, sort_keys=False)
 
 
-def _find_vs_index_columns(compiled: CompiledQuery) -> list[str]:
-    index_columns: list[str] = []
+def _asset_dir(csv_filename: str, column_name: str) -> str:
+    return os.path.join(os.path.abspath(os.path.dirname(csv_filename)), column_name)
 
-    for spec in compiled.columns:
+
+def _classify_columns(compiled: CompiledQuery) -> tuple[list[str], frozenset[str]]:
+    """Partition compiled columns into (vs_index_columns, binary_columns).
+
+    A column is a vs_index column iff its path's meta is ``@index`` and the
+    head alias resolves to ``vs.Point``. A column is a binary column iff its
+    terminal ``FieldKind`` is ``LeafField`` with ``declared_type is bytes``.
+    The two sets are disjoint by construction since the binary check requires
+    ``path.meta is None``.
+    """
+    vs_index_columns: list[str] = []
+    binary_columns: set[str] = set()
+    for column in compiled.compiled_columns:
+        spec = column.spec
         path = spec.path
-        if path.meta is None:
-            continue
-        head_alias = path.segments[0].name
-        if head_alias not in compiled.scope_table:
-            continue
-        head_scope = compiled.scope_table[head_alias]
-        kind = head_scope.type_kind
-        if not isinstance(kind, DataclassField):
+
+        if path.meta is not None:
+            if path.meta.name != "index":
+                continue
+            if len(path.segments) == 0:
+                continue
+            head_alias = path.segments[0].name
+            if head_alias not in compiled.scope_table:
+                continue
+            head_kind = compiled.scope_table[head_alias].type_kind
+            if isinstance(head_kind, DataclassField) and head_kind.dataclass_type is vs.Point:
+                vs_index_columns.append(spec.name)
             continue
 
-        if path.meta.name == "index" and kind.dataclass_type is vs.Point:
-            index_columns.append(spec.name)
-
-    return index_columns
+        terminal_kind = column.terminal_kind
+        if isinstance(terminal_kind, LeafField) and terminal_kind.declared_type is bytes:
+            binary_columns.add(spec.name)
+    return vs_index_columns, frozenset(binary_columns)
 
 
 def _prepare_rows(
@@ -155,6 +172,52 @@ def _prepare_rows(
             cooked_row[column] = vs_index
         cooked.append(cooked_row)
     return cooked
+
+
+def _extract_binary_assets(
+    filename: str,
+    binary_columns: frozenset[str],
+    order_id: int,
+    point_counter: int,
+    rows: Sequence[Mapping[str, object]],
+) -> Sequence[Mapping[str, object]]:
+    """Write each row's binary cells to disk and replace them with relative paths.
+
+    Returns a row sequence with the same shape as ``rows`` but with each
+    binary-column ``bytes`` value replaced by the relative path string
+    ``"<column>/<order_id>_<point_counter>[_<row_index>].zip"``. ``None``
+    values are passed through untouched and no file is written.
+
+    Failure semantics: this function is not transactional with the
+    subsequent ``_append_rows`` write. If ``_append_rows`` raises after
+    extraction has written one or more files, those files remain on disk
+    as orphans (no CSV row references them). On retry, the same
+    ``order_id``/``point_counter`` regenerates the same filenames and
+    overwrites the orphans, so the steady-state outcome is correct.
+    """
+    if len(binary_columns) == 0 or len(rows) == 0:
+        return rows
+
+    binary_value_counts = {
+        column: sum(1 for row in rows if isinstance(row.get(column), bytes)) for column in binary_columns
+    }
+    binary_value_indexes = {column: 0 for column in binary_columns}
+    extracted_rows: list[dict[str, object]] = []
+    for row in rows:
+        cooked_row = dict(row)
+        for column in binary_columns:
+            value = cooked_row.get(column)
+            if not isinstance(value, bytes):
+                continue
+            row_index = binary_value_indexes[column]
+            binary_value_indexes[column] += 1
+            suffix = "" if binary_value_counts[column] == 1 else f"_{row_index}"
+            asset_filename = f"{order_id}_{point_counter}{suffix}.zip"
+            with open(os.path.join(_asset_dir(filename, column), asset_filename), "wb") as handle:
+                _ = handle.write(value)
+            cooked_row[column] = f"{column}/{asset_filename}"
+        extracted_rows.append(cooked_row)
+    return extracted_rows
 
 
 def _append_rows(filename: str, columns: list[str], rows: Sequence[Mapping[str, object]]) -> None:
@@ -173,6 +236,7 @@ class CsvSink(OutputSink):
     _schema_file: str
     _rows_written: bool
     _vs_index_columns: list[str]
+    _binary_columns: frozenset[str]
     _vs_points_seen: dict[int, int]
     _order_versions: dict[int, str]
 
@@ -184,7 +248,7 @@ class CsvSink(OutputSink):
         self._order = None
         self._schema_file = _schema_path(config.filename)
         self._rows_written = False
-        self._vs_index_columns = _find_vs_index_columns(self._compiled)
+        self._vs_index_columns, self._binary_columns = _classify_columns(self._compiled)
         self._vs_points_seen = {}
         self._order_versions = {}
 
@@ -192,6 +256,8 @@ class CsvSink(OutputSink):
     def initialize(self) -> None:
         if not os.path.exists(self.config.filename):
             _write_csv_header(self.config.filename, self._columns)
+            for column in self._binary_columns:
+                os.makedirs(_asset_dir(self.config.filename, column), exist_ok=True)
             self._vs_points_seen = {}
             self._order_versions = {}
             _write_schema(
@@ -220,6 +286,8 @@ class CsvSink(OutputSink):
                 "csv header does not match configured query columns: "
                 + f"expected {self._columns!r}, found {existing_header!r}"
             )
+        for column in self._binary_columns:
+            os.makedirs(_asset_dir(self.config.filename, column), exist_ok=True)
 
         self._order_id = None
         self._order = None
@@ -321,6 +389,13 @@ class CsvSink(OutputSink):
                     self._order_id = None
                 raise
             current_point_id = self._vs_points_seen[self._order_id]
+            rows = _extract_binary_assets(
+                self.config.filename,
+                self._binary_columns,
+                self._order_id,
+                current_point_id,
+                rows,
+            )
             rows = _prepare_rows(self._columns, self._vs_index_columns, current_point_id, rows)
             _append_rows(self.config.filename, self._columns, rows)
             committed = False

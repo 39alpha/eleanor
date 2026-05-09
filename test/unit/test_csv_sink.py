@@ -13,8 +13,9 @@ from eleanor.exceptions import EleanorConfigurationException, EleanorException
 from eleanor.kernel.config import Settings as KernelSettings
 from eleanor.order import Order
 from eleanor.output import ComputeResult, _build_csv
-from eleanor.output.csv import CsvConfig, CsvSink, _schema_path
+from eleanor.output.csv import CsvConfig, CsvSink, _classify_columns, _schema_path
 from eleanor.output.interface import ErrorInfo
+from eleanor.query import compile_query
 from eleanor.variable_space import Point
 
 from .common import TestCase
@@ -69,6 +70,16 @@ def _query_with_order_id() -> dict[str, object]:
         "columns": [
             {"path": "order.id", "name": "order_id"},
             {"path": "vs_point.exit_code", "name": "exit_code"},
+        ],
+    }
+
+
+def _query_with_binary_column() -> dict[str, object]:
+    return {
+        "row_scope": "vs_points[*]",
+        "columns": [
+            {"path": "vs_point.exit_code", "name": "exit_code"},
+            {"path": "vs_point.scratch.zip", "name": "scratch_zip"},
         ],
     }
 
@@ -840,3 +851,140 @@ class TestCsvSink(TestCase):
             self.assertEqual(rows[0], ["order_id", "vs_index", "exit_code"])
             self.assertEqual(rows[1], ["0", "0", "0"])
             self.assertEqual(rows[2], ["0", "1", "0"])
+
+    def test_classify_columns_partitions_index_and_binary(self):
+        """Ensure column classification returns both vs-index and binary partitions."""
+        compiled = compile_query(
+            Order,
+            {
+                "row_scope": "vs_points[*]",
+                "columns": [
+                    {"path": "vs_point.scratch.zip", "name": "scratch_zip"},
+                    {"path": "vs_point.exit_code", "name": "exit_code"},
+                    {"path": "vs_point.@index", "name": "vs_index"},
+                    {"path": "vs_point", "name": "point_scope"},
+                ],
+            },
+            allow_container_terminals=True,
+        )
+        vs_index_columns, binary_columns = _classify_columns(compiled)
+        self.assertEqual(vs_index_columns, ["vs_index"])
+        self.assertEqual(binary_columns, frozenset({"scratch_zip"}))
+
+    def test_initialize_creates_asset_directories(self):
+        """Ensure initialize creates per-column asset directories for binary columns."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            filename = f"{tmpdir}/rows.csv"
+            sink = CsvSink(CsvConfig(filename=filename, query=_query_with_binary_column()))
+            sink.initialize()
+            self.assertTrue(os.path.isdir(f"{tmpdir}/scratch_zip"))
+
+    def test_write_batch_extracts_binary_to_file_and_writes_path(self):
+        """Ensure binary cells are written to disk and replaced with relative asset paths in CSV output."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            filename = f"{tmpdir}/rows.csv"
+            sink = CsvSink(CsvConfig(filename=filename, query=_query_with_binary_column()))
+            sink.initialize()
+            sink.begin_run(_minimal_order())
+
+            result = ComputeResult(point=_point(exit_code=0, order_id=None))
+            with mock.patch(
+                "eleanor.output.csv.evaluate",
+                side_effect=[iter([{"exit_code": 0, "scratch_zip": b"zip-bytes"}])],
+            ):
+                outcomes = sink.write_batch(0, [result])
+
+            self.assertTrue(outcomes[0].committed)
+            asset_file = f"{tmpdir}/scratch_zip/0_0.zip"
+            self.assertTrue(os.path.exists(asset_file))
+            with open(asset_file, "rb") as handle:
+                self.assertEqual(handle.read(), b"zip-bytes")
+            with open(filename, newline="") as handle:
+                rows = list(csv.reader(handle))
+            self.assertEqual(rows[0], ["exit_code", "scratch_zip"])
+            self.assertEqual(rows[1], ["0", "scratch_zip/0_0.zip"])
+
+    def test_write_batch_binary_none_writes_blank(self):
+        """Ensure None-valued binary cells remain blank and do not emit files."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            filename = f"{tmpdir}/rows.csv"
+            sink = CsvSink(CsvConfig(filename=filename, query=_query_with_binary_column()))
+            sink.initialize()
+            sink.begin_run(_minimal_order())
+
+            result = ComputeResult(point=_point(exit_code=0, order_id=None))
+            with mock.patch(
+                "eleanor.output.csv.evaluate",
+                side_effect=[iter([{"exit_code": 0, "scratch_zip": None}])],
+            ):
+                outcomes = sink.write_batch(0, [result])
+
+            self.assertTrue(outcomes[0].committed)
+            self.assertFalse(os.path.exists(f"{tmpdir}/scratch_zip/0_0.zip"))
+            with open(filename, newline="") as handle:
+                rows = list(csv.reader(handle))
+            self.assertEqual(rows[1], ["0", ""])
+
+    def test_initialize_resume_creates_asset_directories(self):
+        """Ensure initialize on an existing CSV with binary columns creates per-column asset directories."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            filename = f"{tmpdir}/rows.csv"
+            with open(filename, "w", newline="") as handle:
+                csv.writer(handle).writerow(["exit_code", "scratch_zip"])
+            _write_sidecar(filename, _query_with_binary_column(), vs_points_seen={0: 1})
+            sink = CsvSink(CsvConfig(filename=filename, query=_query_with_binary_column()))
+            sink.initialize()
+            self.assertTrue(os.path.isdir(f"{tmpdir}/scratch_zip"))
+
+    def test_binary_asset_naming_uses_order_and_point_counter(self):
+        """Ensure extracted binary file names follow <column>/<order_id>_<point_counter>.zip."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            filename = f"{tmpdir}/rows.csv"
+            sink = CsvSink(CsvConfig(filename=filename, query=_query_with_binary_column()))
+            sink.initialize()
+            sink.begin_run(_minimal_order())
+
+            first = ComputeResult(point=_point(exit_code=0, order_id=None))
+            second = ComputeResult(point=_point(exit_code=0, order_id=None))
+            with mock.patch(
+                "eleanor.output.csv.evaluate",
+                side_effect=[
+                    iter([{"exit_code": 0, "scratch_zip": b"one"}]),
+                    iter([{"exit_code": 0, "scratch_zip": b"two"}]),
+                ],
+            ):
+                outcomes = sink.write_batch(0, [first, second])
+
+            self.assertTrue(all(outcome.committed for outcome in outcomes))
+            self.assertTrue(os.path.exists(f"{tmpdir}/scratch_zip/0_0.zip"))
+            self.assertTrue(os.path.exists(f"{tmpdir}/scratch_zip/0_1.zip"))
+            with open(f"{tmpdir}/scratch_zip/0_0.zip", "rb") as handle:
+                self.assertEqual(handle.read(), b"one")
+            with open(f"{tmpdir}/scratch_zip/0_1.zip", "rb") as handle:
+                self.assertEqual(handle.read(), b"two")
+
+    def test_write_batch_binary_multi_row_uses_row_suffix(self):
+        """Ensure multi-row binary outputs for one point use a row-index suffix."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            filename = f"{tmpdir}/rows.csv"
+            sink = CsvSink(CsvConfig(filename=filename, query=_query_with_binary_column()))
+            sink.initialize()
+            sink.begin_run(_minimal_order())
+
+            result = ComputeResult(point=_point(exit_code=0, order_id=None))
+            with mock.patch(
+                "eleanor.output.csv.evaluate",
+                side_effect=[
+                    iter(
+                        [
+                            {"exit_code": 0, "scratch_zip": b"first"},
+                            {"exit_code": 0, "scratch_zip": b"second"},
+                        ]
+                    )
+                ],
+            ):
+                outcomes = sink.write_batch(0, [result])
+
+            self.assertTrue(outcomes[0].committed)
+            self.assertTrue(os.path.exists(f"{tmpdir}/scratch_zip/0_0_0.zip"))
+            self.assertTrue(os.path.exists(f"{tmpdir}/scratch_zip/0_0_1.zip"))

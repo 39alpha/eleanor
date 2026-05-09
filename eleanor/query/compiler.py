@@ -56,6 +56,7 @@ class CompiledPath:
 class CompiledColumn:
     spec: ColumnSpec
     compiled_path: CompiledPath
+    terminal_kind: FieldKind | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -162,18 +163,18 @@ def _compile_row_scope(root_type: type[object], path: Path) -> CompiledPath:
 def _compile_column(spec: ColumnSpec, scope_table: AmbientScopeTable) -> CompiledColumn:
     path = spec.path
     if len(path.segments) == 0:
-        return CompiledColumn(spec=spec, compiled_path=CompiledPath(path=path, segments=tuple()))
+        return CompiledColumn(spec=spec, compiled_path=CompiledPath(path=path, segments=tuple()), terminal_kind=None)
 
     head = path.segments[0]
     alias_scope = scope_table[head.name]
     compiled_head = CompiledSegment(name=head.name, filters=tuple())
     if len(path.segments) == 1:
         compiled_path = CompiledPath(path=path, segments=(compiled_head,))
-        return CompiledColumn(spec=spec, compiled_path=compiled_path)
+        return CompiledColumn(spec=spec, compiled_path=compiled_path, terminal_kind=alias_scope.type_kind)
 
-    tail_segments, _ = _compile_segments(alias_scope.type_kind, path.segments[1:], path_to_string(path))
+    tail_segments, terminal_kind = _compile_segments(alias_scope.type_kind, path.segments[1:], path_to_string(path))
     compiled_path = CompiledPath(path=path, segments=(compiled_head,) + tail_segments)
-    return CompiledColumn(spec=spec, compiled_path=compiled_path)
+    return CompiledColumn(spec=spec, compiled_path=compiled_path, terminal_kind=terminal_kind)
 
 
 def _compile_segments(

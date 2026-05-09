@@ -5,6 +5,8 @@
 *.xlsx
 *.yaml
 !.pre-commit-config.yaml
+!eleanor/cli/templates/*.yaml
+!eleanor/cli/templates/*.toml
 .DS_Store
 .mypy_cache
 __pycache__

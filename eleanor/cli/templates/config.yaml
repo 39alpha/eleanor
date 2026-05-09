@@ -1,0 +1,17 @@
+# Eleanor configuration file
+# See: https://github.com/39alpha/eleanor
+
+output:
+  type: postgres                    # postgres | csv | null
+  args:
+    database:
+      host: localhost
+      port: 5432
+      database: eleanor
+      # username: eleanor
+      # password: secret
+      # sslmode: prefer
+
+parallel:
+  backend: multiprocessing          # serial | multiprocessing
+  chunks_per_worker: 10

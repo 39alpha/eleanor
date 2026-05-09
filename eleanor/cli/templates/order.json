@@ -1,0 +1,39 @@
+{
+  "name": "My Order",
+  "creator": "Your Name",
+  "notes": "",
+  "kernel": {
+    "type": "eq36",
+    "args": {
+      "model": "b-dot",
+      "charge_balance": "H+"
+    }
+  },
+  "navigator": "random",
+  "temperature": {
+    "min": 50,
+    "max": 150
+  },
+  "pressure": {
+    "min": 75,
+    "max": 100
+  },
+  "elements": {
+    "Na": -9,
+    "Cl": -9
+  },
+  "species": {
+    "H+": -7,
+    "O2(g)": -1
+  },
+  "reactants": {
+    "forsterite": {
+      "type": "mineral",
+      "amount": {
+        "mean": 0,
+        "stddev": 0.05
+      },
+      "titration_rate": -9
+    }
+  }
+}

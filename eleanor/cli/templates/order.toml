@@ -85,7 +85,7 @@ titration_rate = -9
 # type = "special"
 # composition = { Si = 1, O = 2 }
 # fraction = 0.5
-# relative_rate = 1.0
+# # relative_rate omitted -> uses fraction-proportional fallback
 # [reactants.basalt-glass.components.FeO]
 # type = "special"
 # composition = { Fe = 1, O = 1 }

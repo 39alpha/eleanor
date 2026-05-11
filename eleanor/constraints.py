@@ -498,9 +498,11 @@ class Boatswain(object):
                         parent_titration_rate = valuation[self.registry.id(titration_rate_param)].value
                         for component_name, component in components.items():
                             component_log_moles = cast(np.float64, np.log10(component.fraction)) + parent_log_moles
-                            component_titration_rate = (
-                                parent_titration_rate * valuation[self.registry.id(component.relative_rate)].value
-                            )
+                            if component.relative_rate is not None:
+                                component_relative_rate = valuation[self.registry.id(component.relative_rate)].value
+                            else:
+                                component_relative_rate = component.fraction
+                            component_titration_rate = parent_titration_rate * component_relative_rate
                             match component.type:
                                 case ReactantType.MINERAL:
                                     mineral_reactants.append(

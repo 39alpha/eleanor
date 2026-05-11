@@ -331,20 +331,24 @@ _ = TitratedReactant.register(SolidSolutionReactant)
 class CombinedReactantComponent:
     """One component of a CombinedReactant.
 
-    ``fraction`` and ``relative_rate`` drive decomposition math in the
-    Boatswain: component_log_moles = log10(fraction) + parent_log_moles,
-    component_titration_rate = parent_titration_rate * relative_rate.
+    ``fraction`` and ``relative_rate`` drive decomposition math in the Boatswain:
+    ``component_log_moles = log10(fraction) + parent_log_moles``.
+    When ``relative_rate`` is a ``Parameter``, the component's absolute titration
+    rate is ``parent_titration_rate * relative_rate``. When ``relative_rate`` is
+    ``None``, it falls back to ``parent_titration_rate * fraction``.
     """
 
     name: str
     type: ReactantType
     fraction: np.float64
-    relative_rate: Parameter
+    relative_rate: Parameter | None
     composition: dict[str, int] | None = None
     end_members: dict[str, Parameter] | None = None
 
     def parameters(self) -> list[Parameter]:
-        params: list[Parameter] = [self.relative_rate]
+        params: list[Parameter] = []
+        if self.relative_rate is not None:
+            params.append(self.relative_rate)
         if self.end_members is not None:
             params.extend(self.end_members.values())
         return params
@@ -370,7 +374,8 @@ class CombinedReactantComponent:
                 f'combined component "{name}" has a value {fraction}; must be between 0 and 1 exclusive'
             )
 
-        relative_rate = Parameter.load(raw.get("relative_rate", 1.0), name="relative_rate")
+        rate = raw.get("relative_rate")
+        relative_rate = Parameter.load(rate, name="relative_rate") if rate is not None else None
         composition: dict[str, int] | None = None
         end_members: dict[str, Parameter] | None = None
 

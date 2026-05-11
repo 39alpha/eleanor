@@ -294,6 +294,7 @@ class TestReactants(TestCase):
         mineral = CombinedReactantComponent.from_dict({"name": "fayalite", "type": "mineral", "fraction": 0.2})
         self.assertEqual(mineral.name, "fayalite")
         self.assertEqual(mineral.type, ReactantType.MINERAL)
+        self.assertIsNone(mineral.relative_rate)
         self.assertIsNone(mineral.composition)
         self.assertIsNone(mineral.end_members)
 
@@ -345,12 +346,21 @@ class TestReactants(TestCase):
         with self.assertRaises(EleanorException):
             CombinedReactantComponent.from_dict({"name": "SiO2", "type": "special", "fraction": 0.5})
 
-    def test_combined_component_parameters_includes_relative_rate(self):
+    def test_combined_component_parameters_handles_optional_relative_rate(self):
         """
-        Ensure CombinedReactantComponent.parameters() returns relative_rate plus end-member parameters when present.
+        Ensure CombinedReactantComponent.parameters() includes relative_rate only when present and always includes end members.
         """
-        simple = CombinedReactantComponent.from_dict({"name": "fayalite", "type": "mineral", "fraction": 0.5})
-        self.assertEqual(simple.parameters(), [simple.relative_rate])
+        proportional = CombinedReactantComponent.from_dict({"name": "fayalite", "type": "mineral", "fraction": 0.5})
+        self.assertIsNone(proportional.relative_rate)
+        self.assertEqual(proportional.parameters(), [])
+
+        explicit = CombinedReactantComponent.from_dict(
+            {"name": "forsterite", "type": "mineral", "fraction": 0.5, "relative_rate": 0.8}
+        )
+        self.assertIsNotNone(explicit.relative_rate)
+        if explicit.relative_rate is None:
+            raise AssertionError("expected explicit relative_rate parameter")
+        self.assertEqual(explicit.parameters(), [explicit.relative_rate])
 
         solid_solution = CombinedReactantComponent.from_dict(
             {
@@ -364,7 +374,7 @@ class TestReactants(TestCase):
             raise AssertionError("expected solid-solution component end_members")
         self.assertEqual(
             solid_solution.parameters(),
-            [solid_solution.relative_rate, *solid_solution.end_members.values()],
+            [*solid_solution.end_members.values()],
         )
 
     def test_combined_reactant_from_dict_success(self):
@@ -486,7 +496,9 @@ class TestReactants(TestCase):
         """
         Ensure CombinedReactant.volume() folds each component's parameter
         block (relative_rate plus any nested end_members) into the parent
-        volume, mirroring the SolidSolutionReactant precedent.
+        volume, mirroring the SolidSolutionReactant precedent. A component
+        whose ``relative_rate`` is ``None`` contributes the identity volume
+        (1.0), matching ``mapreduce(..., [], 1.0)`` in the implementation.
         """
         reactant = CombinedReactant.from_dict(
             {
@@ -497,20 +509,27 @@ class TestReactants(TestCase):
                 "components": {
                     "fayalite": {
                         "type": "mineral",
-                        "fraction": 0.6,
+                        "fraction": 0.5,
                         "relative_rate": {"min": 0.1, "max": 10.0},
                     },
                     "forsterite": {
                         "type": "mineral",
-                        "fraction": 0.4,
+                        "fraction": 0.3,
                         "relative_rate": {"min": 0.5, "max": 5.0},
+                    },
+                    "proportional": {
+                        "type": "mineral",
+                        "fraction": 0.2,
                     },
                 },
             }
         )
         base_volume = reactant.amount.volume() * reactant.titration_rate.volume()
         component_contribution = sum(
-            (component.relative_rate.volume() for component in reactant.components.values()),
+            (
+                component.relative_rate.volume() if component.relative_rate is not None else np.float64(1.0)
+                for component in reactant.components.values()
+            ),
             start=np.float64(0.0),
         )
         expected = base_volume + component_contribution

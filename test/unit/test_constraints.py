@@ -920,6 +920,64 @@ class TestConstraints(TestCase):
         self.assertAlmostEqual(by_name["SiO2"].log_moles, expected_log_moles)
         self.assertAlmostEqual(by_name["Na2O"].log_moles, expected_log_moles)
 
+    def test_generate_vs_combined_proportional_component_rates(self):
+        """
+        Ensure generate_vs falls back to fraction-proportional rates when component relative_rate is omitted.
+        """
+        water_mass = ValueParameter("water_mass", None, np.float64(1.0))
+        temperature = ValueParameter("temperature", None, np.float64(25.0))
+        pressure = ValueParameter("pressure", None, np.float64(1.0))
+        combined = CombinedReactant(
+            "combinedmix",
+            ReactantType.COMBINED,
+            ValueParameter("amount", None, -np.float64(1.0)),
+            ValueParameter("titration_rate", None, np.float64(3.0)),
+            {
+                "SiO2": CombinedReactantComponent(
+                    "SiO2",
+                    ReactantType.SPECIAL,
+                    np.float64(0.5),
+                    None,
+                    composition={"Si": 1, "O": 2},
+                ),
+                "Na2O": CombinedReactantComponent(
+                    "Na2O",
+                    ReactantType.SPECIAL,
+                    np.float64(0.25),
+                    None,
+                    composition={"Na": 2, "O": 1},
+                ),
+                "FeO": CombinedReactantComponent(
+                    "FeO",
+                    ReactantType.SPECIAL,
+                    np.float64(0.25),
+                    None,
+                    composition={"Fe": 1, "O": 1},
+                ),
+            },
+        )
+        self.assertEqual(len(combined.parameters()), 2)
+
+        params: list[Parameter] = [water_mass, temperature, pressure]
+        params.extend(combined.parameters())
+
+        order = DummyOrder(
+            parameters=params,
+            water_mass=water_mass,
+            temperature=temperature,
+            pressure=pressure,
+            elements={},
+            species={},
+            suppressions=[],
+            reactants=[combined],
+        )
+        point = Boatswain(_as_order(order)).generate_vs()
+        self.assertEqual(len(point.special_reactants), 3)
+        by_name = {r.name: r for r in point.special_reactants}
+        self.assertAlmostEqual(by_name["SiO2"].titration_rate, 1.5)
+        self.assertAlmostEqual(by_name["Na2O"].titration_rate, 0.75)
+        self.assertAlmostEqual(by_name["FeO"].titration_rate, 0.75)
+
     def test_generate_vs_combined_special_parity_with_old_glass(self):
         """
         Ensure combined special-component expansion preserves the old glass decomposition math.

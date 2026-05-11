@@ -1,0 +1,16 @@
+{
+  "output": {
+    "type": "postgres",
+    "args": {
+      "database": {
+        "host": "localhost",
+        "port": 5432,
+        "database": "eleanor"
+      }
+    }
+  },
+  "parallel": {
+    "backend": "multiprocessing",
+    "chunks_per_worker": 10
+  }
+}

@@ -7,6 +7,7 @@ description = "Large-scale, aqueous speciation modeling"
 readme = "README.md"
 license = {file = "LICENSE"}
 dependencies = [
+  "click>=8.1",
   'numpy',
   "pandas>=3.0.1",
   'psycopg[binary]>=3.1',

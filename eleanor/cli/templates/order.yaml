@@ -1,0 +1,118 @@
+# Eleanor order file
+# See: https://github.com/39alpha/eleanor
+
+name: My Order
+creator: Your Name
+notes: ""
+
+kernel:
+  type: eq36
+  args:
+    model: b-dot
+    charge_balance: H+
+
+navigator: random                   # random | lattice | random_lattice
+
+temperature:
+  min: 50
+  max: 150
+
+pressure:
+  min: 75
+  max: 100
+
+elements:
+  Na: -9
+  Cl: -9
+
+species:
+  H+: -7
+  O2(g): -1
+
+reactants:
+  # --- mineral: a pure mineral phase ---
+  forsterite:
+    type: mineral
+    amount:
+      mean: 0
+      stddev: 0.05
+    titration_rate: -9
+
+  # --- aqueous: a dissolved species ---
+  # NaCl-aq:
+  #   type: aqueous
+  #   amount:
+  #     min: -6
+  #     max: -3
+  #   titration_rate: -9
+
+  # --- gas: a gas titrated into the system ---
+  # methane:
+  #   type: gas
+  #   amount:
+  #     min: -6
+  #     max: -3
+  #   titration_rate: -9
+
+  # --- fixed gas: held at a fixed fugacity ---
+  # CO2:
+  #   type: fixed gas
+  #   amount:
+  #     min: -6
+  #     max: -3
+  #   fugacity: -9
+
+  # --- element: a bare element reactant ---
+  # Na:
+  #   type: element
+  #   amount:
+  #     min: -6
+  #     max: -3
+  #   titration_rate: -9
+
+  # --- special: user-defined composition ---
+  # FeCl2:
+  #   type: special
+  #   amount:
+  #     min: -6
+  #     max: -3
+  #   titration_rate: -9
+  #   composition:
+  #     Fe: 1
+  #     Cl: 2
+  #     O: 1
+
+  # --- solid solution: mixture of end members ---
+  # olivine-ss:
+  #   type: solid solution
+  #   amount:
+  #     min: -6
+  #     max: -3
+  #   titration_rate: -9
+  #   end_members:
+  #     fayalite: 0.6
+  #     forsterite: 0.4
+
+  # --- glass: multi-oxide glass ---
+  # basalt-glass:
+  #   type: glass
+  #   amount:
+  #     min: -6
+  #     max: -3
+  #   titration_rate: -9
+  #   oxides:
+  #     SiO2:
+  #       composition: { Si: 1, O: 2 }
+  #       fraction: 0.5
+  #       relative_rate: 1.0
+  #     FeO:
+  #       composition: { Fe: 1, O: 1 }
+  #       fraction: 0.5
+  #       relative_rate: 1.0
+
+# suppressions:
+#   - methane
+#   - type: mineral
+#     except:
+#       - olivine
+#   - type: solid solution

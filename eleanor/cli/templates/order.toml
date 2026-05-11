@@ -1,0 +1,101 @@
+# Eleanor order file
+# See: https://github.com/39alpha/eleanor
+
+name = "My Order"
+creator = "Your Name"
+notes = ""
+
+navigator = "random"                # random | lattice | random_lattice
+
+[kernel]
+type = "eq36"
+
+[kernel.args]
+model = "b-dot"
+charge_balance = "H+"
+
+[temperature]
+min = 50
+max = 150
+
+[pressure]
+min = 75
+max = 100
+
+[elements]
+Na = -9
+Cl = -9
+
+[species]
+"H+" = -7
+"O2(g)" = -1
+
+# --- mineral: a pure mineral phase ---
+[reactants.forsterite]
+type = "mineral"
+amount = { mean = 0, stddev = 0.05 }
+titration_rate = -9
+
+# --- aqueous: a dissolved species ---
+# [reactants.NaCl-aq]
+# type = "aqueous"
+# amount = { min = -6, max = -3 }
+# titration_rate = -9
+
+# --- gas: a gas titrated into the system ---
+# [reactants.methane]
+# type = "gas"
+# amount = { min = -6, max = -3 }
+# titration_rate = -9
+
+# --- fixed gas: held at a fixed fugacity ---
+# [reactants.CO2]
+# type = "fixed gas"
+# amount = { min = -6, max = -3 }
+# fugacity = -9
+
+# --- element: a bare element reactant ---
+# [reactants.Na]
+# type = "element"
+# amount = { min = -6, max = -3 }
+# titration_rate = -9
+
+# --- special: user-defined composition ---
+# [reactants.FeCl2]
+# type = "special"
+# amount = { min = -6, max = -3 }
+# titration_rate = -9
+# composition = { Fe = 1, Cl = 2, O = 1 }
+
+# --- solid solution: mixture of end members ---
+# [reactants.olivine-ss]
+# type = "solid solution"
+# amount = { min = -6, max = -3 }
+# titration_rate = -9
+# [reactants.olivine-ss.end_members]
+# fayalite = 0.6
+# forsterite = 0.4
+
+# --- glass: multi-oxide glass ---
+# [reactants.basalt-glass]
+# type = "glass"
+# amount = { min = -6, max = -3 }
+# titration_rate = -9
+# [reactants.basalt-glass.oxides.SiO2]
+# composition = { Si = 1, O = 2 }
+# fraction = 0.5
+# relative_rate = 1.0
+# [reactants.basalt-glass.oxides.FeO]
+# composition = { Fe = 1, O = 1 }
+# fraction = 0.5
+# relative_rate = 1.0
+
+# [[suppressions]]
+# name = "methane"
+#
+# [[suppressions]]
+# type = "mineral"
+# except = ["olivine"]
+#
+# [[suppressions]]
+# type = "solid solution"

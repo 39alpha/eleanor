@@ -267,6 +267,118 @@ class TestEntryPointDiscovery(TestCase):
                 self.assertNotIn("bad", registry.available())
 
 
+class TestBuiltinLoader(TestCase):
+    """
+    Tests of the optional ``builtin_loader`` hook on :class:`PluginRegistry`.
+    """
+
+    def _loader_registry(self, loader, **overrides):
+        defaults = dict(
+            kind="widget",
+            entry_point_group="eleanor.test.widgets",
+            override_env_var="ELEANOR_WIDGET_OVERRIDES",
+            builtins={},
+            builtin_loader=loader,
+        )
+        defaults.update(overrides)
+        return PluginRegistry(**defaults)  # pyright: ignore[reportArgumentType]
+
+    def test_loader_fires_on_first_available(self):
+        """
+        Ensure the loader is called exactly once on the first ``available()`` call.
+        """
+        calls: list[int] = []
+
+        def loader():
+            calls.append(1)
+
+        registry = self._loader_registry(loader)
+        with mock.patch("eleanor.plugin.entry_points", return_value=[]):
+            registry.available()
+            registry.available()
+            registry.get("nonexistent") if False else None  # no-op; just confirm no second fire
+        self.assertEqual(len(calls), 1)
+
+    def test_loader_does_not_refire_on_get(self):
+        """
+        Ensure subsequent ``get()`` calls do not re-invoke the loader.
+        """
+        calls: list[int] = []
+
+        def loader():
+            calls.append(1)
+            registry.register("p1", _plugin)
+
+        registry = self._loader_registry(loader)
+        with mock.patch("eleanor.plugin.entry_points", return_value=[]):
+            registry.available()
+            _ = registry.get("p1")
+        self.assertEqual(len(calls), 1)
+
+    def test_loader_fires_before_entry_point_discovery(self):
+        """
+        Ensure the loader runs before entry-point plugins are registered,
+        so loader-registered names take precedence as built-ins.
+        """
+        order: list[str] = []
+
+        def loader():
+            order.append("loader")
+            registry.register("from_loader", _plugin)
+
+        def fake_entry_points(*, group: str):
+            order.append("entry_points")
+            ep = _FakeEntryPoint("from_ep", "pkg:factory", lambda: _plugin)
+            return [ep]
+
+        registry = self._loader_registry(loader)
+        with mock.patch("eleanor.plugin.entry_points", side_effect=fake_entry_points):
+            names = registry.available()
+        self.assertEqual(order, ["loader", "entry_points"])
+        self.assertIn("from_loader", names)
+        self.assertIn("from_ep", names)
+
+    def test_reentrant_available_from_loader_is_noop(self):
+        """
+        Ensure calling ``available()`` inside the loader does not recurse.
+        """
+        inner_result: list[frozenset[str]] = []
+
+        def loader():
+            inner_result.append(registry.available())
+            registry.register("late", _plugin)
+
+        registry = self._loader_registry(loader)
+        with mock.patch("eleanor.plugin.entry_points", return_value=[]):
+            outer = registry.available()
+        # The inner call sees whatever was registered before the loader ran
+        # (nothing, in this case) because ``_discovered`` is already True.
+        self.assertEqual(inner_result[0], frozenset())
+        # The outer call sees the name the loader added.
+        self.assertIn("late", outer)
+
+    def test_loader_exception_propagates(self):
+        """
+        Ensure loader exceptions are not swallowed (unlike entry-point failures).
+        """
+
+        def loader():
+            raise RuntimeError("broken installation")
+
+        registry = self._loader_registry(loader)
+        with self.assertRaisesRegex(RuntimeError, "broken installation"):
+            registry.available()
+
+    def test_none_loader_is_harmless(self):
+        """
+        Ensure ``builtin_loader=None`` (the default) is a no-op.
+        """
+        registry = _make_registry()
+        with mock.patch("eleanor.plugin.entry_points", return_value=[]):
+            names = registry.available()
+        self.assertIn("b1", names)
+
+
 class TestApiVersionEnforcement(TestCase):
     """
     Tests of API-version-aware plugin validation in registries.

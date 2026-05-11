@@ -60,7 +60,7 @@ class PostgresSink(OutputSink):
     which makes the per-row INSERT / COPY hot path substantially faster
     on large workloads. If the sink crashes between ``initialize`` and
     ``finalize`` -- e.g. the process is killed -- the constraints stay
-    missing; ``eleanor bulkload recreate`` (or :func:`recreate_indexes`
+    missing; ``eleanor postgres bulkload recreate`` (or :func:`recreate_indexes`
     directly) will reattach them.
     """
 

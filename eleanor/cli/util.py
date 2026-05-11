@@ -1,8 +1,18 @@
-import argparse
-import os.path
-import sys
-from typing import TypedDict
+"""Shared CLI utilities for built-in commands and CLI plugins.
 
+This module is part of the supported CLI-plugin contract: third-party
+plugins registered through ``eleanor.cli_commands`` may import
+:func:`config_options` and :func:`config_from_args` to inherit the
+``--config`` / ``--database`` flags and the standard config-resolution
+behaviour. The names exported here are covered by the same plugin-API
+versioning policy as the ``eleanor.cli_commands`` entry-point group.
+"""
+
+import functools
+import os.path
+from collections.abc import Callable
+
+import click
 from xdg_base_dirs import xdg_config_home
 
 from eleanor.config import Config, OutputRaw, load_config
@@ -11,57 +21,49 @@ from eleanor.output.postgres.config import DatabaseRaw, database_config_from_con
 from eleanor.typing import cast
 
 
-class ConfigArgs(TypedDict):
-    """Argparse fields contributed by :func:`add_config_args`."""
-
-    config: str
-    database: str | None
-
-
-def typed_args[T](schema: type[T], ns: argparse.Namespace) -> T:
-    """Coerce an :class:`argparse.Namespace` to a ``TypedDict`` schema.
-
-    pyright rejects a direct ``cast(schema, vars(ns))`` because
-    ``dict[str, Any]`` doesn't structurally overlap a ``TypedDict``. Routing
-    through ``object`` once here lets each CLI command describe its argparse
-    namespace with a ``TypedDict`` subclass without repeating the widening
-    cast at every call site.
-    """
-    _ = schema
-    return cast(T, cast(object, vars(ns)))
-
-
-def add_config_args(parser: argparse.ArgumentParser) -> None:
+def _default_config_path() -> str | None:
     try:
-        config_path = str(xdg_config_home().joinpath("eleanor", "config.yaml"))
-        _ = load_config(config_path)
+        path = str(xdg_config_home().joinpath("eleanor", "config.yaml"))
+        _ = load_config(path)
+        return path
     except Exception:
-        config_path = None
-    _ = parser.add_argument(
+        return None
+
+
+def config_options[F: Callable[..., object]](fn: F) -> F:
+    default_path = _default_config_path()
+
+    @click.option(
         "-c",
         "--config",
-        required=config_path is None,
-        type=str,
-        default=config_path,
-        help='the database configuration file to use (default: "%(default)s")',
+        required=default_path is None,
+        default=default_path,
+        envvar="ELEANOR_CONFIG",
+        type=click.Path(dir_okay=False),
+        help=f"Configuration file (default: {default_path or 'required'}).",
     )
-    _ = parser.add_argument(
+    @click.option(
         "-d",
         "--database",
         required=False,
-        type=str,
-        help="override the database from the configuration file (required if missing from config)",
+        default=None,
+        envvar="ELEANOR_DATABASE",
+        help="Override the database from the configuration file.",
     )
+    @functools.wraps(fn)
+    def wrapper(*args: object, **kwargs: object) -> object:
+        return fn(*args, **kwargs)
+
+    return cast(F, wrapper)
 
 
 def config_from_args(
-    parser: argparse.ArgumentParser,
-    args: ConfigArgs,
+    config_file: str,
+    database: str | None,
     *,
     require_database: bool = True,
 ) -> Config:
-    config_path = os.path.expanduser(args["config"])
-    database = args["database"]
+    config_path = os.path.expanduser(config_file)
 
     config = load_config(config_path)
     if database is not None:
@@ -87,8 +89,6 @@ def config_from_args(
         # sees the override.
         config.output.args = args_raw
     elif require_database and config.output.type == "postgres" and database_config_from_config(config).database is None:
-        print("error: no database provided\n", file=sys.stdout)
-        parser.print_help()
-        sys.exit(1)
+        raise click.ClickException("no database provided")
 
     return config

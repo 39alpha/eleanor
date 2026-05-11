@@ -46,6 +46,92 @@ uv tool install meson # If you haven't installed meson already
 uv tool install git+https://github.com/39alpha/eleanor
 ```
 
+## CLI overview
+
+Top-level commands:
+
+- `eleanor run` — run a simulation workload from an order file.
+- `eleanor doctor` — print install and plugin diagnostics.
+- `eleanor gen config|order` — emit starter config/order templates.
+- `eleanor postgres schema|scratch|bulkload` — postgres-specific helper commands.
+
+### `eleanor run`
+
+```bash
+eleanor run [OPTIONS] ORDER SIMULATION_SIZE
+```
+
+Common options:
+
+- `-c, --config` / `-d, --database`: select config and optionally override the postgres database name.
+- `-n, --num-procs`: worker count for the selected executor backend.
+- `--parallel BACKEND`: override `parallel.backend` from config (built-ins: `serial`, `multiprocessing`; plugins may add more, e.g. `mpi`).
+- `--chunks-per-worker`: override `parallel.chunks_per_worker`.
+- `--batch-size`: navigator batch size passed into `navigate(...)`.
+- `--max-nav-attempts`: maximum attempts per navigation point before giving up.
+- `--order-id`: resume/extend an existing order id.
+- `--tag`: override the order tag loaded from the order file.
+- `--null-sink`: bypass configured output and discard writes via `NullSink`.
+- `--bulk-load` / `--no-bulk-load`: enable/disable postgres bulk-load optimization for this run.
+- `-p, --progress`: show progress bars (disabled automatically by `--verbose`).
+- `-v, --verbose`: verbose output.
+- `-s, --scratch`: persist scratch artifacts for all sailors.
+
+### Built-in output sinks
+
+Built-in output sink types are:
+
+- `postgres`
+- `csv`
+- `memory`
+- `null`
+
+Select a sink in your config under `output.type`, with sink-specific settings in `output.args`.
+For one-off dry runs, `--null-sink` on `eleanor run` overrides config output without editing files.
+
+### Resume / extend orders with `--order-id`
+
+Use `--order-id` to append new variable-space/equilibrium results to an existing order row:
+
+```bash
+eleanor run --order-id 42 -c config.yaml -d eleanor_db order.yaml 50000
+```
+
+Behavior:
+
+- If order `42` already exists, Eleanor extends that order.
+- If `42` does not exist, Eleanor creates a new order and continues normally.
+- The `eleanor_version` must match when extending an existing order. If your order file declares a different version, the run is rejected.
+- If the order file leaves `eleanor_version` unset, Eleanor reuses the stored version from the existing row.
+
+### Parallelism, batch size, and Postgres subtransaction pressure
+
+The postgres sink uses one outer transaction per batch plus one savepoint per variable-space point.
+With multiprocessing, each worker has its own connection and can hold up to `batch_size` in-flight savepoints.
+Operationally, subtransaction pressure scales roughly with:
+
+`batch_size × num_workers`
+
+At sufficiently high values this can trigger Postgres `SubtransSLRULock` contention.
+If you see this, reduce `--batch-size`, reduce worker count (`-n` / backend configuration), or both.
+
+### Bulk-load controls
+
+For postgres outputs, bulk-load mode drops secondary indexes/constraints during ingestion and recreates them at finalize:
+
+```bash
+eleanor run --bulk-load -c config.yaml -d eleanor_db order.yaml 200000
+```
+
+You can also control this window explicitly:
+
+```bash
+eleanor postgres bulkload drop -y -c config.yaml -d eleanor_db
+eleanor postgres bulkload recreate -c config.yaml -d eleanor_db
+```
+
+If a bulk-load run is interrupted before finalize, use `eleanor postgres bulkload recreate` to restore constraints/indexes.
+
 ## Shell Completion
 
 ### Bash

@@ -84,6 +84,70 @@ the relevant extension point. Any entry-point load or validation failure is
 a hard error — a broken plugin fails fast rather than silently disappearing
 from the available set.
 
+### End-to-end example: third-party output sink package
+
+Minimal package layout:
+
+```text
+my_sink_plugin/
+  pyproject.toml
+  src/my_sink_plugin/output.py
+```
+
+`pyproject.toml`:
+
+```toml
+[project]
+name = "my-sink-plugin"
+version = "0.1.0"
+dependencies = ["eleanor>=0.0.0"]
+
+[project.entry-points."eleanor.outputs"]
+my_sink = "my_sink_plugin.output:build_sink"
+```
+
+`src/my_sink_plugin/output.py`:
+
+```python
+from eleanor.output.interface import ComputeResult, OutputSink, WriteOutcome
+
+
+class MySink(OutputSink):
+    def begin_run(self, order):
+        return order.id or 0
+
+    def write_batch(self, order_id, results: list[ComputeResult], progress=None) -> list[WriteOutcome]:
+        return [WriteOutcome(exit_code=r.point.exit_code, committed=True) for r in results]
+
+    def finalize_run(self) -> None:
+        return None
+
+    def finalize(self) -> None:
+        return None
+
+
+def build_sink(config, *, verbose: bool = False, **args):
+    _ = (config, verbose, args)
+    return MySink()
+
+
+build_sink.__eleanor_api_version__ = 1
+```
+
+Install the package, then reference it in Eleanor config:
+
+```yaml
+output:
+  type: my_sink
+  args: {}
+```
+
+You can verify discovery with:
+
+```bash
+eleanor doctor
+```
+
 ## Inline plugins
 
 Every extension point supports two non-packaged registration paths:

@@ -10,7 +10,6 @@ import numpy as np
 from eleanor.exceptions import EleanorException
 from eleanor.kernel.config import Settings as KernelSettings
 from eleanor.order import (
-    ConstraintConfig,
     NavigatorConfig,
     Order,
     OrderRaw,
@@ -73,8 +72,6 @@ class TestOrder(TestCase):
         """
         Ensure basic config helper classes return expected defaults.
         """
-        self.assertEqual(ConstraintConfig(type="x").volume(), 1.0)
-
         nav = NavigatorConfig("random")
         self.assertEqual(nav.type, "random")
         self.assertEqual(nav.args, {})

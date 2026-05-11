@@ -4,7 +4,15 @@ from unittest import mock
 
 import numpy as np
 
-from eleanor.constraints import AbstractConstraint, Boatswain
+from eleanor.constraints import (
+    AbstractConstraint,
+    Boatswain,
+    LinearConstraint,
+    LinearConstraintTerm,
+    Transform,
+    resolve_parameter,
+)
+from eleanor.exceptions import EleanorException
 from eleanor.kernel.config import Config as KernelConfig
 from eleanor.kernel.config import Settings
 from eleanor.order import ConstraintConfig, Order
@@ -132,7 +140,7 @@ class TestConstraints(TestCase):
         Ensure placeholder :meth:`AbstractConstraint.from_order` is executable.
         """
         dummy_order = cast(Order, object())
-        dummy_constraint_config = cast(ConstraintConfig, object())
+        dummy_constraint_config = ConstraintConfig(type="unknown", raw={})
         self.assertIsNone(AbstractConstraint.from_order(dummy_order, dummy_constraint_config))
 
     def test_abstract_constraint_placeholder_methods_are_executable(self):
@@ -151,6 +159,460 @@ class TestConstraints(TestCase):
         self.assertIsNone(independent_getter(abstract_constraint))
         self.assertIsNone(dependent_getter(abstract_constraint))
         self.assertIsNone(AbstractConstraint.apply(abstract_constraint, registry, valuation))
+
+    def test_transform_forward_and_inverse(self):
+        """
+        Verify each Transform variant's forward and inverse are mutual inverses.
+        """
+        x = np.float64(2.0)
+        for transform in Transform:
+            y = transform.forward(x)
+            x_round = transform.inverse(y)
+            self.assertAlmostEqual(float(x_round), float(x), places=10)
+
+        self.assertAlmostEqual(float(Transform.IDENTITY.forward(np.float64(3.0))), 3.0)
+        self.assertAlmostEqual(float(Transform.LOG10.forward(np.float64(100.0))), 2.0)
+        self.assertAlmostEqual(float(Transform.POW10.forward(np.float64(2.0))), 100.0)
+        self.assertAlmostEqual(float(Transform.LOG10.inverse(np.float64(2.0))), 100.0)
+        self.assertAlmostEqual(float(Transform.POW10.inverse(np.float64(100.0))), 2.0)
+
+    def test_linear_constraint_construction_sorts_by_volume(self):
+        """
+        Verify terms are stable-sorted by parameter volume descending (largest first).
+        """
+        p_small = RangeParameter("small", None, np.float64(0.0), np.float64(1.0))
+        p_big = RangeParameter("big", None, np.float64(0.0), np.float64(10.0))
+        p_fixed = ValueParameter("fixed", None, np.float64(5.0))
+        terms = [
+            LinearConstraintTerm(p_big, np.float64(1.0), Transform.IDENTITY),
+            LinearConstraintTerm(p_fixed, np.float64(1.0), Transform.IDENTITY),
+            LinearConstraintTerm(p_small, np.float64(1.0), Transform.IDENTITY),
+        ]
+
+        linear_constraint = LinearConstraint(terms)
+        self.assertIsNotNone(linear_constraint._dependent_term)
+        if linear_constraint._dependent_term is None:
+            raise AssertionError("expected dependent term")
+        self.assertIs(linear_constraint._dependent_term.parameter, p_big)
+        self.assertEqual(len(linear_constraint._independent_terms), 2)
+
+    def test_linear_constraint_dependent_independent_split(self):
+        """
+        Verify dependent/independent split with mixed parameter types.
+        """
+        p_range = RangeParameter("x", None, np.float64(0.0), np.float64(5.0))
+        p_value = ValueParameter("y", None, np.float64(3.0))
+        terms = [
+            LinearConstraintTerm(p_range, np.float64(2.0), Transform.IDENTITY),
+            LinearConstraintTerm(p_value, np.float64(1.0), Transform.LOG10),
+        ]
+
+        linear_constraint = LinearConstraint(terms)
+        self.assertEqual(len(linear_constraint.dependent_parameters), 1)
+        self.assertIs(linear_constraint.dependent_parameters[0], p_range)
+        independent_parameters = linear_constraint.independent_parameters
+        self.assertIn(p_value, independent_parameters)
+        self.assertIn(linear_constraint.constant, independent_parameters)
+
+    def test_linear_constraint_all_value_parameters_no_dependent(self):
+        """
+        When all terms are ValueParameter, dependent_parameters is empty.
+        """
+        p1 = ValueParameter("a", None, np.float64(1.0))
+        p2 = ValueParameter("b", None, np.float64(2.0))
+        terms = [
+            LinearConstraintTerm(p1, np.float64(1.0), Transform.IDENTITY),
+            LinearConstraintTerm(p2, np.float64(1.0), Transform.IDENTITY),
+        ]
+
+        linear_constraint = LinearConstraint(terms, constant=ValueParameter("c", None, np.float64(3.0)))
+        self.assertEqual(linear_constraint.dependent_parameters, [])
+
+    def test_linear_constraint_apply_solves_for_dependent(self):
+        """
+        Verify apply computes the correct dependent value for a simple linear equation.
+        """
+        p_dep = RangeParameter("x", None, np.float64(0.0), np.float64(10.0))
+        p_ind = ValueParameter("y", None, np.float64(3.0))
+        terms = [
+            LinearConstraintTerm(p_dep, np.float64(1.0), Transform.IDENTITY),
+            LinearConstraintTerm(p_ind, np.float64(1.0), Transform.IDENTITY),
+        ]
+        constant = ValueParameter("c", None, np.float64(7.0))
+        linear_constraint = LinearConstraint(terms, constant=constant)
+        registry = ParameterRegistry()
+        registry.add_parameters([p_dep, p_ind, constant])
+        valuation = registry.valuation()
+
+        result = linear_constraint.apply(registry, valuation)
+        self.assertIn(registry.id(p_dep), result)
+        resolved = result[registry.id(p_dep)]
+        self.assertIsInstance(resolved, ValueParameter)
+        if isinstance(resolved, ValueParameter):
+            self.assertAlmostEqual(float(resolved.value), 4.0)
+
+    def test_linear_constraint_apply_with_log10_transform(self):
+        """
+        Verify apply with log10 transform resolves expected dependent value.
+        """
+        p_dep = RangeParameter("x", None, np.float64(1.0), np.float64(1000.0))
+        terms = [LinearConstraintTerm(p_dep, np.float64(1.0), Transform.LOG10)]
+        constant = ValueParameter("c", None, np.float64(2.0))
+        linear_constraint = LinearConstraint(terms, constant=constant)
+        registry = ParameterRegistry()
+        registry.add_parameters([p_dep, constant])
+        valuation = registry.valuation()
+
+        result = linear_constraint.apply(registry, valuation)
+        resolved = result[registry.id(p_dep)]
+        self.assertIsInstance(resolved, ValueParameter)
+        if isinstance(resolved, ValueParameter):
+            self.assertAlmostEqual(float(resolved.value), 100.0)
+
+    def test_linear_constraint_apply_all_fixed_validates_tolerance(self):
+        """
+        When all terms are fixed, apply checks the equation holds within tolerance.
+        """
+        p1 = ValueParameter("a", None, np.float64(1.0))
+        p2 = ValueParameter("b", None, np.float64(2.0))
+        terms = [
+            LinearConstraintTerm(p1, np.float64(1.0), Transform.IDENTITY),
+            LinearConstraintTerm(p2, np.float64(1.0), Transform.IDENTITY),
+        ]
+
+        constant = ValueParameter("c", None, np.float64(3.0))
+        linear_constraint = LinearConstraint(terms, constant=constant)
+        registry = ParameterRegistry()
+        registry.add_parameters([p1, p2, constant])
+        valuation = registry.valuation()
+        result = linear_constraint.apply(registry, valuation)
+        self.assertEqual(result, {})
+
+        constant_bad = ValueParameter("c", None, np.float64(10.0))
+        linear_constraint_bad = LinearConstraint(terms, constant=constant_bad)
+        registry_bad = ParameterRegistry()
+        registry_bad.add_parameters([p1, p2, constant_bad])
+        valuation_bad = registry_bad.valuation()
+        with self.assertRaises(EleanorException):
+            linear_constraint_bad.apply(registry_bad, valuation_bad)
+
+    def test_linear_constraint_is_resolvable(self):
+        """
+        is_resolvable is true when all independent params are ValueParameter.
+        """
+        p_dep = RangeParameter("x", None, np.float64(0.0), np.float64(10.0))
+        p_ind = ValueParameter("y", None, np.float64(3.0))
+        terms = [
+            LinearConstraintTerm(p_dep, np.float64(1.0), Transform.IDENTITY),
+            LinearConstraintTerm(p_ind, np.float64(1.0), Transform.IDENTITY),
+        ]
+        linear_constraint = LinearConstraint(terms)
+        constant = linear_constraint.constant
+        registry = ParameterRegistry()
+        registry.add_parameters([p_dep, p_ind, constant])
+        valuation = registry.valuation()
+        self.assertTrue(linear_constraint.is_resolvable(registry, valuation))
+
+        p_dep2 = RangeParameter("x2", None, np.float64(0.0), np.float64(5.0))
+        p_ind2 = RangeParameter("y2", None, np.float64(0.0), np.float64(10.0))
+        terms2 = [
+            LinearConstraintTerm(p_dep2, np.float64(1.0), Transform.IDENTITY),
+            LinearConstraintTerm(p_ind2, np.float64(1.0), Transform.IDENTITY),
+        ]
+        linear_constraint2 = LinearConstraint(terms2)
+        registry2 = ParameterRegistry()
+        registry2.add_parameters([p_dep2, p_ind2, linear_constraint2.constant])
+        valuation2 = registry2.valuation()
+        self.assertFalse(linear_constraint2.is_resolvable(registry2, valuation2))
+
+    def test_resolve_parameter_simple_and_filtered_paths(self):
+        """
+        Verify resolve_parameter handles plain attributes, dict filters, and list filters.
+        """
+        temp = RangeParameter("temperature", None, np.float64(10.0), np.float64(100.0))
+        na = ValueParameter("Na", None, np.float64(-1.0))
+        amount = RangeParameter("amount", None, np.float64(0.0), np.float64(5.0))
+
+        class FakeReactant:
+            def __init__(self, name: str, amount: Parameter):
+                self.name = name
+                self.amount = amount
+
+        class FakeOrder:
+            def __init__(self):
+                self.temperature = temp
+                self.elements = {"Na": na}
+                self.reactants = [FakeReactant("calcite", amount)]
+
+        order = cast(Order, cast(object, FakeOrder()))
+        self.assertIs(resolve_parameter(order, "temperature"), temp)
+        self.assertIs(resolve_parameter(order, "elements[key=Na]"), na)
+        self.assertIs(resolve_parameter(order, "reactants[name=calcite].amount"), amount)
+        with self.assertRaises(EleanorException):
+            resolve_parameter(order, "nonexistent")
+        with self.assertRaises(EleanorException):
+            resolve_parameter(order, "elements[key=missing]")
+
+    def test_linear_constraint_from_order_round_trip(self):
+        """
+        Round-trip raw constraint dict through from_order into a LinearConstraint.
+        """
+        temp = RangeParameter("temperature", None, np.float64(10.0), np.float64(100.0))
+        na = ValueParameter("Na", None, np.float64(-1.0))
+        order = DummyOrder(
+            parameters=[temp, na],
+            temperature=temp,
+            pressure=ValueParameter("pressure", None, np.float64(1.0)),
+            elements={"Na": na},
+            species={},
+            suppressions=[],
+            reactants=[],
+        )
+        raw: dict[str, object] = {
+            "type": "linear",
+            "terms": [
+                {"variable": "temperature", "coefficient": 1.0, "transform": "identity"},
+                {"variable": "elements[key=Na]", "coefficient": -2.0, "transform": "log10"},
+            ],
+            "constant": 5.0,
+            "tolerance": 1e-8,
+        }
+        config = ConstraintConfig(type="linear", raw=raw)
+        result = AbstractConstraint.from_order(_as_order(order), config)
+        self.assertIsNotNone(result)
+        self.assertIsInstance(result, LinearConstraint)
+        if isinstance(result, LinearConstraint):
+            self.assertEqual(len(result.terms), 2)
+            self.assertAlmostEqual(float(result.tolerance), 1e-8)
+
+    def test_from_order_missing_terms_raises(self):
+        """
+        Verify from_order raises when the raw dict has no 'terms' key.
+        """
+        order = self._make_simple_order()
+        config = ConstraintConfig(type="linear", raw={"type": "linear"})
+        with self.assertRaises(EleanorException):
+            LinearConstraint.from_order(_as_order(order), config)
+
+    def test_from_order_non_dict_term_raises(self):
+        """
+        Verify from_order raises when a term entry is not a dict.
+        """
+        order = self._make_simple_order()
+        raw: dict[str, object] = {"type": "linear", "terms": ["not_a_dict"]}
+        config = ConstraintConfig(type="linear", raw=raw)
+        with self.assertRaises(EleanorException):
+            LinearConstraint.from_order(_as_order(order), config)
+
+    def test_from_order_missing_variable_raises(self):
+        """
+        Verify from_order raises when a term has no 'variable' key.
+        """
+        order = self._make_simple_order()
+        raw: dict[str, object] = {"type": "linear", "terms": [{"coefficient": 1.0}]}
+        config = ConstraintConfig(type="linear", raw=raw)
+        with self.assertRaises(EleanorException):
+            LinearConstraint.from_order(_as_order(order), config)
+
+    def test_from_order_non_numeric_coefficient_raises(self):
+        """
+        Verify from_order raises when a coefficient is a bool or non-numeric type.
+        """
+        order = self._make_simple_order()
+        raw_bool: dict[str, object] = {
+            "type": "linear",
+            "terms": [{"variable": "temperature", "coefficient": True}],
+        }
+        with self.assertRaises(EleanorException):
+            LinearConstraint.from_order(_as_order(order), ConstraintConfig(type="linear", raw=raw_bool))
+
+        raw_list: dict[str, object] = {
+            "type": "linear",
+            "terms": [{"variable": "temperature", "coefficient": [1, 2]}],
+        }
+        with self.assertRaises(EleanorException):
+            LinearConstraint.from_order(_as_order(order), ConstraintConfig(type="linear", raw=raw_list))
+
+    def test_from_order_invalid_transform_raises(self):
+        """
+        Verify from_order raises for an unrecognised transform string.
+        """
+        order = self._make_simple_order()
+        raw: dict[str, object] = {
+            "type": "linear",
+            "terms": [{"variable": "temperature", "transform": "ln"}],
+        }
+        config = ConstraintConfig(type="linear", raw=raw)
+        with self.assertRaises(EleanorException):
+            LinearConstraint.from_order(_as_order(order), config)
+
+    def test_from_order_non_numeric_tolerance_raises(self):
+        """
+        Verify from_order raises when tolerance is a bool or non-numeric type.
+        """
+        order = self._make_simple_order()
+        raw: dict[str, object] = {
+            "type": "linear",
+            "terms": [{"variable": "temperature"}],
+            "tolerance": True,
+        }
+        config = ConstraintConfig(type="linear", raw=raw)
+        with self.assertRaises(EleanorException):
+            LinearConstraint.from_order(_as_order(order), config)
+
+    def _make_simple_order(self) -> DummyOrder:
+        """Return a minimal DummyOrder with a single resolvable temperature parameter."""
+        temp = RangeParameter("temperature", None, np.float64(10.0), np.float64(100.0))
+        return DummyOrder(
+            parameters=[temp],
+            temperature=temp,
+            pressure=ValueParameter("pressure", None, np.float64(1.0)),
+            elements={},
+            species={},
+            suppressions=[],
+            reactants=[],
+        )
+
+    def test_transform_forward_raises_on_non_positive_log10(self):
+        """
+        Verify log10 forward raises EleanorException for zero and negative inputs.
+        """
+        with self.assertRaises(EleanorException):
+            Transform.LOG10.forward(np.float64(0.0))
+        with self.assertRaises(EleanorException):
+            Transform.LOG10.forward(np.float64(-1.0))
+
+    def test_transform_inverse_raises_on_non_positive_pow10(self):
+        """
+        Verify pow10 inverse (log10) raises EleanorException for zero and negative inputs.
+        """
+        with self.assertRaises(EleanorException):
+            Transform.POW10.inverse(np.float64(0.0))
+        with self.assertRaises(EleanorException):
+            Transform.POW10.inverse(np.float64(-1.0))
+
+    def test_transform_forward_raises_on_overflow(self):
+        """
+        Verify pow10 forward raises EleanorException on overflow.
+        """
+        with self.assertRaises(EleanorException):
+            Transform.POW10.forward(np.float64(1e308))
+
+    def test_linear_constraint_apply_zero_coefficient_raises(self):
+        """
+        Verify apply raises when the dependent term has a zero coefficient.
+        """
+        p_dep = RangeParameter("x", None, np.float64(0.0), np.float64(10.0))
+        p_ind = ValueParameter("y", None, np.float64(3.0))
+        terms = [
+            LinearConstraintTerm(p_dep, np.float64(0.0), Transform.IDENTITY),
+            LinearConstraintTerm(p_ind, np.float64(1.0), Transform.IDENTITY),
+        ]
+        constant = ValueParameter("c", None, np.float64(7.0))
+        linear_constraint = LinearConstraint(terms, constant=constant)
+        registry = ParameterRegistry()
+        registry.add_parameters([p_dep, p_ind, constant])
+        valuation = registry.valuation()
+        with self.assertRaises(EleanorException):
+            linear_constraint.apply(registry, valuation)
+
+    def test_linear_constraint_apply_out_of_domain_raises(self):
+        """
+        Verify apply raises when the solved value falls outside the dependent parameter's domain.
+        """
+        p_dep = RangeParameter("x", None, np.float64(0.0), np.float64(5.0))
+        p_ind = ValueParameter("y", None, np.float64(1.0))
+        terms = [
+            LinearConstraintTerm(p_dep, np.float64(1.0), Transform.IDENTITY),
+            LinearConstraintTerm(p_ind, np.float64(1.0), Transform.IDENTITY),
+        ]
+        # x + y = 100 => x = 99, which is outside [0, 5]
+        constant = ValueParameter("c", None, np.float64(100.0))
+        linear_constraint = LinearConstraint(terms, constant=constant)
+        registry = ParameterRegistry()
+        registry.add_parameters([p_dep, p_ind, constant])
+        valuation = registry.valuation()
+        with self.assertRaises(EleanorException):
+            linear_constraint.apply(registry, valuation)
+
+    def test_linear_constraint_empty_terms_raises(self):
+        """
+        Verify constructing a LinearConstraint with no terms raises.
+        """
+        with self.assertRaises(EleanorException):
+            LinearConstraint([])
+
+    def test_linear_constraint_volume_delegates_to_constant(self):
+        """
+        Verify volume() returns the constant parameter's volume.
+        """
+        p = ValueParameter("x", None, np.float64(1.0))
+        terms = [LinearConstraintTerm(p, np.float64(1.0), Transform.IDENTITY)]
+
+        fixed_constant = ValueParameter("c", None, np.float64(5.0))
+        lc_fixed = LinearConstraint(terms, constant=fixed_constant)
+        self.assertEqual(float(lc_fixed.volume()), 1.0)
+
+        range_constant = RangeParameter("c", None, np.float64(0.0), np.float64(10.0))
+        lc_range = LinearConstraint(terms, constant=range_constant)
+        self.assertEqual(float(lc_range.volume()), 10.0)
+
+    def test_abstract_constraint_volume_default(self):
+        """
+        Verify the base AbstractConstraint.volume() returns 1.0.
+        """
+        p_ind = ValueParameter("ind", None, np.float64(1.0))
+        p_dep = RangeParameter("dep", None, np.float64(0.0), np.float64(10.0))
+        constraint = EchoConstraint(p_ind, p_dep, np.float64(2.5))
+        self.assertEqual(float(constraint.volume()), 1.0)
+
+    def test_linear_constraint_multiple_range_terms(self):
+        """
+        When multiple terms are RangeParameters, only the largest-volume one becomes dependent.
+        The constraint stays unresolvable until the independent ranges are fixed.
+        """
+        p_small = RangeParameter("small", None, np.float64(0.0), np.float64(2.0))
+        p_large = RangeParameter("large", None, np.float64(0.0), np.float64(100.0))
+        terms = [
+            LinearConstraintTerm(p_small, np.float64(1.0), Transform.IDENTITY),
+            LinearConstraintTerm(p_large, np.float64(1.0), Transform.IDENTITY),
+        ]
+        lc = LinearConstraint(terms)
+        self.assertEqual(lc.dependent_parameters, [p_large])
+        self.assertIn(p_small, [t.parameter for t in lc._independent_terms])
+
+        registry = ParameterRegistry()
+        registry.add_parameters([p_small, p_large, lc.constant])
+        valuation = registry.valuation()
+        self.assertFalse(lc.is_resolvable(registry, valuation))
+
+    def test_boatswain_with_linear_constraint_end_to_end(self):
+        """
+        End-to-end Boatswain flow resolves a linear constraint during constrain.
+        """
+        p_x = RangeParameter("x", None, np.float64(0.0), np.float64(20.0))
+        p_y = ValueParameter("y", None, np.float64(3.0))
+        constant = ValueParameter("constant", None, np.float64(10.0))
+        terms = [
+            LinearConstraintTerm(p_x, np.float64(1.0), Transform.IDENTITY),
+            LinearConstraintTerm(p_y, np.float64(1.0), Transform.IDENTITY),
+        ]
+        linear_constraint = LinearConstraint(terms, constant=constant)
+        order = DummyOrder(
+            parameters=[p_x, p_y],
+            temperature=p_y,
+            pressure=p_y,
+            elements={},
+            species={},
+            suppressions=[],
+            reactants=[],
+        )
+        boatswain = Boatswain(_as_order(order), linear_constraint)
+        boatswain.constrain()
+        resolved = boatswain[p_x]
+        self.assertIsInstance(resolved, ValueParameter)
+        if isinstance(resolved, ValueParameter):
+            self.assertAlmostEqual(float(resolved.value), 7.0)
 
     def test_boatswain_get_set_hardset_and_domain_errors(self):
         """

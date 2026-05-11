@@ -1,7 +1,7 @@
 import json
 import os.path
 import tomllib
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from typing import TypedDict, final
 
@@ -119,9 +119,7 @@ def load_kernel_settings(kernel_raw: KernelRaw) -> tuple[str, KernelSettings]:
 @dataclass
 class ConstraintConfig(object):
     type: str
-
-    def volume(self) -> float:
-        return 1.0
+    raw: dict[str, object] = field(default_factory=dict)
 
 
 @dataclass(init=False)
@@ -245,8 +243,18 @@ class Order:
         # Reactants (may be empty).
         reactants_raw = self.raw.get("reactants") or {}
         self.reactants = [AbstractReactant.from_dict(value, name=name) for name, value in reactants_raw.items()]
-        # Constraints (may be empty; no constraint-config loader yet).
+        # Constraints (may be empty).
+        constraints_obj = cast(object, self.raw.get("constraints") or [])
+        if not isinstance(constraints_obj, list):
+            raise EleanorException("constraints must be a list")
+        constraints_list = cast(list[object], constraints_obj)
         self.constraints = []
+        for c_obj in constraints_list:
+            if not isinstance(c_obj, dict):
+                raise EleanorException("each constraint must be a dict")
+            c_raw = cast(dict[str, object], c_obj)
+            c_type = _require_str(c_raw.get("type"), "constraint.type")
+            self.constraints.append(ConstraintConfig(type=c_type, raw=c_raw))
 
     def parameters(self) -> list[Parameter]:
         parameters: list[Parameter] = [

@@ -14,20 +14,22 @@ from .util import mapreduce
 type RawMap = dict[str, object]
 
 
-class GlassOxideRaw(TypedDict, total=False):
-    """Raw schema for a single oxide block inside a glass reactant."""
+class CombinedComponentRaw(TypedDict, total=False):
+    """Raw schema for a single component block inside a combined reactant."""
 
     name: str | None
-    composition: dict[str, int]
+    type: str
     fraction: float | np.float64
     relative_rate: ParameterSource
+    composition: dict[str, int]
+    end_members: dict[str, ParameterSource]
 
 
 class ReactantRaw(TypedDict, total=False):
     """Raw schema shared by every reactant variant.
 
     Variant-specific keys (``fugacity`` for fixed gas, ``composition`` for
-    special, ``end_members`` for solid solution, ``oxides`` for glass) are
+    special, ``end_members`` for solid solution, ``components`` for combined) are
     declared here so that the ``TypedDict`` covers the full surface area;
     each concrete ``from_dict`` only reads the subset it needs.
     """
@@ -39,7 +41,7 @@ class ReactantRaw(TypedDict, total=False):
     fugacity: ParameterSource
     composition: dict[str, int]
     end_members: dict[str, ParameterSource]
-    oxides: dict[str, GlassOxideRaw]
+    components: dict[str, CombinedComponentRaw]
 
 
 def _require_str(value: object, field_name: str) -> str:
@@ -77,7 +79,7 @@ class ReactantType(StrEnum):
     ELEMENT = "element"
     SOLID_SOLUTION = "solid solution"
     AQUEOUS = "aqueous"
-    GLASS = "glass"
+    COMBINED = "combined"
 
 
 @dataclass
@@ -113,8 +115,8 @@ class AbstractReactant(ABC):
                 return ElementReactant.from_dict(raw, name)
             case ReactantType.SOLID_SOLUTION:
                 return SolidSolutionReactant.from_dict(raw, name)
-            case ReactantType.GLASS:
-                return GlassReactant.from_dict(raw, name)
+            case ReactantType.COMBINED:
+                return CombinedReactant.from_dict(raw, name)
             case _:
                 raise EleanorException(f'unexpected reactant type "{reactant_type}"')
 
@@ -326,69 +328,157 @@ _ = TitratedReactant.register(SolidSolutionReactant)
 
 
 @dataclass
-class GlassReactantOxide(object):
+class CombinedReactantComponent:
+    """One component of a CombinedReactant.
+
+    ``fraction`` and ``relative_rate`` drive decomposition math in the
+    Boatswain: component_log_moles = log10(fraction) + parent_log_moles,
+    component_titration_rate = parent_titration_rate * relative_rate.
+    """
+
     name: str
-    composition: dict[str, int]
+    type: ReactantType
     fraction: np.float64
     relative_rate: Parameter
+    composition: dict[str, int] | None = None
+    end_members: dict[str, Parameter] | None = None
+
+    def parameters(self) -> list[Parameter]:
+        params: list[Parameter] = [self.relative_rate]
+        if self.end_members is not None:
+            params.extend(self.end_members.values())
+        return params
 
     @classmethod
-    def from_dict(cls, raw: GlassOxideRaw, name: str | None = None) -> "GlassReactantOxide":
+    def from_dict(cls, raw: CombinedComponentRaw, name: str | None = None) -> "CombinedReactantComponent":
         if name is None:
             name = raw.get("name")
         if not isinstance(name, str):
-            raise EleanorException("oxide name must be a string")
+            raise EleanorException("combined component name must be a string")
 
-        composition: dict[str, int] = _require_dict(
-            raw.get("composition"),
-            f'oxide "{name}" composition specification',
-        )
-        fraction = _require_float(raw.get("fraction"), f'oxide "{name}" fraction specification')
+        component_type = ReactantType(_require_str(raw.get("type"), f'combined component "{name}".type'))
+        if component_type == ReactantType.FIXED_GAS or component_type == ReactantType.COMBINED:
+            raise EleanorException(
+                f'combined component "{name}" type "{component_type}" is not supported; '
+                + "expected a titrated reactant type"
+            )
+
+        fraction = _require_float(raw.get("fraction"), f'combined component "{name}" fraction specification')
 
         if not (0.0 < fraction and fraction < 1.0):
-            raise EleanorException(f'oxide "{name}" has a value {fraction}; must be between 0 and 1 exclusive')
+            raise EleanorException(
+                f'combined component "{name}" has a value {fraction}; must be between 0 and 1 exclusive'
+            )
 
         relative_rate = Parameter.load(raw.get("relative_rate", 1.0), name="relative_rate")
+        composition: dict[str, int] | None = None
+        end_members: dict[str, Parameter] | None = None
 
-        return cls(name, composition, fraction, relative_rate)
+        if component_type == ReactantType.SPECIAL:
+            composition = _require_dict(
+                raw.get("composition"),
+                f'combined component "{name}" composition specification',
+            )
+        elif component_type == ReactantType.SOLID_SOLUTION:
+            typed_end_members: dict[str, ParameterSource] = _require_dict(
+                raw.get("end_members"),
+                f'combined component "{name}" end_members',
+            )
+
+            for end_member, raw_param in typed_end_members.items():
+                if isinstance(raw_param, list):
+                    raise EleanorException(
+                        f'combined component "{name}" end member "{end_member}" '
+                        + "has a non-value parameter; list parameters are not supported yet"
+                    )
+                elif isinstance(raw_param, dict):
+                    raise EleanorException(
+                        f'combined component "{name}" end member "{end_member}" '
+                        + "has a non-value parameter; range parameters are not supported yet"
+                    )
+
+            end_members = {
+                str(end_member): Parameter.load(param, "fraction") for end_member, param in typed_end_members.items()
+            }
+
+            em_fraction = 0.0
+            for em_name, param in end_members.items():
+                if not isinstance(param, ValueParameter):
+                    raise EleanorException(
+                        f'combined component "{name}" end member "{em_name}" '
+                        + "has a non-value parameter; list and range parameters are not supported yet"
+                    )
+                elif 1.0 < param.value or param.value < 0:
+                    raise EleanorException(
+                        f'combined component "{name}" end member "{em_name}" has a value {param.value}; '
+                        + "must be between 0 and 1 inclusive"
+                    )
+                em_fraction += param.value
+
+            if em_fraction != 1.0:
+                raise EleanorException(
+                    f'combined component "{name}" end member fractions sum to {em_fraction}; ' + "must sum to 1.0"
+                )
+
+        return cls(name, component_type, fraction, relative_rate, composition, end_members)
 
 
 @dataclass
-class GlassReactant(TitratedReactant):
-    oxides: dict[str, GlassReactantOxide]
+class CombinedReactant(TitratedReactant):
+    components: dict[str, CombinedReactantComponent]
 
     @override
     def parameters(self) -> list[Parameter]:
         params = super().parameters()
-        for oxide in self.oxides.values():
-            params.append(oxide.relative_rate)
+        for component in self.components.values():
+            params.extend(component.parameters())
         return params
 
     @classmethod
     @override
-    def from_dict(cls, raw: ReactantRaw, name: str | None = None) -> "GlassReactant":
-        typed_oxides: dict[str, GlassOxideRaw] = _require_dict(raw.get("oxides"), "glass oxides")
+    def from_dict(cls, raw: ReactantRaw, name: str | None = None) -> "CombinedReactant":
+        base = TitratedReactant.from_dict(raw, name)
+        if base.type != ReactantType.COMBINED:
+            raise EleanorException(f'cannot create a combined reactant from config of type "{base.type}"')
+        typed_components: dict[str, CombinedComponentRaw] = _require_dict(
+            raw.get("components"),
+            "combined reactant components",
+        )
 
-        oxides: dict[str, GlassReactantOxide] = {
-            oxide: GlassReactantOxide.from_dict(data, oxide) for oxide, data in typed_oxides.items()
+        components: dict[str, CombinedReactantComponent] = {
+            component_name: CombinedReactantComponent.from_dict(data, component_name)
+            for component_name, data in typed_components.items()
         }
 
-        base = TitratedReactant.from_dict(raw, name)
-        if base.type != ReactantType.GLASS:
-            raise EleanorException(f'cannot create a glass reactant from config of type "{base.type}"')
-
-        if len(oxides) == 0:
-            raise EleanorException(f'glass "{base.name}" has no oxides; consider removing it')
-        elif len(oxides) == 1:
+        if len(components) == 0:
+            raise EleanorException(f'combined reactant "{base.name}" has no components; consider removing it')
+        elif len(components) == 1:
             raise EleanorException(
-                f'glass "{base.name}" has only one oxide; consider replacing it with a special reactant'
+                f'combined reactant "{base.name}" has only one component; consider replacing it with that standalone reactant'
             )
 
-        fraction = mapreduce(lambda o: o.fraction, operator.add, oxides.values(), 0.0)
+        fraction = mapreduce(lambda c: c.fraction, operator.add, components.values(), 0.0)
         if fraction != 1.0:
-            raise EleanorException(f'glass "{base.name}" oxide fractions sum to {fraction}; must sum to 1.0')
+            raise EleanorException(
+                f'combined reactant "{base.name}" component fractions sum to {fraction}; must sum to 1.0'
+            )
 
-        return cls(base.name, base.type, base.amount, base.titration_rate, oxides)
+        return cls(base.name, base.type, base.amount, base.titration_rate, components)
+
+    @override
+    def volume(self) -> np.float64:
+        # Mirror SolidSolutionReactant.volume(): fold each component's own
+        # parameter block (relative_rate plus any nested end_members) into the
+        # parent volume as a sum of products. Per-component relative_rate is
+        # a first-class Parameter that may be range- or list-valued, so a
+        # variable component contributes its actual volume rather than 1.
+        volume = super().volume()
+        for component in self.components.values():
+            volume += mapreduce(lambda p: p.volume(), operator.mul, component.parameters(), 1.0)
+        return volume
+
+
+_ = TitratedReactant.register(CombinedReactant)
 
 
 Reactant = (
@@ -399,5 +489,5 @@ Reactant = (
     | SpecialReactant
     | ElementReactant
     | SolidSolutionReactant
-    | GlassReactant
+    | CombinedReactant
 )

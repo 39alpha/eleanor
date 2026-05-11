@@ -8,12 +8,12 @@ from eleanor.parameters import ValueParameter
 from eleanor.reactants import (
     AbstractReactant,
     AqueousReactant,
+    CombinedComponentRaw,
+    CombinedReactant,
+    CombinedReactantComponent,
     ElementReactant,
     FixedGasReactant,
     GasReactant,
-    GlassOxideRaw,
-    GlassReactant,
-    GlassReactantOxide,
     MineralReactant,
     ReactantRaw,
     ReactantType,
@@ -51,7 +51,7 @@ class TestReactants(TestCase):
             ("special", "eleanor.reactants.SpecialReactant.from_dict"),
             ("element", "eleanor.reactants.ElementReactant.from_dict"),
             ("solid solution", "eleanor.reactants.SolidSolutionReactant.from_dict"),
-            ("glass", "eleanor.reactants.GlassReactant.from_dict"),
+            ("combined", "eleanor.reactants.CombinedReactant.from_dict"),
         ]
         for reactant_type, target in cases:
             raw: dict[str, object] = {"name": "r", "type": reactant_type, "amount": 1.0}
@@ -61,10 +61,10 @@ class TestReactants(TestCase):
                 raw["fugacity"] = 0.1
             if reactant_type == "solid solution":
                 raw["end_members"] = {"em1": 0.5, "em2": 0.5}
-            if reactant_type == "glass":
-                raw["oxides"] = {
-                    "SiO2": {"name": "SiO2", "composition": {"Si": 1, "O": 2}, "fraction": 0.5},
-                    "Al2O3": {"name": "Al2O3", "composition": {"Al": 2, "O": 3}, "fraction": 0.5},
+            if reactant_type == "combined":
+                raw["components"] = {
+                    "SiO2": {"name": "SiO2", "type": "special", "composition": {"Si": 1, "O": 2}, "fraction": 0.5},
+                    "fayalite": {"name": "fayalite", "type": "mineral", "fraction": 0.5},
                 }
             with self.subTest(reactant_type=reactant_type):
                 with mock.patch(target, return_value=f"{reactant_type}-reactant") as m:
@@ -91,7 +91,7 @@ class TestReactants(TestCase):
             SPECIAL = "special"
             ELEMENT = "element"
             SOLID_SOLUTION = "solid solution"
-            GLASS = "glass"
+            COMBINED = "combined"
 
             def __new__(cls, *_args, **_kwargs):
                 return "mystery"
@@ -287,121 +287,261 @@ class TestReactants(TestCase):
         self.assertIsInstance(reactant.amount, ValueParameter)
         self.assertIsInstance(reactant.titration_rate, ValueParameter)
 
-    def test_glass_oxide_from_dict_validation(self):
+    def test_combined_component_from_dict_validation(self):
         """
-        Ensure GlassReactantOxide.from_dict validates composition and fraction requirements.
+        Ensure CombinedReactantComponent.from_dict validates type-specific payloads and constraints.
         """
-        oxide = GlassReactantOxide.from_dict({"name": "SiO2", "composition": {"Si": 1, "O": 2}, "fraction": 0.5})
-        self.assertEqual(oxide.name, "SiO2")
-        self.assertEqual(oxide.composition, {"Si": 1, "O": 2})
-        self.assertEqual(oxide.fraction, 0.5)
-        self.assertIsInstance(oxide.relative_rate, ValueParameter)
-        self.assertEqual(cast(ValueParameter, oxide.relative_rate).value, 1.0)
+        mineral = CombinedReactantComponent.from_dict({"name": "fayalite", "type": "mineral", "fraction": 0.2})
+        self.assertEqual(mineral.name, "fayalite")
+        self.assertEqual(mineral.type, ReactantType.MINERAL)
+        self.assertIsNone(mineral.composition)
+        self.assertIsNone(mineral.end_members)
 
-        with self.assertRaises(EleanorException):
-            GlassReactantOxide.from_dict(
-                cast(GlassOxideRaw, cast(object, {"name": "x", "composition": "invalid", "fraction": 0.5}))
+        special = CombinedReactantComponent.from_dict(
+            cast(
+                CombinedComponentRaw,
+                cast(
+                    object,
+                    {
+                        "name": "SiO2",
+                        "type": "special",
+                        "composition": {"Si": 1, "O": 2},
+                        "fraction": 0.5,
+                        "relative_rate": 2.5,
+                    },
+                ),
             )
-        with self.assertRaises(EleanorException):
-            GlassReactantOxide.from_dict({"name": "x", "composition": {"Si": 1}, "fraction": 1})
-        with self.assertRaises(EleanorException):
-            GlassReactantOxide.from_dict({"name": "x", "composition": {"Si": 1}, "fraction": 1.0})
-
-    def test_glass_oxide_from_dict_with_relative_rate(self):
-        """
-        Ensure GlassReactantOxide.from_dict parses an explicit relative_rate.
-        """
-        oxide = GlassReactantOxide.from_dict(
-            {"name": "SiO2", "composition": {"Si": 1, "O": 2}, "fraction": 0.5, "relative_rate": 2.5}
         )
-        self.assertIsInstance(oxide.relative_rate, ValueParameter)
-        self.assertEqual(cast(ValueParameter, oxide.relative_rate).value, 2.5)
+        self.assertEqual(special.type, ReactantType.SPECIAL)
+        self.assertEqual(special.composition, {"Si": 1, "O": 2})
+        self.assertIsInstance(special.relative_rate, ValueParameter)
+        self.assertEqual(cast(ValueParameter, special.relative_rate).value, 2.5)
 
-        oxide_range = GlassReactantOxide.from_dict(
+        solid_solution = CombinedReactantComponent.from_dict(
+            cast(
+                CombinedComponentRaw,
+                cast(
+                    object,
+                    {
+                        "name": "olivine",
+                        "type": "solid solution",
+                        "fraction": 0.3,
+                        "end_members": {"fayalite": 0.6, "forsterite": 0.4},
+                    },
+                ),
+            )
+        )
+        self.assertEqual(solid_solution.type, ReactantType.SOLID_SOLUTION)
+        self.assertIsNotNone(solid_solution.end_members)
+
+        with self.assertRaises(EleanorException):
+            CombinedReactantComponent.from_dict({"name": "fg", "type": "fixed gas", "fraction": 0.5})
+        with self.assertRaises(EleanorException):
+            CombinedReactantComponent.from_dict({"name": "nested", "type": "combined", "fraction": 0.5})
+        with self.assertRaises(EleanorException):
+            CombinedReactantComponent.from_dict({"name": "x", "type": "mineral", "fraction": 0.0})
+        with self.assertRaises(EleanorException):
+            CombinedReactantComponent.from_dict({"name": "x", "type": "mineral", "fraction": 1.0})
+        with self.assertRaises(EleanorException):
+            CombinedReactantComponent.from_dict({"name": "SiO2", "type": "special", "fraction": 0.5})
+
+    def test_combined_component_parameters_includes_relative_rate(self):
+        """
+        Ensure CombinedReactantComponent.parameters() returns relative_rate plus end-member parameters when present.
+        """
+        simple = CombinedReactantComponent.from_dict({"name": "fayalite", "type": "mineral", "fraction": 0.5})
+        self.assertEqual(simple.parameters(), [simple.relative_rate])
+
+        solid_solution = CombinedReactantComponent.from_dict(
             {
-                "name": "SiO2",
-                "composition": {"Si": 1, "O": 2},
+                "name": "olivine",
+                "type": "solid solution",
                 "fraction": 0.5,
-                "relative_rate": {"min": 0.5, "max": 2.0},
+                "end_members": {"fayalite": 0.6, "forsterite": 0.4},
             }
         )
-        self.assertEqual(oxide_range.relative_rate.name, "relative_rate")
-
-    def test_glass_reactant_parameters_includes_oxide_rates(self):
-        """
-        Ensure GlassReactant.parameters() includes base amount, titration_rate, and per-oxide relative rates.
-        """
-        sio2_rate = ValueParameter("relative_rate", None, np.float64(2.0))
-        na2o_rate = ValueParameter("relative_rate", None, np.float64(0.5))
-        reactant = GlassReactant(
-            "glass",
-            ReactantType.GLASS,
-            ValueParameter("amount", None, np.float64(1.0)),
-            ValueParameter("titration_rate", None, np.float64(1.0)),
-            {
-                "SiO2": GlassReactantOxide("SiO2", {"Si": 1, "O": 2}, np.float64(0.5), sio2_rate),
-                "Na2O": GlassReactantOxide("Na2O", {"Na": 2, "O": 1}, np.float64(0.5), na2o_rate),
-            },
+        if solid_solution.end_members is None:
+            raise AssertionError("expected solid-solution component end_members")
+        self.assertEqual(
+            solid_solution.parameters(),
+            [solid_solution.relative_rate, *solid_solution.end_members.values()],
         )
-        params = reactant.parameters()
-        self.assertEqual(len(params), 4)  # amount, titration_rate, sio2_rate, na2o_rate
-        self.assertIn(sio2_rate, params)
-        self.assertIn(na2o_rate, params)
 
-    def test_glass_reactant_from_dict_success_and_failures(self):
+    def test_combined_reactant_from_dict_success(self):
         """
-        Ensure GlassReactant.from_dict parses valid configs and rejects invalid glass definitions.
+        Ensure CombinedReactant.from_dict parses valid configurations.
         """
-        reactant = GlassReactant.from_dict(
+        reactant = CombinedReactant.from_dict(
             {
-                "name": "glass",
-                "type": "glass",
+                "name": "basalt-glass",
+                "type": "combined",
                 "amount": 1.0,
                 "titration_rate": 2.0,
-                "oxides": {
-                    "SiO2": {"name": "SiO2", "composition": {"Si": 1, "O": 2}, "fraction": 0.4},
-                    "Na2O": {"name": "Na2O", "composition": {"Na": 2, "O": 1}, "fraction": 0.6},
+                "components": {
+                    "SiO2": {"type": "special", "composition": {"Si": 1, "O": 2}, "fraction": 0.4},
+                    "Na2O": {"type": "special", "composition": {"Na": 2, "O": 1}, "fraction": 0.6},
                 },
             }
         )
-        self.assertEqual(reactant.type, ReactantType.GLASS)
-        self.assertEqual(set(reactant.oxides.keys()), {"SiO2", "Na2O"})
+        self.assertEqual(reactant.type, ReactantType.COMBINED)
+        self.assertEqual(set(reactant.components.keys()), {"SiO2", "Na2O"})
+        self.assertAlmostEqual(sum(c.fraction for c in reactant.components.values()), 1.0)
 
+    def test_combined_reactant_from_dict_failures(self):
+        """
+        Ensure CombinedReactant.from_dict rejects invalid combined-reactant definitions.
+        """
         with self.assertRaises(EleanorException):
-            GlassReactant.from_dict(
+            CombinedReactant.from_dict(
                 {
                     "name": "bad",
                     "type": "mineral",
                     "amount": 1.0,
-                    "oxides": {
-                        "SiO2": {"name": "SiO2", "composition": {"Si": 1, "O": 2}, "fraction": 0.5},
-                        "Al2O3": {"name": "Al2O3", "composition": {"Al": 2, "O": 3}, "fraction": 0.5},
+                    "components": {
+                        "SiO2": {"type": "special", "composition": {"Si": 1, "O": 2}, "fraction": 0.5},
+                        "Al2O3": {"type": "special", "composition": {"Al": 2, "O": 3}, "fraction": 0.5},
                     },
                 }
             )
-
         with self.assertRaises(EleanorException):
-            GlassReactant.from_dict({"name": "empty", "type": "glass", "amount": 1.0, "oxides": {}})
-
+            CombinedReactant.from_dict({"name": "empty", "type": "combined", "amount": 1.0, "components": {}})
         with self.assertRaises(EleanorException):
-            GlassReactant.from_dict(
+            CombinedReactant.from_dict(
                 {
                     "name": "single",
-                    "type": "glass",
+                    "type": "combined",
                     "amount": 1.0,
-                    "oxides": {"SiO2": {"name": "SiO2", "composition": {"Si": 1, "O": 2}, "fraction": 0.5}},
+                    "components": {"SiO2": {"type": "special", "composition": {"Si": 1, "O": 2}, "fraction": 1.0}},
                 }
             )
-
         with self.assertRaises(EleanorException):
-            GlassReactant.from_dict(
+            CombinedReactant.from_dict(
                 {
                     "name": "sum",
-                    "type": "glass",
+                    "type": "combined",
                     "amount": 1.0,
-                    "oxides": {
-                        "SiO2": {"name": "SiO2", "composition": {"Si": 1, "O": 2}, "fraction": 0.5},
-                        "Na2O": {"name": "Na2O", "composition": {"Na": 2, "O": 1}, "fraction": 0.4},
+                    "components": {
+                        "SiO2": {"type": "special", "composition": {"Si": 1, "O": 2}, "fraction": 0.5},
+                        "Na2O": {"type": "special", "composition": {"Na": 2, "O": 1}, "fraction": 0.4},
                     },
                 }
             )
+        with self.assertRaises(EleanorException):
+            CombinedReactant.from_dict(
+                {
+                    "name": "fixed-gas-component",
+                    "type": "combined",
+                    "amount": 1.0,
+                    "components": {
+                        "one": {"type": "special", "composition": {"Si": 1, "O": 2}, "fraction": 0.5},
+                        "two": {"type": "fixed gas", "fraction": 0.5},
+                    },
+                }
+            )
+
+    def test_combined_reactant_from_dict_rejects_wrong_type_before_components(self):
+        """
+        Ensure CombinedReactant.from_dict raises the type-mismatch error before component parsing.
+        """
+        with self.assertRaisesRegex(
+            EleanorException,
+            'cannot create a combined reactant from config of type "mineral"',
+        ):
+            CombinedReactant.from_dict(
+                {
+                    "name": "bad",
+                    "type": "mineral",
+                    "amount": 1.0,
+                    "components": {
+                        "only-one": {"type": "special", "composition": {"Si": 1}, "fraction": 0.5},
+                    },
+                }
+            )
+
+    def test_combined_reactant_parameters(self):
+        """
+        Ensure CombinedReactant.parameters() includes base and all component parameters.
+        """
+        reactant = CombinedReactant.from_dict(
+            {
+                "name": "combo",
+                "type": "combined",
+                "amount": 1.0,
+                "titration_rate": 2.0,
+                "components": {
+                    "fayalite": {"type": "mineral", "fraction": 0.6, "relative_rate": 1.5},
+                    "olivine-ss": {
+                        "type": "solid solution",
+                        "fraction": 0.4,
+                        "relative_rate": 0.5,
+                        "end_members": {"fayalite": 0.7, "forsterite": 0.3},
+                    },
+                },
+            }
+        )
+        params = reactant.parameters()
+        self.assertEqual(len(params), 6)
+
+    def test_combined_reactant_volume_folds_in_component_parameters(self):
+        """
+        Ensure CombinedReactant.volume() folds each component's parameter
+        block (relative_rate plus any nested end_members) into the parent
+        volume, mirroring the SolidSolutionReactant precedent.
+        """
+        reactant = CombinedReactant.from_dict(
+            {
+                "name": "combo",
+                "type": "combined",
+                "amount": {"min": -3.0, "max": -1.0},
+                "titration_rate": {"min": 0.5, "max": 2.0},
+                "components": {
+                    "fayalite": {
+                        "type": "mineral",
+                        "fraction": 0.6,
+                        "relative_rate": {"min": 0.1, "max": 10.0},
+                    },
+                    "forsterite": {
+                        "type": "mineral",
+                        "fraction": 0.4,
+                        "relative_rate": {"min": 0.5, "max": 5.0},
+                    },
+                },
+            }
+        )
+        base_volume = reactant.amount.volume() * reactant.titration_rate.volume()
+        component_contribution = sum(
+            (component.relative_rate.volume() for component in reactant.components.values()),
+            start=np.float64(0.0),
+        )
+        expected = base_volume + component_contribution
+        self.assertEqual(reactant.volume(), expected)
+
+    def test_combined_reactant_volume_includes_solid_solution_end_members(self):
+        """
+        Ensure a solid-solution component contributes the product of its
+        relative_rate and end_member parameter volumes to the combined volume.
+        """
+        reactant = CombinedReactant.from_dict(
+            {
+                "name": "combo",
+                "type": "combined",
+                "amount": 1.0,
+                "components": {
+                    "fayalite": {
+                        "type": "mineral",
+                        "fraction": 0.6,
+                        "relative_rate": {"min": 0.0, "max": 4.0},
+                    },
+                    "olivine-ss": {
+                        "type": "solid solution",
+                        "fraction": 0.4,
+                        "relative_rate": {"min": 0.0, "max": 2.0},
+                        "end_members": {"fayalite": 0.7, "forsterite": 0.3},
+                    },
+                },
+            }
+        )
+        # amount=1.0 (volume 1), titration_rate default 1.0 (volume 1) -> super 1.0
+        # fayalite: relative_rate range [0, 4] -> 4.0
+        # olivine-ss: relative_rate [0, 2] (= 2.0) * end_members (each volume 1) -> 2.0 * 1 * 1
+        self.assertEqual(reactant.volume(), np.float64(1.0 + 4.0 + 2.0))

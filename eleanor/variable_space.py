@@ -1,4 +1,3 @@
-import operator
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import final
@@ -8,7 +7,6 @@ import numpy as np
 import eleanor.equilibrium_space as es
 
 from .kernel.config import Config as KernelConfig
-from .util import mapreduce
 
 
 @final
@@ -75,32 +73,6 @@ class SpecialReactant(object):
 
 @final
 @dataclass
-class GlassReactantOxideComposition(object):
-    element: str
-    count: int
-
-
-@final
-@dataclass
-class GlassReactantOxide(object):
-    name: str
-    fraction: np.float64
-    log_moles: np.float64
-    titration_rate: np.float64
-    composition: list[GlassReactantOxideComposition]
-
-
-@final
-@dataclass
-class GlassReactant(object):
-    name: str
-    log_moles: np.float64
-    titration_rate: np.float64
-    oxides: list[GlassReactantOxide]
-
-
-@final
-@dataclass
 class FixedGasReactant(object):
     name: str
     log_moles: np.float64
@@ -160,7 +132,6 @@ class Point(object):
     special_reactants: list[SpecialReactant]
     fixed_gas_reactants: list[FixedGasReactant]
     solid_solution_reactants: list[SolidSolutionReactant]
-    glass_reactants: list[GlassReactant]
     order_id: int | None = None
     es_points: list[es.Point] = field(default_factory=list)
     scratch: Scratch | None = None
@@ -180,7 +151,7 @@ class Point(object):
         return None
 
     def reactant_count(self) -> int:
-        nrct = sum(
+        return sum(
             map(
                 len,
                 [
@@ -194,7 +165,6 @@ class Point(object):
                 ],
             )
         )
-        return mapreduce(lambda g: len(g.oxides), operator.add, self.glass_reactants, nrct)
 
     def has_reactants(self) -> bool:
         return self.reactant_count() != 0

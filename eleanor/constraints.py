@@ -14,11 +14,12 @@ from .order import ConstraintConfig, Order
 from .parameters import Parameter, ParameterRegistry, Valuation, ValueParameter
 from .reactants import (
     AqueousReactant,
+    CombinedReactant,
     ElementReactant,
     FixedGasReactant,
     GasReactant,
-    GlassReactant,
     MineralReactant,
+    ReactantType,
     SolidSolutionReactant,
     SpecialReactant,
 )
@@ -425,7 +426,6 @@ class Boatswain(object):
             special_reactants: list[vs.SpecialReactant] = []
             fixed_gas_reactants: list[vs.FixedGasReactant] = []
             solid_solution_reactants: list[vs.SolidSolutionReactant] = []
-            glass_reactants: list[vs.GlassReactant] = []
             for reactant in self.order.reactants:
                 match reactant:
                     case MineralReactant(name, _, log_moles, titration_rate):
@@ -493,31 +493,78 @@ class Boatswain(object):
                                 ],
                             ),
                         )
-                    case GlassReactant(name, _, log_moles, titration_rate, oxides):
-                        log_moles = valuation[self.registry.id(log_moles)].value
-                        titration_rate = valuation[self.registry.id(titration_rate)].value
-
-                        glass_reactants.append(
-                            vs.GlassReactant(
-                                name=name,
-                                log_moles=log_moles,
-                                titration_rate=titration_rate,
-                                oxides=[
-                                    vs.GlassReactantOxide(
-                                        name=name,
-                                        fraction=oxide.fraction,
-                                        log_moles=cast(np.float64, np.log10(oxide.fraction)) + log_moles,
-                                        titration_rate=titration_rate
-                                        * valuation[self.registry.id(oxide.relative_rate)].value,
-                                        composition=[
-                                            vs.GlassReactantOxideComposition(element=k, count=v)
-                                            for k, v in oxide.composition.items()
-                                        ],
+                    case CombinedReactant(_, _, log_moles_param, titration_rate_param, components):
+                        parent_log_moles = valuation[self.registry.id(log_moles_param)].value
+                        parent_titration_rate = valuation[self.registry.id(titration_rate_param)].value
+                        for component_name, component in components.items():
+                            component_log_moles = cast(np.float64, np.log10(component.fraction)) + parent_log_moles
+                            component_titration_rate = (
+                                parent_titration_rate * valuation[self.registry.id(component.relative_rate)].value
+                            )
+                            match component.type:
+                                case ReactantType.MINERAL:
+                                    mineral_reactants.append(
+                                        vs.MineralReactant(
+                                            name=component_name,
+                                            log_moles=component_log_moles,
+                                            titration_rate=component_titration_rate,
+                                        ),
                                     )
-                                    for name, oxide in oxides.items()
-                                ],
-                            ),
-                        )
+                                case ReactantType.AQUEOUS:
+                                    aqueous_reactants.append(
+                                        vs.AqueousReactant(
+                                            name=component_name,
+                                            log_moles=component_log_moles,
+                                            titration_rate=component_titration_rate,
+                                        ),
+                                    )
+                                case ReactantType.GAS:
+                                    gas_reactants.append(
+                                        vs.GasReactant(
+                                            name=component_name,
+                                            log_moles=component_log_moles,
+                                            titration_rate=component_titration_rate,
+                                        ),
+                                    )
+                                case ReactantType.ELEMENT:
+                                    element_reactants.append(
+                                        vs.ElementReactant(
+                                            name=component_name,
+                                            log_moles=component_log_moles,
+                                            titration_rate=component_titration_rate,
+                                        ),
+                                    )
+                                case ReactantType.SPECIAL:
+                                    assert component.composition is not None
+                                    special_reactants.append(
+                                        vs.SpecialReactant(
+                                            name=component_name,
+                                            log_moles=component_log_moles,
+                                            titration_rate=component_titration_rate,
+                                            composition=[
+                                                vs.SpecialReactantComposition(element=k, count=v)
+                                                for k, v in component.composition.items()
+                                            ],
+                                        ),
+                                    )
+                                case ReactantType.SOLID_SOLUTION:
+                                    assert component.end_members is not None
+                                    solid_solution_reactants.append(
+                                        vs.SolidSolutionReactant(
+                                            name=component_name,
+                                            log_moles=component_log_moles,
+                                            titration_rate=component_titration_rate,
+                                            end_members=[
+                                                vs.SolidSolutionReactantEndMembers(
+                                                    name=end_member_name,
+                                                    fraction=valuation[self.registry.id(end_member_parameter)].value,
+                                                )
+                                                for end_member_name, end_member_parameter in component.end_members.items()
+                                            ],
+                                        ),
+                                    )
+                                case _:
+                                    raise Exception(f"unexpected combined component type {component.type}")
                     case _:
                         raise Exception(f"Unexpected reactant type {reactant}")
 
@@ -537,7 +584,6 @@ class Boatswain(object):
                 special_reactants=special_reactants,
                 fixed_gas_reactants=fixed_gas_reactants,
                 solid_solution_reactants=solid_solution_reactants,
-                glass_reactants=glass_reactants,
             )
         except Exception as e:
             raise Exception("cannot generate Point from config") from e

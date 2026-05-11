@@ -418,28 +418,6 @@ def _insert_vs_side_leaves(
                 em_rows.append(converters.solid_solution_reactant_end_member_to_row(em, ssr_id))
         _bulk_insert(cur, "solid_solution_reactant_end_members", em_rows)
 
-    # glass_reactants -> glass_reactant_oxides -> glass_reactant_oxide_compositions
-    if point.glass_reactants:
-        gr_rows = [converters.glass_reactant_to_row(r, vs_id) for r in point.glass_reactants]
-        gr_ids = _bulk_insert_returning_ids(cur, "glass_reactants", gr_rows)
-
-        # Pool oxides across all glass_reactants. ``oxides_in_input_order``
-        # parallels the ``oxide_rows`` we hand to executemany; once the
-        # bulk INSERT returns oxide ids we walk the parallel list to fan
-        # the oxide id into each composition row.
-        oxide_rows: list[dict[str, object]] = []
-        oxides_in_input_order: list[core_vs.GlassReactantOxide] = []
-        for gr_id, gr in zip(gr_ids, point.glass_reactants):
-            for oxide in gr.oxides:
-                oxide_rows.append(converters.glass_reactant_oxide_to_row(oxide, gr_id))
-                oxides_in_input_order.append(oxide)
-        oxide_ids = _bulk_insert_returning_ids(cur, "glass_reactant_oxides", oxide_rows)
-        oxide_comp_rows: list[dict[str, object]] = []
-        for oxide_id, oxide in zip(oxide_ids, oxides_in_input_order):
-            for c in oxide.composition:
-                oxide_comp_rows.append(converters.glass_reactant_oxide_composition_to_row(c, oxide_id))
-        _bulk_insert(cur, "glass_reactant_oxide_compositions", oxide_comp_rows)
-
 
 def _insert_es_subtree(
     cur: psycopg.Cursor,

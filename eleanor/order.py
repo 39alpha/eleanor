@@ -9,12 +9,12 @@ import yaml
 
 from eleanor.variable_space import Point as VSPoint
 
-from .exceptions import EleanorException
+from .exceptions import EleanorConfigurationException, EleanorException
 from .kernel.config import Config as KernelConfig
 from .kernel.config import Settings as KernelSettings
 from .kernel.config import resolve_settings as resolve_kernel_settings
 from .parameters import Parameter, ParameterSource
-from .reactants import AbstractReactant, ReactantRaw
+from .reactants import AbstractReactant, CombinedReactant, ReactantRaw
 from .typing import cast
 from .util import is_list_of
 
@@ -243,6 +243,28 @@ class Order:
         # Reactants (may be empty).
         reactants_raw = self.raw.get("reactants") or {}
         self.reactants = [AbstractReactant.from_dict(value, name=name) for name, value in reactants_raw.items()]
+        # Validate cross-reactant name uniqueness. Only names that actually
+        # land in concrete VS reactant lists are checked -- a CombinedReactant's
+        # own parent name (e.g. "basalt-glass") is intentionally NOT added to
+        # `seen_names` because it never appears in any persistence/output row.
+        # If we ever decide to forbid that collision too, add `seen_names.add(r.name)`
+        # inside the `isinstance(r, CombinedReactant)` branch and a regression test.
+        seen_names: set[str] = set()
+
+        def _add_unique(candidate: str) -> None:
+            if candidate in seen_names:
+                raise EleanorConfigurationException(
+                    f'reactant name "{candidate}" appears more than once '
+                    + "across reactants and combined-reactant components"
+                )
+            seen_names.add(candidate)
+
+        for reactant in self.reactants:
+            if isinstance(reactant, CombinedReactant):
+                for component_name in reactant.components:
+                    _add_unique(component_name)
+            else:
+                _add_unique(reactant.name)
         # Constraints (may be empty).
         constraints_obj = cast(object, self.raw.get("constraints") or [])
         if not isinstance(constraints_obj, list):

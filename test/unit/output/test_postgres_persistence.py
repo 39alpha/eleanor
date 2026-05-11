@@ -752,18 +752,6 @@ class TestConverterErrorAndReactantPaths(TestCase):
                 ),
                 schema.SOLID_SOLUTION_REACTANTS,
             ),
-            (
-                converters.glass_reactant_to_row(
-                    core_vs.GlassReactant(
-                        name="glass",
-                        log_moles=np.float64(0.0),
-                        titration_rate=np.float64(1.0),
-                        oxides=[],
-                    ),
-                    variable_space_id=7,
-                ),
-                schema.GLASS_REACTANTS,
-            ),
         ]
         for row, table in cases:
             with self.subTest(table=table.name):
@@ -798,32 +786,6 @@ class TestConverterErrorAndReactantPaths(TestCase):
         expected = {c.name for c in schema.FIXED_GAS_REACTANTS.columns if not c.identity}
         self.assertEqual(set(row.keys()), expected)
         self.assertIn("log_fugacity", row)
-
-    def test_glass_reactant_oxide_and_composition_rows(self):
-        """Ensure the glass-reactant oxide and composition rows match their tables."""
-        import eleanor.variable_space as core_vs
-
-        oxide_row = converters.glass_reactant_oxide_to_row(
-            core_vs.GlassReactantOxide(
-                name="SiO2",
-                fraction=np.float64(0.5),
-                log_moles=-np.float64(1.0),
-                titration_rate=np.float64(1.0),
-                composition=[],
-            ),
-            glass_reactant_id=3,
-        )
-        oxide_expected = {c.name for c in schema.GLASS_REACTANT_OXIDES.columns if not c.identity}
-        self.assertEqual(set(oxide_row.keys()), oxide_expected)
-        self.assertEqual(oxide_row["glass_reactant_id"], 3)
-
-        comp_row = converters.glass_reactant_oxide_composition_to_row(
-            core_vs.GlassReactantOxideComposition(element="Si", count=1),
-            glass_reactant_oxide_id=5,
-        )
-        comp_expected = {c.name for c in schema.GLASS_REACTANT_OXIDE_COMPOSITIONS.columns if not c.identity}
-        self.assertEqual(set(comp_row.keys()), comp_expected)
-        self.assertEqual(comp_row["glass_reactant_oxide_id"], 5)
 
     def test_es_reactant_to_row_shape(self):
         """Ensure the ES-side reactant row shape carries every kinetic field."""

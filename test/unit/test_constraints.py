@@ -19,11 +19,11 @@ from eleanor.order import ConstraintConfig, Order
 from eleanor.parameters import Parameter, ParameterRegistry, RangeParameter, Valuation, ValueParameter
 from eleanor.reactants import (
     AqueousReactant,
+    CombinedReactant,
+    CombinedReactantComponent,
     ElementReactant,
     FixedGasReactant,
     GasReactant,
-    GlassReactant,
-    GlassReactantOxide,
     MineralReactant,
     ReactantType,
     SolidSolutionReactant,
@@ -790,22 +790,30 @@ class TestConstraints(TestCase):
                 "em2": ValueParameter("fraction", None, np.float64(0.75)),
             },
         )
-        glass = GlassReactant(
-            "glassmix",
-            ReactantType.GLASS,
+        combined = CombinedReactant(
+            "combinedmix",
+            ReactantType.COMBINED,
             ValueParameter("amount", None, -np.float64(1.0)),
             ValueParameter("titration_rate", None, np.float64(1.0)),
             {
-                "SiO2": GlassReactantOxide(
-                    "SiO2", {"Si": 1, "O": 2}, np.float64(0.5), ValueParameter("relative_rate", None, np.float64(1.0))
+                "SiO2": CombinedReactantComponent(
+                    "SiO2",
+                    ReactantType.SPECIAL,
+                    np.float64(0.5),
+                    ValueParameter("relative_rate", None, np.float64(1.0)),
+                    composition={"Si": 1, "O": 2},
                 ),
-                "Na2O": GlassReactantOxide(
-                    "Na2O", {"Na": 2, "O": 1}, np.float64(0.5), ValueParameter("relative_rate", None, np.float64(1.0))
+                "Na2O": CombinedReactantComponent(
+                    "Na2O",
+                    ReactantType.SPECIAL,
+                    np.float64(0.5),
+                    ValueParameter("relative_rate", None, np.float64(1.0)),
+                    composition={"Na": 2, "O": 1},
                 ),
             },
         )
 
-        reactants = [mineral, aqueous, gas, element, special, fixed_gas, solid, glass]
+        reactants = [mineral, aqueous, gas, element, special, fixed_gas, solid, combined]
         params: list[Parameter] = [water_mass, temperature, pressure, na, cl, species]
         for reactant in reactants:
             params.extend(reactant.parameters())
@@ -832,10 +840,9 @@ class TestConstraints(TestCase):
         self.assertEqual(len(point.aqueous_reactants), 1)
         self.assertEqual(len(point.gas_reactants), 1)
         self.assertEqual(len(point.element_reactants), 1)
-        self.assertEqual(len(point.special_reactants), 1)
+        self.assertEqual(len(point.special_reactants), 3)
         self.assertEqual(len(point.fixed_gas_reactants), 1)
         self.assertEqual(len(point.solid_solution_reactants), 1)
-        self.assertEqual(len(point.glass_reactants), 1)
 
     def test_generate_vs_propagates_non_default_water_mass(self):
         """
@@ -860,29 +867,38 @@ class TestConstraints(TestCase):
 
         self.assertEqual(point.water_mass, 0.5)
 
-    def test_generate_vs_glass_per_oxide_relative_rates(self):
+    def test_generate_vs_combined_per_component_relative_rates(self):
         """
-        Ensure generate_vs computes per-oxide absolute titration rates as base_rate * relative_rate.
+        Ensure generate_vs computes per-component absolute titration rates as base_rate * relative_rate.
         """
         water_mass = ValueParameter("water_mass", None, np.float64(1.0))
         temperature = ValueParameter("temperature", None, np.float64(25.0))
         pressure = ValueParameter("pressure", None, np.float64(1.0))
-
-        sio2_rate = ValueParameter("relative_rate", None, np.float64(2.0))
-        na2o_rate = ValueParameter("relative_rate", None, np.float64(0.5))
-        glass = GlassReactant(
-            "glassmix",
-            ReactantType.GLASS,
+        combined = CombinedReactant(
+            "combinedmix",
+            ReactantType.COMBINED,
             ValueParameter("amount", None, -np.float64(1.0)),
             ValueParameter("titration_rate", None, np.float64(3.0)),
             {
-                "SiO2": GlassReactantOxide("SiO2", {"Si": 1, "O": 2}, np.float64(0.5), sio2_rate),
-                "Na2O": GlassReactantOxide("Na2O", {"Na": 2, "O": 1}, np.float64(0.5), na2o_rate),
+                "SiO2": CombinedReactantComponent(
+                    "SiO2",
+                    ReactantType.SPECIAL,
+                    np.float64(0.5),
+                    ValueParameter("relative_rate", None, np.float64(2.0)),
+                    composition={"Si": 1, "O": 2},
+                ),
+                "Na2O": CombinedReactantComponent(
+                    "Na2O",
+                    ReactantType.SPECIAL,
+                    np.float64(0.5),
+                    ValueParameter("relative_rate", None, np.float64(0.5)),
+                    composition={"Na": 2, "O": 1},
+                ),
             },
         )
 
         params: list[Parameter] = [water_mass, temperature, pressure]
-        params.extend(glass.parameters())
+        params.extend(combined.parameters())
 
         order = DummyOrder(
             parameters=params,
@@ -892,18 +908,121 @@ class TestConstraints(TestCase):
             elements={},
             species={},
             suppressions=[],
-            reactants=[glass],
+            reactants=[combined],
         )
         boatswain = Boatswain(_as_order(order))
         point = boatswain.generate_vs()
+        self.assertEqual(len(point.special_reactants), 2)
+        by_name = {r.name: r for r in point.special_reactants}
+        self.assertAlmostEqual(by_name["SiO2"].titration_rate, 6.0)
+        self.assertAlmostEqual(by_name["Na2O"].titration_rate, 1.5)
+        expected_log_moles = cast(np.float64, np.log10(np.float64(0.5))) + (-np.float64(1.0))
+        self.assertAlmostEqual(by_name["SiO2"].log_moles, expected_log_moles)
+        self.assertAlmostEqual(by_name["Na2O"].log_moles, expected_log_moles)
 
-        self.assertEqual(len(point.glass_reactants), 1)
-        gl = point.glass_reactants[0]
-        self.assertEqual(gl.titration_rate, 3.0)
+    def test_generate_vs_combined_special_parity_with_old_glass(self):
+        """
+        Ensure combined special-component expansion preserves the old glass decomposition math.
+        """
+        water_mass = ValueParameter("water_mass", None, np.float64(1.0))
+        temperature = ValueParameter("temperature", None, np.float64(25.0))
+        pressure = ValueParameter("pressure", None, np.float64(1.0))
+        combined = CombinedReactant(
+            "parity",
+            ReactantType.COMBINED,
+            ValueParameter("amount", None, -np.float64(1.0)),
+            ValueParameter("titration_rate", None, np.float64(3.0)),
+            {
+                "SiO2": CombinedReactantComponent(
+                    "SiO2",
+                    ReactantType.SPECIAL,
+                    np.float64(0.5),
+                    ValueParameter("relative_rate", None, np.float64(2.0)),
+                    composition={"Si": 1, "O": 2},
+                ),
+                "Na2O": CombinedReactantComponent(
+                    "Na2O",
+                    ReactantType.SPECIAL,
+                    np.float64(0.5),
+                    ValueParameter("relative_rate", None, np.float64(0.5)),
+                    composition={"Na": 2, "O": 1},
+                ),
+            },
+        )
+        order = DummyOrder(
+            parameters=[water_mass, temperature, pressure, *combined.parameters()],
+            water_mass=water_mass,
+            temperature=temperature,
+            pressure=pressure,
+            elements={},
+            species={},
+            suppressions=[],
+            reactants=[combined],
+        )
+        point = Boatswain(_as_order(order)).generate_vs()
+        by_name = {r.name: r for r in point.special_reactants}
+        expected_log_moles = cast(np.float64, np.log10(np.float64(0.5))) + (-np.float64(1.0))
+        self.assertAlmostEqual(by_name["SiO2"].log_moles, expected_log_moles)
+        self.assertAlmostEqual(by_name["Na2O"].log_moles, expected_log_moles)
+        self.assertAlmostEqual(by_name["SiO2"].titration_rate, 6.0)
+        self.assertAlmostEqual(by_name["Na2O"].titration_rate, 1.5)
 
-        oxide_rates = {o.name: o.titration_rate for o in gl.oxides}
-        self.assertAlmostEqual(oxide_rates["SiO2"], 3.0 * 2.0)
-        self.assertAlmostEqual(oxide_rates["Na2O"], 3.0 * 0.5)
+    def test_generate_vs_combined_mixed_component_types(self):
+        """
+        Ensure combined components fan out into the correct concrete VS reactant lists.
+        """
+        water_mass = ValueParameter("water_mass", None, np.float64(1.0))
+        temperature = ValueParameter("temperature", None, np.float64(25.0))
+        pressure = ValueParameter("pressure", None, np.float64(1.0))
+        combined = CombinedReactant(
+            "mixed",
+            ReactantType.COMBINED,
+            ValueParameter("amount", None, -np.float64(2.0)),
+            ValueParameter("titration_rate", None, np.float64(4.0)),
+            {
+                "forsterite": CombinedReactantComponent(
+                    "forsterite",
+                    ReactantType.MINERAL,
+                    np.float64(0.4),
+                    ValueParameter("relative_rate", None, np.float64(2.0)),
+                ),
+                "SiO2": CombinedReactantComponent(
+                    "SiO2",
+                    ReactantType.SPECIAL,
+                    np.float64(0.3),
+                    ValueParameter("relative_rate", None, np.float64(1.0)),
+                    composition={"Si": 1, "O": 2},
+                ),
+                "olivine-ss": CombinedReactantComponent(
+                    "olivine-ss",
+                    ReactantType.SOLID_SOLUTION,
+                    np.float64(0.3),
+                    ValueParameter("relative_rate", None, np.float64(0.5)),
+                    end_members={
+                        "fayalite": ValueParameter("fraction", None, np.float64(0.7)),
+                        "forsterite": ValueParameter("fraction", None, np.float64(0.3)),
+                    },
+                ),
+            },
+        )
+        order = DummyOrder(
+            parameters=[water_mass, temperature, pressure, *combined.parameters()],
+            water_mass=water_mass,
+            temperature=temperature,
+            pressure=pressure,
+            elements={},
+            species={},
+            suppressions=[],
+            reactants=[combined],
+        )
+        point = Boatswain(_as_order(order)).generate_vs()
+
+        self.assertEqual(len(point.mineral_reactants), 1)
+        self.assertEqual(len(point.special_reactants), 1)
+        self.assertEqual(len(point.solid_solution_reactants), 1)
+        self.assertAlmostEqual(point.mineral_reactants[0].titration_rate, 8.0)
+        self.assertAlmostEqual(point.special_reactants[0].titration_rate, 4.0)
+        self.assertAlmostEqual(point.solid_solution_reactants[0].titration_rate, 2.0)
 
     def test_generate_vs_wraps_unexpected_reactant_and_unrefined_errors(self):
         """

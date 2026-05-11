@@ -443,30 +443,6 @@ class Kernel(AbstractKernel):
             print("      nrk1=  1                nrk2=  0", file=file)
             print(f"      rkb1={rk1: >13}      rkb2=  0.00000E+00      rkb3=  0.00000E+00", file=file)
 
-        for gl in vs_point.glass_reactants:
-            for oxide in gl.oxides:
-                morr = NumberFormat.SCIENTIFIC.fmt(10**oxide.log_moles, precision=5)
-                rk1 = NumberFormat.SCIENTIFIC.fmt(oxide.titration_rate, precision=5)
-
-                print("*-----------------------------------------------------------------------------", file=file)
-                print(f"  reactant=  {oxide.name}", file=file)
-                print("     jcode=  2               jreac=  0", file=file)
-                print(f"      morr={morr: >13}      modr=  0.00000E+00", file=file)
-                print("     vreac=  0.00000E+00", file=file)
-
-                for component in oxide.composition:
-                    element, count = component.element, component.count
-                    c = NumberFormat.SCIENTIFIC.fmt(np.float64(count), precision=5)
-                    print("   {element: <2}          {count}".format(element=element, count=c), file=file)
-
-                print("   endit.", file=file)
-                print("* Reaction", file=file)
-                print("   endit.", file=file)
-                print("       nsk=  0               sfcar=  0.00000E+00    ssfcar=  0.00000E+00", file=file)
-                print("      fkrc=  0.00000E+00", file=file)
-                print("      nrk1=  1                nrk2=  0", file=file)
-                print(f"      rkb1={rk1: >13}      rkb2=  0.00000E+00      rkb3=  0.00000E+00", file=file)
-
         # Write Element Reactants
         for er in vs_point.element_reactants:
             morr = NumberFormat.SCIENTIFIC.fmt(10**er.log_moles, precision=5)

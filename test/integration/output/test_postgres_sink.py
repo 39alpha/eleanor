@@ -134,7 +134,6 @@ def _make_vs_point(*, water_mass: np.float64 = _DEFAULT_WATER_MASS) -> core_vs.P
         special_reactants=[],
         fixed_gas_reactants=[],
         solid_solution_reactants=[],
-        glass_reactants=[],
         es_points=[],
         exit_code=0,
         create_date=now,
@@ -338,9 +337,9 @@ class TestRepositoriesIntegration(_RealPostgresTestCase):
                 exceptions=[core_vs.SuppressionException(name="diamond")],
             ),
         ]
-        # Populate every reactant flavour so the converter + persistence
-        # branches that fan out to their own child tables (special and
-        # glass) plus the simple leaf-only reactant tables (mineral,
+        # Populate every reactant flavour so converter + persistence
+        # branches that fan out to child tables (special and
+        # solid-solution) plus simple leaf-only reactant tables (mineral,
         # aqueous, gas, element, fixed_gas) all run end-to-end on a real
         # Postgres.
         point.mineral_reactants = [
@@ -366,35 +365,6 @@ class TestRepositoriesIntegration(_RealPostgresTestCase):
                 composition=[
                     core_vs.SpecialReactantComposition(element="Fe", count=1),
                     core_vs.SpecialReactantComposition(element="O", count=2),
-                ],
-            ),
-        ]
-        point.glass_reactants = [
-            core_vs.GlassReactant(
-                name="basalt-glass",
-                log_moles=-np.float64(1.0),
-                titration_rate=np.float64(1.0),
-                oxides=[
-                    core_vs.GlassReactantOxide(
-                        name="SiO2",
-                        fraction=np.float64(0.5),
-                        log_moles=-np.float64(1.0),
-                        titration_rate=np.float64(1.0),
-                        composition=[
-                            core_vs.GlassReactantOxideComposition(element="Si", count=1),
-                            core_vs.GlassReactantOxideComposition(element="O", count=2),
-                        ],
-                    ),
-                    core_vs.GlassReactantOxide(
-                        name="MgO",
-                        fraction=np.float64(0.5),
-                        log_moles=-np.float64(1.0),
-                        titration_rate=np.float64(1.0),
-                        composition=[
-                            core_vs.GlassReactantOxideComposition(element="Mg", count=1),
-                            core_vs.GlassReactantOxideComposition(element="O", count=1),
-                        ],
-                    ),
                 ],
             ),
         ]
@@ -497,9 +467,6 @@ class TestRepositoriesIntegration(_RealPostgresTestCase):
                 ("fixed_gas_reactants", 1),
                 ("special_reactants", 1),
                 ("special_reactant_compositions", 2),
-                ("glass_reactants", 1),
-                ("glass_reactant_oxides", 2),
-                ("glass_reactant_oxide_compositions", 4),
                 ("solid_solution_reactants", 1),
                 ("solid_solution_reactant_end_members", 2),
                 ("equilibrium_space", 2),

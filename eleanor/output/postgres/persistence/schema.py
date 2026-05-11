@@ -625,33 +625,6 @@ SOLID_SOLUTION_REACTANT_END_MEMBERS = TableDef(
 )
 
 
-GLASS_REACTANTS = _reactant_table("glass_reactants")
-GLASS_REACTANT_OXIDES = TableDef(
-    name="glass_reactant_oxides",
-    columns=(
-        _identity_pk(),
-        ColumnDef("glass_reactant_id", "INTEGER", nullable=False),
-        ColumnDef("name", "TEXT", nullable=False),
-        ColumnDef("fraction", "DOUBLE PRECISION", nullable=False),
-        ColumnDef("log_moles", "DOUBLE PRECISION", nullable=False),
-        ColumnDef("titration_rate", "DOUBLE PRECISION", nullable=False),
-    ),
-    primary_key=("id",),
-    foreign_keys=(ForeignKeyDef("glass_reactant_id", "glass_reactants"),),
-)
-GLASS_REACTANT_OXIDE_COMPOSITIONS = TableDef(
-    name="glass_reactant_oxide_compositions",
-    columns=(
-        _identity_pk(),
-        ColumnDef("glass_reactant_oxide_id", "INTEGER", nullable=False),
-        ColumnDef("element", "TEXT", nullable=False),
-        ColumnDef("count", "INTEGER", nullable=False),
-    ),
-    primary_key=("id",),
-    foreign_keys=(ForeignKeyDef("glass_reactant_oxide_id", "glass_reactant_oxides"),),
-)
-
-
 EQUILIBRIUM_SPACE = TableDef(
     name="equilibrium_space",
     columns=(
@@ -835,9 +808,6 @@ TABLES: tuple[TableDef, ...] = (
     FIXED_GAS_REACTANTS,
     SOLID_SOLUTION_REACTANTS,
     SOLID_SOLUTION_REACTANT_END_MEMBERS,
-    GLASS_REACTANTS,
-    GLASS_REACTANT_OXIDES,
-    GLASS_REACTANT_OXIDE_COMPOSITIONS,
     EQUILIBRIUM_SPACE,
     EQUILIBRIUM_ELEMENTS,
     EQUILIBRIUM_AQUEOUS_SPECIES,

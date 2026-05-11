@@ -41,7 +41,6 @@ class _DummyPoint:
         aqueous_reactants=None,
         gas_reactants=None,
         fixed_gas_reactants=None,
-        glass_reactants=None,
     ):
         self.kernel = SimpleNamespace(settings=settings)
         self.suppressions = [] if suppressions is None else suppressions
@@ -58,7 +57,6 @@ class _DummyPoint:
         self.aqueous_reactants = [] if aqueous_reactants is None else aqueous_reactants
         self.gas_reactants = [] if gas_reactants is None else gas_reactants
         self.fixed_gas_reactants = [] if fixed_gas_reactants is None else fixed_gas_reactants
-        self.glass_reactants = [] if glass_reactants is None else glass_reactants
 
     def has_reactants(self):
         return self._has_reactants
@@ -73,7 +71,7 @@ class _DummyPoint:
         return None
 
     def reactant_count(self):
-        base = sum(
+        return sum(
             map(
                 len,
                 [
@@ -87,7 +85,6 @@ class _DummyPoint:
                 ],
             )
         )
-        return base + sum(len(getattr(glass, "oxides", [])) for glass in self.glass_reactants)
 
 
 class _DummyCurve:
@@ -829,19 +826,6 @@ class TestEq36Kernel(TestCase):
         aqueous = AqueousReactant(name="Na+", log_moles=0.0, titration_rate=1.0)
         gas = GasReactant(name="CO2(g)", log_moles=0.0, titration_rate=1.0)
         fixed_gas = FixedGasReactant(name="O2(g)", log_moles=0.0, log_fugacity=-50.0)
-        glass = SimpleNamespace(
-            oxides=[
-                SimpleNamespace(
-                    name="SiO2",
-                    log_moles=0.0,
-                    titration_rate=1.0,
-                    composition=[
-                        SimpleNamespace(element="Si", count=1),
-                        SimpleNamespace(element="O", count=2),
-                    ],
-                )
-            ]
-        )
 
         point = _DummyPoint(
             settings,
@@ -854,7 +838,6 @@ class TestEq36Kernel(TestCase):
             aqueous_reactants=[aqueous],
             gas_reactants=[gas],
             fixed_gas_reactants=[fixed_gas],
-            glass_reactants=[glass],
         )
         handle = _NamedStringIO("problem.6i")
 
@@ -869,7 +852,6 @@ class TestEq36Kernel(TestCase):
         self.assertIn("reactant=  Na", output)
         self.assertIn("reactant= Na+", output)
         self.assertIn("reactant= CO2(g)", output)
-        self.assertIn("reactant=  SiO2", output)
         self.assertIn("species= O2(g)", output)
         self.assertIn("nxopt=  1", output)
         self.assertIn("nxopex=  1", output)

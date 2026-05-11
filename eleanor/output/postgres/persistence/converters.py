@@ -278,34 +278,6 @@ def solid_solution_reactant_end_member_to_row(
     }
 
 
-def glass_reactant_to_row(r: core_vs.GlassReactant, variable_space_id: int) -> dict[str, object]:
-    return _reactant_row(r.name, r.log_moles, r.titration_rate, variable_space_id)
-
-
-def glass_reactant_oxide_to_row(
-    oxide: core_vs.GlassReactantOxide,
-    glass_reactant_id: int,
-) -> dict[str, object]:
-    return {
-        "glass_reactant_id": glass_reactant_id,
-        "name": oxide.name,
-        "fraction": oxide.fraction,
-        "log_moles": oxide.log_moles,
-        "titration_rate": oxide.titration_rate,
-    }
-
-
-def glass_reactant_oxide_composition_to_row(
-    composition: core_vs.GlassReactantOxideComposition,
-    glass_reactant_oxide_id: int,
-) -> dict[str, object]:
-    return {
-        "glass_reactant_oxide_id": glass_reactant_oxide_id,
-        "element": composition.element,
-        "count": composition.count,
-    }
-
-
 def es_point_to_row(point: core_es.Point, variable_space_id: int) -> dict[str, object]:
     """Build the ``equilibrium_space`` row.
 

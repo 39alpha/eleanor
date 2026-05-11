@@ -76,19 +76,25 @@ titration_rate = -9
 # fayalite = 0.6
 # forsterite = 0.4
 
-# --- glass: multi-oxide glass ---
+# --- combined: multiple reactants scaled from a single bulk amount ---
 # [reactants.basalt-glass]
-# type = "glass"
+# type = "combined"
 # amount = { min = -6, max = -3 }
 # titration_rate = -9
-# [reactants.basalt-glass.oxides.SiO2]
+# [reactants.basalt-glass.components.SiO2]
+# type = "special"
 # composition = { Si = 1, O = 2 }
 # fraction = 0.5
 # relative_rate = 1.0
-# [reactants.basalt-glass.oxides.FeO]
+# [reactants.basalt-glass.components.FeO]
+# type = "special"
 # composition = { Fe = 1, O = 1 }
-# fraction = 0.5
+# fraction = 0.3
 # relative_rate = 1.0
+# [reactants.basalt-glass.components.fayalite]
+# type = "mineral"
+# fraction = 0.2
+# relative_rate = 0.8
 
 # [[suppressions]]
 # name = "methane"

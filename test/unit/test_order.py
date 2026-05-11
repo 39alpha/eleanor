@@ -7,7 +7,7 @@ from unittest import mock
 
 import numpy as np
 
-from eleanor.exceptions import EleanorException
+from eleanor.exceptions import EleanorConfigurationException, EleanorException
 from eleanor.kernel.config import Settings as KernelSettings
 from eleanor.order import (
     NavigatorConfig,
@@ -205,6 +205,40 @@ class TestOrder(TestCase):
         params = order.parameters()
         self.assertIn(kparam, params)
         self.assertIn(rparam, params)
+
+    def test_order_rejects_duplicate_names_between_reactants_and_combined_components(self):
+        """
+        Ensure duplicate concrete names across standalone reactants and combined components are rejected.
+        """
+        with self.assertRaisesRegex(
+            EleanorConfigurationException,
+            "appears more than once across reactants and combined-reactant components",
+        ):
+            _make_order(
+                reactants={
+                    "FeO": {
+                        "type": "special",
+                        "amount": 1.0,
+                        "composition": {"Fe": 1, "O": 1},
+                    },
+                    "mixed": {
+                        "type": "combined",
+                        "amount": 1.0,
+                        "components": {
+                            "FeO": {
+                                "type": "special",
+                                "fraction": 0.5,
+                                "composition": {"Fe": 1, "O": 1},
+                            },
+                            "SiO2": {
+                                "type": "special",
+                                "fraction": 0.5,
+                                "composition": {"Si": 1, "O": 2},
+                            },
+                        },
+                    },
+                }
+            )
 
     def test_order_file_loaders_and_load_order(self):
         """

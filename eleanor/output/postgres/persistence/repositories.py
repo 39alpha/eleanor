@@ -28,7 +28,7 @@ Public functions:
 * :func:`drop_indexes(config)` / :func:`recreate_indexes(config)` /
   :func:`bulk_load_window(config)` -- :class:`DatabaseConfig`-keyed
   wrappers around the corresponding :mod:`schema` helpers. Used by the
-  ``eleanor bulkload`` CLI and by callers running an ad-hoc bulk-load
+  ``eleanor postgres bulkload`` CLI and by callers running an ad-hoc bulk-load
   workload against an existing database.
 """
 

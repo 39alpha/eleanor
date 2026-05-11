@@ -3,6 +3,7 @@ import sys
 import click
 
 import eleanor
+from eleanor.cli.registry import available_cli_commands
 from eleanor.executor.registry import available_executors
 from eleanor.kernel.registry import available_kernels
 from eleanor.navigator.registry import available_navigators
@@ -31,6 +32,7 @@ def doctor() -> None:
         ("Kernels", sorted(available_kernels())),
         ("Navigators", sorted(available_navigators())),
         ("Outputs", sorted(available_outputs())),
+        ("CLI commands", sorted(available_cli_commands())),
     ]
     for heading, names in sections:
         click.echo(f"  {click.style(heading, bold=True)}")

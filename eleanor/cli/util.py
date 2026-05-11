@@ -1,3 +1,13 @@
+"""Shared CLI utilities for built-in commands and CLI plugins.
+
+This module is part of the supported CLI-plugin contract: third-party
+plugins registered through ``eleanor.cli_commands`` may import
+:func:`config_options` and :func:`config_from_args` to inherit the
+``--config`` / ``--database`` flags and the standard config-resolution
+behaviour. The names exported here are covered by the same plugin-API
+versioning policy as the ``eleanor.cli_commands`` entry-point group.
+"""
+
 import functools
 import os.path
 from collections.abc import Callable

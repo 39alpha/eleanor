@@ -13,7 +13,7 @@ from .common import TestCase
 
 
 class TestBulkLoadCli(TestCase):
-    """Coverage of eleanor.cli.bulkload."""
+    """Coverage of eleanor.output.postgres.cli.bulkload."""
 
     runner: CliRunner = CliRunner()
 
@@ -33,16 +33,19 @@ class TestBulkLoadCli(TestCase):
 
     def test_drop_action_dispatches_to_repository_drop_indexes(self):
         """
-        Ensure 'eleanor bulkload drop' calls repositories.drop_indexes
+        Ensure 'eleanor postgres bulkload drop' calls repositories.drop_indexes
         with the resolved DatabaseConfig.
         """
         cfg = self._config()
         with (
-            mock.patch("eleanor.cli.bulkload.config_from_args", return_value=cfg) as config_from_args,
-            mock.patch("eleanor.cli.bulkload.drop_indexes") as drop_indexes,
-            mock.patch("eleanor.cli.bulkload.recreate_indexes") as recreate_indexes,
+            mock.patch("eleanor.output.postgres.cli.config_from_args", return_value=cfg) as config_from_args,
+            mock.patch("eleanor.output.postgres.cli.drop_indexes") as drop_indexes,
+            mock.patch("eleanor.output.postgres.cli.recreate_indexes") as recreate_indexes,
         ):
-            result = self.runner.invoke(main, ["bulkload", "drop", "-y", "-c", "/fake.yaml", "-d", "demo_db"])
+            result = self.runner.invoke(
+                main,
+                ["postgres", "bulkload", "drop", "-y", "-c", "/fake.yaml", "-d", "demo_db"],
+            )
 
         self.assertEqual(result.exit_code, 0)
         config_from_args.assert_called_once_with("/fake.yaml", "demo_db")
@@ -53,14 +56,17 @@ class TestBulkLoadCli(TestCase):
         self.assertEqual(passed.database, "demo_db")
 
     def test_recreate_action_dispatches_to_repository_recreate_indexes(self):
-        """Ensure 'eleanor bulkload recreate' calls the recreate repository helper."""
+        """Ensure 'eleanor postgres bulkload recreate' calls the recreate repository helper."""
         cfg = self._config()
         with (
-            mock.patch("eleanor.cli.bulkload.config_from_args", return_value=cfg),
-            mock.patch("eleanor.cli.bulkload.drop_indexes") as drop_indexes,
-            mock.patch("eleanor.cli.bulkload.recreate_indexes") as recreate_indexes,
+            mock.patch("eleanor.output.postgres.cli.config_from_args", return_value=cfg),
+            mock.patch("eleanor.output.postgres.cli.drop_indexes") as drop_indexes,
+            mock.patch("eleanor.output.postgres.cli.recreate_indexes") as recreate_indexes,
         ):
-            result = self.runner.invoke(main, ["bulkload", "recreate", "-c", "/fake.yaml", "-d", "demo_db"])
+            result = self.runner.invoke(
+                main,
+                ["postgres", "bulkload", "recreate", "-c", "/fake.yaml", "-d", "demo_db"],
+            )
 
         self.assertEqual(result.exit_code, 0)
         recreate_indexes.assert_called_once()
@@ -75,11 +81,11 @@ class TestBulkLoadCli(TestCase):
         """
         bare = Config(raw={"output": {"type": "postgres", "args": {}}})
         with (
-            mock.patch("eleanor.cli.bulkload.config_from_args", return_value=bare),
-            mock.patch("eleanor.cli.bulkload.drop_indexes") as drop_indexes,
-            mock.patch("eleanor.cli.bulkload.recreate_indexes") as recreate_indexes,
+            mock.patch("eleanor.output.postgres.cli.config_from_args", return_value=bare),
+            mock.patch("eleanor.output.postgres.cli.drop_indexes") as drop_indexes,
+            mock.patch("eleanor.output.postgres.cli.recreate_indexes") as recreate_indexes,
         ):
-            result = self.runner.invoke(main, ["bulkload", "drop", "-y", "-c", "/fake.yaml"])
+            result = self.runner.invoke(main, ["postgres", "bulkload", "drop", "-y", "-c", "/fake.yaml"])
 
         self.assertEqual(result.exit_code, 1)
         self.assertIn("no database provided", result.output)

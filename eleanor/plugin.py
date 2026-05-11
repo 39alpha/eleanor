@@ -180,8 +180,16 @@ class PluginRegistry(Generic[F]):
         reads :data:`_API_VERSION_DUNDER` from the factory or its module.
         Spec-style registries (e.g. kernel) override this to read a field on
         the spec instead.
+    :param builtin_loader: optional zero-argument callable invoked exactly once
+        on first registry access (inside :meth:`_discover_entry_points`,
+        *before* entry-point discovery). The intended use is to trigger an
+        import whose module-level side effect registers built-in factories
+        that live outside the registry's own package. Unlike entry-point load
+        failures, loader exceptions propagate to the caller — a failing
+        built-in loader indicates a broken installation, not a flaky
+        third-party plugin.
 
-    Plugin shape itself (e.g. accepted argument signature) is intentionally
+    Plugin shape itself
     *not* validated at registration time: third-party factories include
     :class:`unittest.mock.Mock`, partial-applied wrappers, and C-implemented
     callables whose signatures are not introspectable. Instead, shape errors
@@ -201,6 +209,7 @@ class PluginRegistry(Generic[F]):
     _discovered: bool
     _current_api_version: int
     _min_api_version: int
+    _builtin_loader: Callable[[], None] | None
     _unversioned_warned: set[str]
 
     def __init__(
@@ -215,6 +224,7 @@ class PluginRegistry(Generic[F]):
         api_version: int = 1,
         min_api_version: int = 1,
         api_version_resolver: Callable[[F], int | None] | None = None,
+        builtin_loader: Callable[[], None] | None = None,
     ) -> None:
         if min_api_version > api_version:
             raise EleanorException(
@@ -224,6 +234,7 @@ class PluginRegistry(Generic[F]):
         self._entry_point_group = entry_point_group
         self._override_env_var = override_env_var
         self._validator = validator
+        self._builtin_loader = builtin_loader
         self._registry = {}
         self._builtins = builtin_names if builtin_names is not None else frozenset(builtins.keys())
         self._discovered = False
@@ -377,6 +388,9 @@ class PluginRegistry(Generic[F]):
         if self._discovered:
             return
         self._discovered = True
+
+        if self._builtin_loader is not None:
+            self._builtin_loader()
 
         try:
             eps = entry_points(group=self._entry_point_group)

@@ -6,7 +6,6 @@ from eleanor.exceptions import EleanorException
 from eleanor.executor import registry as registry_module
 from eleanor.executor.registry import (
     BUILTIN_EXECUTORS,
-    OVERRIDE_ENV_VAR,
     ExecutorFactory,
     available_executors,
     get_factory,
@@ -15,6 +14,8 @@ from eleanor.executor.registry import (
 )
 
 from ..common import TestCase
+
+_ = available_executors()  # ensure builtins are discovered before registry snapshots
 
 
 def _make_factory(return_value=None, *, api_version: int = 1):
@@ -89,46 +90,23 @@ class TestRegisterExecutor(_RegistryTestCase):
             register_executor("fake", factory)
         self.assertIs(registry._registry["fake"], factory)
 
-    def test_register_rejects_builtin_override_without_env(self):
+    def test_register_rejects_builtin_name(self):
         """
-        Ensure built-in executors cannot be overridden by default.
+        Ensure built-in executor names cannot be registered over.
         """
-        builtin_name = "serial"
-        original = registry._registry[builtin_name]
         replacement, _ = _make_factory()
+        with self.assertRaisesRegex(EleanorException, "built-in executor"):
+            register_executor("serial", replacement)
 
-        with mock.patch.dict("os.environ", {}, clear=False):
-            # Ensure the override env var is unset.
-            __import__("os").environ.pop(OVERRIDE_ENV_VAR, None)
-            with self.assertWarnsRegex(RuntimeWarning, "refusing to override built-in"):
-                register_executor(builtin_name, replacement)
-
-        self.assertIs(registry._registry[builtin_name], original)
-
-    def test_register_allows_builtin_override_with_env(self):
+    def test_register_rejects_duplicate_name(self):
         """
-        Ensure built-in executors can be overridden when the override env var is set.
-        """
-        builtin_name = "serial"
-        original = registry._registry[builtin_name]
-        replacement, _ = _make_factory()
-
-        try:
-            with mock.patch.dict("os.environ", {OVERRIDE_ENV_VAR: "1"}):
-                register_executor(builtin_name, replacement)
-            self.assertIs(registry._registry[builtin_name], replacement)
-        finally:
-            registry._registry[builtin_name] = original
-
-    def test_register_warns_on_plugin_collision(self):
-        """
-        Ensure a second plugin registering under an existing plugin name is rejected with a warning.
+        Ensure a second plugin registering under an existing name is a hard error.
         """
         first, _ = _make_factory()
         second, _ = _make_factory()
         register_executor("clash", first)
 
-        with self.assertWarnsRegex(RuntimeWarning, "is already registered"):
+        with self.assertRaisesRegex(EleanorException, "is already registered"):
             register_executor("clash", second)
 
         self.assertIs(registry._registry["clash"], first)
@@ -174,42 +152,29 @@ class TestEntryPointDiscovery(_RegistryTestCase):
         self.assertIs(get_factory("plugin")(4), sentinel)
         factory.assert_called_once_with(4)
 
-    def test_discovery_warns_and_continues_on_load_failure(self):
+    def test_discovery_raises_on_load_failure(self):
         """
-        Ensure a failing entry point emits a RuntimeWarning and does not abort discovery of others.
+        Ensure a failing entry-point load is a hard error.
         """
-        good_factory, _sentinel = _make_factory()
 
         def _fail():
             raise ImportError("boom")
 
         failing_ep = _FakeEntryPoint("broken", "pkg.broken:build", _fail)
-        working_ep = _FakeEntryPoint("working", "pkg.ok:build", lambda: good_factory)
 
-        with mock.patch(
-            "eleanor.plugin.entry_points",
-            return_value=[failing_ep, working_ep],
-        ):
-            with self.assertWarnsRegex(RuntimeWarning, 'failed to load executor entry point "broken"'):
-                executors = available_executors()
+        with mock.patch("eleanor.plugin.entry_points", return_value=[failing_ep]):
+            with self.assertRaisesRegex(EleanorException, 'failed to load executor entry point "broken"'):
+                available_executors()
 
-        self.assertNotIn("broken", executors)
-        self.assertIn("working", executors)
-
-    def test_discovery_rejects_non_callable_entry_point(self):
+    def test_discovery_raises_on_non_callable_entry_point(self):
         """
-        Ensure entry points that do not resolve to callables are skipped with a warning.
+        Ensure entry points that do not resolve to callables are hard errors.
         """
         not_callable_ep = _FakeEntryPoint("bad", "pkg.bad:NOT_CALLABLE", lambda: 42)
 
-        with mock.patch(
-            "eleanor.plugin.entry_points",
-            return_value=[not_callable_ep],
-        ):
-            with self.assertWarnsRegex(RuntimeWarning, "is invalid"):
-                executors = available_executors()
-
-        self.assertNotIn("bad", executors)
+        with mock.patch("eleanor.plugin.entry_points", return_value=[not_callable_ep]):
+            with self.assertRaisesRegex(EleanorException, "must be callable"):
+                available_executors()
 
     def test_discovery_runs_at_most_once(self):
         """
@@ -222,32 +187,16 @@ class TestEntryPointDiscovery(_RegistryTestCase):
             get_factory("serial")
         self.assertEqual(ep_call.call_count, 1)
 
-    def test_discovery_rejects_builtin_name_from_plugin(self):
+    def test_discovery_raises_on_too_new_api_plugin(self):
         """
-        Ensure a plugin that tries to register a built-in name is rejected with a warning.
-        """
-        replacement, _ = _make_factory()
-        ep = _FakeEntryPoint("serial", "bad_plugin:build", lambda: replacement)
-        original = registry._registry["serial"]
-
-        with mock.patch("eleanor.plugin.entry_points", return_value=[ep]):
-            with self.assertWarnsRegex(RuntimeWarning, "refusing to override built-in"):
-                available_executors()
-
-        self.assertIs(registry._registry["serial"], original)
-
-    def test_discovery_skips_too_new_api_plugin_with_warning(self):
-        """
-        Ensure too-new executor entry points are warned and skipped.
+        Ensure too-new executor entry points are hard errors.
         """
         factory, _ = _make_factory(api_version=99)
         ep = _FakeEntryPoint("too_new", "pkg:factory", lambda: factory)
 
         with mock.patch("eleanor.plugin.entry_points", return_value=[ep]):
-            with self.assertWarnsRegex(RuntimeWarning, 'executor entry point "too_new"'):
-                executors = available_executors()
-
-        self.assertNotIn("too_new", executors)
+            with self.assertRaisesRegex(EleanorException, "supports up to"):
+                available_executors()
 
 
 class TestGetFactory(_RegistryTestCase):

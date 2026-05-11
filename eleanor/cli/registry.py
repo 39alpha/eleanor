@@ -8,11 +8,10 @@ that ships a ``bar`` command is invoked as ``eleanor foo bar``. Plugins
 may nest further by passing :class:`click.Group` instances as members of
 ``commands``.
 
-Built-in CLI specs (currently just ``postgres``) are registered as
-module-level side effects by ``eleanor.cli.__init__``, which mirrors
-the pattern used by the other plugin registries (each package’s
-``__init__`` registers its own built-ins).  Third-party
-plugins advertise themselves through the ``eleanor.cli_commands``
+Built-in CLI specs (currently just ``postgres``) are declared as entry
+points in ``pyproject.toml`` and discovered lazily on first registry
+access, matching the pattern used by the other plugin registries.
+Third-party plugins advertise themselves through the ``eleanor.cli_commands``
 entry-point group in their distribution metadata, e.g.::
 
     [project.entry-points."eleanor.cli_commands"]

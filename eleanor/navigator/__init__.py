@@ -10,11 +10,11 @@ navigator classes (:class:`Random`, :class:`Lattice`, :class:`RandomLattice`,
 numpy or the kernel interface graph. A matching ``TYPE_CHECKING`` block keeps
 static type checkers seeing them as regular re-exports.
 
-Built-in navigator factories are defined and registered here; the heavy
-concrete-class imports are deferred inside the factory bodies.
+Built-in navigator factories live in :mod:`eleanor.navigator.factories`; heavy
+concrete-class imports remain deferred inside factory callables and are
+discovered via entry points.
 """
 
-import warnings
 from typing import TYPE_CHECKING
 
 from ..exceptions import EleanorException
@@ -61,51 +61,6 @@ def __getattr__(name: str) -> object:
 
         return RandomLattice
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
-
-
-def _build_random(order: "Order", kernel: "AbstractKernel", **_args: object) -> "AbstractNavigator":
-    if _args:
-        warnings.warn(
-            'built-in navigator "random" does not accept keyword arguments; ' + f"ignoring: {list(_args)}",
-            RuntimeWarning,
-            stacklevel=2,
-        )
-    from .random import Random
-
-    return Random(order, kernel)
-
-
-def _build_random_lattice(order: "Order", kernel: "AbstractKernel", **_args: object) -> "AbstractNavigator":
-    if _args:
-        warnings.warn(
-            'built-in navigator "random_lattice" does not accept keyword arguments; ' + f"ignoring: {list(_args)}",
-            RuntimeWarning,
-            stacklevel=2,
-        )
-    from .lattice import RandomLattice
-
-    return RandomLattice(order, kernel)
-
-
-def _build_lattice(order: "Order", kernel: "AbstractKernel", **_args: object) -> "AbstractNavigator":
-    if _args:
-        warnings.warn(
-            'built-in navigator "lattice" does not accept keyword arguments; ' + f"ignoring: {list(_args)}",
-            RuntimeWarning,
-            stacklevel=2,
-        )
-    from .lattice import Lattice
-
-    return Lattice(order, kernel)
-
-
-_build_random.__eleanor_api_version__ = 1  # pyright: ignore[reportFunctionMemberAccess]
-_build_random_lattice.__eleanor_api_version__ = 1  # pyright: ignore[reportFunctionMemberAccess]
-_build_lattice.__eleanor_api_version__ = 1  # pyright: ignore[reportFunctionMemberAccess]
-
-register_navigator("random", _build_random)
-register_navigator("random_lattice", _build_random_lattice)
-register_navigator("lattice", _build_lattice)
 
 
 def load_navigator(order: "Order", kernel: "AbstractKernel") -> "AbstractNavigator":

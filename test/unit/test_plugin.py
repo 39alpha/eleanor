@@ -122,30 +122,30 @@ class TestPluginRegistryBasics(TestCase):
 
 class TestCollisionPolicy(TestCase):
     """
-    Tests of the registry's builtin-vs-plugin and plugin-vs-plugin collision handling.
+    Tests of the registry's no-shadowing collision handling.
     """
 
-    def test_builtin_collision_refused_without_override(self):
+    def test_builtin_name_rejected_unconditionally(self):
         """
-        Ensure a plugin cannot override a built-in without the override env var.
+        Ensure registering under a built-in name is always a hard error.
         """
         registry = _make_registry()
-        with self.assertWarnsRegex(RuntimeWarning, "refusing to override built-in"):
+        with self.assertRaisesRegex(EleanorException, "built-in widget"):
             registry.register("b1", _plugin)
         self.assertIs(registry.get("b1"), _builtin)
 
-    def test_builtin_collision_allowed_with_override(self):
+    def test_builtin_name_rejected_even_when_registry_empty(self):
         """
-        Ensure built-ins can be overridden when ``ELEANOR_<KIND>_OVERRIDES`` is truthy.
+        Ensure registering under a built-in name fails even if the built-in
+        has not been seeded into the registry yet (entry-point-only model).
         """
-        registry = _make_registry()
-        with mock.patch.dict(os.environ, {"ELEANOR_WIDGET_OVERRIDES": "1"}):
+        registry = _make_registry(builtins={}, builtin_names=frozenset({"b1"}))
+        with self.assertRaisesRegex(EleanorException, "built-in widget"):
             registry.register("b1", _plugin)
-        self.assertIs(registry.get("b1"), _plugin)
 
-    def test_plugin_collision_keeps_first(self):
+    def test_duplicate_name_rejected(self):
         """
-        Ensure plugin-vs-plugin collisions are rejected with a warning and the first wins.
+        Ensure plugin-vs-plugin collisions are hard errors.
         """
         registry = _make_registry()
         registry.register("p1", _plugin)
@@ -154,7 +154,7 @@ class TestCollisionPolicy(TestCase):
             return "other"
 
         _other.__eleanor_api_version__ = 1  # pyright: ignore[reportFunctionMemberAccess]
-        with self.assertWarnsRegex(RuntimeWarning, "is already registered"):
+        with self.assertRaisesRegex(EleanorException, "is already registered"):
             registry.register("p1", _other)
         self.assertIs(registry.get("p1"), _plugin)
 
@@ -238,145 +238,48 @@ class TestEntryPointDiscovery(TestCase):
             self.assertIn("p1", registry.available())
         self.assertIs(registry.get("p1"), _plugin)
 
-    def test_discovery_warns_on_load_failure(self):
+    def test_discovery_raises_on_load_failure(self):
         """
-        Ensure a failing entry-point load emits a warning and does not abort discovery.
+        Ensure a failing entry-point load is a hard error.
         """
 
         def _fail():
             raise ImportError("boom")
 
         failing = _FakeEntryPoint("broken", "pkg.bad:factory", _fail)
-        working = _FakeEntryPoint("good", "pkg.ok:factory", lambda: _plugin)
-
         registry = _make_registry()
-        with mock.patch("eleanor.plugin.entry_points", return_value=[failing, working]):
-            with self.assertWarnsRegex(RuntimeWarning, 'failed to load widget entry point "broken"'):
-                self.assertIn("good", registry.available())
-        self.assertNotIn("broken", registry.available())
+        with mock.patch("eleanor.plugin.entry_points", return_value=[failing]):
+            with self.assertRaisesRegex(EleanorException, 'failed to load widget entry point "broken"'):
+                registry.available()
 
-    def test_discovery_warns_on_invalid_entry_point(self):
+    def test_discovery_raises_on_invalid_entry_point(self):
         """
-        Ensure entry points rejected by the validator emit a warning and are skipped.
+        Ensure entry points rejected by the validator are hard errors.
         """
         # The default validator rejects non-callables.
         ep = _FakeEntryPoint("bad", "pkg.bad:nothing", lambda: 42)
         registry = _make_registry()
         with mock.patch("eleanor.plugin.entry_points", return_value=[ep]):
-            with self.assertWarnsRegex(RuntimeWarning, "is invalid"):
-                self.assertNotIn("bad", registry.available())
+            with self.assertRaisesRegex(EleanorException, "must be callable"):
+                registry.available()
 
+    def test_duplicate_entry_point_names_fail_for_builtin(self):
+        """Ensure two entry points claiming a built-in name is a hard error."""
+        ep1 = _FakeEntryPoint("b1", "eleanor.test:_builtin", lambda: _builtin)
+        ep2 = _FakeEntryPoint("b1", "evil_pkg:_squatter", lambda: _plugin)
+        registry = _make_registry(builtins={}, builtin_names=frozenset({"b1"}))
+        with mock.patch("eleanor.plugin.entry_points", return_value=[ep1, ep2]):
+            with self.assertRaisesRegex(EleanorException, "multiple entry points claim built-in widget"):
+                registry.available()
 
-class TestBuiltinLoader(TestCase):
-    """
-    Tests of the optional ``builtin_loader`` hook on :class:`PluginRegistry`.
-    """
-
-    def _loader_registry(self, loader, **overrides):
-        defaults = dict(
-            kind="widget",
-            entry_point_group="eleanor.test.widgets",
-            override_env_var="ELEANOR_WIDGET_OVERRIDES",
-            builtins={},
-            builtin_loader=loader,
-        )
-        defaults.update(overrides)
-        return PluginRegistry(**defaults)  # pyright: ignore[reportArgumentType]
-
-    def test_loader_fires_on_first_available(self):
-        """
-        Ensure the loader is called exactly once on the first ``available()`` call.
-        """
-        calls: list[int] = []
-
-        def loader():
-            calls.append(1)
-
-        registry = self._loader_registry(loader)
-        with mock.patch("eleanor.plugin.entry_points", return_value=[]):
-            registry.available()
-            registry.available()
-            registry.get("nonexistent") if False else None  # no-op; just confirm no second fire
-        self.assertEqual(len(calls), 1)
-
-    def test_loader_does_not_refire_on_get(self):
-        """
-        Ensure subsequent ``get()`` calls do not re-invoke the loader.
-        """
-        calls: list[int] = []
-
-        def loader():
-            calls.append(1)
-            registry.register("p1", _plugin)
-
-        registry = self._loader_registry(loader)
-        with mock.patch("eleanor.plugin.entry_points", return_value=[]):
-            registry.available()
-            _ = registry.get("p1")
-        self.assertEqual(len(calls), 1)
-
-    def test_loader_fires_before_entry_point_discovery(self):
-        """
-        Ensure the loader runs before entry-point plugins are registered,
-        so loader-registered names take precedence as built-ins.
-        """
-        order: list[str] = []
-
-        def loader():
-            order.append("loader")
-            registry.register("from_loader", _plugin)
-
-        def fake_entry_points(*, group: str):
-            order.append("entry_points")
-            ep = _FakeEntryPoint("from_ep", "pkg:factory", lambda: _plugin)
-            return [ep]
-
-        registry = self._loader_registry(loader)
-        with mock.patch("eleanor.plugin.entry_points", side_effect=fake_entry_points):
-            names = registry.available()
-        self.assertEqual(order, ["loader", "entry_points"])
-        self.assertIn("from_loader", names)
-        self.assertIn("from_ep", names)
-
-    def test_reentrant_available_from_loader_is_noop(self):
-        """
-        Ensure calling ``available()`` inside the loader does not recurse.
-        """
-        inner_result: list[frozenset[str]] = []
-
-        def loader():
-            inner_result.append(registry.available())
-            registry.register("late", _plugin)
-
-        registry = self._loader_registry(loader)
-        with mock.patch("eleanor.plugin.entry_points", return_value=[]):
-            outer = registry.available()
-        # The inner call sees whatever was registered before the loader ran
-        # (nothing, in this case) because ``_discovered`` is already True.
-        self.assertEqual(inner_result[0], frozenset())
-        # The outer call sees the name the loader added.
-        self.assertIn("late", outer)
-
-    def test_loader_exception_propagates(self):
-        """
-        Ensure loader exceptions are not swallowed (unlike entry-point failures).
-        """
-
-        def loader():
-            raise RuntimeError("broken installation")
-
-        registry = self._loader_registry(loader)
-        with self.assertRaisesRegex(RuntimeError, "broken installation"):
-            registry.available()
-
-    def test_none_loader_is_harmless(self):
-        """
-        Ensure ``builtin_loader=None`` (the default) is a no-op.
-        """
+    def test_duplicate_entry_point_names_fail_for_plugins(self):
+        """Ensure two entry points claiming the same non-built-in name is a hard error."""
+        ep1 = _FakeEntryPoint("dask", "pkg_a:build", lambda: _plugin)
+        ep2 = _FakeEntryPoint("dask", "pkg_b:build", lambda: _builtin)
         registry = _make_registry()
-        with mock.patch("eleanor.plugin.entry_points", return_value=[]):
-            names = registry.available()
-        self.assertIn("b1", names)
+        with mock.patch("eleanor.plugin.entry_points", return_value=[ep1, ep2]):
+            with self.assertRaisesRegex(EleanorException, 'multiple entry points claim widget name "dask"'):
+                registry.available()
 
 
 class TestApiVersionEnforcement(TestCase):
@@ -529,7 +432,7 @@ class TestBuiltInsDoNotWarn(TestCase):
         """
         Ensure version metadata on built-in executor factories suppresses warnings.
         """
-        from eleanor.executor import _build_multiprocessing, _build_serial
+        from eleanor.executor.factories import build_multiprocessing, build_serial
 
         with warnings.catch_warnings(record=True) as caught:
             warnings.simplefilter("always")
@@ -538,8 +441,8 @@ class TestBuiltInsDoNotWarn(TestCase):
                 entry_point_group="eleanor.executors",
                 override_env_var="ELEANOR_EXECUTOR_OVERRIDES",
                 builtins={
-                    "serial": _build_serial,
-                    "multiprocessing": _build_multiprocessing,
+                    "serial": build_serial,
+                    "multiprocessing": build_multiprocessing,
                 },
             )
         self.assertTrue(all(w.category is not RuntimeWarning for w in caught))

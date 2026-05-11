@@ -1,9 +1,9 @@
 """
 Registry and discovery for eleanor executors.
 
-Built-in executors (``serial``, ``multiprocessing``) are pre-announced here
-and registered from :mod:`eleanor.executor` at package import time.
-Third-party executors advertise themselves through the
+Built-in executors (``serial``, ``multiprocessing``) are declared as entry
+points in ``pyproject.toml`` and discovered lazily on first registry access.
+Third-party executors advertise themselves through the same
 ``eleanor.executors`` entry-point group in their distribution metadata, e.g.::
 
     [project.entry-points."eleanor.executors"]
@@ -36,16 +36,17 @@ ExecutorFactory: TypeAlias = Callable[[int | None], AbstractExecutor]
 #: Name of the entry-point group inspected on first registry access.
 ENTRY_POINT_GROUP = "eleanor.executors"
 
-#: Environment variable users can set to allow third-party plugins to override
-#: built-ins or already-registered plugins.
+#: Environment variable that, when truthy, downgrades API-version mismatches
+#: to warnings instead of hard errors. All other discovery and registration
+#: errors are always hard errors regardless of this variable.
 OVERRIDE_ENV_VAR = "ELEANOR_EXECUTOR_OVERRIDES"
 PLUGIN_API_VERSION: int = 1
 MIN_SUPPORTED_API_VERSION: int = 1
 
 
 #: Canonical names of the executors shipped inside the eleanor distribution.
-#: Built-ins register their concrete factories from
-#: :mod:`eleanor.executor`'s package ``__init__``.
+#: Their concrete factories live in :mod:`eleanor.executor.factories` and are
+#: discovered via entry points.
 BUILTIN_EXECUTORS: frozenset[str] = frozenset({"serial", "multiprocessing"})
 
 #: The shared :class:`PluginRegistry` instance backing this module's helpers.

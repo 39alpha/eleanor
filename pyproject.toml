@@ -35,6 +35,27 @@ Changelog = "https://github.com/39alpha/eleanor/blob/master/CHANGELOG.md"
 [project.scripts]
 eleanor = "eleanor.cli:main"
 
+[project.entry-points."eleanor.executors"]
+serial = "eleanor.executor.factories:build_serial"
+multiprocessing = "eleanor.executor.factories:build_multiprocessing"
+
+[project.entry-points."eleanor.kernels"]
+eq36 = "eleanor.kernel.factories:eq36_spec"
+
+[project.entry-points."eleanor.navigators"]
+random = "eleanor.navigator.factories:build_random"
+random_lattice = "eleanor.navigator.factories:build_random_lattice"
+lattice = "eleanor.navigator.factories:build_lattice"
+
+[project.entry-points."eleanor.outputs"]
+csv = "eleanor.output.factories:build_csv"
+memory = "eleanor.output.factories:build_memory"
+"null" = "eleanor.output.factories:build_null"
+postgres = "eleanor.output.factories:build_postgres"
+
+[project.entry-points."eleanor.cli_commands"]
+postgres = "eleanor.cli.factories:build_postgres_commands"
+
 [build-system]
 requires = ["hatchling", "hatch-vcs", "hatch-build-scripts"]
 build-backend = "hatchling.build"

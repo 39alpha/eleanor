@@ -6,12 +6,12 @@ bundles two callables: one that parses a raw settings dict into the kernel's
 ``Settings`` object, and one that instantiates the kernel from those settings
 and any caller-supplied positional arguments.
 
-Built-in kernels are registered by :mod:`eleanor.kernel` itself at package
-import time (see :mod:`eleanor.kernel.__init__`), using deferred imports so
-that merely importing the parent package does not drag in a built-in's heavy
-transitive dependencies. Third-party kernels advertise themselves through
-the ``eleanor.kernels`` entry-point group in their distribution metadata,
-e.g.::
+Built-in kernels are declared as entry points in ``pyproject.toml`` and
+discovered lazily on first registry access; their factories live in
+:mod:`eleanor.kernel.factories` with deferred imports so that merely importing
+the parent package does not drag in a built-in's heavy transitive
+dependencies. Third-party kernels advertise themselves through the same
+``eleanor.kernels`` entry-point group in their distribution metadata, e.g.::
 
     [project.entry-points."eleanor.kernels"]
     my_kernel = "eleanor_my_kernel:kernel_spec"
@@ -46,8 +46,9 @@ from eleanor.plugin import PluginRegistry
 #: Name of the entry-point group inspected on first registry access.
 ENTRY_POINT_GROUP = "eleanor.kernels"
 
-#: Environment variable that, when truthy, allows plugin registrations to
-#: override built-in or previously-registered kernels.
+#: Environment variable that, when truthy, downgrades API-version mismatches
+#: to warnings instead of hard errors. All other discovery and registration
+#: errors are always hard errors regardless of this variable.
 OVERRIDE_ENV_VAR = "ELEANOR_KERNEL_OVERRIDES"
 PLUGIN_API_VERSION: int = 1
 MIN_SUPPORTED_API_VERSION: int = 1
@@ -144,10 +145,8 @@ def _spec_api_version(spec: KernelSpec) -> int | None:
 
 
 #: Canonical names of the kernels shipped inside the eleanor distribution.
-#: The actual :class:`KernelSpec` for each built-in is registered by
-#: :mod:`eleanor.kernel` at package import time; the names are hard-coded
-#: here so overrides can be rejected even before ``eleanor.kernel`` has been
-#: fully initialized.
+#: The names are hard-coded here so the registry can protect them from
+#: override before entry-point discovery has run.
 BUILTIN_KERNELS: frozenset[str] = frozenset({"eq36"})
 
 #: The shared :class:`PluginRegistry` instance backing this module's helpers.

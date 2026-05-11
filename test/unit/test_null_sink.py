@@ -5,7 +5,8 @@ from unittest import mock
 
 from eleanor.exceptions import EleanorConfigurationException, EleanorException
 from eleanor.order import Order
-from eleanor.output import ComputeResult, NullSink, WriteOutcome, _build_null
+from eleanor.output import ComputeResult, NullSink, WriteOutcome
+from eleanor.output.factories import build_null as _build_null
 from eleanor.output.null import NullConfig
 from eleanor.variable_space import Point
 

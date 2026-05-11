@@ -8,11 +8,11 @@ the built-in :class:`SerialExecutor` and :class:`MultiprocessingExecutor` are
 loaded on demand through :pep:`562`'s ``__getattr__`` hook so importing
 :mod:`eleanor.executor` does not eagerly pull in the implementation modules.
 A matching ``TYPE_CHECKING`` block keeps static type checkers seeing them as
-regular re-exports. Built-in executor factories defer their concrete class
-imports to construction time.
+regular re-exports. Built-in executor factories live in
+:mod:`eleanor.executor.factories` and defer their concrete-class imports to
+construction time.
 """
 
-import warnings
 from typing import TYPE_CHECKING, cast
 
 from ..exceptions import EleanorException
@@ -68,40 +68,6 @@ __all__ = [
     "load_executor",
     "register_executor",
 ]
-
-
-def _normalize_num_workers(num_workers: int | None) -> int | None:
-    """Clamp ``num_workers`` to ``>= 1``, preserving ``None`` as the default sentinel."""
-    if num_workers is None:
-        return None
-    if num_workers <= 0:
-        return 1
-    return num_workers
-
-
-def _build_serial(num_workers: int | None) -> "AbstractExecutor":
-    if num_workers is not None:
-        warnings.warn(
-            "num_workers is ignored for serial executor",
-            RuntimeWarning,
-            stacklevel=3,
-        )
-    from .serial import SerialExecutor
-
-    return SerialExecutor()
-
-
-def _build_multiprocessing(num_workers: int | None) -> "AbstractExecutor":
-    from .multiprocessing import MultiprocessingExecutor
-
-    return MultiprocessingExecutor(num_workers=_normalize_num_workers(num_workers))
-
-
-_build_serial.__eleanor_api_version__ = 1  # pyright: ignore[reportFunctionMemberAccess]
-_build_multiprocessing.__eleanor_api_version__ = 1  # pyright: ignore[reportFunctionMemberAccess]
-
-register_executor("serial", _build_serial)
-register_executor("multiprocessing", _build_multiprocessing)
 
 
 def load_executor(kind: str = "multiprocessing", *, num_workers: int | None = None) -> "AbstractExecutor":

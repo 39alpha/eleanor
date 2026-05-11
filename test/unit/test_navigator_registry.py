@@ -15,6 +15,8 @@ from eleanor.navigator.registry import NavigatorFactory, registry
 
 from .common import TestCase
 
+_ = available_navigators()  # ensure builtins are discovered before registry snapshots
+
 
 class _FakeEntryPoint:
     """
@@ -108,9 +110,9 @@ class TestRegisterNavigator(_NavigatorRegistryTestCase):
         with self.assertRaises(EleanorException):
             get_factory("nope")
 
-    def test_discovery_skips_too_new_api_plugin_with_warning(self):
+    def test_discovery_raises_on_too_new_api_plugin(self):
         """
-        Ensure too-new navigator entry points are warned and skipped.
+        Ensure too-new navigator entry points are hard errors.
         """
 
         def factory(order, kernel, **_args):
@@ -120,6 +122,5 @@ class TestRegisterNavigator(_NavigatorRegistryTestCase):
         ep = _FakeEntryPoint("too_new", "pkg:factory", lambda: factory)
         registry._discovered = False
         with mock.patch("eleanor.plugin.entry_points", return_value=[ep]):
-            with self.assertWarnsRegex(RuntimeWarning, 'navigator entry point "too_new"'):
-                names = available_navigators()
-        self.assertNotIn("too_new", names)
+            with self.assertRaisesRegex(EleanorException, "supports up to"):
+                available_navigators()

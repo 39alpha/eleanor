@@ -1,10 +1,10 @@
 """
 Registry and discovery for eleanor navigator plugins.
 
-Built-in navigators (``random``, ``random_lattice``, ``lattice``) register
-themselves from :mod:`eleanor.navigator` at package import time. Third-party
-navigators advertise themselves through the ``eleanor.navigators``
-entry-point group.
+Built-in navigators (``random``, ``random_lattice``, ``lattice``) are declared
+as entry points in ``pyproject.toml`` and discovered lazily on first registry
+access. Third-party navigators advertise themselves through the same
+``eleanor.navigators`` entry-point group.
 
 Each registered factory is a callable invoked as
 ``factory(order, kernel, **args)`` where ``args`` is the optional ``args``
@@ -27,8 +27,9 @@ from eleanor.plugin import PluginRegistry
 #: Name of the entry-point group inspected on first registry access.
 ENTRY_POINT_GROUP = "eleanor.navigators"
 
-#: Environment variable that allows plugin registrations to override built-ins
-#: or previously-registered plugins.
+#: Environment variable that, when truthy, downgrades API-version mismatches
+#: to warnings instead of hard errors. All other discovery and registration
+#: errors are always hard errors regardless of this variable.
 OVERRIDE_ENV_VAR = "ELEANOR_NAVIGATOR_OVERRIDES"
 PLUGIN_API_VERSION: int = 1
 MIN_SUPPORTED_API_VERSION: int = 1
@@ -50,8 +51,8 @@ class NavigatorFactory(Protocol):
 
 
 #: Canonical names of the navigators shipped inside the eleanor distribution.
-#: Built-ins register their concrete factories from
-#: :mod:`eleanor.navigator`'s package ``__init__``.
+#: Their concrete factories live in :mod:`eleanor.navigator.factories` and are
+#: discovered via entry points.
 BUILTIN_NAVIGATORS: frozenset[str] = frozenset({"random", "random_lattice", "lattice"})
 
 #: The shared :class:`PluginRegistry` instance backing this module's helpers.

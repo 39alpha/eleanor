@@ -3,20 +3,8 @@ import click
 import eleanor
 from eleanor.cli.doctor import doctor
 from eleanor.cli.gen import gen
-from eleanor.cli.registry import CliCommandSpec, available_cli_commands, get_factory, register_cli_commands
+from eleanor.cli.registry import available_cli_commands, get_factory
 from eleanor.cli.run import run
-
-
-def _build_postgres_cli_spec() -> CliCommandSpec:
-    from eleanor.output.postgres.cli import bulkload, schema, scratch
-
-    return CliCommandSpec(
-        commands=(schema, scratch, bulkload),
-        help="Postgres output sink commands.",
-    )
-
-
-register_cli_commands("postgres", _build_postgres_cli_spec)
 
 
 @click.group()

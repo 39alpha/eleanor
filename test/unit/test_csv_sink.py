@@ -12,8 +12,9 @@ import yaml
 from eleanor.exceptions import EleanorConfigurationException, EleanorException
 from eleanor.kernel.config import Settings as KernelSettings
 from eleanor.order import Order
-from eleanor.output import ComputeResult, _build_csv
+from eleanor.output import ComputeResult
 from eleanor.output.csv import CsvConfig, CsvSink, _classify_columns, _schema_path
+from eleanor.output.factories import build_csv as _build_csv
 from eleanor.output.interface import ErrorInfo
 from eleanor.query import compile_query
 from eleanor.variable_space import Point

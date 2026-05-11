@@ -18,7 +18,7 @@ from eleanor.plugin import OverrideWarning
 
 from ..common import TestCase
 
-_ = available_cli_commands()  # trigger builtin_loader to register built-in CLI specs
+_ = available_cli_commands()  # ensure builtins are discovered before registry snapshots
 
 
 @click.command("hello")
@@ -117,26 +117,10 @@ class TestRegisterCliCommands(_CliRegistryTestCase):
                 register_cli_commands("too_new_override", _spec(plugin_api_version=99))
         self.assertIn("too_new_override", available_cli_commands())
 
-    def test_register_rejects_builtin_override_without_env(self):
-        original = registry._registry["postgres"]
+    def test_register_rejects_builtin_name(self):
         replacement = _spec()
-
-        with mock.patch.dict("os.environ", {}, clear=False):
-            os.environ.pop(OVERRIDE_ENV_VAR, None)
-            with self.assertWarnsRegex(RuntimeWarning, "refusing to override built-in"):
-                register_cli_commands("postgres", replacement)
-
-        self.assertIs(registry._registry["postgres"], original)
-
-    def test_register_allows_builtin_override_with_env(self):
-        original = registry._registry["postgres"]
-        replacement = _spec()
-        try:
-            with mock.patch.dict(os.environ, {OVERRIDE_ENV_VAR: "1"}):
-                register_cli_commands("postgres", replacement)
-            self.assertIs(registry._registry["postgres"], replacement)
-        finally:
-            registry._registry["postgres"] = original
+        with self.assertRaisesRegex(EleanorException, "built-in cli"):
+            register_cli_commands("postgres", replacement)
 
 
 class TestEntryPointDiscovery(_CliRegistryTestCase):
@@ -155,37 +139,27 @@ class TestEntryPointDiscovery(_CliRegistryTestCase):
         self.assertIn("plugin", plugins)
         self.assertIs(get_factory("plugin"), spec)
 
-    def test_discovery_warns_and_continues_on_load_failure(self):
-        good_spec = _spec()
-
+    def test_discovery_raises_on_load_failure(self):
         def _fail():
             raise ImportError("boom")
 
         failing_ep = _FakeEntryPoint("broken", "pkg.bad:build", _fail)
-        working_ep = _FakeEntryPoint("working", "pkg.ok:build", lambda: good_spec)
 
-        with mock.patch("eleanor.plugin.entry_points", return_value=[failing_ep, working_ep]):
-            with self.assertWarnsRegex(RuntimeWarning, 'failed to load cli entry point "broken"'):
-                plugins = available_cli_commands()
+        with mock.patch("eleanor.plugin.entry_points", return_value=[failing_ep]):
+            with self.assertRaisesRegex(EleanorException, 'failed to load cli entry point "broken"'):
+                available_cli_commands()
 
-        self.assertNotIn("broken", plugins)
-        self.assertIn("working", plugins)
-
-    def test_discovery_rejects_non_spec_entry_point(self):
+    def test_discovery_raises_on_non_spec_entry_point(self):
         bad_ep = _FakeEntryPoint("bad", "pkg.bad:NOT_A_SPEC", lambda: 42)
 
         with mock.patch("eleanor.plugin.entry_points", return_value=[bad_ep]):
-            with self.assertWarnsRegex(RuntimeWarning, "is invalid"):
-                plugins = available_cli_commands()
+            with self.assertRaisesRegex(EleanorException, "must be a CliCommandSpec"):
+                available_cli_commands()
 
-        self.assertNotIn("bad", plugins)
-
-    def test_discovery_skips_too_new_api_plugin_with_warning(self):
+    def test_discovery_raises_on_too_new_api_plugin(self):
         spec = _spec(plugin_api_version=99)
         ep = _FakeEntryPoint("too_new", "pkg:spec", lambda: spec)
 
         with mock.patch("eleanor.plugin.entry_points", return_value=[ep]):
-            with self.assertWarnsRegex(RuntimeWarning, 'cli entry point "too_new"'):
-                plugins = available_cli_commands()
-
-        self.assertNotIn("too_new", plugins)
+            with self.assertRaisesRegex(EleanorException, "supports up to"):
+                available_cli_commands()

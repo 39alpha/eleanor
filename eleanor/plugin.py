@@ -15,11 +15,10 @@ shared behaviour is:
 
 * Lazy, at-most-once entry-point discovery on first :meth:`get` or
   :meth:`available`.
-* Built-in names always win on collision.
-* Plugin-vs-plugin collisions emit :class:`RuntimeWarning` and keep the first
-  registration, unless an override environment variable is set.
-* Failed entry-point loads emit :class:`RuntimeWarning` and do not abort
-  discovery of the remaining entries.
+* No shadowing: registering under a built-in name, a duplicate entry-point
+  name, or an already-registered name is a hard error.
+* Entry-point load or validation failures are hard errors; a broken plugin
+  (whether built-in or third-party) fails fast on first registry access.
 * An optional ``validator`` callback can reject ill-shaped factories at
   registration time.
 * Each registration is checked against a per-registry ``api_version`` /
@@ -160,11 +159,12 @@ class PluginRegistry(Generic[F]):
     :param entry_point_group: the entry-point group discovered lazily on first
         access, e.g. ``eleanor.executors``.
     :param override_env_var: environment variable that, when set to a truthy
-        value, allows plugin registrations to override built-ins and each
-        other, and downgrades API-version rejections to
-        :class:`OverrideWarning`. Intended for development/debugging only.
+        value, downgrades API-version rejections to :class:`OverrideWarning`.
+        Intended for development/debugging only. All other discovery and
+        registration errors (name collisions, load failures, invalid factories)
+        are always hard errors regardless of this variable.
     :param builtins: mapping of built-in name to factory. The keys are recorded
-        as :attr:`builtins` and are protected against override by default.
+        as :attr:`builtins` and cannot be overridden by :meth:`register`.
     :param validator: optional callable invoked as ``validator(name, factory)``
         at registration time, before the API-version check. It may raise
         :class:`EleanorException` to reject the registration outright, or
@@ -180,15 +180,6 @@ class PluginRegistry(Generic[F]):
         reads :data:`_API_VERSION_DUNDER` from the factory or its module.
         Spec-style registries (e.g. kernel) override this to read a field on
         the spec instead.
-    :param builtin_loader: optional zero-argument callable invoked exactly once
-        on first registry access (inside :meth:`_discover_entry_points`,
-        *before* entry-point discovery). The intended use is to trigger an
-        import whose module-level side effect registers built-in factories
-        that live outside the registry's own package. Unlike entry-point load
-        failures, loader exceptions propagate to the caller — a failing
-        built-in loader indicates a broken installation, not a flaky
-        third-party plugin.
-
     Plugin shape itself
     *not* validated at registration time: third-party factories include
     :class:`unittest.mock.Mock`, partial-applied wrappers, and C-implemented
@@ -209,7 +200,6 @@ class PluginRegistry(Generic[F]):
     _discovered: bool
     _current_api_version: int
     _min_api_version: int
-    _builtin_loader: Callable[[], None] | None
     _unversioned_warned: set[str]
 
     def __init__(
@@ -224,7 +214,6 @@ class PluginRegistry(Generic[F]):
         api_version: int = 1,
         min_api_version: int = 1,
         api_version_resolver: Callable[[F], int | None] | None = None,
-        builtin_loader: Callable[[], None] | None = None,
     ) -> None:
         if min_api_version > api_version:
             raise EleanorException(
@@ -234,7 +223,6 @@ class PluginRegistry(Generic[F]):
         self._entry_point_group = entry_point_group
         self._override_env_var = override_env_var
         self._validator = validator
-        self._builtin_loader = builtin_loader
         self._registry = {}
         self._builtins = builtin_names if builtin_names is not None else frozenset(builtins.keys())
         self._discovered = False
@@ -270,7 +258,7 @@ class PluginRegistry(Generic[F]):
 
     @property
     def builtins(self) -> frozenset[str]:
-        """Names that were seeded from :paramref:`PluginRegistry.builtins`."""
+        """Canonical built-in names protected from override."""
         return self._builtins
 
     @property
@@ -318,10 +306,8 @@ class PluginRegistry(Generic[F]):
         """Register ``factory`` under ``name``.
 
         Calling this with the same ``(name, factory)`` pair more than once is
-        a no-op. If ``name`` is already registered to a different factory, a
-        :class:`RuntimeWarning` is emitted and the existing registration is
-        preserved — unless the override environment variable is set to a
-        truthy value.
+        a no-op. Built-in names and already-registered names are hard errors;
+        there is no override escape hatch at the registration level.
 
         The ``factory`` parameter is typed ``object`` because callers include
         entry-point loaders whose return values start life untyped; the
@@ -334,29 +320,18 @@ class PluginRegistry(Generic[F]):
         if not name:
             raise EleanorException(f"{self._kind} plugin name must be a non-empty string")
 
+        if name in self._builtins:
+            raise EleanorException(
+                f'"{name}" is a built-in {self._kind} and cannot be overridden',
+            )
+
         coerced = self._validate(name, factory)
 
         existing = self._registry.get(name)
         if existing is coerced or existing is factory:
             return
         if existing is not None:
-            overrides = self._overrides_allowed()
-            if name in self._builtins:
-                if not overrides:
-                    warnings.warn(
-                        f'refusing to override built-in {self._kind} "{name}"; '
-                        + f"set {self._override_env_var}=1 to override",
-                        RuntimeWarning,
-                        stacklevel=2,
-                    )
-                    return
-            elif not overrides:
-                warnings.warn(
-                    f'{self._kind} "{name}" is already registered; ' + f"set {self._override_env_var}=1 to override",
-                    RuntimeWarning,
-                    stacklevel=2,
-                )
-                return
+            raise EleanorException(f'{self._kind} "{name}" is already registered')
         self._registry[name] = coerced
 
     def _validate(self, name: str, factory: object) -> F:
@@ -381,44 +356,37 @@ class PluginRegistry(Generic[F]):
         )
         return coerced
 
-    def _overrides_allowed(self) -> bool:
-        return _overrides_allowed(self._override_env_var)
-
     def _discover_entry_points(self) -> None:
         if self._discovered:
             return
         self._discovered = True
 
-        if self._builtin_loader is not None:
-            self._builtin_loader()
+        eps = list(entry_points(group=self._entry_point_group))
 
-        try:
-            eps = entry_points(group=self._entry_point_group)
-        except Exception as e:  # pragma: no cover - defensive
-            warnings.warn(
-                f'failed to query entry points for group "{self._entry_point_group}": {e}',
-                RuntimeWarning,
-                stacklevel=2,
-            )
-            return
+        # Pre-scan for duplicate entry-point names.  Two packages claiming the
+        # same name produces nondeterministic behaviour, so we fail loudly.
+        seen: dict[str, str] = {}
+        for ep in eps:
+            if ep.name in seen:
+                first = seen[ep.name]
+                if ep.name in self._builtins:
+                    raise EleanorException(
+                        f'multiple entry points claim built-in {self._kind} name "{ep.name}": '
+                        + f'"{first}" and "{ep.value}"',
+                    )
+                raise EleanorException(
+                    f'multiple entry points claim {self._kind} name "{ep.name}": ' + f'"{first}" and "{ep.value}"',
+                )
+            seen[ep.name] = ep.value
 
         for ep in eps:
-            loaded: object
             try:
                 loaded = cast(object, ep.load())
             except Exception as e:
-                warnings.warn(
-                    f'failed to load {self._kind} entry point "{ep.name}" ' + f'from "{ep.value}": {e}',
-                    RuntimeWarning,
-                    stacklevel=2,
-                )
-                continue
-            try:
+                raise EleanorException(
+                    f'failed to load {self._kind} entry point "{ep.name}" from "{ep.value}": {e}',
+                ) from e
+            if ep.name in self._builtins:
+                self._registry[ep.name] = self._validate(ep.name, loaded)
+            else:
                 self.register(ep.name, loaded)
-            except EleanorException as e:
-                warnings.warn(
-                    f'{self._kind} entry point "{ep.name}" from "{ep.value}" ' + f"is invalid: {e}",
-                    RuntimeWarning,
-                    stacklevel=2,
-                )
-                continue

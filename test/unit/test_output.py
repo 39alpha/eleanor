@@ -11,7 +11,8 @@ import eleanor.variable_space as vs
 from eleanor.config import Config
 from eleanor.exceptions import EleanorConfigurationException, EleanorException
 from eleanor.order import Order
-from eleanor.output import ComputeResult, ErrorInfo, OutputSink, PostgresSink, RunStats, WriteOutcome, _build_postgres
+from eleanor.output import ComputeResult, ErrorInfo, OutputSink, PostgresSink, RunStats, WriteOutcome
+from eleanor.output.factories import build_postgres as _build_postgres
 from eleanor.output.postgres.config import DatabaseConfig
 from eleanor.progress import ProgressHandle
 

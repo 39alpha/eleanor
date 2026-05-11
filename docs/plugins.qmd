@@ -6,7 +6,7 @@ Eleanor exposes four extension points that share a single plugin model: a
 generic in-process registry, lazy entry-point discovery, and a common
 collision/override policy. The registry primitive lives at
 `eleanor.plugin.PluginRegistry`; each extension point instantiates it with its
-own factory shape and built-in seed set.
+own factory shape and built-in name set.
 
 ## Extension points
 
@@ -21,9 +21,8 @@ Output sink registries also forward `verbose` as an optional keyword argument
 when calling the factory.
 
 Names are short strings (e.g. `random`, `eq36`, `dask`). Built-in names are
-reserved: plugin registrations that collide with a built-in are rejected with
-a `RuntimeWarning` unless the `ELEANOR_<KIND>_OVERRIDES` environment variable
-is set.
+reserved and cannot be overridden through the registry; see
+[Collision policy](#collision-policy) below.
 
 ## Configuration shape
 
@@ -81,9 +80,9 @@ my_sink = "my_project.outputs:build_sink"
 ```
 
 Discovery runs lazily on the first call to `available_*()` or `get_*()` for
-the relevant extension point. Failed entry-point loads emit
-`RuntimeWarning` and are skipped; the rest of the plugins continue to load
-normally.
+the relevant extension point. Any entry-point load or validation failure is
+a hard error — a broken plugin fails fast rather than silently disappearing
+from the available set.
 
 ## Inline plugins
 
@@ -146,14 +145,23 @@ identically to open-source plugins. The registered factory can live inside a
 compiled `.so` and perform license verification on first use; Eleanor will
 surface any failure through the registry's standard warning/error path.
 
-## Collision / override policy
+## Collision policy
 
-- Built-in names always win on collision.
-- Plugin-vs-plugin collisions are resolved in favour of whichever plugin is
-  discovered first; a `RuntimeWarning` is emitted.
-- Setting `ELEANOR_<KIND>_OVERRIDES` to a truthy value in the environment
-  allows the new registration to win. Intended for development and debugging
-  only.
+No shadowing is allowed:
+
+- Registering under a built-in name (via `register_<kind>()` or an entry
+  point) is always a hard error.
+- Two entry points claiming the same name — whether built-in or not — is a
+  hard error listing both offending entry-point values.
+- Programmatic `register_<kind>()` calls that collide with an
+  already-registered name are a hard error.
+
+To replace a built-in at run time without touching the registry, use the
+direct-instance-override path on `Eleanor.run(executor=..., kernel=..., ...)`.
+
+The `ELEANOR_<KIND>_OVERRIDES` environment variable only affects API-version
+checks (downgrading version mismatches to warnings); it has no effect on name
+collision handling.
 
 ## Writing a new extension point
 
@@ -171,10 +179,22 @@ registry = PluginRegistry(
     kind='thing',
     entry_point_group='eleanor.things',
     override_env_var='ELEANOR_THING_OVERRIDES',
-    builtins={'default': _build_default},
+    builtins={},
+    builtin_names=frozenset({'default'}),
 )
 
 register_thing = registry.register
 available_things = registry.available
 get_factory = registry.get
+```
+
+`builtins` seeds factories directly at construction time (useful for tests);
+`builtin_names` reserves names whose factories will arrive via entry-point
+discovery. In production registries the two are usually disjoint: `builtins`
+is empty and `builtin_names` lists the names declared in `pyproject.toml`.
+
+Then declare the built-in in `pyproject.toml` so discovery can load it:
+```toml
+[project.entry-points."eleanor.things"]
+default = "eleanor.thing.factories:build_default"
 ```

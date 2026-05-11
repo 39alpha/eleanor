@@ -2,7 +2,8 @@ from typing import override
 from unittest import mock
 
 from eleanor.exceptions import EleanorException
-from eleanor.executor import _normalize_num_workers, available_executors, load_executor
+from eleanor.executor import available_executors, load_executor
+from eleanor.executor.factories import _normalize_num_workers
 from eleanor.executor.interface import AbstractExecutor, AbstractFuture
 from eleanor.executor.serial import SerialExecutor
 

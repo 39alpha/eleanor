@@ -13,6 +13,8 @@ from eleanor.kernel.registry import (
 
 from ..common import TestCase
 
+_ = available_kernels()  # ensure builtins are discovered before registry snapshots
+
 
 class _KernelRegistryTestCase(TestCase):
     """Base class that snapshots / restores kernel registry state between tests."""
@@ -125,15 +127,13 @@ class TestRegisterKernel(_KernelRegistryTestCase):
         with self.assertRaisesRegex(EleanorException, "plugin_api_version must be int"):
             register_kernel("bad", bad_spec)
 
-    def test_register_rejects_builtin_override_without_env(self):
+    def test_register_rejects_builtin_name(self):
         """
-        Ensure built-in kernels cannot be overridden without the env var.
+        Ensure built-in kernel names cannot be registered over.
         """
-        original = registry._registry["eq36"]
         replacement = _spec()
-        with self.assertWarnsRegex(RuntimeWarning, "refusing to override built-in"):
+        with self.assertRaisesRegex(EleanorException, "built-in kernel"):
             register_kernel("eq36", replacement)
-        self.assertIs(registry._registry["eq36"], original)
 
 
 class TestEntryPointDiscovery(_KernelRegistryTestCase):
@@ -168,32 +168,27 @@ class TestEntryPointDiscovery(_KernelRegistryTestCase):
             self.assertIn("lazy", available_kernels())
         self.assertIs(get_factory("lazy"), spec)
 
-    def test_discovery_warns_on_invalid_factory(self):
+    def test_discovery_raises_on_invalid_factory(self):
         """
-        Ensure entry points that resolve to an invalid factory emit a warning and are skipped.
+        Ensure entry points that resolve to an invalid factory are hard errors.
         """
         ep = _FakeEntryPoint("broken", "pkg:bogus", lambda: "not a spec or callable")
 
-        # A bare string is non-callable, so the registration path rejects it
-        # via the PluginRegistry's generic coercion path.
         with mock.patch("eleanor.plugin.entry_points", return_value=[ep]):
-            with self.assertWarns(RuntimeWarning):
-                backends = available_kernels()
-        self.assertNotIn("broken", backends)
+            with self.assertRaisesRegex(EleanorException, "must be a KernelSpec"):
+                available_kernels()
 
-    def test_discovery_skips_too_new_api_plugin_with_warning(self):
+    def test_discovery_raises_on_too_new_api_plugin(self):
         """
-        Ensure too-new kernel entry points are warned and skipped.
+        Ensure too-new kernel entry points are hard errors.
         """
-        spec = _spec()
         spec = KernelSpec(
-            settings_from_dict=spec.settings_from_dict,
-            build=spec.build,
+            settings_from_dict=_spec().settings_from_dict,
+            build=_spec().build,
             plugin_api_version=99,
         )
         ep = _FakeEntryPoint("too_new", "pkg:spec", lambda: spec)
 
         with mock.patch("eleanor.plugin.entry_points", return_value=[ep]):
-            with self.assertWarnsRegex(RuntimeWarning, 'kernel entry point "too_new"'):
-                backends = available_kernels()
-        self.assertNotIn("too_new", backends)
+            with self.assertRaisesRegex(EleanorException, "supports up to"):
+                available_kernels()

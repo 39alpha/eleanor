@@ -1,9 +1,10 @@
 """
 Registry and discovery for eleanor output plugins.
 
-Built-in sinks (currently ``postgres``) are pre-announced here and registered
-from :mod:`eleanor.output` at package import time. Third-party sinks advertise
-themselves through the ``eleanor.outputs`` entry-point group.
+Built-in sinks (``csv``, ``memory``, ``null``, ``postgres``) are declared as
+entry points in ``pyproject.toml`` and discovered lazily on first registry
+access. Third-party sinks advertise themselves through the same
+``eleanor.outputs`` entry-point group.
 
 Each registered factory is a callable invoked as
 ``factory(config, verbose=<bool>, **args)``, where ``config`` is the loaded
@@ -26,8 +27,9 @@ from eleanor.plugin import PluginRegistry
 #: Name of the entry-point group inspected on first registry access.
 ENTRY_POINT_GROUP = "eleanor.outputs"
 
-#: Environment variable that allows plugin registrations to override built-ins
-#: or previously-registered plugins.
+#: Environment variable that, when truthy, downgrades API-version mismatches
+#: to warnings instead of hard errors. All other discovery and registration
+#: errors are always hard errors regardless of this variable.
 OVERRIDE_ENV_VAR = "ELEANOR_OUTPUT_OVERRIDES"
 PLUGIN_API_VERSION: int = 1
 MIN_SUPPORTED_API_VERSION: int = 1
@@ -48,8 +50,8 @@ class OutputFactory(Protocol):
 
 
 #: Canonical names of the output sinks shipped inside the eleanor distribution.
-#: Built-ins register their concrete factories from
-#: :mod:`eleanor.output`'s package ``__init__``.
+#: Their concrete factories live in :mod:`eleanor.output.factories` and are
+#: discovered via entry points.
 BUILTIN_OUTPUTS: frozenset[str] = frozenset({"csv", "memory", "null", "postgres"})
 
 #: The shared :class:`PluginRegistry` instance backing this module's helpers.

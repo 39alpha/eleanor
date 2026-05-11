@@ -4,7 +4,6 @@ from unittest import mock
 from eleanor.exceptions import EleanorException
 from eleanor.output import (
     BUILTIN_OUTPUTS,
-    OVERRIDE_ENV_VAR,
     available_outputs,
     get_factory,
     register_output,
@@ -12,6 +11,8 @@ from eleanor.output import (
 from eleanor.output.registry import OutputFactory, registry
 
 from ..common import TestCase
+
+_ = available_outputs()  # ensure builtins are discovered before registry snapshots
 
 
 def _make_factory(return_value=None, *, api_version: int = 1):
@@ -94,34 +95,13 @@ class TestRegisterOutput(_OutputRegistryTestCase):
         with self.assertRaises(EleanorException):
             get_factory("nope")
 
-    def test_register_rejects_builtin_override_without_env(self):
+    def test_register_rejects_builtin_name(self):
         """
-        Ensure built-in outputs cannot be overridden by default.
+        Ensure built-in output names cannot be registered over.
         """
-        import os
-
-        original = registry._registry["postgres"]
         replacement = _make_factory()
-
-        with mock.patch.dict("os.environ", {}, clear=False):
-            os.environ.pop(OVERRIDE_ENV_VAR, None)
-            with self.assertWarnsRegex(RuntimeWarning, "refusing to override built-in"):
-                register_output("postgres", replacement)
-
-        self.assertIs(registry._registry["postgres"], original)
-
-    def test_register_allows_builtin_override_with_env(self):
-        """
-        Ensure built-in outputs can be overridden when the override env var is set.
-        """
-        original = registry._registry["postgres"]
-        replacement = _make_factory()
-        try:
-            with mock.patch.dict("os.environ", {OVERRIDE_ENV_VAR: "1"}):
-                register_output("postgres", replacement)
-            self.assertIs(registry._registry["postgres"], replacement)
-        finally:
-            registry._registry["postgres"] = original
+        with self.assertRaisesRegex(EleanorException, "built-in output"):
+            register_output("postgres", replacement)
 
 
 class TestEntryPointDiscovery(_OutputRegistryTestCase):
@@ -147,46 +127,37 @@ class TestEntryPointDiscovery(_OutputRegistryTestCase):
         self.assertIn("plugin", outputs)
         self.assertIs(get_factory("plugin"), factory)
 
-    def test_discovery_warns_and_continues_on_load_failure(self):
+    def test_discovery_raises_on_load_failure(self):
         """
-        Ensure a failing entry point emits a warning and does not abort discovery.
+        Ensure a failing entry-point load is a hard error.
         """
-        good_factory = _make_factory()
 
         def _fail():
             raise ImportError("boom")
 
         failing_ep = _FakeEntryPoint("broken", "pkg.bad:build", _fail)
-        working_ep = _FakeEntryPoint("working", "pkg.ok:build", lambda: good_factory)
 
-        with mock.patch("eleanor.plugin.entry_points", return_value=[failing_ep, working_ep]):
-            with self.assertWarnsRegex(RuntimeWarning, 'failed to load output entry point "broken"'):
-                outputs = available_outputs()
+        with mock.patch("eleanor.plugin.entry_points", return_value=[failing_ep]):
+            with self.assertRaisesRegex(EleanorException, 'failed to load output entry point "broken"'):
+                available_outputs()
 
-        self.assertNotIn("broken", outputs)
-        self.assertIn("working", outputs)
-
-    def test_discovery_rejects_non_callable_entry_point(self):
+    def test_discovery_raises_on_non_callable_entry_point(self):
         """
-        Ensure non-callable entry-point payloads are skipped with a warning.
+        Ensure non-callable entry-point payloads are hard errors.
         """
         bad_ep = _FakeEntryPoint("bad", "pkg.bad:NOT_CALLABLE", lambda: 42)
 
         with mock.patch("eleanor.plugin.entry_points", return_value=[bad_ep]):
-            with self.assertWarnsRegex(RuntimeWarning, "is invalid"):
-                outputs = available_outputs()
+            with self.assertRaisesRegex(EleanorException, "must be callable"):
+                available_outputs()
 
-        self.assertNotIn("bad", outputs)
-
-    def test_discovery_skips_too_new_api_plugin_with_warning(self):
+    def test_discovery_raises_on_too_new_api_plugin(self):
         """
-        Ensure too-new output entry points are warned and skipped.
+        Ensure too-new output entry points are hard errors.
         """
         factory = _make_factory(api_version=99)
         ep = _FakeEntryPoint("too_new", "pkg:factory", lambda: factory)
 
         with mock.patch("eleanor.plugin.entry_points", return_value=[ep]):
-            with self.assertWarnsRegex(RuntimeWarning, 'output entry point "too_new"'):
-                outputs = available_outputs()
-
-        self.assertNotIn("too_new", outputs)
+            with self.assertRaisesRegex(EleanorException, "supports up to"):
+                available_outputs()

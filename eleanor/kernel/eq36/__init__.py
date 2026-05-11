@@ -12,8 +12,8 @@ documentation examples). :class:`Kernel` is loaded through :pep:`562`'s
 ``__getattr__`` hook so that merely importing ``eleanor.kernel.eq36`` does
 not pay the cost of its heavy numpy / Fortran / ORM dependencies; they are
 only imported when the attribute is actually dereferenced (for example by
-:func:`eleanor.kernel._build_eq36` when the CLI asks the registry to build
-an eq36 kernel).
+:func:`eleanor.kernel.factories.build_eq36` when the CLI asks the registry to
+build an eq36 kernel).
 """
 
 from typing import TYPE_CHECKING

@@ -21,7 +21,7 @@ from .tools import dump_schema, load_scratch_entry
 
 @click.command()
 @click.option("-o", "--output", type=click.File("w"), default="-", help="Output file (default: stdout).")
-@config_options
+@config_options()
 def schema(output: TextIO, config: str, database: str | None) -> None:
     """Dump an Eleanor database schema."""
     cfg = config_from_args(config, database)
@@ -34,7 +34,7 @@ def schema(output: TextIO, config: str, database: str | None) -> None:
 @click.command()
 @click.argument("vs_id", type=click.INT)
 @click.option("-o", "--outdir", type=click.Path(file_okay=False), default=".", help="Output directory.")
-@config_options
+@config_options()
 def scratch(vs_id: int, outdir: str, config: str, database: str | None) -> None:
     """Dump scratch results to a directory."""
     variable_space_id = vs_id
@@ -75,7 +75,7 @@ def scratch(vs_id: int, outdir: str, config: str, database: str | None) -> None:
 @click.command()
 @click.argument("action", type=click.Choice(["drop", "recreate"]))
 @click.option("-y", "--yes", is_flag=True, help="Skip confirmation prompt for destructive actions.")
-@config_options
+@config_options()
 def bulkload(action: str, yes: bool, config: str, database: str | None) -> None:
     """Drop or recreate secondary indexes + constraints around a bulk-load window."""
     cfg = config_from_args(config, database)

@@ -30,31 +30,34 @@ def _default_config_path() -> str | None:
         return None
 
 
-def config_options[F: Callable[..., object]](fn: F) -> F:
-    default_path = _default_config_path()
+def config_options[F: Callable[..., object]](*, required: bool = True) -> Callable[[F], F]:
+    def decorator(fn: F) -> F:
+        default_path = _default_config_path()
 
-    @click.option(
-        "-c",
-        "--config",
-        required=default_path is None,
-        default=default_path,
-        envvar="ELEANOR_CONFIG",
-        type=click.Path(dir_okay=False),
-        help=f"Configuration file (default: {default_path or 'required'}).",
-    )
-    @click.option(
-        "-d",
-        "--database",
-        required=False,
-        default=None,
-        envvar="ELEANOR_DATABASE",
-        help="Override the database from the configuration file.",
-    )
-    @functools.wraps(fn)
-    def wrapper(*args: object, **kwargs: object) -> object:
-        return fn(*args, **kwargs)
+        @click.option(
+            "-c",
+            "--config",
+            required=required and default_path is None,
+            default=default_path,
+            envvar="ELEANOR_CONFIG",
+            type=click.Path(dir_okay=False),
+            help=f"Configuration file (default: {default_path or 'required'}).",
+        )
+        @click.option(
+            "-d",
+            "--database",
+            required=False,
+            default=None,
+            envvar="ELEANOR_DATABASE",
+            help="Override the database from the configuration file.",
+        )
+        @functools.wraps(fn)
+        def wrapper(*args: object, **kwargs: object) -> object:
+            return fn(*args, **kwargs)
 
-    return cast(F, wrapper)
+        return cast(F, wrapper)
+
+    return decorator
 
 
 def config_from_args(

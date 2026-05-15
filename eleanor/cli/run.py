@@ -50,7 +50,7 @@ def _complete_parallel(_ctx: click.Context, _param: click.Parameter, incomplete:
 @click.option("--chunks-per-worker", type=int, default=None, help="Chunks per worker (overrides configuration).")
 @click.option("--batch-size", type=int, default=None, help="Navigator batch size.")
 @click.option("--max-nav-attempts", type=click.IntRange(min=1), default=1, help="Max attempts per navigation point.")
-@config_options
+@config_options()
 def run(
     order: str,
     simulation_size: int,

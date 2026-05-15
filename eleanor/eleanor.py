@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 from eleanor.sailor import Sailor
 
 from .config import Config
-from .exceptions import EleanorException, EleanorShutdown
+from .exceptions import EleanorConfigurationException, EleanorException, EleanorShutdown
 from .executor import AbstractExecutor, AbstractFuture, load_executor
 from .kernel import load_kernel
 from .kernel.interface import AbstractKernel
@@ -32,7 +32,7 @@ class Eleanor(object):
     output sink) for the duration of a ``with`` block, and reuses them
     across any number of :meth:`run` calls made inside that block::
 
-        with Eleanor(config, kernel_args) as eleanor:
+        with Eleanor(config=cfg, kernel_args=kargs) as eleanor:
             eleanor.run(order1, 1000)
             eleanor.run(order2, 2000)
 
@@ -40,7 +40,7 @@ class Eleanor(object):
     resources it needs and tears them down on exit, so one-shot usage
     remains a single method call::
 
-        Eleanor(config, kernel_args).run(order, 1000)
+        Eleanor(config=cfg, kernel_args=kargs).run(order, 1000)
 
     Constructor-level ``executor`` and ``output_sink`` keyword arguments
     override the Config-derived defaults for every :meth:`run` call on
@@ -74,10 +74,10 @@ class Eleanor(object):
 
     def __init__(
         self,
+        *,
         config: Config | None = None,
         kernel_args: list[object] | None = None,
         num_procs: int | None = None,
-        *,
         executor: AbstractExecutor | None = None,
         output_sink: OutputSink | None = None,
     ):
@@ -87,6 +87,8 @@ class Eleanor(object):
 
         self._executor_override = executor
         self._output_sink_override = output_sink
+        if self.config.output.type is None and self._output_sink_override is None:
+            raise EleanorConfigurationException("no output sink provided via config or keyword option")
 
         self._entered = False
         self._executor = None

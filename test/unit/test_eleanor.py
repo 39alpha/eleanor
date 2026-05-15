@@ -5,7 +5,7 @@ from unittest import mock
 
 from eleanor.config import Config
 from eleanor.eleanor import Eleanor
-from eleanor.exceptions import EleanorException, EleanorShutdown
+from eleanor.exceptions import EleanorConfigurationException, EleanorException, EleanorShutdown
 from eleanor.executor import AbstractExecutor
 from eleanor.kernel import load_kernel
 from eleanor.order import Order
@@ -65,7 +65,7 @@ def _make_eleanor():
         ),
     )
     kernel_args: list[object] = ["arg1"]
-    return Eleanor(fake_config, kernel_args)
+    return Eleanor(config=fake_config, kernel_args=kernel_args)
 
 
 def _leaf_order(navigator_type="random") -> Order:
@@ -120,7 +120,7 @@ class TestEleanorConstruction(TestCase):
         """Ensure constructor stores config, kernel_args copy, and num_procs."""
         fake_config = _make_eleanor().config
         kernel_args: list[object] = ["k"]
-        eleanor = Eleanor(fake_config, kernel_args, num_procs=4)
+        eleanor = Eleanor(config=fake_config, kernel_args=kernel_args, num_procs=4)
 
         self.assertIs(eleanor.config, fake_config)
         self.assertEqual(eleanor.kernel_args, ["k"])
@@ -134,11 +134,47 @@ class TestEleanorConstruction(TestCase):
         """Ensure constructor copies kernel_args so caller-side mutations do not leak in."""
         fake_config = _make_eleanor().config
         kernel_args: list[object] = ["k0"]
-        eleanor = Eleanor(fake_config, kernel_args)
+        eleanor = Eleanor(config=fake_config, kernel_args=kernel_args)
 
         kernel_args.append("k1")
 
         self.assertEqual(eleanor.kernel_args, ["k0"])
+
+    def test_init_raises_when_no_output_sink_configured(self):
+        """Ensure constructor rejects a config with no output type and no sink override."""
+        no_output_config = cast(
+            Config,
+            cast(
+                object,
+                SimpleNamespace(
+                    output=SimpleNamespace(type=None, args={}),
+                    parallel=SimpleNamespace(backend="serial", chunks_per_worker=1),
+                ),
+            ),
+        )
+        with self.assertRaises(EleanorConfigurationException):
+            Eleanor(config=no_output_config)
+
+    def test_init_does_not_raise_when_output_sink_override_suppresses_guard(self):
+        """Ensure constructor-level output_sink= bypasses the no-output-type guard."""
+        no_output_config = cast(
+            Config,
+            cast(
+                object,
+                SimpleNamespace(
+                    output=SimpleNamespace(type=None, args={}),
+                    parallel=SimpleNamespace(backend="serial", chunks_per_worker=1),
+                ),
+            ),
+        )
+        sink = mock.Mock(spec=OutputSink)
+        eleanor = Eleanor(config=no_output_config, output_sink=sink)
+        self.assertIs(eleanor._output_sink_override, sink)
+
+    def test_init_rejects_positional_config(self):
+        """Ensure all constructor args are keyword-only after the * sentinel move."""
+        with self.assertRaises(TypeError):
+            Eleanor(_make_eleanor().config)  # pyright: ignore[reportCallIssue]
 
     def test_enter_builds_executor_and_exit_tears_down_all(self):
         """Ensure __enter__/__exit__ set up and tear down session resources."""

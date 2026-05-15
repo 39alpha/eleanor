@@ -114,7 +114,7 @@ def run(
             if null_sink:
                 output_sink = stack.enter_context(NullSink(NullConfig(support_worker_writes=parallel != "serial")))
             executor = stack.enter_context(load_executor(kind=parallel, num_workers=num_procs))
-            with Eleanor(config_obj, kernel_args_list, executor=executor) as eleanor:
+            with Eleanor(config=config_obj, kernel_args=kernel_args_list, executor=executor) as eleanor:
                 order_ids = eleanor.run(
                     order_obj,
                     simulation_size,

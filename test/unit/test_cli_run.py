@@ -77,7 +77,7 @@ class TestCLIRun(TestCase):
 
         self.assertEqual(result.exit_code, 0)
         load_executor.assert_called_once_with(kind="serial", num_workers=3)
-        eleanor_cls.assert_called_once_with(config, [], executor=executor)
+        eleanor_cls.assert_called_once_with(config=config, kernel_args=[], executor=executor)
         eleanor.run.assert_called_once_with(
             fake_order,
             10,
@@ -108,7 +108,7 @@ class TestCLIRun(TestCase):
 
         self.assertEqual(result.exit_code, 0)
         load_executor.assert_called_once_with(kind="serial", num_workers=None)
-        eleanor_cls.assert_called_once_with(config, [], executor=executor)
+        eleanor_cls.assert_called_once_with(config=config, kernel_args=[], executor=executor)
         self.assertEqual(eleanor.run.call_args.kwargs["chunks_per_worker"], 9)
         self.assertEqual(eleanor.run.call_args.kwargs["max_nav_attempts"], 1)
 
@@ -131,7 +131,7 @@ class TestCLIRun(TestCase):
         self.assertEqual(result.exit_code, 0)
         config_from_args.assert_called_once_with("/fake.yaml", None, require_database=False)
         load_executor.assert_called_once_with(kind="serial", num_workers=None)
-        eleanor_cls.assert_called_once_with(config, [], executor=executor)
+        eleanor_cls.assert_called_once_with(config=config, kernel_args=[], executor=executor)
         self.assertIsInstance(eleanor.run.call_args.kwargs["output_sink"], NullSink)
         mock_sink_init.assert_called_once()
         mock_sink_fin.assert_called_once()

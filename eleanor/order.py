@@ -1,10 +1,12 @@
 import json
+import operator
 import os.path
 import tomllib
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import TypedDict, final
 
+import numpy as np
 import yaml
 
 from eleanor.variable_space import Point as VSPoint
@@ -16,7 +18,7 @@ from .kernel.config import resolve_settings as resolve_kernel_settings
 from .parameters import Parameter, ParameterSource
 from .reactants import AbstractReactant, CombinedReactant, ReactantRaw
 from .typing import cast
-from .util import is_list_of
+from .util import is_list_of, mapreduce
 
 type RawMap = dict[str, object]
 
@@ -291,6 +293,14 @@ class Order:
             parameters.extend(reactant.parameters())
 
         return parameters
+
+    def volume(self) -> np.float64:
+        return mapreduce(
+            lambda p: p.volume(),
+            operator.mul,
+            self.parameters(),
+            np.float64(1.0),
+        )
 
     @staticmethod
     def from_yaml(fname: str):

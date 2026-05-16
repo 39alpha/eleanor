@@ -371,3 +371,49 @@ class TestOrder(TestCase):
                         "elements": {},
                     }
                 )
+
+    def test_order_volume_all_scalar(self):
+        """
+        All-scalar parameters yield a volume of 1.0 (ValueParameter.volume returns 1.0
+        for each, and the product of 1s is 1).
+        """
+        order = _make_order()
+        self.assertEqual(order.volume(), np.float64(1.0))
+
+    def test_order_volume_single_range_parameter(self):
+        """
+        A single RangeParameter contributes its width (max - min); all other
+        parameters remain scalar so the total volume equals that width.
+        """
+        order = _make_order(temperature={"min": 20.0, "max": 30.0})
+        self.assertEqual(order.volume(), np.float64(10.0))
+
+    def test_order_volume_multiple_range_parameters(self):
+        """
+        Multiple RangeParameters each contribute their width; the total volume
+        is the product of those widths.
+        """
+        order = _make_order(
+            temperature={"min": 20.0, "max": 30.0},
+            elements={"Na": {"min": 0.5, "max": 2.5}},
+        )
+        self.assertEqual(order.volume(), np.float64(20.0))
+
+    def test_order_volume_list_parameter(self):
+        """
+        A ListParameter contributes its length; the total volume equals that
+        count when all other parameters are scalar.
+        """
+        order = _make_order(pressure=[1.0, 2.0, 3.0])
+        self.assertEqual(order.volume(), np.float64(3.0))
+
+    def test_order_volume_mixed_range_and_list(self):
+        """
+        A mix of RangeParameter (width) and ListParameter (length) multiplies
+        their contributions together.
+        """
+        order = _make_order(
+            temperature={"min": 0.0, "max": 10.0},
+            pressure=[1.0, 2.0],
+        )
+        self.assertEqual(order.volume(), np.float64(20.0))

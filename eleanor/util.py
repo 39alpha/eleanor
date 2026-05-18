@@ -286,3 +286,47 @@ def mapreduce(
     initial: ReduceT,
 ) -> ReduceT:
     return reduce(reducer, map(mapper, values), initial)
+
+
+def require_opt_int(value: object, field_name: str) -> int | None:
+    """Validate that ``value`` is an int or ``None`` at runtime."""
+    if value is not None and (isinstance(value, bool) or not isinstance(value, int)):
+        raise EleanorException(f"{field_name} must be an integer")
+    return value
+
+
+def require_opt_str(value: object, field_name: str) -> str | None:
+    """Validate that ``value`` is a string or ``None`` at runtime."""
+    if value is not None and not isinstance(value, str):
+        raise EleanorException(f"{field_name} must be a string")
+    return value
+
+
+def require_str(value: object, field_name: str) -> str:
+    """Validate that ``value`` is a string at runtime"""
+    if not isinstance(value, str):
+        raise EleanorException(f"{field_name} must be a string")
+    return value
+
+
+def require_dict[T](value: object, field_name: str) -> dict[str, T]:
+    """Validate that ``value`` is a ``dict`` at runtime and return it typed."""
+    if not isinstance(value, dict):
+        raise EleanorException(f"{field_name} must be a dictionary")
+    return cast(dict[str, T], cast(object, value))
+
+
+def require_float(value: object, field_name: str) -> np.float64:
+    """Validate that ``value`` is a float at runtime"""
+    if isinstance(value, float) or (isinstance(value, int) and not isinstance(value, bool)):
+        return np.float64(value)
+    if isinstance(value, np.floating):
+        return cast(np.float64, value)
+    raise EleanorException(f"{field_name} must be a floating-point number")
+
+
+def require[T](value: T | None, field_name: str) -> T:
+    """Validate that ``value`` is a not ``None`` at runtime"""
+    if value is None:
+        raise EleanorException(f"{field_name} is required")
+    return value

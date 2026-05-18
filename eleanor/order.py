@@ -17,7 +17,7 @@ from .kernel.config import resolve_settings as resolve_kernel_settings
 from .parameters import Parameter, ParameterOrSource, ParameterSource, load_parameter
 from .reactants import AbstractReactant, CombinedReactant, ReactantRaw
 from .typing import cast
-from .util import is_list_of, mapreduce
+from .util import is_list_of, mapreduce, require, require_opt_int, require_opt_str, require_str
 from .variable_space import Point as VSPoint
 from .version import __version__
 
@@ -71,49 +71,9 @@ class OrderRaw(TypedDict, total=False):
     constraints: list[RawMap]
 
 
-def _require_opt_int(value: object, field_name: str) -> int | None:
-    """Validate that ``value`` is an int or ``None`` at runtime.
-
-    Used at the boundary between untrusted raw-dict input (YAML/TOML/JSON)
-    and the typed dataclass-backed order model. Taking ``object``
-    here (rather than the TypedDict's narrower ``int | None``) is deliberate:
-    it forces the ``isinstance`` check to be meaningful even when the caller
-    reads a field whose ``TypedDict`` declaration promises the right type.
-    """
-    if value is not None and (isinstance(value, bool) or not isinstance(value, int)):
-        raise EleanorException(f"{field_name} must be an integer")
-    return value
-
-
-def _require_opt_str(value: object, field_name: str) -> str | None:
-    """Validate that ``value`` is a string or ``None`` at runtime.
-
-    Used at the boundary between untrusted raw-dict input (YAML/TOML/JSON)
-    and the typed dataclass-backed order model. Taking ``object``
-    here (rather than the TypedDict's narrower ``str | None``) is deliberate:
-    it forces the ``isinstance`` check to be meaningful even when the caller
-    reads a field whose ``TypedDict`` declaration promises the right type.
-    """
-    if value is not None and not isinstance(value, str):
-        raise EleanorException(f"{field_name} must be a string")
-    return value
-
-
-def _require_str(value: object, field_name: str) -> str:
-    if not isinstance(value, str):
-        raise EleanorException(f"{field_name} must be a string")
-    return value
-
-
-def _require[T](value: T | None, field_name: str) -> T:
-    if value is None:
-        raise EleanorException(f"{field_name} is required")
-    return value
-
-
 def load_kernel_settings(kernel_raw: KernelRaw) -> tuple[str, KernelSettings]:
     """Parse a raw kernel block into its ``(type, Settings)`` pair via the registry."""
-    kernel_type = _require_str(kernel_raw.get("type"), "kernel.type")
+    kernel_type = require_str(kernel_raw.get("type"), "kernel.type")
     kernel_args_raw: object = kernel_raw.get("args", {}) or {}
     if not isinstance(kernel_args_raw, dict):
         raise EleanorException("kernel.args must be a dict")
@@ -158,9 +118,9 @@ class Suppression(object):
     @staticmethod
     def from_dict(raw: SuppressionRaw, name: str | None = None) -> "Suppression":
         if name is None:
-            name = _require_opt_str(raw.get("name"), "suppression.name")
+            name = require_opt_str(raw.get("name"), "suppression.name")
 
-        suppression_type = _require_opt_str(raw.get("type"), "suppression.type")
+        suppression_type = require_opt_str(raw.get("type"), "suppression.type")
 
         exceptions_raw = raw.get("except", [])
         if not is_list_of(exceptions_raw, str, allowNone=False):
@@ -272,14 +232,14 @@ class Order:
         vs_points: list[VSPoint] | None = None,
     ) -> Self:
         if order_id is None:
-            order_id = _require_opt_int(raw.get("id"), "id")
+            order_id = require_opt_int(raw.get("id"), "id")
 
-        raw_tag = _require_opt_str(raw.get("tag"), "tag") or ""
+        raw_tag = require_opt_str(raw.get("tag"), "tag") or ""
         tag = tag if tag is not None else raw_tag
 
-        name = _require_str(raw.get("name"), "name")
-        notes = _require_str(raw.get("notes", ""), "notes")
-        creator = _require_str(raw.get("creator"), "creator")
+        name = require_str(raw.get("name"), "name")
+        notes = require_str(raw.get("notes", ""), "notes")
+        creator = require_str(raw.get("creator"), "creator")
 
         create_date = create_date if create_date is not None else datetime.now()
 
@@ -298,8 +258,8 @@ class Order:
                 raise EleanorException("invalid navigator config") from e
 
         water_mass = raw.get("water_mass")
-        temperature = _require(raw.get("temperature"), "temperature")
-        pressure = _require(raw.get("pressure"), "pressure")
+        temperature = require(raw.get("temperature"), "temperature")
+        pressure = require(raw.get("pressure"), "pressure")
         elements = raw.get("elements") or {}
         species = raw.get("species") or {}
 
@@ -323,7 +283,7 @@ class Order:
             if not isinstance(constraint, dict):
                 raise EleanorException("each constraint must be a dict")
             constraint_raw = cast(dict[str, object], constraint)
-            constraint_type = _require_str(constraint_raw.get("type"), "constraint.type")
+            constraint_type = require_str(constraint_raw.get("type"), "constraint.type")
             constraints.append(ConstraintConfig(type=constraint_type, raw=constraint_raw))
 
         vs_points = vs_points or []

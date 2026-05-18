@@ -428,7 +428,7 @@ class Boatswain(object):
             solid_solution_reactants: list[vs.SolidSolutionReactant] = []
             for reactant in self.order.reactants:
                 match reactant:
-                    case MineralReactant(name, _, log_moles, titration_rate):
+                    case MineralReactant(name=name, amount=log_moles, titration_rate=titration_rate):
                         mineral_reactants.append(
                             vs.MineralReactant(
                                 name=name,
@@ -436,7 +436,7 @@ class Boatswain(object):
                                 titration_rate=valuation[self.registry.id(titration_rate)].value,
                             ),
                         )
-                    case AqueousReactant(name, _, log_moles, titration_rate):
+                    case AqueousReactant(name=name, amount=log_moles, titration_rate=titration_rate):
                         aqueous_reactants.append(
                             vs.AqueousReactant(
                                 name=name,
@@ -444,7 +444,7 @@ class Boatswain(object):
                                 titration_rate=valuation[self.registry.id(titration_rate)].value,
                             ),
                         )
-                    case GasReactant(name, _, log_moles, titration_rate):
+                    case GasReactant(name=name, amount=log_moles, titration_rate=titration_rate):
                         gas_reactants.append(
                             vs.GasReactant(
                                 name=name,
@@ -452,7 +452,7 @@ class Boatswain(object):
                                 titration_rate=valuation[self.registry.id(titration_rate)].value,
                             ),
                         )
-                    case ElementReactant(name, _, log_moles, titration_rate):
+                    case ElementReactant(name=name, amount=log_moles, titration_rate=titration_rate):
                         element_reactants.append(
                             vs.ElementReactant(
                                 name=name,
@@ -460,7 +460,9 @@ class Boatswain(object):
                                 titration_rate=valuation[self.registry.id(titration_rate)].value,
                             ),
                         )
-                    case SpecialReactant(name, _, log_moles, titration_rate, composition):
+                    case SpecialReactant(
+                        name=name, amount=log_moles, titration_rate=titration_rate, composition=composition
+                    ):
                         special_reactants.append(
                             vs.SpecialReactant(
                                 name=name,
@@ -471,7 +473,7 @@ class Boatswain(object):
                                 ],
                             ),
                         )
-                    case FixedGasReactant(name, _, log_moles, log_fugacity):
+                    case FixedGasReactant(name=name, amount=log_moles, fugacity=log_fugacity):
                         fixed_gas_reactants.append(
                             vs.FixedGasReactant(
                                 name=name,
@@ -479,7 +481,9 @@ class Boatswain(object):
                                 log_fugacity=valuation[self.registry.id(log_fugacity)].value,
                             ),
                         )
-                    case SolidSolutionReactant(name, _, log_moles, titration_rate, end_members):
+                    case SolidSolutionReactant(
+                        name=name, amount=log_moles, titration_rate=titration_rate, end_members=end_members
+                    ):
                         solid_solution_reactants.append(
                             vs.SolidSolutionReactant(
                                 name=name,
@@ -493,9 +497,9 @@ class Boatswain(object):
                                 ],
                             ),
                         )
-                    case CombinedReactant(_, _, log_moles_param, titration_rate_param, components):
-                        parent_log_moles = valuation[self.registry.id(log_moles_param)].value
-                        parent_titration_rate = valuation[self.registry.id(titration_rate_param)].value
+                    case CombinedReactant(amount=log_moles, titration_rate=titration_rate, components=components):
+                        parent_log_moles = valuation[self.registry.id(log_moles)].value
+                        parent_titration_rate = valuation[self.registry.id(titration_rate)].value
                         for component_name, component in components.items():
                             component_log_moles = cast(np.float64, np.log10(component.fraction)) + parent_log_moles
                             if component.relative_rate is not None:

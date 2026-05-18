@@ -742,70 +742,62 @@ class TestConstraints(TestCase):
         species = ValueParameter("Quartz(aq)", np.float64(0.5))
 
         mineral = MineralReactant(
-            "calcite",
-            ReactantType.MINERAL,
-            ValueParameter("amount", -np.float64(3.0)),
-            ValueParameter("titration_rate", np.float64(1.0)),
+            name="calcite",
+            amount=ValueParameter("amount", -np.float64(3.0)),
+            titration_rate=ValueParameter("titration_rate", np.float64(1.0)),
         )
         aqueous = AqueousReactant(
-            "na_cl",
-            ReactantType.AQUEOUS,
-            ValueParameter("amount", -np.float64(2.0)),
-            ValueParameter("titration_rate", np.float64(1.0)),
+            name="na_cl",
+            amount=ValueParameter("amount", -np.float64(2.0)),
+            titration_rate=ValueParameter("titration_rate", np.float64(1.0)),
         )
         gas = GasReactant(
-            "co2(g)",
-            ReactantType.GAS,
-            ValueParameter("amount", -np.float64(4.0)),
-            ValueParameter("titration_rate", np.float64(1.0)),
+            name="co2(g)",
+            amount=ValueParameter("amount", -np.float64(4.0)),
+            titration_rate=ValueParameter("titration_rate", np.float64(1.0)),
         )
         element = ElementReactant(
-            "Na",
-            ReactantType.ELEMENT,
-            ValueParameter("amount", -np.float64(6.0)),
-            ValueParameter("titration_rate", np.float64(1.0)),
+            name="Na",
+            amount=ValueParameter("amount", -np.float64(6.0)),
+            titration_rate=ValueParameter("titration_rate", np.float64(1.0)),
         )
         special = SpecialReactant(
-            "seawater",
-            ReactantType.SPECIAL,
-            ValueParameter("amount", -np.float64(5.0)),
-            ValueParameter("titration_rate", np.float64(1.0)),
-            {"Na": 1, "Cl": 1},
+            name="seawater",
+            amount=ValueParameter("amount", -np.float64(5.0)),
+            titration_rate=ValueParameter("titration_rate", np.float64(1.0)),
+            composition={"Na": 1, "Cl": 1},
         )
         fixed_gas = FixedGasReactant(
-            "co2",
-            ReactantType.FIXED_GAS,
-            ValueParameter("amount", -np.float64(1.0)),
-            ValueParameter("fugacity", -np.float64(2.0)),
+            name="co2",
+            amount=ValueParameter("amount", -np.float64(1.0)),
+            fugacity=ValueParameter("fugacity", -np.float64(2.0)),
         )
         solid = SolidSolutionReactant(
-            "solidmix",
-            ReactantType.SOLID_SOLUTION,
-            ValueParameter("amount", -np.float64(2.0)),
-            ValueParameter("titration_rate", np.float64(1.0)),
-            {
+            name="solidmix",
+            amount=ValueParameter("amount", -np.float64(2.0)),
+            titration_rate=ValueParameter("titration_rate", np.float64(1.0)),
+            end_members={
                 "em1": ValueParameter("fraction", np.float64(0.25)),
                 "em2": ValueParameter("fraction", np.float64(0.75)),
             },
         )
         combined = CombinedReactant(
-            "combinedmix",
-            ReactantType.COMBINED,
-            ValueParameter("amount", -np.float64(1.0)),
-            ValueParameter("titration_rate", np.float64(1.0)),
-            {
+            name="combinedmix",
+            amount=ValueParameter("amount", -np.float64(1.0)),
+            titration_rate=ValueParameter("titration_rate", np.float64(1.0)),
+            components={
                 "SiO2": CombinedReactantComponent(
-                    "SiO2",
-                    ReactantType.SPECIAL,
-                    np.float64(0.5),
-                    ValueParameter("relative_rate", np.float64(1.0)),
+                    name="SiO2",
+                    type=ReactantType.SPECIAL,
+                    fraction=np.float64(0.5),
+                    relative_rate=ValueParameter("relative_rate", np.float64(1.0)),
                     composition={"Si": 1, "O": 2},
                 ),
                 "Na2O": CombinedReactantComponent(
-                    "Na2O",
-                    ReactantType.SPECIAL,
-                    np.float64(0.5),
-                    ValueParameter("relative_rate", np.float64(1.0)),
+                    name="Na2O",
+                    type=ReactantType.SPECIAL,
+                    fraction=np.float64(0.5),
+                    relative_rate=ValueParameter("relative_rate", np.float64(1.0)),
                     composition={"Na": 2, "O": 1},
                 ),
             },
@@ -873,23 +865,22 @@ class TestConstraints(TestCase):
         temperature = ValueParameter("temperature", np.float64(25.0))
         pressure = ValueParameter("pressure", np.float64(1.0))
         combined = CombinedReactant(
-            "combinedmix",
-            ReactantType.COMBINED,
-            ValueParameter("amount", -np.float64(1.0)),
-            ValueParameter("titration_rate", np.float64(3.0)),
-            {
+            name="combinedmix",
+            amount=ValueParameter("amount", -np.float64(1.0)),
+            titration_rate=ValueParameter("titration_rate", np.float64(3.0)),
+            components={
                 "SiO2": CombinedReactantComponent(
-                    "SiO2",
-                    ReactantType.SPECIAL,
-                    np.float64(0.5),
-                    ValueParameter("relative_rate", np.float64(2.0)),
+                    name="SiO2",
+                    type=ReactantType.SPECIAL,
+                    fraction=np.float64(0.5),
+                    relative_rate=ValueParameter("relative_rate", np.float64(2.0)),
                     composition={"Si": 1, "O": 2},
                 ),
                 "Na2O": CombinedReactantComponent(
-                    "Na2O",
-                    ReactantType.SPECIAL,
-                    np.float64(0.5),
-                    ValueParameter("relative_rate", np.float64(0.5)),
+                    name="Na2O",
+                    type=ReactantType.SPECIAL,
+                    fraction=np.float64(0.5),
+                    relative_rate=ValueParameter("relative_rate", np.float64(0.5)),
                     composition={"Na": 2, "O": 1},
                 ),
             },
@@ -926,30 +917,29 @@ class TestConstraints(TestCase):
         temperature = ValueParameter("temperature", np.float64(25.0))
         pressure = ValueParameter("pressure", np.float64(1.0))
         combined = CombinedReactant(
-            "combinedmix",
-            ReactantType.COMBINED,
-            ValueParameter("amount", -np.float64(1.0)),
-            ValueParameter("titration_rate", np.float64(3.0)),
-            {
+            name="combinedmix",
+            amount=ValueParameter("amount", -np.float64(1.0)),
+            titration_rate=ValueParameter("titration_rate", np.float64(3.0)),
+            components={
                 "SiO2": CombinedReactantComponent(
-                    "SiO2",
-                    ReactantType.SPECIAL,
-                    np.float64(0.5),
-                    None,
+                    name="SiO2",
+                    type=ReactantType.SPECIAL,
+                    fraction=np.float64(0.5),
+                    relative_rate=None,
                     composition={"Si": 1, "O": 2},
                 ),
                 "Na2O": CombinedReactantComponent(
-                    "Na2O",
-                    ReactantType.SPECIAL,
-                    np.float64(0.25),
-                    None,
+                    name="Na2O",
+                    type=ReactantType.SPECIAL,
+                    fraction=np.float64(0.25),
+                    relative_rate=None,
                     composition={"Na": 2, "O": 1},
                 ),
                 "FeO": CombinedReactantComponent(
-                    "FeO",
-                    ReactantType.SPECIAL,
-                    np.float64(0.25),
-                    None,
+                    name="FeO",
+                    type=ReactantType.SPECIAL,
+                    fraction=np.float64(0.25),
+                    relative_rate=None,
                     composition={"Fe": 1, "O": 1},
                 ),
             },
@@ -984,23 +974,22 @@ class TestConstraints(TestCase):
         temperature = ValueParameter("temperature", np.float64(25.0))
         pressure = ValueParameter("pressure", np.float64(1.0))
         combined = CombinedReactant(
-            "parity",
-            ReactantType.COMBINED,
-            ValueParameter("amount", -np.float64(1.0)),
-            ValueParameter("titration_rate", np.float64(3.0)),
-            {
+            name="parity",
+            amount=ValueParameter("amount", -np.float64(1.0)),
+            titration_rate=ValueParameter("titration_rate", np.float64(3.0)),
+            components={
                 "SiO2": CombinedReactantComponent(
-                    "SiO2",
-                    ReactantType.SPECIAL,
-                    np.float64(0.5),
-                    ValueParameter("relative_rate", np.float64(2.0)),
+                    name="SiO2",
+                    type=ReactantType.SPECIAL,
+                    fraction=np.float64(0.5),
+                    relative_rate=ValueParameter("relative_rate", np.float64(2.0)),
                     composition={"Si": 1, "O": 2},
                 ),
                 "Na2O": CombinedReactantComponent(
-                    "Na2O",
-                    ReactantType.SPECIAL,
-                    np.float64(0.5),
-                    ValueParameter("relative_rate", np.float64(0.5)),
+                    name="Na2O",
+                    type=ReactantType.SPECIAL,
+                    fraction=np.float64(0.5),
+                    relative_rate=ValueParameter("relative_rate", np.float64(0.5)),
                     composition={"Na": 2, "O": 1},
                 ),
             },
@@ -1031,29 +1020,28 @@ class TestConstraints(TestCase):
         temperature = ValueParameter("temperature", np.float64(25.0))
         pressure = ValueParameter("pressure", np.float64(1.0))
         combined = CombinedReactant(
-            "mixed",
-            ReactantType.COMBINED,
-            ValueParameter("amount", -np.float64(2.0)),
-            ValueParameter("titration_rate", np.float64(4.0)),
-            {
+            name="mixed",
+            amount=ValueParameter("amount", -np.float64(2.0)),
+            titration_rate=ValueParameter("titration_rate", np.float64(4.0)),
+            components={
                 "forsterite": CombinedReactantComponent(
-                    "forsterite",
-                    ReactantType.MINERAL,
-                    np.float64(0.4),
-                    ValueParameter("relative_rate", np.float64(2.0)),
+                    name="forsterite",
+                    type=ReactantType.MINERAL,
+                    fraction=np.float64(0.4),
+                    relative_rate=ValueParameter("relative_rate", np.float64(2.0)),
                 ),
                 "SiO2": CombinedReactantComponent(
-                    "SiO2",
-                    ReactantType.SPECIAL,
-                    np.float64(0.3),
-                    ValueParameter("relative_rate", np.float64(1.0)),
+                    name="SiO2",
+                    type=ReactantType.SPECIAL,
+                    fraction=np.float64(0.3),
+                    relative_rate=ValueParameter("relative_rate", np.float64(1.0)),
                     composition={"Si": 1, "O": 2},
                 ),
                 "olivine-ss": CombinedReactantComponent(
-                    "olivine-ss",
-                    ReactantType.SOLID_SOLUTION,
-                    np.float64(0.3),
-                    ValueParameter("relative_rate", np.float64(0.5)),
+                    name="olivine-ss",
+                    type=ReactantType.SOLID_SOLUTION,
+                    fraction=np.float64(0.3),
+                    relative_rate=ValueParameter("relative_rate", np.float64(0.5)),
                     end_members={
                         "fayalite": ValueParameter("fraction", np.float64(0.7)),
                         "forsterite": ValueParameter("fraction", np.float64(0.3)),

@@ -195,7 +195,7 @@ class TestReactants(TestCase):
                     "name": "ss",
                     "type": "solid solution",
                     "amount": 1.0,
-                    "end_members": {"em1": [0.5, 0.5], "em2": 0.5},
+                    "end_members": {"em1": [0.1, 0.2], "em2": 0.5},
                 }
             )
 
@@ -205,7 +205,7 @@ class TestReactants(TestCase):
                     "name": "ss",
                     "type": "solid solution",
                     "amount": 1.0,
-                    "end_members": {"em1": {"values": [0.5, 0.5]}, "em2": 0.5},
+                    "end_members": {"em1": {"values": [0.1, 0.2]}, "em2": 0.5},
                 }
             )
 
@@ -252,6 +252,16 @@ class TestReactants(TestCase):
         """
         Ensure that solid-solution fractions must be in [0, 1] and sum to 1.0.
         """
+        with self.assertRaises(EleanorException):
+            SolidSolutionReactant.from_dict(
+                {
+                    "name": "ss",
+                    "type": "solid solution",
+                    "amount": 1.0,
+                    "end_members": {"em1": [0.5, 0.25], "em2": 0.5},
+                }
+            )
+
         with self.assertRaises(EleanorException):
             SolidSolutionReactant.from_dict(
                 {

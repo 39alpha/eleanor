@@ -4,14 +4,12 @@ import os.path
 import tomllib
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import TypedDict, final
+from typing import Self, TypedDict, final
 
 import numpy as np
 import yaml
 
-from eleanor.variable_space import Point as VSPoint
-
-from .exceptions import EleanorConfigurationException, EleanorException
+from .exceptions import EleanorException
 from .kernel.config import Config as KernelConfig
 from .kernel.config import Settings as KernelSettings
 from .kernel.config import resolve_settings as resolve_kernel_settings
@@ -19,6 +17,8 @@ from .parameters import Parameter, ParameterSource
 from .reactants import AbstractReactant, CombinedReactant, ReactantRaw
 from .typing import cast
 from .util import is_list_of, mapreduce
+from .variable_space import Point as VSPoint
+from .version import __version__
 
 type RawMap = dict[str, object]
 
@@ -163,99 +163,42 @@ class Suppression(object):
 
 
 @final
-@dataclass(init=False)
+@dataclass(init=True, kw_only=True)
 class Order:
     name: str
-    notes: str
     creator: str
     kernel: KernelConfig
-    navigator: NavigatorConfig
-    water_mass: Parameter
     temperature: Parameter
     pressure: Parameter
-    elements: dict[str, Parameter]
-    species: dict[str, Parameter]
-    suppressions: list[Suppression]
-    reactants: list[AbstractReactant]
-    constraints: list[ConstraintConfig]
-    raw: OrderRaw
-    id: int | None
-    vs_points: list[VSPoint]
-    create_date: datetime
-    eleanor_version: str | None
-    tag: str
+    id: int | None = None
+    tag: str = ""
+    notes: str = ""
+    eleanor_version: str = __version__
+    create_date: datetime = field(default_factory=datetime.now)
+    navigator: NavigatorConfig = field(default_factory=NavigatorConfig)
+    water_mass: Parameter = field(default_factory=lambda: Parameter.load(1.0, "water_mass"))
+    elements: dict[str, Parameter] = field(default_factory=dict)
+    species: dict[str, Parameter] = field(default_factory=dict)
+    suppressions: list[Suppression] = field(default_factory=list)
+    reactants: list[AbstractReactant] = field(default_factory=list)
+    constraints: list[ConstraintConfig] = field(default_factory=list)
+    vs_points: list[VSPoint] = field(default_factory=list)
 
-    def __init__(
-        self,
-        raw: OrderRaw,
-        order_id: int | None = None,
-        tag: str | None = None,
-        vs_points: list[VSPoint] | None = None,
-        create_date: datetime | None = None,
-    ) -> None:
-        self.raw = raw
-        # Runtime metadata (legitimately optional / defaulted).
-        self.vs_points = [] if vs_points is None else vs_points
-        self.create_date = datetime.now() if create_date is None else create_date
-        self.id = order_id if order_id is not None else _require_opt_int(self.raw.get("id"), "id")
-        raw_tag = _require_opt_str(self.raw.get("tag"), "tag") or ""
-        self.tag = tag if tag is not None else raw_tag
-        self.eleanor_version = None
-        # Required string fields.
-        self.name = _require_str(self.raw.get("name"), "name")
-        self.notes = _require_str(self.raw.get("notes", ""), "notes")
-        self.creator = _require_str(self.raw.get("creator"), "creator")
-        # Kernel (required).
-        if "kernel" not in self.raw:
-            raise EleanorException("kernel is required")
-        kernel_type, kernel_settings = load_kernel_settings(self.raw["kernel"])
-        self.kernel = KernelConfig(type=kernel_type, settings=kernel_settings)
-        # Navigator (defaults to random).
-        navigator_raw = self.raw.get("navigator", NavigatorRaw())
-        if isinstance(navigator_raw, str):
-            self.navigator = NavigatorConfig(type=navigator_raw)
-        else:
-            self.navigator = NavigatorConfig(**navigator_raw)
-        # Water mass (defaults to 1.0 if absent from raw).
-        self.water_mass = Parameter.load(self.raw.get("water_mass", 1.0), "water_mass")
-        # Temperature (required, no default).
-        if "temperature" not in self.raw:
-            raise EleanorException("temperature is required")
-        self.temperature = Parameter.load(self.raw["temperature"], "temperature")
-        # Pressure (required, no default).
-        if "pressure" not in self.raw:
-            raise EleanorException("pressure is required")
-        self.pressure = Parameter.load(self.raw["pressure"], "pressure")
-        # Elements (required non-empty).
-        elements_raw = self.raw.get("elements") or {}
-        self.elements = {name: Parameter.load(value, name=name) for name, value in elements_raw.items()}
+    def __post_init__(self):
+        if self.name == "":
+            raise EleanorException("name must not be empty")
+
+        if self.creator == "":
+            raise EleanorException("creator must not be empty")
+
         if not self.elements:
             raise EleanorException("elements must not be empty")
-        # Species (may be empty).
-        species_raw = self.raw.get("species") or {}
-        self.species = {name: Parameter.load(value, name=name) for name, value in species_raw.items()}
-        # Suppressions (may be empty).
-        suppressions_raw = self.raw.get("suppressions") or []
-        self.suppressions = [
-            Suppression.from_dict(SuppressionRaw(), name=value)
-            if isinstance(value, str)
-            else Suppression.from_dict(value)
-            for value in suppressions_raw
-        ]
-        # Reactants (may be empty).
-        reactants_raw = self.raw.get("reactants") or {}
-        self.reactants = [AbstractReactant.from_dict(value, name=name) for name, value in reactants_raw.items()]
-        # Validate cross-reactant name uniqueness. Only names that actually
-        # land in concrete VS reactant lists are checked -- a CombinedReactant's
-        # own parent name (e.g. "basalt-glass") is intentionally NOT added to
-        # `seen_names` because it never appears in any persistence/output row.
-        # If we ever decide to forbid that collision too, add `seen_names.add(r.name)`
-        # inside the `isinstance(r, CombinedReactant)` branch and a regression test.
+
         seen_names: set[str] = set()
 
         def _add_unique(candidate: str) -> None:
             if candidate in seen_names:
-                raise EleanorConfigurationException(
+                raise EleanorException(
                     f'reactant name "{candidate}" appears more than once '
                     + "across reactants and combined-reactant components"
                 )
@@ -267,18 +210,101 @@ class Order:
                     _add_unique(component_name)
             else:
                 _add_unique(reactant.name)
-        # Constraints (may be empty).
-        constraints_obj = cast(object, self.raw.get("constraints") or [])
+
+    @classmethod
+    def from_dict(
+        cls,
+        raw: OrderRaw,
+        *,
+        order_id: int | None = None,
+        tag: str | None = None,
+        create_date: datetime | None = None,
+        vs_points: list[VSPoint] | None = None,
+    ) -> Self:
+        if order_id is None:
+            order_id = _require_opt_int(raw.get("id"), "id")
+
+        raw_tag = _require_opt_str(raw.get("tag"), "tag") or ""
+        tag = tag if tag is not None else raw_tag
+
+        name = _require_str(raw.get("name"), "name")
+        notes = _require_str(raw.get("notes", ""), "notes")
+        creator = _require_str(raw.get("creator"), "creator")
+
+        create_date = create_date if create_date is not None else datetime.now()
+
+        if "kernel" not in raw:
+            raise EleanorException("kernel is required")
+        kernel_type, kernel_settings = load_kernel_settings(raw["kernel"])
+        kernel_config = KernelConfig(type=kernel_type, settings=kernel_settings)
+
+        navigator_raw = raw.get("navigator", NavigatorRaw())
+        if isinstance(navigator_raw, str):
+            navigator = NavigatorConfig(type=navigator_raw)
+        else:
+            try:
+                navigator = NavigatorConfig(**navigator_raw)
+            except TypeError as e:
+                raise EleanorException("invalid navigator config") from e
+
+        if "temperature" not in raw:
+            raise EleanorException("temperature is required")
+        temperature = Parameter.load(raw["temperature"], "temperature")
+
+        if "pressure" not in raw:
+            raise EleanorException("pressure is required")
+        pressure = Parameter.load(raw["pressure"], "pressure")
+
+        elements_raw = raw.get("elements") or {}
+        elements = {el_name: Parameter.load(value, name=el_name) for el_name, value in elements_raw.items()}
+
+        species_raw = raw.get("species") or {}
+        species = {sp_name: Parameter.load(value, name=sp_name) for sp_name, value in species_raw.items()}
+
+        suppressions_raw = raw.get("suppressions") or []
+        suppressions = [
+            Suppression.from_dict(SuppressionRaw(), name=value)
+            if isinstance(value, str)
+            else Suppression.from_dict(value)
+            for value in suppressions_raw
+        ]
+
+        reactants_raw = raw.get("reactants") or {}
+        reactants = [AbstractReactant.from_dict(value, name=re_name) for re_name, value in reactants_raw.items()]
+
+        constraints_obj = cast(object, raw.get("constraints") or [])
         if not isinstance(constraints_obj, list):
             raise EleanorException("constraints must be a list")
         constraints_list = cast(list[object], constraints_obj)
-        self.constraints = []
+        constraints: list[ConstraintConfig] = []
         for c_obj in constraints_list:
             if not isinstance(c_obj, dict):
                 raise EleanorException("each constraint must be a dict")
             c_raw = cast(dict[str, object], c_obj)
             c_type = _require_str(c_raw.get("type"), "constraint.type")
-            self.constraints.append(ConstraintConfig(type=c_type, raw=c_raw))
+            constraints.append(ConstraintConfig(type=c_type, raw=c_raw))
+
+        vs_points = vs_points or []
+
+        return cls(
+            id=order_id,
+            tag=tag,
+            name=name,
+            notes=notes,
+            creator=creator,
+            create_date=create_date,
+            kernel=kernel_config,
+            navigator=navigator,
+            water_mass=Parameter.load(raw.get("water_mass", 1.0), "water_mass"),
+            temperature=temperature,
+            pressure=pressure,
+            elements=elements,
+            species=species,
+            suppressions=suppressions,
+            reactants=reactants,
+            constraints=constraints,
+            vs_points=vs_points,
+        )
 
     def parameters(self) -> list[Parameter]:
         parameters: list[Parameter] = [
@@ -302,32 +328,32 @@ class Order:
             np.float64(1.0),
         )
 
-    @staticmethod
-    def from_yaml(fname: str):
+    @classmethod
+    def from_yaml(cls, fname: str) -> Self:
         with open(fname, "rb") as handle:
-            return Order(cast(OrderRaw, cast(object, yaml.safe_load(handle))))
+            return cls.from_dict(cast(OrderRaw, cast(object, yaml.safe_load(handle))))
 
-    @staticmethod
-    def from_yamls(content: str):
-        return Order(cast(OrderRaw, cast(object, yaml.safe_load(content))))
+    @classmethod
+    def from_yamls(cls, content: str) -> Self:
+        return cls.from_dict(cast(OrderRaw, cast(object, yaml.safe_load(content))))
 
-    @staticmethod
-    def from_toml(fname: str):
+    @classmethod
+    def from_toml(cls, fname: str) -> Self:
         with open(fname, "rb") as handle:
-            return Order(cast(OrderRaw, cast(object, tomllib.load(handle))))
+            return cls.from_dict(cast(OrderRaw, cast(object, tomllib.load(handle))))
 
-    @staticmethod
-    def from_tomls(content: str):
-        return Order(cast(OrderRaw, cast(object, tomllib.loads(content))))
+    @classmethod
+    def from_tomls(cls, content: str) -> Self:
+        return cls.from_dict(cast(OrderRaw, cast(object, tomllib.loads(content))))
 
-    @staticmethod
-    def from_json(fname: str):
+    @classmethod
+    def from_json(cls, fname: str) -> Self:
         with open(fname, "rb") as handle:
-            return Order(cast(OrderRaw, cast(object, json.load(handle))))
+            return cls.from_dict(cast(OrderRaw, cast(object, json.load(handle))))
 
-    @staticmethod
-    def from_jsons(content: str):
-        return Order(cast(OrderRaw, cast(object, json.loads(content))))
+    @classmethod
+    def from_jsons(cls, content: str) -> Self:
+        return cls.from_dict(cast(OrderRaw, cast(object, json.loads(content))))
 
     @staticmethod
     def from_file(fname: str):

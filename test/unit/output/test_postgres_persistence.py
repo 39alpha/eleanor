@@ -19,8 +19,6 @@ Wire-level behaviour against a real Postgres lives in
 import os
 from contextlib import nullcontext
 from datetime import datetime
-from types import SimpleNamespace
-from typing import cast
 from unittest import mock
 
 import numpy as np
@@ -32,12 +30,24 @@ from eleanor.kernel.eq36.settings import Settings as Eq36Settings
 from eleanor.order import Order
 from eleanor.output.postgres.config import DatabaseConfig
 from eleanor.output.postgres.persistence import connection, converters, repositories, schema
+from eleanor.parameters import Parameter
+from eleanor.reactants import ReactantType
 
 from ..common import TestCase
 
 
-def _as_order(order: SimpleNamespace) -> Order:
-    return cast(Order, cast(object, order))
+def _mock_order() -> Order:
+    return Order(
+        name="name",
+        notes="notes",
+        creator="creator",
+        kernel=mock.MagicMock(),
+        temperature=Parameter.load(200.0, "temperature"),
+        pressure=Parameter.load(100.0, "pressure"),
+        elements={
+            "C": Parameter.load(-6, "C"),
+        },
+    )
 
 
 class TestSchemaDdlEmission(TestCase):
@@ -572,14 +582,7 @@ class TestRepositoryErrorPaths(TestCase):
         only way to keep the defensive branch live is a unit test.
         """
         cfg = DatabaseConfig(database="db", username="u", password="p")
-        order = SimpleNamespace(
-            id=None,
-            name="x",
-            tag="",
-            eleanor_version="v1",
-            raw={"name": "x"},
-            create_date=datetime(2026, 1, 1),
-        )
+        order = _mock_order()
         fake_conn = mock.MagicMock()
         fake_conn.transaction.return_value = nullcontext()
         cursor = mock.MagicMock()
@@ -591,7 +594,7 @@ class TestRepositoryErrorPaths(TestCase):
             return_value=fake_conn,
         ):
             with self.assertRaisesRegex(EleanorException, "order INSERT did not return an id"):
-                _ = repositories.insert_order(cfg, _as_order(order))
+                _ = repositories.insert_order(cfg, order)
 
     def test_get_order_returns_none_when_no_row_matches(self):
         """
@@ -643,51 +646,27 @@ class TestRepositoryErrorPaths(TestCase):
 class TestConverterErrorAndReactantPaths(TestCase):
     """Converter error paths + the reactant-family converters not exercised elsewhere."""
 
-    def test_normalise_dict_rejects_non_mapping_payloads(self):
+    def test_normalize_dict_rejects_non_mapping_payloads(self):
         """
-        Ensure :func:`_normalise_dict` raises a clear
+        Ensure :func:`normalize_dict` raises a clear
         :class:`EleanorException` (instead of letting psycopg's JSONB
         adapter fail later) when handed a non-dict value that's not a
         dataclass either.
         """
         with self.assertRaisesRegex(EleanorException, "must serialize to a dict"):
-            _ = converters._normalise_dict(
-                42,
-                "order.raw",
-            )
+            _ = converters.normalize_dict(42, "order")
 
     def test_order_to_row_allows_missing_name(self):
         """
         Ensure :func:`order_to_row` leaves ``name`` enforcement to DB-level
         constraints and only performs the sink-required metadata checks.
         """
-        order = SimpleNamespace(
-            name=None,
-            tag="",
-            eleanor_version="v1",
-            raw={},
-            create_date=datetime(2026, 1, 1),
-        )
-        row = converters.order_to_row(_as_order(order))
+        order = _mock_order()
+        order.name = None  # pyright: ignore[reportAttributeAccessIssue]
+
+        row = converters.order_to_row(order)
         self.assertIn("name", row)
         self.assertIsNone(row["name"])
-
-    def test_order_to_row_raises_on_missing_eleanor_version(self):
-        """
-        Ensure :func:`order_to_row` rejects an order whose
-        ``eleanor_version`` was never stamped by the sink's
-        ``begin_run`` -- the message names the field so the failure is
-        actionable.
-        """
-        order = SimpleNamespace(
-            name="x",
-            tag="",
-            eleanor_version=None,
-            raw={},
-            create_date=datetime(2026, 1, 1),
-        )
-        with self.assertRaisesRegex(EleanorException, "eleanor_version is required"):
-            _ = converters.order_to_row(_as_order(order))
 
     def test_reactant_family_converters_emit_uniform_row_shape(self):
         """
@@ -806,6 +785,18 @@ class TestConverterErrorAndReactantPaths(TestCase):
         expected = {c.name for c in schema.EQUILIBRIUM_REACTANTS.columns if not c.identity}
         self.assertEqual(set(row.keys()), expected)
         self.assertEqual(row["equilibrium_space_id"], 11)
+
+    def test_normalize_dict_recurses_through_lists_and_enums(self):
+        payload = {
+            "reactants": [{"type": ReactantType.MINERAL, "log_moles": np.float64(-1.0)}],
+            "nested": {"v": [np.int64(2), {"x": np.float64(0.5)}]},
+        }
+        out = converters.normalize_dict(payload, "test")
+        self.assertIsInstance(out["reactants"], list)
+        assert isinstance(out["reactants"], list)
+        self.assertEqual(out["reactants"][0]["type"], "mineral")
+        self.assertIsInstance(out["reactants"][0]["log_moles"], float)
+        self.assertEqual(out["nested"], {"v": [2, {"x": 0.5}]})
 
 
 class TestConnectionCacheBehaviour(TestCase):

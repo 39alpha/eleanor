@@ -100,17 +100,13 @@ class TestNullSink(TestCase):
         self.assertEqual(first.id, 0)
         self.assertEqual(second.id, 1)
 
-    def test_begin_run_stamps_missing_version_and_preserves_supplied_version(self):
+    def test_begin_run_stamps_preserves_supplied_version(self):
         """Ensure begin_run stamps missing versions and preserves caller-provided values."""
         sink = NullSink(NullConfig(support_worker_writes=False))
 
-        unstamped = _order()
-        _ = sink.begin_run(unstamped)  # type: ignore[arg-type]
-        self.assertIsNotNone(unstamped.eleanor_version)
-
-        supplied = _order(eleanor_version="custom-v1")
-        _ = sink.begin_run(supplied)  # type: ignore[arg-type]
-        self.assertEqual(supplied.eleanor_version, "custom-v1")
+        order = _order(eleanor_version="custom-v1")
+        _ = sink.begin_run(order)  # type: ignore[arg-type]
+        self.assertEqual(order.eleanor_version, "custom-v1")
 
     def test_begin_run_respects_explicit_ids_and_does_not_rewind_allocator(self):
         """Ensure explicit ids are accepted and lower explicit ids do not lower the implicit counter."""

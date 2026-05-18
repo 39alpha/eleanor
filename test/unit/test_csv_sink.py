@@ -354,13 +354,11 @@ class TestCsvSink(TestCase):
             sink.initialize()
 
             order = _minimal_order()
-            order.eleanor_version = None
             first = sink.begin_run(order)
             second = sink.begin_run(order)
             self.assertEqual(first, 0)
             self.assertEqual(second, 0)
             self.assertEqual(order.id, 0)
-            self.assertIsNotNone(order.eleanor_version)
 
             supplied = _minimal_order()
             supplied.eleanor_version = "caller-version"

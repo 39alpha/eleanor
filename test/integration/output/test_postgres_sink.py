@@ -31,6 +31,7 @@ import os
 import unittest
 import unittest.mock as mock
 import urllib.parse
+from dataclasses import dataclass
 from datetime import datetime
 from typing import cast, override
 
@@ -45,11 +46,7 @@ from eleanor.kernel.config import Settings as KernelSettings
 from eleanor.order import Order
 from eleanor.output.interface import ComputeResult
 from eleanor.output.postgres.config import DatabaseConfig
-from eleanor.output.postgres.persistence import (
-    connection,
-    repositories,
-    schema,
-)
+from eleanor.output.postgres.persistence import connection, repositories, schema
 from eleanor.output.postgres.persistence.converters import OrderRecord
 from eleanor.output.postgres.sink import PostgresSink
 from eleanor.output.postgres.tools.profile import StatementProfiler
@@ -76,6 +73,7 @@ def _config_from_env() -> DatabaseConfig | None:
     )
 
 
+@dataclass(init=False)
 class _MinimalOrder:
     """Stripped-down stand-in for ``Order`` carrying the fields the persistence layer reads.
 

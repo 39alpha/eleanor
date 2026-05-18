@@ -8,7 +8,6 @@ from eleanor.exceptions import EleanorConfigurationException, EleanorException
 
 from ..order import Order
 from ..progress import ProgressHandle
-from ..version import __version__
 from .interface import ComputeResult, OutputSink, WriteOutcome
 
 
@@ -46,9 +45,6 @@ class NullSink(OutputSink):
 
     @override
     def begin_run(self, order: Order) -> int:
-        if order.eleanor_version is None:
-            order.eleanor_version = __version__
-
         if order.id is not None:
             if order.id >= self._next_order_id:
                 self._next_order_id = order.id + 1

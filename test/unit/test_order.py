@@ -7,16 +7,9 @@ from unittest import mock
 
 import numpy as np
 
-from eleanor.exceptions import EleanorConfigurationException, EleanorException
+from eleanor.exceptions import EleanorException
 from eleanor.kernel.config import Settings as KernelSettings
-from eleanor.order import (
-    NavigatorConfig,
-    Order,
-    OrderRaw,
-    Suppression,
-    SuppressionRaw,
-    load_order,
-)
+from eleanor.order import NavigatorConfig, Order, OrderRaw, Suppression, SuppressionRaw, load_order
 from eleanor.parameters import ValueParameter
 
 from .common import TestCase
@@ -54,7 +47,7 @@ def _make_order(
     """Build an Order with the kernel registry mocked out."""
     effective = raw if raw is not None else _minimal_raw(**overrides)
     with mock.patch("eleanor.kernel.registry.get_factory", return_value=_FAKE_KERNEL_SPEC):
-        return Order(
+        return Order.from_dict(
             cast(OrderRaw, cast(object, effective)),
             order_id=order_id,
             tag=tag,
@@ -177,11 +170,11 @@ class TestOrder(TestCase):
         Ensure order validation and kernel/navigator parsing branches behave correctly.
         """
         with self.assertRaises(EleanorException):
-            Order(cast(OrderRaw, cast(object, _minimal_raw(name=1))))
+            Order.from_dict(cast(OrderRaw, cast(object, _minimal_raw(name=1))))
         with self.assertRaises(EleanorException):
-            Order(cast(OrderRaw, cast(object, _minimal_raw(notes=1))))
+            Order.from_dict(cast(OrderRaw, cast(object, _minimal_raw(notes=1))))
         with self.assertRaises(EleanorException):
-            Order(cast(OrderRaw, cast(object, _minimal_raw(creator=1))))
+            Order.from_dict(cast(OrderRaw, cast(object, _minimal_raw(creator=1))))
 
         order = _make_order(
             name="o",
@@ -211,7 +204,7 @@ class TestOrder(TestCase):
         Ensure duplicate concrete names across standalone reactants and combined components are rejected.
         """
         with self.assertRaisesRegex(
-            EleanorConfigurationException,
+            EleanorException,
             "appears more than once across reactants and combined-reactant components",
         ):
             _make_order(
@@ -317,13 +310,21 @@ class TestOrder(TestCase):
     def test_order_requires_kernel(self):
         """Ensure Order raises when kernel is absent."""
         with self.assertRaisesRegex(EleanorException, "kernel is required"):
-            Order({"name": "o", "creator": "u", "temperature": 25.0, "pressure": 1.0, "elements": {"Na": 1.0}})
+            Order.from_dict(
+                {
+                    "name": "o",
+                    "creator": "u",
+                    "temperature": 25.0,
+                    "pressure": 1.0,
+                    "elements": {"Na": 1.0},
+                },
+            )
 
     def test_order_requires_temperature(self):
         """Ensure Order raises when temperature is absent."""
         with mock.patch("eleanor.kernel.registry.get_factory", return_value=_FAKE_KERNEL_SPEC):
             with self.assertRaisesRegex(EleanorException, "temperature is required"):
-                Order(
+                Order.from_dict(
                     {
                         "name": "o",
                         "creator": "u",
@@ -337,7 +338,7 @@ class TestOrder(TestCase):
         """Ensure Order raises when pressure is absent."""
         with mock.patch("eleanor.kernel.registry.get_factory", return_value=_FAKE_KERNEL_SPEC):
             with self.assertRaisesRegex(EleanorException, "pressure is required"):
-                Order(
+                Order.from_dict(
                     {
                         "name": "o",
                         "creator": "u",
@@ -351,7 +352,7 @@ class TestOrder(TestCase):
         """Ensure Order raises when elements is empty or absent."""
         with mock.patch("eleanor.kernel.registry.get_factory", return_value=_FAKE_KERNEL_SPEC):
             with self.assertRaisesRegex(EleanorException, "elements must not be empty"):
-                Order(
+                Order.from_dict(
                     {
                         "name": "o",
                         "creator": "u",
@@ -361,7 +362,7 @@ class TestOrder(TestCase):
                     }
                 )
             with self.assertRaisesRegex(EleanorException, "elements must not be empty"):
-                Order(
+                Order.from_dict(
                     {
                         "name": "o",
                         "creator": "u",

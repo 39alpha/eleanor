@@ -321,12 +321,12 @@ class TestOutput(TestCase):
 
     def test_postgres_begin_run_returns_existing_order_id(self):
         """
-        Ensure begin_run returns existing order.id and copies stored eleanor_version when unset.
+        Ensure begin_run returns existing order.id.
         """
         cfg = DatabaseConfig(database="db", username="u", password="p")
         sink = PostgresSink(cfg)
 
-        order = SimpleNamespace(id=17, eleanor_version=None)
+        order = SimpleNamespace(id=17, eleanor_version="v1")
         existing = SimpleNamespace(id=17, eleanor_version="v1")
 
         with (
@@ -347,7 +347,7 @@ class TestOutput(TestCase):
         cfg = DatabaseConfig(database="db", username="u", password="p")
         sink = PostgresSink(cfg)
 
-        order = SimpleNamespace(id=99, eleanor_version=None)
+        order = SimpleNamespace(id=99, eleanor_version="v1")
 
         with (
             mock.patch("eleanor.output.postgres.sink.repositories.get_order", return_value=None),
@@ -360,7 +360,7 @@ class TestOutput(TestCase):
 
         self.assertEqual(order_id, 99)
         self.assertEqual(order.id, 99)
-        self.assertIsNotNone(order.eleanor_version)
+        self.assertEqual(order.eleanor_version, "v1")
         insert_order.assert_called_once_with(cfg, order)
 
     def test_postgres_begin_run_raises_on_version_mismatch(self):
@@ -386,7 +386,7 @@ class TestOutput(TestCase):
         cfg = DatabaseConfig(database="db", username="u", password="p")
         sink = PostgresSink(cfg)
 
-        order = SimpleNamespace(id=None, eleanor_version=None)
+        order = SimpleNamespace(id=None, eleanor_version="v1")
         with (
             mock.patch(
                 "eleanor.output.postgres.sink.repositories.insert_order",
@@ -397,7 +397,7 @@ class TestOutput(TestCase):
 
         self.assertEqual(order_id, 42)
         self.assertEqual(order.id, 42)
-        self.assertIsNotNone(order.eleanor_version)
+        self.assertEqual(order.eleanor_version, "v1")
         insert_order.assert_called_once_with(cfg, order)
 
     def test_error_info_fields(self):
@@ -829,18 +829,10 @@ class TestOutput(TestCase):
         the contract down so a refactor cannot silently regress it.
         """
         import eleanor.output.postgres as postgres_pkg
-        from eleanor.output.postgres.config import (
-            DatabaseConfig as _DatabaseConfig,
-        )
-        from eleanor.output.postgres.config import (
-            DatabaseRaw as _DatabaseRaw,
-        )
-        from eleanor.output.postgres.config import (
-            PostgresArgsRaw as _PostgresArgsRaw,
-        )
-        from eleanor.output.postgres.config import (
-            database_config_from_config as _database_config_from_config,
-        )
+        from eleanor.output.postgres.config import DatabaseConfig as _DatabaseConfig
+        from eleanor.output.postgres.config import DatabaseRaw as _DatabaseRaw
+        from eleanor.output.postgres.config import PostgresArgsRaw as _PostgresArgsRaw
+        from eleanor.output.postgres.config import database_config_from_config as _database_config_from_config
         from eleanor.output.postgres.sink import PostgresSink as _PostgresSink
 
         self.assertIs(postgres_pkg.DatabaseConfig, _DatabaseConfig)

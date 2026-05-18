@@ -45,9 +45,9 @@ _connections: dict[tuple[DatabaseConfig, int], psycopg.Connection] = {}
 def _json_dumps(value: object) -> str:
     """JSON encoder used for every JSONB column the sink writes.
 
-    Passes ``default=str`` so non-JSON-native leaves (e.g. ``datetime``
-    in ``orders.raw`` from a TOML config) get stringified instead of
-    raising. JSON-native scalars / containers pass through untouched.
+    Passes ``default=str`` so non-JSON-native leaves (e.g. ``create_date`` in
+    ``orders`` from a TOML config) get stringified instead of raising.
+    JSON-native scalars / containers pass through untouched.
     """
     return json.dumps(value, default=str)
 

@@ -24,6 +24,7 @@ whenever the dataclass field is ``None``.
 
 from dataclasses import dataclass
 from datetime import datetime
+from enum import Enum, IntEnum, StrEnum
 
 import numpy as np
 from psycopg.types.json import Jsonb
@@ -51,52 +52,64 @@ def _or_neg_inf(value: np.float64 | None) -> np.float64:
     return value if value is not None else np.float64(-np.inf)
 
 
-def _coerce_numpy_scalars(d: dict[str, object]) -> dict[str, object]:
-    out: dict[str, object] = {}
-    for k, v in d.items():
-        if isinstance(v, np.floating):
-            out[k] = v.item()
-        elif isinstance(v, np.integer):
-            out[k] = v.item()
-        elif isinstance(v, dict):
-            out[k] = _coerce_numpy_scalars(cast(dict[str, object], v))
-        else:
-            out[k] = v
-    return out
+def _coerce_property_types(value: object) -> object:
+    "Recursively coerce numpy scalars, ndarrays, enums and tuples to JSON-native equivalents."
+    if isinstance(value, np.floating):
+        return value.item()
+    if isinstance(value, np.integer):
+        return value.item()
+    if isinstance(value, np.ndarray):
+        return [_coerce_property_types(v) for v in cast(list[object], value.tolist())]
+    if isinstance(value, dict):
+        return {str(k): _coerce_property_types(v) for k, v in cast(dict[object, object], value).items()}
+    if isinstance(value, (list, tuple)):
+        # Tuples are not a JSON type, so we coerce to a list
+        return [_coerce_property_types(v) for v in cast(list[object], value)]
+    if isinstance(value, StrEnum):
+        return value.value
+    if isinstance(value, IntEnum):
+        return value.value
+    if isinstance(value, Enum):
+        raise EleanorException(f"cannot serialize {type(value).__name__}: only IntEnum/StrEnum are supported")
+    return value
 
 
-def _normalise_dict(value: object, field_name: str) -> dict[str, object]:
+def normalize_dict(value: object, field_name: str) -> dict[str, object]:
     """Coerce ``value`` to a plain ``dict[str, object]`` or raise.
 
-    Callers pass payloads like ``order.raw`` (already a dict) or the
-    output of :meth:`KernelConfig.resolved_settings` (a dataclass that
-    needs to be flattened). Anything that is neither raises
-    :class:`EleanorException` so the failure surfaces at the converter
-    boundary rather than as a JSON encoding error inside psycopg.
+    Callers pass payloads like ``order`` (a dataclass) or the output of
+    :meth:`KernelConfig.resolved_settings` (a dataclass that needs to be
+    flattened). Anything that is neither raises :class:`EleanorException` so the
+    failure surfaces at the converter boundary rather than as a JSON encoding
+    error inside psycopg.
+
+    If ``value`` is an :class:`Order`, the ``vs_points`` field is reset to
+    ``[]`` since vs points are persisted separately.
     """
     from dataclasses import asdict, is_dataclass
+
+    is_order = isinstance(value, core_order.Order)
 
     if is_dataclass(value) and not isinstance(value, type):
         value = asdict(value)
     if not isinstance(value, dict):
         raise EleanorException(f"{field_name} must serialize to a dict")
-    return _coerce_numpy_scalars(cast(dict[str, object], value))
+
+    if is_order:
+        value["vs_points"] = []
+
+    coerced = _coerce_property_types(cast(object, value))
+    return cast(dict[str, object], coerced)
 
 
 def order_to_row(order: core_order.Order) -> dict[str, object]:
-    """Build the ``orders`` row dict for ``order``.
+    """Build the ``orders`` row dict for ``order``."""
 
-    Raises :class:`EleanorException` if identifying metadata is missing.
-    The caller is responsible for stamping ``eleanor_version`` before
-    handing the order over.
-    """
-    if order.eleanor_version is None:
-        raise EleanorException("order eleanor_version is required before persistence")
     return {
         "name": order.name,
         "tag": order.tag,
         "eleanor_version": order.eleanor_version,
-        "raw": Jsonb(_normalise_dict(order.raw, "order.raw")),
+        "raw": Jsonb(normalize_dict(order, "order")),
         "create_date": order.create_date,
     }
 
@@ -154,7 +167,7 @@ def kernel_to_row(kernel: KernelConfig, variable_space_id: int) -> dict[str, obj
     return {
         "id": variable_space_id,
         "type": kernel.type,
-        "settings": Jsonb(_normalise_dict(kernel.resolved_settings(), "kernel.settings")),
+        "settings": Jsonb(normalize_dict(kernel.resolved_settings(), "kernel.settings")),
     }
 
 

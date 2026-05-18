@@ -7,7 +7,6 @@ from typing import TypedDict, override
 from ..exceptions import EleanorConfigurationException, EleanorException
 from ..order import Order
 from ..progress import ProgressHandle
-from ..version import __version__
 from .interface import ComputeResult, OutputSink, WriteOutcome
 
 
@@ -52,9 +51,6 @@ class MemorySink(OutputSink):
             order_id = max(self._orders.keys() or [-1]) + 1
         else:
             order_id = order.id
-
-        if order.eleanor_version is None:
-            order.eleanor_version = __version__
 
         order.id = order_id
         self._orders[order_id] = order

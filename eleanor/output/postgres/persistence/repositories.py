@@ -250,11 +250,7 @@ def _build_multi_row_insert_returning_id(
 
 
 def insert_order(config: DatabaseConfig, order: Order) -> OrderRecord:
-    """Insert ``order`` into the orders table and return the persisted record.
-
-    The order's ``eleanor_version`` must be stamped before this call;
-    :func:`converters.order_to_row` raises if it is missing.
-    """
+    """Insert ``order`` into the orders table and return the persisted record."""
     conn = connection.connect(config)
     row = converters.order_to_row(order)
     with conn.transaction():
@@ -264,15 +260,13 @@ def insert_order(config: DatabaseConfig, order: Order) -> OrderRecord:
             if result is None:
                 raise EleanorException("order INSERT did not return an id")
             new_id = cast(int, result[0])
-    # ``order.name`` is statically non-optional, and
-    # ``converters.order_to_row`` raises if ``order.eleanor_version`` is
-    # missing before we build the returned record.
+
     return OrderRecord(
         id=new_id,
         name=order.name,
         tag=order.tag,
-        eleanor_version=cast(str, order.eleanor_version),
-        raw=dict(order.raw),
+        eleanor_version=order.eleanor_version,
+        raw=converters.normalize_dict(order, "order"),
         create_date=order.create_date,
     )
 

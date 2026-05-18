@@ -96,14 +96,6 @@ class TestMemorySink(TestCase):
         self.assertEqual(first_id, second_id)
         self.assertEqual(sink._orders, orders_after_first)
 
-    def test_begin_run_stamps_eleanor_version_when_absent(self):
-        """Ensure begin_run fills in eleanor_version when the order did not provide one."""
-        sink = MemorySink()
-        order = _order(eleanor_version=None)
-
-        _ = sink.begin_run(order)  # type: ignore[arg-type]
-        self.assertIsNotNone(order.eleanor_version)
-
     def test_begin_run_preserves_caller_supplied_eleanor_version(self):
         """Ensure begin_run keeps caller-supplied eleanor_version values unchanged."""
         sink = MemorySink()

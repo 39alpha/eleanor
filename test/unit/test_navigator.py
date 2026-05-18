@@ -304,8 +304,8 @@ class TestNavigator(TestCase):
 
         order = mock.Mock()
         order.parameters.return_value = [
-            ValueParameter("a", None, np.float64(1)),
-            RangeParameter("b", None, np.float64(0), np.float64(1)),
+            ValueParameter("a", np.float64(1)),
+            RangeParameter("b", np.float64(0), np.float64(1)),
         ]
         nav2 = DummyLatticeNavigator(order=order, kernel=mock.Mock())
         self.assertEqual(nav2.num_systems(3), 3)

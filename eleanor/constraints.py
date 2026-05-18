@@ -181,7 +181,7 @@ class LinearConstraint(AbstractConstraint):
         if not terms:
             raise EleanorException("LinearConstraint requires at least one term")
 
-        self.constant = constant if constant is not None else ValueParameter("constant", None, np.float64(0.0))
+        self.constant = constant if constant is not None else ValueParameter("constant", np.float64(0.0))
         self.tolerance = tolerance if tolerance is not None else np.float64(1e-6)
         self.terms = sorted(terms, key=lambda t: t.parameter.volume(), reverse=True)
 

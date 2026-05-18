@@ -190,8 +190,8 @@ class TestOrder(TestCase):
         Ensure :meth:`Order.parameters` includes kernel and reactant-derived parameter lists.
         """
         order = _make_order()
-        kparam = ValueParameter("k", None, np.float64(1.0))
-        rparam = ValueParameter("r", None, np.float64(2.0))
+        kparam = ValueParameter("k", np.float64(1.0))
+        rparam = ValueParameter("r", np.float64(2.0))
         setattr(order, "kernel", SimpleNamespace(parameters=lambda: [kparam]))
         setattr(order, "reactants", [SimpleNamespace(parameters=lambda: [rparam])])
 

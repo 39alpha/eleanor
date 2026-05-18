@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import TypedDict, override
+from typing import Self, TypedDict, override
 
 import numpy as np
 
@@ -126,7 +126,7 @@ class TitratedReactant(AbstractReactant):
 
     @classmethod
     @override
-    def from_dict(cls, raw: ReactantRaw, name: str | None = None) -> "TitratedReactant":
+    def from_dict(cls, raw: ReactantRaw, name: str | None = None) -> Self:
         if name is None:
             name = raw.get("name")
         if not isinstance(name, str):
@@ -153,7 +153,7 @@ class MineralReactant(TitratedReactant):
 
     @classmethod
     @override
-    def from_dict(cls, raw: ReactantRaw, name: str | None = None) -> "MineralReactant":
+    def from_dict(cls, raw: ReactantRaw, name: str | None = None) -> Self:
         base = TitratedReactant.from_dict(raw, name)
         if base.type != ReactantType.MINERAL:
             raise EleanorException(f'cannot create a mineral reactant from config of type "{base.type}"')
@@ -170,7 +170,7 @@ class AqueousReactant(TitratedReactant):
 
     @classmethod
     @override
-    def from_dict(cls, raw: ReactantRaw, name: str | None = None) -> "AqueousReactant":
+    def from_dict(cls, raw: ReactantRaw, name: str | None = None) -> Self:
         base = TitratedReactant.from_dict(raw, name)
         if base.type != ReactantType.AQUEOUS:
             raise EleanorException(f'cannot create an aqueous reactant from config of type "{base.type}"')
@@ -187,7 +187,7 @@ class GasReactant(TitratedReactant):
 
     @classmethod
     @override
-    def from_dict(cls, raw: ReactantRaw, name: str | None = None) -> "GasReactant":
+    def from_dict(cls, raw: ReactantRaw, name: str | None = None) -> Self:
         base = TitratedReactant.from_dict(raw, name)
         if base.type != ReactantType.GAS:
             raise EleanorException(f'cannot create a gas reactant from config of type "{base.type}"')
@@ -213,7 +213,7 @@ class FixedGasReactant(AbstractReactant):
 
     @classmethod
     @override
-    def from_dict(cls, raw: ReactantRaw, name: str | None = None) -> "FixedGasReactant":
+    def from_dict(cls, raw: ReactantRaw, name: str | None = None) -> Self:
         if name is None:
             name = raw.get("name")
         if not isinstance(name, str):
@@ -259,7 +259,7 @@ class SpecialReactant(TitratedReactant):
 
     @classmethod
     @override
-    def from_dict(cls, raw: ReactantRaw, name: str | None = None) -> "SpecialReactant":
+    def from_dict(cls, raw: ReactantRaw, name: str | None = None) -> Self:
         composition: dict[str, int] = require_dict(raw.get("composition"), "special reactant composition")
 
         base = TitratedReactant.from_dict(raw, name)
@@ -279,7 +279,7 @@ class ElementReactant(TitratedReactant):
 
     @classmethod
     @override
-    def from_dict(cls, raw: ReactantRaw, name: str | None = None) -> "ElementReactant":
+    def from_dict(cls, raw: ReactantRaw, name: str | None = None) -> Self:
         base = TitratedReactant.from_dict(raw, name)
         if base.type != ReactantType.ELEMENT:
             raise EleanorException(f'cannot create a element reactant from config of type "{base.type}"')
@@ -326,7 +326,7 @@ class SolidSolutionReactant(TitratedReactant):
 
     @classmethod
     @override
-    def from_dict(cls, raw: ReactantRaw, name: str | None = None) -> "SolidSolutionReactant":
+    def from_dict(cls, raw: ReactantRaw, name: str | None = None) -> Self:
         base = TitratedReactant.from_dict(raw, name)
         if base.type != ReactantType.SOLID_SOLUTION:
             raise EleanorException(f'cannot create a solid solution reactant from config of type "{base.type}"')
@@ -445,7 +445,7 @@ class CombinedReactantComponent:
         return params
 
     @classmethod
-    def from_dict(cls, raw: CombinedComponentRaw, name: str | None = None) -> "CombinedReactantComponent":
+    def from_dict(cls, raw: CombinedComponentRaw, name: str | None = None) -> Self:
         if name is None:
             name = raw.get("name")
         if not isinstance(name, str):
@@ -526,7 +526,7 @@ class CombinedReactant(TitratedReactant):
 
     @classmethod
     @override
-    def from_dict(cls, raw: ReactantRaw, name: str | None = None) -> "CombinedReactant":
+    def from_dict(cls, raw: ReactantRaw, name: str | None = None) -> Self:
         base = TitratedReactant.from_dict(raw, name)
         if base.type != ReactantType.COMBINED:
             raise EleanorException(f'cannot create a combined reactant from config of type "{base.type}"')

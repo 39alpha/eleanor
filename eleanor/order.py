@@ -2,6 +2,7 @@ import json
 import operator
 import os.path
 import tomllib
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Self, TypedDict, final
@@ -13,7 +14,7 @@ from .exceptions import EleanorException
 from .kernel.config import Config as KernelConfig
 from .kernel.config import Settings as KernelSettings
 from .kernel.config import resolve_settings as resolve_kernel_settings
-from .parameters import Parameter, ParameterSource
+from .parameters import Parameter, ParameterOrSource, ParameterSource, load_parameter
 from .reactants import AbstractReactant, CombinedReactant, ReactantRaw
 from .typing import cast
 from .util import is_list_of, mapreduce
@@ -104,6 +105,12 @@ def _require_str(value: object, field_name: str) -> str:
     return value
 
 
+def _require[T](value: T | None, field_name: str) -> T:
+    if value is None:
+        raise EleanorException(f"{field_name} is required")
+    return value
+
+
 def load_kernel_settings(kernel_raw: KernelRaw) -> tuple[str, KernelSettings]:
     """Parse a raw kernel block into its ``(type, Settings)`` pair via the registry."""
     kernel_type = _require_str(kernel_raw.get("type"), "kernel.type")
@@ -163,36 +170,74 @@ class Suppression(object):
 
 
 @final
-@dataclass(init=True, kw_only=True)
+@dataclass(init=False)
 class Order:
+    id: int | None
+    tag: str
     name: str
+    notes: str
     creator: str
     kernel: KernelConfig
     temperature: Parameter
+    water_mass: Parameter
     pressure: Parameter
-    id: int | None = None
-    tag: str = ""
-    notes: str = ""
-    eleanor_version: str = __version__
-    create_date: datetime = field(default_factory=datetime.now)
-    navigator: NavigatorConfig = field(default_factory=NavigatorConfig)
-    water_mass: Parameter = field(default_factory=lambda: Parameter.load(1.0, "water_mass"))
-    elements: dict[str, Parameter] = field(default_factory=dict)
-    species: dict[str, Parameter] = field(default_factory=dict)
-    suppressions: list[Suppression] = field(default_factory=list)
-    reactants: list[AbstractReactant] = field(default_factory=list)
-    constraints: list[ConstraintConfig] = field(default_factory=list)
-    vs_points: list[VSPoint] = field(default_factory=list)
+    navigator: NavigatorConfig
+    elements: dict[str, Parameter]
+    species: dict[str, Parameter]
+    suppressions: list[Suppression]
+    reactants: list[AbstractReactant]
+    constraints: list[ConstraintConfig]
+    vs_points: list[VSPoint]
+    eleanor_version: str
+    create_date: datetime
 
-    def __post_init__(self):
+    def __init__(
+        self,
+        *,
+        name: str,
+        creator: str,
+        kernel: KernelConfig,
+        temperature: ParameterOrSource,
+        pressure: ParameterOrSource,
+        elements: Mapping[str, ParameterOrSource],
+        id: int | None = None,
+        tag: str = "",
+        notes: str = "",
+        water_mass: ParameterOrSource | None = None,
+        navigator: NavigatorConfig | None = None,
+        species: Mapping[str, ParameterOrSource] | None = None,
+        suppressions: list[Suppression] | None = None,
+        reactants: list[AbstractReactant] | None = None,
+        constraints: list[ConstraintConfig] | None = None,
+        vs_points: list[VSPoint] | None = None,
+        eleanor_version: str | None = None,
+        create_date: datetime | None = None,
+    ):
+        self.id = id
+        self.tag = tag
+        self.name = name
         if self.name == "":
             raise EleanorException("name must not be empty")
 
+        self.notes = notes
+
+        self.creator = creator
         if self.creator == "":
             raise EleanorException("creator must not be empty")
 
+        self.kernel = kernel
+        self.water_mass = load_parameter(water_mass if water_mass is not None else 1.0, "water_mass")
+        self.temperature = load_parameter(temperature, "temperature")
+        self.pressure = load_parameter(pressure, "pressure")
+        self.navigator = NavigatorConfig() if navigator is None else navigator
+
+        self.elements = {k: load_parameter(v, k) for k, v in elements.items()}
         if not self.elements:
             raise EleanorException("elements must not be empty")
+
+        self.species = {k: load_parameter(v, k) for k, v in species.items()} if species is not None else {}
+        self.suppressions = suppressions if suppressions is not None else []
+        self.reactants = reactants if reactants is not None else []
 
         seen_names: set[str] = set()
 
@@ -210,6 +255,11 @@ class Order:
                     _add_unique(component_name)
             else:
                 _add_unique(reactant.name)
+
+        self.constraints = constraints if constraints is not None else []
+        self.vs_points = vs_points if vs_points is not None else []
+        self.eleanor_version = eleanor_version if eleanor_version is not None else __version__
+        self.create_date = create_date if create_date is not None else datetime.now()
 
     @classmethod
     def from_dict(
@@ -247,19 +297,11 @@ class Order:
             except TypeError as e:
                 raise EleanorException("invalid navigator config") from e
 
-        if "temperature" not in raw:
-            raise EleanorException("temperature is required")
-        temperature = Parameter.load(raw["temperature"], "temperature")
-
-        if "pressure" not in raw:
-            raise EleanorException("pressure is required")
-        pressure = Parameter.load(raw["pressure"], "pressure")
-
-        elements_raw = raw.get("elements") or {}
-        elements = {el_name: Parameter.load(value, name=el_name) for el_name, value in elements_raw.items()}
-
-        species_raw = raw.get("species") or {}
-        species = {sp_name: Parameter.load(value, name=sp_name) for sp_name, value in species_raw.items()}
+        water_mass = raw.get("water_mass")
+        temperature = _require(raw.get("temperature"), "temperature")
+        pressure = _require(raw.get("pressure"), "pressure")
+        elements = raw.get("elements") or {}
+        species = raw.get("species") or {}
 
         suppressions_raw = raw.get("suppressions") or []
         suppressions = [
@@ -277,12 +319,12 @@ class Order:
             raise EleanorException("constraints must be a list")
         constraints_list = cast(list[object], constraints_obj)
         constraints: list[ConstraintConfig] = []
-        for c_obj in constraints_list:
-            if not isinstance(c_obj, dict):
+        for constraint in constraints_list:
+            if not isinstance(constraint, dict):
                 raise EleanorException("each constraint must be a dict")
-            c_raw = cast(dict[str, object], c_obj)
-            c_type = _require_str(c_raw.get("type"), "constraint.type")
-            constraints.append(ConstraintConfig(type=c_type, raw=c_raw))
+            constraint_raw = cast(dict[str, object], constraint)
+            constraint_type = _require_str(constraint_raw.get("type"), "constraint.type")
+            constraints.append(ConstraintConfig(type=constraint_type, raw=constraint_raw))
 
         vs_points = vs_points or []
 
@@ -295,7 +337,7 @@ class Order:
             create_date=create_date,
             kernel=kernel_config,
             navigator=navigator,
-            water_mass=Parameter.load(raw.get("water_mass", 1.0), "water_mass"),
+            water_mass=water_mass,
             temperature=temperature,
             pressure=pressure,
             elements=elements,

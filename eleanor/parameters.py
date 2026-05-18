@@ -40,6 +40,15 @@ type ParameterSource = ParameterRaw | list[ParameterScalar] | ParameterScalar
 NEG_INF = np.float64(-np.inf)
 POS_INF = np.float64(np.inf)
 
+type ParameterOrSource = Parameter | ParameterSource
+
+
+def load_parameter(param: ParameterOrSource, default_name: str) -> Parameter:
+    if isinstance(param, Parameter):
+        return param
+
+    return Parameter.load(param, name=default_name)
+
 
 def _as_float(value: object) -> np.float64:
     return np.float64(convert_to_number(cast(int | float | np.floating | str, value)))

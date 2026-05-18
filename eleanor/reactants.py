@@ -8,21 +8,11 @@ from typing import TypedDict, override
 import numpy as np
 
 from .exceptions import EleanorException
-from .parameters import Parameter, ParameterSource, ValueParameter
+from .parameters import Parameter, ParameterOrSource, ParameterSource, ValueParameter, load_parameter
 from .typing import cast
 from .util import mapreduce
 
 type RawMap = dict[str, object]
-
-
-type ParameterOrSource = Parameter | ParameterSource
-
-
-def _load_parameter(param: ParameterOrSource, default_name: str) -> Parameter:
-    if isinstance(param, Parameter):
-        return param
-
-    return Parameter.load(param, name=default_name)
 
 
 class CombinedComponentRaw(TypedDict, total=False):
@@ -160,8 +150,8 @@ class TitratedReactant(AbstractReactant):
         titration_rate: ParameterOrSource | None = None,
     ):
         super().__init__(name=name, type=type)
-        self.amount = _load_parameter(amount, "amount")
-        self.titration_rate = _load_parameter(1.0 if titration_rate is None else titration_rate, "titration_rate")
+        self.amount = load_parameter(amount, "amount")
+        self.titration_rate = load_parameter(1.0 if titration_rate is None else titration_rate, "titration_rate")
 
     @override
     def parameters(self) -> list[Parameter]:
@@ -247,8 +237,8 @@ class FixedGasReactant(AbstractReactant):
 
     def __init__(self, *, name: str, amount: ParameterOrSource, fugacity: ParameterOrSource):
         super().__init__(name=name, type=ReactantType.FIXED_GAS)
-        self.amount = _load_parameter(amount, "amount")
-        self.fugacity = _load_parameter(fugacity, "fugacity")
+        self.amount = load_parameter(amount, "amount")
+        self.fugacity = load_parameter(fugacity, "fugacity")
 
     @override
     def parameters(self) -> list[Parameter]:
@@ -345,7 +335,7 @@ class SolidSolutionReactant(TitratedReactant):
         end_members: Mapping[str, ParameterOrSource],
     ):
         super().__init__(name=name, type=ReactantType.SOLID_SOLUTION, amount=amount, titration_rate=titration_rate)
-        self.end_members = {k: _load_parameter(v, "fraction") for k, v in end_members.items()}
+        self.end_members = {k: load_parameter(v, "fraction") for k, v in end_members.items()}
         fraction = 0.0
         for em_name, param in self.end_members.items():
             if not isinstance(param, ValueParameter):
@@ -422,10 +412,10 @@ class CombinedReactantComponent:
         self.name = name
         self.type = type
         self.fraction = fraction
-        self.relative_rate = None if relative_rate is None else _load_parameter(relative_rate, "relative_rate")
+        self.relative_rate = None if relative_rate is None else load_parameter(relative_rate, "relative_rate")
         self.composition = composition
         self.end_members = (
-            None if end_members is None else {k: _load_parameter(v, "fraction") for k, v in end_members.items()}
+            None if end_members is None else {k: load_parameter(v, "fraction") for k, v in end_members.items()}
         )
 
         match self.type:

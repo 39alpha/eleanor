@@ -186,16 +186,16 @@ class Order:
             raise EleanorException("creator must not be empty")
 
         self.kernel = kernel
-        self.water_mass = load_parameter(water_mass if water_mass is not None else 1.0, "water_mass")
-        self.temperature = load_parameter(temperature, "temperature")
-        self.pressure = load_parameter(pressure, "pressure")
+        self.water_mass = load_parameter(water_mass if water_mass is not None else 1.0)
+        self.temperature = load_parameter(temperature)
+        self.pressure = load_parameter(pressure)
         self.navigator = NavigatorConfig() if navigator is None else navigator
 
-        self.elements = {k: load_parameter(v, k) for k, v in elements.items()}
+        self.elements = {k: load_parameter(v) for k, v in elements.items()}
         if not self.elements:
             raise EleanorException("elements must not be empty")
 
-        self.species = {k: load_parameter(v, k) for k, v in species.items()} if species is not None else {}
+        self.species = {k: load_parameter(v) for k, v in species.items()} if species is not None else {}
         self.suppressions = suppressions if suppressions is not None else []
         self.reactants = reactants if reactants is not None else []
 

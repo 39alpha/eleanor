@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import cast, override
+from typing import cast, final, override
 from unittest import mock
 
 import numpy as np
@@ -33,6 +33,7 @@ from eleanor.reactants import (
 from .common import TestCase
 
 
+@final
 class EchoConstraint(AbstractConstraint):
     """
     Test helper that fixes one dependent parameter to a chosen value.
@@ -66,13 +67,23 @@ class DummySuppression:
     exceptions: list[str]
 
 
+@final
 class DummyOrder:
     """
     Minimal order-like object used to exercise Boatswain logic.
     """
 
     def __init__(
-        self, *, parameters, water_mass=None, temperature, pressure, elements, species, suppressions, reactants
+        self,
+        *,
+        parameters,
+        water_mass=None,
+        temperature,
+        pressure,
+        elements,
+        species,
+        suppressions,
+        reactants,
     ):
         self._parameters = parameters
         self.constraints = []
@@ -102,8 +113,8 @@ class TestConstraints(TestCase):
         """
         Ensure dependency checks and resolution gatekeeping behave as expected.
         """
-        p_ind = ValueParameter("ind", np.float64(1.0))
-        p_dep = RangeParameter("dep", np.float64(0.0), np.float64(10.0))
+        p_ind = ValueParameter(np.float64(1.0))
+        p_dep = RangeParameter(np.float64(0.0), np.float64(10.0))
         registry = ParameterRegistry()
         registry.add_parameters([p_ind, p_dep])
         valuation = registry.valuation()
@@ -124,8 +135,8 @@ class TestConstraints(TestCase):
         """
         Ensure resolving with unresolved independent parameters raises.
         """
-        p_ind = RangeParameter("ind", np.float64(0.0), np.float64(1.0))
-        p_dep = RangeParameter("dep", np.float64(0.0), np.float64(1.0))
+        p_ind = RangeParameter(np.float64(0.0), np.float64(1.0))
+        p_dep = RangeParameter(np.float64(0.0), np.float64(1.0))
         registry = ParameterRegistry()
         registry.add_parameters([p_ind, p_dep])
         valuation = registry.valuation()
@@ -180,9 +191,9 @@ class TestConstraints(TestCase):
         """
         Verify terms are stable-sorted by parameter volume descending (largest first).
         """
-        p_small = RangeParameter("small", np.float64(0.0), np.float64(1.0))
-        p_big = RangeParameter("big", np.float64(0.0), np.float64(10.0))
-        p_fixed = ValueParameter("fixed", np.float64(5.0))
+        p_small = RangeParameter(np.float64(0.0), np.float64(1.0))
+        p_big = RangeParameter(np.float64(0.0), np.float64(10.0))
+        p_fixed = ValueParameter(np.float64(5.0))
         terms = [
             LinearConstraintTerm(p_big, np.float64(1.0), Transform.IDENTITY),
             LinearConstraintTerm(p_fixed, np.float64(1.0), Transform.IDENTITY),
@@ -200,8 +211,8 @@ class TestConstraints(TestCase):
         """
         Verify dependent/independent split with mixed parameter types.
         """
-        p_range = RangeParameter("x", np.float64(0.0), np.float64(5.0))
-        p_value = ValueParameter("y", np.float64(3.0))
+        p_range = RangeParameter(np.float64(0.0), np.float64(5.0))
+        p_value = ValueParameter(np.float64(3.0))
         terms = [
             LinearConstraintTerm(p_range, np.float64(2.0), Transform.IDENTITY),
             LinearConstraintTerm(p_value, np.float64(1.0), Transform.LOG10),
@@ -218,27 +229,27 @@ class TestConstraints(TestCase):
         """
         When all terms are ValueParameter, dependent_parameters is empty.
         """
-        p1 = ValueParameter("a", np.float64(1.0))
-        p2 = ValueParameter("b", np.float64(2.0))
+        p1 = ValueParameter(np.float64(1.0))
+        p2 = ValueParameter(np.float64(2.0))
         terms = [
             LinearConstraintTerm(p1, np.float64(1.0), Transform.IDENTITY),
             LinearConstraintTerm(p2, np.float64(1.0), Transform.IDENTITY),
         ]
 
-        linear_constraint = LinearConstraint(terms, constant=ValueParameter("c", np.float64(3.0)))
+        linear_constraint = LinearConstraint(terms, constant=ValueParameter(np.float64(3.0)))
         self.assertEqual(linear_constraint.dependent_parameters, [])
 
     def test_linear_constraint_apply_solves_for_dependent(self):
         """
         Verify apply computes the correct dependent value for a simple linear equation.
         """
-        p_dep = RangeParameter("x", np.float64(0.0), np.float64(10.0))
-        p_ind = ValueParameter("y", np.float64(3.0))
+        p_dep = RangeParameter(np.float64(0.0), np.float64(10.0))
+        p_ind = ValueParameter(np.float64(3.0))
         terms = [
             LinearConstraintTerm(p_dep, np.float64(1.0), Transform.IDENTITY),
             LinearConstraintTerm(p_ind, np.float64(1.0), Transform.IDENTITY),
         ]
-        constant = ValueParameter("c", np.float64(7.0))
+        constant = ValueParameter(np.float64(7.0))
         linear_constraint = LinearConstraint(terms, constant=constant)
         registry = ParameterRegistry()
         registry.add_parameters([p_dep, p_ind, constant])
@@ -255,9 +266,9 @@ class TestConstraints(TestCase):
         """
         Verify apply with log10 transform resolves expected dependent value.
         """
-        p_dep = RangeParameter("x", np.float64(1.0), np.float64(1000.0))
+        p_dep = RangeParameter(np.float64(1.0), np.float64(1000.0))
         terms = [LinearConstraintTerm(p_dep, np.float64(1.0), Transform.LOG10)]
-        constant = ValueParameter("c", np.float64(2.0))
+        constant = ValueParameter(np.float64(2.0))
         linear_constraint = LinearConstraint(terms, constant=constant)
         registry = ParameterRegistry()
         registry.add_parameters([p_dep, constant])
@@ -273,14 +284,14 @@ class TestConstraints(TestCase):
         """
         When all terms are fixed, apply checks the equation holds within tolerance.
         """
-        p1 = ValueParameter("a", np.float64(1.0))
-        p2 = ValueParameter("b", np.float64(2.0))
+        p1 = ValueParameter(np.float64(1.0))
+        p2 = ValueParameter(np.float64(2.0))
         terms = [
             LinearConstraintTerm(p1, np.float64(1.0), Transform.IDENTITY),
             LinearConstraintTerm(p2, np.float64(1.0), Transform.IDENTITY),
         ]
 
-        constant = ValueParameter("c", np.float64(3.0))
+        constant = ValueParameter(np.float64(3.0))
         linear_constraint = LinearConstraint(terms, constant=constant)
         registry = ParameterRegistry()
         registry.add_parameters([p1, p2, constant])
@@ -288,20 +299,20 @@ class TestConstraints(TestCase):
         result = linear_constraint.apply(registry, valuation)
         self.assertEqual(result, {})
 
-        constant_bad = ValueParameter("c", np.float64(10.0))
+        constant_bad = ValueParameter(np.float64(10.0))
         linear_constraint_bad = LinearConstraint(terms, constant=constant_bad)
         registry_bad = ParameterRegistry()
         registry_bad.add_parameters([p1, p2, constant_bad])
         valuation_bad = registry_bad.valuation()
         with self.assertRaises(EleanorException):
-            linear_constraint_bad.apply(registry_bad, valuation_bad)
+            _ = linear_constraint_bad.apply(registry_bad, valuation_bad)
 
     def test_linear_constraint_is_resolvable(self):
         """
         is_resolvable is true when all independent params are ValueParameter.
         """
-        p_dep = RangeParameter("x", np.float64(0.0), np.float64(10.0))
-        p_ind = ValueParameter("y", np.float64(3.0))
+        p_dep = RangeParameter(np.float64(0.0), np.float64(10.0))
+        p_ind = ValueParameter(np.float64(3.0))
         terms = [
             LinearConstraintTerm(p_dep, np.float64(1.0), Transform.IDENTITY),
             LinearConstraintTerm(p_ind, np.float64(1.0), Transform.IDENTITY),
@@ -313,8 +324,8 @@ class TestConstraints(TestCase):
         valuation = registry.valuation()
         self.assertTrue(linear_constraint.is_resolvable(registry, valuation))
 
-        p_dep2 = RangeParameter("x2", np.float64(0.0), np.float64(5.0))
-        p_ind2 = RangeParameter("y2", np.float64(0.0), np.float64(10.0))
+        p_dep2 = RangeParameter(np.float64(0.0), np.float64(5.0))
+        p_ind2 = RangeParameter(np.float64(0.0), np.float64(10.0))
         terms2 = [
             LinearConstraintTerm(p_dep2, np.float64(1.0), Transform.IDENTITY),
             LinearConstraintTerm(p_ind2, np.float64(1.0), Transform.IDENTITY),
@@ -329,15 +340,17 @@ class TestConstraints(TestCase):
         """
         Verify resolve_parameter handles plain attributes, dict filters, and list filters.
         """
-        temp = RangeParameter("temperature", np.float64(10.0), np.float64(100.0))
-        na = ValueParameter("Na", np.float64(-1.0))
-        amount = RangeParameter("amount", np.float64(0.0), np.float64(5.0))
+        temp = RangeParameter(np.float64(10.0), np.float64(100.0))
+        na = ValueParameter(np.float64(-1.0))
+        amount = RangeParameter(np.float64(0.0), np.float64(5.0))
 
+        @final
         class FakeReactant:
             def __init__(self, name: str, amount: Parameter):
                 self.name = name
                 self.amount = amount
 
+        @final
         class FakeOrder:
             def __init__(self):
                 self.temperature = temp
@@ -349,20 +362,20 @@ class TestConstraints(TestCase):
         self.assertIs(resolve_parameter(order, "elements[key=Na]"), na)
         self.assertIs(resolve_parameter(order, "reactants[name=calcite].amount"), amount)
         with self.assertRaises(EleanorException):
-            resolve_parameter(order, "nonexistent")
+            _ = resolve_parameter(order, "nonexistent")
         with self.assertRaises(EleanorException):
-            resolve_parameter(order, "elements[key=missing]")
+            _ = resolve_parameter(order, "elements[key=missing]")
 
     def test_linear_constraint_from_order_round_trip(self):
         """
         Round-trip raw constraint dict through from_order into a LinearConstraint.
         """
-        temp = RangeParameter("temperature", np.float64(10.0), np.float64(100.0))
-        na = ValueParameter("Na", np.float64(-1.0))
+        temp = RangeParameter(np.float64(10.0), np.float64(100.0))
+        na = ValueParameter(np.float64(-1.0))
         order = DummyOrder(
             parameters=[temp, na],
             temperature=temp,
-            pressure=ValueParameter("pressure", np.float64(1.0)),
+            pressure=ValueParameter(np.float64(1.0)),
             elements={"Na": na},
             species={},
             suppressions=[],
@@ -392,7 +405,7 @@ class TestConstraints(TestCase):
         order = self._make_simple_order()
         config = ConstraintConfig(type="linear", raw={"type": "linear"})
         with self.assertRaises(EleanorException):
-            LinearConstraint.from_order(_as_order(order), config)
+            _ = LinearConstraint.from_order(_as_order(order), config)
 
     def test_from_order_non_dict_term_raises(self):
         """
@@ -402,7 +415,7 @@ class TestConstraints(TestCase):
         raw: dict[str, object] = {"type": "linear", "terms": ["not_a_dict"]}
         config = ConstraintConfig(type="linear", raw=raw)
         with self.assertRaises(EleanorException):
-            LinearConstraint.from_order(_as_order(order), config)
+            _ = LinearConstraint.from_order(_as_order(order), config)
 
     def test_from_order_missing_variable_raises(self):
         """
@@ -412,7 +425,7 @@ class TestConstraints(TestCase):
         raw: dict[str, object] = {"type": "linear", "terms": [{"coefficient": 1.0}]}
         config = ConstraintConfig(type="linear", raw=raw)
         with self.assertRaises(EleanorException):
-            LinearConstraint.from_order(_as_order(order), config)
+            _ = LinearConstraint.from_order(_as_order(order), config)
 
     def test_from_order_non_numeric_coefficient_raises(self):
         """
@@ -424,14 +437,14 @@ class TestConstraints(TestCase):
             "terms": [{"variable": "temperature", "coefficient": True}],
         }
         with self.assertRaises(EleanorException):
-            LinearConstraint.from_order(_as_order(order), ConstraintConfig(type="linear", raw=raw_bool))
+            _ = LinearConstraint.from_order(_as_order(order), ConstraintConfig(type="linear", raw=raw_bool))
 
         raw_list: dict[str, object] = {
             "type": "linear",
             "terms": [{"variable": "temperature", "coefficient": [1, 2]}],
         }
         with self.assertRaises(EleanorException):
-            LinearConstraint.from_order(_as_order(order), ConstraintConfig(type="linear", raw=raw_list))
+            _ = LinearConstraint.from_order(_as_order(order), ConstraintConfig(type="linear", raw=raw_list))
 
     def test_from_order_invalid_transform_raises(self):
         """
@@ -444,7 +457,7 @@ class TestConstraints(TestCase):
         }
         config = ConstraintConfig(type="linear", raw=raw)
         with self.assertRaises(EleanorException):
-            LinearConstraint.from_order(_as_order(order), config)
+            _ = LinearConstraint.from_order(_as_order(order), config)
 
     def test_from_order_non_numeric_tolerance_raises(self):
         """
@@ -458,15 +471,15 @@ class TestConstraints(TestCase):
         }
         config = ConstraintConfig(type="linear", raw=raw)
         with self.assertRaises(EleanorException):
-            LinearConstraint.from_order(_as_order(order), config)
+            _ = LinearConstraint.from_order(_as_order(order), config)
 
     def _make_simple_order(self) -> DummyOrder:
         """Return a minimal DummyOrder with a single resolvable temperature parameter."""
-        temp = RangeParameter("temperature", np.float64(10.0), np.float64(100.0))
+        temp = RangeParameter(np.float64(10.0), np.float64(100.0))
         return DummyOrder(
             parameters=[temp],
             temperature=temp,
-            pressure=ValueParameter("pressure", np.float64(1.0)),
+            pressure=ValueParameter(np.float64(1.0)),
             elements={},
             species={},
             suppressions=[],
@@ -478,82 +491,82 @@ class TestConstraints(TestCase):
         Verify log10 forward raises EleanorException for zero and negative inputs.
         """
         with self.assertRaises(EleanorException):
-            Transform.LOG10.forward(np.float64(0.0))
+            _ = Transform.LOG10.forward(np.float64(0.0))
         with self.assertRaises(EleanorException):
-            Transform.LOG10.forward(np.float64(-1.0))
+            _ = Transform.LOG10.forward(np.float64(-1.0))
 
     def test_transform_inverse_raises_on_non_positive_pow10(self):
         """
         Verify pow10 inverse (log10) raises EleanorException for zero and negative inputs.
         """
         with self.assertRaises(EleanorException):
-            Transform.POW10.inverse(np.float64(0.0))
+            _ = Transform.POW10.inverse(np.float64(0.0))
         with self.assertRaises(EleanorException):
-            Transform.POW10.inverse(np.float64(-1.0))
+            _ = Transform.POW10.inverse(np.float64(-1.0))
 
     def test_transform_forward_raises_on_overflow(self):
         """
         Verify pow10 forward raises EleanorException on overflow.
         """
         with self.assertRaises(EleanorException):
-            Transform.POW10.forward(np.float64(1e308))
+            _ = Transform.POW10.forward(np.float64(1e308))
 
     def test_linear_constraint_apply_zero_coefficient_raises(self):
         """
         Verify apply raises when the dependent term has a zero coefficient.
         """
-        p_dep = RangeParameter("x", np.float64(0.0), np.float64(10.0))
-        p_ind = ValueParameter("y", np.float64(3.0))
+        p_dep = RangeParameter(np.float64(0.0), np.float64(10.0))
+        p_ind = ValueParameter(np.float64(3.0))
         terms = [
             LinearConstraintTerm(p_dep, np.float64(0.0), Transform.IDENTITY),
             LinearConstraintTerm(p_ind, np.float64(1.0), Transform.IDENTITY),
         ]
-        constant = ValueParameter("c", np.float64(7.0))
+        constant = ValueParameter(np.float64(7.0))
         linear_constraint = LinearConstraint(terms, constant=constant)
         registry = ParameterRegistry()
         registry.add_parameters([p_dep, p_ind, constant])
         valuation = registry.valuation()
         with self.assertRaises(EleanorException):
-            linear_constraint.apply(registry, valuation)
+            _ = linear_constraint.apply(registry, valuation)
 
     def test_linear_constraint_apply_out_of_domain_raises(self):
         """
         Verify apply raises when the solved value falls outside the dependent parameter's domain.
         """
-        p_dep = RangeParameter("x", np.float64(0.0), np.float64(5.0))
-        p_ind = ValueParameter("y", np.float64(1.0))
+        p_dep = RangeParameter(np.float64(0.0), np.float64(5.0))
+        p_ind = ValueParameter(np.float64(1.0))
         terms = [
             LinearConstraintTerm(p_dep, np.float64(1.0), Transform.IDENTITY),
             LinearConstraintTerm(p_ind, np.float64(1.0), Transform.IDENTITY),
         ]
         # x + y = 100 => x = 99, which is outside [0, 5]
-        constant = ValueParameter("c", np.float64(100.0))
+        constant = ValueParameter(np.float64(100.0))
         linear_constraint = LinearConstraint(terms, constant=constant)
         registry = ParameterRegistry()
         registry.add_parameters([p_dep, p_ind, constant])
         valuation = registry.valuation()
         with self.assertRaises(EleanorException):
-            linear_constraint.apply(registry, valuation)
+            _ = linear_constraint.apply(registry, valuation)
 
     def test_linear_constraint_empty_terms_raises(self):
         """
         Verify constructing a LinearConstraint with no terms raises.
         """
         with self.assertRaises(EleanorException):
-            LinearConstraint([])
+            _ = LinearConstraint([])
 
     def test_linear_constraint_volume_delegates_to_constant(self):
         """
         Verify volume() returns the constant parameter's volume.
         """
-        p = ValueParameter("x", np.float64(1.0))
+        p = ValueParameter(np.float64(1.0))
         terms = [LinearConstraintTerm(p, np.float64(1.0), Transform.IDENTITY)]
 
-        fixed_constant = ValueParameter("c", np.float64(5.0))
+        fixed_constant = ValueParameter(np.float64(5.0))
         lc_fixed = LinearConstraint(terms, constant=fixed_constant)
         self.assertEqual(float(lc_fixed.volume()), 1.0)
 
-        range_constant = RangeParameter("c", np.float64(0.0), np.float64(10.0))
+        range_constant = RangeParameter(np.float64(0.0), np.float64(10.0))
         lc_range = LinearConstraint(terms, constant=range_constant)
         self.assertEqual(float(lc_range.volume()), 10.0)
 
@@ -561,8 +574,8 @@ class TestConstraints(TestCase):
         """
         Verify the base AbstractConstraint.volume() returns 1.0.
         """
-        p_ind = ValueParameter("ind", np.float64(1.0))
-        p_dep = RangeParameter("dep", np.float64(0.0), np.float64(10.0))
+        p_ind = ValueParameter(np.float64(1.0))
+        p_dep = RangeParameter(np.float64(0.0), np.float64(10.0))
         constraint = EchoConstraint(p_ind, p_dep, np.float64(2.5))
         self.assertEqual(float(constraint.volume()), 1.0)
 
@@ -571,8 +584,8 @@ class TestConstraints(TestCase):
         When multiple terms are RangeParameters, only the largest-volume one becomes dependent.
         The constraint stays unresolvable until the independent ranges are fixed.
         """
-        p_small = RangeParameter("small", np.float64(0.0), np.float64(2.0))
-        p_large = RangeParameter("large", np.float64(0.0), np.float64(100.0))
+        p_small = RangeParameter(np.float64(0.0), np.float64(2.0))
+        p_large = RangeParameter(np.float64(0.0), np.float64(100.0))
         terms = [
             LinearConstraintTerm(p_small, np.float64(1.0), Transform.IDENTITY),
             LinearConstraintTerm(p_large, np.float64(1.0), Transform.IDENTITY),
@@ -590,9 +603,9 @@ class TestConstraints(TestCase):
         """
         End-to-end Boatswain flow resolves a linear constraint during constrain.
         """
-        p_x = RangeParameter("x", np.float64(0.0), np.float64(20.0))
-        p_y = ValueParameter("y", np.float64(3.0))
-        constant = ValueParameter("constant", np.float64(10.0))
+        p_x = RangeParameter(np.float64(0.0), np.float64(20.0))
+        p_y = ValueParameter(np.float64(3.0))
+        constant = ValueParameter(np.float64(10.0))
         terms = [
             LinearConstraintTerm(p_x, np.float64(1.0), Transform.IDENTITY),
             LinearConstraintTerm(p_y, np.float64(1.0), Transform.IDENTITY),
@@ -608,7 +621,7 @@ class TestConstraints(TestCase):
             reactants=[],
         )
         boatswain = Boatswain(_as_order(order), linear_constraint)
-        boatswain.constrain()
+        _ = boatswain.constrain()
         resolved = boatswain[p_x]
         self.assertIsInstance(resolved, ValueParameter)
         if isinstance(resolved, ValueParameter):
@@ -618,8 +631,8 @@ class TestConstraints(TestCase):
         """
         Ensure Boatswain item access and refinement checks enforce registry/domain constraints.
         """
-        temp = RangeParameter("temperature", np.float64(10.0), np.float64(20.0))
-        pressure = ValueParameter("pressure", np.float64(1.0))
+        temp = RangeParameter(np.float64(10.0), np.float64(20.0))
+        pressure = ValueParameter(np.float64(1.0))
         order = DummyOrder(
             parameters=[temp, pressure],
             temperature=temp.fix(np.float64(15.0)),
@@ -644,7 +657,7 @@ class TestConstraints(TestCase):
         self.assertEqual(updated.value, 12.0)
 
         with self.assertRaises(Exception):
-            boatswain[ValueParameter("missing", np.float64(1.0))] = ValueParameter("missing", np.float64(1.0))
+            boatswain[ValueParameter(np.float64(1.0))] = ValueParameter(np.float64(1.0))
 
         with self.assertRaises(Exception):
             boatswain[temp] = temp.fix(np.float64(50.0))
@@ -657,8 +670,8 @@ class TestConstraints(TestCase):
         """
         Ensure setitem raises when registry returns an unknown parameter id.
         """
-        temp = RangeParameter("temperature", np.float64(10.0), np.float64(20.0))
-        pressure = ValueParameter("pressure", np.float64(1.0))
+        temp = RangeParameter(np.float64(10.0), np.float64(20.0))
+        pressure = ValueParameter(np.float64(1.0))
         order = DummyOrder(
             parameters=[temp, pressure],
             temperature=temp.fix(np.float64(15.0)),
@@ -677,9 +690,9 @@ class TestConstraints(TestCase):
         """
         Ensure constrain resolves what it can and returns fully constrained non-value parameters.
         """
-        p_fixed = ValueParameter("fixed", np.float64(1.0))
-        p_target = RangeParameter("target", np.float64(0.0), np.float64(5.0))
-        p_other = RangeParameter("other", np.float64(10.0), np.float64(20.0))
+        p_fixed = ValueParameter(np.float64(1.0))
+        p_target = RangeParameter(np.float64(0.0), np.float64(5.0))
+        p_other = RangeParameter(np.float64(10.0), np.float64(20.0))
 
         order = DummyOrder(
             parameters=[p_fixed, p_target, p_other],
@@ -710,9 +723,9 @@ class TestConstraints(TestCase):
         """
         Ensure parameters constrained by unresolved constraints are tracked as under-constrained.
         """
-        p_fixed = ValueParameter("fixed", np.float64(1.0))
-        p_independent = RangeParameter("independent", np.float64(0.0), np.float64(5.0))
-        p_dependent = RangeParameter("dependent", np.float64(10.0), np.float64(20.0))
+        p_fixed = ValueParameter(np.float64(1.0))
+        p_independent = RangeParameter(np.float64(0.0), np.float64(5.0))
+        p_dependent = RangeParameter(np.float64(10.0), np.float64(20.0))
         unresolved = EchoConstraint(p_independent, p_dependent, np.float64(15.0))
 
         order = DummyOrder(
@@ -734,70 +747,70 @@ class TestConstraints(TestCase):
         """
         Ensure generate_vs materializes a variable-space Point for each supported reactant mapping branch.
         """
-        water_mass = ValueParameter("water_mass", np.float64(1.0))
-        temperature = ValueParameter("temperature", np.float64(25.0))
-        pressure = ValueParameter("pressure", np.float64(1.0))
-        na = ValueParameter("Na", -np.float64(1.0))
-        cl = ValueParameter("Cl", -np.float64(1.0))
-        species = ValueParameter("Quartz(aq)", np.float64(0.5))
+        water_mass = ValueParameter(np.float64(1.0))
+        temperature = ValueParameter(np.float64(25.0))
+        pressure = ValueParameter(np.float64(1.0))
+        na = ValueParameter(-np.float64(1.0))
+        cl = ValueParameter(-np.float64(1.0))
+        species = ValueParameter(np.float64(0.5))
 
         mineral = MineralReactant(
             name="calcite",
-            amount=ValueParameter("amount", -np.float64(3.0)),
-            titration_rate=ValueParameter("titration_rate", np.float64(1.0)),
+            amount=ValueParameter(-np.float64(3.0)),
+            titration_rate=ValueParameter(np.float64(1.0)),
         )
         aqueous = AqueousReactant(
             name="na_cl",
-            amount=ValueParameter("amount", -np.float64(2.0)),
-            titration_rate=ValueParameter("titration_rate", np.float64(1.0)),
+            amount=ValueParameter(-np.float64(2.0)),
+            titration_rate=ValueParameter(np.float64(1.0)),
         )
         gas = GasReactant(
             name="co2(g)",
-            amount=ValueParameter("amount", -np.float64(4.0)),
-            titration_rate=ValueParameter("titration_rate", np.float64(1.0)),
+            amount=ValueParameter(-np.float64(4.0)),
+            titration_rate=ValueParameter(np.float64(1.0)),
         )
         element = ElementReactant(
             name="Na",
-            amount=ValueParameter("amount", -np.float64(6.0)),
-            titration_rate=ValueParameter("titration_rate", np.float64(1.0)),
+            amount=ValueParameter(-np.float64(6.0)),
+            titration_rate=ValueParameter(np.float64(1.0)),
         )
         special = SpecialReactant(
             name="seawater",
-            amount=ValueParameter("amount", -np.float64(5.0)),
-            titration_rate=ValueParameter("titration_rate", np.float64(1.0)),
+            amount=ValueParameter(-np.float64(5.0)),
+            titration_rate=ValueParameter(np.float64(1.0)),
             composition={"Na": 1, "Cl": 1},
         )
         fixed_gas = FixedGasReactant(
             name="co2",
-            amount=ValueParameter("amount", -np.float64(1.0)),
-            fugacity=ValueParameter("fugacity", -np.float64(2.0)),
+            amount=ValueParameter(-np.float64(1.0)),
+            fugacity=ValueParameter(-np.float64(2.0)),
         )
         solid = SolidSolutionReactant(
             name="solidmix",
-            amount=ValueParameter("amount", -np.float64(2.0)),
-            titration_rate=ValueParameter("titration_rate", np.float64(1.0)),
+            amount=ValueParameter(-np.float64(2.0)),
+            titration_rate=ValueParameter(np.float64(1.0)),
             end_members={
-                "em1": ValueParameter("fraction", np.float64(0.25)),
-                "em2": ValueParameter("fraction", np.float64(0.75)),
+                "em1": ValueParameter(np.float64(0.25)),
+                "em2": ValueParameter(np.float64(0.75)),
             },
         )
         combined = CombinedReactant(
             name="combinedmix",
-            amount=ValueParameter("amount", -np.float64(1.0)),
-            titration_rate=ValueParameter("titration_rate", np.float64(1.0)),
+            amount=ValueParameter(-np.float64(1.0)),
+            titration_rate=ValueParameter(np.float64(1.0)),
             components={
                 "SiO2": CombinedReactantComponent(
                     name="SiO2",
                     type=ReactantType.SPECIAL,
                     fraction=np.float64(0.5),
-                    relative_rate=ValueParameter("relative_rate", np.float64(1.0)),
+                    relative_rate=ValueParameter(np.float64(1.0)),
                     composition={"Si": 1, "O": 2},
                 ),
                 "Na2O": CombinedReactantComponent(
                     name="Na2O",
                     type=ReactantType.SPECIAL,
                     fraction=np.float64(0.5),
-                    relative_rate=ValueParameter("relative_rate", np.float64(1.0)),
+                    relative_rate=ValueParameter(np.float64(1.0)),
                     composition={"Na": 2, "O": 1},
                 ),
             },
@@ -838,9 +851,9 @@ class TestConstraints(TestCase):
         """
         Ensure generate_vs passes a non-default water_mass value through to the resulting Point.
         """
-        water_mass = ValueParameter("water_mass", np.float64(0.5))
-        temperature = ValueParameter("temperature", np.float64(25.0))
-        pressure = ValueParameter("pressure", np.float64(1.0))
+        water_mass = ValueParameter(np.float64(0.5))
+        temperature = ValueParameter(np.float64(25.0))
+        pressure = ValueParameter(np.float64(1.0))
 
         order = DummyOrder(
             parameters=[water_mass, temperature, pressure],
@@ -861,26 +874,26 @@ class TestConstraints(TestCase):
         """
         Ensure generate_vs computes per-component absolute titration rates as base_rate * relative_rate.
         """
-        water_mass = ValueParameter("water_mass", np.float64(1.0))
-        temperature = ValueParameter("temperature", np.float64(25.0))
-        pressure = ValueParameter("pressure", np.float64(1.0))
+        water_mass = ValueParameter(np.float64(1.0))
+        temperature = ValueParameter(np.float64(25.0))
+        pressure = ValueParameter(np.float64(1.0))
         combined = CombinedReactant(
             name="combinedmix",
-            amount=ValueParameter("amount", -np.float64(1.0)),
-            titration_rate=ValueParameter("titration_rate", np.float64(3.0)),
+            amount=ValueParameter(-np.float64(1.0)),
+            titration_rate=ValueParameter(np.float64(3.0)),
             components={
                 "SiO2": CombinedReactantComponent(
                     name="SiO2",
                     type=ReactantType.SPECIAL,
                     fraction=np.float64(0.5),
-                    relative_rate=ValueParameter("relative_rate", np.float64(2.0)),
+                    relative_rate=ValueParameter(np.float64(2.0)),
                     composition={"Si": 1, "O": 2},
                 ),
                 "Na2O": CombinedReactantComponent(
                     name="Na2O",
                     type=ReactantType.SPECIAL,
                     fraction=np.float64(0.5),
-                    relative_rate=ValueParameter("relative_rate", np.float64(0.5)),
+                    relative_rate=ValueParameter(np.float64(0.5)),
                     composition={"Na": 2, "O": 1},
                 ),
             },
@@ -913,13 +926,13 @@ class TestConstraints(TestCase):
         """
         Ensure generate_vs falls back to fraction-proportional rates when component relative_rate is omitted.
         """
-        water_mass = ValueParameter("water_mass", np.float64(1.0))
-        temperature = ValueParameter("temperature", np.float64(25.0))
-        pressure = ValueParameter("pressure", np.float64(1.0))
+        water_mass = ValueParameter(np.float64(1.0))
+        temperature = ValueParameter(np.float64(25.0))
+        pressure = ValueParameter(np.float64(1.0))
         combined = CombinedReactant(
             name="combinedmix",
-            amount=ValueParameter("amount", -np.float64(1.0)),
-            titration_rate=ValueParameter("titration_rate", np.float64(3.0)),
+            amount=ValueParameter(-np.float64(1.0)),
+            titration_rate=ValueParameter(np.float64(3.0)),
             components={
                 "SiO2": CombinedReactantComponent(
                     name="SiO2",
@@ -970,26 +983,26 @@ class TestConstraints(TestCase):
         """
         Ensure combined special-component expansion preserves the old glass decomposition math.
         """
-        water_mass = ValueParameter("water_mass", np.float64(1.0))
-        temperature = ValueParameter("temperature", np.float64(25.0))
-        pressure = ValueParameter("pressure", np.float64(1.0))
+        water_mass = ValueParameter(np.float64(1.0))
+        temperature = ValueParameter(np.float64(25.0))
+        pressure = ValueParameter(np.float64(1.0))
         combined = CombinedReactant(
             name="parity",
-            amount=ValueParameter("amount", -np.float64(1.0)),
-            titration_rate=ValueParameter("titration_rate", np.float64(3.0)),
+            amount=ValueParameter(-np.float64(1.0)),
+            titration_rate=ValueParameter(np.float64(3.0)),
             components={
                 "SiO2": CombinedReactantComponent(
                     name="SiO2",
                     type=ReactantType.SPECIAL,
                     fraction=np.float64(0.5),
-                    relative_rate=ValueParameter("relative_rate", np.float64(2.0)),
+                    relative_rate=ValueParameter(np.float64(2.0)),
                     composition={"Si": 1, "O": 2},
                 ),
                 "Na2O": CombinedReactantComponent(
                     name="Na2O",
                     type=ReactantType.SPECIAL,
                     fraction=np.float64(0.5),
-                    relative_rate=ValueParameter("relative_rate", np.float64(0.5)),
+                    relative_rate=ValueParameter(np.float64(0.5)),
                     composition={"Na": 2, "O": 1},
                 ),
             },
@@ -1016,35 +1029,35 @@ class TestConstraints(TestCase):
         """
         Ensure combined components fan out into the correct concrete VS reactant lists.
         """
-        water_mass = ValueParameter("water_mass", np.float64(1.0))
-        temperature = ValueParameter("temperature", np.float64(25.0))
-        pressure = ValueParameter("pressure", np.float64(1.0))
+        water_mass = ValueParameter(np.float64(1.0))
+        temperature = ValueParameter(np.float64(25.0))
+        pressure = ValueParameter(np.float64(1.0))
         combined = CombinedReactant(
             name="mixed",
-            amount=ValueParameter("amount", -np.float64(2.0)),
-            titration_rate=ValueParameter("titration_rate", np.float64(4.0)),
+            amount=ValueParameter(-np.float64(2.0)),
+            titration_rate=ValueParameter(np.float64(4.0)),
             components={
                 "forsterite": CombinedReactantComponent(
                     name="forsterite",
                     type=ReactantType.MINERAL,
                     fraction=np.float64(0.4),
-                    relative_rate=ValueParameter("relative_rate", np.float64(2.0)),
+                    relative_rate=ValueParameter(np.float64(2.0)),
                 ),
                 "SiO2": CombinedReactantComponent(
                     name="SiO2",
                     type=ReactantType.SPECIAL,
                     fraction=np.float64(0.3),
-                    relative_rate=ValueParameter("relative_rate", np.float64(1.0)),
+                    relative_rate=ValueParameter(np.float64(1.0)),
                     composition={"Si": 1, "O": 2},
                 ),
                 "olivine-ss": CombinedReactantComponent(
                     name="olivine-ss",
                     type=ReactantType.SOLID_SOLUTION,
                     fraction=np.float64(0.3),
-                    relative_rate=ValueParameter("relative_rate", np.float64(0.5)),
+                    relative_rate=ValueParameter(np.float64(0.5)),
                     end_members={
-                        "fayalite": ValueParameter("fraction", np.float64(0.7)),
-                        "forsterite": ValueParameter("fraction", np.float64(0.3)),
+                        "fayalite": ValueParameter(np.float64(0.7)),
+                        "forsterite": ValueParameter(np.float64(0.3)),
                     },
                 ),
             },
@@ -1072,10 +1085,10 @@ class TestConstraints(TestCase):
         """
         Ensure generate_vs wraps internal errors for unknown reactants and unrefined parameters.
         """
-        water_mass = ValueParameter("water_mass", np.float64(1.0))
-        temperature = ValueParameter("temperature", np.float64(25.0))
-        pressure = ValueParameter("pressure", np.float64(1.0))
-        na = ValueParameter("Na", -np.float64(1.0))
+        water_mass = ValueParameter(np.float64(1.0))
+        temperature = ValueParameter(np.float64(25.0))
+        pressure = ValueParameter(np.float64(1.0))
+        na = ValueParameter(-np.float64(1.0))
 
         order_bad_reactant = DummyOrder(
             parameters=[water_mass, temperature, pressure, na],
@@ -1089,9 +1102,9 @@ class TestConstraints(TestCase):
         )
         boatswain_bad_reactant = Boatswain(_as_order(order_bad_reactant))
         with self.assertRaises(Exception):
-            boatswain_bad_reactant.generate_vs()
+            _ = boatswain_bad_reactant.generate_vs()
 
-        p_unrefined = RangeParameter("unrefined", np.float64(0.0), np.float64(1.0))
+        p_unrefined = RangeParameter(np.float64(0.0), np.float64(1.0))
         order_unrefined = DummyOrder(
             parameters=[water_mass, temperature, pressure, p_unrefined],
             water_mass=water_mass,
@@ -1104,4 +1117,106 @@ class TestConstraints(TestCase):
         )
         boatswain_unrefined = Boatswain(_as_order(order_unrefined))
         with self.assertRaises(Exception):
-            boatswain_unrefined.generate_vs()
+            _ = boatswain_unrefined.generate_vs()
+
+    def test_linear_constraint_term_label(self):
+        """
+        Verify :meth:`LinearConstraintTerm.label` returns the stored name when set
+        and falls back to the hex-id sentinel when the name is empty.
+        """
+        p = ValueParameter(np.float64(1.0))
+        named_term = LinearConstraintTerm(p, np.float64(1.0), Transform.IDENTITY, name="elements[key=Na]")
+        self.assertEqual(named_term.label(), "elements[key=Na]")
+
+        unnamed_term = LinearConstraintTerm(p, np.float64(1.0), Transform.IDENTITY)
+        fallback = unnamed_term.label()
+        self.assertRegex(fallback, r"^<unnamed term @[0-9a-f]+>$")
+
+    def test_linear_constraint_apply_constant_not_resolved(self):
+        """
+        Verify apply raises when the constant parameter is not yet a ValueParameter.
+        """
+        p = ValueParameter(np.float64(5.0))
+        range_constant = RangeParameter(np.float64(0.0), np.float64(10.0))
+        lc = LinearConstraint(
+            [LinearConstraintTerm(p, np.float64(1.0), Transform.IDENTITY)],
+            constant=range_constant,
+        )
+        registry = ParameterRegistry()
+        registry.add_parameters([p, range_constant])
+        valuation = registry.valuation()
+        with self.assertRaisesRegex(EleanorException, "constant parameter is not resolved"):
+            _ = lc.apply(registry, valuation)
+
+    def test_linear_constraint_apply_all_fixed_not_resolved_message(self):
+        """
+        Verify apply raises with the correct label when all terms are fixed (no dependent)
+        but the valuation contains an unresolved entry for one of the independent terms.
+        """
+        p = ValueParameter(np.float64(1.0))
+        constant = ValueParameter(np.float64(1.0))
+        term = LinearConstraintTerm(p, np.float64(1.0), Transform.IDENTITY, name="pressure")
+        lc = LinearConstraint([term], constant=constant)
+        registry = ParameterRegistry()
+        registry.add_parameters([p, constant])
+        valuation = registry.valuation()
+        valuation[registry.id(p)] = RangeParameter(np.float64(0.0), np.float64(2.0))
+        with self.assertRaisesRegex(EleanorException, "parameter 'pressure' is not resolved"):
+            _ = lc.apply(registry, valuation)
+
+    def test_linear_constraint_apply_independent_not_resolved_message(self):
+        """
+        Verify apply raises with the unnamed-term fallback label when an independent
+        RangeParameter is not yet resolved and no name was supplied to the term.
+        """
+        p_dep = RangeParameter(np.float64(0.0), np.float64(100.0))
+        p_ind = RangeParameter(np.float64(0.0), np.float64(1.0))
+        constant = ValueParameter(np.float64(0.0))
+        lc = LinearConstraint(
+            [
+                LinearConstraintTerm(p_dep, np.float64(1.0), Transform.IDENTITY),
+                LinearConstraintTerm(p_ind, np.float64(1.0), Transform.IDENTITY),
+            ],
+            constant=constant,
+        )
+        registry = ParameterRegistry()
+        registry.add_parameters([p_dep, p_ind, constant])
+        valuation = registry.valuation()
+        with self.assertRaisesRegex(
+            EleanorException,
+            r"independent parameter '<unnamed term @[0-9a-f]+>' is not resolved",
+        ):
+            _ = lc.apply(registry, valuation)
+
+    def test_linear_constraint_from_order_full_variable_path_in_error(self):
+        """
+        Verify that a LinearConstraint built via from_order embeds the full variable
+        path (e.g. 'elements[key=Na]') in the diagnostic message when the independent
+        term is not yet resolved, not merely the leaf name.
+        """
+        temp = RangeParameter(np.float64(10.0), np.float64(100.0))
+        na = RangeParameter(np.float64(-2.0), np.float64(0.0))
+        order = DummyOrder(
+            parameters=[temp, na],
+            temperature=temp,
+            pressure=ValueParameter(np.float64(1.0)),
+            elements={"Na": na},
+            species={},
+            suppressions=[],
+            reactants=[],
+        )
+        raw: dict[str, object] = {
+            "type": "linear",
+            "terms": [
+                {"variable": "temperature", "coefficient": 1.0},
+                {"variable": "elements[key=Na]", "coefficient": -1.0},
+            ],
+        }
+        lc = LinearConstraint.from_order(_as_order(order), ConstraintConfig(type="linear", raw=raw))
+        self.assertIsInstance(lc, LinearConstraint)
+
+        registry = ParameterRegistry()
+        registry.add_parameters([temp, na, lc.constant])
+        valuation = registry.valuation()
+        with self.assertRaisesRegex(EleanorException, r"elements\[key=Na\]"):
+            _ = lc.apply(registry, valuation)

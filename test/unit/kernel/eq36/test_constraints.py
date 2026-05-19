@@ -74,13 +74,13 @@ class TestEq36Constraints(TestCase):
         Ensure at least one data1 object is required.
         """
         with self.assertRaises(EleanorException):
-            TemperatureRangeConstraint(ValueParameter("temperature", np.float64(25.0)), [])
+            _ = TemperatureRangeConstraint(ValueParameter(np.float64(25.0)), [])
 
     def test_temperature_range_init_uses_tp_curves_only(self):
         """
         Ensure constructor aggregates min/max temperatures only from data1 entries with curves.
         """
-        temp = ValueParameter("temperature", np.float64(25.0))
+        temp = ValueParameter(np.float64(25.0))
         c = TemperatureRangeConstraint(
             temp,
             [
@@ -100,7 +100,7 @@ class TestEq36Constraints(TestCase):
         """
         data1s = [_data1_with_curve(_DummyCurve({"min": np.float64(10.0), "max": np.float64(40.0)}))]
 
-        t_value = ValueParameter("temperature", np.float64(25.0))
+        t_value = ValueParameter(np.float64(25.0))
         c_value = TemperatureRangeConstraint(t_value, data1s)
         registry, valuation = self._registry_with(t_value)
         refined_value = c_value.apply(registry, valuation)[0]
@@ -109,7 +109,7 @@ class TestEq36Constraints(TestCase):
             raise AssertionError("expected ValueParameter")
         self.assertEqual(refined_value.value, np.float64(25.0))
 
-        t_range = RangeParameter("temperature", np.float64(0.0), np.float64(100.0))
+        t_range = RangeParameter(np.float64(0.0), np.float64(100.0))
         c_range = TemperatureRangeConstraint(t_range, data1s)
         registry, valuation = self._registry_with(t_range)
         refined_range = c_range.apply(registry, valuation)[0]
@@ -119,7 +119,6 @@ class TestEq36Constraints(TestCase):
         self.assertEqual((refined_range.min, refined_range.max), (np.float64(10.0), np.float64(40.0)))
 
         t_list = ListParameter(
-            "temperature",
             [np.float64(1.0), np.float64(12.0), np.float64(30.0), np.float64(99.0)],
         )
         c_list = TemperatureRangeConstraint(t_list, data1s)
@@ -131,7 +130,6 @@ class TestEq36Constraints(TestCase):
         self.assertEqual(refined_list.values, [np.float64(12.0), np.float64(30.0)])
 
         t_normal = NormalParameter(
-            "temperature",
             mean=np.float64(20.0),
             stddev=np.float64(5.0),
             a=np.float64(-50.0),
@@ -151,43 +149,43 @@ class TestEq36Constraints(TestCase):
         """
         data1s = [_data1_with_curve(_DummyCurve({"min": np.float64(10.0), "max": np.float64(40.0)}))]
 
-        out_of_range = ValueParameter("temperature", np.float64(90.0))
+        out_of_range = ValueParameter(np.float64(90.0))
         c = TemperatureRangeConstraint(out_of_range, data1s)
         registry, valuation = self._registry_with(out_of_range)
         with self.assertRaises(EleanorException):
-            c.apply(registry, valuation)
-        empty_after_filter = ListParameter("temperature", [np.float64(1.0), np.float64(2.0)])
+            _ = c.apply(registry, valuation)
+        empty_after_filter = ListParameter([np.float64(1.0), np.float64(2.0)])
         c2 = TemperatureRangeConstraint(empty_after_filter, data1s)
         registry, valuation = self._registry_with(empty_after_filter)
         with self.assertRaises(EleanorException):
-            c2.apply(registry, valuation)
+            _ = c2.apply(registry, valuation)
 
-        weird = _WeirdParameter("temperature")
+        weird = _WeirdParameter()
         c3 = TemperatureRangeConstraint(weird, data1s)
         registry, valuation = self._registry_with(weird)
         with self.assertRaises(EleanorException):
-            c3.apply(registry, valuation)
+            _ = c3.apply(registry, valuation)
 
     def test_tp_curve_constraint_properties_and_non_value_temperature(self):
         """
         Ensure TP-curve constraint dependency properties and temperature precondition checks.
         """
-        temp = RangeParameter("temperature", np.float64(1.0), np.float64(2.0))
-        pressure = RangeParameter("pressure", np.float64(1.0), np.float64(100.0))
+        temp = RangeParameter(np.float64(1.0), np.float64(2.0))
+        pressure = RangeParameter(np.float64(1.0), np.float64(100.0))
         c = TPCurveConstraint(temp, pressure, [])
         self.assertEqual(c.independent_parameters, [temp])
         self.assertEqual(c.dependent_parameters, [pressure])
 
         registry, valuation = self._registry_with(temp, pressure)
         with self.assertRaises(EleanorException):
-            c.apply(registry, valuation)
+            _ = c.apply(registry, valuation)
 
     def test_tp_curve_constraint_apply_success_and_empty_candidates_error(self):
         """
         Ensure apply filters candidate pressures and wraps errors when no valid pressure remains.
         """
-        temp = ValueParameter("temperature", np.float64(25.0))
-        pressure = RangeParameter("pressure", np.float64(5.0), np.float64(20.0))
+        temp = ValueParameter(np.float64(25.0))
+        pressure = RangeParameter(np.float64(5.0), np.float64(20.0))
         data1s = [
             _data1_with_curve(None),
             _data1_with_curve(_DummyCurve({"min": np.float64(0.0), "max": np.float64(100.0)}, p=None, in_domain=True)),
@@ -210,8 +208,8 @@ class TestEq36Constraints(TestCase):
             raise AssertionError("expected ValueParameter")
         self.assertEqual(refined.value, np.float64(12.0))
 
-        pressure_strict = RangeParameter("pressure", np.float64(50.0), np.float64(60.0))
+        pressure_strict = RangeParameter(np.float64(50.0), np.float64(60.0))
         c_strict = TPCurveConstraint(temp, pressure_strict, data1s)
         registry, valuation = self._registry_with(temp, pressure_strict)
         with self.assertRaises(EleanorException):
-            c_strict.apply(registry, valuation)
+            _ = c_strict.apply(registry, valuation)

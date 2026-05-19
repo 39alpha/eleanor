@@ -42,10 +42,10 @@ def _mock_order() -> Order:
         notes="notes",
         creator="creator",
         kernel=mock.MagicMock(),
-        temperature=Parameter.load(200.0, "temperature"),
-        pressure=Parameter.load(100.0, "pressure"),
+        temperature=Parameter.load(200.0),
+        pressure=Parameter.load(100.0),
         elements={
-            "C": Parameter.load(-6, "C"),
+            "C": Parameter.load(-6),
         },
     )
 

@@ -67,6 +67,10 @@ class LinearConstraintTerm:
     parameter: Parameter
     coefficient: np.float64
     transform: Transform
+    name: str = ""
+
+    def label(self) -> str:
+        return self.name or f"<unnamed term @{id(self.parameter):x}>"
 
 
 class AbstractConstraint(ABC):
@@ -181,7 +185,7 @@ class LinearConstraint(AbstractConstraint):
         if not terms:
             raise EleanorException("LinearConstraint requires at least one term")
 
-        self.constant = constant if constant is not None else ValueParameter("constant", np.float64(0.0))
+        self.constant = constant if constant is not None else ValueParameter(np.float64(0.0))
         self.tolerance = tolerance if tolerance is not None else np.float64(1e-6)
         self.terms = sorted(terms, key=lambda t: t.parameter.volume(), reverse=True)
 
@@ -230,7 +234,7 @@ class LinearConstraint(AbstractConstraint):
             for term in self._independent_terms:
                 term_param = valuation[registry.id(term.parameter)]
                 if not isinstance(term_param, ValueParameter):
-                    raise EleanorException(f"parameter '{term.parameter.name}' is not resolved")
+                    raise EleanorException(f"parameter '{term.label()}' is not resolved")
                 lhs = np.float64(lhs + term.coefficient * term.transform.forward(term_param.value))
             if np.abs(lhs - c) > self.tolerance:
                 raise EleanorException(
@@ -242,7 +246,7 @@ class LinearConstraint(AbstractConstraint):
         for term in self._independent_terms:
             term_param = valuation[registry.id(term.parameter)]
             if not isinstance(term_param, ValueParameter):
-                raise EleanorException(f"independent parameter '{term.parameter.name}' is not resolved")
+                raise EleanorException(f"independent parameter '{term.label()}' is not resolved")
             rhs = np.float64(rhs - term.coefficient * term.transform.forward(term_param.value))
 
         dep = self._dependent_term
@@ -253,7 +257,7 @@ class LinearConstraint(AbstractConstraint):
         fixed = dep.parameter.fix(dep_value)
         if not dep.parameter.in_domain(fixed):
             raise EleanorException(
-                f"linear constraint solved '{dep.parameter.name}' to {dep_value}, which is outside its admissible domain"
+                f"linear constraint solved '{dep.label()}' to {dep_value}, which is outside its admissible domain"
             )
         return {registry.id(dep.parameter): fixed}
 
@@ -294,11 +298,18 @@ class LinearConstraint(AbstractConstraint):
                 ) from exc
 
             parameter = resolve_parameter(order, variable_str)
-            terms.append(LinearConstraintTerm(parameter=parameter, coefficient=coefficient, transform=transform))
+            terms.append(
+                LinearConstraintTerm(
+                    parameter=parameter,
+                    coefficient=coefficient,
+                    transform=transform,
+                    name=variable_str,
+                )
+            )
 
         constant: Parameter | None = None
         if "constant" in raw:
-            constant = Parameter.load(raw["constant"], name="constant")
+            constant = Parameter.load(raw["constant"])
 
         tolerance: np.float64 | None = None
         if "tolerance" in raw:
@@ -398,16 +409,19 @@ class Boatswain(object):
                 valuation[parameter_id] = refined
 
             elements = [
-                vs.Element(name=e.name, log_molality=valuation[self.registry.id(e)].value)
-                for e in self.order.elements.values()
+                vs.Element(
+                    name=name,
+                    log_molality=valuation[self.registry.id(p)].value,
+                )
+                for name, p in self.order.elements.items()
             ]
 
             species = [
                 vs.Species(
-                    name=s.name,
-                    value=valuation[self.registry.id(s)].value,
+                    name=name,
+                    value=valuation[self.registry.id(p)].value,
                 )
-                for s in self.order.species.values()
+                for name, p in self.order.species.items()
             ]
 
             suppressions = [

@@ -1,5 +1,5 @@
 from collections.abc import Iterator
-from typing import cast, override
+from typing import cast, final, override
 from unittest import mock
 
 import numpy as np
@@ -88,6 +88,7 @@ class TestNavigator(TestCase):
             def random(self):
                 return ["chosen"]
 
+        @final
         class FakeBoatswain:
             def __init__(self, order):
                 self.order = order
@@ -123,7 +124,7 @@ class TestNavigator(TestCase):
         nav = Random(order=mock.Mock(), kernel=mock.Mock())
         with mock.patch("eleanor.navigator.random.Boatswain", side_effect=RuntimeError("boom")):
             with self.assertRaises(Exception) as cm:
-                nav.generate()
+                _ = nav.generate()
         self.assertIn("failed to select VS point", str(cm.exception))
 
     def test_random_generate_default_max_attempts_does_not_retry(self):
@@ -138,7 +139,7 @@ class TestNavigator(TestCase):
             side_effect=RuntimeError("boom"),
         ) as boat_class_mock:
             with self.assertRaises(EleanorException):
-                nav.generate()
+                _ = nav.generate()
         self.assertEqual(boat_class_mock.call_count, 1)
 
     def test_random_generate_retries_until_success(self):
@@ -202,7 +203,7 @@ class TestNavigator(TestCase):
             side_effect=[first, second, last],
         ) as boat_class_mock:
             with self.assertRaises(EleanorException) as cm:
-                nav.generate(max_attempts=3)
+                _ = nav.generate(max_attempts=3)
 
         self.assertIn("failed to select VS point", str(cm.exception))
         self.assertIs(cm.exception.__cause__, last)
@@ -217,7 +218,7 @@ class TestNavigator(TestCase):
         nav = Random(order=mock.Mock(), kernel=mock.Mock())
         with mock.patch("eleanor.navigator.random.Boatswain") as boat_class_mock:
             with self.assertRaisesRegex(EleanorException, "max_attempts must be an integer"):
-                nav.generate(max_attempts="3")
+                _ = nav.generate(max_attempts="3")
         boat_class_mock.assert_not_called()
 
     def test_random_generate_rejects_bool_max_attempts(self):
@@ -229,7 +230,7 @@ class TestNavigator(TestCase):
         """
         nav = Random(order=mock.Mock(), kernel=mock.Mock())
         with self.assertRaisesRegex(EleanorException, "max_attempts must be an integer"):
-            nav.generate(max_attempts=True)
+            _ = nav.generate(max_attempts=True)
 
     def test_random_generate_rejects_zero_max_attempts(self):
         """
@@ -240,7 +241,7 @@ class TestNavigator(TestCase):
         nav = Random(order=mock.Mock(), kernel=mock.Mock())
         with mock.patch("eleanor.navigator.random.Boatswain") as boat_class_mock:
             with self.assertRaisesRegex(EleanorException, "max_attempts must be at least one"):
-                nav.generate(max_attempts=0)
+                _ = nav.generate(max_attempts=0)
         boat_class_mock.assert_not_called()
 
     def test_random_generate_rejects_negative_max_attempts(self):
@@ -249,7 +250,7 @@ class TestNavigator(TestCase):
         """
         nav = Random(order=mock.Mock(), kernel=mock.Mock())
         with self.assertRaisesRegex(EleanorException, "max_attempts must be at least one"):
-            nav.generate(max_attempts=-1)
+            _ = nav.generate(max_attempts=-1)
 
     def test_random_navigate_threads_max_attempts_to_generate(self):
         """
@@ -272,6 +273,7 @@ class TestNavigator(TestCase):
         """
         kernel = mock.Mock()
 
+        @final
         class FakeBoatswain:
             def __init__(self, order):
                 self.values = {}
@@ -304,8 +306,8 @@ class TestNavigator(TestCase):
 
         order = mock.Mock()
         order.parameters.return_value = [
-            ValueParameter("a", np.float64(1)),
-            RangeParameter("b", np.float64(0), np.float64(1)),
+            ValueParameter(np.float64(1)),
+            RangeParameter(np.float64(0), np.float64(1)),
         ]
         nav2 = DummyLatticeNavigator(order=order, kernel=mock.Mock())
         self.assertEqual(nav2.num_systems(3), 3)
@@ -367,4 +369,4 @@ class TestNavigator(TestCase):
         param.lattice.assert_called_once_with(size=2)
 
         with self.assertRaises(ValueError):
-            lattice.generate(param, 0)
+            _ = lattice.generate(param, 0)

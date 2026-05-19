@@ -78,7 +78,7 @@ class TestOrder(TestCase):
         Ensure suppression construction and parsing validate name/type/exception constraints.
         """
         with self.assertRaises(EleanorException):
-            Suppression(None, None, [])
+            _ = Suppression(None, None, [])
 
         s = Suppression.from_dict({"name": "Quartz", "except": ["H2O"]})
         self.assertEqual(s.name, "Quartz")
@@ -90,11 +90,11 @@ class TestOrder(TestCase):
         self.assertEqual(s2.type, "mineral")
 
         with self.assertRaises(EleanorException):
-            Suppression.from_dict(cast(SuppressionRaw, cast(object, {"name": 1})))
+            _ = Suppression.from_dict(cast(SuppressionRaw, cast(object, {"name": 1})))
         with self.assertRaises(EleanorException):
-            Suppression.from_dict(cast(SuppressionRaw, cast(object, {"name": "x", "type": 2})))
+            _ = Suppression.from_dict(cast(SuppressionRaw, cast(object, {"name": "x", "type": 2})))
         with self.assertRaises(EleanorException):
-            Suppression.from_dict(cast(SuppressionRaw, cast(object, {"name": "x", "except": [1]})))
+            _ = Suppression.from_dict(cast(SuppressionRaw, cast(object, {"name": "x", "except": [1]})))
 
     def test_order_core_methods(self):
         """
@@ -125,7 +125,7 @@ class TestOrder(TestCase):
         self.assertIsNone(order_without_id.id)
 
         with self.assertRaisesRegex(EleanorException, "id must be an integer"):
-            _make_order(id="not-an-int")
+            _ = _make_order(id="not-an-int")
 
     def test_order_reads_tag_from_raw_and_defaults_to_empty_string(self):
         """
@@ -139,7 +139,7 @@ class TestOrder(TestCase):
         self.assertEqual(order_without_tag.tag, "")
 
         with self.assertRaisesRegex(EleanorException, "tag must be a string"):
-            _make_order(raw=_minimal_raw(tag=123))
+            _ = _make_order(raw=_minimal_raw(tag=123))
 
     def test_order_kwargs_override_raw_id_and_tag(self):
         """
@@ -170,11 +170,11 @@ class TestOrder(TestCase):
         Ensure order validation and kernel/navigator parsing branches behave correctly.
         """
         with self.assertRaises(EleanorException):
-            Order.from_dict(cast(OrderRaw, cast(object, _minimal_raw(name=1))))
+            _ = Order.from_dict(cast(OrderRaw, cast(object, _minimal_raw(name=1))))
         with self.assertRaises(EleanorException):
-            Order.from_dict(cast(OrderRaw, cast(object, _minimal_raw(notes=1))))
+            _ = Order.from_dict(cast(OrderRaw, cast(object, _minimal_raw(notes=1))))
         with self.assertRaises(EleanorException):
-            Order.from_dict(cast(OrderRaw, cast(object, _minimal_raw(creator=1))))
+            _ = Order.from_dict(cast(OrderRaw, cast(object, _minimal_raw(creator=1))))
 
         order = _make_order(
             name="o",
@@ -190,8 +190,8 @@ class TestOrder(TestCase):
         Ensure :meth:`Order.parameters` includes kernel and reactant-derived parameter lists.
         """
         order = _make_order()
-        kparam = ValueParameter("k", np.float64(1.0))
-        rparam = ValueParameter("r", np.float64(2.0))
+        kparam = ValueParameter(np.float64(1.0))
+        rparam = ValueParameter(np.float64(2.0))
         setattr(order, "kernel", SimpleNamespace(parameters=lambda: [kparam]))
         setattr(order, "reactants", [SimpleNamespace(parameters=lambda: [rparam])])
 
@@ -207,7 +207,7 @@ class TestOrder(TestCase):
             EleanorException,
             "appears more than once across reactants and combined-reactant components",
         ):
-            _make_order(
+            _ = _make_order(
                 reactants={
                     "FeO": {
                         "type": "special",
@@ -271,15 +271,15 @@ class TestOrder(TestCase):
                 bad = join(tmp, "o.ini")
 
                 with open(yml, "w") as handle:
-                    handle.write(yaml_content)
+                    _ = handle.write(yaml_content)
                 with open(yml2, "w") as handle:
-                    handle.write(yaml_content)
+                    _ = handle.write(yaml_content)
                 with open(toml, "w") as handle:
-                    handle.write(toml_content)
+                    _ = handle.write(toml_content)
                 with open(js, "w") as handle:
-                    handle.write(json_content)
+                    _ = handle.write(json_content)
                 with open(bad, "w") as handle:
-                    handle.write("[x]\n")
+                    _ = handle.write("[x]\n")
 
                 self.assertIsInstance(Order.from_yaml(yml), Order)
                 self.assertIsInstance(Order.from_toml(toml), Order)
@@ -292,7 +292,7 @@ class TestOrder(TestCase):
                 self.assertIsInstance(Order.from_file(toml), Order)
                 self.assertIsInstance(Order.from_file(js), Order)
                 with self.assertRaises(EleanorException):
-                    Order.from_file(bad)
+                    _ = Order.from_file(bad)
 
                 self.assertIsInstance(load_order(yml), Order)
 
@@ -305,12 +305,12 @@ class TestOrder(TestCase):
         """
         with mock.patch("eleanor.order.Order.from_yaml", side_effect=EleanorException("boom")):
             with self.assertRaisesRegex(EleanorException, "boom"):
-                Order.from_file("test.yaml")
+                _ = Order.from_file("test.yaml")
 
     def test_order_requires_kernel(self):
         """Ensure Order raises when kernel is absent."""
         with self.assertRaisesRegex(EleanorException, "kernel is required"):
-            Order.from_dict(
+            _ = Order.from_dict(
                 {
                     "name": "o",
                     "creator": "u",
@@ -324,7 +324,7 @@ class TestOrder(TestCase):
         """Ensure Order raises when temperature is absent."""
         with mock.patch("eleanor.kernel.registry.get_factory", return_value=_FAKE_KERNEL_SPEC):
             with self.assertRaisesRegex(EleanorException, "temperature is required"):
-                Order.from_dict(
+                _ = Order.from_dict(
                     {
                         "name": "o",
                         "creator": "u",
@@ -338,7 +338,7 @@ class TestOrder(TestCase):
         """Ensure Order raises when pressure is absent."""
         with mock.patch("eleanor.kernel.registry.get_factory", return_value=_FAKE_KERNEL_SPEC):
             with self.assertRaisesRegex(EleanorException, "pressure is required"):
-                Order.from_dict(
+                _ = Order.from_dict(
                     {
                         "name": "o",
                         "creator": "u",
@@ -352,7 +352,7 @@ class TestOrder(TestCase):
         """Ensure Order raises when elements is empty or absent."""
         with mock.patch("eleanor.kernel.registry.get_factory", return_value=_FAKE_KERNEL_SPEC):
             with self.assertRaisesRegex(EleanorException, "elements must not be empty"):
-                Order.from_dict(
+                _ = Order.from_dict(
                     {
                         "name": "o",
                         "creator": "u",
@@ -362,7 +362,7 @@ class TestOrder(TestCase):
                     }
                 )
             with self.assertRaisesRegex(EleanorException, "elements must not be empty"):
-                Order.from_dict(
+                _ = Order.from_dict(
                     {
                         "name": "o",
                         "creator": "u",

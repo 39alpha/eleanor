@@ -26,7 +26,6 @@ class ParameterRaw(TypedDict, total=False):
     the runtime validator below dispatches on which keys are present.
     """
 
-    name: str | None
     value: ParameterScalar
     values: list[ParameterScalar]
     mean: ParameterScalar
@@ -43,11 +42,11 @@ POS_INF = np.float64(np.inf)
 type ParameterOrSource = Parameter | ParameterSource
 
 
-def load_parameter(param: ParameterOrSource, default_name: str) -> Parameter:
+def load_parameter(param: ParameterOrSource) -> Parameter:
     if isinstance(param, Parameter):
         return param
 
-    return Parameter.load(param, name=default_name)
+    return Parameter.load(param)
 
 
 def _as_float(value: object) -> np.float64:
@@ -64,8 +63,6 @@ def _as_int_array(values: object) -> npt.NDArray[np.int_]:
 
 @dataclass
 class Parameter(ABC):
-    name: str
-
     @abstractmethod
     def in_domain(self, parameter: "Parameter") -> bool:
         return False
@@ -87,7 +84,7 @@ class Parameter(ABC):
         pass
 
     def restrict(self, cls: type["Parameter"], *args: object, **kwargs: object) -> "Parameter":
-        new = cls(self.name, *args, **kwargs)
+        new = cls(*args, **kwargs)
         return Parameter.refine(new)
 
     def fix(self, value: np.float64) -> "Parameter":
@@ -105,40 +102,34 @@ class Parameter(ABC):
         return parameter
 
     @classmethod
-    def from_dict(cls, raw: ParameterRaw, name: str | None = None) -> "Parameter":
-        if name is None:
-            name = raw.get("name")
-        if not isinstance(name, str):
-            raise EleanorException("parameter name must be a string")
-
+    def from_dict(cls, raw: ParameterRaw) -> "Parameter":
         if "value" in raw:
-            parameter: Parameter = ValueParameter(name, _as_float(raw["value"]))
+            parameter: Parameter = ValueParameter(_as_float(raw["value"]))
         elif "values" in raw:
-            parameter = ListParameter(name, [_as_float(v) for v in raw["values"]])
+            parameter = ListParameter([_as_float(v) for v in raw["values"]])
         elif "mean" in raw:
             mean = _as_float(raw["mean"])
             stddev = _as_float(raw["stddev"]) if "stddev" in raw else None
             a = _as_float(raw["min"]) if "min" in raw else np.float64(-np.inf)
             b = _as_float(raw["max"]) if "max" in raw else np.float64(np.inf)
-            parameter = NormalParameter(name, mean, stddev=stddev, a=a, b=b)
+            parameter = NormalParameter(mean, stddev=stddev, a=a, b=b)
         elif "min" in raw and "max" in raw:
-            parameter = RangeParameter(name, _as_float(raw["min"]), _as_float(raw["max"]))
+            parameter = RangeParameter(_as_float(raw["min"]), _as_float(raw["max"]))
         else:
             raise EleanorException("parameter must have value, values or min and max")
 
         return cls.refine(parameter)
 
     @classmethod
-    def load(cls, raw: object, name: str | None = None) -> "Parameter":
+    def load(cls, raw: object) -> "Parameter":
         if isinstance(raw, dict):
-            return cls.from_dict(cast(ParameterRaw, cast(object, raw)), name=name)
+            return cls.from_dict(cast(ParameterRaw, cast(object, raw)))
         elif isinstance(raw, list):
             return cls.from_dict(
                 ParameterRaw(values=cast(list[ParameterScalar], cast(object, raw))),
-                name=name,
             )
         else:
-            return cls.from_dict(ParameterRaw(value=cast(ParameterScalar, raw)), name=name)
+            return cls.from_dict(ParameterRaw(value=cast(ParameterScalar, raw)))
 
 
 @dataclass
@@ -176,14 +167,14 @@ class RangeParameter(Parameter):
     min: np.float64
     max: np.float64
 
-    def __init__(self, name: str, a: np.float64, b: np.float64):
-        super().__init__(name)
+    def __init__(self, a: np.float64, b: np.float64):
+        super().__init__()
         self.min = np.float64(min(a, b))
         self.max = np.float64(max(a, b))
 
     @property
     def bounds(self) -> tuple[ValueParameter, ValueParameter]:
-        return ValueParameter(self.name, self.min), ValueParameter(self.name, self.max)
+        return ValueParameter(self.min), ValueParameter(self.max)
 
     @override
     def in_domain(self, parameter: Parameter) -> bool:
@@ -207,12 +198,12 @@ class RangeParameter(Parameter):
     @override
     def random(self, size: int = 1) -> list[ValueParameter]:
         values = _as_float_array(cast(object, scipy.stats.uniform.rvs(loc=self.min, scale=self.volume(), size=size)))
-        return [ValueParameter(self.name, cast(np.float64, values[i])) for i in range(values.size)]
+        return [ValueParameter(cast(np.float64, values[i])) for i in range(values.size)]
 
     @override
     def lattice(self, size: int = 2) -> list[ValueParameter]:
         values = _as_float_array(np.linspace(self.min, self.max, num=size))
-        return [ValueParameter(self.name, cast(np.float64, values[i])) for i in range(values.size)]
+        return [ValueParameter(cast(np.float64, values[i])) for i in range(values.size)]
 
 
 _ = Parameter.register(RangeParameter)
@@ -222,15 +213,15 @@ _ = Parameter.register(RangeParameter)
 class ListParameter(Parameter):
     values: list[np.float64]
 
-    def __init__(self, name: str, values: list[np.float64]):
+    def __init__(self, values: list[np.float64]):
         if not values:
-            raise EleanorException(f'cannot create the empty ListParameter "{name}"')
-        super().__init__(name)
+            raise EleanorException("cannot create the empty ListParameter")
+        super().__init__()
         self.values = sorted(values)
 
     @property
     def elements(self) -> list[ValueParameter]:
-        return [ValueParameter(self.name, v) for v in self.values]
+        return [ValueParameter(v) for v in self.values]
 
     @override
     def in_domain(self, parameter: Parameter) -> bool:
@@ -255,11 +246,11 @@ class ListParameter(Parameter):
     @override
     def random(self, size: int = 1) -> list[ValueParameter]:
         indices = _as_int_array(cast(object, scipy.stats.randint.rvs(0, len(self.values), size=size)))
-        return [ValueParameter(self.name, self.values[int(indices.item(i))]) for i in range(indices.size)]
+        return [ValueParameter(self.values[int(indices.item(i))]) for i in range(indices.size)]
 
     @override
     def lattice(self, size: int = 2) -> list[ValueParameter]:
-        return [ValueParameter(self.name, value) for value in islice(cycle(self.values), size)]
+        return [ValueParameter(value) for value in islice(cycle(self.values), size)]
 
 
 _ = Parameter.register(ListParameter)
@@ -274,13 +265,12 @@ class NormalParameter(Parameter):
 
     def __init__(
         self,
-        name: str,
         mean: np.float64,
         stddev: np.float64 | None = None,
         a: np.float64 = NEG_INF,
         b: np.float64 = POS_INF,
     ):
-        super().__init__(name)
+        super().__init__()
         self.mean = mean
         self.min = np.float64(min(a, b))
         self.max = np.float64(max(a, b))
@@ -315,7 +305,7 @@ class NormalParameter(Parameter):
             draws = cast(object, scipy.stats.truncnorm.rvs(a, b, loc=self.mean, scale=self.stddev, size=size))
 
         samples = _as_float_array(draws)
-        return [ValueParameter(self.name, cast(np.float64, samples[i])) for i in range(samples.size)]
+        return [ValueParameter(cast(np.float64, samples[i])) for i in range(samples.size)]
 
     @override
     def lattice(self, size: int = 2) -> list[ValueParameter]:
@@ -331,7 +321,7 @@ class NormalParameter(Parameter):
             u = Z * u + phi_alpha
 
         values = _as_float_array(cast(object, self.stddev * np.sqrt(2) * scipy.special.erfinv(2 * u - 1) + self.mean))
-        return [ValueParameter(self.name, cast(np.float64, values[i])) for i in range(values.size)]
+        return [ValueParameter(cast(np.float64, values[i])) for i in range(values.size)]
 
 
 _ = Parameter.register(NormalParameter)

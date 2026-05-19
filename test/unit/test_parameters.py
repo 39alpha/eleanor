@@ -8,7 +8,6 @@ from eleanor.parameters import (
     ListParameter,
     NormalParameter,
     Parameter,
-    ParameterRaw,
     ParameterRegistry,
     RangeParameter,
     ValueParameter,
@@ -33,49 +32,40 @@ class TestParameters(TestCase):
         self.assertIsNone(Parameter.random(placeholder))
         self.assertIsNone(Parameter.lattice(placeholder))
 
-    def test_parameter_from_dict_validation(self):
-        """
-        Ensure :meth:`Parameter.from_dict` validates required name/type metadata.
-        """
-        with self.assertRaises(EleanorException):
-            Parameter.from_dict(cast(ParameterRaw, cast(object, {"name": 1, "value": 1.0})))
-        with self.assertRaises(EleanorException):
-            Parameter.from_dict({"name": "x"})
-
     def test_parameter_from_dict_and_load_dispatch(self):
         """
         Ensure parameter parsing/load dispatch covers value/list/range/normal forms.
         """
-        p0 = Parameter.from_dict({"name": "x", "value": 2})
+        p0 = Parameter.from_dict({"value": 2})
         self.assertIsInstance(p0, ValueParameter)
         self.assertEqual(cast(ValueParameter, p0).value, 2)
 
-        p1 = Parameter.from_dict({"name": "x", "values": [3, 1, 2]})
+        p1 = Parameter.from_dict({"values": [3, 1, 2]})
         self.assertIsInstance(p1, ListParameter)
         self.assertEqual(cast(ListParameter, p1).values, [1, 2, 3])
 
-        p2 = Parameter.from_dict({"name": "x", "min": 5, "max": 2})
+        p2 = Parameter.from_dict({"min": 5, "max": 2})
         self.assertIsInstance(p2, RangeParameter)
         p2_range = cast(RangeParameter, p2)
         self.assertEqual((p2_range.min, p2_range.max), (2, 5))
 
-        p3 = Parameter.from_dict({"name": "x", "mean": 0.0, "stddev": 2.0})
+        p3 = Parameter.from_dict({"mean": 0.0, "stddev": 2.0})
         self.assertIsInstance(p3, NormalParameter)
         self.assertEqual(cast(NormalParameter, p3).stddev, 2.0)
 
-        self.assertIsInstance(Parameter.load({"value": 1.0}, "a"), ValueParameter)
-        self.assertIsInstance(Parameter.load([1.0, 2.0], "a"), ListParameter)
-        self.assertIsInstance(Parameter.load(1.0, "a"), ValueParameter)
+        self.assertIsInstance(Parameter.load({"value": 1.0}), ValueParameter)
+        self.assertIsInstance(Parameter.load([1.0, 2.0]), ListParameter)
+        self.assertIsInstance(Parameter.load(1.0), ValueParameter)
 
     def test_parameter_refine_and_restrict(self):
         """
         Ensure refine/restrict/fix collapse degenerate list/range parameters to value parameters.
         """
-        p = RangeParameter("x", np.float64(1.0), np.float64(1.0))
+        p = RangeParameter(np.float64(1.0), np.float64(1.0))
         self.assertIsInstance(Parameter.refine(p), ValueParameter)
-        p = ListParameter("x", [np.float64(2.0), np.float64(2.0)])
+        p = ListParameter([np.float64(2.0), np.float64(2.0)])
         self.assertIsInstance(Parameter.refine(p), ValueParameter)
-        p = RangeParameter("x", np.float64(0.0), np.float64(2.0))
+        p = RangeParameter(np.float64(0.0), np.float64(2.0))
         fixed = p.fix(np.float64(1.0))
         self.assertIsInstance(fixed, ValueParameter)
         self.assertEqual(cast(ValueParameter, fixed).value, np.float64(1.0))
@@ -84,10 +74,10 @@ class TestParameters(TestCase):
         """
         Ensure :class:`ValueParameter` domain/range/volume/random/lattice behave as expected.
         """
-        p = ValueParameter("x", np.float64(2.0))
-        self.assertTrue(p.in_domain(ValueParameter("x", np.float64(2.0))))
-        self.assertFalse(p.in_domain(ValueParameter("x", np.float64(3.0))))
-        self.assertFalse(p.in_domain(RangeParameter("x", np.float64(1.0), np.float64(2.0))))
+        p = ValueParameter(np.float64(2.0))
+        self.assertTrue(p.in_domain(ValueParameter(np.float64(2.0))))
+        self.assertFalse(p.in_domain(ValueParameter(np.float64(3.0))))
+        self.assertFalse(p.in_domain(RangeParameter(np.float64(1.0), np.float64(2.0))))
         self.assertEqual(p.range(), (np.float64(2.0), np.float64(2.0)))
         self.assertEqual(p.volume(), np.float64(1.0))
         self.assertEqual([x.value for x in p.random(size=2)], [np.float64(2.0), np.float64(2.0)])
@@ -97,15 +87,15 @@ class TestParameters(TestCase):
         """
         Ensure :class:`RangeParameter` ordering, domain checks, and generation helpers work.
         """
-        p = RangeParameter("x", np.float64(3.0), np.float64(1.0))
+        p = RangeParameter(np.float64(3.0), np.float64(1.0))
         self.assertEqual((p.min, p.max), (np.float64(1.0), np.float64(3.0)))
         b0, b1 = p.bounds
         self.assertEqual((b0.value, b1.value), (np.float64(1.0), np.float64(3.0)))
-        self.assertTrue(p.in_domain(ValueParameter("x", np.float64(2.0))))
-        self.assertFalse(p.in_domain(ValueParameter("x", np.float64(4.0))))
-        self.assertTrue(p.in_domain(RangeParameter("x", np.float64(1.5), np.float64(2.5))))
-        self.assertTrue(p.in_domain(ListParameter("x", [np.float64(1.0), np.float64(2.0), np.float64(3.0)])))
-        self.assertFalse(p.in_domain(ListParameter("x", [np.float64(0.0), np.float64(2.0)])))
+        self.assertTrue(p.in_domain(ValueParameter(np.float64(2.0))))
+        self.assertFalse(p.in_domain(ValueParameter(np.float64(4.0))))
+        self.assertTrue(p.in_domain(RangeParameter(np.float64(1.5), np.float64(2.5))))
+        self.assertTrue(p.in_domain(ListParameter([np.float64(1.0), np.float64(2.0), np.float64(3.0)])))
+        self.assertFalse(p.in_domain(ListParameter([np.float64(0.0), np.float64(2.0)])))
         self.assertFalse(p.in_domain(cast(Parameter, object())))
         self.assertEqual(p.range(), (np.float64(1.0), np.float64(3.0)))
         self.assertEqual(p.volume(), np.float64(2.0))
@@ -122,17 +112,17 @@ class TestParameters(TestCase):
         Ensure :class:`ListParameter` validation, domain checks, and generation helpers work.
         """
         with self.assertRaises(EleanorException):
-            ListParameter("x", [])
+            _ = ListParameter([])
 
-        p = ListParameter("x", [np.float64(3.0), np.float64(1.0), np.float64(2.0)])
+        p = ListParameter([np.float64(3.0), np.float64(1.0), np.float64(2.0)])
         self.assertEqual(p.values, [np.float64(1.0), np.float64(2.0), np.float64(3.0)])
         self.assertEqual([e.value for e in p.elements], [np.float64(1.0), np.float64(2.0), np.float64(3.0)])
-        self.assertTrue(p.in_domain(ValueParameter("x", np.float64(2.0))))
-        self.assertFalse(p.in_domain(ValueParameter("x", np.float64(5.0))))
-        self.assertTrue(p.in_domain(RangeParameter("x", np.float64(2.0), np.float64(2.0))))
-        self.assertFalse(p.in_domain(RangeParameter("x", np.float64(1.0), np.float64(2.0))))
-        self.assertTrue(p.in_domain(ListParameter("x", [np.float64(1.0), np.float64(2.0)])))
-        self.assertFalse(p.in_domain(ListParameter("x", [np.float64(1.0), np.float64(4.0)])))
+        self.assertTrue(p.in_domain(ValueParameter(np.float64(2.0))))
+        self.assertFalse(p.in_domain(ValueParameter(np.float64(5.0))))
+        self.assertTrue(p.in_domain(RangeParameter(np.float64(2.0), np.float64(2.0))))
+        self.assertFalse(p.in_domain(RangeParameter(np.float64(1.0), np.float64(2.0))))
+        self.assertTrue(p.in_domain(ListParameter([np.float64(1.0), np.float64(2.0)])))
+        self.assertFalse(p.in_domain(ListParameter([np.float64(1.0), np.float64(4.0)])))
         self.assertFalse(p.in_domain(cast(Parameter, object())))
         self.assertEqual(p.range(), (np.float64(1.0), np.float64(3.0)))
         self.assertEqual(p.volume(), np.float64(3))
@@ -149,10 +139,10 @@ class TestParameters(TestCase):
         """
         Ensure :class:`NormalParameter` default stddev, random, and lattice generation behave.
         """
-        p0 = NormalParameter("x", mean=np.float64(0.0))
+        p0 = NormalParameter(mean=np.float64(0.0))
         self.assertEqual(p0.stddev, np.float64(1.0))
 
-        p1 = NormalParameter("x", mean=np.float64(0.0), a=np.float64(-3.0), b=np.float64(3.0))
+        p1 = NormalParameter(mean=np.float64(0.0), a=np.float64(-3.0), b=np.float64(3.0))
         self.assertEqual(p1.stddev, np.float64(1.0))
         self.assertEqual(p1.range(), (-np.inf, np.inf))
         self.assertEqual(p1.volume(), np.float64(1.0))
@@ -166,11 +156,11 @@ class TestParameters(TestCase):
             out1 = p1.random(size=2)
         self.assertEqual([round(x.value, 3) for x in out1], [0.2, 0.3])
 
-        out2 = p0.lattice(size=3)
+        out2 = cast(list[object], p0.lattice(size=3))
         self.assertEqual(len(out2), 3)
         self.assertTrue(all(isinstance(v, ValueParameter) for v in out2))
 
-        out3 = p1.lattice(size=3)
+        out3 = cast(list[object], p1.lattice(size=3))
         self.assertEqual(len(out3), 3)
         self.assertTrue(all(isinstance(v, ValueParameter) for v in out3))
 
@@ -179,8 +169,8 @@ class TestParameters(TestCase):
         Ensure :class:`ParameterRegistry` supports add/lookup and validates duplicates/bounds.
         """
         reg = ParameterRegistry()
-        p0 = ValueParameter("a", np.float64(1.0))
-        p1 = ValueParameter("b", np.float64(2.0))
+        p0 = ValueParameter(np.float64(1.0))
+        p1 = ValueParameter(np.float64(2.0))
         reg.add_parameter(p0)
         reg.add_parameters([p1])
         self.assertEqual(reg.valuation(), {0: p0, 1: p1})
@@ -190,8 +180,8 @@ class TestParameters(TestCase):
         with self.assertRaises(EleanorException):
             reg.add_parameter(p0)
         with self.assertRaises(IndexError):
-            reg.id(ValueParameter("c", np.float64(3.0)))
+            _ = reg.id(ValueParameter(np.float64(3.0)))
         with self.assertRaises(IndexError):
-            reg.parameter(-1)
+            _ = reg.parameter(-1)
         with self.assertRaises(IndexError):
-            reg.parameter(10)
+            _ = reg.parameter(10)

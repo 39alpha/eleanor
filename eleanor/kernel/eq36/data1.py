@@ -3,7 +3,8 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from eleanor.typing import Array1D, cast
+from eleanor.kernel.exceptions import EleanorKernelException
+from eleanor.typing import Array1D, TypedDict, cast
 
 from .libeq36 import read_data1
 
@@ -11,18 +12,125 @@ type FloatRange = tuple[np.float64, np.float64]
 type CartesianCoord = tuple[np.float64, np.float64]
 
 
-@dataclass
-class BasisSpecies(object):
+class _SpeciesRaw(TypedDict):
     name: str
+    molar_mass: np.float64
+
+
+@dataclass(init=False)
+class Species:
+    name: str
+    molar_mass: np.float64
+
+    def __init__(self, *, name: str, molar_mass: np.float64):
+        self.name = name
+        self.molar_mass = molar_mass
+
+        if self.name == "":
+            raise ValueError("cannot construct Species with empty name")
+
+        if self.molar_mass < 0:
+            raise ValueError("cannot construct Species with negative molar mass")
+
+
+@dataclass(init=False)
+class BasisSpecies(Species):
     composition: dict[str, int]
     charge: int
     volume: np.float64 | None
 
+    def __init__(
+        self,
+        *,
+        name: str,
+        molar_mass: np.float64,
+        composition: dict[str, int],
+        charge: int,
+        volume: np.float64 | None,
+    ):
+        super().__init__(name=name, molar_mass=molar_mass)
+        self.composition = composition
+        self.charge = charge
+        self.volume = volume
 
-@dataclass
+        if not self.composition:
+            raise ValueError("cannot construct BasisSpecies with an empty composition")
+
+        for count in self.composition.values():
+            if count < 0:
+                raise ValueError("cannot construct a BasisSpecies with a component with negative count")
+
+        if self.volume is not None and self.volume < 0:
+            raise ValueError("cannot construct a BasisSpecies with negative volume")
+
+
+@dataclass(init=False)
+class AqueousSpecies(Species):
+    pass
+
+
+@dataclass(init=False)
+class Mineral(Species):
+    pass
+
+
+@dataclass(init=False)
+class Liquid(Species):
+    pass
+
+
+@dataclass(init=False)
+class Gas(Species):
+    pass
+
+
+@dataclass(init=False)
 class SolidSolution(object):
     name: str
-    end_members: set[str]
+    end_members: dict[str, np.float64]
+
+    def __init__(self, *, name: str, end_members: dict[str, np.float64]):
+        self.name = name
+        self.end_members = end_members
+
+        if self.name == "":
+            raise ValueError("cannot construct SolidSolution with empty name")
+
+        if not self.end_members:
+            raise ValueError("cannot construct SolidSolution without end members")
+
+        for molar_mass in self.end_members.values():
+            if molar_mass < 0:
+                raise ValueError("cannot construct SolidSolution with negative end member molar mass")
+
+    def molar_mass(self, mole_fractions: dict[str, float]) -> np.float64:
+        if not mole_fractions:
+            raise ValueError("no mole_fractions provided")
+
+        missing = set(mole_fractions) - set(self.end_members)
+        if missing:
+            raise KeyError(f"unknown end member(s) for solid solution {self.name!r}: {sorted(missing)}")
+
+        missing = set(self.end_members) - set(mole_fractions)
+        if missing:
+            raise KeyError(
+                f"missing mole fractions for end member(s) for solid solution {self.name!r}: {sorted(missing)}"
+            )
+
+        for end_member, fraction in mole_fractions.items():
+            if fraction < 0.0:
+                raise ValueError(
+                    f"mole fraction for solid solution {self.name!r} end member {end_member!r} is negative"
+                )
+
+        total = sum(mole_fractions.values())
+        if total <= 0:
+            raise ValueError(f"mole fractions for solid solution {self.name!r} must sum to a positive value")
+
+        weighted = np.float64(0.0)
+        for name, fraction in mole_fractions.items():
+            weighted += np.float64(fraction) * self.end_members[name]
+        return weighted / np.float64(total)
 
 
 @dataclass(init=False)
@@ -222,6 +330,10 @@ class Data1(object):
     filename: str
     elements: dict[str, np.float64]
     basis_species: dict[str, BasisSpecies]
+    aqueous_species: dict[str, AqueousSpecies]
+    minerals: dict[str, Mineral]
+    liquids: dict[str, Liquid]
+    gases: dict[str, Gas]
     solid_solutions: dict[str, SolidSolution]
     tp_curve: TPCurve | None
 
@@ -235,6 +347,48 @@ class Data1(object):
             raise Exception(f"data1 file contains multiple basis species with element {element}")
 
         return None if not basis_species else basis_species[0]
+
+    def molar_mass(
+        self,
+        name: str,
+        mole_fractions: dict[str, float] | None = None,
+    ) -> np.float64:
+        """Return the molar mass (g/mol) of any species in the database.
+
+        Looks up *name* across aqueous species, pure minerals, pure liquids,
+        gases, and solid-solution end members. For a solid solution, supply
+        *mole_fractions* (end-member name -> fraction).
+        """
+        if name in self.solid_solutions:
+            if mole_fractions is None:
+                raise EleanorKernelException("mole_fractions is required to get the molar_mass of a solid solution")
+            return self.solid_solutions[name].molar_mass(mole_fractions)
+        for category in (self.aqueous_species, self.minerals, self.liquids, self.gases):
+            if name in category:
+                return category[name].molar_mass
+        for solid_solution in self.solid_solutions.values():
+            if name in solid_solution.end_members:
+                return solid_solution.end_members[name]
+        raise KeyError(f"no species named {name!r} in {self.filename}")
+
+    def compute_molar_mass(self, composition: dict[str, int]) -> np.float64:
+        """Compute a molar mass from an element-count composition.
+
+        Uses the element atomic weights parsed from the data1 file. Useful for
+        custom species not present in the database or for cross-checking
+        ``molar_mass`` lookups.
+        """
+        if not composition:
+            raise ValueError("composition must contain at least one element")
+
+        total = np.float64(0.0)
+        for element, count in composition.items():
+            if element not in self.elements:
+                raise KeyError(f"unknown element {element!r}")
+            if count < 0:
+                raise ValueError(f"{element!r} has negative count")
+            total += np.float64(count) * self.elements[element]
+        return total
 
     @classmethod
     def from_file(cls, filename: str):
@@ -257,6 +411,29 @@ class Data1(object):
             element_names.append(name)
             elements[name] = weight
 
+        def _species_name(idx: int) -> str:
+            raw = cast(object, data.species_names[idx])
+            if not isinstance(raw, bytes):
+                raise TypeError(raw)
+            return str(raw[:24].strip(), "ascii")
+
+        def _raw_species(start: np.int32, stop: np.int32) -> dict[str, _SpeciesRaw]:
+            result: dict[str, _SpeciesRaw] = {}
+            if int(start) <= 0 or int(stop) <= 0:
+                return result
+            for idx in range(int(start) - 1, int(stop)):
+                weight = cast(object, data.species_molar_weights[idx])
+                if not isinstance(weight, np.float64):
+                    raise TypeError(weight)
+                name = _species_name(idx)
+                result[name] = {"name": name, "molar_mass": weight}
+            return result
+
+        aqueous_species = {k: AqueousSpecies(**v) for k, v in _raw_species(data.narn1a, data.narn2a).items()}
+        minerals = {k: Mineral(**v) for k, v in _raw_species(data.nmrn1a, data.nmrn2a).items()}
+        liquids = {k: Liquid(**v) for k, v in _raw_species(data.nlrn1a, data.nlrn2a).items()}
+        gases = {k: Gas(**v) for k, v in _raw_species(data.ngrn1a, data.ngrn2a).items()}
+
         basis_species: dict[str, BasisSpecies] = dict()
         for i, (raw_species_name_obj, c, charge, volume) in enumerate(
             zip(cast(list[object], list(data.species_names)), data.cdrsa, data.charges, data.volumes)
@@ -278,26 +455,51 @@ class Data1(object):
                     raise TypeError(count)
                 # TODO: Is this conversion correct? Can the compositions be non-integers?
                 composition[element] = int(count)
-            if volume == 0.0:
-                basis_species[name] = BasisSpecies(name, composition, int(charge), None)
-            else:
-                basis_species[name] = BasisSpecies(name, composition, int(charge), volume)
+            molar_mass_obj = cast(object, data.species_molar_weights[i])
+            if not isinstance(molar_mass_obj, np.float64):
+                raise TypeError(molar_mass_obj)
+            mass = molar_mass_obj
+            resolved_volume: np.float64 | None = None if volume == 0.0 else volume
+            basis_species[name] = BasisSpecies(
+                name=name,
+                molar_mass=mass,
+                composition=composition,
+                charge=int(charge),
+                volume=resolved_volume,
+            )
 
         solid_solutions: dict[str, SolidSolution] = dict()
-        for i in range(data.nxrn1a - 1, data.nxrn2a):
+        for i in range(int(data.nxrn1a) - 1, int(data.nxrn2a)):
             line = cast(object, data.species_names[i])
             if not isinstance(line, bytes):
                 raise TypeError(line)
 
             end_member = str(line[:24].strip(), "ascii")
             solid_solution = str(line[24:].strip(), "ascii")
+            end_member_mass_obj = cast(object, data.species_molar_weights[i])
+            if not isinstance(end_member_mass_obj, np.float64):
+                raise TypeError(end_member_mass_obj)
+            end_member_mass = end_member_mass_obj
             if solid_solution in solid_solutions:
                 if end_member in solid_solutions[solid_solution].end_members:
                     raise RuntimeError(
                         f"solid solution ({solid_solution}) end member ({end_member}) occurs multiple times"
                     )
-                solid_solutions[solid_solution].end_members.add(end_member)
+                solid_solutions[solid_solution].end_members[end_member] = end_member_mass
             else:
-                solid_solutions[solid_solution] = SolidSolution(solid_solution, set([end_member]))
+                solid_solutions[solid_solution] = SolidSolution(
+                    name=solid_solution,
+                    end_members={end_member: end_member_mass},
+                )
 
-        return cls(filename, elements, basis_species, solid_solutions, tp_curve)
+        return cls(
+            filename,
+            elements,
+            basis_species,
+            aqueous_species,
+            minerals,
+            liquids,
+            gases,
+            solid_solutions,
+            tp_curve,
+        )

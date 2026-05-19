@@ -203,12 +203,21 @@ class Data(object):
     element_names: Array1D[np.bytes_]
     atomic_weights: Array1D[np.float64]
     species_names: Array1D[np.bytes_]
+    species_molar_weights: Array1D[np.float64]
     cdrsa: Array1D[np.float64]
     charges: Array1D[np.float64]
     volumes: Array1D[np.float64]
     nessra: Array2D[np.int32]
     nessa: Array1D[np.int32]
     cessa: Array1D[np.float64]
+    narn1a: np.int32
+    narn2a: np.int32
+    nmrn1a: np.int32
+    nmrn2a: np.int32
+    nlrn1a: np.int32
+    nlrn2a: np.int32
+    ngrn1a: np.int32
+    ngrn2a: np.int32
     nxrn1a: np.int32
     nxrn2a: np.int32
 
@@ -546,12 +555,21 @@ def read_data1(filename: str) -> Data:
         element_names=uelema,
         atomic_weights=atwta,
         species_names=uspeca,
+        species_molar_weights=mwtspa,
         cdrsa=cdrsa,
         charges=zchara,
         volumes=vosp0a,
         nessra=nessra,
         nessa=nessa,
         cessa=cessa,
+        narn1a=np.int32(narn1a.value),
+        narn2a=np.int32(narn2a.value),
+        nmrn1a=np.int32(nmrn1a.value),
+        nmrn2a=np.int32(nmrn2a.value),
+        nlrn1a=np.int32(nlrn1a.value),
+        nlrn2a=np.int32(nlrn2a.value),
+        ngrn1a=np.int32(ngrn1a.value),
+        ngrn2a=np.int32(ngrn2a.value),
         nxrn1a=np.int32(nxrn1a.value),
         nxrn2a=np.int32(nxrn2a.value),
     )

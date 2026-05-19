@@ -60,3 +60,6 @@ class TestKernelInterface(TestCase):
         self.assertIsNone(AbstractKernel.run(abstract_kernel, vs_point))
         self.assertIsNone(AbstractKernel.copy_data(abstract_kernel, vs_point))
         self.assertIsNone(AbstractKernel.get_atomic_weight(abstract_kernel, "Na"))
+        order = cast(Order, object())
+        AbstractKernel.validate_order(abstract_kernel, order)
+        self.assertIsNone(AbstractKernel.get_molar_mass(abstract_kernel, "H2O"))

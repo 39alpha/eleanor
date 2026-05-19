@@ -5,7 +5,6 @@ import numpy as np
 
 from eleanor.kernel.eq36.data1 import AqueousSpecies, BasisSpecies, Data1, Gas, Liquid, Mineral, TPCurve
 from eleanor.kernel.eq36.libeq36 import Data
-from eleanor.kernel.exceptions import EleanorKernelException
 
 from ...common import TestCase
 
@@ -315,11 +314,11 @@ class TestEq36Data1(TestCase):
         self.assertEqual(parsed.molar_mass("CO2(g)"), np.float64(44.01))
         self.assertEqual(parsed.molar_mass("EM1"), np.float64(50.0))
 
-        with self.assertRaises(EleanorKernelException):
+        with self.assertRaises(ValueError):
             self.assertEqual(parsed.molar_mass("SOLID1"), np.float64(60.0))
 
         self.assertEqual(
-            parsed.molar_mass("SOLID1", {"EM1": 0.25, "EM2": 0.75}),
+            parsed.molar_mass("SOLID1", {"EM1": np.float64(0.25), "EM2": np.float64(0.75)}),
             np.float64(0.25 * 50.0 + 0.75 * 70.0),
         )
         with self.assertRaises(KeyError):
@@ -559,16 +558,16 @@ class TestEq36Data1(TestCase):
             name="SS",
             end_members={"A": np.float64(40.0), "B": np.float64(60.0)},
         )
-        self.assertEqual(ss.molar_mass(mole_fractions={"A": 0.25, "B": 0.75}), np.float64(55.0))
-        self.assertEqual(ss.molar_mass({"A": 1.0, "B": 3.0}), np.float64(55.0))
+        self.assertEqual(ss.molar_mass(mole_fractions={"A": np.float64(0.25), "B": np.float64(0.75)}), np.float64(55.0))
+        self.assertEqual(ss.molar_mass({"A": np.float64(1.0), "B": np.float64(3.0)}), np.float64(55.0))
 
         with self.assertRaises(ValueError):
             _ = ss.molar_mass({})
         with self.assertRaises(KeyError):
-            _ = ss.molar_mass({"A": 1.0, "C": 1.0})
+            _ = ss.molar_mass({"A": np.float64(1.0), "C": np.float64(1.0)})
         with self.assertRaises(KeyError):
-            _ = ss.molar_mass({"A": 1.0})
+            _ = ss.molar_mass({"A": np.float64(1.0)})
         with self.assertRaises(ValueError):
-            _ = ss.molar_mass({"A": -0.5, "B": 1.5})
+            _ = ss.molar_mass({"A": np.float64(-0.5), "B": np.float64(1.5)})
         with self.assertRaises(ValueError):
-            _ = ss.molar_mass({"A": 0.0, "B": 0.0})
+            _ = ss.molar_mass({"A": np.float64(0.0), "B": np.float64(0.0)})

@@ -143,6 +143,47 @@ class TestEq36Kernel(TestCase):
         self.assertEqual(kernel.get_atomic_weight("Na"), 22.99)
         self.assertIsNone(kernel.get_atomic_weight("Cl"))
 
+    def test_get_molar_mass_requires_setup_returns_computed_value_and_returns_none_for_unknown(self):
+        """
+        Ensure get_molar_mass fails before setup, returns the data1 result for a known species,
+        and returns None when the species is not found.
+        """
+        kernel = self._kernel()
+        with self.assertRaises(EleanorException):
+            kernel.get_molar_mass("H2O")
+
+        sentinel = object()
+        data1 = SimpleNamespace(molar_mass=mock.Mock(return_value=sentinel))
+        kernel._setup = True
+        kernel._data1s = [data1]
+
+        self.assertIs(kernel.get_molar_mass("H2O"), sentinel)
+        data1.molar_mass.assert_called_once_with("H2O", None)
+
+        data1.molar_mass.side_effect = KeyError("unknown")
+        self.assertIsNone(kernel.get_molar_mass("Unknown"))
+
+    def test_get_molar_mass_forwards_mole_fractions_and_propagates_value_error(self):
+        """
+        Ensure get_molar_mass forwards mole_fractions to data1 and lets ValueError propagate
+        (e.g. when a solid solution is queried without supplying mole_fractions).
+        """
+        fractions = mock.sentinel.fractions
+        sentinel = object()
+        data1 = SimpleNamespace(molar_mass=mock.Mock(return_value=sentinel))
+        kernel = self._kernel()
+        kernel._setup = True
+        kernel._data1s = [data1]
+
+        self.assertIs(kernel.get_molar_mass("SOLID1", fractions), sentinel)
+        data1.molar_mass.assert_called_once_with("SOLID1", fractions)
+
+        data1.molar_mass.side_effect = ValueError(
+            "mole_fractions is required to get the molar_mass of a solid solution"
+        )
+        with self.assertRaises(ValueError):
+            kernel.get_molar_mass("SOLID1", None)
+
     def test_resolve_kernel_settings_permits_solids_and_sets_titration_when_reactants_present(self):
         """
         Ensure unsuppressed solid-solution runs permit solids and switch EQ6 to titration mode when reactants exist.
@@ -484,6 +525,14 @@ class TestEq36Kernel(TestCase):
         accepted.tp_curve.set_domain.assert_called_once_with((1.0, 2.0), (3.0, 4.0))
         self.assertTrue(kernel._setup)
         self.assertEqual(kernel._data1s, [accepted])
+
+    def test_setup_raises_when_order_is_none(self):
+        """
+        Ensure setup raises EleanorException when called without an order.
+        """
+        kernel = self._kernel()
+        with self.assertRaises(EleanorException):
+            kernel.setup()
 
     def test_validate_order_raises_kernel_has_not_been_setup(self):
         """

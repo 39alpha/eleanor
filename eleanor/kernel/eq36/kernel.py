@@ -70,8 +70,21 @@ class Kernel(AbstractKernel):
     @override
     def get_atomic_weight(self, element: str) -> np.float64 | None:
         if not self._setup or len(self._data1s) == 0:
-            raise EleanorException("cannot get atomic masses untilt the kernel is setup")
+            raise EleanorException("cannot get atomic masses until the kernel is setup")
         return self._data1s[0].elements.get(element)
+
+    @override
+    def get_molar_mass(
+        self,
+        species_name: str,
+        mole_fractions: dict[str, np.float64] | None = None,
+    ) -> np.float64 | None:
+        if not self._setup or len(self._data1s) == 0:
+            raise EleanorException("cannot get molar masses until the kernel is setup")
+        try:
+            return self._data1s[0].molar_mass(species_name, mole_fractions)
+        except KeyError:
+            return None
 
     # TODO: Return basic setup information, e.g. species, etc...
     @override

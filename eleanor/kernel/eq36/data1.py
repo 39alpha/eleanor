@@ -3,7 +3,6 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from eleanor.kernel.exceptions import EleanorKernelException
 from eleanor.typing import Array1D, TypedDict, cast
 
 from .libeq36 import read_data1
@@ -103,7 +102,7 @@ class SolidSolution(object):
             if molar_mass < 0:
                 raise ValueError("cannot construct SolidSolution with negative end member molar mass")
 
-    def molar_mass(self, mole_fractions: dict[str, float]) -> np.float64:
+    def molar_mass(self, mole_fractions: dict[str, np.float64]) -> np.float64:
         if not mole_fractions:
             raise ValueError("no mole_fractions provided")
 
@@ -129,8 +128,8 @@ class SolidSolution(object):
 
         weighted = np.float64(0.0)
         for name, fraction in mole_fractions.items():
-            weighted += np.float64(fraction) * self.end_members[name]
-        return weighted / np.float64(total)
+            weighted += fraction * self.end_members[name]
+        return weighted / total
 
 
 @dataclass(init=False)
@@ -351,7 +350,7 @@ class Data1(object):
     def molar_mass(
         self,
         name: str,
-        mole_fractions: dict[str, float] | None = None,
+        mole_fractions: dict[str, np.float64] | None = None,
     ) -> np.float64:
         """Return the molar mass (g/mol) of any species in the database.
 
@@ -361,7 +360,7 @@ class Data1(object):
         """
         if name in self.solid_solutions:
             if mole_fractions is None:
-                raise EleanorKernelException("mole_fractions is required to get the molar_mass of a solid solution")
+                raise ValueError("mole_fractions is required to get the molar_mass of a solid solution")
             return self.solid_solutions[name].molar_mass(mole_fractions)
         for category in (self.aqueous_species, self.minerals, self.liquids, self.gases):
             if name in category:

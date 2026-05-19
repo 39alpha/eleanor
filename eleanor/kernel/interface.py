@@ -49,3 +49,12 @@ class AbstractKernel(ABC):
     def get_atomic_weight(self, element: str) -> np.float64 | None:
         _ = element
         return None
+
+    def get_molar_mass(
+        self,
+        species_name: str,
+        mole_fractions: dict[str, np.float64] | None = None,
+    ) -> np.float64 | None:
+        _ = species_name
+        _ = mole_fractions
+        return None

@@ -1,37 +1,3 @@
-"""Orchestration between :class:`PostgresSink` and the persistence helpers.
-
-This module is the only public surface of the persistence layer that the
-sink imports. It glues together:
-
-* :mod:`connection` -- gets a process-local :class:`psycopg.Connection`.
-* :mod:`schema` -- DDL emit / introspect.
-* :mod:`converters` -- core dataclasses to/from row dicts.
-* :mod:`queries` -- pre-built INSERT / SELECT templates.
-
-Public functions:
-
-* :func:`setup_schema(config)` -- create-if-not-exists every table the
-  sink owns. Idempotent. Called from :meth:`PostgresSink.initialize`.
-* :func:`get_order(config, order_id)` -- single-row read; ``None`` when
-  no such order. Called from :meth:`PostgresSink.begin_run`.
-* :func:`insert_order(config, order)` -- single-row write returning the
-  new id. Called from :meth:`PostgresSink.begin_run`.
-* :func:`insert_point(conn, order_id, point)` -- the hot path. Inserts
-  the VS row, kernel, scratch, every VS-side child collection, every ES
-  point's parent row, and every ES-side leaf collection -- with rows
-  pooled across all ES points so each leaf table emits exactly one
-  ``INSERT`` per VS point. Called from :meth:`PostgresSink.write_batch`
-  *inside* an outer transaction + a per-VS-point savepoint owned by the
-  sink.
-* :func:`get_scratch_entry(config, vs_id)` -- diagnostic read. Called
-  from :func:`PostgresSink.tools.load_scratch_entry`.
-* :func:`drop_indexes(config)` / :func:`recreate_indexes(config)` /
-  :func:`bulk_load_window(config)` -- :class:`DatabaseConfig`-keyed
-  wrappers around the corresponding :mod:`schema` helpers. Used by the
-  ``eleanor postgres bulkload`` CLI and by callers running an ad-hoc bulk-load
-  workload against an existing database.
-"""
-
 from collections.abc import Generator
 from contextlib import contextmanager
 from datetime import datetime
@@ -41,13 +7,12 @@ from psycopg import sql
 
 import eleanor.equilibrium_space as core_es
 import eleanor.variable_space as core_vs
-
-from ....exceptions import EleanorException
-from ....order import Order
-from ....typing import cast
-from ..config import DatabaseConfig
-from . import connection, converters, queries, schema
-from .converters import OrderRecord, ScratchEntry
+from eleanor.exceptions import EleanorException
+from eleanor.order import Order
+from eleanor.output.postgres.config import DatabaseConfig
+from eleanor.output.postgres.persistence import connection, converters, queries, schema
+from eleanor.output.postgres.persistence.converters import OrderRecord, ScratchEntry
+from eleanor.typing import cast
 
 
 def setup_schema(config: DatabaseConfig) -> None:
@@ -258,7 +223,8 @@ def insert_order(config: DatabaseConfig, order: Order) -> OrderRecord:
             _ = cur.execute(queries.INSERTS_RETURNING_ID["orders"], row)
             result = cur.fetchone()
             if result is None:
-                raise EleanorException("order INSERT did not return an id")
+                msg = "order INSERT did not return an id"
+                raise EleanorException(msg)
             new_id = cast(int, result[0])
 
     return OrderRecord(
@@ -327,7 +293,8 @@ def _insert_variable_space_and_pair(
     _ = cur.execute(queries.INSERTS_RETURNING_ID["variable_space"], vs_row)
     result = cur.fetchone()
     if result is None:
-        raise EleanorException("variable_space INSERT did not return an id")
+        msg = "variable_space INSERT did not return an id"
+        raise EleanorException(msg)
     vs_id = cast(int, result[0])
 
     _ = cur.execute(queries.INSERTS["kernel"], converters.kernel_to_row(point.kernel, vs_id))
@@ -501,3 +468,15 @@ def get_scratch_entry(
         exit_code=cast(int, row[1]),
         zip=cast(bytes, row[2]),
     )
+
+
+__all__ = [
+    "setup_schema",
+    "drop_indexes",
+    "recreate_indexes",
+    "bulk_load_window",
+    "insert_order",
+    "get_order",
+    "insert_point",
+    "get_scratch_entry",
+]

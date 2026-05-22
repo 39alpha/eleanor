@@ -5,9 +5,9 @@ from unittest import mock
 
 from eleanor.exceptions import EleanorConfigurationException, EleanorException
 from eleanor.order import Order
-from eleanor.output import ComputeResult, NullSink, WriteOutcome
+from eleanor.output import ComputeResult, WriteOutcome
 from eleanor.output.factories import build_null as _build_null
-from eleanor.output.null import NullConfig
+from eleanor.output.null import NullConfig, NullSink
 from eleanor.variable_space import Point
 
 from .common import TestCase
@@ -213,11 +213,8 @@ class TestNullSink(TestCase):
         outcomes = sink.write_batch(order_id, [ComputeResult(point=_point(exit_code=1))])
         self.assertTrue(outcomes[0].committed)
 
-    def test_lazy_import_from_package(self):
-        """Ensure eleanor.output lazy re-export resolves to eleanor.output.null.NullSink."""
-        from eleanor.output import NullSink
+    def test_import_from_submodule(self):
+        """Ensure eleanor.output.null.NullSink is importable directly."""
+        from eleanor.output.null import NullSink as _NullSink
 
-        self.assertIs(
-            NullSink,
-            __import__("eleanor.output.null", fromlist=["NullSink"]).NullSink,
-        )
+        self.assertIs(_NullSink, NullSink)

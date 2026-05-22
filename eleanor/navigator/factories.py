@@ -1,46 +1,44 @@
-"""Built-in navigator factories used by entry-point discovery."""
-
 import warnings
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from ..kernel.interface import AbstractKernel
-    from ..order import Order
-    from .interface import AbstractNavigator
+    from eleanor.kernel.interface import AbstractKernel
+    from eleanor.navigator.interface import AbstractNavigator
+    from eleanor.order import Order
 
 
-def build_random(order: "Order", kernel: "AbstractKernel", **_args: object) -> "AbstractNavigator":
-    if _args:
+def build_random(order: Order, kernel: AbstractKernel, **kwargs: object) -> AbstractNavigator:
+    if kwargs:
         warnings.warn(
-            'built-in navigator "random" does not accept keyword arguments; ' + f"ignoring: {list(_args)}",
+            f'built-in navigator "random" does not accept keyword arguments; ignoring: {list(kwargs)}',
             RuntimeWarning,
             stacklevel=2,
         )
-    from .random import Random
+    from eleanor.navigator.random import Random
 
     return Random(order, kernel)
 
 
-def build_random_lattice(order: "Order", kernel: "AbstractKernel", **_args: object) -> "AbstractNavigator":
-    if _args:
+def build_random_lattice(order: Order, kernel: AbstractKernel, **kwargs: object) -> AbstractNavigator:
+    if kwargs:
         warnings.warn(
-            'built-in navigator "random_lattice" does not accept keyword arguments; ' + f"ignoring: {list(_args)}",
+            f'built-in navigator "random_lattice" does not accept keyword arguments; ignoring: {list(kwargs)}',
             RuntimeWarning,
             stacklevel=2,
         )
-    from .lattice import RandomLattice
+    from eleanor.navigator.lattice import RandomLattice
 
     return RandomLattice(order, kernel)
 
 
-def build_lattice(order: "Order", kernel: "AbstractKernel", **_args: object) -> "AbstractNavigator":
-    if _args:
+def build_lattice(order: Order, kernel: AbstractKernel, **kwargs: object) -> AbstractNavigator:
+    if kwargs:
         warnings.warn(
-            'built-in navigator "lattice" does not accept keyword arguments; ' + f"ignoring: {list(_args)}",
+            f'built-in navigator "lattice" does not accept keyword arguments; ignoring: {list(kwargs)}',
             RuntimeWarning,
             stacklevel=2,
         )
-    from .lattice import Lattice
+    from eleanor.navigator.lattice import Lattice
 
     return Lattice(order, kernel)
 
@@ -48,3 +46,9 @@ def build_lattice(order: "Order", kernel: "AbstractKernel", **_args: object) -> 
 build_random.__eleanor_api_version__ = 1  # pyright: ignore[reportFunctionMemberAccess]
 build_random_lattice.__eleanor_api_version__ = 1  # pyright: ignore[reportFunctionMemberAccess]
 build_lattice.__eleanor_api_version__ = 1  # pyright: ignore[reportFunctionMemberAccess]
+
+__all__ = [
+    "build_random",
+    "build_random_lattice",
+    "build_lattice",
+]

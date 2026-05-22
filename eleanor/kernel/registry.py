@@ -1,72 +1,23 @@
-"""
-Registry and discovery for eleanor kernel plugins.
-
-Each kernel plugin registers a :class:`KernelSpec` — a small dataclass that
-bundles two callables: one that parses a raw settings dict into the kernel's
-``Settings`` object, and one that instantiates the kernel from those settings
-and any caller-supplied positional arguments.
-
-Built-in kernels are declared as entry points in ``pyproject.toml`` and
-discovered lazily on first registry access; their factories live in
-:mod:`eleanor.kernel.factories` with deferred imports so that merely importing
-the parent package does not drag in a built-in's heavy transitive
-dependencies. Third-party kernels advertise themselves through the same
-``eleanor.kernels`` entry-point group in their distribution metadata, e.g.::
-
-    [project.entry-points."eleanor.kernels"]
-    my_kernel = "eleanor_my_kernel:kernel_spec"
-
-An entry point may resolve to either:
-
-* a :class:`KernelSpec` instance; or
-* a zero-argument callable returning a :class:`KernelSpec`.
-
-The second form lets plugin authors defer expensive imports until their
-kernel is actually requested.
-
-Kernel factories are typed with ``object`` rather than concrete kernel
-classes so the registry module itself has no structural dependency on
-:mod:`eleanor.kernel.interface` or :mod:`eleanor.kernel.config`. Callers
-that need typed access are expected to validate the returned values with
-:func:`isinstance` before use.
-
-Plugins also declare a kernel-plugin API version using
-``KernelSpec.plugin_api_version``. Registration enforces compatibility against
-this module's ``PLUGIN_API_VERSION`` and ``MIN_SUPPORTED_API_VERSION`` values.
-See ``AGENTS.md`` for the versioning policy.
-"""
-
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import TypeAlias, cast
+from typing import cast
 
 from eleanor.exceptions import EleanorException
 from eleanor.plugin import PluginRegistry
 
-#: Name of the entry-point group inspected on first registry access.
 ENTRY_POINT_GROUP = "eleanor.kernels"
 
-#: Environment variable that, when truthy, downgrades API-version mismatches
-#: to warnings instead of hard errors. All other discovery and registration
-#: errors are always hard errors regardless of this variable.
 OVERRIDE_ENV_VAR = "ELEANOR_KERNEL_OVERRIDES"
 PLUGIN_API_VERSION: int = 1
 MIN_SUPPORTED_API_VERSION: int = 1
 
-#: Raw settings mapping shape (``kernel.args`` in an order file).
-SettingsRaw: TypeAlias = dict[str, object]
+type SettingsRaw = dict[str, object]
 
-#: Callable that converts a raw mapping into a kernel-specific Settings
-#: object. The concrete return value is a subclass of
-#: :class:`eleanor.kernel.config.Settings` at runtime; typed as ``object``
-#: here to keep this module decoupled from ``kernel.config``.
-SettingsFromDict: TypeAlias = Callable[[SettingsRaw], object]
+type SettingsFromDict = Callable[[SettingsRaw], object]
 
-#: Callable that constructs a concrete
-#: :class:`~eleanor.kernel.interface.AbstractKernel` from its Settings
-#: (first positional argument) plus any extra CLI / caller-supplied args.
-#: Typed as returning ``object`` to avoid importing the interface here.
-KernelBuild: TypeAlias = Callable[..., object]
+type KernelBuild = Callable[..., object]
+
+type KernelFactory = KernelSpec | Callable[[], KernelSpec]
 
 
 @dataclass(frozen=True)
@@ -89,12 +40,6 @@ class KernelSpec(object):
     plugin_api_version: int = 1
 
 
-#: A factory is either a ready :class:`KernelSpec` or a zero-arg callable
-#: returning one. Entry-point-loaded objects always start life typed as
-#: ``object`` and are narrowed by :func:`_coerce_to_spec`.
-KernelFactory: TypeAlias = KernelSpec | Callable[[], KernelSpec]
-
-
 def _coerce_to_spec(name: str, factory: object) -> KernelSpec:
     """Accept a :class:`KernelSpec` directly or a zero-arg callable returning one.
 
@@ -109,29 +54,21 @@ def _coerce_to_spec(name: str, factory: object) -> KernelSpec:
         try:
             produced = factory()
         except TypeError as e:
-            raise EleanorException(
-                f'kernel plugin "{name}" factory is not a zero-argument callable',
-            ) from e
+            msg = f"kernel plugin {name!r} factory is not a zero-argument callable"
+            raise EleanorException(msg) from e
         if not isinstance(produced, KernelSpec):
-            raise EleanorException(
-                f'kernel plugin "{name}" factory must return a KernelSpec, ' + f"got {type(produced).__name__}",
-            )
+            msg = f"kernel plugin {name!r} factory must return a KernelSpec, got {type(produced).__name__}"
+            raise EleanorException(msg)
         spec = produced
     else:
-        raise EleanorException(
-            f'kernel plugin "{name}" must be a KernelSpec or a zero-arg callable '
-            + f"returning one (got {type(factory).__name__})",
-        )
-    # ``KernelSpec.plugin_api_version`` is annotated ``int`` but the dataclass
-    # does not enforce that at runtime, so a ``bool`` (which is a subclass of
-    # ``int``) or any other type can be smuggled through.  ``cast(object, ...)``
-    # forces basedpyright to treat the value as opaque so the runtime guard
-    # actually inspects it rather than trusting the annotation.
+        msg = f"kernel plugin {name!r} must be a KernelSpec or a zero-arg callable returning one (got {type(factory).__name__})"
+        raise EleanorException(msg)
+
     declared = cast(object, spec.plugin_api_version)
     if isinstance(declared, bool) or not isinstance(declared, int):
-        raise EleanorException(
-            f'kernel plugin "{name}" KernelSpec.plugin_api_version must be int, ' + f"got {type(declared).__name__}",
-        )
+        msg = f"kernel plugin {name!r} KernelSpec.plugin_api_version must be int, got {type(declared).__name__}"
+        raise EleanorException(msg)
+
     return spec
 
 
@@ -144,12 +81,8 @@ def _spec_api_version(spec: KernelSpec) -> int | None:
     return spec.plugin_api_version
 
 
-#: Canonical names of the kernels shipped inside the eleanor distribution.
-#: The names are hard-coded here so the registry can protect them from
-#: override before entry-point discovery has run.
 BUILTIN_KERNELS: frozenset[str] = frozenset({"eq36"})
 
-#: The shared :class:`PluginRegistry` instance backing this module's helpers.
 registry: PluginRegistry[KernelSpec] = PluginRegistry(
     kind="kernel",
     entry_point_group=ENTRY_POINT_GROUP,
@@ -188,3 +121,20 @@ def get_factory(name: str) -> KernelSpec:
     unknown.
     """
     return registry.get(name)
+
+
+__all__ = [
+    "ENTRY_POINT_GROUP",
+    "OVERRIDE_ENV_VAR",
+    "PLUGIN_API_VERSION",
+    "MIN_SUPPORTED_API_VERSION",
+    "BUILTIN_KERNELS",
+    "KernelSpec",
+    "KernelFactory",
+    "SettingsRaw",
+    "SettingsFromDict",
+    "KernelBuild",
+    "register_kernel",
+    "available_kernels",
+    "get_factory",
+]

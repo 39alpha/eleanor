@@ -1,6 +1,6 @@
-from ..config import DatabaseConfig
-from ..persistence.converters import ScratchEntry
-from ..persistence.repositories import get_scratch_entry
+from eleanor.output.postgres.config import DatabaseConfig
+from eleanor.output.postgres.persistence.converters import ScratchEntry
+from eleanor.output.postgres.persistence.repositories import get_scratch_entry
 
 
 def load_scratch_entry(
@@ -15,3 +15,6 @@ def load_scratch_entry(
     sink's lifetime).
     """
     return get_scratch_entry(config, variable_space_id)
+
+
+__all__ = ["load_scratch_entry"]

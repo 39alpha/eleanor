@@ -1,14 +1,7 @@
-"""Diagnostic helper: dump the postgres sink's schema to a stream.
-
-The sink keeps its schema as plain :class:`TableDef` objects, so dumping
-is just a loop over :data:`schema.TABLES` calling the DDL emitter. No DB
-connection is required.
-"""
-
 from typing import TextIO
 
-from ..config import DatabaseConfig
-from ..persistence import schema
+from eleanor.output.postgres.config import DatabaseConfig
+from eleanor.output.postgres.persistence import schema
 
 
 def dump_schema(config: DatabaseConfig, stream: TextIO) -> None:
@@ -24,3 +17,6 @@ def dump_schema(config: DatabaseConfig, stream: TextIO) -> None:
         print(schema.to_create_table_sql(table) + ";", file=stream)
         for idx in table.indexes:
             print(schema.to_create_index_sql(table, idx) + ";", file=stream)
+
+
+__all__ = ["dump_schema"]

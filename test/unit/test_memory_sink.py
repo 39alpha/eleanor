@@ -4,8 +4,8 @@ from unittest import mock
 
 from eleanor.exceptions import EleanorConfigurationException, EleanorException
 from eleanor.order import Order
-from eleanor.output import ComputeResult, ErrorInfo, MemorySink, WriteOutcome
-from eleanor.output.memory import MemoryConfig
+from eleanor.output import ComputeResult, ErrorInfo, WriteOutcome
+from eleanor.output.memory import MemoryConfig, MemorySink
 from eleanor.variable_space import Point
 
 from .common import TestCase
@@ -239,11 +239,8 @@ class TestMemorySink(TestCase):
         """Ensure finalize_run is a no-op for in-memory output state."""
         MemorySink().finalize_run()
 
-    def test_lazy_import_from_package(self):
-        """Ensure eleanor.output lazy re-export resolves to eleanor.output.memory.MemorySink."""
-        from eleanor.output import MemorySink
+    def test_import_from_submodule(self):
+        """Ensure eleanor.output.memory.MemorySink is importable directly."""
+        from eleanor.output.memory import MemorySink as _MemorySink
 
-        self.assertIs(
-            MemorySink,
-            __import__("eleanor.output.memory", fromlist=["MemorySink"]).MemorySink,
-        )
+        self.assertIs(_MemorySink, MemorySink)

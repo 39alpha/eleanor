@@ -14,6 +14,7 @@ from psycopg import Cursor
 from psycopg.rows import TupleRow
 
 import eleanor.output.postgres.tools.profile as profile_module
+from eleanor.exceptions import EleanorException
 from eleanor.output.postgres.config import DatabaseConfig
 from eleanor.output.postgres.tools.profile import StatementProfiler, _ProfilingCursor, _to_text
 
@@ -37,7 +38,7 @@ class TestStatementProfilerLifecycle(TestCase):
         """
         prof = StatementProfiler()
         with prof:
-            with self.assertRaises(RuntimeError):
+            with self.assertRaises(EleanorException):
                 with prof:
                     pass
 
@@ -49,7 +50,7 @@ class TestStatementProfilerLifecycle(TestCase):
         outer = StatementProfiler()
         inner = StatementProfiler()
         with outer:
-            with self.assertRaises(RuntimeError):
+            with self.assertRaises(EleanorException):
                 with inner:
                     pass
 
@@ -265,7 +266,7 @@ class TestStatementProfilerWiringEdges(TestCase):
         prof = StatementProfiler()
         cfg = DatabaseConfig(database="db", username="u", password="p")
         with self.assertRaisesRegex(
-            RuntimeError,
+            EleanorException,
             "_real_connect not captured",
         ):
             _ = prof._wrapped_connect(cfg)

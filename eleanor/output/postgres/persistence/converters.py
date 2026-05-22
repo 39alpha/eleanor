@@ -1,27 +1,3 @@
-"""Pure converter functions between core dataclasses and DB row dicts.
-
-Each converter is a pure Python function taking a core dataclass (plus the
-relevant parent FK id where applicable) and returning a
-``dict[str, object]`` whose keys are the table's column names from
-:mod:`schema` -- in any order, since psycopg3 binds named ``%(col)s``
-placeholders by name. JSONB values are wrapped with
-:class:`psycopg.types.json.Jsonb` so the DB driver knows to dump them as
-``jsonb`` rather than fall back to the registered text adapter.
-
-Reverse converters (``row_to_*``) are provided for the row shapes the
-sink actually reads: orders (for ``get_order``) and scratch (for
-``get_scratch_entry``). Tests round-trip via ``from_*_row(to_*_row(...))``
-without ever touching a DB.
-
-``-np.inf`` is materialised explicitly for the three saturation-state
-tables (``equilibrium_pure_solids``, ``equilibrium_solid_solutions``,
-``equilibrium_end_members``). Their ``log_moles`` / ``log_mass`` /
-``log_volume`` columns are ``NOT NULL`` with a ``-Infinity`` default at
-the schema level, but bulk INSERTs ship every key explicitly (so the
-column default never triggers); the converter substitutes ``-np.inf``
-whenever the dataclass field is ``None``.
-"""
-
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum, IntEnum, StrEnum
@@ -32,11 +8,10 @@ from psycopg.types.json import Jsonb
 import eleanor.equilibrium_space as core_es
 import eleanor.order as core_order
 import eleanor.variable_space as core_vs
-
-from ....exceptions import EleanorException
-from ....kernel.config import Config as KernelConfig
-from ....kernel.config import resolve_settings as resolve_kernel_settings
-from ....typing import cast
+from eleanor.exceptions import EleanorException
+from eleanor.kernel.config import Config as KernelConfig
+from eleanor.kernel.config import resolve_settings as resolve_kernel_settings
+from eleanor.typing import cast
 
 
 def _or_neg_inf(value: np.float64 | None) -> np.float64:
@@ -70,7 +45,8 @@ def _coerce_property_types(value: object) -> object:
     if isinstance(value, IntEnum):
         return value.value
     if isinstance(value, Enum):
-        raise EleanorException(f"cannot serialize {type(value).__name__}: only IntEnum/StrEnum are supported")
+        msg = f"cannot serialize {type(value).__name__}: only IntEnum/StrEnum are supported"
+        raise EleanorException(msg)
     return value
 
 
@@ -93,7 +69,8 @@ def normalize_dict(value: object, field_name: str) -> dict[str, object]:
     if is_dataclass(value) and not isinstance(value, type):
         value = asdict(value)
     if not isinstance(value, dict):
-        raise EleanorException(f"{field_name} must serialize to a dict")
+        msg = f"{field_name} must serialize to a dict"
+        raise EleanorException(msg)
 
     if is_order:
         value["vs_points"] = []
@@ -498,3 +475,39 @@ def row_to_kernel_config(row: dict[str, object]) -> KernelConfig:
     settings_dict = cast(dict[str, object], row["settings"])
     settings = resolve_kernel_settings(type_name, dict(settings_dict))
     return KernelConfig(type=type_name, settings=settings)
+
+
+__all__ = [
+    "normalize_dict",
+    "order_to_row",
+    "OrderRecord",
+    "row_to_order_record",
+    "vs_point_to_row",
+    "kernel_to_row",
+    "scratch_to_row",
+    "element_to_row",
+    "species_to_row",
+    "suppression_to_row",
+    "suppression_exception_to_row",
+    "mineral_reactant_to_row",
+    "aqueous_reactant_to_row",
+    "gas_reactant_to_row",
+    "element_reactant_to_row",
+    "special_reactant_to_row",
+    "special_reactant_composition_to_row",
+    "fixed_gas_reactant_to_row",
+    "solid_solution_reactant_to_row",
+    "solid_solution_reactant_end_member_to_row",
+    "es_point_to_row",
+    "es_element_to_row",
+    "es_aqueous_species_to_row",
+    "es_pure_solid_to_row",
+    "es_solid_solution_to_row",
+    "es_end_member_to_row",
+    "es_gas_to_row",
+    "es_reactant_to_row",
+    "es_redox_reaction_to_row",
+    "ScratchEntry",
+    "row_to_scratch_entry",
+    "row_to_kernel_config",
+]

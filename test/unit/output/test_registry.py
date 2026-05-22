@@ -2,17 +2,18 @@ from typing import override
 from unittest import mock
 
 from eleanor.exceptions import EleanorException
-from eleanor.output import (
+from eleanor.output.registry import (
     BUILTIN_OUTPUTS,
-    available_outputs,
+    OutputFactory,
+    available_output_sinks,
     get_factory,
-    register_output,
+    register_output_sink,
+    registry,
 )
-from eleanor.output.registry import OutputFactory, registry
 
 from ..common import TestCase
 
-_ = available_outputs()  # ensure builtins are discovered before registry snapshots
+_ = available_output_sinks()  # ensure builtins are discovered before registry snapshots
 
 
 def _make_factory(return_value=None, *, api_version: int = 1):
@@ -63,19 +64,19 @@ class TestBuiltinOutputs(TestCase):
         Ensure ``postgres`` is always present in the output registry.
         """
         self.assertIn("postgres", BUILTIN_OUTPUTS)
-        self.assertIn("postgres", available_outputs())
+        self.assertIn("postgres", available_output_sinks())
 
     def test_csv_is_registered(self):
         """
         Ensure ``csv`` is always present in the output registry.
         """
         self.assertIn("csv", BUILTIN_OUTPUTS)
-        self.assertIn("csv", available_outputs())
+        self.assertIn("csv", available_output_sinks())
 
 
 class TestRegisterOutput(_OutputRegistryTestCase):
     """
-    Tests of :func:`register_output`.
+    Tests of :func:`register_output_sink`.
     """
 
     def test_register_and_retrieve(self):
@@ -83,9 +84,9 @@ class TestRegisterOutput(_OutputRegistryTestCase):
         Ensure a plugin output factory can be registered and retrieved by name.
         """
         factory = _make_factory()
-        register_output("plugin", factory)
+        register_output_sink("plugin", factory)
 
-        self.assertIn("plugin", available_outputs())
+        self.assertIn("plugin", available_output_sinks())
         self.assertIs(get_factory("plugin"), factory)
 
     def test_unknown_name_raises(self):
@@ -101,7 +102,7 @@ class TestRegisterOutput(_OutputRegistryTestCase):
         """
         replacement = _make_factory()
         with self.assertRaisesRegex(EleanorException, "built-in output"):
-            register_output("postgres", replacement)
+            register_output_sink("postgres", replacement)
 
 
 class TestEntryPointDiscovery(_OutputRegistryTestCase):
@@ -122,7 +123,7 @@ class TestEntryPointDiscovery(_OutputRegistryTestCase):
         ep = _FakeEntryPoint("plugin", "pkg.mod:build_sink", lambda: factory)
 
         with mock.patch("eleanor.plugin.entry_points", return_value=[ep]):
-            outputs = available_outputs()
+            outputs = available_output_sinks()
 
         self.assertIn("plugin", outputs)
         self.assertIs(get_factory("plugin"), factory)
@@ -139,7 +140,7 @@ class TestEntryPointDiscovery(_OutputRegistryTestCase):
 
         with mock.patch("eleanor.plugin.entry_points", return_value=[failing_ep]):
             with self.assertRaisesRegex(EleanorException, 'failed to load output entry point "broken"'):
-                available_outputs()
+                available_output_sinks()
 
     def test_discovery_raises_on_non_callable_entry_point(self):
         """
@@ -149,7 +150,7 @@ class TestEntryPointDiscovery(_OutputRegistryTestCase):
 
         with mock.patch("eleanor.plugin.entry_points", return_value=[bad_ep]):
             with self.assertRaisesRegex(EleanorException, "must be callable"):
-                available_outputs()
+                available_output_sinks()
 
     def test_discovery_raises_on_too_new_api_plugin(self):
         """
@@ -160,4 +161,4 @@ class TestEntryPointDiscovery(_OutputRegistryTestCase):
 
         with mock.patch("eleanor.plugin.entry_points", return_value=[ep]):
             with self.assertRaisesRegex(EleanorException, "supports up to"):
-                available_outputs()
+                available_output_sinks()

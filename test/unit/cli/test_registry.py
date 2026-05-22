@@ -10,7 +10,7 @@ from eleanor.cli.registry import (
     CliCommandSpec,
     available_cli_commands,
     get_factory,
-    register_cli_commands,
+    register_cli_command,
     registry,
 )
 from eleanor.exceptions import EleanorException
@@ -76,7 +76,7 @@ class TestBuiltinCliPlugins(TestCase):
 class TestRegisterCliCommands(_CliRegistryTestCase):
     def test_register_and_retrieve(self):
         spec = _spec()
-        register_cli_commands("plugin", spec)
+        register_cli_command("plugin", spec)
 
         self.assertIn("plugin", available_cli_commands())
         self.assertIs(get_factory("plugin"), spec)
@@ -87,40 +87,40 @@ class TestRegisterCliCommands(_CliRegistryTestCase):
 
     def test_register_callable_returning_spec(self):
         spec = _spec()
-        register_cli_commands("lazy", lambda: spec)
+        register_cli_command("lazy", lambda: spec)
         self.assertIs(get_factory("lazy"), spec)
 
     def test_register_rejects_non_spec_factory(self):
         with self.assertRaises(EleanorException):
-            register_cli_commands("bad", lambda: None)  # pyright: ignore[reportArgumentType]
+            register_cli_command("bad", lambda: None)  # pyright: ignore[reportArgumentType]
 
     def test_register_rejects_bad_commands_field(self):
         bad_list = CliCommandSpec(commands=[_hello])  # pyright: ignore[reportArgumentType]
         with self.assertRaisesRegex(EleanorException, "commands must be a tuple"):
-            register_cli_commands("bad_list", bad_list)
+            register_cli_command("bad_list", bad_list)
 
         bad_member = CliCommandSpec(commands=("not-a-command",))  # pyright: ignore[reportArgumentType]
         with self.assertRaisesRegex(EleanorException, "commands must be a tuple"):
-            register_cli_commands("bad_member", bad_member)
+            register_cli_command("bad_member", bad_member)
 
     def test_register_rejects_bool_api_version(self):
         bad = CliCommandSpec(commands=(_hello,), plugin_api_version=True)
         with self.assertRaisesRegex(EleanorException, "plugin_api_version must be int"):
-            register_cli_commands("bad_bool", bad)
+            register_cli_command("bad_bool", bad)
 
     def test_register_rejects_too_new_api_version(self):
         with self.assertRaises(EleanorException):
-            register_cli_commands("too_new", _spec(plugin_api_version=99))
+            register_cli_command("too_new", _spec(plugin_api_version=99))
 
         with mock.patch.dict(os.environ, {OVERRIDE_ENV_VAR: "1"}):
             with self.assertWarnsRegex(OverrideWarning, "loading anyway because"):
-                register_cli_commands("too_new_override", _spec(plugin_api_version=99))
+                register_cli_command("too_new_override", _spec(plugin_api_version=99))
         self.assertIn("too_new_override", available_cli_commands())
 
     def test_register_rejects_builtin_name(self):
         replacement = _spec()
         with self.assertRaisesRegex(EleanorException, "built-in cli"):
-            register_cli_commands("postgres", replacement)
+            register_cli_command("postgres", replacement)
 
 
 class TestEntryPointDiscovery(_CliRegistryTestCase):

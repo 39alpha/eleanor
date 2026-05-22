@@ -1,14 +1,11 @@
-"""A minimal sink that discards the data for testing and benchmarking use"""
-
 from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import TypedDict, override
 
 from eleanor.exceptions import EleanorConfigurationException, EleanorException
-
-from ..order import Order
-from ..progress import ProgressHandle
-from .interface import ComputeResult, OutputSink, WriteOutcome
+from eleanor.order import Order
+from eleanor.output.interface import ComputeResult, OutputSink, WriteOutcome
+from eleanor.progress import ProgressHandle
 
 
 class NullArgsRaw(TypedDict, total=False):
@@ -21,13 +18,12 @@ class NullConfig(object):
 
     def __init__(self, support_worker_writes: object):
         if not isinstance(support_worker_writes, bool):
-            raise EleanorConfigurationException(
-                'output.args.support_worker_writes must be a boolean for output type "null"'
-            )
+            msg = 'output.args.support_worker_writes must be a boolean for output type "null"'
+            raise EleanorConfigurationException(msg)
         object.__setattr__(self, "support_worker_writes", support_worker_writes)
 
     @staticmethod
-    def from_raw(raw: NullArgsRaw) -> "NullConfig":
+    def from_raw(raw: NullArgsRaw) -> NullConfig:
         return NullConfig(
             support_worker_writes=raw.get("support_worker_writes", False),
         )
@@ -65,7 +61,8 @@ class NullSink(OutputSink):
         progress: ProgressHandle | None = None,
     ) -> list[WriteOutcome]:
         if self._order_id != order_id:
-            raise EleanorException("null sink write_batch called before begin_run")
+            msg = "null sink write_batch called before begin_run"
+            raise EleanorException(msg)
 
         outcomes: list[WriteOutcome] = []
         for result in results:
@@ -92,3 +89,10 @@ class NullSink(OutputSink):
     @override
     def supports_progress(self) -> bool:
         return True
+
+
+__all__ = [
+    "NullArgsRaw",
+    "NullConfig",
+    "NullSink",
+]

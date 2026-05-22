@@ -1,7 +1,7 @@
 from collections.abc import Callable
 from typing import TypeVar, override
 
-from .interface import AbstractExecutor, AbstractFuture
+from eleanor.executor.interface import AbstractExecutor, AbstractFuture
 
 T = TypeVar("T")
 
@@ -24,15 +24,16 @@ class SerialExecutor(AbstractExecutor):
         return 1
 
     @override
-    def submit(
-        self,
-        fn: Callable[..., T],
-        *args: object,
-        **kwargs: object,
-    ) -> AbstractFuture[T]:
+    def submit(self, fn: Callable[..., T], *args: object, **kwargs: object) -> AbstractFuture[T]:
         return SerialFuture(fn(*args, **kwargs))
 
     @override
     def shutdown(self, wait: bool = True) -> None:
         _ = wait
         pass
+
+
+__all__ = [
+    "SerialExecutor",
+    "SerialFuture",
+]

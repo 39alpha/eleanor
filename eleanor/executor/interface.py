@@ -18,11 +18,6 @@ class AbstractFuture(ABC, Generic[T]):
 
 
 class AbstractExecutor(ABC):
-    #: Whether workers launched by this executor can receive a ProgressHandle
-    #: and report progress back to the parent process. Backends that run
-    #: workers outside the parent's multiprocessing domain should override this
-    #: to ``False`` so callers know not to forward
-    #: ``multiprocessing.Manager``-backed queues into workers.
     supports_worker_progress: bool = True
 
     @property
@@ -30,12 +25,7 @@ class AbstractExecutor(ABC):
     def num_workers(self) -> int: ...
 
     @abstractmethod
-    def submit(
-        self,
-        fn: Callable[..., T],
-        *args: object,
-        **kwargs: object,
-    ) -> AbstractFuture[T]: ...
+    def submit(self, fn: Callable[..., T], *args: object, **kwargs: object) -> AbstractFuture[T]: ...
 
     def pop_completed_future(self, futures: list[AbstractFuture[T]]) -> AbstractFuture[T]:
         """Pop one future from ``futures`` in the backend's preferred completion order.
@@ -44,7 +34,8 @@ class AbstractExecutor(ABC):
         pop whichever future has already completed.
         """
         if len(futures) == 0:
-            raise EleanorException("cannot pop a completed future from an empty list")
+            msg = "cannot pop a completed future from an empty list"
+            raise EleanorException(msg)
 
         delay = 0.001
         while True:
@@ -68,3 +59,9 @@ class AbstractExecutor(ABC):
     ) -> None:
         wait = _exc_type is None or not issubclass(_exc_type, KeyboardInterrupt)
         self.shutdown(wait=wait)
+
+
+__all__ = [
+    "AbstractExecutor",
+    "AbstractFuture",
+]

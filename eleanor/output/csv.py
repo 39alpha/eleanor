@@ -10,14 +10,13 @@ from typing import TypedDict, override
 import yaml
 
 import eleanor.variable_space as vs
-
-from ..exceptions import EleanorConfigurationException, EleanorException
-from ..order import Order
-from ..progress import ProgressHandle
-from ..query import CompiledQuery, compile_query, evaluate
-from ..query.reflection import DataclassField, LeafField
-from ..typing import cast
-from .interface import ComputeResult, OutputSink, WriteOutcome
+from eleanor.exceptions import EleanorConfigurationException, EleanorException
+from eleanor.order import Order
+from eleanor.output.interface import ComputeResult, OutputSink, WriteOutcome
+from eleanor.progress import ProgressHandle
+from eleanor.query import CompiledQuery, compile_query, evaluate
+from eleanor.query.reflection import DataclassField, LeafField
+from eleanor.typing import cast
 
 
 class CsvArgsRaw(TypedDict, total=False):
@@ -32,15 +31,17 @@ class CsvConfig(object):
 
     def __init__(self, filename: object, query: object):
         if not isinstance(filename, str):
-            raise EleanorConfigurationException('output.args.filename must be a string for output type "csv"')
+            msg = 'output.args.filename must be a string for output type "csv"'
+            raise EleanorConfigurationException(msg)
         if not isinstance(query, dict):
-            raise EleanorConfigurationException('output.args.query must be a mapping for output type "csv"')
+            msg = 'output.args.query must be a mapping for output type "csv"'
+            raise EleanorConfigurationException(msg)
         typed_query: dict[str, object] = {str(k): v for k, v in cast(dict[object, object], query).items()}
         object.__setattr__(self, "filename", filename)
         object.__setattr__(self, "query", typed_query)
 
     @staticmethod
-    def from_raw(raw: CsvArgsRaw) -> "CsvConfig":
+    def from_raw(raw: CsvArgsRaw) -> CsvConfig:
         return CsvConfig(
             filename=raw.get("filename"),
             query=raw.get("query"),
@@ -73,7 +74,8 @@ def _read_schema(schema_path: str) -> dict[str, object]:
     with open(schema_path) as handle:
         raw = cast(object, yaml.safe_load(handle))
     if not isinstance(raw, dict):
-        raise EleanorException(f'csv schema "{schema_path}" must be a mapping')
+        msg = f"csv schema {schema_path!r} must be a mapping"
+        raise EleanorException(msg)
     return {str(k): v for k, v in cast(dict[object, object], raw).items()}
 
 
@@ -81,13 +83,16 @@ def _require_vs_points_seen(schema: dict[str, object], schema_path: str) -> dict
     vs_points_seen = schema.get("vs_points_seen", {})
 
     if not isinstance(vs_points_seen, dict):
-        raise EleanorException(f'csv schema "{schema_path}" has invalid vs_points_seen')
+        msg = f"csv schema {schema_path!r} has invalid vs_points_seen"
+        raise EleanorException(msg)
 
     for key, value in cast(dict[object, object], vs_points_seen).items():
         if not isinstance(key, int) or isinstance(key, bool):
-            raise EleanorException(f'csv schema "{schema_path}" has invalid key {key!r}')
+            msg = f"csv schema {schema_path!r} has invalid key {key!r}"
+            raise EleanorException(msg)
         if not isinstance(value, int) or isinstance(value, bool):
-            raise EleanorException(f'csv schema "{schema_path}" has invalid count for {key}: {value!r}')
+            msg = f"csv schema {schema_path!r} has invalid count for {key}: {value!r}"
+            raise EleanorException(msg)
 
     return cast(dict[int, int], vs_points_seen)
 
@@ -96,13 +101,16 @@ def _require_order_versions(schema: dict[str, object], schema_path: str) -> dict
     order_versions = schema.get("order_versions", {})
 
     if not isinstance(order_versions, dict):
-        raise EleanorException(f'csv schema "{schema_path}" has invalid order_versions')
+        msg = f"csv schema {schema_path!r} has invalid order_versions"
+        raise EleanorException(msg)
 
     for key, value in cast(dict[object, object], order_versions).items():
         if not isinstance(key, int) or isinstance(key, bool):
-            raise EleanorException(f'csv schema "{schema_path}" has invalid key {key!r}')
+            msg = f"csv schema {schema_path!r} has invalid key {key!r}"
+            raise EleanorException(msg)
         if not isinstance(value, str):
-            raise EleanorException(f'csv schema "{schema_path}" has invalid version for {key}: {value!r}')
+            msg = f"csv schema {schema_path!r} has invalid version for {key}: {value!r}"
+            raise EleanorException(msg)
 
     return cast(dict[int, str], order_versions)
 
@@ -253,14 +261,17 @@ class CsvSink(OutputSink):
 
     @override
     def initialize(self) -> None:
-        if not os.path.exists(self.config.filename):
-            _write_csv_header(self.config.filename, self._columns)
+        filename = self.config.filename
+        schema_file = self._schema_file
+
+        if not os.path.exists(filename):
+            _write_csv_header(filename, self._columns)
             for column in self._binary_columns:
-                os.makedirs(_asset_dir(self.config.filename, column), exist_ok=True)
+                os.makedirs(_asset_dir(filename, column), exist_ok=True)
             self._vs_points_seen = {}
             self._order_versions = {}
             _write_schema(
-                self._schema_file,
+                schema_file,
                 self.config.query,
                 vs_points_seen=self._vs_points_seen,
                 order_versions=self._order_versions,
@@ -270,23 +281,20 @@ class CsvSink(OutputSink):
             self._rows_written = False
             return
 
-        if not os.path.exists(self._schema_file):
-            raise EleanorException(
-                f'csv file "{self.config.filename}" exists but companion schema "{self._schema_file}" is missing'
-            )
+        if not os.path.exists(schema_file):
+            msg = f"csv file {filename!r} exists but companion schema {schema_file!r} is missing"
+            raise EleanorException(msg)
 
-        schema = _read_schema(self._schema_file)
-        self._vs_points_seen = _require_vs_points_seen(schema, self._schema_file)
-        self._order_versions = _require_order_versions(schema, self._schema_file)
+        schema = _read_schema(schema_file)
+        self._vs_points_seen = _require_vs_points_seen(schema, schema_file)
+        self._order_versions = _require_order_versions(schema, schema_file)
 
-        existing_header = _read_csv_header(self.config.filename)
+        existing_header = _read_csv_header(filename)
         if existing_header != self._columns:
-            raise EleanorException(
-                "csv header does not match configured query columns: "
-                + f"expected {self._columns!r}, found {existing_header!r}"
-            )
+            msg = f"csv header does not match configured query columns: expected {self._columns!r}, found {existing_header!r}"
+            raise EleanorException(msg)
         for column in self._binary_columns:
-            os.makedirs(_asset_dir(self.config.filename, column), exist_ok=True)
+            os.makedirs(_asset_dir(filename, column), exist_ok=True)
 
         self._order_id = None
         self._order = None
@@ -294,6 +302,8 @@ class CsvSink(OutputSink):
 
     @override
     def begin_run(self, order: Order) -> int:
+        query = self.config.query
+        schema_file = self._schema_file
         if self._order is order:
             assert self._order_id is not None
             return self._order_id
@@ -305,13 +315,14 @@ class CsvSink(OutputSink):
 
         existing_version = self._order_versions.get(order_id)
         if existing_version is not None and order.eleanor_version != existing_version:
-            raise EleanorException("cannot extend an order generated by a different version of Eleanor")
+            msg = "cannot extend an order generated by a different version of Eleanor"
+            raise EleanorException(msg)
         self._order_versions[order_id] = order.eleanor_version
 
         self._vs_points_seen[order_id] = self._vs_points_seen.get(order_id, 0)
         _write_schema(
-            self._schema_file,
-            self.config.query,
+            schema_file,
+            query,
             vs_points_seen=self._vs_points_seen,
             order_versions=self._order_versions,
         )
@@ -331,26 +342,22 @@ class CsvSink(OutputSink):
         progress: ProgressHandle | None = None,
     ) -> list[WriteOutcome]:
         _ = order_id
+        filename = self.config.filename
+        schema_file = self._schema_file
+
         if self._order is None:
-            raise EleanorException("csv sink write_batch called before begin_run")
-        if not os.path.exists(self.config.filename):
-            raise EleanorException("csv sink write_batch requires initialize() to create the CSV header")
-        # ``self._order`` non-None implies we have run through ``initialize``
-        # and ``begin_run``, so two things are true:
-        #   1. self._order_id is not None
-        #   2. self._vs_points_seen[self._order_id] does not raise a KeyError
+            msg = "csv sink write_batch called before begin_run"
+            raise EleanorException(msg)
+
+        if not os.path.exists(filename):
+            msg = "csv sink write_batch requires initialize() to create the CSV header"
+            raise EleanorException(msg)
+
         assert self._order_id is not None and self._order_id in self._vs_points_seen
 
         outcomes: list[WriteOutcome] = []
         for index, result in enumerate(results):
             if result.error is not None:
-                # Transport-level failure: the worker reported a hard error
-                # and ``result.point`` may be partially constructed, so it is
-                # not safe to walk it through ``evaluate``. Mirror the
-                # PostgresSink rolled-back-savepoint convention
-                # (``committed=False``, ``exit_code=-1``) so ``RunStats``
-                # counts it as failed. The sink-side counter is NOT advanced
-                # for transport failures.
                 outcomes.append(
                     WriteOutcome(
                         exit_code=-1,
@@ -363,17 +370,18 @@ class CsvSink(OutputSink):
             order = copy.copy(self._order)
             assert order is not None
             order.vs_points = [result.point]
+
             try:
                 rows = list(evaluate(self._compiled, order))
             except Exception as error:
                 print(
-                    "CsvSink.write_batch failed for " + f"VS point index {index}: {type(error).__name__}: {error}",
+                    f"CsvSink.write_batch failed for VS point index {index}: {type(error).__name__}: {error}",
                     file=sys.stderr,
                 )
                 traceback.print_exc(file=sys.stderr)
                 if not self._rows_written:
                     _write_schema(
-                        self._schema_file,
+                        schema_file,
                         self.config.query,
                         vs_points_seen=self._vs_points_seen,
                         order_versions=self._order_versions,
@@ -383,14 +391,14 @@ class CsvSink(OutputSink):
                 raise
             current_point_id = self._vs_points_seen[self._order_id]
             rows = _extract_binary_assets(
-                self.config.filename,
+                filename,
                 self._binary_columns,
                 self._order_id,
                 current_point_id,
                 rows,
             )
             rows = _prepare_rows(self._columns, self._vs_index_columns, current_point_id, rows)
-            _append_rows(self.config.filename, self._columns, rows)
+            _append_rows(filename, self._columns, rows)
             committed = False
             if rows:
                 self._rows_written = True
@@ -406,7 +414,7 @@ class CsvSink(OutputSink):
                 progress.tick()
 
         _write_schema(
-            self._schema_file,
+            schema_file,
             self.config.query,
             vs_points_seen=self._vs_points_seen,
             order_versions=self._order_versions,
@@ -424,3 +432,10 @@ class CsvSink(OutputSink):
     @override
     def supports_progress(self) -> bool:
         return True
+
+
+__all__ = [
+    "CsvArgsRaw",
+    "CsvConfig",
+    "CsvSink",
+]

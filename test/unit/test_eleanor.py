@@ -860,7 +860,7 @@ class TestEleanorLoaders(TestCase):
 
         factory = mock.Mock(return_value=_Sink())
         with (
-            mock.patch("eleanor.output.available_outputs", return_value=frozenset({"plugin"})),
+            mock.patch("eleanor.output.available_output_sinks", return_value=frozenset({"plugin"})),
             mock.patch("eleanor.output.get_factory", return_value=factory) as get_factory_mock,
         ):
             sink = load_output_sink(config, verbose=True)
@@ -875,7 +875,7 @@ class TestEleanorLoaders(TestCase):
         factory = mock.Mock(return_value=object())
 
         with (
-            mock.patch("eleanor.output.available_outputs", return_value=frozenset({"plugin"})),
+            mock.patch("eleanor.output.available_output_sinks", return_value=frozenset({"plugin"})),
             mock.patch("eleanor.output.get_factory", return_value=factory),
             self.assertRaisesRegex(EleanorException, "expected an OutputSink"),
         ):

@@ -4,11 +4,11 @@ from itertools import batched
 from typing import override
 
 import eleanor.variable_space as vs
-
-from ..constraints import Boatswain
-from ..parameters import Parameter, ValueParameter
-from ..typing import Callable, Generator, cast
-from .interface import AbstractNavigator
+from eleanor.constraints import Boatswain
+from eleanor.exceptions import EleanorException
+from eleanor.navigator.interface import AbstractNavigator
+from eleanor.parameters import Parameter, ValueParameter
+from eleanor.typing import Callable, Generator, cast
 
 
 class LatticeNavigator(AbstractNavigator, ABC):
@@ -64,9 +64,16 @@ class Lattice(LatticeNavigator):
     @override
     def generate(self, parameter: Parameter, scale: int, *_args: object, **_kwargs: object) -> list[ValueParameter]:
         if scale < 1:
-            raise ValueError("cannot generate points when scale < 1")
+            msg = "cannot generate points when scale < 1"
+            raise EleanorException(msg)
 
         return parameter.lattice(size=scale)
 
 
 _ = LatticeNavigator.register(Lattice)
+
+__all__ = [
+    "LatticeNavigator",
+    "RandomLattice",
+    "Lattice",
+]

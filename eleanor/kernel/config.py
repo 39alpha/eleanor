@@ -1,8 +1,11 @@
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
-from ..exceptions import EleanorException
-from ..parameters import Parameter
-from ..typing import cast
+from eleanor.exceptions import EleanorException
+from eleanor.typing import cast
+
+if TYPE_CHECKING:
+    from eleanor.parameters import Parameter
 
 
 @dataclass
@@ -27,14 +30,14 @@ def resolve_settings(kernel_type: str, payload: dict[str, object]) -> Settings:
     the plugin subsystem into callers that only need the :class:`Config` /
     :class:`Settings` dataclass types.
     """
-    from .registry import get_factory  # noqa: PLC0415
+    from eleanor.kernel.registry import get_factory
 
     spec = get_factory(kernel_type)
     settings = spec.settings_from_dict(payload)
     if not isinstance(settings, Settings):
-        raise EleanorException(
-            f'kernel plugin "{kernel_type}" returned ' + f"{type(settings).__name__}, expected a Settings instance",
-        )
+        msg = f"kernel plugin {kernel_type!r} returned {type(settings).__name__}, expected a Settings instance"
+        raise EleanorException(msg)
+
     return settings
 
 
@@ -59,10 +62,16 @@ class Config(object):
         """
         raw = cast(object, self.settings)
         if not isinstance(raw, Settings):
-            raise EleanorException(
-                f"kernel.settings has unexpected type {type(raw).__name__}",
-            )
+            msg = f"kernel.settings has unexpected type {type(raw).__name__}"
+            raise EleanorException(msg)
         return raw
 
     def parameters(self) -> list[Parameter]:
         return self.resolved_settings().parameters()
+
+
+__all__ = [
+    "Config",
+    "Settings",
+    "resolve_settings",
+]

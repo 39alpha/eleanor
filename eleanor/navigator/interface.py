@@ -1,10 +1,11 @@
 from abc import ABC, abstractmethod
 from collections.abc import Iterator
+from typing import TYPE_CHECKING
 
-import eleanor.variable_space as vs
-
-from ..kernel.interface import AbstractKernel
-from ..order import Order
+if TYPE_CHECKING:
+    import eleanor.variable_space as vs
+    from eleanor.kernel.interface import AbstractKernel
+    from eleanor.order import Order
 
 
 class AbstractNavigator(ABC):
@@ -21,3 +22,6 @@ class AbstractNavigator(ABC):
 
     def num_systems(self, scale: int) -> int:
         return scale
+
+
+__all__ = ["AbstractNavigator"]

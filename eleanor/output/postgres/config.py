@@ -1,26 +1,7 @@
-"""Connection configuration for the Postgres output sink.
-
-This module owns :class:`DatabaseConfig` (and the corresponding
-:class:`DatabaseRaw` / :class:`PostgresArgsRaw` raw-mapping schemas) used by
-the built-in postgres output sink. The on-disk raw block lives at
-``output.args.database``; other sinks that need their own connection config
-must define their own dataclass.
-
-:class:`DatabaseConfig` is :func:`~dataclasses.dataclass` ``frozen=True``
-so it is hashable, which lets the persistence layer key its per-process
-connection cache on the config identity. Dialect validation is deliberately
-*not* performed here: the postgres sink's
-:class:`~eleanor.output.postgres.sink.PostgresSink` rejects non-postgresql
-dialects in its constructor. The ``dialect`` / ``dbapi`` fields exist for
-backward compatibility with on-disk configs that still spell them out; they
-no longer drive the connection-string format because the rewritten sink
-opens a psycopg3 connection directly.
-"""
-
 from dataclasses import dataclass
 from typing import TypedDict
 
-from ...typing import cast
+from eleanor.typing import cast
 
 
 class DatabaseRaw(TypedDict, total=False):
@@ -75,7 +56,7 @@ class DatabaseConfig(object):
     sslmode: str | None = None
 
     @staticmethod
-    def from_raw(raw: DatabaseRaw) -> "DatabaseConfig":
+    def from_raw(raw: DatabaseRaw) -> DatabaseConfig:
         return DatabaseConfig(
             dialect=raw.get("dialect", "postgresql"),
             dbapi=raw.get("dbapi", "psycopg"),
@@ -112,3 +93,11 @@ def database_config_from_config(config: object) -> DatabaseConfig:
     if not isinstance(database_raw, dict):
         return DatabaseConfig()
     return DatabaseConfig.from_raw(cast(DatabaseRaw, cast(object, database_raw)))
+
+
+__all__ = [
+    "DatabaseRaw",
+    "PostgresArgsRaw",
+    "DatabaseConfig",
+    "database_config_from_config",
+]

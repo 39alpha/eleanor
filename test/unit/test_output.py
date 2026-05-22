@@ -11,9 +11,10 @@ import eleanor.variable_space as vs
 from eleanor.config import Config
 from eleanor.exceptions import EleanorConfigurationException, EleanorException
 from eleanor.order import Order
-from eleanor.output import ComputeResult, ErrorInfo, OutputSink, PostgresSink, RunStats, WriteOutcome
+from eleanor.output import ComputeResult, ErrorInfo, OutputSink, RunStats, WriteOutcome
 from eleanor.output.factories import build_postgres as _build_postgres
 from eleanor.output.postgres.config import DatabaseConfig
+from eleanor.output.postgres.sink import PostgresSink
 from eleanor.progress import ProgressHandle
 
 from .common import TestCase
@@ -818,30 +819,12 @@ class TestOutput(TestCase):
         self.assertIn("inner write failed", text)
         self.assertIn("Traceback", text)
 
-    def test_postgres_lazy_re_exports_resolve_via_getattr(self):
-        """
-        Ensure :mod:`eleanor.output.postgres`'s :pep:`562` ``__getattr__``
-        hook successfully resolves every documented re-export
-        (``DatabaseConfig``, ``DatabaseRaw``, ``PostgresArgsRaw``,
-        ``PostgresSink``, ``database_config_from_config``) and raises
-        ``AttributeError`` for any unknown name. The lazy import keeps
-        SQLAlchemy off the module-load critical path; this test pins
-        the contract down so a refactor cannot silently regress it.
-        """
+    def test_postgres_package_re_exports_postgres_sink(self):
+        """Ensure :mod:`eleanor.output.postgres` eagerly re-exports ``PostgresSink``."""
         import eleanor.output.postgres as postgres_pkg
-        from eleanor.output.postgres.config import DatabaseConfig as _DatabaseConfig
-        from eleanor.output.postgres.config import DatabaseRaw as _DatabaseRaw
-        from eleanor.output.postgres.config import PostgresArgsRaw as _PostgresArgsRaw
-        from eleanor.output.postgres.config import database_config_from_config as _database_config_from_config
         from eleanor.output.postgres.sink import PostgresSink as _PostgresSink
 
-        self.assertIs(postgres_pkg.DatabaseConfig, _DatabaseConfig)
-        self.assertIs(postgres_pkg.DatabaseRaw, _DatabaseRaw)
-        self.assertIs(postgres_pkg.PostgresArgsRaw, _PostgresArgsRaw)
-        self.assertIs(postgres_pkg.database_config_from_config, _database_config_from_config)
         self.assertIs(postgres_pkg.PostgresSink, _PostgresSink)
-        with self.assertRaisesRegex(AttributeError, "no attribute"):
-            _ = postgres_pkg.nonexistent_symbol  # type: ignore[attr-defined]
 
     def test_write_batch_outer_commit_failure_demotes_pending_slots(self):
         """

@@ -1,41 +1,21 @@
-"""
-Registry and discovery for eleanor CLI subcommand plugins.
-
-Each CLI plugin contributes a :class:`CliCommandSpec` whose ``commands``
-tuple is attached beneath an auto-generated ``click.Group`` named after
-the plugin's registration name. So a plugin registered under ``"foo"``
-that ships a ``bar`` command is invoked as ``eleanor foo bar``. Plugins
-may nest further by passing :class:`click.Group` instances as members of
-``commands``.
-
-Built-in CLI specs (currently just ``postgres``) are declared as entry
-points in ``pyproject.toml`` and discovered lazily on first registry
-access, matching the pattern used by the other plugin registries.
-Third-party plugins advertise themselves through the ``eleanor.cli_commands``
-entry-point group in their distribution metadata, e.g.::
-
-    [project.entry-points."eleanor.cli_commands"]
-    my_plugin = "my_plugin.cli:cli_spec"
-
-An entry point may resolve to either a :class:`CliCommandSpec` instance
-or a zero-argument callable returning one (the second form lets plugin
-authors defer expensive imports until their commands are actually
-requested).
-"""
-
-from collections.abc import Callable
 from dataclasses import dataclass
-from typing import TypeAlias, cast
+from typing import TYPE_CHECKING, cast
 
 import click
 
 from eleanor.exceptions import EleanorException
 from eleanor.plugin import PluginRegistry
 
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
 ENTRY_POINT_GROUP = "eleanor.cli_commands"
+
 OVERRIDE_ENV_VAR = "ELEANOR_CLI_OVERRIDES"
 PLUGIN_API_VERSION: int = 1
 MIN_SUPPORTED_API_VERSION: int = 1
+
+BUILTIN_CLI_COMMANDS: frozenset[str] = frozenset({"postgres"})
 
 
 @dataclass(frozen=True)
@@ -53,7 +33,7 @@ class CliCommandSpec(object):
     plugin_api_version: int = 1
 
 
-CliCommandFactory: TypeAlias = CliCommandSpec | Callable[[], CliCommandSpec]
+type CliCommandFactory = CliCommandSpec | Callable[[], CliCommandSpec]
 
 
 def _coerce_to_spec(name: str, factory: object) -> CliCommandSpec:
@@ -74,37 +54,29 @@ def _coerce_to_spec(name: str, factory: object) -> CliCommandSpec:
         try:
             produced = factory()
         except TypeError as e:
-            raise EleanorException(
-                f'cli plugin "{name}" factory is not a zero-argument callable',
-            ) from e
+            msg = f"cli plugin {name!r} factory is not a zero-argument callable"
+            raise EleanorException(msg) from e
         if not isinstance(produced, CliCommandSpec):
-            raise EleanorException(
-                f'cli plugin "{name}" factory must return a CliCommandSpec, ' + f"got {type(produced).__name__}",
-            )
+            msg = f"cli plugin {name!r} factory must return a CliCommandSpec, got {type(produced).__name__}"
+            raise EleanorException(msg)
         spec = produced
     else:
-        raise EleanorException(
-            f'cli plugin "{name}" must be a CliCommandSpec or a zero-arg callable '
-            + f"returning one (got {type(factory).__name__})",
-        )
+        msg = f"cli plugin {name!r} must be a CliCommandSpec or a zero-arg callable returning one (got {type(factory).__name__})"
+        raise EleanorException(msg)
 
     declared = cast(object, spec.plugin_api_version)
     if isinstance(declared, bool) or not isinstance(declared, int):
-        raise EleanorException(
-            f'cli plugin "{name}" CliCommandSpec.plugin_api_version must be int, ' + f"got {type(declared).__name__}",
-        )
+        msg = f"cli plugin {name!r} CliCommandSpec.plugin_api_version must be int, got {type(declared).__name__}"
+        raise EleanorException(msg)
 
-    # Validate command shapes early so a malformed spec produces a useful
-    # registration-time error rather than a confusing Click failure later.
-    commands = cast(object, spec.commands)
-    if not isinstance(commands, tuple):
-        raise EleanorException(
-            f'cli plugin "{name}" CliCommandSpec.commands must be a tuple of click.Command instances',
-        )
-    if not all(isinstance(c, click.Command) for c in cast(tuple[object, ...], commands)):
-        raise EleanorException(
-            f'cli plugin "{name}" CliCommandSpec.commands must be a tuple of click.Command instances',
-        )
+    if not isinstance(cast(object, spec.commands), tuple):
+        msg = f"cli plugin {name!r} CliCommandSpec.commands must be a tuple of click.Command instances"
+        raise EleanorException(msg)
+
+    if not all(isinstance(c, click.Command) for c in cast(tuple[object, ...], spec.commands)):
+        msg = f"cli plugin {name!r} CliCommandSpec.commands must be a tuple of click.Command instances"
+        raise EleanorException(msg)
+
     return spec
 
 
@@ -117,24 +89,20 @@ def _spec_api_version(spec: CliCommandSpec) -> int | None:
     return spec.plugin_api_version
 
 
-#: The shared :class:`PluginRegistry` instance backing this module's helpers.
 registry: PluginRegistry[CliCommandSpec] = PluginRegistry(
     kind="cli",
     entry_point_group=ENTRY_POINT_GROUP,
     override_env_var=OVERRIDE_ENV_VAR,
     builtins={},
-    builtin_names=frozenset({"postgres"}),
+    builtin_names=BUILTIN_CLI_COMMANDS,
     validator=_coerce_to_spec,
     api_version=PLUGIN_API_VERSION,
     min_api_version=MIN_SUPPORTED_API_VERSION,
     api_version_resolver=_spec_api_version,
 )
 
-#: Canonical names of the CLI commands shipped inside the eleanor distribution.
-BUILTIN_CLI_COMMANDS: frozenset[str] = registry.builtins
 
-
-def register_cli_commands(name: str, spec: CliCommandFactory) -> None:
+def register_cli_command(name: str, spec: CliCommandFactory) -> None:
     """Register ``spec`` under ``name`` in the CLI command registry."""
     registry.register(name, spec)
 
@@ -147,3 +115,17 @@ def available_cli_commands() -> frozenset[str]:
 def get_factory(name: str) -> CliCommandSpec:
     """Return the :class:`CliCommandSpec` registered under ``name``."""
     return registry.get(name)
+
+
+__all__ = [
+    "BUILTIN_CLI_COMMANDS",
+    "CliCommandFactory",
+    "CliCommandSpec",
+    "ENTRY_POINT_GROUP",
+    "MIN_SUPPORTED_API_VERSION",
+    "OVERRIDE_ENV_VAR",
+    "PLUGIN_API_VERSION",
+    "available_cli_commands",
+    "get_factory",
+    "register_cli_command",
+]

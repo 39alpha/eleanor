@@ -6,14 +6,12 @@ from concurrent.futures import wait as futures_wait
 from typing import Self, TypeVar, override
 
 from eleanor.exceptions import EleanorException
-
-from .interface import AbstractExecutor, AbstractFuture
+from eleanor.executor.interface import AbstractExecutor, AbstractFuture
 
 T = TypeVar("T")
 
 
 def _ignore_sigint() -> None:
-    """Pool initializer: let the main process handle SIGINT exclusively."""
     _ = signal.signal(signal.SIGINT, signal.SIG_IGN)
 
 
@@ -33,7 +31,6 @@ class MultiprocessingFuture(AbstractFuture[T]):
 
     @property
     def inner(self) -> Future[T]:
-        """The underlying ``concurrent.futures.Future``, for internal use by the executor."""
         return self._future
 
 
@@ -56,16 +53,10 @@ class MultiprocessingExecutor(AbstractExecutor):
         return self._num_workers
 
     @override
-    def submit(
-        self,
-        fn: Callable[..., T],
-        *args: object,
-        **kwargs: object,
-    ) -> AbstractFuture[T]:
+    def submit(self, fn: Callable[..., T], *args: object, **kwargs: object) -> AbstractFuture[T]:
         if self._pool is None:
-            raise EleanorException(
-                "executor is not active — enter the executor context before submitting work, or it has already been shut down"
-            )
+            msg = "executor is not active — enter the executor context before submitting work, or it has already been shut down"
+            raise EleanorException(msg)
         return MultiprocessingFuture(self._pool.submit(fn, *args, **kwargs))
 
     @override
@@ -78,20 +69,21 @@ class MultiprocessingExecutor(AbstractExecutor):
         for idx, candidate in enumerate(futures):
             if isinstance(candidate, MultiprocessingFuture) and candidate.inner in done:
                 return futures.pop(idx)
-        raise EleanorException("failed to identify a completed future")
+        msg = "failed to identify a completed future"
+        raise EleanorException(msg)
 
     @override
     def shutdown(self, wait: bool = True) -> None:
         if self._pool is None:
             return
         if not wait:
-            # ProcessPoolExecutor.shutdown does not forcibly terminate running
-            # workers the way multiprocessing.Pool.terminate() did.  Explicitly
-            # terminate them so KeyboardInterrupt teardown does not leave
-            # orphaned worker processes.
-            # NOTE: _processes is a private CPython attribute; no public API
-            # exists for forceful termination of a ProcessPoolExecutor's workers.
             for process in self._pool._processes.values():
                 process.terminate()
         self._pool.shutdown(wait=wait, cancel_futures=not wait)
         self._pool = None
+
+
+__all__ = [
+    "MultiprocessingExecutor",
+    "MultiprocessingFuture",
+]

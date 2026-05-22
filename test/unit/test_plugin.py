@@ -451,7 +451,7 @@ class TestBuiltInsDoNotWarn(TestCase):
         """
         Ensure built-in navigator factories suppress the unversioned warning.
         """
-        from eleanor.navigator import get_factory as get_navigator_factory
+        from eleanor.navigator.registry import get_factory as get_navigator_factory
 
         # Re-register every built-in into a fresh registry and assert no
         # ``did not declare`` warnings are raised.

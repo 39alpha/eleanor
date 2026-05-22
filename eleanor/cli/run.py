@@ -8,14 +8,15 @@ import click
 from eleanor import Eleanor
 from eleanor.cli.util import config_from_args, config_options
 from eleanor.exceptions import EleanorException
-from eleanor.executor import available_executors, load_executor
+from eleanor.executor import load_executor
+from eleanor.executor.registry import available_executors
 from eleanor.order import load_order
 from eleanor.output.interface import OutputSink
 from eleanor.output.null import NullConfig, NullSink
 
 
 def _complete_parallel(_ctx: click.Context, _param: click.Parameter, incomplete: str) -> list[str]:
-    from eleanor.executor import available_executors
+    from eleanor.executor.registry import available_executors
 
     return [name for name in sorted(available_executors()) if name.startswith(incomplete)]
 

@@ -1,32 +1,3 @@
-"""psycopg3 connection helper for the postgres output sink.
-
-The persistence layer stays connectionless: every public function in
-``repositories.py`` either takes an open :class:`psycopg.Connection` or
-acquires one via :func:`connect` and returns. :func:`connect` memoizes one
-connection per ``(DatabaseConfig, pid)`` key for the lifetime of the
-process, so repeated calls inside one worker share a single TCP/TLS
-session instead of opening and tearing one down per call.
-
-Lifecycle
----------
-* The connection is opened lazily on the first :func:`connect` call.
-* It is closed by :func:`close_connection` (which the postgres sink calls
-  from its :meth:`OutputSink.finalize` hook) -- the explicit, normal
-  shutdown path.
-* :func:`_close_all_connections` is registered with :mod:`atexit` as a
-  belt-and-suspenders safety net for crashes / hard exits where the sink's
-  :meth:`finalize` does not run.
-
-Process safety
---------------
-Connections are keyed on ``(config, os.getpid())``. Under the
-multiprocessing executor a worker forks from the parent and therefore
-inherits the parent's cache dict; the child's :func:`os.getpid` returns
-a fresh value, so the inherited entries are invisible to it and a fresh
-connection is opened on first use. This matches the standard "do not
-share libpq connections across :func:`os.fork`" guidance.
-"""
-
 import atexit
 import json
 import os
@@ -34,7 +5,7 @@ import os
 import psycopg
 from psycopg.types.json import set_json_dumps
 
-from ..config import DatabaseConfig
+from eleanor.output.postgres.config import DatabaseConfig
 
 # Process-local memoized connections, keyed on (config, pid).
 # After fork(), child processes have a different pid, see no entry, and
@@ -123,3 +94,6 @@ def _close_all_connections() -> None:
 
 
 _ = atexit.register(_close_all_connections)
+
+
+__all__ = ["connect", "close_connection"]

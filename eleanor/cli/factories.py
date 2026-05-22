@@ -1,5 +1,3 @@
-"""Built-in CLI command specs used by entry-point discovery."""
-
 from eleanor.cli.registry import CliCommandSpec
 
 
@@ -10,3 +8,6 @@ def build_postgres_commands() -> CliCommandSpec:
         commands=(schema, scratch, bulkload),
         help="Postgres output sink commands.",
     )
+
+
+__all__ = ["build_postgres_commands"]

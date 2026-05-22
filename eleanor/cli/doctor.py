@@ -7,7 +7,7 @@ from eleanor.cli.registry import available_cli_commands
 from eleanor.executor.registry import available_executors
 from eleanor.kernel.registry import available_kernels
 from eleanor.navigator.registry import available_navigators
-from eleanor.output.registry import available_outputs
+from eleanor.output.registry import available_output_sinks
 from eleanor.plugin import PLUGIN_API_VERSIONS
 
 
@@ -31,7 +31,7 @@ def doctor() -> None:
         ("Executors", sorted(available_executors())),
         ("Kernels", sorted(available_kernels())),
         ("Navigators", sorted(available_navigators())),
-        ("Outputs", sorted(available_outputs())),
+        ("Outputs", sorted(available_output_sinks())),
         ("CLI commands", sorted(available_cli_commands())),
     ]
     for heading, names in sections:

@@ -3,11 +3,10 @@ from itertools import batched
 from typing import override
 
 import eleanor.variable_space as vs
-
-from ..constraints import Boatswain
-from ..exceptions import EleanorException
-from ..typing import Callable, cast
-from .interface import AbstractNavigator
+from eleanor.constraints import Boatswain
+from eleanor.exceptions import EleanorException
+from eleanor.navigator.interface import AbstractNavigator
+from eleanor.typing import Callable, cast
 
 
 class Random(AbstractNavigator):
@@ -20,9 +19,11 @@ class Random(AbstractNavigator):
     def generate(self, *_args: object, order_id: int | None = None, **kwargs: object) -> vs.Point:
         max_attempts: object = kwargs.get("max_attempts", 1)
         if not isinstance(max_attempts, int) or isinstance(max_attempts, bool):
-            raise EleanorException(f"max_attempts must be an integer, got {type(max_attempts).__name__}")
+            msg = f"max_attempts must be an integer, got {type(max_attempts).__name__}"
+            raise EleanorException(msg)
         elif max_attempts < 1:
-            raise EleanorException(f"max_attempts must be at least one, got {max_attempts}")
+            msg = f"max_attempts must be at least one, got {max_attempts}"
+            raise EleanorException(msg)
 
         last_exception: Exception | None = None
         while max_attempts > 0:
@@ -41,7 +42,10 @@ class Random(AbstractNavigator):
                 last_exception = e
                 max_attempts -= 1
 
-        raise EleanorException("failed to select VS point") from last_exception
+        msg = "failed to select VS point"
+        raise EleanorException(msg) from last_exception
 
 
 _ = AbstractNavigator.register(Random)
+
+__all__ = ["Random"]

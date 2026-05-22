@@ -6,7 +6,9 @@ import numpy as np
 
 import eleanor.variable_space as vs
 from eleanor.exceptions import EleanorException
-from eleanor.navigator import AbstractNavigator, Lattice, LatticeNavigator, Random, RandomLattice
+from eleanor.navigator import AbstractNavigator
+from eleanor.navigator.lattice import Lattice, LatticeNavigator, RandomLattice
+from eleanor.navigator.random import Random
 from eleanor.parameters import Parameter, RangeParameter, ValueParameter
 
 from .common import TestCase
@@ -368,5 +370,5 @@ class TestNavigator(TestCase):
         self.assertEqual(lattice.generate(param, 2), ["l1", "l2"])
         param.lattice.assert_called_once_with(size=2)
 
-        with self.assertRaises(ValueError):
+        with self.assertRaises(EleanorException):
             _ = lattice.generate(param, 0)

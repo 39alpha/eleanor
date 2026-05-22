@@ -1,10 +1,3 @@
-"""Click commands contributed by the postgres output sink.
-
-Wired into the top-level CLI as ``eleanor postgres <subcommand>`` via the
-:class:`~eleanor.cli.registry.CliCommandSpec` registered by
-:mod:`eleanor.output`.
-"""
-
 import io
 import os
 from typing import TextIO
@@ -13,10 +6,10 @@ from zipfile import ZipFile
 import click
 
 from eleanor.cli.util import config_from_args, config_options
-
-from .config import database_config_from_config
-from .persistence.repositories import drop_indexes, recreate_indexes
-from .tools import dump_schema, load_scratch_entry
+from eleanor.exceptions import EleanorException
+from eleanor.output.postgres.config import database_config_from_config
+from eleanor.output.postgres.persistence.repositories import drop_indexes, recreate_indexes
+from eleanor.output.postgres.tools import dump_schema, load_scratch_entry
 
 
 @click.command()
@@ -93,4 +86,8 @@ def bulkload(action: str, yes: bool, config: str, database: str | None) -> None:
     elif action == "recreate":
         recreate_indexes(database_config)
     else:
-        raise ValueError(f"unknown bulkload action: {action!r}")
+        msg = f"unknown bulkload action: {action!r}"
+        raise EleanorException(msg)
+
+
+__all__ = ["schema", "scratch", "bulkload"]

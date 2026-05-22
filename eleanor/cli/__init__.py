@@ -25,3 +25,8 @@ for _name in sorted(available_cli_commands()):
     for _cmd in _spec.commands:
         _parent.add_command(_cmd)
     main.add_command(_parent)
+
+
+__all__ = [
+    "main",
+]

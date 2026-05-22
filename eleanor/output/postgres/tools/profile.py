@@ -1,31 +1,3 @@
-"""Lightweight SQL statement profiler for the postgres output sink.
-
-While a :class:`StatementProfiler` is active, every connection vended by
-:func:`eleanor.output.postgres.persistence.connection.connect` (and any
-connection already in its memoization cache) uses
-:class:`_ProfilingCursor` as its ``cursor_factory``. The cursor subclass
-delegates to the parent for the actual SQL work and only adds counter
-bookkeeping around it; on exit, every previous ``cursor_factory`` is
-restored.
-
-Usage::
-
-    from eleanor.output.postgres.tools.profile import StatementProfiler
-
-    with StatementProfiler() as prof:
-        eleanor.run(...)
-    print(prof.report())
-
-.. note::
-    The profiler is process-local. Under
-    :meth:`~eleanor.output.interface.OutputSink.supports_worker_writes`
-    enabled (the default for :class:`~eleanor.output.postgres.sink.PostgresSink`),
-    most writes happen in *worker* processes; a parent-process profiler
-    will only see the writes done in :meth:`~eleanor.output.postgres.sink.PostgresSink.begin_run`.
-    To profile the per-point write path, run with a serial executor or
-    attach the profiler from inside the worker.
-"""
-
 import re
 import time
 from collections import Counter
@@ -41,8 +13,9 @@ from psycopg.abc import Params, QueryNoTemplate
 from psycopg.copy import Copy, Writer
 from psycopg.rows import TupleRow
 
-from ..config import DatabaseConfig
-from ..persistence import connection as connection_module
+from eleanor.exceptions import EleanorException
+from eleanor.output.postgres.config import DatabaseConfig
+from eleanor.output.postgres.persistence import connection as connection_module
 
 # Bulk-write detector: matches ``INSERT INTO {table}`` and
 # ``COPY {table}`` (the form ``_bulk_copy`` emits, with FROM STDIN). Both
@@ -60,7 +33,7 @@ _BULK_WRITE_RE = re.compile(
 # Process-local handle to the currently active profiler. ``__enter__`` sets
 # it; ``__exit__`` clears it. ``_ProfilingCursor`` consults this so the
 # cursor subclass stays a no-cost passthrough when no profiler is active.
-_active: "StatementProfiler | None" = None
+_active: StatementProfiler | None = None
 
 
 class _ProfilingCursor(psycopg.Cursor[TupleRow]):
@@ -100,7 +73,7 @@ class _ProfilingCursor(psycopg.Cursor[TupleRow]):
     def executemany(  # pyright: ignore[reportIncompatibleMethodOverride]
         self,
         query: QueryNoTemplate,
-        params_seq: "Iterable[Params]",
+        params_seq: Iterable[Params],
         *,
         returning: bool = False,
     ) -> None:
@@ -122,7 +95,7 @@ class _ProfilingCursor(psycopg.Cursor[TupleRow]):
         statement: QueryNoTemplate,
         params: Params | None = None,
         *,
-        writer: "Writer | None" = None,
+        writer: Writer | None = None,
     ) -> Generator[Copy]:
         # Mirror the ``execute`` shape: when no profiler is active, just
         # delegate to the parent's context manager. Otherwise time the whole
@@ -184,14 +157,16 @@ class StatementProfiler(object):
     _pending: dict[int, tuple[str, int] | None] = field(default_factory=dict)
     # Saved reference to the real ``connection.connect`` so ``__exit__`` can
     # restore it. Initialised in ``__enter__`` after we capture the value.
-    _real_connect: "Callable[[DatabaseConfig], psycopg.Connection] | None" = None
+    _real_connect: Callable[[DatabaseConfig], psycopg.Connection] | None = None
 
-    def __enter__(self) -> "StatementProfiler":
+    def __enter__(self) -> StatementProfiler:
         global _active
         if self._started:
-            raise RuntimeError("StatementProfiler is not reentrant")
+            msg = "StatementProfiler is not reentrant"
+            raise EleanorException(msg)
         if _active is not None:
-            raise RuntimeError("another StatementProfiler is already active")
+            msg = "another StatementProfiler is already active"
+            raise EleanorException(msg)
         self._started = True
         _active = self
         # Retrofit every already-cached connection so any cursor() call
@@ -286,7 +261,8 @@ class StatementProfiler(object):
     def _wrapped_connect(self, config: DatabaseConfig) -> psycopg.Connection:
         """Drop-in replacement for :func:`connection.connect` while profiling."""
         if self._real_connect is None:
-            raise RuntimeError("StatementProfiler._real_connect not captured")
+            msg = "StatementProfiler._real_connect not captured"
+            raise EleanorException(msg)
         conn = self._real_connect(config)
         self._patch_factory(conn)
         return conn
@@ -309,3 +285,6 @@ class StatementProfiler(object):
         for kind, count in self.other_statements.most_common():
             lines.append(f"  {kind:<40s}  {count:>8d}")
         return "\n".join(lines)
+
+
+__all__ = ["StatementProfiler"]

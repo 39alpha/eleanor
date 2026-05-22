@@ -2,16 +2,16 @@ from typing import override
 from unittest import mock
 
 from eleanor.exceptions import EleanorException
-from eleanor.navigator import (
+from eleanor.navigator.lattice import Lattice, RandomLattice
+from eleanor.navigator.random import Random
+from eleanor.navigator.registry import (
     BUILTIN_NAVIGATORS,
-    Lattice,
-    Random,
-    RandomLattice,
+    NavigatorFactory,
     available_navigators,
     get_factory,
     register_navigator,
+    registry,
 )
-from eleanor.navigator.registry import NavigatorFactory, registry
 
 from .common import TestCase
 

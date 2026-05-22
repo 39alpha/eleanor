@@ -1,13 +1,11 @@
-"""In-memory :class:`OutputSink` implementation for programmatic and test use."""
-
 from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import TypedDict, override
 
-from ..exceptions import EleanorConfigurationException, EleanorException
-from ..order import Order
-from ..progress import ProgressHandle
-from .interface import ComputeResult, OutputSink, WriteOutcome
+from eleanor.exceptions import EleanorConfigurationException, EleanorException
+from eleanor.order import Order
+from eleanor.output.interface import ComputeResult, OutputSink, WriteOutcome
+from eleanor.progress import ProgressHandle
 
 
 class MemoryArgsRaw(TypedDict, total=False):
@@ -20,13 +18,12 @@ class MemoryConfig(object):
 
     def __init__(self, support_worker_writes: object):
         if not isinstance(support_worker_writes, bool):
-            raise EleanorConfigurationException(
-                'output.args.support_worker_writes must be a boolean for output type "memory"'
-            )
+            msg = 'output.args.support_worker_writes must be a boolean for output type "memory"'
+            raise EleanorConfigurationException(msg)
         object.__setattr__(self, "support_worker_writes", support_worker_writes)
 
     @staticmethod
-    def from_raw(raw: MemoryArgsRaw) -> "MemoryConfig":
+    def from_raw(raw: MemoryArgsRaw) -> MemoryConfig:
         return MemoryConfig(
             support_worker_writes=raw.get("support_worker_writes", False),
         )
@@ -65,12 +62,10 @@ class MemorySink(OutputSink):
         progress: ProgressHandle | None = None,
     ) -> list[WriteOutcome]:
         if order_id not in self._orders:
-            raise EleanorException("memory sink write_batch called before begin_run")
+            msg = "memory sink write_batch called before begin_run"
+            raise EleanorException(msg)
         order = self._orders[order_id]
 
-        # Unlike CsvSink/PostgresSink, MemorySink treats every result —
-        # including error results — as a committed write.  There is no
-        # persistent store that could be left in an inconsistent state.
         outcomes: list[WriteOutcome] = []
         for result in results:
             result.point.order_id = order_id
@@ -97,3 +92,10 @@ class MemorySink(OutputSink):
     @override
     def supports_progress(self) -> bool:
         return True
+
+
+__all__ = [
+    "MemoryArgsRaw",
+    "MemoryConfig",
+    "MemorySink",
+]

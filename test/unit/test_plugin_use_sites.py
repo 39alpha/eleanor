@@ -82,7 +82,7 @@ class TestLoadExecutorErrorWrapping(_RegistrySnapshot, TestCase):
 
         _stamp(factory, 1)
         executor_registry.register("incomplete", factory)
-        with self.assertRaisesRegex(EleanorException, 'executor plugin "incomplete" failed to instantiate'):
+        with self.assertRaisesRegex(EleanorException, "executor plugin 'incomplete' failed to instantiate"):
             _ = load_executor(kind="incomplete")
 
     def test_abstract_subclass_typeerror_message_includes_api_version(self):
@@ -169,7 +169,7 @@ class TestLoadKernelErrorWrapping(_RegistrySnapshot, TestCase):
             plugin_api_version=1,
         )
         kernel_registry.register("flawed", spec)
-        with self.assertRaisesRegex(EleanorException, 'kernel plugin "flawed" failed to instantiate'):
+        with self.assertRaisesRegex(EleanorException, "kernel plugin 'flawed' failed to instantiate"):
             _ = load_kernel(self._make_order("flawed"), ["arg1"])
 
     def test_unrelated_typeerror_propagates(self):
@@ -219,7 +219,7 @@ class TestLoadOutputSinkErrorWrapping(_RegistrySnapshot, TestCase):
         _stamp(factory, 1)
         output_registry.register("flawed", factory)
         config = Config(raw={"output": {"type": "flawed", "args": {}}})
-        with self.assertRaisesRegex(EleanorException, 'output sink plugin "flawed" failed to instantiate'):
+        with self.assertRaisesRegex(EleanorException, "output sink plugin 'flawed' failed to instantiate"):
             _ = load_output_sink(config)
 
     def test_unrelated_typeerror_propagates(self):
@@ -272,7 +272,7 @@ class TestLoadNavigatorErrorWrapping(_RegistrySnapshot, TestCase):
 
         _stamp(factory, 1)
         navigator_registry.register("flawed", factory)
-        with self.assertRaisesRegex(EleanorException, 'navigator plugin "flawed" failed to instantiate'):
+        with self.assertRaisesRegex(EleanorException, "navigator plugin 'flawed' failed to instantiate"):
             _ = load_navigator(self._order_with_navigator("flawed"), mock.Mock())
 
     def test_unrelated_typeerror_propagates(self):

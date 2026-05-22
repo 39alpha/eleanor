@@ -3,12 +3,12 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from traceback import format_exception
 from types import TracebackType
-from typing import Self
+from typing import TYPE_CHECKING, Self
 
-import eleanor.variable_space as vs
-
-from ..order import Order
-from ..progress import ProgressHandle
+if TYPE_CHECKING:
+    import eleanor.variable_space as vs
+    from eleanor.order import Order
+    from eleanor.progress import ProgressHandle
 
 
 @dataclass(slots=True, frozen=True)
@@ -18,7 +18,7 @@ class ErrorInfo(object):
     traceback_text: str
 
     @staticmethod
-    def from_exception(error: Exception) -> "ErrorInfo":
+    def from_exception(error: Exception) -> ErrorInfo:
         traceback_text = "".join(format_exception(type(error), error, error.__traceback__))
         return ErrorInfo(type_name=error.__class__.__name__, message=str(error), traceback_text=traceback_text)
 
@@ -198,3 +198,12 @@ class OutputSink(ABC):
         progress protocol continue to work unchanged.
         """
         return False
+
+
+__all__ = [
+    "ComputeResult",
+    "ErrorInfo",
+    "OutputSink",
+    "RunStats",
+    "WriteOutcome",
+]

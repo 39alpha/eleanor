@@ -29,7 +29,7 @@ from eleanor.kernel.eq36.settings import IOPG_1, Eq3Config, Eq6Config
 from eleanor.kernel.eq36.settings import Settings as Eq36Settings
 from eleanor.order import Order
 from eleanor.output.postgres.config import DatabaseConfig
-from eleanor.output.postgres.persistence import connection, converters, repositories, schema
+from eleanor.output.postgres.persistence import connection, converters, queries, repositories, schema
 from eleanor.parameters import Parameter
 from eleanor.reactants import ReactantType
 
@@ -467,7 +467,7 @@ class TestBulkInsertHelpers(TestCase):
 
         bulk_copy.assert_not_called()
         cursor.executemany.assert_called_once_with(
-            repositories.queries.INSERTS["equilibrium_elements"],
+            queries.INSERTS["equilibrium_elements"],
             rows,
         )
 
@@ -562,12 +562,8 @@ class TestRepositoryErrorPaths(TestCase):
         cfg = DatabaseConfig(database="db", username="u", password="p")
         fake_conn = mock.MagicMock()
         with (
-            mock.patch.object(
-                repositories.connection,
-                "connect",
-                return_value=fake_conn,
-            ) as connect,
-            mock.patch.object(repositories.schema, "ensure_schema") as ensure_schema,
+            mock.patch.object(connection, "connect", return_value=fake_conn) as connect,
+            mock.patch.object(schema, "ensure_schema") as ensure_schema,
         ):
             repositories.setup_schema(cfg)
         connect.assert_called_once_with(cfg)
@@ -589,7 +585,7 @@ class TestRepositoryErrorPaths(TestCase):
         cursor.fetchone.return_value = None
         fake_conn.cursor.return_value.__enter__.return_value = cursor
         with mock.patch.object(
-            repositories.connection,
+            connection,
             "connect",
             return_value=fake_conn,
         ):
@@ -608,7 +604,7 @@ class TestRepositoryErrorPaths(TestCase):
         fake_conn = mock.MagicMock()
         fake_conn.cursor.return_value.__enter__.return_value = cursor
         with mock.patch.object(
-            repositories.connection,
+            connection,
             "connect",
             return_value=fake_conn,
         ):
@@ -1113,11 +1109,11 @@ class TestBulkLoadLifecycle(TestCase):
         fake_conn = mock.MagicMock()
         with (
             mock.patch.object(
-                repositories.connection,
+                connection,
                 "connect",
                 return_value=fake_conn,
             ) as connect,
-            mock.patch.object(repositories.schema, "drop_indexes") as drop_indexes,
+            mock.patch.object(schema, "drop_indexes") as drop_indexes,
         ):
             repositories.drop_indexes(cfg)
         connect.assert_called_once_with(cfg)
@@ -1129,11 +1125,11 @@ class TestBulkLoadLifecycle(TestCase):
         fake_conn = mock.MagicMock()
         with (
             mock.patch.object(
-                repositories.connection,
+                connection,
                 "connect",
                 return_value=fake_conn,
             ) as connect,
-            mock.patch.object(repositories.schema, "recreate_indexes") as recreate_indexes,
+            mock.patch.object(schema, "recreate_indexes") as recreate_indexes,
         ):
             repositories.recreate_indexes(cfg)
         connect.assert_called_once_with(cfg)
@@ -1159,12 +1155,12 @@ class TestBulkLoadLifecycle(TestCase):
 
         with (
             mock.patch.object(
-                repositories.connection,
+                connection,
                 "connect",
                 return_value=fake_conn,
             ) as connect,
             mock.patch.object(
-                repositories.schema,
+                schema,
                 "bulk_load_window",
                 side_effect=lambda c: __import__("contextlib").contextmanager(fake_window)(c),
             ),

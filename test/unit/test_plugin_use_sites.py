@@ -13,7 +13,6 @@ from types import SimpleNamespace
 from typing import cast, override
 from unittest import mock
 
-from eleanor.config import Config
 from eleanor.exceptions import EleanorException
 from eleanor.executor import AbstractExecutor, load_executor
 from eleanor.executor.registry import registry as executor_registry
@@ -213,28 +212,26 @@ class TestLoadOutputSinkErrorWrapping(_RegistrySnapshot, TestCase):
             def begin_run(self, order):  # pragma: no cover - never called
                 pass
 
-        def factory(_config, *, verbose: bool = False, **_args):
+        def factory(*, verbose: bool = False, **_args):
             return _IncompleteSink()  # pyright: ignore[reportAbstractUsage]
 
         _stamp(factory, 1)
         output_registry.register("flawed", factory)
-        config = Config(raw={"output": {"type": "flawed", "args": {}}})
         with self.assertRaisesRegex(EleanorException, "output sink plugin 'flawed' failed to instantiate"):
-            _ = load_output_sink(config)
+            _ = load_output_sink("flawed")
 
     def test_unrelated_typeerror_propagates(self):
         """
         Ensure unrelated TypeErrors in the sink builder propagate.
         """
 
-        def factory(_config, *, verbose: bool = False, **_args):
+        def factory(*, verbose: bool = False, **_args):
             raise TypeError("unsupported operand")
 
         _stamp(factory, 1)
         output_registry.register("typeerror", factory)
-        config = Config(raw={"output": {"type": "typeerror", "args": {}}})
         with self.assertRaisesRegex(TypeError, "unsupported operand"):
-            _ = load_output_sink(config)
+            _ = load_output_sink("typeerror")
 
 
 class TestLoadNavigatorErrorWrapping(_RegistrySnapshot, TestCase):

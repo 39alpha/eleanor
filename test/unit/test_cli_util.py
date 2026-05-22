@@ -21,7 +21,7 @@ class TestConfigFromArgs(TestCase):
         config.output.args so that database_config_from_config and the
         registry's **args splat both see the new value.
         """
-        base = Config(raw={"output": {"type": "postgres", "args": {}}})
+        base = Config(raw={"output": {"kind": "postgres", "args": {}}})
         with mock.patch("eleanor.cli.util.load_config", return_value=base):
             result = config_from_args("/fake.yaml", "override_db")
 
@@ -39,7 +39,7 @@ class TestConfigFromArgs(TestCase):
         base = Config(
             raw={
                 "output": {
-                    "type": "postgres",
+                    "kind": "postgres",
                     "args": {"database": {"username": "alice", "host": "db.local"}},
                 },
             }
@@ -57,10 +57,10 @@ class TestConfigFromArgs(TestCase):
         Ensure --database raises EleanorConfigurationException when output.type
         is not 'postgres', so the flag is never silently ignored.
         """
-        non_postgres = Config(raw={"output": {"type": "csv"}})
+        non_postgres = Config(raw={"output": {"kind": "csv"}})
         with mock.patch("eleanor.cli.util.load_config", return_value=non_postgres):
             with self.assertRaises(EleanorConfigurationException) as ctx:
-                config_from_args("/fake.yaml", "db")
+                _ = config_from_args("/fake.yaml", "db")
         self.assertIn("postgres", str(ctx.exception))
 
     def test_missing_database_exits(self):
@@ -68,16 +68,16 @@ class TestConfigFromArgs(TestCase):
         Ensure config_from_args raises click.ClickException when output.type is
         postgres but no database name is configured and --database is not provided.
         """
-        base = Config(raw={"output": {"type": "postgres", "args": {}}})
+        base = Config(raw={"output": {"kind": "postgres", "args": {}}})
         with mock.patch("eleanor.cli.util.load_config", return_value=base):
             with self.assertRaises(click.ClickException):
-                config_from_args("/fake.yaml", None)
+                _ = config_from_args("/fake.yaml", None)
 
     def test_missing_database_allowed_when_not_required(self):
         """
         Ensure callers can opt out of postgres database enforcement.
         """
-        base = Config(raw={"output": {"type": "postgres", "args": {}}})
+        base = Config(raw={"output": {"kind": "postgres", "args": {}}})
         with mock.patch("eleanor.cli.util.load_config", return_value=base):
             result = config_from_args("/fake.yaml", None, require_database=False)
         self.assertIs(result, base)

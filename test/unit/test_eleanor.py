@@ -59,7 +59,7 @@ def _make_eleanor():
             object,
             SimpleNamespace(
                 database="db-config",
-                output=SimpleNamespace(type="postgres", args={}),
+                output=SimpleNamespace(kind="postgres", args={}),
                 parallel=SimpleNamespace(backend="multiprocessing", chunks_per_worker=1),
             ),
         ),
@@ -88,17 +88,6 @@ def _point(*, exit_code: int = 0, **kwargs: object) -> Point:
 
 def _as_executor(executor: _FakeExecutor) -> AbstractExecutor:
     return cast(AbstractExecutor, cast(object, executor))
-
-
-class _LoaderOutputConfig:
-    def __init__(self, *, sink_type: str | None, args: dict[str, object]):
-        self.type = sink_type
-        self.args = args
-
-
-class _LoaderConfig:
-    def __init__(self, output: _LoaderOutputConfig):
-        self.output = output
 
 
 def _navigator(num_systems: int = 1):
@@ -147,13 +136,13 @@ class TestEleanorConstruction(TestCase):
             cast(
                 object,
                 SimpleNamespace(
-                    output=SimpleNamespace(type=None, args={}),
+                    output=SimpleNamespace(kind=None, args={}),
                     parallel=SimpleNamespace(backend="serial", chunks_per_worker=1),
                 ),
             ),
         )
         with self.assertRaises(EleanorConfigurationException):
-            Eleanor(config=no_output_config)
+            _ = Eleanor(config=no_output_config)
 
     def test_init_does_not_raise_when_output_sink_override_suppresses_guard(self):
         """Ensure constructor-level output_sink= bypasses the no-output-type guard."""
@@ -162,7 +151,7 @@ class TestEleanorConstruction(TestCase):
             cast(
                 object,
                 SimpleNamespace(
-                    output=SimpleNamespace(type=None, args={}),
+                    output=SimpleNamespace(kind=None, args={}),
                     parallel=SimpleNamespace(backend="serial", chunks_per_worker=1),
                 ),
             ),
@@ -174,7 +163,7 @@ class TestEleanorConstruction(TestCase):
     def test_init_rejects_positional_config(self):
         """Ensure all constructor args are keyword-only after the * sentinel move."""
         with self.assertRaises(TypeError):
-            Eleanor(_make_eleanor().config)  # pyright: ignore[reportCallIssue]
+            _ = Eleanor(_make_eleanor().config)  # pyright: ignore[reportCallIssue]
 
     def test_enter_builds_executor_and_exit_tears_down_all(self):
         """Ensure __enter__/__exit__ set up and tear down session resources."""
@@ -210,7 +199,7 @@ class TestEleanorConstruction(TestCase):
         ):
             with self.assertRaisesRegex(RuntimeError, "dispatch failed"):
                 with eleanor:
-                    eleanor.run(order, 5, kernel=mock.Mock(), navigator=_navigator(1))
+                    _ = eleanor.run(order, 5, kernel=mock.Mock(), navigator=_navigator(1))
 
         sink.finalize.assert_called_once()
         session_executor.shutdown.assert_called_once_with(wait=True)
@@ -236,7 +225,7 @@ class TestEleanorConstruction(TestCase):
             mock.patch("eleanor.eleanor.load_output_sink", return_value=sink),
             self.assertRaisesRegex(RuntimeError, "sink finalize failed"),
         ):
-            eleanor.run(order, 5, kernel=mock.Mock(), navigator=_navigator(1), show_progress=True)
+            _ = eleanor.run(order, 5, kernel=mock.Mock(), navigator=_navigator(1), show_progress=True)
 
         manager.shutdown.assert_called_once()
         executor.shutdown.assert_called_once_with(wait=True)
@@ -263,7 +252,7 @@ class TestEleanorRun(TestCase):
 
         self.assertEqual(out, 7)
         load_executor.assert_called_once_with(kind="multiprocessing", num_workers=None)
-        load_sink.assert_called_once_with(eleanor.config, verbose=False)
+        load_sink.assert_called_once_with(eleanor.config.output.kind, verbose=False, **eleanor.config.output.args)
         sink.finalize.assert_called_once()
         executor.shutdown.assert_called_once_with(wait=True)
 
@@ -320,13 +309,13 @@ class TestEleanorRun(TestCase):
         """Ensure run() rejects the retired ``executor=`` kwarg."""
         eleanor = _make_eleanor()
         with self.assertRaisesRegex(TypeError, "unexpected keyword argument 'executor'"):
-            eleanor.run(_leaf_order(), 1, executor=_FakeExecutor())  # pyright: ignore[reportCallIssue]
+            _ = eleanor.run(_leaf_order(), 1, executor=_FakeExecutor())  # pyright: ignore[reportCallIssue]
 
     def test_run_rejects_retired_parallel_kwarg(self):
         """Ensure run() rejects the retired ``parallel=`` kwarg."""
         eleanor = _make_eleanor()
         with self.assertRaisesRegex(TypeError, "unexpected keyword argument 'parallel'"):
-            eleanor.run(_leaf_order(), 1, parallel="serial")  # pyright: ignore[reportCallIssue]
+            _ = eleanor.run(_leaf_order(), 1, parallel="serial")  # pyright: ignore[reportCallIssue]
 
     def test_run_raises_when_num_systems_returns_zero(self):
         """Ensure run() validates navigator.num_systems >= 1."""
@@ -340,7 +329,7 @@ class TestEleanorRun(TestCase):
             mock.patch("eleanor.eleanor.load_output_sink", return_value=sink),
             self.assertRaisesRegex(EleanorException, "num_systems.*must be >= 1"),
         ):
-            eleanor.run(_leaf_order(), 10, kernel=mock.Mock(), navigator=navigator)
+            _ = eleanor.run(_leaf_order(), 10, kernel=mock.Mock(), navigator=navigator)
 
     def test_run_raises_when_explicit_batch_size_is_zero(self):
         """Ensure run() validates explicit batch_size >= 1."""
@@ -353,7 +342,7 @@ class TestEleanorRun(TestCase):
             mock.patch("eleanor.eleanor.load_output_sink", return_value=sink),
             self.assertRaisesRegex(EleanorException, "batch_size must be >= 1"),
         ):
-            eleanor.run(_leaf_order(), 10, kernel=mock.Mock(), navigator=_navigator(5), batch_size=0)
+            _ = eleanor.run(_leaf_order(), 10, kernel=mock.Mock(), navigator=_navigator(5), batch_size=0)
 
     def test_run_constructs_out_handle_only_when_sink_supports_progress(self):
         """Ensure process gets out_progress only for sinks that opt into progress."""
@@ -377,7 +366,7 @@ class TestEleanorRun(TestCase):
             mock.patch("eleanor.eleanor.load_output_sink", return_value=quiet_sink),
             mock.patch("eleanor.eleanor.Progress", return_value=progress_quiet),
         ):
-            eleanor.run(_leaf_order(), 3, kernel=kernel, navigator=navigator, show_progress=True)
+            _ = eleanor.run(_leaf_order(), 3, kernel=kernel, navigator=navigator, show_progress=True)
 
         kwargs = eleanor.process.call_args.kwargs
         self.assertIs(kwargs["sim_progress"], sim_handle_quiet)
@@ -397,7 +386,7 @@ class TestEleanorRun(TestCase):
             mock.patch("eleanor.eleanor.load_output_sink", return_value=loud_sink),
             mock.patch("eleanor.eleanor.Progress", return_value=progress_loud),
         ):
-            eleanor.run(_leaf_order(), 3, kernel=kernel, navigator=navigator, show_progress=True)
+            _ = eleanor.run(_leaf_order(), 3, kernel=kernel, navigator=navigator, show_progress=True)
 
         kwargs = eleanor.process.call_args.kwargs
         self.assertIs(kwargs["sim_progress"], sim_handle_loud)
@@ -420,7 +409,7 @@ class TestEleanorRun(TestCase):
             mock.patch("eleanor.eleanor.Progress", return_value=progress),
             self.assertRaises(RuntimeError),
         ):
-            eleanor.run(_leaf_order(), 1, kernel=mock.Mock(), navigator=_navigator(1), show_progress=True)
+            _ = eleanor.run(_leaf_order(), 1, kernel=mock.Mock(), navigator=_navigator(1), show_progress=True)
 
         sim_handle.done.assert_called_once_with()
         out_handle.done.assert_called_once_with()
@@ -485,7 +474,7 @@ class TestEleanorRun(TestCase):
             mock.patch("eleanor.eleanor.load_output_sink", return_value=sink),
             self.assertRaisesRegex(EleanorException, "max_nav_attempts must be >= 1"),
         ):
-            eleanor.run(_leaf_order(), 10, kernel=mock.Mock(), navigator=_navigator(5), max_nav_attempts=0)
+            _ = eleanor.run(_leaf_order(), 10, kernel=mock.Mock(), navigator=_navigator(5), max_nav_attempts=0)
 
     def test_run_uses_explicit_output_sink_override(self):
         """Ensure output_sink= overrides config sink; caller retains lifecycle ownership."""
@@ -519,7 +508,7 @@ class TestEleanorRun(TestCase):
             mock.patch("eleanor.eleanor.load_output_sink", return_value=sink),
             self.assertRaises(EleanorShutdown),
         ):
-            eleanor.run(_leaf_order(), 5, kernel=mock.Mock(), navigator=_navigator(1))
+            _ = eleanor.run(_leaf_order(), 5, kernel=mock.Mock(), navigator=_navigator(1))
 
         sink.finalize_run.assert_called_once_with()
         sink.finalize.assert_called_once_with()
@@ -533,7 +522,7 @@ class TestEleanorProcess(TestCase):
         eleanor = _make_eleanor()
         sink = mock.Mock()
         with self.assertRaises(EleanorException):
-            eleanor.process(
+            _ = eleanor.process(
                 mock.Mock(),
                 mock.Mock(),
                 1,
@@ -564,7 +553,7 @@ class TestEleanorProcess(TestCase):
             [WriteOutcome(exit_code=0, committed=True)],
         ]
 
-        eleanor.process(
+        _ = eleanor.process(
             kernel,
             navigator,
             2,
@@ -613,7 +602,7 @@ class TestEleanorProcess(TestCase):
         ]
         out_progress = mock.Mock()
 
-        eleanor.process(
+        _ = eleanor.process(
             kernel,
             navigator,
             2,
@@ -649,7 +638,7 @@ class TestEleanorProcess(TestCase):
         sim_progress = mock.Mock()
         out_progress = mock.Mock()
 
-        eleanor.process(
+        _ = eleanor.process(
             kernel,
             navigator,
             2,
@@ -689,7 +678,7 @@ class TestEleanorProcess(TestCase):
         sim_progress = mock.Mock()
         out_progress = mock.Mock()
 
-        eleanor.process(
+        _ = eleanor.process(
             kernel,
             navigator,
             2,
@@ -717,7 +706,7 @@ class TestEleanorProcess(TestCase):
         sink.supports_worker_writes.return_value = False
 
         with self.assertRaisesRegex(EleanorException, "expected 10"):
-            eleanor.process(
+            _ = eleanor.process(
                 mock.Mock(),
                 navigator,
                 10,
@@ -738,7 +727,7 @@ class TestEleanorProcess(TestCase):
         executor = _FakeExecutor(num_workers=1, submit_side_effect=[_Future([])])
 
         with self.assertRaisesRegex(EleanorException, "expected 5"):
-            eleanor.process(
+            _ = eleanor.process(
                 mock.Mock(),
                 navigator,
                 5,
@@ -765,7 +754,7 @@ class TestEleanorProcess(TestCase):
             mock.patch("eleanor.eleanor.shutdown_on_signal", return_value=_shutdown_with_state(shutdown)),
             self.assertRaises(EleanorShutdown),
         ):
-            eleanor.process(
+            _ = eleanor.process(
                 kernel,
                 navigator,
                 1,
@@ -794,7 +783,7 @@ class TestEleanorProcess(TestCase):
             mock.patch("eleanor.eleanor.shutdown_on_signal", return_value=_shutdown_with_state(shutdown)),
             self.assertRaises(EleanorShutdown) as raised,
         ):
-            eleanor.process(
+            _ = eleanor.process(
                 kernel,
                 navigator,
                 1,
@@ -820,7 +809,7 @@ class TestEleanorProcess(TestCase):
             mock.patch("eleanor.eleanor.shutdown_on_signal", return_value=_shutdown_with_state(shutdown)),
             self.assertRaises(EleanorShutdown) as raised,
         ):
-            eleanor.process(
+            _ = eleanor.process(
                 mock.Mock(),
                 navigator,
                 10,
@@ -839,7 +828,8 @@ class TestEleanorLoaders(TestCase):
 
     def test_load_output_sink_uses_registry_factory_and_args(self):
         """Ensure load_output_sink resolves configured factory and output args."""
-        config = _LoaderConfig(_LoaderOutputConfig(sink_type="plugin", args={"mode": "append"}))
+        kind = "plugin"
+        args = {"mode": "append"}
 
         class _Sink(OutputSink):
             @override
@@ -860,38 +850,32 @@ class TestEleanorLoaders(TestCase):
 
         factory = mock.Mock(return_value=_Sink())
         with (
-            mock.patch("eleanor.output.available_output_sinks", return_value=frozenset({"plugin"})),
+            mock.patch("eleanor.output.registry.available_output_sinks", return_value=frozenset({"plugin"})),
             mock.patch("eleanor.output.get_factory", return_value=factory) as get_factory_mock,
         ):
-            sink = load_output_sink(config, verbose=True)
+            sink = load_output_sink(kind, verbose=True, **args)
 
         self.assertIsInstance(sink, OutputSink)
         get_factory_mock.assert_called_once_with("plugin")
-        factory.assert_called_once_with(config, verbose=True, mode="append")
+        factory.assert_called_once_with(verbose=True, mode="append")
 
     def test_load_output_sink_rejects_invalid_plugin_return(self):
         """Ensure load_output_sink enforces OutputSink return type."""
-        config = _LoaderConfig(_LoaderOutputConfig(sink_type="plugin", args={}))
+        kind = "plugin"
+
         factory = mock.Mock(return_value=object())
 
         with (
-            mock.patch("eleanor.output.available_output_sinks", return_value=frozenset({"plugin"})),
+            mock.patch("eleanor.output.registry.available_output_sinks", return_value=frozenset({"plugin"})),
             mock.patch("eleanor.output.get_factory", return_value=factory),
             self.assertRaisesRegex(EleanorException, "expected an OutputSink"),
         ):
-            _ = load_output_sink(config)
-
-    def test_load_output_sink_rejects_none_type(self):
-        """Ensure load_output_sink raises when no output type is configured."""
-        config = _LoaderConfig(_LoaderOutputConfig(sink_type=None, args={}))
-        with self.assertRaisesRegex(EleanorException, "no output sink type provided"):
-            _ = load_output_sink(config)
+            _ = load_output_sink(kind)
 
     def test_load_output_sink_rejects_unknown_type(self):
         """Ensure load_output_sink raises for unregistered sink types with a helpful message."""
-        config = _LoaderConfig(_LoaderOutputConfig(sink_type="definitely-not-a-sink", args={}))
         with self.assertRaisesRegex(EleanorException, "definitely-not-a-sink") as ctx:
-            _ = load_output_sink(config)
+            _ = load_output_sink("definitely-not-a-sink")
         self.assertIn("postgres", str(ctx.exception))
 
     def test_load_kernel_constructs_and_sets_up_kernel(self):
@@ -986,7 +970,7 @@ class TestEleanorConstructorOverrides(TestCase):
         """Ensure Eleanor does not shut down pre-entered executor overrides."""
         eleanor = _make_eleanor()
         ctor_executor = _FakeExecutor()
-        ctor_executor.__enter__()
+        _ = ctor_executor.__enter__()
         setattr(eleanor, "_executor_override", ctor_executor)
         eleanor.process = mock.Mock(return_value=[])
         sink = mock.Mock()
@@ -1052,7 +1036,7 @@ class TestEleanorConstructorOverrides(TestCase):
         eleanor.process = mock.Mock(return_value=[])
 
         with mock.patch("eleanor.eleanor.load_executor", return_value=_FakeExecutor()):
-            eleanor.run(
+            _ = eleanor.run(
                 _leaf_order(),
                 1,
                 output_sink=per_run_sink,

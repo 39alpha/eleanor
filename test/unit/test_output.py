@@ -53,7 +53,7 @@ class TestOutput(TestCase):
         Ensure OutputSink cannot be instantiated directly.
         """
         with self.assertRaises(TypeError):
-            OutputSink()  # pyright: ignore[reportAbstractUsage]
+            _ = OutputSink()  # pyright: ignore[reportAbstractUsage]
 
     def test_output_sink_defaults_to_no_worker_writes(self):
         """
@@ -378,7 +378,7 @@ class TestOutput(TestCase):
             mock.patch("eleanor.output.postgres.sink.repositories.get_order", return_value=existing),
             self.assertRaisesRegex(EleanorException, "different version of Eleanor"),
         ):
-            sink.begin_run(_as_order(order))
+            _ = sink.begin_run(_as_order(order))
 
     def test_postgres_begin_run_writes_new_order_and_returns_id(self):
         """
@@ -546,14 +546,14 @@ class TestOutput(TestCase):
         cfg = Config(
             raw={
                 "output": {
-                    "type": "postgres",
+                    "kind": "postgres",
                     "args": {"database": {"database": "db", "username": "u", "password": "p"}},
                 },
             }
         )
         with warnings.catch_warnings(record=True) as caught:
             warnings.simplefilter("always")
-            sink = _build_postgres(cfg, database=cfg.output.args["database"])
+            sink = _build_postgres(database=cfg.output.args["database"])
         self.assertIsInstance(sink, PostgresSink)
         self.assertEqual([w for w in caught if issubclass(w.category, RuntimeWarning)], [])
 
@@ -564,14 +564,14 @@ class TestOutput(TestCase):
         cfg = Config(
             raw={
                 "output": {
-                    "type": "postgres",
+                    "kind": "postgres",
                     "args": {"database": {"database": "db", "username": "u", "password": "p"}},
                 },
             }
         )
         with warnings.catch_warnings(record=True) as caught:
             warnings.simplefilter("always")
-            _ = _build_postgres(cfg, database=cfg.output.args["database"], foo=1)
+            _ = _build_postgres(database=cfg.output.args["database"], foo=1)
         runtime_warnings = [w for w in caught if issubclass(w.category, RuntimeWarning)]
         self.assertEqual(len(runtime_warnings), 1)
         self.assertIn("foo", str(runtime_warnings[0].message))
@@ -583,8 +583,7 @@ class TestOutput(TestCase):
         still produce a usable ``PostgresSink`` -- the dialect default is
         ``'postgresql'`` so the sink's own dialect check passes.
         """
-        cfg = Config(raw={"output": {"type": "postgres", "args": {}}})
-        sink = _build_postgres(cfg)
+        sink = _build_postgres()
         self.assertIsInstance(sink, PostgresSink)
         self.assertEqual(sink.config.dialect, "postgresql")
 
@@ -596,13 +595,12 @@ class TestOutput(TestCase):
         cfg = Config(
             raw={
                 "output": {
-                    "type": "postgres",
+                    "kind": "postgres",
                     "args": {"database": {"database": "db", "username": "u", "password": "p"}},
                 },
             }
         )
         sink = _build_postgres(
-            cfg,
             database=cfg.output.args["database"],
             verbose=True,
         )
@@ -620,7 +618,7 @@ class TestOutput(TestCase):
         cfg = Config(
             raw={
                 "output": {
-                    "type": "postgres",
+                    "kind": "postgres",
                     "args": {
                         "database": {"database": "db", "username": "u", "password": "p"},
                         "bulk_load_optimization": True,
@@ -631,7 +629,6 @@ class TestOutput(TestCase):
         with warnings.catch_warnings(record=True) as caught:
             warnings.simplefilter("always")
             sink = _build_postgres(
-                cfg,
                 database=cfg.output.args["database"],
                 bulk_load_optimization=cfg.output.args["bulk_load_optimization"],
             )
@@ -655,12 +652,12 @@ class TestOutput(TestCase):
         cfg = Config(
             raw={
                 "output": {
-                    "type": "postgres",
+                    "kind": "postgres",
                     "args": {"database": {"database": "db", "username": "u", "password": "p"}},
                 },
             }
         )
-        sink = _build_postgres(cfg, database=cfg.output.args["database"])
+        sink = _build_postgres(database=cfg.output.args["database"])
         self.assertFalse(sink.bulk_load_optimization)
 
     def test_postgres_begin_run_returns_existing_id_when_versions_match(self):

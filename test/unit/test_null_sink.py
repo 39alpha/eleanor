@@ -37,7 +37,7 @@ class TestNullSink(TestCase):
             EleanorConfigurationException,
             'output.args.support_worker_writes must be a boolean for output type "null"',
         ):
-            NullConfig(support_worker_writes="yes")  # type: ignore[arg-type]
+            _ = NullConfig(support_worker_writes="yes")  # type: ignore[arg-type]
 
     def test_null_config_from_raw_defaults_and_reads_flag(self):
         """Ensure NullConfig.from_raw defaults to false and accepts an explicit bool."""
@@ -49,7 +49,6 @@ class TestNullSink(TestCase):
         with warnings.catch_warnings(record=True) as caught:
             warnings.simplefilter("always")
             sink = _build_null(
-                object(),
                 support_worker_writes=True,
                 verbose=True,
                 ignored_b=True,
@@ -70,7 +69,6 @@ class TestNullSink(TestCase):
         with warnings.catch_warnings(record=True) as caught:
             warnings.simplefilter("always")
             sink = _build_null(
-                object(),
                 support_worker_writes=False,
                 verbose=False,
             )
@@ -84,7 +82,7 @@ class TestNullSink(TestCase):
             EleanorConfigurationException,
             'output.args.support_worker_writes must be a boolean for output type "null"',
         ):
-            _build_null(object(), support_worker_writes="yes")  # type: ignore[arg-type]
+            _ = _build_null(support_worker_writes="yes")  # type: ignore[arg-type]
 
     def test_begin_run_assigns_sequential_ids_for_implicit_orders(self):
         """Ensure begin_run allocates sequential ids when orders have no id."""
@@ -127,7 +125,7 @@ class TestNullSink(TestCase):
         result = ComputeResult(point=_point())
 
         with self.assertRaisesRegex(EleanorException, "called before begin_run"):
-            sink.write_batch(1, [result])  # type: ignore[arg-type]
+            _ = sink.write_batch(1, [result])  # type: ignore[arg-type]
 
     def test_write_batch_raises_for_non_active_order_id(self):
         """Ensure write_batch rejects writes for an order id different from the active run."""
@@ -136,7 +134,7 @@ class TestNullSink(TestCase):
         wrong_order_id = active_order_id + 1
 
         with self.assertRaisesRegex(EleanorException, "called before begin_run"):
-            sink.write_batch(wrong_order_id, [ComputeResult(point=_point())])  # type: ignore[arg-type]
+            _ = sink.write_batch(wrong_order_id, [ComputeResult(point=_point())])  # type: ignore[arg-type]
 
     def test_write_batch_returns_committed_outcomes_and_stamps_points(self):
         """Ensure write_batch marks outcomes committed and overwrites each point's order_id."""
@@ -207,7 +205,7 @@ class TestNullSink(TestCase):
         sink.finalize_run()
 
         with self.assertRaisesRegex(EleanorException, "called before begin_run"):
-            sink.write_batch(order_id, [ComputeResult(point=_point())])  # type: ignore[arg-type]
+            _ = sink.write_batch(order_id, [ComputeResult(point=_point())])  # type: ignore[arg-type]
 
         self.assertEqual(sink.begin_run(order), order_id)  # type: ignore[arg-type]
         outcomes = sink.write_batch(order_id, [ComputeResult(point=_point(exit_code=1))])

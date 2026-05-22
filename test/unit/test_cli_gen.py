@@ -27,7 +27,7 @@ class TestGenTemplateValidation(TestCase):
 
     def test_unknown_template_raises(self):
         with self.assertRaises(ValueError):
-            validate_template("bogus", "yaml")
+            _ = validate_template("bogus", "yaml")
 
 
 class TestGenTemplateCrossFormat(TestCase):
@@ -41,7 +41,7 @@ class TestGenTemplateCrossFormat(TestCase):
                 other = configs[fmt]
                 self.assertIsInstance(other, Config)
                 assert isinstance(ref, Config) and isinstance(other, Config)
-                self.assertEqual(ref.output.type, other.output.type)
+                self.assertEqual(ref.output.kind, other.output.kind)
                 self.assertEqual(ref.output.args, other.output.args)
                 self.assertEqual(ref.parallel.backend, other.parallel.backend)
                 self.assertEqual(ref.parallel.chunks_per_worker, other.parallel.chunks_per_worker)

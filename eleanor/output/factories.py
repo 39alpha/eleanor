@@ -13,7 +13,7 @@ KNOWN_NULL_ARGS: frozenset[str] = frozenset({"support_worker_writes"})
 KNOWN_POSTGRES_ARGS: frozenset[str] = frozenset({"database", "bulk_load_optimization"})
 
 
-def build_csv(_config: object, *, verbose: bool = False, **args: object) -> CsvSink:
+def build_csv(*, verbose: bool = False, **args: object) -> CsvSink:
     _ = verbose
     unknown = sorted(k for k in args if k not in KNOWN_CSV_ARGS)
     if unknown:
@@ -33,7 +33,7 @@ def build_csv(_config: object, *, verbose: bool = False, **args: object) -> CsvS
     )
 
 
-def build_memory(_config: object, *, verbose: bool = False, **args: object) -> MemorySink:
+def build_memory(*, verbose: bool = False, **args: object) -> MemorySink:
     _ = verbose
     unknown = sorted(k for k in args if k not in KNOWN_MEMORY_ARGS)
     if unknown:
@@ -48,7 +48,7 @@ def build_memory(_config: object, *, verbose: bool = False, **args: object) -> M
     return MemorySink(MemoryConfig(support_worker_writes=args.get("support_worker_writes", False)))
 
 
-def build_null(_config: object, *, verbose: bool = False, **args: object) -> NullSink:
+def build_null(*, verbose: bool = False, **args: object) -> NullSink:
     _ = verbose
     unknown = sorted(k for k in args if k not in KNOWN_NULL_ARGS)
     if unknown:
@@ -63,7 +63,7 @@ def build_null(_config: object, *, verbose: bool = False, **args: object) -> Nul
     return NullSink(NullConfig(support_worker_writes=args.get("support_worker_writes", False)))
 
 
-def build_postgres(_config: object, *, verbose: bool = False, **args: object) -> PostgresSink:
+def build_postgres(*, verbose: bool = False, **args: object) -> PostgresSink:
     unknown = sorted(k for k in args if k not in KNOWN_POSTGRES_ARGS)
     if unknown:
         warnings.warn(

@@ -45,7 +45,7 @@ class TestPostgresConfig(TestCase):
         cfg = Config(
             raw={
                 "output": {
-                    "type": "postgres",
+                    "kind": "postgres",
                     "args": {
                         "database": {
                             "database": "sample",
@@ -107,9 +107,9 @@ class TestPostgresConfig(TestCase):
             "eleanor.output.postgres.config",
             "eleanor.output.postgres",
         ]:
-            sys.modules.pop(name, None)
+            _ = sys.modules.pop(name, None)
         try:
-            importlib.import_module("eleanor.output.postgres.config")
+            _ = importlib.import_module("eleanor.output.postgres.config")
             self.assertNotIn("sqlalchemy", sys.modules)
         finally:
             # Remove modules added during the test, then restore the snapshot

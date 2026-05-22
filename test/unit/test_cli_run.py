@@ -46,7 +46,7 @@ class TestCLIRun(TestCase):
         return Config(
             raw={
                 "output": {
-                    "type": "postgres",
+                    "kind": "postgres",
                     "args": {"database": {"database": "sample"}},
                 },
                 "parallel": {
@@ -58,7 +58,7 @@ class TestCLIRun(TestCase):
 
     def _invoke_run(self, extra_args: list[str]):
         with self.runner.isolated_filesystem():
-            Path("order.yaml").write_text("order: demo\n", encoding="utf-8")
+            _ = Path("order.yaml").write_text("order: demo\n", encoding="utf-8")
             return self.runner.invoke(main, ["run", *extra_args, "order.yaml", "10"])
 
     def test_run_uses_config_parallel_defaults(self):
@@ -261,7 +261,7 @@ class TestCLIRun(TestCase):
         """Ensure --bulk-load errors when the configured output sink is not postgres."""
         config = Config(
             raw={
-                "output": {"type": "csv", "args": {}},
+                "output": {"kind": "csv", "args": {}},
                 "parallel": {"backend": "serial", "chunks_per_worker": 1},
             }
         )
@@ -308,7 +308,7 @@ class TestCLIRun(TestCase):
         config = Config(
             raw={
                 "output": {
-                    "type": "postgres",
+                    "kind": "postgres",
                     "args": {"database": {"database": "sample"}, "bulk_load_optimization": True},
                 },
                 "parallel": {"backend": "serial", "chunks_per_worker": 1},
@@ -337,7 +337,7 @@ class TestCLIRun(TestCase):
         config = Config(
             raw={
                 "output": {
-                    "type": "postgres",
+                    "kind": "postgres",
                     "args": {"database": {"database": "sample"}, "bulk_load_optimization": True},
                 },
                 "parallel": {"backend": "serial", "chunks_per_worker": 1},

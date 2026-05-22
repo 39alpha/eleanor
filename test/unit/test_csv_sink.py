@@ -130,7 +130,6 @@ class TestCsvSink(TestCase):
                 # ``ignored_a`` and ``ignored_b`` must both surface in the
                 # warning message, sorted, and produce exactly one warning.
                 sink = _build_csv(
-                    object(),
                     filename=filename,
                     query=query,
                     verbose=True,
@@ -152,7 +151,7 @@ class TestCsvSink(TestCase):
             filename = f"{tmpdir}/rows.csv"
             with warnings.catch_warnings(record=True) as caught:
                 warnings.simplefilter("always")
-                _ = _build_csv(object(), filename=filename, query=_query_with_order_id(), verbose=False)
+                _ = _build_csv(filename=filename, query=_query_with_order_id(), verbose=False)
             runtime_warnings = [w for w in caught if issubclass(w.category, RuntimeWarning)]
             self.assertEqual(runtime_warnings, [])
 
@@ -162,22 +161,22 @@ class TestCsvSink(TestCase):
             EleanorConfigurationException,
             'output.args.filename must be a string for output type "csv"',
         ):
-            _build_csv(object(), query=_query_with_order_id())
+            _ = _build_csv(query=_query_with_order_id())
         with self.assertRaisesRegex(
             EleanorConfigurationException,
             'output.args.query must be a mapping for output type "csv"',
         ):
-            _build_csv(object(), filename="x.csv")
+            _ = _build_csv(filename="x.csv")
         with self.assertRaisesRegex(
             EleanorConfigurationException,
             'output.args.filename must be a string for output type "csv"',
         ):
-            _build_csv(object(), filename=1, query=_query_with_order_id())  # type: ignore[arg-type]
+            _ = _build_csv(filename=1, query=_query_with_order_id())  # type: ignore[arg-type]
         with self.assertRaisesRegex(
             EleanorConfigurationException,
             'output.args.query must be a mapping for output type "csv"',
         ):
-            _build_csv(object(), filename="x.csv", query="bad")  # type: ignore[arg-type]
+            _ = _build_csv(filename="x.csv", query="bad")  # type: ignore[arg-type]
 
     def test_csv_config_validates_direct_constructor_and_from_raw(self):
         """Ensure CsvConfig validates both direct construction and from_raw paths."""
@@ -185,17 +184,17 @@ class TestCsvSink(TestCase):
             EleanorConfigurationException,
             'output.args.filename must be a string for output type "csv"',
         ):
-            CsvConfig(filename=1, query={})  # type: ignore[arg-type]
+            _ = CsvConfig(filename=1, query={})  # type: ignore[arg-type]
         with self.assertRaisesRegex(
             EleanorConfigurationException,
             'output.args.query must be a mapping for output type "csv"',
         ):
-            CsvConfig(filename="x.csv", query="bad")  # type: ignore[arg-type]
+            _ = CsvConfig(filename="x.csv", query="bad")  # type: ignore[arg-type]
         with self.assertRaisesRegex(
             EleanorConfigurationException,
             'output.args.query must be a mapping for output type "csv"',
         ):
-            CsvConfig.from_raw({"filename": "x.csv"})
+            _ = CsvConfig.from_raw({"filename": "x.csv"})
 
     def test_initialize_fresh_file_creates_header_and_schema_and_order_id(self):
         """Ensure initialize on a new CSV writes an empty sidecar and begin_run claims order id 0."""
@@ -233,7 +232,7 @@ class TestCsvSink(TestCase):
             order = _minimal_order()
             order.id = 3
             order.eleanor_version = "v1"
-            sink.begin_run(order)
+            _ = sink.begin_run(order)
 
             schema_file = _schema_path(filename)
             with open(schema_file) as handle:
@@ -384,7 +383,7 @@ class TestCsvSink(TestCase):
             mismatch.id = 7
             mismatch.eleanor_version = "v2"
             with self.assertRaisesRegex(EleanorException, "different version of Eleanor"):
-                restarted.begin_run(mismatch)
+                _ = restarted.begin_run(mismatch)
 
     def test_begin_run_issues_sequential_ids_for_distinct_orders(self):
         """Ensure distinct order objects receive sequential IDs from one initialized sink."""
@@ -429,7 +428,7 @@ class TestCsvSink(TestCase):
             self.assertEqual(schema["vs_points_seen"], {0: 0})
             result = ComputeResult(point=_point(exit_code=0, order_id=None))
             with self.assertRaisesRegex(EleanorException, "requires initialize\\(\\)"):
-                sink.write_batch(0, [result])
+                _ = sink.write_batch(0, [result])
 
     def test_write_batch_success_appends_rows_converts_none_and_ticks_progress(self):
         """Ensure write_batch appends rows, maps None->\"\", preserves points, and returns outcomes."""
@@ -438,7 +437,7 @@ class TestCsvSink(TestCase):
             sink = CsvSink(CsvConfig(filename=filename, query=_query_with_order_id()))
             sink.initialize()
             order = _minimal_order()
-            sink.begin_run(order)
+            _ = sink.begin_run(order)
             original_vs_points = order.vs_points
 
             r0 = ComputeResult(point=_point(exit_code=0, order_id=None))
@@ -477,7 +476,7 @@ class TestCsvSink(TestCase):
             sink = CsvSink(CsvConfig(filename=filename, query=_query_with_order_id()))
             sink.initialize()
             order = _minimal_order()
-            sink.begin_run(order)
+            _ = sink.begin_run(order)
             original_vs_points = order.vs_points
 
             r0 = ComputeResult(point=_point(exit_code=0, order_id=None))
@@ -510,7 +509,7 @@ class TestCsvSink(TestCase):
             sink = CsvSink(CsvConfig(filename=filename, query=_query_with_order_id()))
             sink.initialize()
             order = _minimal_order()
-            sink.begin_run(order)
+            _ = sink.begin_run(order)
             original_vs_points = order.vs_points
 
             result = ComputeResult(point=_point(exit_code=3, order_id=None))
@@ -520,7 +519,7 @@ class TestCsvSink(TestCase):
                 mock.patch("eleanor.output.csv.sys.stderr", captured),
             ):
                 with self.assertRaisesRegex(RuntimeError, "boom"):
-                    sink.write_batch(0, [result])
+                    _ = sink.write_batch(0, [result])
 
             text = captured.getvalue()
             self.assertIn("VS point index 0", text)
@@ -539,7 +538,7 @@ class TestCsvSink(TestCase):
             filename = f"{tmpdir}/rows.csv"
             sink = CsvSink(CsvConfig(filename=filename, query=_query_with_order_id()))
             sink.initialize()
-            sink.begin_run(_minimal_order())
+            _ = sink.begin_run(_minimal_order())
 
             ok = ComputeResult(point=_point(exit_code=0, order_id=None))
             bad = ComputeResult(point=_point(exit_code=9, order_id=None))
@@ -548,7 +547,7 @@ class TestCsvSink(TestCase):
                 side_effect=[iter([{"order_id": 1, "exit_code": 0}]), RuntimeError("explode")],
             ):
                 with self.assertRaisesRegex(RuntimeError, "explode"):
-                    sink.write_batch(0, [ok, bad])
+                    _ = sink.write_batch(0, [ok, bad])
 
             with open(_schema_path(filename)) as handle:
                 schema = yaml.safe_load(handle)
@@ -575,7 +574,7 @@ class TestCsvSink(TestCase):
             sink.initialize()
 
             first_order = _minimal_order()
-            sink.begin_run(first_order)
+            _ = sink.begin_run(first_order)
             r0 = ComputeResult(point=_point(exit_code=0, order_id=None))
             r1 = ComputeResult(point=_point(exit_code=0, order_id=None))
             with mock.patch(
@@ -588,7 +587,7 @@ class TestCsvSink(TestCase):
                 first_outcomes = sink.write_batch(0, [r0, r1])
 
             second_order = _minimal_order()
-            sink.begin_run(second_order)
+            _ = sink.begin_run(second_order)
             r2 = ComputeResult(point=_point(exit_code=0, order_id=None))
             with mock.patch(
                 "eleanor.output.csv.evaluate",
@@ -608,7 +607,7 @@ class TestCsvSink(TestCase):
             filename = f"{tmpdir}/rows.csv"
             sink = CsvSink(CsvConfig(filename=filename, query=_query_with_order_id()))
             sink.initialize()
-            sink.begin_run(_minimal_order())
+            _ = sink.begin_run(_minimal_order())
 
             r0 = ComputeResult(point=_point(exit_code=0, order_id=None))
             r1 = ComputeResult(point=_point(exit_code=0, order_id=None))
@@ -637,7 +636,7 @@ class TestCsvSink(TestCase):
             sink.initialize()
             order = _minimal_order()
             order.id = 10
-            sink.begin_run(order)
+            _ = sink.begin_run(order)
 
             r0 = ComputeResult(point=_point(exit_code=0, order_id=None))
             with mock.patch(
@@ -710,7 +709,7 @@ class TestCsvSink(TestCase):
             filename = f"{tmpdir}/rows.csv"
             sink = CsvSink(CsvConfig(filename=filename, query=_query_with_order_id()))
             sink.initialize()
-            sink.begin_run(_minimal_order())
+            _ = sink.begin_run(_minimal_order())
 
             # First result yields zero rows and does not consume the count;
             # second result raises in evaluate.
@@ -721,7 +720,7 @@ class TestCsvSink(TestCase):
                 side_effect=[iter([]), RuntimeError("boom")],
             ):
                 with self.assertRaisesRegex(RuntimeError, "boom"):
-                    sink.write_batch(0, [empty, bad])
+                    _ = sink.write_batch(0, [empty, bad])
 
             with open(_schema_path(filename)) as handle:
                 schema = yaml.safe_load(handle)
@@ -733,7 +732,7 @@ class TestCsvSink(TestCase):
             filename = f"{tmpdir}/rows.csv"
             sink = CsvSink(CsvConfig(filename=filename, query=_query_with_order_id()))
             sink.initialize()
-            sink.begin_run(_minimal_order())
+            _ = sink.begin_run(_minimal_order())
 
             errored = ComputeResult(
                 point=_point(exit_code=0, order_id=None),
@@ -765,7 +764,7 @@ class TestCsvSink(TestCase):
             filename = f"{tmpdir}/rows.csv"
             sink = CsvSink(CsvConfig(filename=filename, query=_query_with_order_id()))
             sink.initialize()
-            sink.begin_run(_minimal_order())
+            _ = sink.begin_run(_minimal_order())
 
             ok0 = ComputeResult(point=_point(exit_code=0, order_id=None))
             errored = ComputeResult(
@@ -805,7 +804,7 @@ class TestCsvSink(TestCase):
             filename = f"{tmpdir}/rows.csv"
             sink = CsvSink(CsvConfig(filename=filename, query=_query_with_order_id()))
             sink.initialize()
-            sink.begin_run(_minimal_order())
+            _ = sink.begin_run(_minimal_order())
 
             empty = ComputeResult(point=_point(exit_code=0, order_id=None))
             one_row = ComputeResult(point=_point(exit_code=0, order_id=None))
@@ -831,7 +830,7 @@ class TestCsvSink(TestCase):
             filename = f"{tmpdir}/rows.csv"
             sink = CsvSink(CsvConfig(filename=filename, query=_query_with_vs_index_column()))
             sink.initialize()
-            sink.begin_run(_minimal_order())
+            _ = sink.begin_run(_minimal_order())
 
             first = ComputeResult(point=_point(exit_code=0, order_id=None))
             second = ComputeResult(point=_point(exit_code=0, order_id=None))
@@ -883,7 +882,7 @@ class TestCsvSink(TestCase):
             filename = f"{tmpdir}/rows.csv"
             sink = CsvSink(CsvConfig(filename=filename, query=_query_with_binary_column()))
             sink.initialize()
-            sink.begin_run(_minimal_order())
+            _ = sink.begin_run(_minimal_order())
 
             result = ComputeResult(point=_point(exit_code=0, order_id=None))
             with mock.patch(
@@ -908,7 +907,7 @@ class TestCsvSink(TestCase):
             filename = f"{tmpdir}/rows.csv"
             sink = CsvSink(CsvConfig(filename=filename, query=_query_with_binary_column()))
             sink.initialize()
-            sink.begin_run(_minimal_order())
+            _ = sink.begin_run(_minimal_order())
 
             result = ComputeResult(point=_point(exit_code=0, order_id=None))
             with mock.patch(
@@ -940,7 +939,7 @@ class TestCsvSink(TestCase):
             filename = f"{tmpdir}/rows.csv"
             sink = CsvSink(CsvConfig(filename=filename, query=_query_with_binary_column()))
             sink.initialize()
-            sink.begin_run(_minimal_order())
+            _ = sink.begin_run(_minimal_order())
 
             first = ComputeResult(point=_point(exit_code=0, order_id=None))
             second = ComputeResult(point=_point(exit_code=0, order_id=None))
@@ -967,7 +966,7 @@ class TestCsvSink(TestCase):
             filename = f"{tmpdir}/rows.csv"
             sink = CsvSink(CsvConfig(filename=filename, query=_query_with_binary_column()))
             sink.initialize()
-            sink.begin_run(_minimal_order())
+            _ = sink.begin_run(_minimal_order())
 
             result = ComputeResult(point=_point(exit_code=0, order_id=None))
             with mock.patch(

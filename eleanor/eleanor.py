@@ -87,7 +87,7 @@ class Eleanor(object):
 
         self._executor_override = executor
         self._output_sink_override = output_sink
-        if self.config.output.type is None and self._output_sink_override is None:
+        if self.config.output.kind is None and self._output_sink_override is None:
             raise EleanorConfigurationException("no output sink provided via config or keyword option")
 
         self._entered = False
@@ -244,7 +244,14 @@ class Eleanor(object):
 
         if self._entered:
             if self._output_sink is None:
-                self._output_sink = load_output_sink(self.config, verbose=verbose)
+                if self.config.output.kind is None:
+                    raise EleanorConfigurationException("config.output or output_sink are required")
+
+                self._output_sink = load_output_sink(
+                    self.config.output.kind,
+                    verbose=verbose,
+                    **self.config.output.args,
+                )
                 self._output_sink.initialize()
             try:
                 yield self._output_sink
@@ -252,7 +259,15 @@ class Eleanor(object):
                 self._output_sink.finalize_run()
             return
 
-        sink = load_output_sink(self.config, verbose=verbose)
+        if self.config.output.kind is None:
+            raise EleanorConfigurationException("config.output or output_sink are required")
+
+        sink = load_output_sink(
+            self.config.output.kind,
+            verbose=verbose,
+            **self.config.output.args,
+        )
+
         sink.initialize()
         try:
             yield sink

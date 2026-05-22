@@ -25,7 +25,7 @@ class TestBulkLoadCli(TestCase):
         return Config(
             raw={
                 "output": {
-                    "type": "postgres",
+                    "kind": "postgres",
                     "args": {"database": {"database": "demo_db"}},
                 },
             }
@@ -79,7 +79,7 @@ class TestBulkLoadCli(TestCase):
         name. The CLI must not silently no-op against the local default
         database.
         """
-        bare = Config(raw={"output": {"type": "postgres", "args": {}}})
+        bare = Config(raw={"output": {"kind": "postgres", "args": {}}})
         with (
             mock.patch("eleanor.output.postgres.cli.config_from_args", return_value=bare),
             mock.patch("eleanor.output.postgres.cli.drop_indexes") as drop_indexes,

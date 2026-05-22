@@ -78,13 +78,13 @@ def run(
     try:
         config_obj = config_from_args(config, database, require_database=not null_sink)
         if bulk_load is not None and not null_sink:
-            if config_obj.output.type != "postgres":
+            if config_obj.output.kind != "postgres":
                 cause = (
-                    f'got "{config_obj.output.type}"'
-                    if config_obj.output.type is not None
+                    f'got "{config_obj.output.kind}"'
+                    if config_obj.output.kind is not None
                     else "no output sink provided"
                 )
-                raise EleanorException(f'--bulk-load is only supported when output.type == "postgres" ({cause})')
+                raise EleanorException(f'--bulk-load is only supported when output.kind == "postgres" ({cause})')
             config_obj.output.args["bulk_load_optimization"] = bulk_load
             # Keep config.raw consistent with the parsed snapshot, matching
             # the pattern used by --database in config_from_args.

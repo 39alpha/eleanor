@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 
 
 class OutputFactory(Protocol):
-    def __call__(self, config: object, /, *, verbose: bool = ..., **kwargs: object) -> OutputSink: ...
+    def __call__(self, *, verbose: bool = ..., **kwargs: object) -> OutputSink: ...
 
 
 BUILTIN_OUTPUTS: frozenset[str] = frozenset({"csv", "memory", "null", "postgres"})

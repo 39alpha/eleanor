@@ -70,10 +70,10 @@ def config_from_args(
 
     config = load_config(config_path)
     if database is not None:
-        if config.output.type != "postgres":
-            cause = f'got "{config.output.type}"' if config.output.type is not None else "no output sink provided"
+        if config.output.kind != "postgres":
+            cause = f'got "{config.output.kind}"' if config.output.kind is not None else "no output sink provided"
             raise EleanorConfigurationException(
-                f'--database is only supported when output.type == "postgres" ({cause})'
+                f'--database is only supported when output.kind == "postgres" ({cause})'
             )
         output_raw = config.raw.get("output", OutputRaw())
         args_raw_obj = output_raw.get("args")
@@ -91,7 +91,7 @@ def config_from_args(
         # Keep the parsed snapshot consistent so the registry's **args splat
         # sees the override.
         config.output.args = args_raw
-    elif require_database and config.output.type == "postgres" and database_config_from_config(config).database is None:
+    elif require_database and config.output.kind == "postgres" and database_config_from_config(config).database is None:
         raise click.ClickException("no database provided")
 
     return config

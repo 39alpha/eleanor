@@ -2,7 +2,7 @@ import json
 import os.path
 import tomllib
 from dataclasses import dataclass, field
-from typing import TypedDict
+from typing import Self, TypedDict
 
 import yaml
 
@@ -13,7 +13,7 @@ from .typing import cast
 class OutputRaw(TypedDict, total=False):
     """Schema for the ``output`` section of a raw config document."""
 
-    type: str
+    kind: str
     args: dict[str, object]
 
 
@@ -33,20 +33,17 @@ class ConfigRaw(TypedDict, total=False):
 
 @dataclass
 class OutputConfig(object):
-    type: str | None = None
+    kind: str | None = None
     args: dict[str, object] = field(default_factory=dict)
 
-    @staticmethod
-    def from_raw(raw: OutputRaw) -> "OutputConfig":
+    @classmethod
+    def from_raw(cls, raw: OutputRaw) -> Self:
         output_args_raw: object = raw.get("args", {})
         if not isinstance(output_args_raw, dict):
             raise EleanorConfigurationException("output.args must be a dict")
         output_args_items = cast(dict[object, object], output_args_raw).items()
         output_args: dict[str, object] = {str(k): v for k, v in output_args_items}
-        return OutputConfig(
-            type=raw.get("type"),
-            args=output_args,
-        )
+        return cls(kind=raw.get("kind"), args=output_args)
 
 
 @dataclass

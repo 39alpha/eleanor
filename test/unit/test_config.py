@@ -34,7 +34,7 @@ class TestConfig(TestCase):
         cfg = ParallelConfig(backend="bogus")
         self.assertEqual(cfg.backend, "bogus")
         with self.assertRaises(EleanorConfigurationException):
-            ParallelConfig(chunks_per_worker=0)
+            _ = ParallelConfig(chunks_per_worker=0)
 
     def test_config_defaults_allow_missing_credentials(self):
         """
@@ -55,7 +55,7 @@ class TestConfig(TestCase):
             path = join(tmp, "config.yaml")
             content = textwrap.dedent("""\
                 output:
-                  type: postgres
+                  kind: postgres
                   args:
                     database:
                       dialect: postgresql
@@ -68,7 +68,7 @@ class TestConfig(TestCase):
                       sslmode: require
             """)
             with open(path, "w") as f:
-                f.write(content)
+                _ = f.write(content)
 
             cfg = Config.from_yaml(path)
             database_config = database_config_from_config(cfg)
@@ -84,10 +84,10 @@ class TestConfig(TestCase):
             path = join(tmp, "config.toml")
             content = textwrap.dedent("""\
                 [output]
-                type = "postgres"
+                kind = "postgres"
                 [output.args.database]
                 dialect = "postgresql"
-                dbapi = "psycopg"
+                dbapi = "pstypeycopg"
                 host = "localhost"
                 port = 5432
                 database = "sample"
@@ -99,7 +99,7 @@ class TestConfig(TestCase):
                 chunks_per_worker = 3
             """)
             with open(path, "w") as f:
-                f.write(content)
+                _ = f.write(content)
 
             cfg = Config.from_toml(path)
             database_config = database_config_from_config(cfg)
@@ -154,17 +154,17 @@ class TestConfig(TestCase):
         with TemporaryDirectory() as tmp:
             yaml_path = join(tmp, "config.yml")
             with open(yaml_path, "w") as f:
-                f.write(
+                _ = f.write(
                     "output:\n"
-                    "  type: postgres\n"
-                    "  args:\n"
-                    "    database:\n"
-                    "      dialect: postgresql\n"
-                    "      dbapi: psycopg\n"
-                    "      host: localhost\n"
-                    "      database: sample\n"
-                    "      username: alice\n"
-                    "      password: secret\n"
+                    + "  kind: postgres\n"
+                    + "  args:\n"
+                    + "    database:\n"
+                    + "      dialect: postgresql\n"
+                    + "      dbapi: psycopg\n"
+                    + "      host: localhost\n"
+                    + "      database: sample\n"
+                    + "      username: alice\n"
+                    + "      password: secret\n"
                 )
 
             cfg = Config.from_file(yaml_path)
@@ -177,17 +177,17 @@ class TestConfig(TestCase):
         with TemporaryDirectory() as tmp:
             yaml_path = join(tmp, "config.yaml")
             with open(yaml_path, "w") as f:
-                f.write(
+                _ = f.write(
                     "output:\n"
-                    "  type: postgres\n"
-                    "  args:\n"
-                    "    database:\n"
-                    "      dialect: postgresql\n"
-                    "      dbapi: psycopg\n"
-                    "      host: localhost\n"
-                    "      database: sample\n"
-                    "      username: alice\n"
-                    "      password: secret\n"
+                    + "  kind: postgres\n"
+                    + "  args:\n"
+                    + "    database:\n"
+                    + "      dialect: postgresql\n"
+                    + "      dbapi: psycopg\n"
+                    + "      host: localhost\n"
+                    + "      database: sample\n"
+                    + "      username: alice\n"
+                    + "      password: secret\n"
                 )
 
             cfg = Config.from_file(yaml_path)
@@ -200,16 +200,16 @@ class TestConfig(TestCase):
         with TemporaryDirectory() as tmp:
             toml_path = join(tmp, "config.toml")
             with open(toml_path, "w") as f:
-                f.write(
+                _ = f.write(
                     "[output]\n"
-                    'type = "postgres"\n'
-                    "[output.args.database]\n"
-                    'dialect = "postgresql"\n'
-                    'dbapi = "psycopg"\n'
-                    'host = "localhost"\n'
-                    'database = "sample"\n'
-                    'username = "alice"\n'
-                    'password = "secret"\n'
+                    + 'kind = "postgres"\n'
+                    + "[output.args.database]\n"
+                    + 'dialect = "postgresql"\n'
+                    + 'dbapi = "psycopg"\n'
+                    + 'host = "localhost"\n'
+                    + 'database = "sample"\n'
+                    + 'username = "alice"\n'
+                    + 'password = "secret"\n'
                 )
 
             cfg = Config.from_file(toml_path)
@@ -222,10 +222,10 @@ class TestConfig(TestCase):
         with TemporaryDirectory() as tmp:
             path = join(tmp, "config.ini")
             with open(path, "w") as f:
-                f.write("[output]\n")
+                _ = f.write("[output]\n")
 
             with self.assertRaises(EleanorException):
-                Config.from_file(path)
+                _ = Config.from_file(path)
 
     def test_load_config(self):
         """
@@ -261,7 +261,7 @@ class TestConfig(TestCase):
             self.assertEqual(database_config_from_config(from_file).database, "sample")
 
         cfg = Config(
-            raw={"output": {"type": "postgres", "args": {"database": {"username": "alice", "password": "secret"}}}}
+            raw={"output": {"kind": "postgres", "args": {"database": {"username": "alice", "password": "secret"}}}}
         )
         same = load_config(cfg)
         self.assertIs(same, cfg)
@@ -274,7 +274,7 @@ class TestConfig(TestCase):
         ``output_sink=`` override to :class:`Eleanor`.
         """
         cfg = Config()
-        self.assertIsNone(cfg.output.type)
+        self.assertIsNone(cfg.output.kind)
 
     def test_output_config_defers_type_validation(self):
         """
@@ -284,18 +284,18 @@ class TestConfig(TestCase):
         ``OutputConfig`` itself accepts arbitrary values — including
         third-party plugin names not yet registered.
         """
-        cfg = OutputConfig(type="definitely-not-a-sink")
-        self.assertEqual(cfg.type, "definitely-not-a-sink")
+        cfg = OutputConfig(kind="definitely-not-a-sink")
+        self.assertEqual(cfg.kind, "definitely-not-a-sink")
 
-        cfg_plugin = OutputConfig(type="csv")
-        self.assertEqual(cfg_plugin.type, "csv")
+        cfg_plugin = OutputConfig(kind="csv")
+        self.assertEqual(cfg_plugin.kind, "csv")
 
     def test_output_config_from_raw_parses_args(self):
         """
         Ensure output.args is preserved as a string-keyed dict.
         """
-        cfg = Config(raw={"output": {"type": "postgres", "args": {"batch_size": 4, "format": "json"}}})
-        self.assertEqual(cfg.output.type, "postgres")
+        cfg = Config(raw={"output": {"kind": "postgres", "args": {"batch_size": 4, "format": "json"}}})
+        self.assertEqual(cfg.output.kind, "postgres")
         self.assertEqual(cfg.output.args, {"batch_size": 4, "format": "json"})
 
     def test_output_config_rejects_non_dict_args(self):
@@ -316,7 +316,7 @@ class TestConfig(TestCase):
         """
         Ensure parallel defaults are applied when raw config omits the parallel section.
         """
-        cfg = Config(raw={"output": {"type": "postgres", "args": {"database": {"database": "sample"}}}})
+        cfg = Config(raw={"output": {"kind": "postgres", "args": {"database": {"database": "sample"}}}})
         self.assertEqual(cfg.parallel.backend, "multiprocessing")
         self.assertEqual(cfg.parallel.chunks_per_worker, 10)
 
@@ -327,6 +327,8 @@ class TestConfig(TestCase):
         silently producing a confusing 'no database provided' error.
         """
         with self.assertRaises(EleanorConfigurationException) as ctx:
-            Config(raw=cast(ConfigRaw, cast(object, {"database": {"database": "sample"}})))  # type: ignore[typeddict-unknown-key]
+            _ = Config(
+                raw=cast(ConfigRaw, cast(object, {"database": {"database": "sample"}}))
+            )  # kind: ignore[typeddict-unknown-key]
         self.assertIn("database", str(ctx.exception))
         self.assertIn("output.args.database", str(ctx.exception))

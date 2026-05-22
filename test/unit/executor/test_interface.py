@@ -1,3 +1,4 @@
+import warnings
 from typing import override
 from unittest import mock
 
@@ -94,7 +95,7 @@ class TestExecutorInterface(TestCase):
         with a helpful choices list.
         """
         with self.assertRaisesRegex(EleanorException, "executor is not supported"):
-            load_executor(kind="bad-backend")
+            _ = load_executor(kind="bad-backend")
 
     def test_load_executor_registry_contains_builtins(self):
         """
@@ -107,12 +108,15 @@ class TestExecutorInterface(TestCase):
         self.assertIn("multiprocessing", live)
         self.assertNotIn("bad-backend", live)
 
-    def test_load_executor_rejects_unknown_kwargs(self):
+    def test_load_executor_warns_unknown_kwargs(self):
         """
-        Ensure unexpected keyword arguments to load_executor are rejected (not silently swallowed).
+        Ensure unexpected keyword arguments to load_executor generate a warning (not silently swallowed).
         """
-        with self.assertRaises(TypeError):
-            load_executor(kind="serial", num_worker=4)  # pyright: ignore[reportCallIssue]
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            _ = load_executor("serial", num_worker=4)
+        self.assertEqual(len(caught), 1)
+        self.assertIn("num_worker", str(caught[0].message))
 
     def test_abstract_executor_default_supports_worker_progress(self):
         """

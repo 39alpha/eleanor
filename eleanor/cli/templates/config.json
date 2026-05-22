@@ -1,6 +1,6 @@
 {
   "output": {
-    "type": "postgres",
+    "kind": "postgres",
     "args": {
       "database": {
         "host": "localhost",
@@ -10,7 +10,7 @@
     }
   },
   "parallel": {
-    "backend": "multiprocessing",
+    "kind": "multiprocessing",
     "chunks_per_worker": 10
   }
 }

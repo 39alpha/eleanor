@@ -2,7 +2,7 @@
 # See: https://github.com/39alpha/eleanor
 
 output:
-  type: postgres                    # postgres | csv | null
+  kind: postgres                    # postgres | csv | null
   args:
     database:
       host: localhost
@@ -13,5 +13,5 @@ output:
       # sslmode: prefer
 
 parallel:
-  backend: multiprocessing          # serial | multiprocessing
+  kind: multiprocessing          # serial | multiprocessing
   chunks_per_worker: 10

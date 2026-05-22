@@ -20,7 +20,7 @@ class OutputRaw(TypedDict, total=False):
 class ParallelRaw(TypedDict, total=False):
     """Schema for the ``parallel`` section of a raw config document."""
 
-    backend: str
+    kind: str
     chunks_per_worker: int
 
 
@@ -38,6 +38,9 @@ class OutputConfig(object):
 
     @classmethod
     def from_raw(cls, raw: OutputRaw) -> Self:
+        if cast(dict[str, object], cast(object, raw)).get("type") is not None:
+            raise EleanorConfigurationException("the output.type config option has been renamed output.kind")
+
         output_args_raw: object = raw.get("args", {})
         if not isinstance(output_args_raw, dict):
             raise EleanorConfigurationException("output.args must be a dict")
@@ -48,7 +51,7 @@ class OutputConfig(object):
 
 @dataclass
 class ParallelConfig(object):
-    backend: str = "multiprocessing"
+    kind: str = "multiprocessing"
     chunks_per_worker: int = 10
 
     def __post_init__(self):
@@ -58,8 +61,11 @@ class ParallelConfig(object):
 
     @staticmethod
     def from_raw(raw: ParallelRaw) -> "ParallelConfig":
+        if cast(dict[str, object], cast(object, raw)).get("backend") is not None:
+            raise EleanorConfigurationException("the parallel.type config option has been renamed parallel.kind")
+
         return ParallelConfig(
-            backend=raw.get("backend", "multiprocessing"),
+            kind=raw.get("kind", "multiprocessing"),
             chunks_per_worker=raw.get("chunks_per_worker", 10),
         )
 

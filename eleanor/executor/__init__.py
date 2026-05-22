@@ -6,11 +6,16 @@ from eleanor.executor.registry import get_factory
 from eleanor.plugin import is_abstract_instantiation_error, resolve_api_version
 
 
-def load_executor(kind: str = "multiprocessing", *, num_workers: int | None = None) -> AbstractExecutor:
+def load_executor(
+    kind: str = "multiprocessing",
+    *,
+    num_workers: int | None = None,
+    **kwargs: object,
+) -> AbstractExecutor:
     factory = get_factory(kind)
     version = resolve_api_version(factory)
     try:
-        executor = factory(num_workers)
+        executor = factory(num_workers=num_workers, **kwargs)
     except TypeError as e:
         if not is_abstract_instantiation_error(e):
             raise

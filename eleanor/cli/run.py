@@ -43,10 +43,10 @@ def _complete_parallel(_ctx: click.Context, _param: click.Parameter, incomplete:
 @click.option(
     "--parallel",
     default=None,
-    metavar="BACKEND",
+    metavar="KIND",
     envvar="ELEANOR_PARALLEL",
     shell_complete=_complete_parallel,
-    help="Parallel backend (overrides configuration).",
+    help="Parallel kind (overrides configuration).",
 )
 @click.option("--chunks-per-worker", type=int, default=None, help="Chunks per worker (overrides configuration).")
 @click.option("--batch-size", type=int, default=None, help="Navigator batch size.")
@@ -93,7 +93,7 @@ def run(
             if isinstance(raw_args, dict):
                 raw_args["bulk_load_optimization"] = bulk_load
         if parallel is None:
-            parallel = config_obj.parallel.backend
+            parallel = config_obj.parallel.kind
         else:
             executors = available_executors()
             if parallel not in executors:

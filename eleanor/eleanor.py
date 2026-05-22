@@ -108,7 +108,7 @@ class Eleanor(object):
         unbuilt until the first :meth:`run` that needs them.
         """
         if self._executor_override is None:
-            self._executor = load_executor(kind=self.config.parallel.backend, num_workers=self.num_procs)
+            self._executor = load_executor(kind=self.config.parallel.kind, num_workers=self.num_procs)
             _ = self._executor.__enter__()
         self._entered = True
         return self
@@ -312,7 +312,7 @@ class Eleanor(object):
 
         with ExitStack() as stack:
             run_executor = stack.enter_context(
-                self._executor_scope(parallel=self.config.parallel.backend),
+                self._executor_scope(parallel=self.config.parallel.kind),
             )
             run_sink = stack.enter_context(
                 self._sink_scope(output_sink, verbose=verbose),

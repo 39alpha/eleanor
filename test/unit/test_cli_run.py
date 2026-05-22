@@ -42,7 +42,7 @@ class TestCLIRun(TestCase):
     def setUp(self) -> None:
         self.runner = CliRunner()
 
-    def _config(self, backend: str = "multiprocessing", chunks_per_worker: int = 1) -> Config:
+    def _config(self, kind: str = "multiprocessing", chunks_per_worker: int = 1) -> Config:
         return Config(
             raw={
                 "output": {
@@ -50,7 +50,7 @@ class TestCLIRun(TestCase):
                     "args": {"database": {"database": "sample"}},
                 },
                 "parallel": {
-                    "backend": backend,
+                    "kind": kind,
                     "chunks_per_worker": chunks_per_worker,
                 },
             },
@@ -62,7 +62,7 @@ class TestCLIRun(TestCase):
             return self.runner.invoke(main, ["run", *extra_args, "order.yaml", "10"])
 
     def test_run_uses_config_parallel_defaults(self):
-        config = self._config(backend="serial", chunks_per_worker=6)
+        config = self._config(kind="serial", chunks_per_worker=6)
         eleanor = _fake_eleanor(run_return=[42])
         executor = _fake_executor()
         fake_order = mock.Mock()
@@ -91,7 +91,7 @@ class TestCLIRun(TestCase):
         )
 
     def test_run_cli_flags_override_config_parallel_values(self):
-        config = self._config(backend="multiprocessing", chunks_per_worker=2)
+        config = self._config(kind="multiprocessing", chunks_per_worker=2)
         eleanor = _fake_eleanor(run_return=[7])
         executor = _fake_executor()
         fake_order = mock.Mock()
@@ -113,7 +113,7 @@ class TestCLIRun(TestCase):
         self.assertEqual(eleanor.run.call_args.kwargs["max_nav_attempts"], 1)
 
     def test_run_null_sink_overrides_output_sink(self):
-        config = self._config(backend="serial", chunks_per_worker=2)
+        config = self._config(kind="serial", chunks_per_worker=2)
         eleanor = _fake_eleanor(run_return=[11])
         executor = _fake_executor()
         fake_order = mock.Mock()
@@ -205,7 +205,7 @@ class TestCLIRun(TestCase):
         self.assertEqual(fake_order.tag, "experiment-1")
         self.assertIs(eleanor.run.call_args.args[0], fake_order)
 
-    def test_run_rejects_unknown_parallel_backend(self):
+    def test_run_rejects_unknown_parallel_kind(self):
         config = self._config()
 
         with (
@@ -262,7 +262,7 @@ class TestCLIRun(TestCase):
         config = Config(
             raw={
                 "output": {"kind": "csv", "args": {}},
-                "parallel": {"backend": "serial", "chunks_per_worker": 1},
+                "parallel": {"kind": "serial", "chunks_per_worker": 1},
             }
         )
 
@@ -285,7 +285,7 @@ class TestCLIRun(TestCase):
         config = Config(
             raw={
                 "output": {"args": {}},
-                "parallel": {"backend": "serial", "chunks_per_worker": 1},
+                "parallel": {"kind": "serial", "chunks_per_worker": 1},
             }
         )
 
@@ -311,7 +311,7 @@ class TestCLIRun(TestCase):
                     "kind": "postgres",
                     "args": {"database": {"database": "sample"}, "bulk_load_optimization": True},
                 },
-                "parallel": {"backend": "serial", "chunks_per_worker": 1},
+                "parallel": {"kind": "serial", "chunks_per_worker": 1},
             }
         )
         eleanor = _fake_eleanor(run_return=[1])
@@ -340,7 +340,7 @@ class TestCLIRun(TestCase):
                     "kind": "postgres",
                     "args": {"database": {"database": "sample"}, "bulk_load_optimization": True},
                 },
-                "parallel": {"backend": "serial", "chunks_per_worker": 1},
+                "parallel": {"kind": "serial", "chunks_per_worker": 1},
             }
         )
         eleanor = _fake_eleanor(run_return=[1])
@@ -364,7 +364,7 @@ class TestCLIRun(TestCase):
         Ensure --bulk-load is silently ignored when --null-sink is also
         passed, since the null sink overrides the output entirely.
         """
-        config = self._config(backend="serial", chunks_per_worker=1)
+        config = self._config(kind="serial", chunks_per_worker=1)
         eleanor = _fake_eleanor(run_return=[5])
         executor = _fake_executor()
         fake_order = mock.Mock()

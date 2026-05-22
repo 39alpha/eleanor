@@ -75,7 +75,9 @@ class TestLoadExecutorErrorWrapping(_RegistrySnapshot, TestCase):
             # ``ABCMeta`` instantiation in the factory raises ``TypeError``.
             pass
 
-        def factory(_num_workers):
+        def factory(*, num_workers: int | None = None, **kwargs: object):
+            _ = num_workers
+            _ = kwargs
             return _IncompleteExecutor()  # pyright: ignore[reportAbstractUsage]
 
         _stamp(factory, 1)
@@ -91,7 +93,9 @@ class TestLoadExecutorErrorWrapping(_RegistrySnapshot, TestCase):
         class _IncompleteExecutor(AbstractExecutor, ABC):
             pass
 
-        def factory(_num_workers):
+        def factory(*, num_workers: int | None = None, **kwargs: object):
+            _ = num_workers
+            _ = kwargs
             return _IncompleteExecutor()  # pyright: ignore[reportAbstractUsage]
 
         _stamp(factory, 1)
@@ -104,7 +108,9 @@ class TestLoadExecutorErrorWrapping(_RegistrySnapshot, TestCase):
         Ensure a non-abstract TypeError from inside the factory is not rewrapped.
         """
 
-        def factory(_num_workers):
+        def factory(*, num_workers: int | None = None, **kwargs: object):
+            _ = num_workers
+            _ = kwargs
             raise TypeError("argument of type 'int' is not iterable")
 
         _stamp(factory, 1)
@@ -117,7 +123,9 @@ class TestLoadExecutorErrorWrapping(_RegistrySnapshot, TestCase):
         Ensure a factory returning a non-AbstractExecutor is rejected with EleanorException.
         """
 
-        def factory(_num_workers):
+        def factory(*, num_workers: int | None = None, **kwargs: object):
+            _ = num_workers
+            _ = kwargs
             return "not-an-executor"
 
         _stamp(factory, 1)

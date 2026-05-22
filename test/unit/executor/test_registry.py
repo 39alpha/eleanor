@@ -75,8 +75,8 @@ class TestRegisterExecutor(_RegistryTestCase):
         register_executor("fake", factory)
 
         self.assertIn("fake", available_executors())
-        self.assertIs(get_factory("fake")(2), sentinel)
-        factory.assert_called_once_with(2)
+        self.assertIs(get_factory("fake")(num_workers=2), sentinel)
+        factory.assert_called_once_with(num_workers=2)
 
     def test_register_is_idempotent_for_same_factory(self):
         """
@@ -149,8 +149,8 @@ class TestEntryPointDiscovery(_RegistryTestCase):
             executors = available_executors()
 
         self.assertIn("plugin", executors)
-        self.assertIs(get_factory("plugin")(4), sentinel)
-        factory.assert_called_once_with(4)
+        self.assertIs(get_factory("plugin")(num_workers=4), sentinel)
+        factory.assert_called_once_with(num_workers=4)
 
     def test_discovery_raises_on_load_failure(self):
         """

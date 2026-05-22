@@ -1,12 +1,14 @@
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Protocol
 
-from eleanor.executor.interface import AbstractExecutor
 from eleanor.plugin import PluginRegistry
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from eleanor.executor.interface import AbstractExecutor
 
-type ExecutorFactory = Callable[[int | None], AbstractExecutor]
+
+class ExecutorFactory(Protocol):
+    def __call__(self, *, num_workers: int | None = None, **kwargs: object) -> AbstractExecutor: ...
+
 
 ENTRY_POINT_GROUP = "eleanor.executors"
 

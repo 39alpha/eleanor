@@ -21,7 +21,7 @@ class TestConfig(TestCase):
         Ensure that :class:`ParallelConfig` defaults to multiprocessing with a multi-chunk worker batch.
         """
         cfg = ParallelConfig()
-        self.assertEqual(cfg.backend, "multiprocessing")
+        self.assertEqual(cfg.kind, "multiprocessing")
         self.assertEqual(cfg.chunks_per_worker, 10)
 
     def test_parallel_config_validation(self):
@@ -31,8 +31,8 @@ class TestConfig(TestCase):
         Backend name validation is deferred to :func:`load_executor`;
         ``ParallelConfig`` itself accepts any string.
         """
-        cfg = ParallelConfig(backend="bogus")
-        self.assertEqual(cfg.backend, "bogus")
+        cfg = ParallelConfig(kind="bogus")
+        self.assertEqual(cfg.kind, "bogus")
         with self.assertRaises(EleanorConfigurationException):
             _ = ParallelConfig(chunks_per_worker=0)
 
@@ -44,7 +44,7 @@ class TestConfig(TestCase):
         database_config = database_config_from_config(cfg)
         self.assertIsNone(database_config.username)
         self.assertIsNone(database_config.password)
-        self.assertEqual(cfg.parallel.backend, "multiprocessing")
+        self.assertEqual(cfg.parallel.kind, "multiprocessing")
         self.assertEqual(cfg.parallel.chunks_per_worker, 10)
 
     def test_config_from_yaml(self):
@@ -95,7 +95,7 @@ class TestConfig(TestCase):
                 password = "secret"
                 sslmode = "require"
                 [parallel]
-                backend = "serial"
+                kind = "serial"
                 chunks_per_worker = 3
             """)
             with open(path, "w") as f:
@@ -106,7 +106,7 @@ class TestConfig(TestCase):
             self.assertEqual(database_config.database, "sample")
             self.assertEqual(database_config.port, 5432)
             self.assertEqual(database_config.sslmode, "require")
-            self.assertEqual(cfg.parallel.backend, "serial")
+            self.assertEqual(cfg.parallel.kind, "serial")
             self.assertEqual(cfg.parallel.chunks_per_worker, 3)
 
     def test_config_from_json(self):
@@ -117,7 +117,7 @@ class TestConfig(TestCase):
             path = join(tmp, "config.json")
             raw = {
                 "output": {
-                    "type": "postgres",
+                    "kind": "postgres",
                     "args": {
                         "database": {
                             "dialect": "postgresql",
@@ -132,7 +132,7 @@ class TestConfig(TestCase):
                     },
                 },
                 "parallel": {
-                    "backend": "serial",
+                    "kind": "serial",
                     "chunks_per_worker": 8,
                 },
             }
@@ -144,7 +144,7 @@ class TestConfig(TestCase):
             self.assertEqual(database_config.database, "sample")
             self.assertEqual(database_config.port, 5432)
             self.assertEqual(database_config.sslmode, "require")
-            self.assertEqual(cfg.parallel.backend, "serial")
+            self.assertEqual(cfg.parallel.kind, "serial")
             self.assertEqual(cfg.parallel.chunks_per_worker, 8)
 
     def test_config_from_file_dispatches_by_extension(self):
@@ -241,7 +241,7 @@ class TestConfig(TestCase):
             path = join(tmp, "config.json")
             raw = {
                 "output": {
-                    "type": "postgres",
+                    "kind": "postgres",
                     "args": {
                         "database": {
                             "dialect": "postgresql",
@@ -317,7 +317,7 @@ class TestConfig(TestCase):
         Ensure parallel defaults are applied when raw config omits the parallel section.
         """
         cfg = Config(raw={"output": {"kind": "postgres", "args": {"database": {"database": "sample"}}}})
-        self.assertEqual(cfg.parallel.backend, "multiprocessing")
+        self.assertEqual(cfg.parallel.kind, "multiprocessing")
         self.assertEqual(cfg.parallel.chunks_per_worker, 10)
 
     def test_config_rejects_legacy_database_key(self):

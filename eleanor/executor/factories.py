@@ -13,10 +13,16 @@ def _normalize_num_workers(num_workers: int | None) -> int | None:
     return num_workers
 
 
-def build_serial(num_workers: int | None) -> AbstractExecutor:
+def build_serial(*, num_workers: int | None = None, **kwargs: object) -> AbstractExecutor:
     if num_workers is not None:
         warnings.warn(
             "num_workers is ignored for serial executor",
+            RuntimeWarning,
+            stacklevel=3,
+        )
+    if kwargs:
+        warnings.warn(
+            f'built-in executor "serial" does not accept keyword arguments; ignoring: {list(kwargs)}',
             RuntimeWarning,
             stacklevel=3,
         )
@@ -25,7 +31,14 @@ def build_serial(num_workers: int | None) -> AbstractExecutor:
     return SerialExecutor()
 
 
-def build_multiprocessing(num_workers: int | None) -> AbstractExecutor:
+def build_multiprocessing(*, num_workers: int | None = None, **kwargs: object) -> AbstractExecutor:
+    if kwargs:
+        warnings.warn(
+            f'built-in executor "multiprocessing" does not accept keyword arguments; ignoring: {list(kwargs)}',
+            RuntimeWarning,
+            stacklevel=3,
+        )
+
     from eleanor.executor.multiprocessing import MultiprocessingExecutor
 
     return MultiprocessingExecutor(num_workers=_normalize_num_workers(num_workers))

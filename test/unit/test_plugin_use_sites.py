@@ -11,7 +11,6 @@ original traceback survives.
 from abc import ABC, abstractmethod
 from types import SimpleNamespace
 from typing import cast, override
-from unittest import mock
 
 from eleanor.exceptions import EleanorException
 from eleanor.executor import AbstractExecutor, load_executor
@@ -247,40 +246,28 @@ class TestLoadNavigatorErrorWrapping(_RegistrySnapshot, TestCase):
     def tearDown(self) -> None:
         self._restore()
 
-    def _order_with_navigator(self, navigator_type: str) -> Order:
-        return cast(
-            Order,
-            cast(
-                object,
-                SimpleNamespace(
-                    navigator=SimpleNamespace(type=navigator_type, args={}),
-                    id=None,
-                ),
-            ),
-        )
-
     def test_abstract_subclass_typeerror_is_wrapped(self):
         """
         Ensure an incomplete navigator factory rewraps the TypeError.
         """
 
-        def factory(_order, _kernel, **_args):
+        def factory(**_args):
             raise TypeError("Can't instantiate abstract class FakeNav")
 
         _stamp(factory, 1)
         navigator_registry.register("flawed", factory)
         with self.assertRaisesRegex(EleanorException, "navigator plugin 'flawed' failed to instantiate"):
-            _ = load_navigator(self._order_with_navigator("flawed"), mock.Mock())
+            _ = load_navigator("flawed")
 
     def test_unrelated_typeerror_propagates(self):
         """
         Ensure unrelated TypeErrors from the navigator factory propagate.
         """
 
-        def factory(_order, _kernel, **_args):
+        def factory(**_args):
             raise TypeError("unexpected keyword argument 'foo'")
 
         _stamp(factory, 1)
         navigator_registry.register("typeerror", factory)
         with self.assertRaisesRegex(TypeError, "unexpected keyword argument"):
-            _ = load_navigator(self._order_with_navigator("typeerror"), mock.Mock())
+            _ = load_navigator("typeerror")

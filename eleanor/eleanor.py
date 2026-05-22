@@ -331,8 +331,8 @@ class Eleanor(object):
                 kernel = load_kernel(order, self.kernel_args, **kwargs)
 
             if navigator is None:
-                navigator = load_navigator(order, kernel)
-            expected_total = navigator.num_systems(simulation_size)
+                navigator = load_navigator(order.navigator.kind, **order.navigator.args)
+            expected_total = navigator.num_systems(order, simulation_size)
             if expected_total <= 0:
                 raise EleanorException(
                     f"navigator.num_systems({simulation_size}) returned {expected_total}; must be >= 1",
@@ -366,6 +366,7 @@ class Eleanor(object):
 
             try:
                 outcomes = self.process(
+                    order,
                     kernel,
                     navigator,
                     simulation_size,
@@ -400,6 +401,7 @@ class Eleanor(object):
 
     def process(
         self,
+        order: Order,
         kernel: AbstractKernel,
         navigator: AbstractNavigator,
         simulation_size: int,
@@ -451,6 +453,8 @@ class Eleanor(object):
         with shutdown_on_signal() as shutdown:
             try:
                 for vs_points in navigator.navigate(
+                    order,
+                    kernel,
                     simulation_size,
                     batch_size,
                     order_id=order_id,

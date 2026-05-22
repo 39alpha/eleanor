@@ -9,18 +9,21 @@ if TYPE_CHECKING:
 
 
 class AbstractNavigator(ABC):
-    order: Order
-    kernel: AbstractKernel
-
-    def __init__(self, order: Order, kernel: AbstractKernel):
-        self.order = order
-        self.kernel = kernel
-
     @abstractmethod
-    def navigate(self, scale: int, batch_size: int, *args: object, **kwargs: object) -> Iterator[list[vs.Point]]:
+    def navigate(
+        self,
+        order: Order,
+        kernel: AbstractKernel,
+        scale: int,
+        batch_size: int,
+        *args: object,
+        order_id: int | None = None,
+        **kwargs: object,
+    ) -> Iterator[list[vs.Point]]:
         pass
 
-    def num_systems(self, scale: int) -> int:
+    def num_systems(self, order: Order, scale: int) -> int:
+        _ = order
         return scale
 
 

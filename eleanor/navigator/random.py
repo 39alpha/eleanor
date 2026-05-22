@@ -1,22 +1,56 @@
 from collections.abc import Iterator
 from itertools import batched
-from typing import override
+from typing import TYPE_CHECKING, Protocol, override
 
 import eleanor.variable_space as vs
 from eleanor.constraints import Boatswain
 from eleanor.exceptions import EleanorException
 from eleanor.navigator.interface import AbstractNavigator
-from eleanor.typing import Callable, cast
+from eleanor.typing import cast
+
+if TYPE_CHECKING:
+    from eleanor.kernel import AbstractKernel
+    from eleanor.order import Order
+
+
+class PointGenerator(Protocol):
+    def __call__(
+        self,
+        order: Order,
+        kernel: AbstractKernel,
+        *_args: object,
+        order_id: int | None = None,
+        **kwargs: object,
+    ) -> vs.Point: ...
 
 
 class Random(AbstractNavigator):
     @override
-    def navigate(self, scale: int, batch_size: int, *args: object, **kwargs: object) -> Iterator[list[vs.Point]]:
-        generate = cast(Callable[..., vs.Point], self.generate)
-        for batch in batched((generate(*args, **kwargs) for _ in range(scale)), batch_size):
+    def navigate(
+        self,
+        order: Order,
+        kernel: AbstractKernel,
+        scale: int,
+        batch_size: int,
+        *args: object,
+        order_id: int | None = None,
+        **kwargs: object,
+    ) -> Iterator[list[vs.Point]]:
+        generate = cast(PointGenerator, self.generate)
+        for batch in batched(
+            (generate(order, kernel, *args, order_id=order_id, **kwargs) for _ in range(scale)),
+            batch_size,
+        ):
             yield list(batch)
 
-    def generate(self, *_args: object, order_id: int | None = None, **kwargs: object) -> vs.Point:
+    def generate(
+        self,
+        order: Order,
+        kernel: AbstractKernel,
+        *_args: object,
+        order_id: int | None = None,
+        **kwargs: object,
+    ) -> vs.Point:
         max_attempts: object = kwargs.get("max_attempts", 1)
         if not isinstance(max_attempts, int) or isinstance(max_attempts, bool):
             msg = f"max_attempts must be an integer, got {type(max_attempts).__name__}"
@@ -28,8 +62,8 @@ class Random(AbstractNavigator):
         last_exception: Exception | None = None
         while max_attempts > 0:
             try:
-                boatswain = Boatswain(self.order)
-                _ = self.kernel.constrain(boatswain)
+                boatswain = Boatswain(order)
+                _ = kernel.constrain(boatswain)
 
                 parameters = boatswain.constrain()
                 while parameters:
@@ -37,7 +71,7 @@ class Random(AbstractNavigator):
                         boatswain[parameter] = boatswain[parameter].random()[0]
                     parameters = boatswain.constrain()
 
-                return boatswain.generate_vs(order_id)
+                return boatswain.generate_vs(order_id if order_id is not None else order.id)
             except Exception as e:
                 last_exception = e
                 max_attempts -= 1

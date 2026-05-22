@@ -9,13 +9,11 @@ PLUGIN_API_VERSION: int = 1
 MIN_SUPPORTED_API_VERSION: int = 1
 
 if TYPE_CHECKING:
-    from eleanor.kernel.interface import AbstractKernel
     from eleanor.navigator.interface import AbstractNavigator
-    from eleanor.order import Order
 
 
 class NavigatorFactory(Protocol):
-    def __call__(self, order: Order, kernel: AbstractKernel, /, **kwargs: object) -> AbstractNavigator: ...
+    def __call__(self, **kwargs: object) -> AbstractNavigator: ...
 
 
 BUILTIN_NAVIGATORS: frozenset[str] = frozenset({"random", "random_lattice", "lattice"})

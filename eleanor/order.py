@@ -31,7 +31,7 @@ type KernelRaw = RawMap
 
 
 class NavigatorRaw(TypedDict, total=False):
-    type: str
+    kind: str
     args: RawMap
 
 
@@ -93,11 +93,11 @@ class ConstraintConfig(object):
 
 @dataclass(init=False)
 class NavigatorConfig(object):
-    type: str
+    kind: str
     args: RawMap
 
-    def __init__(self, type: str = "random", args: RawMap | None = None):
-        self.type = type
+    def __init__(self, kind: str = "random", args: RawMap | None = None):
+        self.kind = kind
         self.args = args if args is not None else {}
 
 
@@ -250,7 +250,7 @@ class Order:
 
         navigator_raw = raw.get("navigator", NavigatorRaw())
         if isinstance(navigator_raw, str):
-            navigator = NavigatorConfig(type=navigator_raw)
+            navigator = NavigatorConfig(kind=navigator_raw)
         else:
             try:
                 navigator = NavigatorConfig(**navigator_raw)

@@ -66,11 +66,11 @@ class TestOrder(TestCase):
         Ensure basic config helper classes return expected defaults.
         """
         nav = NavigatorConfig("random")
-        self.assertEqual(nav.type, "random")
+        self.assertEqual(nav.kind, "random")
         self.assertEqual(nav.args, {})
 
         nav2 = NavigatorConfig("my_plugin", args={"seed": 42})
-        self.assertEqual(nav2.type, "my_plugin")
+        self.assertEqual(nav2.kind, "my_plugin")
         self.assertEqual(nav2.args, {"seed": 42})
 
     def test_suppression(self):
@@ -183,7 +183,7 @@ class TestOrder(TestCase):
             navigator="Random",
         )
         self.assertIsNotNone(order.kernel)
-        self.assertEqual(order.navigator.type, "Random")
+        self.assertEqual(order.navigator.kind, "Random")
 
     def test_order_parameters_includes_kernel_and_reactant_parameters(self):
         """

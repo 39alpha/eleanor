@@ -58,7 +58,7 @@ class TestGenTemplateCrossFormat(TestCase):
                 self.assertEqual(ref.creator, other.creator)
                 self.assertEqual(ref.notes, other.notes)
                 self.assertEqual(ref.kernel.type, other.kernel.type)
-                self.assertEqual(ref.navigator.type, other.navigator.type)
+                self.assertEqual(ref.navigator.kind, other.navigator.kind)
                 self.assertEqual(ref.navigator.args, other.navigator.args)
                 self.assertEqual(ref.temperature, other.temperature)
                 self.assertEqual(ref.pressure, other.pressure)

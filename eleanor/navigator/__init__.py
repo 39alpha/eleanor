@@ -1,23 +1,16 @@
-from typing import TYPE_CHECKING, cast
+from typing import cast
 
 from eleanor.exceptions import EleanorException
 from eleanor.navigator.interface import AbstractNavigator
 from eleanor.navigator.registry import get_factory
 from eleanor.plugin import is_abstract_instantiation_error, resolve_api_version
 
-if TYPE_CHECKING:
-    from eleanor.kernel.interface import AbstractKernel
-    from eleanor.order import Order
 
-
-def load_navigator(order: Order, kernel: AbstractKernel) -> AbstractNavigator:
-    kind = order.navigator.type
-    args = order.navigator.args
-
+def load_navigator(kind: str, **kwargs: object) -> AbstractNavigator:
     navigator_factory = get_factory(kind)
     version = resolve_api_version(navigator_factory)
     try:
-        built = navigator_factory(order, kernel, **args)
+        built = navigator_factory(**kwargs)
     except TypeError as e:
         if not is_abstract_instantiation_error(e):
             raise

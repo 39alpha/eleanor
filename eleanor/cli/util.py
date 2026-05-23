@@ -15,8 +15,9 @@ from collections.abc import Callable
 import click
 from xdg_base_dirs import xdg_config_home
 
-from eleanor.config import Config, OutputRaw, load_config
+from eleanor.config import Config, load_config
 from eleanor.exceptions import EleanorConfigurationException
+from eleanor.output.config import ConfigRaw as OutputRaw
 from eleanor.output.postgres.config import DatabaseRaw, database_config_from_config
 from eleanor.typing import cast
 

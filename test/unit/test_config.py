@@ -4,8 +4,10 @@ from os.path import join
 from tempfile import TemporaryDirectory
 from typing import cast
 
-from eleanor.config import Config, ConfigRaw, OutputConfig, OutputRaw, ParallelConfig, load_config
+from eleanor.config import Config, ConfigRaw, ParallelConfig, load_config
 from eleanor.exceptions import EleanorConfigurationException, EleanorException
+from eleanor.output.config import Config as OutputConfig
+from eleanor.output.config import ConfigRaw as OutputRaw
 from eleanor.output.postgres.config import database_config_from_config
 
 from .common import TestCase

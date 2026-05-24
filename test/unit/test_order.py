@@ -9,7 +9,8 @@ import numpy as np
 
 from eleanor.exceptions import EleanorException
 from eleanor.kernel.config import Settings as KernelSettings
-from eleanor.order import NavigatorConfig, Order, OrderRaw, Suppression, SuppressionRaw, load_order
+from eleanor.navigator.config import Config as NavigatorConfig
+from eleanor.order import Order, OrderRaw, Suppression, SuppressionRaw, load_order
 from eleanor.parameters import ValueParameter
 
 from .common import TestCase

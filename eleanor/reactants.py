@@ -12,8 +12,6 @@ from .parameters import Parameter, ParameterOrSource, ParameterSource, ValuePara
 from .typing import cast
 from .util import mapreduce, require, require_dict, require_float, require_str
 
-type RawMap = dict[str, object]
-
 
 class CombinedComponentRaw(TypedDict, total=False):
     """Raw schema for a single component block inside a combined reactant."""

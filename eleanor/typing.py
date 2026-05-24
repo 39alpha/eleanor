@@ -25,6 +25,7 @@ __all__ = [
     "Generator",
     "ModuleType",
     "NDArray",
+    "RawMap",
     "Self",
     "Species",
     "TypeAlias",
@@ -56,4 +57,6 @@ class EleanorKwargs(TypedDict, total=False):
 type Array1D[ScalarT: np.generic] = np.ndarray[tuple[int], np.dtype[ScalarT]]
 type Array2D[ScalarT: np.generic] = np.ndarray[tuple[int, int], np.dtype[ScalarT]]
 
-Species: TypeAlias = tuple[list[str], list[str], list[str], list[str], list[str], list[str]]
+type Species = tuple[list[str], list[str], list[str], list[str], list[str], list[str]]
+
+type RawMap = dict[str, object]

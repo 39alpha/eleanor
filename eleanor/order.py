@@ -10,29 +10,23 @@ from typing import Self, TypedDict, final
 import numpy as np
 import yaml
 
-from .exceptions import EleanorException
-from .kernel.config import Config as KernelConfig
-from .kernel.config import Settings as KernelSettings
-from .kernel.config import resolve_settings as resolve_kernel_settings
-from .parameters import Parameter, ParameterOrSource, ParameterSource, load_parameter
-from .reactants import AbstractReactant, CombinedReactant, ReactantRaw
-from .typing import cast
-from .util import is_list_of, mapreduce, require, require_opt_int, require_opt_str, require_str
-from .variable_space import Point as VSPoint
-from .version import __version__
-
-type RawMap = dict[str, object]
-
+from eleanor.exceptions import EleanorException
+from eleanor.kernel.config import Config as KernelConfig
+from eleanor.kernel.config import Settings as KernelSettings
+from eleanor.kernel.config import resolve_settings as resolve_kernel_settings
+from eleanor.navigator.config import Config as NavigatorConfig
+from eleanor.navigator.config import ConfigRaw as NavigatorRaw
+from eleanor.parameters import Parameter, ParameterOrSource, ParameterSource, load_parameter
+from eleanor.reactants import AbstractReactant, CombinedReactant, ReactantRaw
+from eleanor.typing import RawMap, cast
+from eleanor.util import is_list_of, mapreduce, require, require_opt_int, require_opt_str, require_str
+from eleanor.variable_space import Point as VSPoint
+from eleanor.version import __version__
 
 # ``KernelRaw`` is intentionally an alias of ``RawMap``. The order parser only
 # knows the ``type`` key; the rest of the kernel block is kernel-specific and
 # validated inside ``<kernel_module>.Settings.from_dict``.
 type KernelRaw = RawMap
-
-
-class NavigatorRaw(TypedDict, total=False):
-    kind: str
-    args: RawMap
 
 
 # ``except`` is a Python keyword, so the functional TypedDict syntax is used.
@@ -89,16 +83,6 @@ def load_kernel_settings(kernel_raw: KernelRaw) -> tuple[str, KernelSettings]:
 class ConstraintConfig(object):
     type: str
     raw: dict[str, object] = field(default_factory=dict)
-
-
-@dataclass(init=False)
-class NavigatorConfig(object):
-    kind: str
-    args: RawMap
-
-    def __init__(self, kind: str = "random", args: RawMap | None = None):
-        self.kind = kind
-        self.args = args if args is not None else {}
 
 
 @dataclass(init=False)

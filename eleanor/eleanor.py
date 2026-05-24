@@ -108,7 +108,7 @@ class Eleanor(object):
         unbuilt until the first :meth:`run` that needs them.
         """
         if self._executor_override is None:
-            self._executor = load_executor(kind=self.config.parallel.kind, num_workers=self.num_procs)
+            self._executor = load_executor(kind=self.config.executor.kind, num_workers=self.num_procs)
             _ = self._executor.__enter__()
         self._entered = True
         return self
@@ -163,7 +163,7 @@ class Eleanor(object):
     def _executor_scope(
         self,
         *,
-        parallel: str,
+        executor_kind: str,
     ) -> "Generator[AbstractExecutor, None, None]":
         """Yield an executor for the duration of one :meth:`run` call.
 
@@ -181,7 +181,7 @@ class Eleanor(object):
         if self._entered and self._executor is not None:
             yield self._executor
             return
-        with load_executor(kind=parallel, num_workers=self.num_procs) as executor:
+        with load_executor(kind=executor_kind, num_workers=self.num_procs) as executor:
             yield executor
 
     @contextmanager
@@ -308,11 +308,11 @@ class Eleanor(object):
         show_progress = kwargs.get("show_progress", False)
 
         if chunks_per_worker is None:
-            chunks_per_worker = self.config.parallel.chunks_per_worker
+            chunks_per_worker = self.config.executor.chunks_per_worker
 
         with ExitStack() as stack:
             run_executor = stack.enter_context(
-                self._executor_scope(parallel=self.config.parallel.kind),
+                self._executor_scope(executor_kind=self.config.executor.kind),
             )
             run_sink = stack.enter_context(
                 self._sink_scope(output_sink, verbose=verbose),

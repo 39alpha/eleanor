@@ -22,8 +22,8 @@ class TestBulkLoadCli(TestCase):
         self.runner = CliRunner()
 
     def _config(self) -> Config:
-        return Config(
-            raw={
+        return Config.from_dict(
+            {
                 "output": {
                     "kind": "postgres",
                     "args": {"database": {"database": "demo_db"}},
@@ -79,7 +79,7 @@ class TestBulkLoadCli(TestCase):
         name. The CLI must not silently no-op against the local default
         database.
         """
-        bare = Config(raw={"output": {"kind": "postgres", "args": {}}})
+        bare = Config.from_dict({"output": {"kind": "postgres", "args": {}}})
         with (
             mock.patch("eleanor.output.postgres.cli.config_from_args", return_value=bare),
             mock.patch("eleanor.output.postgres.cli.drop_indexes") as drop_indexes,

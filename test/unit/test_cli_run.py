@@ -43,13 +43,13 @@ class TestCLIRun(TestCase):
         self.runner = CliRunner()
 
     def _config(self, kind: str = "multiprocessing", chunks_per_worker: int = 1) -> Config:
-        return Config(
-            raw={
+        return Config.from_dict(
+            {
                 "output": {
                     "kind": "postgres",
                     "args": {"database": {"database": "sample"}},
                 },
-                "parallel": {
+                "executor": {
                     "kind": kind,
                     "chunks_per_worker": chunks_per_worker,
                 },
@@ -61,7 +61,7 @@ class TestCLIRun(TestCase):
             _ = Path("order.yaml").write_text("order: demo\n", encoding="utf-8")
             return self.runner.invoke(main, ["run", *extra_args, "order.yaml", "10"])
 
-    def test_run_uses_config_parallel_defaults(self):
+    def test_run_uses_config_executor_defaults(self):
         config = self._config(kind="serial", chunks_per_worker=6)
         eleanor = _fake_eleanor(run_return=[42])
         executor = _fake_executor()
@@ -90,7 +90,7 @@ class TestCLIRun(TestCase):
             output_sink=None,
         )
 
-    def test_run_cli_flags_override_config_parallel_values(self):
+    def test_run_cli_flags_override_config_executor_values(self):
         config = self._config(kind="multiprocessing", chunks_per_worker=2)
         eleanor = _fake_eleanor(run_return=[7])
         executor = _fake_executor()
@@ -103,7 +103,7 @@ class TestCLIRun(TestCase):
             mock.patch("eleanor.cli.run.Eleanor", return_value=eleanor) as eleanor_cls,
         ):
             result = self._invoke_run(
-                ["-c", "/fake.yaml", "-d", "sample", "--parallel", "serial", "--chunks-per-worker", "9"]
+                ["-c", "/fake.yaml", "-d", "sample", "--executor", "serial", "--chunks-per-worker", "9"]
             )
 
         self.assertEqual(result.exit_code, 0)
@@ -205,7 +205,7 @@ class TestCLIRun(TestCase):
         self.assertEqual(fake_order.tag, "experiment-1")
         self.assertIs(eleanor.run.call_args.args[0], fake_order)
 
-    def test_run_rejects_unknown_parallel_kind(self):
+    def test_run_rejects_unknown_executor_kind(self):
         config = self._config()
 
         with (
@@ -213,7 +213,7 @@ class TestCLIRun(TestCase):
             mock.patch("eleanor.cli.run.available_executors", return_value={"serial"}),
             mock.patch("eleanor.cli.run.Eleanor") as eleanor_cls,
         ):
-            result = self._invoke_run(["-c", "/fake.yaml", "-d", "sample", "--parallel", "does-not-exist"])
+            result = self._invoke_run(["-c", "/fake.yaml", "-d", "sample", "--executor", "does-not-exist"])
 
         self.assertEqual(result.exit_code, 0)
         eleanor_cls.assert_not_called()
@@ -259,10 +259,10 @@ class TestCLIRun(TestCase):
 
     def test_run_bulk_load_rejects_non_postgres_sink(self):
         """Ensure --bulk-load errors when the configured output sink is not postgres."""
-        config = Config(
-            raw={
+        config = Config.from_dict(
+            {
                 "output": {"kind": "csv", "args": {}},
-                "parallel": {"kind": "serial", "chunks_per_worker": 1},
+                "executor": {"kind": "serial", "chunks_per_worker": 1},
             }
         )
 
@@ -282,10 +282,10 @@ class TestCLIRun(TestCase):
         Ensure --bulk-load errors when output.type is None (no output sink
         configured), covering the "no output sink provided" branch.
         """
-        config = Config(
-            raw={
+        config = Config.from_dict(
+            {
                 "output": {"args": {}},
-                "parallel": {"kind": "serial", "chunks_per_worker": 1},
+                "executor": {"kind": "serial", "chunks_per_worker": 1},
             }
         )
 
@@ -305,13 +305,13 @@ class TestCLIRun(TestCase):
         Ensure --no-bulk-load sets bulk_load_optimization=False, allowing
         the user to override a config file that has it enabled.
         """
-        config = Config(
-            raw={
+        config = Config.from_dict(
+            {
                 "output": {
                     "kind": "postgres",
                     "args": {"database": {"database": "sample"}, "bulk_load_optimization": True},
                 },
-                "parallel": {"kind": "serial", "chunks_per_worker": 1},
+                "executor": {"kind": "serial", "chunks_per_worker": 1},
             }
         )
         eleanor = _fake_eleanor(run_return=[1])
@@ -334,13 +334,13 @@ class TestCLIRun(TestCase):
         Ensure omitting --bulk-load / --no-bulk-load leaves config.output.args
         untouched, so whatever the config file says is used as-is.
         """
-        config = Config(
-            raw={
+        config = Config.from_dict(
+            {
                 "output": {
                     "kind": "postgres",
                     "args": {"database": {"database": "sample"}, "bulk_load_optimization": True},
                 },
-                "parallel": {"kind": "serial", "chunks_per_worker": 1},
+                "executor": {"kind": "serial", "chunks_per_worker": 1},
             }
         )
         eleanor = _fake_eleanor(run_return=[1])

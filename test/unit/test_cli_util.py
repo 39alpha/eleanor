@@ -21,12 +21,19 @@ class TestConfigFromArgs(TestCase):
         config.output.args so that database_config_from_config and the
         registry's **args splat both see the new value.
         """
-        base = Config(raw={"output": {"kind": "postgres", "args": {}}})
+        base = Config.from_dict(
+            {
+                "output": {
+                    "kind": "postgres",
+                    "args": {},
+                },
+            }
+        )
         with mock.patch("eleanor.cli.util.load_config", return_value=base):
             result = config_from_args("/fake.yaml", "override_db")
 
         # Traversal path (via config.raw) must reflect the override.
-        self.assertEqual(database_config_from_config(result).database, "override_db")
+        self.assertEqual(database_config_from_config(result.output).database, "override_db")
         # Parsed snapshot (config.output.args) must also be consistent so the
         # registry's **args splat passes the right value to the factory.
         self.assertIsInstance(result.output.args.get("database"), dict)
@@ -36,8 +43,8 @@ class TestConfigFromArgs(TestCase):
         Ensure --database only changes the 'database' name field and leaves other
         database settings (username, host, etc.) from the config file intact.
         """
-        base = Config(
-            raw={
+        base = Config.from_dict(
+            {
                 "output": {
                     "kind": "postgres",
                     "args": {"database": {"username": "alice", "host": "db.local"}},
@@ -47,7 +54,7 @@ class TestConfigFromArgs(TestCase):
         with mock.patch("eleanor.cli.util.load_config", return_value=base):
             result = config_from_args("/fake.yaml", "new_db")
 
-        db_cfg = database_config_from_config(result)
+        db_cfg = database_config_from_config(result.output)
         self.assertEqual(db_cfg.database, "new_db")
         self.assertEqual(db_cfg.username, "alice")
         self.assertEqual(db_cfg.host, "db.local")
@@ -57,7 +64,7 @@ class TestConfigFromArgs(TestCase):
         Ensure --database raises EleanorConfigurationException when output.type
         is not 'postgres', so the flag is never silently ignored.
         """
-        non_postgres = Config(raw={"output": {"kind": "csv"}})
+        non_postgres = Config.from_dict({"output": {"kind": "csv"}})
         with mock.patch("eleanor.cli.util.load_config", return_value=non_postgres):
             with self.assertRaises(EleanorConfigurationException) as ctx:
                 _ = config_from_args("/fake.yaml", "db")
@@ -68,7 +75,7 @@ class TestConfigFromArgs(TestCase):
         Ensure config_from_args raises click.ClickException when output.type is
         postgres but no database name is configured and --database is not provided.
         """
-        base = Config(raw={"output": {"kind": "postgres", "args": {}}})
+        base = Config.from_dict({"output": {"kind": "postgres", "args": {}}})
         with mock.patch("eleanor.cli.util.load_config", return_value=base):
             with self.assertRaises(click.ClickException):
                 _ = config_from_args("/fake.yaml", None)
@@ -77,7 +84,7 @@ class TestConfigFromArgs(TestCase):
         """
         Ensure callers can opt out of postgres database enforcement.
         """
-        base = Config(raw={"output": {"kind": "postgres", "args": {}}})
+        base = Config.from_dict({"output": {"kind": "postgres", "args": {}}})
         with mock.patch("eleanor.cli.util.load_config", return_value=base):
             result = config_from_args("/fake.yaml", None, require_database=False)
         self.assertIs(result, base)

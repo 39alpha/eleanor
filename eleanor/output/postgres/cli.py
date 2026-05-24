@@ -18,7 +18,7 @@ from eleanor.output.postgres.tools import dump_schema, load_scratch_entry
 def schema(output: TextIO, config: str, database: str | None) -> None:
     """Dump an Eleanor database schema."""
     cfg = config_from_args(config, database)
-    database_config = database_config_from_config(cfg)
+    database_config = database_config_from_config(cfg.output)
     if database_config.database is None:
         raise click.ClickException("no database provided")
     dump_schema(database_config, output)
@@ -35,7 +35,7 @@ def scratch(vs_id: int, outdir: str, config: str, database: str | None) -> None:
 
     print(f"Loading {config}")
     cfg = config_from_args(config, database)
-    database_config = database_config_from_config(cfg)
+    database_config = database_config_from_config(cfg.output)
     if database_config.database is None:
         raise click.ClickException("no database provided")
 
@@ -72,7 +72,7 @@ def scratch(vs_id: int, outdir: str, config: str, database: str | None) -> None:
 def bulkload(action: str, yes: bool, config: str, database: str | None) -> None:
     """Drop or recreate secondary indexes + constraints around a bulk-load window."""
     cfg = config_from_args(config, database)
-    database_config = database_config_from_config(cfg)
+    database_config = database_config_from_config(cfg.output)
     if database_config.database is None:
         raise click.ClickException("no database provided")
 

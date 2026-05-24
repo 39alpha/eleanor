@@ -17,7 +17,6 @@ from xdg_base_dirs import xdg_config_home
 
 from eleanor.config import Config, load_config
 from eleanor.exceptions import EleanorConfigurationException
-from eleanor.output.config import ConfigRaw as OutputRaw
 from eleanor.output.postgres.config import DatabaseRaw, database_config_from_config
 from eleanor.typing import cast
 
@@ -76,23 +75,16 @@ def config_from_args(
             raise EleanorConfigurationException(
                 f'--database is only supported when output.kind == "postgres" ({cause})'
             )
-        output_raw = config.raw.get("output", OutputRaw())
-        args_raw_obj = output_raw.get("args")
-        args_raw: dict[str, object] = (
-            cast(dict[str, object], cast(object, args_raw_obj)) if isinstance(args_raw_obj, dict) else {}
-        )
-        database_raw_obj = args_raw.get("database")
-        database_raw: DatabaseRaw = (
-            cast(DatabaseRaw, cast(object, database_raw_obj)) if isinstance(database_raw_obj, dict) else DatabaseRaw()
-        )
-        database_raw["database"] = database
-        args_raw["database"] = database_raw
-        output_raw["args"] = args_raw
-        config.raw["output"] = output_raw
-        # Keep the parsed snapshot consistent so the registry's **args splat
-        # sees the override.
-        config.output.args = args_raw
-    elif require_database and config.output.kind == "postgres" and database_config_from_config(config).database is None:
+
+        db = cast(DatabaseRaw, config.output.args.get("database") or {})
+        db["database"] = database
+        config.output.args["database"] = db
+
+    elif (
+        require_database
+        and config.output.kind == "postgres"
+        and database_config_from_config(config.output).database is None
+    ):
         raise click.ClickException("no database provided")
 
     return config

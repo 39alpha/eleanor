@@ -78,7 +78,7 @@ def build_postgres(*, verbose: bool = False, **args: object) -> PostgresSink:
 
     database_raw = args.get("database")
     db_config = (
-        DatabaseConfig.from_raw(cast(DatabaseRaw, cast(object, database_raw)))
+        DatabaseConfig.from_dict(cast(DatabaseRaw, cast(object, database_raw)))
         if isinstance(database_raw, dict)
         else DatabaseConfig()
     )

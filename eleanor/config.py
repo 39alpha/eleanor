@@ -1,11 +1,13 @@
 import json
 import os.path
 import tomllib
-from dataclasses import dataclass
-from typing import TypedDict
+from dataclasses import dataclass, field
+from typing import Self, TypedDict
 
 import yaml
 
+from eleanor.executor.config import Config as ExecutorConfig
+from eleanor.executor.config import ConfigRaw as ExecutorRaw
 from eleanor.output.config import Config as OutputConfig
 from eleanor.output.config import ConfigRaw as OutputRaw
 
@@ -13,50 +15,20 @@ from .exceptions import EleanorConfigurationException, EleanorException
 from .typing import cast
 
 
-class ParallelRaw(TypedDict, total=False):
-    """Schema for the ``parallel`` section of a raw config document."""
-
-    kind: str
-    chunks_per_worker: int
-
-
 class ConfigRaw(TypedDict, total=False):
     """Schema for a raw config document loaded from YAML/TOML/JSON."""
 
     output: OutputRaw
-    parallel: ParallelRaw
+    executor: ExecutorRaw
 
 
-@dataclass
-class ParallelConfig(object):
-    kind: str = "multiprocessing"
-    chunks_per_worker: int = 10
-
-    def __post_init__(self):
-        if self.chunks_per_worker <= 0:
-            msg = f'the chunks_per_worker value "{self.chunks_per_worker}" is invalid; choose a value >= 1'
-            raise EleanorConfigurationException(msg)
-
-    @staticmethod
-    def from_raw(raw: ParallelRaw) -> "ParallelConfig":
-        if cast(dict[str, object], cast(object, raw)).get("backend") is not None:
-            raise EleanorConfigurationException("the parallel.type config option has been renamed parallel.kind")
-
-        return ParallelConfig(
-            kind=raw.get("kind", "multiprocessing"),
-            chunks_per_worker=raw.get("chunks_per_worker", 10),
-        )
-
-
-@dataclass(init=False)
+@dataclass(kw_only=True)
 class Config(object):
-    output: OutputConfig
-    parallel: ParallelConfig
-    raw: ConfigRaw
+    output: OutputConfig = field(default_factory=OutputConfig)
+    executor: ExecutorConfig = field(default_factory=ExecutorConfig)
 
-    def __init__(self, raw: ConfigRaw | None = None):
-        if raw is None:
-            raw = ConfigRaw(output=OutputRaw(), parallel=ParallelRaw())
+    @classmethod
+    def from_dict(cls, raw: ConfigRaw) -> Self:
         # Guard against the old top-level 'database:' key from configs written
         # before the schema moved database settings to output.args.database.
         # Silently ignoring the key would produce a confusing "no database
@@ -66,43 +38,43 @@ class Config(object):
                 'the top-level "database:" config key is no longer supported; '
                 + 'move your database settings under "output.args.database:" instead'
             )
-        object.__setattr__(self, "raw", raw)
-        raw_output = self.raw.get("output", OutputRaw())
-        raw_parallel = self.raw.get("parallel", ParallelRaw())
-        object.__setattr__(self, "output", OutputConfig.from_raw(raw_output))
-        object.__setattr__(self, "parallel", ParallelConfig.from_raw(raw_parallel))
 
-    @staticmethod
-    def from_yaml(fname: str) -> "Config":
+        return cls(
+            output=OutputConfig.from_raw(raw.get("output", OutputRaw())),
+            executor=ExecutorConfig.from_raw(raw.get("executor", ExecutorRaw())),
+        )
+
+    @classmethod
+    def from_yaml(cls, fname: str) -> Self:
         with open(fname, "rb") as handle:
             raw = cast(ConfigRaw, cast(object, yaml.safe_load(handle)))
-            return Config(raw)
+            return cls.from_dict(raw)
 
-    @staticmethod
-    def from_toml(fname: str) -> "Config":
+    @classmethod
+    def from_toml(cls, fname: str) -> Self:
         with open(fname, "rb") as handle:
             raw = cast(ConfigRaw, cast(object, tomllib.load(handle)))
-            return Config(raw)
+            return cls.from_dict(raw)
 
-    @staticmethod
-    def from_json(fname: str) -> "Config":
+    @classmethod
+    def from_json(cls, fname: str) -> Self:
         with open(fname, "rb") as handle:
             raw = cast(ConfigRaw, cast(object, json.load(handle)))
-            return Config(raw)
+            return cls.from_dict(raw)
 
-    @staticmethod
-    def from_file(fname: str) -> "Config":
+    @classmethod
+    def from_file(cls, fname: str) -> Self:
         try:
             _, ext = os.path.splitext(fname)
             match ext:
                 case ".yaml":
-                    return Config.from_yaml(fname)
+                    return cls.from_yaml(fname)
                 case ".yml":
-                    return Config.from_yaml(fname)
+                    return cls.from_yaml(fname)
                 case ".toml":
-                    return Config.from_toml(fname)
+                    return cls.from_toml(fname)
                 case ".json":
-                    return Config.from_json(fname)
+                    return cls.from_json(fname)
                 case _:
                     raise RuntimeError(f'unsupported file extension "{ext}"')
         except Exception as e:
@@ -117,4 +89,7 @@ def load_config(config: str | Config | None) -> Config:
     return config
 
 
-# __all__ = ["ConfigRaw", "Config"]
+__all__ = [
+    "ConfigRaw",
+    "Config",
+]

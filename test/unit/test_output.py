@@ -543,8 +543,8 @@ class TestOutput(TestCase):
         without warning. The registry splats ``output.args`` as kwargs, so the
         factory must treat ``database`` as a recognized name.
         """
-        cfg = Config(
-            raw={
+        cfg = Config.from_dict(
+            {
                 "output": {
                     "kind": "postgres",
                     "args": {"database": {"database": "db", "username": "u", "password": "p"}},
@@ -561,8 +561,8 @@ class TestOutput(TestCase):
         """
         Ensure the postgres factory warns about kwargs other than ``database``.
         """
-        cfg = Config(
-            raw={
+        cfg = Config.from_dict(
+            {
                 "output": {
                     "kind": "postgres",
                     "args": {"database": {"database": "db", "username": "u", "password": "p"}},
@@ -592,8 +592,8 @@ class TestOutput(TestCase):
         Ensure the ``verbose`` kwarg threads from the factory into the sink
         so verbose runs flip the same flag the sink consults internally.
         """
-        cfg = Config(
-            raw={
+        cfg = Config.from_dict(
+            {
                 "output": {
                     "kind": "postgres",
                     "args": {"database": {"database": "db", "username": "u", "password": "p"}},
@@ -615,8 +615,8 @@ class TestOutput(TestCase):
         keeping it off the connection-config dataclass keeps the
         connection-cache key stable across runs that toggle it.
         """
-        cfg = Config(
-            raw={
+        cfg = Config.from_dict(
+            {
                 "output": {
                     "kind": "postgres",
                     "args": {
@@ -649,8 +649,8 @@ class TestOutput(TestCase):
         config doesn't mention it -- matching the safe-default contract
         documented on :class:`PostgresSink`.
         """
-        cfg = Config(
-            raw={
+        cfg = Config.from_dict(
+            {
                 "output": {
                     "kind": "postgres",
                     "args": {"database": {"database": "db", "username": "u", "password": "p"}},

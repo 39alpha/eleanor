@@ -43,8 +43,8 @@ class TestGenTemplateCrossFormat(TestCase):
                 assert isinstance(ref, Config) and isinstance(other, Config)
                 self.assertEqual(ref.output.kind, other.output.kind)
                 self.assertEqual(ref.output.args, other.output.args)
-                self.assertEqual(ref.parallel.kind, other.parallel.kind)
-                self.assertEqual(ref.parallel.chunks_per_worker, other.parallel.chunks_per_worker)
+                self.assertEqual(ref.executor.kind, other.executor.kind)
+                self.assertEqual(ref.executor.chunks_per_worker, other.executor.chunks_per_worker)
 
     def test_order_formats_agree(self):
         orders = {fmt: validate_template("order", fmt) for fmt in ("yaml", "toml", "json")}

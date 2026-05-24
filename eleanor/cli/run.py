@@ -1,7 +1,6 @@
 import sys
 from contextlib import ExitStack
 from traceback import print_exception
-from typing import cast
 
 import click
 
@@ -15,7 +14,7 @@ from eleanor.output.interface import OutputSink
 from eleanor.output.null import NullConfig, NullSink
 
 
-def _complete_parallel(_ctx: click.Context, _param: click.Parameter, incomplete: str) -> list[str]:
+def _complete_executor(_ctx: click.Context, _param: click.Parameter, incomplete: str) -> list[str]:
     from eleanor.executor.registry import available_executors
 
     return [name for name in sorted(available_executors()) if name.startswith(incomplete)]
@@ -41,12 +40,12 @@ def _complete_parallel(_ctx: click.Context, _param: click.Parameter, incomplete:
 )
 @click.option("-p", "--progress", is_flag=True, help="Enable progress bars (disabled by --verbose).")
 @click.option(
-    "--parallel",
+    "--executor",
     default=None,
     metavar="KIND",
-    envvar="ELEANOR_PARALLEL",
-    shell_complete=_complete_parallel,
-    help="Parallel kind (overrides configuration).",
+    envvar="ELEANOR_EXECUTOR",
+    shell_complete=_complete_executor,
+    help="Executor kind (overrides configuration).",
 )
 @click.option("--chunks-per-worker", type=int, default=None, help="Chunks per worker (overrides configuration).")
 @click.option("--batch-size", type=int, default=None, help="Navigator batch size.")
@@ -64,7 +63,7 @@ def run(
     null_sink: bool,
     bulk_load: bool | None,
     progress: bool,
-    parallel: str | None,
+    executor: str | None,
     chunks_per_worker: int | None,
     batch_size: int | None,
     max_nav_attempts: int,
@@ -86,23 +85,17 @@ def run(
                 )
                 raise EleanorException(f'--bulk-load is only supported when output.kind == "postgres" ({cause})')
             config_obj.output.args["bulk_load_optimization"] = bulk_load
-            # Keep config.raw consistent with the parsed snapshot, matching
-            # the pattern used by --database in config_from_args.
-            raw_output = config_obj.raw.get("output", {})
-            raw_args = cast(object, raw_output.get("args", {}))
-            if isinstance(raw_args, dict):
-                raw_args["bulk_load_optimization"] = bulk_load
-        if parallel is None:
-            parallel = config_obj.parallel.kind
+        if executor is None:
+            executor = config_obj.executor.kind
         else:
             executors = available_executors()
-            if parallel not in executors:
+            if executor not in executors:
                 choices = ", ".join(sorted(executors))
                 raise EleanorException(
-                    f'unsupported executor "{parallel}"; choose from {choices}',
+                    f'unsupported executor "{executor}"; choose from {choices}',
                 )
         if chunks_per_worker is None:
-            chunks_per_worker = config_obj.parallel.chunks_per_worker
+            chunks_per_worker = config_obj.executor.chunks_per_worker
 
         order_obj = load_order(order)
         if order_id is not None:
@@ -113,9 +106,9 @@ def run(
         with ExitStack() as stack:
             output_sink: OutputSink | None = None
             if null_sink:
-                output_sink = stack.enter_context(NullSink(NullConfig(support_worker_writes=parallel != "serial")))
-            executor = stack.enter_context(load_executor(kind=parallel, num_workers=num_procs))
-            with Eleanor(config=config_obj, kernel_args=kernel_args_list, executor=executor) as eleanor:
+                output_sink = stack.enter_context(NullSink(NullConfig(support_worker_writes=executor != "serial")))
+            executor_obj = stack.enter_context(load_executor(kind=executor, num_workers=num_procs))
+            with Eleanor(config=config_obj, kernel_args=kernel_args_list, executor=executor_obj) as eleanor:
                 order_ids = eleanor.run(
                     order_obj,
                     simulation_size,

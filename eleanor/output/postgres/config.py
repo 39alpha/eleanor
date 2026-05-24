@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from typing import TypedDict
 
+from eleanor.output.config import Config
 from eleanor.typing import cast
 
 
@@ -56,7 +57,7 @@ class DatabaseConfig(object):
     sslmode: str | None = None
 
     @staticmethod
-    def from_raw(raw: DatabaseRaw) -> DatabaseConfig:
+    def from_dict(raw: DatabaseRaw) -> DatabaseConfig:
         return DatabaseConfig(
             dialect=raw.get("dialect", "postgresql"),
             dbapi=raw.get("dbapi", "psycopg"),
@@ -69,30 +70,19 @@ class DatabaseConfig(object):
         )
 
 
-def database_config_from_config(config: object) -> DatabaseConfig:
-    """Build a :class:`DatabaseConfig` from ``config.raw['output']['args']['database']``.
+def database_config_from_config(config: Config) -> DatabaseConfig:
+    """Build a :class:`DatabaseConfig` from ``config.args['database']``.
 
     Returns a default :class:`DatabaseConfig` when any segment of the path is
     missing or not a mapping. Callers that care about whether the database is
     actually set should inspect the returned dataclass (e.g.
     ``result.database is None``).
     """
-    raw_attr = getattr(config, "raw", None)
-    if not isinstance(raw_attr, dict):
+    if not isinstance(cast(object, config), Config):
         return DatabaseConfig()
-    raw: dict[str, object] = cast(dict[str, object], cast(object, raw_attr))
-    output_raw = raw.get("output")
-    if not isinstance(output_raw, dict):
-        return DatabaseConfig()
-    output: dict[str, object] = cast(dict[str, object], cast(object, output_raw))
-    args_raw = output.get("args")
-    if not isinstance(args_raw, dict):
-        return DatabaseConfig()
-    args: dict[str, object] = cast(dict[str, object], cast(object, args_raw))
-    database_raw = args.get("database")
-    if not isinstance(database_raw, dict):
-        return DatabaseConfig()
-    return DatabaseConfig.from_raw(cast(DatabaseRaw, cast(object, database_raw)))
+
+    raw = cast(DatabaseRaw, config.args.get("database", DatabaseRaw()))
+    return DatabaseConfig.from_dict(raw)
 
 
 __all__ = [

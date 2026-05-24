@@ -42,8 +42,8 @@ class TestPostgresConfig(TestCase):
         """
         Ensure database_config_from_config reads the output.args.database raw block.
         """
-        cfg = Config(
-            raw={
+        cfg = Config.from_dict(
+            {
                 "output": {
                     "kind": "postgres",
                     "args": {
@@ -56,7 +56,7 @@ class TestPostgresConfig(TestCase):
                 },
             }
         )
-        database_config = database_config_from_config(cfg)
+        database_config = database_config_from_config(cfg.output)
         self.assertEqual(database_config.database, "sample")
         self.assertEqual(database_config.username, "alice")
         self.assertEqual(database_config.password, "secret")
@@ -66,7 +66,7 @@ class TestPostgresConfig(TestCase):
         Ensure database_config_from_config returns a default DatabaseConfig when the
         raw config has no output.args.database block at all.
         """
-        result = database_config_from_config(Config())
+        result = database_config_from_config(Config().output)
         self.assertIsNone(result.database)
         self.assertIsNone(result.username)
 
@@ -78,18 +78,15 @@ class TestPostgresConfig(TestCase):
         validation, since the helper must be defensive against
         arbitrary inputs.
         """
-        # raw itself is not a mapping
-        self.assertIsNone(database_config_from_config(SimpleNamespace(raw="oops")).database)
-
         # output is not a mapping
-        self.assertIsNone(database_config_from_config(SimpleNamespace(raw={"output": "oops"})).database)
+        self.assertIsNone(database_config_from_config(SimpleNamespace(output={}).output).database)
 
         # args is not a mapping
-        self.assertIsNone(database_config_from_config(SimpleNamespace(raw={"output": {"args": "oops"}})).database)
+        self.assertIsNone(database_config_from_config(SimpleNamespace(output={"args": "oops"}).output).database)
 
         # database is not a mapping
         self.assertIsNone(
-            database_config_from_config(SimpleNamespace(raw={"output": {"args": {"database": "oops"}}})).database
+            database_config_from_config(SimpleNamespace(output={"args": {"database": "oops"}}).output).database
         )
 
     def test_postgres_config_module_does_not_load_sqlalchemy(self):

@@ -60,7 +60,7 @@ def _make_eleanor():
             SimpleNamespace(
                 database="db-config",
                 output=SimpleNamespace(kind="postgres", args={}),
-                parallel=SimpleNamespace(kind="multiprocessing", chunks_per_worker=1),
+                executor=SimpleNamespace(kind="multiprocessing", chunks_per_worker=1),
             ),
         ),
     )
@@ -137,7 +137,7 @@ class TestEleanorConstruction(TestCase):
                 object,
                 SimpleNamespace(
                     output=SimpleNamespace(kind=None, args={}),
-                    parallel=SimpleNamespace(kind="serial", chunks_per_worker=1),
+                    executor=SimpleNamespace(kind="serial", chunks_per_worker=1),
                 ),
             ),
         )
@@ -152,7 +152,7 @@ class TestEleanorConstruction(TestCase):
                 object,
                 SimpleNamespace(
                     output=SimpleNamespace(kind=None, args={}),
-                    parallel=SimpleNamespace(kind="serial", chunks_per_worker=1),
+                    executor=SimpleNamespace(kind="serial", chunks_per_worker=1),
                 ),
             ),
         )

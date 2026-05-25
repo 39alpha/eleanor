@@ -3,7 +3,7 @@ from typing import override
 
 import numpy as np
 
-from eleanor.constraints import AbstractConstraint
+from eleanor.constraints.interface import AbstractConstraint
 from eleanor.exceptions import EleanorException
 from eleanor.parameters import (
     ListParameter,

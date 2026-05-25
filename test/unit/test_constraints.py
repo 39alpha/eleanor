@@ -1,12 +1,12 @@
-from dataclasses import dataclass
 from typing import cast, final, override
 from unittest import mock
 
 import numpy as np
 
-from eleanor.constraints import (
+from eleanor.constraints.boatswain import Boatswain
+from eleanor.constraints.config import Config as ConstraintConfig
+from eleanor.constraints.interface import (
     AbstractConstraint,
-    Boatswain,
     LinearConstraint,
     LinearConstraintTerm,
     Transform,
@@ -15,7 +15,7 @@ from eleanor.constraints import (
 from eleanor.exceptions import EleanorException
 from eleanor.kernel.config import Config as KernelConfig
 from eleanor.kernel.config import Settings
-from eleanor.order import ConstraintConfig, Order
+from eleanor.order import Order, Suppression
 from eleanor.parameters import Parameter, ParameterRegistry, RangeParameter, Valuation, ValueParameter
 from eleanor.reactants import (
     AqueousReactant,
@@ -25,6 +25,7 @@ from eleanor.reactants import (
     FixedGasReactant,
     GasReactant,
     MineralReactant,
+    Reactant,
     ReactantType,
     SolidSolutionReactant,
     SpecialReactant,
@@ -60,13 +61,6 @@ class EchoConstraint(AbstractConstraint):
         return {registry.id(self._dependent): self._dependent.fix(self._value)}
 
 
-@dataclass
-class DummySuppression:
-    name: str | None
-    type: str | None
-    exceptions: list[str]
-
-
 @final
 class DummyOrder:
     """
@@ -76,14 +70,14 @@ class DummyOrder:
     def __init__(
         self,
         *,
-        parameters,
-        water_mass=None,
-        temperature,
-        pressure,
-        elements,
-        species,
-        suppressions,
-        reactants,
+        parameters: list[Parameter],
+        water_mass: Parameter | None = None,
+        temperature: Parameter,
+        pressure: Parameter,
+        elements: dict[str, Parameter],
+        species: dict[str, Parameter],
+        suppressions: list[Suppression],
+        reactants: list[Reactant],
     ):
         self._parameters = parameters
         self.constraints = []
@@ -151,7 +145,7 @@ class TestConstraints(TestCase):
         Ensure placeholder :meth:`AbstractConstraint.from_order` is executable.
         """
         dummy_order = cast(Order, object())
-        dummy_constraint_config = ConstraintConfig(type="unknown", raw={})
+        dummy_constraint_config = ConstraintConfig(type="unknown", args={})
         self.assertIsNone(AbstractConstraint.from_order(dummy_order, dummy_constraint_config))
 
     def test_abstract_constraint_placeholder_methods_are_executable(self):
@@ -390,7 +384,7 @@ class TestConstraints(TestCase):
             "constant": 5.0,
             "tolerance": 1e-8,
         }
-        config = ConstraintConfig(type="linear", raw=raw)
+        config = ConstraintConfig(type="linear", args=raw)
         result = AbstractConstraint.from_order(_as_order(order), config)
         self.assertIsNotNone(result)
         self.assertIsInstance(result, LinearConstraint)
@@ -403,7 +397,7 @@ class TestConstraints(TestCase):
         Verify from_order raises when the raw dict has no 'terms' key.
         """
         order = self._make_simple_order()
-        config = ConstraintConfig(type="linear", raw={"type": "linear"})
+        config = ConstraintConfig(type="linear", args={"type": "linear"})
         with self.assertRaises(EleanorException):
             _ = LinearConstraint.from_order(_as_order(order), config)
 
@@ -413,7 +407,7 @@ class TestConstraints(TestCase):
         """
         order = self._make_simple_order()
         raw: dict[str, object] = {"type": "linear", "terms": ["not_a_dict"]}
-        config = ConstraintConfig(type="linear", raw=raw)
+        config = ConstraintConfig(type="linear", args=raw)
         with self.assertRaises(EleanorException):
             _ = LinearConstraint.from_order(_as_order(order), config)
 
@@ -423,7 +417,7 @@ class TestConstraints(TestCase):
         """
         order = self._make_simple_order()
         raw: dict[str, object] = {"type": "linear", "terms": [{"coefficient": 1.0}]}
-        config = ConstraintConfig(type="linear", raw=raw)
+        config = ConstraintConfig(type="linear", args=raw)
         with self.assertRaises(EleanorException):
             _ = LinearConstraint.from_order(_as_order(order), config)
 
@@ -437,14 +431,14 @@ class TestConstraints(TestCase):
             "terms": [{"variable": "temperature", "coefficient": True}],
         }
         with self.assertRaises(EleanorException):
-            _ = LinearConstraint.from_order(_as_order(order), ConstraintConfig(type="linear", raw=raw_bool))
+            _ = LinearConstraint.from_order(_as_order(order), ConstraintConfig(type="linear", args=raw_bool))
 
         raw_list: dict[str, object] = {
             "type": "linear",
             "terms": [{"variable": "temperature", "coefficient": [1, 2]}],
         }
         with self.assertRaises(EleanorException):
-            _ = LinearConstraint.from_order(_as_order(order), ConstraintConfig(type="linear", raw=raw_list))
+            _ = LinearConstraint.from_order(_as_order(order), ConstraintConfig(type="linear", args=raw_list))
 
     def test_from_order_invalid_transform_raises(self):
         """
@@ -455,7 +449,7 @@ class TestConstraints(TestCase):
             "type": "linear",
             "terms": [{"variable": "temperature", "transform": "ln"}],
         }
-        config = ConstraintConfig(type="linear", raw=raw)
+        config = ConstraintConfig(type="linear", args=raw)
         with self.assertRaises(EleanorException):
             _ = LinearConstraint.from_order(_as_order(order), config)
 
@@ -469,7 +463,7 @@ class TestConstraints(TestCase):
             "terms": [{"variable": "temperature"}],
             "tolerance": True,
         }
-        config = ConstraintConfig(type="linear", raw=raw)
+        config = ConstraintConfig(type="linear", args=raw)
         with self.assertRaises(EleanorException):
             _ = LinearConstraint.from_order(_as_order(order), config)
 
@@ -828,7 +822,7 @@ class TestConstraints(TestCase):
             pressure=pressure,
             elements={"Na": na, "Cl": cl},
             species={"Quartz(aq)": species},
-            suppressions=[DummySuppression(name=None, type="mineral", exceptions=["Quartz"])],
+            suppressions=[Suppression(name=None, type="mineral", exceptions=["Quartz"])],
             reactants=reactants,
         )
         boatswain = Boatswain(_as_order(order))
@@ -1098,7 +1092,7 @@ class TestConstraints(TestCase):
             elements={"Na": na},
             species={},
             suppressions=[],
-            reactants=[object()],
+            reactants=[object()],  # pyright: ignore[reportArgumentType]
         )
         boatswain_bad_reactant = Boatswain(_as_order(order_bad_reactant))
         with self.assertRaises(Exception):
@@ -1212,7 +1206,7 @@ class TestConstraints(TestCase):
                 {"variable": "elements[key=Na]", "coefficient": -1.0},
             ],
         }
-        lc = LinearConstraint.from_order(_as_order(order), ConstraintConfig(type="linear", raw=raw))
+        lc = LinearConstraint.from_order(_as_order(order), ConstraintConfig(type="linear", args=raw))
         self.assertIsInstance(lc, LinearConstraint)
 
         registry = ParameterRegistry()

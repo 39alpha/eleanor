@@ -3,13 +3,14 @@ import operator
 import os.path
 import tomllib
 from collections.abc import Mapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Self, TypedDict, final
 
 import numpy as np
 import yaml
 
+from eleanor.constraints.config import Config as ConstraintConfig
 from eleanor.exceptions import EleanorException
 from eleanor.kernel.config import Config as KernelConfig
 from eleanor.kernel.config import Settings as KernelSettings
@@ -77,12 +78,6 @@ def load_kernel_settings(kernel_raw: KernelRaw) -> tuple[str, KernelSettings]:
     kernel_args_items = cast(dict[object, object], kernel_args_raw).items()
     kernel_args: dict[str, object] = {str(k): v for k, v in kernel_args_items}
     return kernel_type, resolve_kernel_settings(kernel_type, kernel_args)
-
-
-@dataclass
-class ConstraintConfig(object):
-    type: str
-    raw: dict[str, object] = field(default_factory=dict)
 
 
 @dataclass(init=False)
@@ -268,7 +263,7 @@ class Order:
                 raise EleanorException("each constraint must be a dict")
             constraint_raw = cast(dict[str, object], constraint)
             constraint_type = require_str(constraint_raw.get("type"), "constraint.type")
-            constraints.append(ConstraintConfig(type=constraint_type, raw=constraint_raw))
+            constraints.append(ConstraintConfig(type=constraint_type, args=constraint_raw))
 
         vs_points = vs_points or []
 

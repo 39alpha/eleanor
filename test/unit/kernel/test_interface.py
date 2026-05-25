@@ -2,7 +2,7 @@ from typing import cast, override
 
 import eleanor.equilibrium_space as es
 import eleanor.variable_space as vs
-from eleanor.constraints import Boatswain
+from eleanor.constraints.boatswain import Boatswain
 from eleanor.kernel.interface import AbstractKernel
 from eleanor.order import Order
 from eleanor.typing import EleanorKwargs, Unpack

@@ -10,7 +10,7 @@ import numpy as np
 import eleanor.equilibrium_space as es
 import eleanor.util as tool_room
 import eleanor.variable_space as vs
-from eleanor.constraints import Boatswain
+from eleanor.constraints.boatswain import Boatswain
 from eleanor.exceptions import EleanorException
 from eleanor.kernel.exceptions import EleanorKernelException
 from eleanor.kernel.interface import AbstractKernel

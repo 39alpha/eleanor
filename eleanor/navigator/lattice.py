@@ -4,7 +4,7 @@ from itertools import batched
 from typing import TYPE_CHECKING, override
 
 import eleanor.variable_space as vs
-from eleanor.constraints import Boatswain
+from eleanor.constraints.boatswain import Boatswain
 from eleanor.exceptions import EleanorException
 from eleanor.navigator.interface import AbstractNavigator
 from eleanor.parameters import Parameter, ValueParameter

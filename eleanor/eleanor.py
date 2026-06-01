@@ -1,24 +1,25 @@
 from contextlib import ExitStack, contextmanager
+from dataclasses import replace
 from multiprocessing import Manager
 from multiprocessing.managers import SyncManager
 from types import TracebackType
 from typing import TYPE_CHECKING
 
+from eleanor.config import Config
+from eleanor.exceptions import EleanorConfigurationException, EleanorException, EleanorShutdown
+from eleanor.executor import AbstractExecutor, AbstractFuture, load_executor
+from eleanor.executor.settings import Settings as ExecutorSettings
+from eleanor.kernel import load_kernel
+from eleanor.kernel.interface import AbstractKernel
+from eleanor.navigator import AbstractNavigator, load_navigator
+from eleanor.order import Order
+from eleanor.output import load_output_sink
+from eleanor.output.interface import AbstractOutputSink, ComputeResult, RunStats, WriteOutcome
+from eleanor.progress import ManagedProgressHandle, Progress, ProgressHandle
 from eleanor.sailor import Sailor
-
-from .config import Config
-from .exceptions import EleanorConfigurationException, EleanorException, EleanorShutdown
-from .executor import AbstractExecutor, AbstractFuture, load_executor
-from .kernel import load_kernel
-from .kernel.interface import AbstractKernel
-from .navigator import AbstractNavigator, load_navigator
-from .order import Order
-from .output import load_output_sink
-from .output.interface import ComputeResult, OutputSink, RunStats, WriteOutcome
-from .progress import ManagedProgressHandle, Progress, ProgressHandle
-from .signals import shutdown_on_signal
-from .typing import EleanorKwargs, Self, Unpack, cast
-from .util import chunks
+from eleanor.signals import shutdown_on_signal
+from eleanor.typing import EleanorKwargs, Self, Unpack, cast
+from eleanor.util import chunks
 
 if TYPE_CHECKING:
     from collections.abc import Generator
@@ -57,37 +58,37 @@ class Eleanor(object):
 
     config: Config
     kernel_args: list[object]
-    num_procs: int | None
+    num_workers: int | None
 
     # Caller-supplied session-level overrides. Caller retains ownership:
     # Eleanor never enters/shuts down the executor override and never
     # finalizes the output-sink override.
     _executor_override: AbstractExecutor | None
-    _output_sink_override: OutputSink | None
+    _output_sink_override: AbstractOutputSink | None
 
     # Resources owned by the engine when used as a context manager.
     # ``_entered`` controls the "session vs. per-run" resource lifetime.
     _entered: bool
     _executor: AbstractExecutor | None
     _manager: SyncManager | None
-    _output_sink: OutputSink | None
+    _output_sink: AbstractOutputSink | None
 
     def __init__(
         self,
         *,
         config: Config | None = None,
         kernel_args: list[object] | None = None,
-        num_procs: int | None = None,
+        num_workers: int | None = None,
         executor: AbstractExecutor | None = None,
-        output_sink: OutputSink | None = None,
+        output_sink: AbstractOutputSink | None = None,
     ):
         self.config = config if config is not None else Config()
         self.kernel_args = list(kernel_args) if kernel_args is not None else []
-        self.num_procs = num_procs
+        self.num_workers = num_workers
 
         self._executor_override = executor
         self._output_sink_override = output_sink
-        if self.config.output.kind is None and self._output_sink_override is None:
+        if self.config.output is None and self._output_sink_override is None:
             raise EleanorConfigurationException("no output sink provided via config or keyword option")
 
         self._entered = False
@@ -104,12 +105,18 @@ class Eleanor(object):
         supplied, Eleanor reuses it as-is and never enters or shuts it down;
         caller-owned lifecycle may be context-managed or manual.
 
-        The progress :class:`SyncManager` and :class:`OutputSink` are left
+        The progress :class:`SyncManager` and :class:`AbstractOutputSink` are left
         unbuilt until the first :meth:`run` that needs them.
         """
         if self._executor_override is None:
-            self._executor = load_executor(kind=self.config.executor.kind, num_workers=self.num_procs)
+            settings = self.config.executor.settings
+            if self.num_workers is not None:
+                settings = replace(settings, num_workers=self.num_workers)
+
+            self._executor = load_executor(self.config.executor.kind, settings)
+
             _ = self._executor.__enter__()
+
         self._entered = True
         return self
 
@@ -163,7 +170,8 @@ class Eleanor(object):
     def _executor_scope(
         self,
         *,
-        executor_kind: str,
+        kind: str,
+        settings: ExecutorSettings | None,
     ) -> "Generator[AbstractExecutor, None, None]":
         """Yield an executor for the duration of one :meth:`run` call.
 
@@ -181,7 +189,14 @@ class Eleanor(object):
         if self._entered and self._executor is not None:
             yield self._executor
             return
-        with load_executor(kind=executor_kind, num_workers=self.num_procs) as executor:
+
+        if settings is None:
+            settings = ExecutorSettings()
+
+        if self.num_workers is not None:
+            settings = replace(settings, num_workers=self.num_workers)
+
+        with load_executor(kind, settings) as executor:
             yield executor
 
     @contextmanager
@@ -206,26 +221,26 @@ class Eleanor(object):
     @contextmanager
     def _sink_scope(
         self,
-        override: OutputSink | None,
+        override: AbstractOutputSink | None,
         *,
         verbose: bool,
-    ) -> "Generator[OutputSink, None, None]":
-        """Yield an :class:`OutputSink` for the duration of one :meth:`run` call.
+    ) -> "Generator[AbstractOutputSink, None, None]":
+        """Yield an :class:`AbstractOutputSink` for the duration of one :meth:`run` call.
 
         Preference order:
 
         * **Caller-supplied** — ``override`` (per-run) or
           ``self._output_sink_override`` (constructor-level).  Returned
-          as-is; the caller owns :meth:`~OutputSink.initialize` /
-          :meth:`~OutputSink.finalize`.  Eleanor only calls
-          :meth:`~OutputSink.finalize_run` on scope exit.
+          as-is; the caller owns :meth:`~AbstractOutputSink.initialize` /
+          :meth:`~AbstractOutputSink.finalize`.  Eleanor only calls
+          :meth:`~AbstractOutputSink.finalize_run` on scope exit.
         * ``self._output_sink`` (session-scoped, lazily built from
-          :attr:`config`) — :meth:`~OutputSink.initialize`-d at construction
-          time, :meth:`~OutputSink.finalize_run`-d on every run scope exit,
-          and :meth:`~OutputSink.finalize`-d once at :meth:`__exit__`.
+          :attr:`config`) — :meth:`~AbstractOutputSink.initialize`-d at construction
+          time, :meth:`~AbstractOutputSink.finalize_run`-d on every run scope exit,
+          and :meth:`~AbstractOutputSink.finalize`-d once at :meth:`__exit__`.
         * A fresh per-run sink built from :attr:`config` — full lifecycle
-          (:meth:`~OutputSink.initialize`, :meth:`~OutputSink.finalize_run`,
-          :meth:`~OutputSink.finalize`) collapsed into the single
+          (:meth:`~AbstractOutputSink.initialize`, :meth:`~AbstractOutputSink.finalize_run`,
+          :meth:`~AbstractOutputSink.finalize`) collapsed into the single
           :meth:`run` call.
 
         .. note::
@@ -244,14 +259,12 @@ class Eleanor(object):
 
         if self._entered:
             if self._output_sink is None:
-                if self.config.output.kind is None:
-                    raise EleanorConfigurationException("config.output or output_sink are required")
+                if self.config.output is None:
+                    msg = "no output sink provided via config or keyword option"
+                    raise EleanorConfigurationException(msg)
 
-                self._output_sink = load_output_sink(
-                    self.config.output.kind,
-                    verbose=verbose,
-                    **self.config.output.args,
-                )
+                settings = replace(self.config.output.settings, verbose=verbose)
+                self._output_sink = load_output_sink(self.config.output.kind, settings)
                 self._output_sink.initialize()
             try:
                 yield self._output_sink
@@ -259,14 +272,12 @@ class Eleanor(object):
                 self._output_sink.finalize_run()
             return
 
-        if self.config.output.kind is None:
-            raise EleanorConfigurationException("config.output or output_sink are required")
+        if self.config.output is None:
+            msg = "no output sink provided via config or keyword option"
+            raise EleanorConfigurationException(msg)
 
-        sink = load_output_sink(
-            self.config.output.kind,
-            verbose=verbose,
-            **self.config.output.args,
-        )
+        settings = replace(self.config.output.settings, verbose=verbose)
+        sink = load_output_sink(self.config.output.kind, settings)
 
         sink.initialize()
         try:
@@ -286,8 +297,9 @@ class Eleanor(object):
         batch_size: int | None = None,
         max_nav_attempts: int = 1,
         kernel: AbstractKernel | None = None,
+        kernel_args: list[object] | None = None,
         navigator: AbstractNavigator | None = None,
-        output_sink: OutputSink | None = None,
+        output_sink: AbstractOutputSink | None = None,
         **kwargs: Unpack[EleanorKwargs],
     ) -> int:
         """Dispatch ``order`` against ``simulation_size`` VS points.
@@ -295,8 +307,8 @@ class Eleanor(object):
 
         If an explicit ``output_sink`` is supplied, Eleanor treats it as
         caller-owned: the caller is responsible for
-        :meth:`~OutputSink.initialize` / :meth:`~OutputSink.finalize`.
-        Eleanor only calls :meth:`~OutputSink.finalize_run` on scope exit.
+        :meth:`~AbstractOutputSink.initialize` / :meth:`~AbstractOutputSink.finalize`.
+        Eleanor only calls :meth:`~AbstractOutputSink.finalize_run` on scope exit.
         """
         # Check for arguments that have been retired. The double cast lets
         # basedpyright accept a membership test for a key outside EleanorKwargs.
@@ -308,11 +320,13 @@ class Eleanor(object):
         show_progress = kwargs.get("show_progress", False)
 
         if chunks_per_worker is None:
-            chunks_per_worker = self.config.executor.chunks_per_worker
+            chunks_per_worker = self.config.executor.settings.chunks_per_worker
+
+        executor_settings = replace(self.config.executor.settings, chunks_per_worker=chunks_per_worker)
 
         with ExitStack() as stack:
             run_executor = stack.enter_context(
-                self._executor_scope(executor_kind=self.config.executor.kind),
+                self._executor_scope(kind=self.config.executor.kind, settings=executor_settings),
             )
             run_sink = stack.enter_context(
                 self._sink_scope(output_sink, verbose=verbose),
@@ -328,10 +342,14 @@ class Eleanor(object):
                 raise EleanorException("max_nav_attempts must be >= 1")
 
             if kernel is None:
-                kernel = load_kernel(order, self.kernel_args, **kwargs)
+                kernel = load_kernel(order.kernel.kind, order.kernel.settings)
+
+            kernel_kwargs = kernel.prepare_setup_args(*(kernel_args if kernel_args is not None else self.kernel_args))
+            kernel.setup(order, **kernel_kwargs)
+            kernel.validate_order(order)
 
             if navigator is None:
-                navigator = load_navigator(order.navigator.kind, **order.navigator.args)
+                navigator = load_navigator(order.navigator.kind, settings=order.navigator.settings)
             expected_total = navigator.num_systems(order, simulation_size)
             if expected_total <= 0:
                 raise EleanorException(
@@ -345,7 +363,7 @@ class Eleanor(object):
             # Local handles use ``ManagedProgressHandle`` rather than the worker-
             # facing ``ProgressHandle`` so the dispatch context can call ``done()``
             # at teardown.  Anywhere these are forwarded to a producer
-            # (``process()`` / ``Sailor.dispatch`` / ``OutputSink.write_batch``)
+            # (``process()`` / ``Sailor.dispatch`` / ``AbstractOutputSink.write_batch``)
             # they implicitly narrow to ``ProgressHandle``, which omits ``done()``.
             sim_handle: ManagedProgressHandle | None = None
             out_handle: ManagedProgressHandle | None = None
@@ -412,7 +430,7 @@ class Eleanor(object):
         expected_total: int,
         executor: AbstractExecutor | None = None,
         chunks_per_worker: int = 1,
-        sink: OutputSink,
+        sink: AbstractOutputSink,
         sim_progress: ProgressHandle | None = None,
         out_progress: ProgressHandle | None = None,
         **kwargs: Unpack[EleanorKwargs],
@@ -423,7 +441,7 @@ class Eleanor(object):
             when the executor does not support worker-side progress, ticks
             are emitted in the parent after each future resolves.
         :param out_progress: Handle for the output bar. Passed to
-            :meth:`OutputSink.write_batch`; the sink decides its own tick
+            :meth:`AbstractOutputSink.write_batch`; the sink decides its own tick
             cadence. For worker-write sinks on executors without
             worker-progress support, a single batch-level tick per future is
             emitted in the parent as a fallback.

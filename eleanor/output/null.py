@@ -1,41 +1,47 @@
 from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import TypedDict, override
+from typing import Self, override
 
-from eleanor.exceptions import EleanorConfigurationException, EleanorException
+from eleanor.exceptions import EleanorException
 from eleanor.order import Order
-from eleanor.output.interface import ComputeResult, OutputSink, WriteOutcome
+from eleanor.output.interface import AbstractOutputSink, ComputeResult, WriteOutcome
+from eleanor.output.settings import Settings as OutputSettings
 from eleanor.progress import ProgressHandle
+from eleanor.util import guard_is_bool, require_bool
 
 
-class NullArgsRaw(TypedDict, total=False):
+@dataclass(kw_only=True)
+class Settings(OutputSettings):
     support_worker_writes: bool
 
+    def __post_init__(self) -> None:
+        super().__post_init__()
 
-@dataclass(frozen=True, init=False)
-class NullConfig(object):
-    support_worker_writes: bool
+        guard_is_bool(self.support_worker_writes, "support_worker_writes")
 
-    def __init__(self, support_worker_writes: object):
-        if not isinstance(support_worker_writes, bool):
-            msg = 'output.args.support_worker_writes must be a boolean for output type "null"'
-            raise EleanorConfigurationException(msg)
-        object.__setattr__(self, "support_worker_writes", support_worker_writes)
+    @classmethod
+    @override
+    def from_dict(cls, raw: dict[str, object]) -> Self:
+        base_settings = OutputSettings.from_dict(raw)
 
-    @staticmethod
-    def from_raw(raw: NullArgsRaw) -> NullConfig:
-        return NullConfig(
-            support_worker_writes=raw.get("support_worker_writes", False),
+        support_worker_writes = require_bool(
+            raw.get("support_worker_writes", False),
+            "support_worker_writes",
+        )
+
+        return cls(
+            verbose=base_settings.verbose,
+            support_worker_writes=support_worker_writes,
         )
 
 
-class NullSink(OutputSink):
-    config: NullConfig
+class NullSink(AbstractOutputSink):
+    settings: Settings
     _next_order_id: int
     _order_id: int | None
 
-    def __init__(self, config: NullConfig | None = None) -> None:
-        self.config = config if config is not None else NullConfig(support_worker_writes=False)
+    def __init__(self, settings: Settings | None = None) -> None:
+        self.settings = settings if settings is not None else Settings(support_worker_writes=False)
         self._next_order_id = 0
         self._order_id = None
 
@@ -84,7 +90,7 @@ class NullSink(OutputSink):
 
     @override
     def supports_worker_writes(self) -> bool:
-        return self.config.support_worker_writes
+        return self.settings.support_worker_writes
 
     @override
     def supports_progress(self) -> bool:
@@ -92,7 +98,6 @@ class NullSink(OutputSink):
 
 
 __all__ = [
-    "NullArgsRaw",
-    "NullConfig",
+    "Settings",
     "NullSink",
 ]

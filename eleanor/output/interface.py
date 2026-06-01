@@ -49,7 +49,7 @@ class RunStats(object):
         self.failed += len(outcomes) - n
 
 
-class OutputSink(ABC):
+class AbstractOutputSink(ABC):
     def initialize(self) -> None:
         """Perform once-per-sink setup before any :meth:`begin_run` is called.
 
@@ -201,9 +201,9 @@ class OutputSink(ABC):
 
 
 __all__ = [
+    "AbstractOutputSink",
     "ComputeResult",
     "ErrorInfo",
-    "OutputSink",
     "RunStats",
     "WriteOutcome",
 ]

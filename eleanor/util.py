@@ -108,7 +108,7 @@ class NumberFormat(StrEnum):
         :param precision: the precision to
         """
         if precision < 0:
-            raise EleanorException("invalid precision {precision} < 0")
+            raise EleanorException(f"invalid precision {precision} < 0")
 
         return "{value:.{precision}{fmt}}".format(value=value, precision=precision, fmt=self)
 
@@ -316,6 +316,17 @@ def require_dict[T](value: object, field_name: str) -> dict[str, T]:
     return cast(dict[str, T], cast(object, value))
 
 
+def require_opt_dict[T](value: object, field_name: str) -> dict[str, T] | None:
+    """Validate that ``value`` is a ``dict`` or ``None``` at runtime and return it typed."""
+    if value is None:
+        return value
+
+    if not isinstance(value, dict):
+        raise EleanorException(f"{field_name} must be a dictionary")
+
+    return cast(dict[str, T], cast(object, value))
+
+
 def require_float(value: object, field_name: str) -> np.float64:
     """Validate that ``value`` is a float at runtime"""
     if isinstance(value, float) or (isinstance(value, int) and not isinstance(value, bool)):
@@ -325,8 +336,55 @@ def require_float(value: object, field_name: str) -> np.float64:
     raise EleanorException(f"{field_name} must be a floating-point number")
 
 
+def require_bool(value: object, field_name: str) -> bool:
+    """Validate that ``value`` is an boolean at runtime."""
+    if not isinstance(value, bool):
+        raise EleanorException(f"{field_name} must be a boolean")
+    return value
+
+
 def require[T](value: T | None, field_name: str) -> T:
     """Validate that ``value`` is a not ``None`` at runtime"""
     if value is None:
         raise EleanorException(f"{field_name} is required")
     return value
+
+
+def guard_is_bool(value: object, field_name: str) -> None:
+    if not isinstance(value, bool):
+        raise EleanorException(f"{field_name} must be a boolean; got {type(value).__name__}")
+
+
+def guard_is_int(value: object, field_name: str) -> None:
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise EleanorException(f"{field_name} must be an int; got {type(value).__name__}")
+
+
+def guard_is_int_or_none(value: object, field_name: str) -> None:
+    if value is not None and (isinstance(value, bool) or not isinstance(value, int)):
+        raise EleanorException(f"{field_name} must be an int or None; got {type(value).__name__}")
+
+
+def guard_is_str(value: object, field_name: str) -> None:
+    if not isinstance(value, str):
+        raise EleanorException(f"{field_name} must be a string; got {type(value).__name__}")
+
+
+def guard_is_str_or_none(value: object, field_name: str) -> None:
+    if value is not None and not isinstance(value, str):
+        raise EleanorException(f"{field_name} must be an string or None; got {type(value).__name__}")
+
+
+def guard_is_dict(value: object, field_name: str) -> None:
+    if not isinstance(value, dict):
+        raise EleanorException(f"{field_name} must be a dictionary")
+
+
+def guard_is_instance[T](value: object, class_: type[T], field_name: str) -> None:
+    if not isinstance(value, class_):
+        raise EleanorException(f"{field_name} must be type {class_.__name__}; got {type(value).__name__}")
+
+
+def guard_is_instance_or_none[T](value: object, class_: type[T], field_name: str) -> None:
+    if value is not None and not isinstance(value, class_):
+        raise EleanorException(f"{field_name} must be type {class_.__name__} or None; got {type(value).__name__}")

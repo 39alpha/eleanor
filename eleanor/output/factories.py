@@ -1,5 +1,7 @@
-import warnings
 from typing import TYPE_CHECKING
+
+from eleanor.exceptions import EleanorException
+from eleanor.plugin import ConfigurablePluginSpec
 
 if TYPE_CHECKING:
     from eleanor.output.csv import CsvSink
@@ -7,98 +9,102 @@ if TYPE_CHECKING:
     from eleanor.output.null import NullSink
     from eleanor.output.postgres import PostgresSink
 
-KNOWN_CSV_ARGS: frozenset[str] = frozenset({"filename", "query"})
-KNOWN_MEMORY_ARGS: frozenset[str] = frozenset({"support_worker_writes"})
-KNOWN_NULL_ARGS: frozenset[str] = frozenset({"support_worker_writes"})
-KNOWN_POSTGRES_ARGS: frozenset[str] = frozenset({"database", "bulk_load_optimization"})
+
+def parse_csv_settings(raw: dict[str, object]) -> object:
+    from eleanor.output.csv import Settings
+
+    return Settings.from_dict(raw)
 
 
-def build_csv(*, verbose: bool = False, **args: object) -> CsvSink:
-    _ = verbose
-    unknown = sorted(k for k in args if k not in KNOWN_CSV_ARGS)
-    if unknown:
-        warnings.warn(
-            f'built-in output sink "csv" does not accept these keyword arguments; ignoring: {unknown}',
-            RuntimeWarning,
-            stacklevel=2,
-        )
+def build_csv_sink(settings: object) -> CsvSink:
+    from eleanor.output.csv import CsvSink, Settings
 
-    from eleanor.output.csv import CsvConfig, CsvSink
+    if not isinstance(settings, Settings):
+        msg = f"csv output sink requires csv Settings, got {type(settings).__name__}"
+        raise EleanorException(msg)
 
-    return CsvSink(
-        CsvConfig(
-            filename=args.get("filename"),
-            query=args.get("query"),
-        )
-    )
+    return CsvSink(settings)
 
 
-def build_memory(*, verbose: bool = False, **args: object) -> MemorySink:
-    _ = verbose
-    unknown = sorted(k for k in args if k not in KNOWN_MEMORY_ARGS)
-    if unknown:
-        warnings.warn(
-            f'built-in output sink "memory" does not accept these keyword arguments; ignoring: {unknown}',
-            RuntimeWarning,
-            stacklevel=2,
-        )
-
-    from eleanor.output.memory import MemoryConfig, MemorySink
-
-    return MemorySink(MemoryConfig(support_worker_writes=args.get("support_worker_writes", False)))
+csv_spec = ConfigurablePluginSpec(
+    parse_settings=parse_csv_settings,
+    build=build_csv_sink,
+    plugin_api_version=1,
+)
 
 
-def build_null(*, verbose: bool = False, **args: object) -> NullSink:
-    _ = verbose
-    unknown = sorted(k for k in args if k not in KNOWN_NULL_ARGS)
-    if unknown:
-        warnings.warn(
-            f'built-in output sink "null" does not accept these keyword arguments; ignoring: {unknown}',
-            RuntimeWarning,
-            stacklevel=2,
-        )
+def parse_memory_settings(raw: dict[str, object]) -> object:
+    from eleanor.output.memory import Settings
 
-    from eleanor.output.null import NullConfig, NullSink
-
-    return NullSink(NullConfig(support_worker_writes=args.get("support_worker_writes", False)))
+    return Settings.from_dict(raw)
 
 
-def build_postgres(*, verbose: bool = False, **args: object) -> PostgresSink:
-    unknown = sorted(k for k in args if k not in KNOWN_POSTGRES_ARGS)
-    if unknown:
-        warnings.warn(
-            f'built-in output sink "postgres" does not accept these keyword arguments; ignoring: {unknown}',
-            RuntimeWarning,
-            stacklevel=2,
-        )
+def build_memory_sink(settings: object) -> MemorySink:
+    from eleanor.output.memory import MemorySink, Settings
 
+    if not isinstance(settings, Settings):
+        msg = f"memory output sink requires memory Settings, got {type(settings).__name__}"
+        raise EleanorException(msg)
+
+    return MemorySink(settings)
+
+
+memory_spec = ConfigurablePluginSpec(
+    parse_settings=parse_memory_settings,
+    build=build_memory_sink,
+    plugin_api_version=1,
+)
+
+
+def parse_null_settings(raw: dict[str, object]) -> object:
+    from eleanor.output.null import Settings
+
+    return Settings.from_dict(raw)
+
+
+def build_null_sink(settings: object) -> NullSink:
+    from eleanor.output.null import NullSink, Settings
+
+    if not isinstance(settings, Settings):
+        msg = f"null output sink requires null Settings, got {type(settings).__name__}"
+        raise EleanorException(msg)
+
+    return NullSink(settings)
+
+
+null_spec = ConfigurablePluginSpec(
+    parse_settings=parse_null_settings,
+    build=build_null_sink,
+    plugin_api_version=1,
+)
+
+
+def parse_postgres_settings(raw: dict[str, object]) -> object:
+    from eleanor.output.postgres.settings import Settings
+
+    return Settings.from_dict(raw)
+
+
+def build_postgres_sink(settings: object) -> PostgresSink:
     from eleanor.output.postgres import PostgresSink
-    from eleanor.output.postgres.config import DatabaseConfig, DatabaseRaw
-    from eleanor.typing import cast
+    from eleanor.output.postgres.settings import Settings
 
-    database_raw = args.get("database")
-    db_config = (
-        DatabaseConfig.from_dict(cast(DatabaseRaw, cast(object, database_raw)))
-        if isinstance(database_raw, dict)
-        else DatabaseConfig()
-    )
-    bulk_load_optimization = bool(args.get("bulk_load_optimization", False))
-    return PostgresSink(
-        db_config,
-        verbose=verbose,
-        bulk_load_optimization=bulk_load_optimization,
-    )
+    if not isinstance(settings, Settings):
+        msg = f"postgres output sink requires postgres Settings, got {type(settings).__name__}"
+        raise EleanorException(msg)
+
+    return PostgresSink(settings)
 
 
-build_csv.__eleanor_api_version__ = 1  # pyright: ignore[reportFunctionMemberAccess]
-build_memory.__eleanor_api_version__ = 1  # pyright: ignore[reportFunctionMemberAccess]
-build_null.__eleanor_api_version__ = 1  # pyright: ignore[reportFunctionMemberAccess]
-build_postgres.__eleanor_api_version__ = 1  # pyright: ignore[reportFunctionMemberAccess]
-
+postgres_spec = ConfigurablePluginSpec(
+    parse_settings=parse_postgres_settings,
+    build=build_postgres_sink,
+    plugin_api_version=1,
+)
 
 __all__ = [
-    "build_csv",
-    "build_memory",
-    "build_null",
-    "build_postgres",
+    "csv_spec",
+    "memory_spec",
+    "null_spec",
+    "postgres_spec",
 ]

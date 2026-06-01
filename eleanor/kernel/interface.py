@@ -12,8 +12,12 @@ if TYPE_CHECKING:
 
 
 class AbstractKernel(ABC):
+    def prepare_setup_args(self, *args: object) -> dict[str, object]:
+        _ = args
+        return {}
+
     @abstractmethod
-    def setup(self, order: Order | None = None, *args: object, **kwargs: Unpack[EleanorKwargs]) -> None:
+    def setup(self, order: Order, **kwargs: object) -> None:
         pass
 
     @abstractmethod

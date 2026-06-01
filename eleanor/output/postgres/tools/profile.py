@@ -14,8 +14,8 @@ from psycopg.copy import Copy, Writer
 from psycopg.rows import TupleRow
 
 from eleanor.exceptions import EleanorException
-from eleanor.output.postgres.config import DatabaseConfig
 from eleanor.output.postgres.persistence import connection as connection_module
+from eleanor.output.postgres.settings import DatabaseSettings
 
 # Bulk-write detector: matches ``INSERT INTO {table}`` and
 # ``COPY {table}`` (the form ``_bulk_copy`` emits, with FROM STDIN). Both
@@ -157,7 +157,7 @@ class StatementProfiler(object):
     _pending: dict[int, tuple[str, int] | None] = field(default_factory=dict)
     # Saved reference to the real ``connection.connect`` so ``__exit__`` can
     # restore it. Initialised in ``__enter__`` after we capture the value.
-    _real_connect: Callable[[DatabaseConfig], psycopg.Connection] | None = None
+    _real_connect: Callable[[DatabaseSettings], psycopg.Connection] | None = None
 
     def __enter__(self) -> StatementProfiler:
         global _active
@@ -258,7 +258,7 @@ class StatementProfiler(object):
         conn.cursor_factory = _ProfilingCursor
         self._patched_connections.append(conn)
 
-    def _wrapped_connect(self, config: DatabaseConfig) -> psycopg.Connection:
+    def _wrapped_connect(self, config: DatabaseSettings) -> psycopg.Connection:
         """Drop-in replacement for :func:`connection.connect` while profiling."""
         if self._real_connect is None:
             msg = "StatementProfiler._real_connect not captured"

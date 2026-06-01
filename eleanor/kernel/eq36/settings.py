@@ -5,8 +5,8 @@ from enum import IntEnum
 import numpy as np
 
 from eleanor.exceptions import EleanorException
-from eleanor.kernel.config import Settings as KernelSettings
 from eleanor.kernel.exceptions import EleanorKernelException
+from eleanor.kernel.settings import Settings as KernelSettings
 from eleanor.typing import Self, TypeVar, cast
 
 SettingT = TypeVar("SettingT", bound=IntEnum)

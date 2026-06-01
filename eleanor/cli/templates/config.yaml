@@ -2,16 +2,15 @@
 # See: https://github.com/39alpha/eleanor
 
 output:
-  kind: postgres                    # postgres | csv | null
-  args:
-    database:
-      host: localhost
-      port: 5432
-      database: eleanor
-      # username: eleanor
-      # password: secret
-      # sslmode: prefer
+  kind: postgres  # postgres | csv | null
+  database:
+    host: localhost
+    port: 5432
+    database: eleanor
+    # username: eleanor
+    # password: secret
+    # sslmode: prefer
 
-parallel:
-  kind: multiprocessing          # serial | multiprocessing
+executor:
+  kind: multiprocessing  # serial | multiprocessing
   chunks_per_worker: 10

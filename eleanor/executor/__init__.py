@@ -1,37 +1,20 @@
-from typing import cast
-
-from eleanor.exceptions import EleanorException
 from eleanor.executor.interface import AbstractExecutor, AbstractFuture
-from eleanor.executor.registry import get_factory
-from eleanor.plugin import is_abstract_instantiation_error, resolve_api_version
+from eleanor.executor.registry import registry
+from eleanor.executor.settings import Settings
+from eleanor.plugin import load_plugin, load_plugin_settings
 
 
-def load_executor(
-    kind: str = "multiprocessing",
-    *,
-    num_workers: int | None = None,
-    **kwargs: object,
-) -> AbstractExecutor:
-    factory = get_factory(kind)
-    version = resolve_api_version(factory)
-    try:
-        executor = factory(num_workers=num_workers, **kwargs)
-    except TypeError as e:
-        if not is_abstract_instantiation_error(e):
-            raise
-        version_suffix = "" if version is None else f" (API v{version})"
-        msg = f"executor plugin {kind!r} failed to instantiate{version_suffix}: {e}"
-        raise EleanorException(msg) from e
+def load_executor_settings(kind: str, raw: dict[str, object]) -> Settings:
+    return load_plugin_settings(registry, Settings, kind, raw) or Settings()
 
-    if not isinstance(cast(object, executor), AbstractExecutor):
-        msg = f"executor plugin {kind!r} returned {type(executor).__name__}, expected an AbstractExecutor"
-        raise EleanorException(msg)
 
-    return executor
+def load_executor(kind: str, settings: Settings) -> AbstractExecutor:
+    return load_plugin(registry, AbstractExecutor, kind, settings)
 
 
 __all__ = [
     "AbstractExecutor",
     "AbstractFuture",
     "load_executor",
+    "load_executor_settings",
 ]

@@ -5,46 +5,44 @@ import sys
 import traceback
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from typing import TypedDict, override
+from typing import Self, override
 
 import yaml
 
 import eleanor.variable_space as vs
-from eleanor.exceptions import EleanorConfigurationException, EleanorException
+from eleanor.exceptions import EleanorException
 from eleanor.order import Order
-from eleanor.output.interface import ComputeResult, OutputSink, WriteOutcome
+from eleanor.output.interface import AbstractOutputSink, ComputeResult, WriteOutcome
+from eleanor.output.settings import Settings as OutputSettings
 from eleanor.progress import ProgressHandle
 from eleanor.query import CompiledQuery, compile_query, evaluate
 from eleanor.query.reflection import DataclassField, LeafField
 from eleanor.typing import cast
+from eleanor.util import guard_is_dict, guard_is_str, require_dict, require_str
 
 
-class CsvArgsRaw(TypedDict, total=False):
+@dataclass(kw_only=True)
+class Settings(OutputSettings):
     filename: str
     query: dict[str, object]
 
+    def __post_init__(self) -> None:
+        super().__post_init__()
 
-@dataclass(frozen=True, init=False)
-class CsvConfig(object):
-    filename: str
-    query: dict[str, object]
+        guard_is_str(self.filename, "filename")
+        guard_is_dict(self.query, "query")
 
-    def __init__(self, filename: object, query: object):
-        if not isinstance(filename, str):
-            msg = 'output.args.filename must be a string for output type "csv"'
-            raise EleanorConfigurationException(msg)
-        if not isinstance(query, dict):
-            msg = 'output.args.query must be a mapping for output type "csv"'
-            raise EleanorConfigurationException(msg)
-        typed_query: dict[str, object] = {str(k): v for k, v in cast(dict[object, object], query).items()}
-        object.__setattr__(self, "filename", filename)
-        object.__setattr__(self, "query", typed_query)
+    @classmethod
+    @override
+    def from_dict(cls, raw: dict[str, object]) -> Self:
+        base_settings = OutputSettings.from_dict(raw)
+        filename = require_str(raw.get("filename"), "filename")
+        query: dict[str, object] = require_dict(raw.get("query"), "query")
 
-    @staticmethod
-    def from_raw(raw: CsvArgsRaw) -> CsvConfig:
-        return CsvConfig(
-            filename=raw.get("filename"),
-            query=raw.get("query"),
+        return cls(
+            verbose=base_settings.verbose,
+            filename=filename,
+            query=query,
         )
 
 
@@ -234,8 +232,8 @@ def _append_rows(filename: str, columns: list[str], rows: Sequence[Mapping[str, 
             writer.writerow(row)
 
 
-class CsvSink(OutputSink):
-    config: CsvConfig
+class CsvSink(AbstractOutputSink):
+    settings: Settings
     _compiled: CompiledQuery
     _columns: list[str]
     _order_id: int | None
@@ -247,13 +245,13 @@ class CsvSink(OutputSink):
     _vs_points_seen: dict[int, int]
     _order_versions: dict[int, str]
 
-    def __init__(self, config: CsvConfig):
-        self.config = config
-        self._compiled = compile_query(Order, config.query)
+    def __init__(self, settings: Settings):
+        self.settings = settings
+        self._compiled = compile_query(Order, settings.query)
         self._columns = [spec.name for spec in self._compiled.columns]
         self._order_id = None
         self._order = None
-        self._schema_file = _schema_path(config.filename)
+        self._schema_file = _schema_path(settings.filename)
         self._rows_written = False
         self._vs_index_columns, self._binary_columns = _classify_columns(self._compiled)
         self._vs_points_seen = {}
@@ -261,7 +259,7 @@ class CsvSink(OutputSink):
 
     @override
     def initialize(self) -> None:
-        filename = self.config.filename
+        filename = self.settings.filename
         schema_file = self._schema_file
 
         if not os.path.exists(filename):
@@ -272,7 +270,7 @@ class CsvSink(OutputSink):
             self._order_versions = {}
             _write_schema(
                 schema_file,
-                self.config.query,
+                self.settings.query,
                 vs_points_seen=self._vs_points_seen,
                 order_versions=self._order_versions,
             )
@@ -302,7 +300,7 @@ class CsvSink(OutputSink):
 
     @override
     def begin_run(self, order: Order) -> int:
-        query = self.config.query
+        query = self.settings.query
         schema_file = self._schema_file
         if self._order is order:
             assert self._order_id is not None
@@ -342,7 +340,7 @@ class CsvSink(OutputSink):
         progress: ProgressHandle | None = None,
     ) -> list[WriteOutcome]:
         _ = order_id
-        filename = self.config.filename
+        filename = self.settings.filename
         schema_file = self._schema_file
 
         if self._order is None:
@@ -382,7 +380,7 @@ class CsvSink(OutputSink):
                 if not self._rows_written:
                     _write_schema(
                         schema_file,
-                        self.config.query,
+                        self.settings.query,
                         vs_points_seen=self._vs_points_seen,
                         order_versions=self._order_versions,
                     )
@@ -415,7 +413,7 @@ class CsvSink(OutputSink):
 
         _write_schema(
             schema_file,
-            self.config.query,
+            self.settings.query,
             vs_points_seen=self._vs_points_seen,
             order_versions=self._order_versions,
         )
@@ -435,7 +433,6 @@ class CsvSink(OutputSink):
 
 
 __all__ = [
-    "CsvArgsRaw",
-    "CsvConfig",
+    "Settings",
     "CsvSink",
 ]

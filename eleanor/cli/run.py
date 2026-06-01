@@ -1,5 +1,6 @@
 import sys
 from contextlib import ExitStack
+from dataclasses import replace
 from traceback import print_exception
 
 import click
@@ -9,9 +10,12 @@ from eleanor.cli.util import config_from_args, config_options
 from eleanor.exceptions import EleanorException
 from eleanor.executor import load_executor
 from eleanor.executor.registry import available_executors
+from eleanor.executor.settings import Settings as ExecutorSettings
 from eleanor.order import load_order
-from eleanor.output.interface import OutputSink
-from eleanor.output.null import NullConfig, NullSink
+from eleanor.output.interface import AbstractOutputSink
+from eleanor.output.null import NullSink
+from eleanor.output.null import Settings as NullSinkSettings
+from eleanor.output.postgres.settings import Settings as PostgresSinkSettings
 
 
 def _complete_executor(_ctx: click.Context, _param: click.Parameter, incomplete: str) -> list[str]:
@@ -23,7 +27,7 @@ def _complete_executor(_ctx: click.Context, _param: click.Parameter, incomplete:
 @click.command()
 @click.argument("order", type=click.Path(exists=True))
 @click.argument("simulation_size", type=click.INT)
-@click.option("-n", "--num-procs", type=int, default=None, help="Number of processes.")
+@click.option("-n", "--num-workers", type=int, default=None, help="Number of worker processes.")
 @click.option("-v", "--verbose", is_flag=True, help="Enable verbose output.")
 @click.option("-s", "--scratch", is_flag=True, help="Save scratch for all sailors.")
 @click.option("-k", "--kernel-args", multiple=True, help="Arguments to pass to the kernel.")
@@ -54,7 +58,7 @@ def _complete_executor(_ctx: click.Context, _param: click.Parameter, incomplete:
 def run(
     order: str,
     simulation_size: int,
-    num_procs: int | None,
+    num_workers: int | None,
     verbose: bool,
     scratch: bool,
     kernel_args: tuple[str, ...],
@@ -76,15 +80,20 @@ def run(
 
     try:
         config_obj = config_from_args(config, database, require_database=not null_sink)
+
         if bulk_load is not None and not null_sink:
-            if config_obj.output.kind != "postgres":
-                cause = (
-                    f'got "{config_obj.output.kind}"'
-                    if config_obj.output.kind is not None
-                    else "no output sink provided"
+            if config_obj.output is not None and isinstance(config_obj.output.settings, PostgresSinkSettings):
+                config_obj.output.settings = replace(
+                    config_obj.output.settings,
+                    bulk_load_optimization=bulk_load,
                 )
-                raise EleanorException(f'--bulk-load is only supported when output.kind == "postgres" ({cause})')
-            config_obj.output.args["bulk_load_optimization"] = bulk_load
+            else:
+                cause = (
+                    f"got {config_obj.output.kind!r}" if config_obj.output is not None else "no output sink provided"
+                )
+                msg = f"--bulk-load is only supported when output.kind == 'postgres' ({cause})"
+                raise EleanorException(msg)
+
         if executor is None:
             executor = config_obj.executor.kind
         else:
@@ -94,8 +103,17 @@ def run(
                 raise EleanorException(
                     f'unsupported executor "{executor}"; choose from {choices}',
                 )
+
         if chunks_per_worker is None:
-            chunks_per_worker = config_obj.executor.chunks_per_worker
+            chunks_per_worker = config_obj.executor.settings.chunks_per_worker
+
+        if executor == config_obj.executor.kind:
+            executor_settings = replace(config_obj.executor.settings, chunks_per_worker=chunks_per_worker)
+        else:
+            executor_settings = ExecutorSettings(chunks_per_worker=chunks_per_worker)
+
+        if num_workers is not None:
+            executor_settings = replace(executor_settings, num_workers=num_workers)
 
         order_obj = load_order(order)
         if order_id is not None:
@@ -104,10 +122,13 @@ def run(
             order_obj.tag = tag
 
         with ExitStack() as stack:
-            output_sink: OutputSink | None = None
+            output_sink: AbstractOutputSink | None = None
             if null_sink:
-                output_sink = stack.enter_context(NullSink(NullConfig(support_worker_writes=executor != "serial")))
-            executor_obj = stack.enter_context(load_executor(kind=executor, num_workers=num_procs))
+                sink_settings = NullSinkSettings(support_worker_writes=executor != "serial")
+                output_sink = stack.enter_context(NullSink(sink_settings))
+
+            executor_obj = stack.enter_context(load_executor(kind=executor, settings=executor_settings))
+
             with Eleanor(config=config_obj, kernel_args=kernel_args_list, executor=executor_obj) as eleanor:
                 order_ids = eleanor.run(
                     order_obj,

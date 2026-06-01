@@ -12,30 +12,24 @@ import eleanor.util as tool_room
 import eleanor.variable_space as vs
 from eleanor.constraints.boatswain import Boatswain
 from eleanor.exceptions import EleanorException
+from eleanor.kernel.eq36.constraints import TemperatureRangeConstraint, TPCurveConstraint
+from eleanor.kernel.eq36.data1 import Data1
+from eleanor.kernel.eq36.exec import eq3, eq6
+from eleanor.kernel.eq36.parsers import OutputParser3, OutputParser6
+from eleanor.kernel.eq36.settings import IOPT_1, IOPT_4, Eq3Config, Eq6Config, Settings
+from eleanor.kernel.eq36.util import read_pickup_lines
 from eleanor.kernel.exceptions import EleanorKernelException
 from eleanor.kernel.interface import AbstractKernel
 from eleanor.order import Order
 from eleanor.typing import EleanorKwargs, Unpack, cast
-from eleanor.util import NumberFormat
-
-from .constraints import TemperatureRangeConstraint, TPCurveConstraint
-from .data1 import Data1
-from .exec import eq3, eq6
-from .parsers import OutputParser3, OutputParser6
-from .settings import IOPT_1, IOPT_4, Eq3Config, Eq6Config, Settings
-from .util import read_pickup_lines
+from eleanor.util import NumberFormat, guard_is_str
 
 
 class Kernel(AbstractKernel):
-    settings: Settings
-    data1_dir: str
-
     _setup: bool
     _data1s: list[Data1]
 
-    def __init__(self, settings: Settings, data1_dir: str, *args: object, **kwargs: object):
-        self.data1_dir = data1_dir
-
+    def __init__(self):
         self._setup = False
         self._data1s = []
 
@@ -86,21 +80,40 @@ class Kernel(AbstractKernel):
         except KeyError:
             return None
 
+    @override
+    def prepare_setup_args(self, *args: object) -> dict[str, object]:
+        if not args:
+            raise EleanorException("data1_dir argument is required")
+
+        data1_dir, *_ = args
+        guard_is_str(data1_dir, "data1_dir argument")
+
+        return {"data1_dir": data1_dir}
+
     # TODO: Return basic setup information, e.g. species, etc...
     @override
     def setup(
         self,
-        order: Order | None = None,
-        *args: object,
-        **kwargs: Unpack[EleanorKwargs],
+        order: Order,
+        *,
+        data1_dir: object,
+        **kwargs: object,
     ) -> None:
-        _ = kwargs
-        if order is None:
-            raise EleanorException("order is required")
+        if not isinstance(order.kernel.settings, Settings):
+            msg = f"order is not configured for the eq36 kernel, got {type(order.kernel.settings).__name__}"
+            raise EleanorKernelException(msg)
+
+        if not isinstance(data1_dir, str):
+            msg = f"data1_dir must be a string, got {type(data1_dir).__name__}"
+            raise EleanorException(msg)
+
+        self._setup = False
+        self._data1s = []
+
         Trange = order.temperature.range()
         Prange = order.pressure.range()
 
-        with tool_room.WorkingDirectory(self.data1_dir):
+        with tool_room.WorkingDirectory(data1_dir):
             _, data1_files, *_ = tool_room.find_files(".d1")
             for file in data1_files:
                 file = os.path.realpath(file)
@@ -146,6 +159,9 @@ class Kernel(AbstractKernel):
 
     @override
     def constrain(self, boatswain: Boatswain) -> Boatswain:
+        if not self._setup:
+            raise EleanorKernelException("kernel is not setup; cannot constraint orders")
+
         boatswain.constraints.append(
             TemperatureRangeConstraint(
                 boatswain.order.temperature,

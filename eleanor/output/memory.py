@@ -1,40 +1,46 @@
 from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import TypedDict, override
+from typing import Self, override
 
-from eleanor.exceptions import EleanorConfigurationException, EleanorException
+from eleanor.exceptions import EleanorException
 from eleanor.order import Order
-from eleanor.output.interface import ComputeResult, OutputSink, WriteOutcome
+from eleanor.output.interface import AbstractOutputSink, ComputeResult, WriteOutcome
+from eleanor.output.settings import Settings as OutputSettings
 from eleanor.progress import ProgressHandle
+from eleanor.util import guard_is_bool, require_bool
 
 
-class MemoryArgsRaw(TypedDict, total=False):
+@dataclass(kw_only=True)
+class Settings(OutputSettings):
     support_worker_writes: bool
 
+    def __post_init__(self) -> None:
+        super().__post_init__()
 
-@dataclass(frozen=True, init=False)
-class MemoryConfig(object):
-    support_worker_writes: bool
+        guard_is_bool(self.support_worker_writes, "support_worker_writes")
 
-    def __init__(self, support_worker_writes: object):
-        if not isinstance(support_worker_writes, bool):
-            msg = 'output.args.support_worker_writes must be a boolean for output type "memory"'
-            raise EleanorConfigurationException(msg)
-        object.__setattr__(self, "support_worker_writes", support_worker_writes)
+    @classmethod
+    @override
+    def from_dict(cls, raw: dict[str, object]) -> Self:
+        base_settings = OutputSettings.from_dict(raw)
 
-    @staticmethod
-    def from_raw(raw: MemoryArgsRaw) -> MemoryConfig:
-        return MemoryConfig(
-            support_worker_writes=raw.get("support_worker_writes", False),
+        support_worker_writes = require_bool(
+            raw.get("support_worker_writes", False),
+            "support_worker_writes",
+        )
+
+        return cls(
+            verbose=base_settings.verbose,
+            support_worker_writes=support_worker_writes,
         )
 
 
-class MemorySink(OutputSink):
-    config: MemoryConfig
+class MemorySink(AbstractOutputSink):
+    settings: Settings
     _orders: dict[int, Order]
 
-    def __init__(self, config: MemoryConfig | None = None) -> None:
-        self.config = config if config is not None else MemoryConfig(support_worker_writes=False)
+    def __init__(self, settings: Settings | None = None) -> None:
+        self.settings = settings if settings is not None else Settings(support_worker_writes=False)
         self._orders = {}
 
     @override
@@ -87,7 +93,7 @@ class MemorySink(OutputSink):
 
     @override
     def supports_worker_writes(self) -> bool:
-        return self.config.support_worker_writes
+        return self.settings.support_worker_writes
 
     @override
     def supports_progress(self) -> bool:
@@ -95,7 +101,6 @@ class MemorySink(OutputSink):
 
 
 __all__ = [
-    "MemoryArgsRaw",
-    "MemoryConfig",
+    "Settings",
     "MemorySink",
 ]

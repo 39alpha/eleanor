@@ -8,9 +8,8 @@ from psycopg.types.json import Jsonb
 import eleanor.equilibrium_space as core_es
 import eleanor.order as core_order
 import eleanor.variable_space as core_vs
+from eleanor.config.kernel import Config as KernelConfig
 from eleanor.exceptions import EleanorException
-from eleanor.kernel.config import Config as KernelConfig
-from eleanor.kernel.config import resolve_settings as resolve_kernel_settings
 from eleanor.typing import cast
 
 
@@ -143,8 +142,8 @@ def kernel_to_row(kernel: KernelConfig, variable_space_id: int) -> dict[str, obj
     """
     return {
         "id": variable_space_id,
-        "type": kernel.type,
-        "settings": Jsonb(normalize_dict(kernel.resolved_settings(), "kernel.settings")),
+        "type": kernel.kind,
+        "settings": Jsonb(normalize_dict(kernel.settings, "kernel.settings")),
     }
 
 
@@ -471,10 +470,9 @@ def row_to_kernel_config(row: dict[str, object]) -> KernelConfig:
     plugin-specific dict-to-Settings dispatch; we just pass the JSONB
     payload through.
     """
-    type_name = cast(str, row["type"])
-    settings_dict = cast(dict[str, object], row["settings"])
-    settings = resolve_kernel_settings(type_name, dict(settings_dict))
-    return KernelConfig(type=type_name, settings=settings)
+    kind = cast(str, row["type"])
+    settings = cast(dict[str, object], row["settings"])
+    return KernelConfig.from_dict({"kind": kind, **settings})
 
 
 __all__ = [

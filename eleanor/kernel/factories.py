@@ -1,5 +1,5 @@
 from eleanor.exceptions import EleanorException
-from eleanor.kernel.registry import KernelSpec
+from eleanor.plugin import ConfigurablePluginSpec
 
 
 def build_eq36_settings(raw: dict[str, object]) -> object:
@@ -9,7 +9,7 @@ def build_eq36_settings(raw: dict[str, object]) -> object:
     return Settings.from_dict(raw)
 
 
-def build_eq36(settings: object, *args: object) -> object:
+def build_eq36(settings: object) -> object:
     """Construct the eq36 :class:`Kernel` from its typed settings + CLI args."""
     from eleanor.kernel.eq36.kernel import Kernel
     from eleanor.kernel.eq36.settings import Settings
@@ -17,20 +17,12 @@ def build_eq36(settings: object, *args: object) -> object:
     if not isinstance(settings, Settings):
         msg = f"eq36 kernel requires eq36 Settings, got {type(settings).__name__}"
         raise EleanorException(msg)
-    if not args:
-        msg = "eq36 kernel requires a data1_dir argument"
-        raise EleanorException(msg)
 
-    data1_dir, *rest = args
-    if not isinstance(data1_dir, str):
-        msg = f"eq36 kernel requires a string data1_dir, got {type(data1_dir).__name__}"
-        raise EleanorException(msg)
-
-    return Kernel(settings, data1_dir, *rest)
+    return Kernel()
 
 
-eq36_spec = KernelSpec(
-    settings_from_dict=build_eq36_settings,
+eq36_spec = ConfigurablePluginSpec(
+    parse_settings=build_eq36_settings,
     build=build_eq36,
     plugin_api_version=1,
 )

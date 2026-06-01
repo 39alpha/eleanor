@@ -5,8 +5,7 @@ from typing import final
 import numpy as np
 
 import eleanor.equilibrium_space as es
-
-from .kernel.config import Config as KernelConfig
+from eleanor.config.kernel import Config as KernelConfig
 
 
 @final

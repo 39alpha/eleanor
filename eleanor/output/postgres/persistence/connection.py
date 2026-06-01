@@ -5,12 +5,12 @@ import os
 import psycopg
 from psycopg.types.json import set_json_dumps
 
-from eleanor.output.postgres.config import DatabaseConfig
+from eleanor.output.postgres.settings import DatabaseSettings
 
 # Process-local memoized connections, keyed on (config, pid).
 # After fork(), child processes have a different pid, see no entry, and
 # open a fresh connection.
-_connections: dict[tuple[DatabaseConfig, int], psycopg.Connection] = {}
+_connections: dict[tuple[DatabaseSettings, int], psycopg.Connection] = {}
 
 
 def _json_dumps(value: object) -> str:
@@ -23,7 +23,7 @@ def _json_dumps(value: object) -> str:
     return json.dumps(value, default=str)
 
 
-def connect(config: DatabaseConfig) -> psycopg.Connection:
+def connect(config: DatabaseSettings) -> psycopg.Connection:
     """Return a process-local memoized :class:`psycopg.Connection` for ``config``.
 
     Opens lazily on first call, reuses on subsequent calls within the same
@@ -59,7 +59,7 @@ def connect(config: DatabaseConfig) -> psycopg.Connection:
     return conn
 
 
-def close_connection(config: DatabaseConfig) -> None:
+def close_connection(config: DatabaseSettings) -> None:
     """Close the memoized connection for ``config`` in this process.
 
     Called from :meth:`PostgresSink.finalize` as part of the normal sink
@@ -74,7 +74,7 @@ def close_connection(config: DatabaseConfig) -> None:
 
 def _close_all_connections() -> None:
     """Close every memoized connection in this process. Used by :mod:`atexit`."""
-    closed_connections: list[tuple[DatabaseConfig, int]] = []
+    closed_connections: list[tuple[DatabaseSettings, int]] = []
 
     for key, conn in _connections.items():
         if key[1] != os.getpid():

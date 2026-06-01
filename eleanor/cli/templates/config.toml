@@ -2,9 +2,9 @@
 # See: https://github.com/39alpha/eleanor
 
 [output]
-kind = "postgres"                   # postgres | csv | null
+kind = "postgres"  # postgres | csv | null
 
-[output.args.database]
+[output.database]
 host = "localhost"
 port = 5432
 database = "eleanor"
@@ -12,6 +12,6 @@ database = "eleanor"
 # password = "secret"
 # sslmode = "prefer"
 
-[parallel]
-kind = "multiprocessing"         # serial | multiprocessing
+[executor]
+kind = "multiprocessing"  # serial | multiprocessing
 chunks_per_worker = 10

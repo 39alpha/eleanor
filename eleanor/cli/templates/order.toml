@@ -5,12 +5,10 @@ name = "My Order"
 creator = "Your Name"
 notes = ""
 
-navigator = "random"                # random | lattice | random_lattice
+navigator = "random"  # random | lattice | random_lattice
 
 [kernel]
 type = "eq36"
-
-[kernel.args]
 model = "b-dot"
 charge_balance = "H+"
 

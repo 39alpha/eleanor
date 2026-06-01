@@ -7,11 +7,10 @@ notes: ""
 
 kernel:
   type: eq36
-  args:
-    model: b-dot
-    charge_balance: H+
+  model: b-dot
+  charge_balance: H+
 
-navigator: random                   # random | lattice | random_lattice
+navigator: random  # random | lattice | random_lattice
 
 temperature:
   min: 50

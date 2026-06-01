@@ -7,8 +7,8 @@ import click
 
 from eleanor.cli.util import config_from_args, config_options
 from eleanor.exceptions import EleanorException
-from eleanor.output.postgres.config import database_config_from_config
 from eleanor.output.postgres.persistence.repositories import drop_indexes, recreate_indexes
+from eleanor.output.postgres.settings import Settings
 from eleanor.output.postgres.tools import dump_schema, load_scratch_entry
 
 
@@ -17,11 +17,21 @@ from eleanor.output.postgres.tools import dump_schema, load_scratch_entry
 @config_options()
 def schema(output: TextIO, config: str, database: str | None) -> None:
     """Dump an Eleanor database schema."""
-    cfg = config_from_args(config, database)
-    database_config = database_config_from_config(cfg.output)
-    if database_config.database is None:
+
+    cfg = config_from_args(config, database).output
+    if cfg is None:
+        msg = "no output sink configured"
+        raise EleanorException(msg)
+
+    settings = cfg.settings
+    if not isinstance(settings, Settings):
+        msg = "cannot dump postgres schema for a non-postgres output sink"
+        raise EleanorException(msg)
+
+    if settings.database.database is None:
         raise click.ClickException("no database provided")
-    dump_schema(database_config, output)
+
+    dump_schema(settings.database, output)
 
 
 @click.command()
@@ -30,18 +40,28 @@ def schema(output: TextIO, config: str, database: str | None) -> None:
 @config_options()
 def scratch(vs_id: int, outdir: str, config: str, database: str | None) -> None:
     """Dump scratch results to a directory."""
+
     variable_space_id = vs_id
     directory = outdir
 
     print(f"Loading {config}")
-    cfg = config_from_args(config, database)
-    database_config = database_config_from_config(cfg.output)
-    if database_config.database is None:
+    cfg = config_from_args(config, database).output
+    if cfg is None:
+        msg = "no output sink configured"
+        raise EleanorException(msg)
+
+    settings = cfg.settings
+
+    if not isinstance(settings, Settings):
+        msg = "cannot dump scratch from a non-postgres output sink"
+        raise EleanorException(msg)
+
+    if settings.database.database is None:
         raise click.ClickException("no database provided")
 
     try:
         try:
-            result = load_scratch_entry(database_config, variable_space_id)
+            result = load_scratch_entry(settings.database, variable_space_id)
         except LookupError as missing:
             if str(missing) == "scratch":
                 raise click.ClickException("no scratch found for variable space point") from missing
@@ -49,7 +69,7 @@ def scratch(vs_id: int, outdir: str, config: str, database: str | None) -> None:
         if result is None:
             raise click.ClickException(f"no variable space point found with id {variable_space_id}")
 
-        print("Database:           ", database_config.database)
+        print("Database:           ", settings.database.database)
         print("Variable Space ID:  ", result.variable_space_id)
         print("Exit Code:          ", result.exit_code)
 
@@ -71,20 +91,30 @@ def scratch(vs_id: int, outdir: str, config: str, database: str | None) -> None:
 @config_options()
 def bulkload(action: str, yes: bool, config: str, database: str | None) -> None:
     """Drop or recreate secondary indexes + constraints around a bulk-load window."""
-    cfg = config_from_args(config, database)
-    database_config = database_config_from_config(cfg.output)
-    if database_config.database is None:
+
+    cfg = config_from_args(config, database).output
+    if cfg is None:
+        msg = "no output sink configured"
+        raise EleanorException(msg)
+
+    settings = cfg.settings
+
+    if not isinstance(settings, Settings):
+        msg = f"cannot {action} secondary indexes and constraints on a non-postgres output sink"
+        raise EleanorException(msg)
+
+    if settings.database.database is None:
         raise click.ClickException("no database provided")
 
     if action == "drop":
         if not yes:
             _ = click.confirm(
-                f'This will drop all secondary indexes and constraints on "{database_config.database}". Continue?',
+                f'This will drop all secondary indexes and constraints on "{settings.database.database}". Continue?',
                 abort=True,
             )
-        drop_indexes(database_config)
+        drop_indexes(settings.database)
     elif action == "recreate":
-        recreate_indexes(database_config)
+        recreate_indexes(settings.database)
     else:
         msg = f"unknown bulkload action: {action!r}"
         raise EleanorException(msg)

@@ -11,13 +11,14 @@ versioning policy as the ``eleanor.cli_commands`` entry-point group.
 import functools
 import os.path
 from collections.abc import Callable
+from dataclasses import replace
 
 import click
 from xdg_base_dirs import xdg_config_home
 
 from eleanor.config import Config, load_config
 from eleanor.exceptions import EleanorConfigurationException
-from eleanor.output.postgres.config import DatabaseRaw, database_config_from_config
+from eleanor.output.postgres.settings import Settings
 from eleanor.typing import cast
 
 
@@ -70,20 +71,25 @@ def config_from_args(
 
     config = load_config(config_path)
     if database is not None:
-        if config.output.kind != "postgres":
-            cause = f'got "{config.output.kind}"' if config.output.kind is not None else "no output sink provided"
-            raise EleanorConfigurationException(
-                f'--database is only supported when output.kind == "postgres" ({cause})'
-            )
+        if config.output is None:
+            msg = "no output sink configuration provided"
+            raise EleanorConfigurationException(msg)
+        if not isinstance(config.output.settings, Settings):
+            msg = f"--database is only supported by the postgres output sink, got {config.output.kind!r}"
+            raise EleanorConfigurationException(msg)
 
-        db = cast(DatabaseRaw, config.output.args.get("database") or {})
-        db["database"] = database
-        config.output.args["database"] = db
-
+        config.output.settings = replace(
+            config.output.settings,
+            database=replace(
+                config.output.settings.database,
+                database=database,
+            ),
+        )
     elif (
         require_database
-        and config.output.kind == "postgres"
-        and database_config_from_config(config.output).database is None
+        and config.output is not None
+        and isinstance(config.output.settings, Settings)
+        and config.output.settings.database.database is None
     ):
         raise click.ClickException("no database provided")
 

@@ -2,29 +2,23 @@ import json
 import os.path
 import tomllib
 from dataclasses import dataclass, field
-from typing import Self, TypedDict
+from typing import Self, TypedDict, cast
 
 import yaml
 
-from eleanor.executor.config import Config as ExecutorConfig
-from eleanor.executor.config import ConfigRaw as ExecutorRaw
-from eleanor.output.config import Config as OutputConfig
-from eleanor.output.config import ConfigRaw as OutputRaw
-
-from .exceptions import EleanorConfigurationException, EleanorException
-from .typing import cast
+from eleanor.config.executor import Config as ExecutorConfig
+from eleanor.config.output import Config as OutputConfig
+from eleanor.exceptions import EleanorConfigurationException, EleanorException
 
 
 class ConfigRaw(TypedDict, total=False):
-    """Schema for a raw config document loaded from YAML/TOML/JSON."""
-
-    output: OutputRaw
-    executor: ExecutorRaw
+    output: dict[str, object]
+    executor: dict[str, object]
 
 
 @dataclass(kw_only=True)
 class Config(object):
-    output: OutputConfig = field(default_factory=OutputConfig)
+    output: OutputConfig | None = None
     executor: ExecutorConfig = field(default_factory=ExecutorConfig)
 
     @classmethod
@@ -39,9 +33,12 @@ class Config(object):
                 + 'move your database settings under "output.args.database:" instead'
             )
 
+        output_raw = raw.get("output")
+        output_config = OutputConfig.from_dict(output_raw) if output_raw is not None else None
+
         return cls(
-            output=OutputConfig.from_raw(raw.get("output", OutputRaw())),
-            executor=ExecutorConfig.from_raw(raw.get("executor", ExecutorRaw())),
+            output=output_config,
+            executor=ExecutorConfig.from_dict(raw.get("executor", {})),
         )
 
     @classmethod

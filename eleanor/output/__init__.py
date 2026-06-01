@@ -1,35 +1,23 @@
-from typing import cast
-
-from eleanor.exceptions import EleanorException
-from eleanor.output.interface import ComputeResult, ErrorInfo, OutputSink, RunStats, WriteOutcome
-from eleanor.output.registry import get_factory
-from eleanor.plugin import is_abstract_instantiation_error, resolve_api_version
+from eleanor.output.interface import AbstractOutputSink, ComputeResult, ErrorInfo, RunStats, WriteOutcome
+from eleanor.output.registry import registry
+from eleanor.output.settings import Settings
+from eleanor.plugin import load_plugin, load_plugin_settings
 
 
-def load_output_sink(kind: str, *, verbose: bool = False, **kwargs: object) -> OutputSink:
-    factory = get_factory(kind)
-    version = resolve_api_version(factory)
-    try:
-        built = factory(verbose=verbose, **kwargs)
-    except TypeError as e:
-        if not is_abstract_instantiation_error(e):
-            raise
-        version_suffix = "" if version is None else f" (API v{version})"
-        msg = f"output sink plugin {kind!r} failed to instantiate{version_suffix}: {e}"
-        raise EleanorException(msg) from e
+def load_output_sink_settings(kind: str, raw: dict[str, object]) -> Settings:
+    return load_plugin_settings(registry, Settings, kind, raw) or Settings()
 
-    if not isinstance(cast(object, built), OutputSink):
-        msg = f"output sink plugin {kind!r} returned {type(built).__name__}, expected an OutputSink"
-        raise EleanorException(msg)
 
-    return built
+def load_output_sink(kind: str, settings: Settings) -> AbstractOutputSink:
+    return load_plugin(registry, AbstractOutputSink, kind, settings)
 
 
 __all__ = [
+    "AbstractOutputSink",
     "ComputeResult",
     "ErrorInfo",
-    "OutputSink",
     "RunStats",
     "WriteOutcome",
     "load_output_sink",
+    "load_output_sink_settings",
 ]

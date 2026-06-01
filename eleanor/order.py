@@ -10,25 +10,16 @@ from typing import Self, TypedDict, final
 import numpy as np
 import yaml
 
+from eleanor.config.kernel import Config as KernelConfig
+from eleanor.config.navigator import Config as NavigatorConfig
 from eleanor.constraints.config import Config as ConstraintConfig
 from eleanor.exceptions import EleanorException
-from eleanor.kernel.config import Config as KernelConfig
-from eleanor.kernel.config import Settings as KernelSettings
-from eleanor.kernel.config import resolve_settings as resolve_kernel_settings
-from eleanor.navigator.config import Config as NavigatorConfig
-from eleanor.navigator.config import ConfigRaw as NavigatorRaw
 from eleanor.parameters import Parameter, ParameterOrSource, ParameterSource, load_parameter
 from eleanor.reactants import AbstractReactant, CombinedReactant, ReactantRaw
 from eleanor.typing import RawMap, cast
 from eleanor.util import is_list_of, mapreduce, require, require_opt_int, require_opt_str, require_str
 from eleanor.variable_space import Point as VSPoint
 from eleanor.version import __version__
-
-# ``KernelRaw`` is intentionally an alias of ``RawMap``. The order parser only
-# knows the ``type`` key; the rest of the kernel block is kernel-specific and
-# validated inside ``<kernel_module>.Settings.from_dict``.
-type KernelRaw = RawMap
-
 
 # ``except`` is a Python keyword, so the functional TypedDict syntax is used.
 SuppressionRaw = TypedDict(
@@ -42,7 +33,7 @@ SuppressionRaw = TypedDict(
 )
 
 
-class OrderRaw(TypedDict, total=False):
+class RawOrder(TypedDict, total=False):
     """Schema for a raw order document.
 
     All keys are optional at the schema level; runtime validation enforces
@@ -54,8 +45,8 @@ class OrderRaw(TypedDict, total=False):
     name: str | None
     notes: str | None
     creator: str | None
-    kernel: KernelRaw
-    navigator: str | NavigatorRaw
+    kernel: dict[str, object]
+    navigator: str | dict[str, object]
     water_mass: ParameterSource
     temperature: ParameterSource
     pressure: ParameterSource
@@ -64,20 +55,6 @@ class OrderRaw(TypedDict, total=False):
     suppressions: list[str | SuppressionRaw]
     reactants: dict[str, ReactantRaw]
     constraints: list[RawMap]
-
-
-def load_kernel_settings(kernel_raw: KernelRaw) -> tuple[str, KernelSettings]:
-    """Parse a raw kernel block into its ``(type, Settings)`` pair via the registry."""
-    kernel_type = require_str(kernel_raw.get("type"), "kernel.type")
-    kernel_args_raw: object = kernel_raw.get("args", {}) or {}
-    if not isinstance(kernel_args_raw, dict):
-        raise EleanorException("kernel.args must be a dict")
-    # YAML/TOML/JSON loaders always produce str-keyed mappings; widen the
-    # ``dict[Unknown, Unknown]`` that ``isinstance`` leaves us with back to
-    # the registry's declared ``dict[str, object]`` input shape.
-    kernel_args_items = cast(dict[object, object], kernel_args_raw).items()
-    kernel_args: dict[str, object] = {str(k): v for k, v in kernel_args_items}
-    return kernel_type, resolve_kernel_settings(kernel_type, kernel_args)
 
 
 @dataclass(init=False)
@@ -203,7 +180,7 @@ class Order:
     @classmethod
     def from_dict(
         cls,
-        raw: OrderRaw,
+        raw: RawOrder,
         *,
         order_id: int | None = None,
         tag: str | None = None,
@@ -224,15 +201,15 @@ class Order:
 
         if "kernel" not in raw:
             raise EleanorException("kernel is required")
-        kernel_type, kernel_settings = load_kernel_settings(raw["kernel"])
-        kernel_config = KernelConfig(type=kernel_type, settings=kernel_settings)
 
-        navigator_raw = raw.get("navigator", NavigatorRaw())
+        kernel_config = KernelConfig.from_dict(raw["kernel"])
+
+        navigator_raw = raw.get("navigator", {})
         if isinstance(navigator_raw, str):
             navigator = NavigatorConfig(kind=navigator_raw)
         else:
             try:
-                navigator = NavigatorConfig(**navigator_raw)
+                navigator = NavigatorConfig.from_dict(navigator_raw)
             except TypeError as e:
                 raise EleanorException("invalid navigator config") from e
 
@@ -312,29 +289,29 @@ class Order:
     @classmethod
     def from_yaml(cls, fname: str) -> Self:
         with open(fname, "rb") as handle:
-            return cls.from_dict(cast(OrderRaw, cast(object, yaml.safe_load(handle))))
+            return cls.from_dict(cast(RawOrder, cast(object, yaml.safe_load(handle))))
 
     @classmethod
     def from_yamls(cls, content: str) -> Self:
-        return cls.from_dict(cast(OrderRaw, cast(object, yaml.safe_load(content))))
+        return cls.from_dict(cast(RawOrder, cast(object, yaml.safe_load(content))))
 
     @classmethod
     def from_toml(cls, fname: str) -> Self:
         with open(fname, "rb") as handle:
-            return cls.from_dict(cast(OrderRaw, cast(object, tomllib.load(handle))))
+            return cls.from_dict(cast(RawOrder, cast(object, tomllib.load(handle))))
 
     @classmethod
     def from_tomls(cls, content: str) -> Self:
-        return cls.from_dict(cast(OrderRaw, cast(object, tomllib.loads(content))))
+        return cls.from_dict(cast(RawOrder, cast(object, tomllib.loads(content))))
 
     @classmethod
     def from_json(cls, fname: str) -> Self:
         with open(fname, "rb") as handle:
-            return cls.from_dict(cast(OrderRaw, cast(object, json.load(handle))))
+            return cls.from_dict(cast(RawOrder, cast(object, json.load(handle))))
 
     @classmethod
     def from_jsons(cls, content: str) -> Self:
-        return cls.from_dict(cast(OrderRaw, cast(object, json.loads(content))))
+        return cls.from_dict(cast(RawOrder, cast(object, json.loads(content))))
 
     @staticmethod
     def from_file(fname: str):
@@ -368,3 +345,9 @@ def load_order(order: str | Order) -> Order:
     if isinstance(order, str):
         order = Order.from_file(order)
     return order
+
+
+__all__ = [
+    "Order",
+    "load_order",
+]

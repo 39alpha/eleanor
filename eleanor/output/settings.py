@@ -1,12 +1,12 @@
 from dataclasses import dataclass
 from typing import Self
 
-from eleanor.settings import Settings as DefaultSettings
+from eleanor.settings import Settings
 from eleanor.util import guard_is_bool, require_bool
 
 
 @dataclass(kw_only=True)
-class Settings(DefaultSettings):
+class OutputSinkSettings(Settings):
     verbose: bool = False
 
     def __post_init__(self) -> None:
@@ -18,4 +18,4 @@ class Settings(DefaultSettings):
         return cls(verbose=verbose)
 
 
-__all__ = ["Settings"]
+__all__ = ["OutputSinkSettings"]

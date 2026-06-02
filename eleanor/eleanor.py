@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Self, Unpack, cast
 from eleanor.config import Config
 from eleanor.exceptions import EleanorConfigurationException, EleanorException, EleanorShutdown
 from eleanor.executor import AbstractExecutor, AbstractFuture, load_executor
-from eleanor.executor.settings import Settings as ExecutorSettings
+from eleanor.executor.settings import ExecutorSettings
 from eleanor.kernel import load_kernel
 from eleanor.kernel.interface import AbstractKernel
 from eleanor.navigator import AbstractNavigator, load_navigator

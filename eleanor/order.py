@@ -10,9 +10,9 @@ from typing import Self, TypedDict, cast, final
 import numpy as np
 import yaml
 
-from eleanor.config.kernel import Config as KernelConfig
-from eleanor.config.navigator import Config as NavigatorConfig
-from eleanor.constraints.config import Config as ConstraintConfig
+from eleanor.config.kernel import KernelConfig
+from eleanor.config.navigator import NavigatorConfig
+from eleanor.constraints.config import ConstraintConfig
 from eleanor.exceptions import EleanorException
 from eleanor.parameters import Parameter, ParameterOrSource, ParameterSource, load_parameter
 from eleanor.reactants import AbstractReactant, CombinedReactant, ReactantRaw
@@ -238,8 +238,8 @@ class Order:
             if not isinstance(constraint, dict):
                 raise EleanorException("each constraint must be a dict")
             constraint_raw = cast(dict[str, object], constraint)
-            constraint_type = require_str(constraint_raw.get("type"), "constraint.type")
-            constraints.append(ConstraintConfig(type=constraint_type, args=constraint_raw))
+            constraint_type = require_str(constraint_raw.get("kind"), "constraint.kind")
+            constraints.append(ConstraintConfig(kind=constraint_type, args=constraint_raw))
 
         vs_points = vs_points or []
 

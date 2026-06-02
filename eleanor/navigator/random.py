@@ -23,7 +23,7 @@ class PointGenerator(Protocol):
     ) -> vs.Point: ...
 
 
-class Random(AbstractNavigator):
+class RandomNavigator(AbstractNavigator):
     @override
     def navigate(
         self,
@@ -79,6 +79,6 @@ class Random(AbstractNavigator):
         raise EleanorException(msg) from last_exception
 
 
-_ = AbstractNavigator.register(Random)
+_ = AbstractNavigator.register(RandomNavigator)
 
-__all__ = ["Random"]
+__all__ = ["RandomNavigator"]

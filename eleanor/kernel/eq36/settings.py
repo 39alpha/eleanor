@@ -7,7 +7,7 @@ import numpy as np
 
 from eleanor.exceptions import EleanorException
 from eleanor.kernel.exceptions import EleanorKernelException
-from eleanor.kernel.settings import Settings as KernelSettings
+from eleanor.kernel.settings import KernelSettings
 
 SettingT = TypeVar("SettingT", bound=IntEnum)
 
@@ -486,7 +486,7 @@ EQ36_MODEL_EXTENSIONS: dict[str, str] = {
 
 
 @dataclass
-class Eq3Config(object):
+class Eq3Settings(object):
     id: int | None = None
     iopt_1: IOPT_1 = IOPT_1.CLOSED_SYS
     iopt_2: IOPT_2 = IOPT_2.ARBITRARY_KINETICS
@@ -628,7 +628,7 @@ class Eq3Config(object):
 
 
 @dataclass
-class Eq6Config(object):
+class Eq6Settings(object):
     id: int | None = None
     jtemp: JTEMP = JTEMP.CONSTANT_T
     ttk1: np.float64 = np.float64(0)
@@ -776,11 +776,11 @@ class Eq6Config(object):
 
 
 @dataclass(kw_only=True)
-class Settings(KernelSettings):
+class Eq36Settings(KernelSettings):
     model: IOPG_1
     charge_balance: str
-    eq3_config: Eq3Config
-    eq6_config: Eq6Config | None = None
+    eq3_config: Eq3Settings
+    eq6_config: Eq6Settings | None = None
     data1_file: str | None = None
     track_path: bool = False
     basis_map: dict[str, str] = field(default_factory=dict)
@@ -836,7 +836,7 @@ class Settings(KernelSettings):
 
         raw_eq3_config: dict[str, object] = cast(dict[str, object], raw.get("eq3_config", {}))
 
-        eq3_config = Eq3Config(
+        eq3_config = Eq3Settings(
             iopt_2=get_setting(raw_eq3_config, IOPT_2, IOPT_2.ARBITRARY_KINETICS),
             iopt_4=get_setting(raw_eq3_config, IOPT_4, IOPT_4.IGNORE_SOLID_SOLUTIONS),
             iopt_11=get_setting(raw_eq3_config, IOPT_11, IOPT_11.DONT_PRE_NR_AUTO_BASIS_SWITCH),
@@ -870,7 +870,7 @@ class Settings(KernelSettings):
             eq6_config = None
         else:
             raw_eq6_config: dict[str, object] = cast(dict[str, object], raw.get("eq6_config", {}))
-            eq6_config = Eq6Config(
+            eq6_config = Eq6Settings(
                 jtemp=get_setting(raw_eq6_config, JTEMP, JTEMP.CONSTANT_T),
                 ttk1=_get_float(raw_eq6_config, "ttk1", 0),
                 ttk2=_get_float(raw_eq6_config, "ttk2", 0),

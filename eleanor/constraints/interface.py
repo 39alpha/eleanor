@@ -5,7 +5,7 @@ from typing import cast, override
 
 import numpy as np
 
-from eleanor.constraints.config import Config
+from eleanor.constraints.config import ConstraintConfig
 from eleanor.exceptions import EleanorException
 from eleanor.order import Order
 from eleanor.parameters import Parameter, ParameterRegistry, Valuation, ValueParameter
@@ -46,8 +46,8 @@ class AbstractConstraint(ABC):
         pass
 
     @classmethod
-    def from_order(cls, order: Order, constraint_config: Config) -> AbstractConstraint | None:
-        match constraint_config.type:
+    def from_order(cls, order: Order, constraint_config: ConstraintConfig) -> AbstractConstraint | None:
+        match constraint_config.kind:
             case "linear":
                 return LinearConstraint.from_order(order, constraint_config)
             case _:
@@ -249,7 +249,7 @@ class LinearConstraint(AbstractConstraint):
 
     @classmethod
     @override
-    def from_order(cls, order: Order, constraint_config: Config) -> "LinearConstraint":
+    def from_order(cls, order: Order, constraint_config: ConstraintConfig) -> "LinearConstraint":
         raw = constraint_config.args
         terms_args = raw.get("terms")
         if not isinstance(terms_args, list):

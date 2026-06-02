@@ -13,7 +13,7 @@ import eleanor.variable_space as vs
 from eleanor.exceptions import EleanorException
 from eleanor.order import Order
 from eleanor.output.interface import AbstractOutputSink, ComputeResult, WriteOutcome
-from eleanor.output.settings import Settings as OutputSettings
+from eleanor.output.settings import OutputSinkSettings
 from eleanor.progress import ProgressHandle
 from eleanor.query import CompiledQuery, compile_query, evaluate
 from eleanor.query.reflection import DataclassField, LeafField
@@ -21,7 +21,7 @@ from eleanor.util import guard_is_dict, guard_is_str, require_dict, require_str
 
 
 @dataclass(kw_only=True)
-class Settings(OutputSettings):
+class CsvSinkSettings(OutputSinkSettings):
     filename: str
     query: dict[str, object]
 
@@ -34,7 +34,7 @@ class Settings(OutputSettings):
     @classmethod
     @override
     def from_dict(cls, raw: dict[str, object]) -> Self:
-        base_settings = OutputSettings.from_dict(raw)
+        base_settings = OutputSinkSettings.from_dict(raw)
         filename = require_str(raw.get("filename"), "filename")
         query: dict[str, object] = require_dict(raw.get("query"), "query")
 
@@ -232,7 +232,7 @@ def _append_rows(filename: str, columns: list[str], rows: Sequence[Mapping[str, 
 
 
 class CsvSink(AbstractOutputSink):
-    settings: Settings
+    settings: CsvSinkSettings
     _compiled: CompiledQuery
     _columns: list[str]
     _order_id: int | None
@@ -244,7 +244,7 @@ class CsvSink(AbstractOutputSink):
     _vs_points_seen: dict[int, int]
     _order_versions: dict[int, str]
 
-    def __init__(self, settings: Settings):
+    def __init__(self, settings: CsvSinkSettings):
         self.settings = settings
         self._compiled = compile_query(Order, settings.query)
         self._columns = [spec.name for spec in self._compiled.columns]
@@ -432,6 +432,6 @@ class CsvSink(AbstractOutputSink):
 
 
 __all__ = [
-    "Settings",
     "CsvSink",
+    "CsvSinkSettings",
 ]

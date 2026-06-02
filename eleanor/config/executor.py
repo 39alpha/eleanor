@@ -4,19 +4,19 @@ from typing import Self, cast
 from eleanor.config.plugin import PluginConfig
 from eleanor.exceptions import EleanorException
 from eleanor.executor.registry import registry
-from eleanor.executor.settings import Settings
+from eleanor.executor.settings import ExecutorSettings
 from eleanor.plugin import load_plugin_settings
 from eleanor.util import require_opt_str
 
 
 @dataclass(kw_only=True)
-class Config(PluginConfig[Settings]):
+class ExecutorConfig(PluginConfig[ExecutorSettings]):
     kind: str = "multiprocessing"
-    settings: Settings = field(default_factory=Settings)
+    settings: ExecutorSettings = field(default_factory=ExecutorSettings)
 
     def __post_init__(self) -> None:
-        if not isinstance(cast(object, self.settings), Settings):
-            msg = f"executor configuration requires Settings, got {type(self.settings).__name__}"
+        if not isinstance(cast(object, self.settings), ExecutorSettings):
+            msg = f"executor configuration requires {ExecutorSettings.__name__}, got {type(self.settings).__name__}"
             raise EleanorException(msg)
 
         super().__post_init__()
@@ -25,8 +25,8 @@ class Config(PluginConfig[Settings]):
     def from_dict(cls, raw: dict[str, object]) -> Self:
         kind = require_opt_str(raw.get("kind"), "executor.kind") or "multiprocessing"
         settings_raw = {k: v for k, v in raw.items() if k != "kind"}
-        settings = load_plugin_settings(registry, Settings, kind, settings_raw) or Settings()
+        settings = load_plugin_settings(registry, ExecutorSettings, kind, settings_raw) or ExecutorSettings()
         return cls(kind=kind, settings=settings)
 
 
-__all__ = ["Config"]
+__all__ = ["ExecutorConfig"]

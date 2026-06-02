@@ -4,19 +4,19 @@ from typing import Self, cast
 from eleanor.config.plugin import PluginConfig
 from eleanor.exceptions import EleanorException
 from eleanor.output.registry import registry
-from eleanor.output.settings import Settings
+from eleanor.output.settings import OutputSinkSettings
 from eleanor.plugin import load_plugin_settings
 from eleanor.util import require_str
 
 
 @dataclass(kw_only=True)
-class Config(PluginConfig[Settings]):
+class OutputSinkConfig(PluginConfig[OutputSinkSettings]):
     kind: str
-    settings: Settings = field(default_factory=Settings)
+    settings: OutputSinkSettings = field(default_factory=OutputSinkSettings)
 
     def __post_init__(self) -> None:
-        if not isinstance(cast(object, self.settings), Settings):
-            msg = f"output configuration requires Settings, got {type(self.settings).__name__}"
+        if not isinstance(cast(object, self.settings), OutputSinkSettings):
+            msg = f"output configuration requires {OutputSinkSettings.__name__}, got {type(self.settings).__name__}"
             raise EleanorException(msg)
 
         super().__post_init__()
@@ -25,8 +25,8 @@ class Config(PluginConfig[Settings]):
     def from_dict(cls, raw: dict[str, object]) -> Self:
         kind = require_str(raw.get("kind"), "kind")
         settings_raw = {k: v for k, v in raw.items() if k != "kind"}
-        settings = load_plugin_settings(registry, Settings, kind, settings_raw) or Settings()
+        settings = load_plugin_settings(registry, OutputSinkSettings, kind, settings_raw) or OutputSinkSettings()
         return cls(kind=kind, settings=settings)
 
 
-__all__ = ["Config"]
+__all__ = ["OutputSinkConfig"]

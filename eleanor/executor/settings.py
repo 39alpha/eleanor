@@ -2,12 +2,12 @@ from dataclasses import dataclass
 from typing import Self
 
 from eleanor.exceptions import EleanorException
-from eleanor.settings import Settings as DefaultSettings
+from eleanor.settings import Settings
 from eleanor.util import guard_is_int, guard_is_int_or_none, require_opt_int
 
 
 @dataclass(kw_only=True)
-class Settings(DefaultSettings):
+class ExecutorSettings(Settings):
     num_workers: int | None = None
     chunks_per_worker: int = 10
 
@@ -33,4 +33,4 @@ class Settings(DefaultSettings):
         return cls(num_workers=num_workers)
 
 
-__all__ = ["Settings"]
+__all__ = ["ExecutorSettings"]

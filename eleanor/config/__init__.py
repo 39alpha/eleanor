@@ -6,8 +6,8 @@ from typing import Self, TypedDict, cast
 
 import yaml
 
-from eleanor.config.executor import Config as ExecutorConfig
-from eleanor.config.output import Config as OutputConfig
+from eleanor.config.executor import ExecutorConfig
+from eleanor.config.output import OutputSinkConfig
 from eleanor.exceptions import EleanorConfigurationException, EleanorException
 
 
@@ -18,7 +18,7 @@ class ConfigRaw(TypedDict, total=False):
 
 @dataclass(kw_only=True)
 class Config(object):
-    output: OutputConfig | None = None
+    output: OutputSinkConfig | None = None
     executor: ExecutorConfig = field(default_factory=ExecutorConfig)
 
     @classmethod
@@ -34,7 +34,7 @@ class Config(object):
             )
 
         output_raw = raw.get("output")
-        output_config = OutputConfig.from_dict(output_raw) if output_raw is not None else None
+        output_config = OutputSinkConfig.from_dict(output_raw) if output_raw is not None else None
 
         return cls(
             output=output_config,

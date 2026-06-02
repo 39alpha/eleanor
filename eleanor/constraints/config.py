@@ -1,13 +1,13 @@
 from dataclasses import dataclass, field
-from typing import TypedDict
+
+from eleanor.util import guard_is_dict, guard_is_str
 
 
-class ConnfigRaw(TypedDict):
-    type: str
-    args: dict[str, object]
-
-
-@dataclass
-class Config(object):
-    type: str
+@dataclass(kw_only=True)
+class ConstraintConfig(object):
+    kind: str
     args: dict[str, object] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        guard_is_str(self.kind, "kind")
+        guard_is_dict(self.args, "args")

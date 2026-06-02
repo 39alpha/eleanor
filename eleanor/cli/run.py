@@ -10,12 +10,11 @@ from eleanor.cli.util import config_from_args, config_options
 from eleanor.exceptions import EleanorException
 from eleanor.executor import load_executor
 from eleanor.executor.registry import available_executors
-from eleanor.executor.settings import Settings as ExecutorSettings
+from eleanor.executor.settings import ExecutorSettings
 from eleanor.order import load_order
 from eleanor.output.interface import AbstractOutputSink
-from eleanor.output.null import NullSink
-from eleanor.output.null import Settings as NullSinkSettings
-from eleanor.output.postgres.settings import Settings as PostgresSinkSettings
+from eleanor.output.null import NullSink, NullSinkSettings
+from eleanor.output.postgres.settings import PostgresSinkSettings
 
 
 def _complete_executor(_ctx: click.Context, _param: click.Parameter, incomplete: str) -> list[str]:

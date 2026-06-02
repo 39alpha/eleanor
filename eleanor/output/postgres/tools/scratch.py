@@ -1,10 +1,10 @@
 from eleanor.output.postgres.persistence.converters import ScratchEntry
 from eleanor.output.postgres.persistence.repositories import get_scratch_entry
-from eleanor.output.postgres.settings import DatabaseSettings
+from eleanor.output.postgres.settings import PostgresDatabaseSettings
 
 
 def load_scratch_entry(
-    settings: DatabaseSettings,
+    settings: PostgresDatabaseSettings,
     variable_space_id: int,
 ) -> ScratchEntry | None:
     """Diagnostic helper: fetch a persisted scratch payload by VS-point id.

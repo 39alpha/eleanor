@@ -8,7 +8,7 @@ import click
 from eleanor.cli.util import config_from_args, config_options
 from eleanor.exceptions import EleanorException
 from eleanor.output.postgres.persistence.repositories import drop_indexes, recreate_indexes
-from eleanor.output.postgres.settings import Settings
+from eleanor.output.postgres.settings import PostgresSinkSettings
 from eleanor.output.postgres.tools import dump_schema, load_scratch_entry
 
 
@@ -24,7 +24,7 @@ def schema(output: TextIO, config: str, database: str | None) -> None:
         raise EleanorException(msg)
 
     settings = cfg.settings
-    if not isinstance(settings, Settings):
+    if not isinstance(settings, PostgresSinkSettings):
         msg = "cannot dump postgres schema for a non-postgres output sink"
         raise EleanorException(msg)
 
@@ -52,7 +52,7 @@ def scratch(vs_id: int, outdir: str, config: str, database: str | None) -> None:
 
     settings = cfg.settings
 
-    if not isinstance(settings, Settings):
+    if not isinstance(settings, PostgresSinkSettings):
         msg = "cannot dump scratch from a non-postgres output sink"
         raise EleanorException(msg)
 
@@ -99,7 +99,7 @@ def bulkload(action: str, yes: bool, config: str, database: str | None) -> None:
 
     settings = cfg.settings
 
-    if not isinstance(settings, Settings):
+    if not isinstance(settings, PostgresSinkSettings):
         msg = f"cannot {action} secondary indexes and constraints on a non-postgres output sink"
         raise EleanorException(msg)
 

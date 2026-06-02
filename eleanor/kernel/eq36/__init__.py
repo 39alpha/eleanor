@@ -18,18 +18,23 @@ build an eq36 kernel).
 
 from typing import TYPE_CHECKING
 
-from eleanor.kernel.eq36.settings import Settings
-
 if TYPE_CHECKING:
-    from eleanor.kernel.eq36.kernel import Kernel as Kernel
+    from eleanor.kernel.eq36.kernel import Eq36Kernel
+    from eleanor.kernel.eq36.settings import Eq36Settings
 
 
 def __getattr__(name: str) -> object:
-    if name == "Kernel":
-        from eleanor.kernel.eq36.kernel import Kernel
+    match name:
+        case "Eq36Settings":
+            from eleanor.kernel.eq36.settings import Eq36Settings
 
-        return Kernel
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+            return Eq36Settings
+        case "Eq36Kernel":
+            from eleanor.kernel.eq36.kernel import Eq36Kernel
+
+            return Eq36Kernel
+        case _:
+            raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
-__all__ = ["Kernel", "Settings"]
+__all__ = ["Eq36Kernel", "Eq36Settings"]

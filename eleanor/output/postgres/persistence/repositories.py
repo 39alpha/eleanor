@@ -12,17 +12,17 @@ from eleanor.exceptions import EleanorException
 from eleanor.order import Order
 from eleanor.output.postgres.persistence import connection, converters, queries, schema
 from eleanor.output.postgres.persistence.converters import OrderRecord, ScratchEntry
-from eleanor.output.postgres.settings import DatabaseSettings
+from eleanor.output.postgres.settings import PostgresDatabaseSettings
 
 
-def setup_schema(config: DatabaseSettings) -> None:
+def setup_schema(config: PostgresDatabaseSettings) -> None:
     """Idempotently create the sink's schema on the configured DB."""
     conn = connection.connect(config)
     schema.ensure_schema(conn)
 
 
-def drop_indexes(config: DatabaseSettings) -> None:
-    """:class:`DatabaseSettings`-keyed wrapper around :func:`schema.drop_indexes`.
+def drop_indexes(config: PostgresDatabaseSettings) -> None:
+    """:class:`PostgresDatabaseSettings`-keyed wrapper around :func:`schema.drop_indexes`.
 
     Acquires the process-local connection for ``config`` and delegates;
     no transactional shape of its own (the schema helper opens its own
@@ -32,8 +32,8 @@ def drop_indexes(config: DatabaseSettings) -> None:
     schema.drop_indexes(conn)
 
 
-def recreate_indexes(config: DatabaseSettings) -> None:
-    """:class:`DatabaseSettings`-keyed wrapper around :func:`schema.recreate_indexes`.
+def recreate_indexes(config: PostgresDatabaseSettings) -> None:
+    """:class:`PostgresDatabaseSettings`-keyed wrapper around :func:`schema.recreate_indexes`.
 
     Acquires the process-local connection for ``config`` and delegates;
     transactional shape is handled by the schema helper.
@@ -43,8 +43,8 @@ def recreate_indexes(config: DatabaseSettings) -> None:
 
 
 @contextmanager
-def bulk_load_window(config: DatabaseSettings) -> Generator[None]:
-    """:class:`DatabaseSettings`-keyed wrapper around :func:`schema.bulk_load_window`.
+def bulk_load_window(config: PostgresDatabaseSettings) -> Generator[None]:
+    """:class:`PostgresDatabaseSettings`-keyed wrapper around :func:`schema.bulk_load_window`.
 
     Yields once after the drop has committed; recreates the constraints
     when the body returns (or in :keyword:`finally` if the body raises).
@@ -214,7 +214,7 @@ def _build_multi_row_insert_returning_id(
     )
 
 
-def insert_order(config: DatabaseSettings, order: Order) -> OrderRecord:
+def insert_order(config: PostgresDatabaseSettings, order: Order) -> OrderRecord:
     """Insert ``order`` into the orders table and return the persisted record."""
     conn = connection.connect(config)
     row = converters.order_to_row(order)
@@ -237,7 +237,7 @@ def insert_order(config: DatabaseSettings, order: Order) -> OrderRecord:
     )
 
 
-def get_order(config: DatabaseSettings, order_id: int) -> OrderRecord | None:
+def get_order(config: PostgresDatabaseSettings, order_id: int) -> OrderRecord | None:
     """Fetch the orders row for ``order_id``, or ``None`` if absent."""
     conn = connection.connect(config)
     with conn.cursor() as cur:
@@ -445,7 +445,7 @@ def _insert_es_subtree(
 
 
 def get_scratch_entry(
-    config: DatabaseSettings,
+    config: PostgresDatabaseSettings,
     variable_space_id: int,
 ) -> ScratchEntry | None:
     """Fetch the persisted scratch payload for ``variable_space_id``.

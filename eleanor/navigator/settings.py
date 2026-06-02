@@ -1,10 +1,10 @@
 from dataclasses import dataclass
 
-from eleanor.settings import Settings as DefaultSettings
+from eleanor.settings import Settings
 
 
 @dataclass(kw_only=True)
-class Settings(DefaultSettings): ...
+class NavigatorSettings(Settings): ...
 
 
-__all__ = ["Settings"]
+__all__ = ["NavigatorSettings"]

@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     from eleanor.order import Order
 
 
-class LatticeNavigator(AbstractNavigator, ABC):
+class AbstractLatticeNavigator(AbstractNavigator, ABC):
     @override
     def navigate(
         self,
@@ -65,16 +65,16 @@ class LatticeNavigator(AbstractNavigator, ABC):
         return cast(int, scale ** len([1 for p in order.parameters() if not isinstance(p, ValueParameter)]))
 
 
-class RandomLattice(LatticeNavigator):
+class RandomLatticeNavigator(AbstractLatticeNavigator):
     @override
     def generate(self, parameter: Parameter, scale: int, *_args: object, **_kwargs: object) -> list[ValueParameter]:
         return parameter.random(size=scale)
 
 
-_ = LatticeNavigator.register(RandomLattice)
+_ = AbstractLatticeNavigator.register(RandomLatticeNavigator)
 
 
-class Lattice(LatticeNavigator):
+class LatticeNavigator(AbstractLatticeNavigator):
     @override
     def generate(self, parameter: Parameter, scale: int, *_args: object, **_kwargs: object) -> list[ValueParameter]:
         if scale < 1:
@@ -84,10 +84,10 @@ class Lattice(LatticeNavigator):
         return parameter.lattice(size=scale)
 
 
-_ = LatticeNavigator.register(Lattice)
+_ = AbstractLatticeNavigator.register(LatticeNavigator)
 
 __all__ = [
+    "AbstractLatticeNavigator",
+    "RandomLatticeNavigator",
     "LatticeNavigator",
-    "RandomLattice",
-    "Lattice",
 ]

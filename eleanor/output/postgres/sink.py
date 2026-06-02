@@ -4,12 +4,12 @@ import traceback
 from collections.abc import Sequence
 from typing import override
 
-from eleanor.exceptions import EleanorConfigurationException, EleanorException
+from eleanor.exceptions import EleanorException
 from eleanor.order import Order
 from eleanor.output.interface import AbstractOutputSink, ComputeResult, WriteOutcome
 from eleanor.output.postgres.persistence import connection as connection_module
 from eleanor.output.postgres.persistence import repositories
-from eleanor.output.postgres.settings import Settings
+from eleanor.output.postgres.settings import PostgresSinkSettings
 from eleanor.progress import ProgressHandle
 
 _PSYCOPG_LOGGER_NAME = "psycopg"
@@ -31,17 +31,12 @@ class PostgresSink(AbstractOutputSink):
     directly) will reattach them.
     """
 
-    settings: Settings
+    settings: PostgresSinkSettings
     _prev_psycopg_log_level: int | None
 
-    def __init__(self, settings: Settings):
+    def __init__(self, settings: PostgresSinkSettings):
         self.settings = settings
         self._prev_psycopg_log_level = None
-
-        dialect = self.settings.database.dialect
-        if dialect != "postgresql":
-            msg = f'the {dialect!r} database dialect is not supported; choose "postgresql"'
-            raise EleanorConfigurationException(msg)
 
     @override
     def initialize(self) -> None:

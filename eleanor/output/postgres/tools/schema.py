@@ -1,14 +1,14 @@
 from typing import TextIO
 
 from eleanor.output.postgres.persistence import schema
-from eleanor.output.postgres.settings import DatabaseSettings
+from eleanor.output.postgres.settings import PostgresDatabaseSettings
 
 
-def dump_schema(settings: DatabaseSettings, stream: TextIO) -> None:
+def dump_schema(settings: PostgresDatabaseSettings, stream: TextIO) -> None:
     """Print every ``CREATE TABLE`` and ``CREATE INDEX`` statement to ``stream``.
 
     ``settings`` is unused -- kept for compatibility with the previous
-    signature so external CLIs that pass a ``DatabaseSettings`` keep
+    signature so external CLIs that pass a ``PostgresDatabaseSettings`` keep
     working without change. The schema is static and identical across
     DBs the sink targets.
     """

@@ -16,7 +16,7 @@ from eleanor.kernel.eq36.constraints import TemperatureRangeConstraint, TPCurveC
 from eleanor.kernel.eq36.data1 import Data1
 from eleanor.kernel.eq36.exec import eq3, eq6
 from eleanor.kernel.eq36.parsers import OutputParser3, OutputParser6
-from eleanor.kernel.eq36.settings import IOPT_1, IOPT_4, Eq3Config, Eq6Config, Settings
+from eleanor.kernel.eq36.settings import IOPT_1, IOPT_4, Eq3Settings, Eq6Settings, Eq36Settings
 from eleanor.kernel.eq36.util import read_pickup_lines
 from eleanor.kernel.exceptions import EleanorKernelException
 from eleanor.kernel.interface import AbstractKernel
@@ -25,7 +25,7 @@ from eleanor.typing import EleanorKwargs
 from eleanor.util import NumberFormat, guard_is_str
 
 
-class Kernel(AbstractKernel):
+class Eq36Kernel(AbstractKernel):
     _setup: bool
     _data1s: list[Data1]
 
@@ -99,7 +99,7 @@ class Kernel(AbstractKernel):
         data1_dir: object,
         **kwargs: object,
     ) -> None:
-        if not isinstance(order.kernel.settings, Settings):
+        if not isinstance(order.kernel.settings, Eq36Settings):
             msg = f"order is not configured for the eq36 kernel, got {type(order.kernel.settings).__name__}"
             raise EleanorKernelException(msg)
 
@@ -123,10 +123,10 @@ class Kernel(AbstractKernel):
 
         self._setup = True
 
-    def resolve_kernel_settings(self, vs_point: vs.Point) -> Settings:
-        if not isinstance(vs_point.kernel.settings, Settings):
+    def resolve_kernel_settings(self, vs_point: vs.Point) -> Eq36Settings:
+        if not isinstance(vs_point.kernel.settings, Eq36Settings):
             raise TypeError(
-                f"the provided problem.kernel has type {type(vs_point.kernel.settings)} expected {Settings}"
+                f"the provided problem.kernel has type {type(vs_point.kernel.settings)} expected {Eq36Settings}"
             )
 
         settings = vs_point.kernel.settings
@@ -218,7 +218,7 @@ class Kernel(AbstractKernel):
             start_date = datetime.now()
             eq3_input_path = self.write_eq3_input(vs_point, data1, verbose=verbose)
             _ = eq3(settings.data1_file, eq3_input_path, timeout=settings.timeout)
-            eq3_results = Kernel.read_eq3_output()
+            eq3_results = self.read_eq3_output()
             complete_date = datetime.now()
             eq3_results.start_date, eq3_results.complete_date = start_date, complete_date
 
@@ -229,7 +229,7 @@ class Kernel(AbstractKernel):
                 pickup_lines = read_pickup_lines()
                 eq6_input_path = self.write_eq6_input(vs_point, pickup_lines=pickup_lines, verbose=verbose)
                 _ = eq6(settings.data1_file, eq6_input_path, timeout=settings.timeout)
-                eq6_results = Kernel.read_eq6_output(track_path=settings.track_path)
+                eq6_results = self.read_eq6_output(track_path=settings.track_path)
                 complete_date = datetime.now()
                 for point in eq6_results:
                     point.start_date, point.complete_date = start_date, complete_date
@@ -250,7 +250,7 @@ class Kernel(AbstractKernel):
         if not self._setup:
             raise EleanorKernelException("kernel is not setup; cannot write eq3 input file")
 
-        settings = cast(Settings, vs_point.kernel.settings)
+        settings = cast(Eq36Settings, vs_point.kernel.settings)
         if not vs_point.has_species_constraint(settings.redox_species):
             if settings.redox_species == "fO2" and vs_point.has_species_constraint("O2(g)"):
                 pass
@@ -377,7 +377,7 @@ class Kernel(AbstractKernel):
         pickup_lines: list[str] | None = None,
         verbose: bool = False,
     ) -> str:
-        settings = cast(Settings, vs_point.kernel.settings)
+        settings = cast(Eq36Settings, vs_point.kernel.settings)
         if settings.eq6_config is None:
             raise ValueError("no eq6_config provided")
 
@@ -627,8 +627,8 @@ class Kernel(AbstractKernel):
 
         return file.name
 
-    def write_switch_grid(self, file: io.TextIOWrapper, c: Eq3Config | Eq6Config, verbose: bool = False) -> None:
-        if isinstance(c, Eq3Config) and verbose:
+    def write_switch_grid(self, file: io.TextIOWrapper, c: Eq3Settings | Eq6Settings, verbose: bool = False) -> None:
+        if isinstance(c, Eq3Settings) and verbose:
             c = c.make_verbose()
 
         print("*               1    2    3    4    5    6    7    8    9   10", file=file)
@@ -640,7 +640,7 @@ class Kernel(AbstractKernel):
             " iopt11-20= {0: >5}{1: >5}{2: >5}{3: >5}{4: >5}{5: >5}{6: >5}{7: >5}{8: >5}{9: >5}".format(*c.iopt[10:]),
             file=file,
         )
-        if isinstance(c, Eq3Config):
+        if isinstance(c, Eq3Settings):
             line = "  iopg1-10= {0: >5}{1: >5}{2: >5}{3: >5}{4: >5}{5: >5}{6: >5}{7: >5}{8: >5}{9: >5}".format(
                 *c.iopg[:10]
             )
@@ -679,4 +679,4 @@ class Kernel(AbstractKernel):
         return path if track_path else path[-1:]
 
 
-_ = AbstractKernel.register(Kernel)
+_ = AbstractKernel.register(Eq36Kernel)

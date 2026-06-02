@@ -1,10 +1,16 @@
+from typing import TYPE_CHECKING
+
 from eleanor.plugin import SimplePluginSpec
 
+if TYPE_CHECKING:
+    from eleanor.navigator.lattice import LatticeNavigator, RandomLatticeNavigator
+    from eleanor.navigator.random import RandomNavigator
 
-def build_random() -> object:
-    from eleanor.navigator.random import Random
 
-    return Random()
+def build_random() -> RandomNavigator:
+    from eleanor.navigator.random import RandomNavigator
+
+    return RandomNavigator()
 
 
 random_spec = SimplePluginSpec(
@@ -13,10 +19,10 @@ random_spec = SimplePluginSpec(
 )
 
 
-def build_random_lattice() -> object:
-    from eleanor.navigator.lattice import RandomLattice
+def build_random_lattice() -> RandomLatticeNavigator:
+    from eleanor.navigator.lattice import RandomLatticeNavigator
 
-    return RandomLattice()
+    return RandomLatticeNavigator()
 
 
 random_lattice_spec = SimplePluginSpec(
@@ -25,10 +31,10 @@ random_lattice_spec = SimplePluginSpec(
 )
 
 
-def build_lattice() -> object:
-    from eleanor.navigator.lattice import Lattice
+def build_lattice() -> LatticeNavigator:
+    from eleanor.navigator.lattice import LatticeNavigator
 
-    return Lattice()
+    return LatticeNavigator()
 
 
 lattice_spec = SimplePluginSpec(

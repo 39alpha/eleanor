@@ -5,13 +5,13 @@ from typing import Self, override
 from eleanor.exceptions import EleanorException
 from eleanor.order import Order
 from eleanor.output.interface import AbstractOutputSink, ComputeResult, WriteOutcome
-from eleanor.output.settings import Settings as OutputSettings
+from eleanor.output.settings import OutputSinkSettings
 from eleanor.progress import ProgressHandle
 from eleanor.util import guard_is_bool, require_bool
 
 
 @dataclass(kw_only=True)
-class Settings(OutputSettings):
+class MemorySinkSettings(OutputSinkSettings):
     support_worker_writes: bool
 
     def __post_init__(self) -> None:
@@ -22,7 +22,7 @@ class Settings(OutputSettings):
     @classmethod
     @override
     def from_dict(cls, raw: dict[str, object]) -> Self:
-        base_settings = OutputSettings.from_dict(raw)
+        base_settings = OutputSinkSettings.from_dict(raw)
 
         support_worker_writes = require_bool(
             raw.get("support_worker_writes", False),
@@ -36,11 +36,11 @@ class Settings(OutputSettings):
 
 
 class MemorySink(AbstractOutputSink):
-    settings: Settings
+    settings: MemorySinkSettings
     _orders: dict[int, Order]
 
-    def __init__(self, settings: Settings | None = None) -> None:
-        self.settings = settings if settings is not None else Settings(support_worker_writes=False)
+    def __init__(self, settings: MemorySinkSettings | None = None) -> None:
+        self.settings = settings if settings is not None else MemorySinkSettings(support_worker_writes=False)
         self._orders = {}
 
     @override
@@ -101,6 +101,6 @@ class MemorySink(AbstractOutputSink):
 
 
 __all__ = [
-    "Settings",
     "MemorySink",
+    "MemorySinkSettings",
 ]

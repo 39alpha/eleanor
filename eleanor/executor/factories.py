@@ -1,25 +1,26 @@
 from typing import TYPE_CHECKING
 
 from eleanor.exceptions import EleanorException
-from eleanor.executor.settings import Settings
+from eleanor.executor.settings import ExecutorSettings
 from eleanor.plugin import ConfigurablePluginSpec
 
 if TYPE_CHECKING:
-    from eleanor.executor.interface import AbstractExecutor
+    from eleanor.executor.multiprocessing import MultiprocessingExecutor
+    from eleanor.executor.serial import SerialExecutor
 
 
-def parse_standard_settings(raw: dict[str, object]) -> Settings:
-    return Settings.from_dict(raw)
+def parse_standard_settings(raw: dict[str, object]) -> ExecutorSettings:
+    return ExecutorSettings.from_dict(raw)
 
 
-def build_serial(settings: object) -> AbstractExecutor:
-    if not isinstance(settings, Settings):
-        msg = f"serial executor requires executor Settings, got {type(settings).__name__}"
+def build_serial(settings: object) -> SerialExecutor:
+    if not isinstance(settings, ExecutorSettings):
+        msg = f"serial executor requires {ExecutorSettings.__name__}, got {type(settings).__name__}"
         raise EleanorException(msg)
 
-    from eleanor.executor.serial import Executor
+    from eleanor.executor.serial import SerialExecutor
 
-    return Executor(settings)
+    return SerialExecutor(settings)
 
 
 serial_spec = ConfigurablePluginSpec(
@@ -29,14 +30,14 @@ serial_spec = ConfigurablePluginSpec(
 )
 
 
-def build_multiprocessing(settings: object) -> AbstractExecutor:
-    if not isinstance(settings, Settings):
-        msg = f"multiprocessing executor requires executor Settings, got {type(settings).__name__}"
+def build_multiprocessing(settings: object) -> MultiprocessingExecutor:
+    if not isinstance(settings, ExecutorSettings):
+        msg = f"multiprocessing executor requires {ExecutorSettings.__name__}, got {type(settings).__name__}"
         raise EleanorException(msg)
 
-    from eleanor.executor.multiprocessing import Executor
+    from eleanor.executor.multiprocessing import MultiprocessingExecutor
 
-    return Executor(settings)
+    return MultiprocessingExecutor(settings)
 
 
 multiprocessing_spec = ConfigurablePluginSpec(

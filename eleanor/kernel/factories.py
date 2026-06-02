@@ -1,24 +1,30 @@
+from typing import TYPE_CHECKING
+
 from eleanor.exceptions import EleanorException
 from eleanor.plugin import ConfigurablePluginSpec
 
+if TYPE_CHECKING:
+    from eleanor.kernel.eq36.kernel import Eq36Kernel
+    from eleanor.kernel.eq36.settings import Eq36Settings
 
-def build_eq36_settings(raw: dict[str, object]) -> object:
+
+def build_eq36_settings(raw: dict[str, object]) -> Eq36Settings:
     """Parse a raw ``kernel.args`` mapping into an eq36 :class:`Settings`."""
-    from eleanor.kernel.eq36.settings import Settings
+    from eleanor.kernel.eq36.settings import Eq36Settings
 
-    return Settings.from_dict(raw)
+    return Eq36Settings.from_dict(raw)
 
 
-def build_eq36(settings: object) -> object:
+def build_eq36(settings: object) -> Eq36Kernel:
     """Construct the eq36 :class:`Kernel` from its typed settings + CLI args."""
-    from eleanor.kernel.eq36.kernel import Kernel
-    from eleanor.kernel.eq36.settings import Settings
+    from eleanor.kernel.eq36.kernel import Eq36Kernel
+    from eleanor.kernel.eq36.settings import Eq36Settings
 
-    if not isinstance(settings, Settings):
+    if not isinstance(settings, Eq36Settings):
         msg = f"eq36 kernel requires eq36 Settings, got {type(settings).__name__}"
         raise EleanorException(msg)
 
-    return Kernel()
+    return Eq36Kernel()
 
 
 eq36_spec = ConfigurablePluginSpec(

@@ -3,12 +3,12 @@ from collections.abc import Callable
 from typing import TypeVar, override
 
 from eleanor.executor.interface import AbstractExecutor, AbstractFuture
-from eleanor.executor.settings import Settings
+from eleanor.executor.settings import ExecutorSettings
 
 T = TypeVar("T")
 
 
-class Future(AbstractFuture[T]):
+class SerialFuture(AbstractFuture[T]):
     _value: T
 
     def __init__(self, value: T):
@@ -19,8 +19,8 @@ class Future(AbstractFuture[T]):
         return self._value
 
 
-class Executor(AbstractExecutor):
-    def __init__(self, settings: Settings):
+class SerialExecutor(AbstractExecutor):
+    def __init__(self, settings: ExecutorSettings):
         if settings.num_workers is not None and settings.num_workers != 1:
             warnings.warn(
                 f"serial executor does not support multiple workers; ignoring num_workers={settings.num_workers}"
@@ -33,7 +33,7 @@ class Executor(AbstractExecutor):
 
     @override
     def submit(self, fn: Callable[..., T], *args: object, **kwargs: object) -> AbstractFuture[T]:
-        return Future(fn(*args, **kwargs))
+        return SerialFuture(fn(*args, **kwargs))
 
     @override
     def shutdown(self, wait: bool = True) -> None:
@@ -42,6 +42,6 @@ class Executor(AbstractExecutor):
 
 
 __all__ = [
-    "Executor",
-    "Future",
+    "SerialExecutor",
+    "SerialFuture",
 ]

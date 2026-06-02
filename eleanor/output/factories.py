@@ -11,16 +11,16 @@ if TYPE_CHECKING:
 
 
 def parse_csv_settings(raw: dict[str, object]) -> object:
-    from eleanor.output.csv import Settings
+    from eleanor.output.csv import CsvSinkSettings
 
-    return Settings.from_dict(raw)
+    return CsvSinkSettings.from_dict(raw)
 
 
 def build_csv_sink(settings: object) -> CsvSink:
-    from eleanor.output.csv import CsvSink, Settings
+    from eleanor.output.csv import CsvSink, CsvSinkSettings
 
-    if not isinstance(settings, Settings):
-        msg = f"csv output sink requires csv Settings, got {type(settings).__name__}"
+    if not isinstance(settings, CsvSinkSettings):
+        msg = f"csv output sink requires {CsvSinkSettings.__name__}, got {type(settings).__name__}"
         raise EleanorException(msg)
 
     return CsvSink(settings)
@@ -34,16 +34,16 @@ csv_spec = ConfigurablePluginSpec(
 
 
 def parse_memory_settings(raw: dict[str, object]) -> object:
-    from eleanor.output.memory import Settings
+    from eleanor.output.memory import MemorySinkSettings
 
-    return Settings.from_dict(raw)
+    return MemorySinkSettings.from_dict(raw)
 
 
 def build_memory_sink(settings: object) -> MemorySink:
-    from eleanor.output.memory import MemorySink, Settings
+    from eleanor.output.memory import MemorySink, MemorySinkSettings
 
-    if not isinstance(settings, Settings):
-        msg = f"memory output sink requires memory Settings, got {type(settings).__name__}"
+    if not isinstance(settings, MemorySinkSettings):
+        msg = f"memory output sink requires {MemorySinkSettings.__name__}, got {type(settings).__name__}"
         raise EleanorException(msg)
 
     return MemorySink(settings)
@@ -57,16 +57,16 @@ memory_spec = ConfigurablePluginSpec(
 
 
 def parse_null_settings(raw: dict[str, object]) -> object:
-    from eleanor.output.null import Settings
+    from eleanor.output.null import NullSinkSettings
 
-    return Settings.from_dict(raw)
+    return NullSinkSettings.from_dict(raw)
 
 
 def build_null_sink(settings: object) -> NullSink:
-    from eleanor.output.null import NullSink, Settings
+    from eleanor.output.null import NullSink, NullSinkSettings
 
-    if not isinstance(settings, Settings):
-        msg = f"null output sink requires null Settings, got {type(settings).__name__}"
+    if not isinstance(settings, NullSinkSettings):
+        msg = f"null output sink requires {NullSinkSettings.__name__}, got {type(settings).__name__}"
         raise EleanorException(msg)
 
     return NullSink(settings)
@@ -80,17 +80,17 @@ null_spec = ConfigurablePluginSpec(
 
 
 def parse_postgres_settings(raw: dict[str, object]) -> object:
-    from eleanor.output.postgres.settings import Settings
+    from eleanor.output.postgres.settings import PostgresSinkSettings
 
-    return Settings.from_dict(raw)
+    return PostgresSinkSettings.from_dict(raw)
 
 
 def build_postgres_sink(settings: object) -> PostgresSink:
     from eleanor.output.postgres import PostgresSink
-    from eleanor.output.postgres.settings import Settings
+    from eleanor.output.postgres.settings import PostgresSinkSettings
 
-    if not isinstance(settings, Settings):
-        msg = f"postgres output sink requires postgres Settings, got {type(settings).__name__}"
+    if not isinstance(settings, PostgresSinkSettings):
+        msg = f"postgres output sink requires {PostgresSinkSettings.__name__}, got {type(settings).__name__}"
         raise EleanorException(msg)
 
     return PostgresSink(settings)

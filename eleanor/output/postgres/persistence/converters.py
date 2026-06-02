@@ -9,7 +9,7 @@ from psycopg.types.json import Jsonb
 import eleanor.equilibrium_space as core_es
 import eleanor.order as core_order
 import eleanor.variable_space as core_vs
-from eleanor.config.kernel import Config as KernelConfig
+from eleanor.config.kernel import KernelConfig
 from eleanor.exceptions import EleanorException
 
 

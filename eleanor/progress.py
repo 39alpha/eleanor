@@ -4,7 +4,7 @@ The :class:`Progress` pump drives up to two stacked :mod:`tqdm` bars:
 
 ``sim``
     Advances as variable-space points complete their kernel compute step. Ticks
-    are typically emitted from worker processes via :class:`Sailor.dispatch`.
+    are typically emitted from worker processes via :class:`Runner.dispatch`.
 
 ``out``
     Advances as points are durably written by the active :class:`OutputSink`.
@@ -90,7 +90,7 @@ class ProgressHandle(Protocol):
     Note that this Protocol intentionally does *not* expose ``done()``;
     closing a channel's bar is a parent-only operation. Workers and sinks
     are typed against this narrower view at every boundary
-    (:meth:`Sailor.dispatch`, :meth:`OutputSink.write_batch`,
+    (:meth:`Runner.dispatch`, :meth:`OutputSink.write_batch`,
     :meth:`Eleanor.process`) so an accidental ``done()`` from a producer is
     rejected by the type checker rather than silently dropping ticks from
     other workers.

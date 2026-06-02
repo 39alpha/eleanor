@@ -75,7 +75,7 @@ Common options:
 - `--bulk-load` / `--no-bulk-load`: enable/disable postgres bulk-load optimization for this run.
 - `-p, --progress`: show progress bars (disabled automatically by `--verbose`).
 - `-v, --verbose`: verbose output.
-- `-s, --scratch`: persist scratch artifacts for all sailors.
+- `-s, --scratch`: persist scratch artifacts for all simulations regardless of error status.
 
 ### Built-in output sinks
 

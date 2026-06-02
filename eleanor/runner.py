@@ -18,7 +18,7 @@ from eleanor.typing import EleanorKwargs
 from eleanor.util import WorkingDirectory
 
 
-class Sailor(object):
+class Runner(object):
     kernel: AbstractKernel
 
     def __init__(self, kernel: AbstractKernel):
@@ -77,7 +77,7 @@ class Sailor(object):
 
         if sink is not None:
             if order_id is None:
-                raise EleanorException("Sailor.dispatch requires order_id when sink is provided")
+                raise EleanorException("Runner.dispatch requires order_id when sink is provided")
             return sink.write_batch(order_id, compute_results, progress=out_progress)
         return compute_results
 
@@ -98,7 +98,7 @@ class Sailor(object):
                     es_points = self.kernel.run(vs_point, *args, **kwargs)
                     if scratch:
                         self.kernel.copy_data(vs_point)
-                        vs_point.scratch = Sailor.collect_scratch(tempdir)
+                        vs_point.scratch = Runner.collect_scratch(tempdir)
                     vs_point.exit_code = 0
                 except Exception as e:
                     self.kernel.copy_data(vs_point)
@@ -106,7 +106,7 @@ class Sailor(object):
                         print_exception(e, file=file)
                     if verbose:
                         print_exception(e, file=sys.stderr)
-                    vs_point.scratch = Sailor.collect_scratch(tempdir)
+                    vs_point.scratch = Runner.collect_scratch(tempdir)
                     vs_point.exception = e
                     if isinstance(e, EleanorException):
                         code = getattr(e, "code", None)

@@ -10,11 +10,11 @@ __all__ = [
 
 
 class EleanorKwargs(TypedDict, total=False):
-    """Options forwarded through the Eleanor / Sailor / AbstractKernel chain.
+    """Options forwarded through the Eleanor / Runner / AbstractKernel chain.
 
     These are the keyword arguments that originate at the CLI (or at a
     programmatic caller) and flow as ``**kwargs`` through the forwarding
-    methods all the way down to :class:`eleanor.sailor.Sailor` and the
+    methods all the way down to :class:`eleanor.runner.Runner` and the
     concrete :class:`eleanor.kernel.interface.AbstractKernel` leaves. Typing
     the bag as a single ``TypedDict`` lets ``pyright`` verify each hop
     without needing ``cast(Callable[..., T], …)`` at every forwarding site.

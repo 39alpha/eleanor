@@ -28,7 +28,7 @@ def _complete_executor(_ctx: click.Context, _param: click.Parameter, incomplete:
 @click.argument("simulation_size", type=click.INT)
 @click.option("-n", "--num-workers", type=int, default=None, help="Number of worker processes.")
 @click.option("-v", "--verbose", is_flag=True, help="Enable verbose output.")
-@click.option("-s", "--scratch", is_flag=True, help="Save scratch for all sailors.")
+@click.option("-s", "--scratch", is_flag=True, help="Save scratch for all systems regardless of error status.")
 @click.option("-k", "--kernel-args", multiple=True, help="Arguments to pass to the kernel.")
 @click.option("--order-id", type=int, default=None, help="Override the order id.")
 @click.option("--tag", type=str, default=None, help="Override the order tag.")

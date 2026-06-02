@@ -16,7 +16,7 @@ from eleanor.order import Order
 from eleanor.output import load_output_sink
 from eleanor.output.interface import AbstractOutputSink, ComputeResult, RunStats, WriteOutcome
 from eleanor.progress import ManagedProgressHandle, Progress, ProgressHandle
-from eleanor.sailor import Sailor
+from eleanor.runner import Runner
 from eleanor.signals import shutdown_on_signal
 from eleanor.typing import EleanorKwargs
 from eleanor.util import chunks
@@ -360,7 +360,7 @@ class Eleanor(object):
             # Local handles use ``ManagedProgressHandle`` rather than the worker-
             # facing ``ProgressHandle`` so the dispatch context can call ``done()``
             # at teardown.  Anywhere these are forwarded to a producer
-            # (``process()`` / ``Sailor.dispatch`` / ``AbstractOutputSink.write_batch``)
+            # (``process()`` / ``Runner.dispatch`` / ``AbstractOutputSink.write_batch``)
             # they implicitly narrow to ``ProgressHandle``, which omits ``done()``.
             sim_handle: ManagedProgressHandle | None = None
             out_handle: ManagedProgressHandle | None = None
@@ -434,7 +434,7 @@ class Eleanor(object):
     ) -> list[WriteOutcome]:
         """Drive the navigator/executor/sink loop for a single leaf order.
         :param sim_progress: Handle for the simulation bar. Forwarded to
-            :meth:`Sailor.dispatch` so workers can emit per-point ticks;
+            :meth:`Runner.dispatch` so workers can emit per-point ticks;
             when the executor does not support worker-side progress, ticks
             are emitted in the parent after each future resolves.
         :param out_progress: Handle for the output bar. Passed to
@@ -457,7 +457,7 @@ class Eleanor(object):
         worker_writes = sink.supports_worker_writes()
 
         # When the executor cannot forward a ``Manager``-backed queue into
-        # its workers, we must not hand the handles to ``Sailor.dispatch``;
+        # its workers, we must not hand the handles to ``Runner.dispatch``;
         # the parent will emit coarser batch-granularity ticks instead.
         worker_sim_progress = sim_progress if executor.supports_worker_progress else None
         worker_out_progress = out_progress if executor.supports_worker_progress else None
@@ -484,19 +484,19 @@ class Eleanor(object):
                     # len(vs_points).
                     chunk_count = min(len(vs_points), executor.num_workers * chunks_per_worker)
 
-                    sailor_kwargs: EleanorKwargs = {**kwargs}
+                    runner_kwargs: EleanorKwargs = {**kwargs}
                     batch_outcomes: list[WriteOutcome] = []
 
                     if worker_writes:
                         # Sinks that opt in to worker writes receive the sink and
-                        # ``order_id`` through to ``Sailor.dispatch``, which invokes
+                        # ``order_id`` through to ``Runner.dispatch``, which invokes
                         # ``sink.write_batch`` inside the worker. The future therefore
                         # resolves directly to a small ``list[WriteOutcome]`` payload,
                         # avoiding the IPC cost of shipping full ``ComputeResult``s
                         # (and their mapped ``vs.Point`` graph) back to the parent.
                         outcome_futures: list[AbstractFuture[list[WriteOutcome]]] = []
                         for batch in chunks(vs_points, chunk_count):
-                            # ``Sailor.dispatch`` has a ``list[ComputeResult] |
+                            # ``Runner.dispatch`` has a ``list[ComputeResult] |
                             # list[WriteOutcome]`` union return type, but with a sink
                             # and ``order_id`` supplied it always returns
                             # ``list[WriteOutcome]``. ``AbstractFuture`` is invariant
@@ -504,14 +504,14 @@ class Eleanor(object):
                             outcome_future = cast(
                                 AbstractFuture[list[WriteOutcome]],
                                 executor.submit(
-                                    Sailor(kernel).dispatch,
+                                    Runner(kernel).dispatch,
                                     batch,
                                     *args,
                                     sink=sink,
                                     order_id=order_id,
                                     sim_progress=worker_sim_progress,
                                     out_progress=worker_out_progress,
-                                    **sailor_kwargs,
+                                    **runner_kwargs,
                                 ),
                             )
                             outcome_futures.append(outcome_future)
@@ -535,16 +535,16 @@ class Eleanor(object):
                         compute_futures: list[AbstractFuture[list[ComputeResult]]] = []
                         for batch in chunks(vs_points, chunk_count):
                             # See the ``worker_writes`` branch above: without a sink,
-                            # ``Sailor.dispatch`` always resolves to
+                            # ``Runner.dispatch`` always resolves to
                             # ``list[ComputeResult]``, so narrow the invariant future.
                             compute_future = cast(
                                 AbstractFuture[list[ComputeResult]],
                                 executor.submit(
-                                    Sailor(kernel).dispatch,
+                                    Runner(kernel).dispatch,
                                     batch,
                                     *args,
                                     sim_progress=worker_sim_progress,
-                                    **sailor_kwargs,
+                                    **runner_kwargs,
                                 ),
                             )
                             compute_futures.append(compute_future)

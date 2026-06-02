@@ -6,8 +6,6 @@ from typing import Self, TypedDict, cast, override
 
 import numpy as np
 import numpy.typing as npt
-import scipy.special
-import scipy.stats
 
 from eleanor.exceptions import EleanorException
 from eleanor.util import convert_to_number
@@ -194,7 +192,9 @@ class RangeParameter(Parameter):
 
     @override
     def random(self, size: int = 1) -> list[ValueParameter]:
-        values = _as_float_array(cast(object, scipy.stats.uniform.rvs(loc=self.min, scale=self.volume(), size=size)))
+        from scipy.stats import uniform
+
+        values = _as_float_array(cast(object, uniform.rvs(loc=self.min, scale=self.volume(), size=size)))
         return [ValueParameter(cast(np.float64, values[i])) for i in range(values.size)]
 
     @override
@@ -242,7 +242,9 @@ class ListParameter(Parameter):
 
     @override
     def random(self, size: int = 1) -> list[ValueParameter]:
-        indices = _as_int_array(cast(object, scipy.stats.randint.rvs(0, len(self.values), size=size)))
+        from scipy.stats import randint
+
+        indices = _as_int_array(cast(object, randint.rvs(0, len(self.values), size=size)))
         return [ValueParameter(self.values[int(indices.item(i))]) for i in range(indices.size)]
 
     @override
@@ -294,30 +296,36 @@ class NormalParameter(Parameter):
 
     @override
     def random(self, size: int = 1) -> list[ValueParameter]:
+        from scipy.stats import norm, truncnorm
+
         if np.isinf(self.min) and np.isinf(self.max):
-            draws = cast(object, scipy.stats.norm.rvs(loc=self.mean, scale=self.stddev, size=size))
+            draws = cast(object, norm.rvs(loc=self.mean, scale=self.stddev, size=size))
         else:
             a = (self.min - self.mean) / self.stddev
             b = (self.max - self.mean) / self.stddev
-            draws = cast(object, scipy.stats.truncnorm.rvs(a, b, loc=self.mean, scale=self.stddev, size=size))
+            draws = cast(object, truncnorm.rvs(a, b, loc=self.mean, scale=self.stddev, size=size))
 
         samples = _as_float_array(draws)
         return [ValueParameter(cast(np.float64, samples[i])) for i in range(samples.size)]
 
     @override
     def lattice(self, size: int = 2) -> list[ValueParameter]:
+        from scipy.special import erfinv
+
         u = _as_float_array(np.linspace(0, 1, num=size + 2)[1:-1])
 
         if not np.isinf(self.min) or not np.isinf(self.max):
+            from scipy.stats import norm
+
             a = (self.min - self.mean) / self.stddev
             b = (self.max - self.mean) / self.stddev
 
-            phi_alpha = _as_float(cast(object, scipy.stats.norm.cdf(a)))
-            Z = _as_float(cast(object, scipy.stats.norm.cdf(b))) - phi_alpha
+            phi_alpha = _as_float(cast(object, norm.cdf(a)))
+            Z = _as_float(cast(object, norm.cdf(b))) - phi_alpha
 
             u = Z * u + phi_alpha
 
-        values = _as_float_array(cast(object, self.stddev * np.sqrt(2) * scipy.special.erfinv(2 * u - 1) + self.mean))
+        values = _as_float_array(cast(object, self.stddev * np.sqrt(2) * erfinv(2 * u - 1) + self.mean))
         return [ValueParameter(cast(np.float64, values[i])) for i in range(values.size)]
 
 

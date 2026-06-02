@@ -1,12 +1,10 @@
 from collections.abc import Generator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from typing import LiteralString
+from typing import LiteralString, cast
 
 import psycopg
 from psycopg import sql
-
-from eleanor.typing import cast
 
 
 @dataclass(frozen=True, slots=True)

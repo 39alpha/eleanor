@@ -1,12 +1,11 @@
 from collections.abc import Iterator
 from itertools import batched
-from typing import TYPE_CHECKING, Protocol, override
+from typing import TYPE_CHECKING, Protocol, cast, override
 
 import eleanor.variable_space as vs
 from eleanor.constraints.boatswain import Boatswain
 from eleanor.exceptions import EleanorException
 from eleanor.navigator.interface import AbstractNavigator
-from eleanor.typing import cast
 
 if TYPE_CHECKING:
     from eleanor.kernel import AbstractKernel

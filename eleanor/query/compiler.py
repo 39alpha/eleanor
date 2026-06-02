@@ -2,19 +2,19 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from functools import lru_cache
 
-from .coercion import MissingPolicy, parse_missing_policy
-from .columns import ColumnSpec, assign_column_names, desugar_columns, validate_column_paths
-from .errors import ParseError
-from .path import IterFilter, MatchFilter, Path, Segment, path_to_string
-from .presets import BUILTIN_PRESETS, PresetFn
-from .reflection import (
+from eleanor.query.coercion import MissingPolicy, parse_missing_policy
+from eleanor.query.columns import ColumnSpec, assign_column_names, desugar_columns, validate_column_paths
+from eleanor.query.errors import ParseError
+from eleanor.query.path import IterFilter, MatchFilter, Path, Segment, path_to_string
+from eleanor.query.presets import BUILTIN_PRESETS, PresetFn
+from eleanor.query.reflection import (
     DataclassField,
     FieldKind,
     apply_iter_filter,
     resolve_match_filter,
     resolve_segment_kind,
 )
-from .scope import AmbientScopeTable, resolve_row_scope, validate_short_forms_for_root
+from eleanor.query.scope import AmbientScopeTable, resolve_row_scope, validate_short_forms_for_root
 
 CURRENT_VERSION = 1
 

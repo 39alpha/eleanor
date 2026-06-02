@@ -1,10 +1,11 @@
 from dataclasses import dataclass
-from typing import override
+from typing import cast, override
 
 import numpy as np
 
 from eleanor.constraints.interface import AbstractConstraint
 from eleanor.exceptions import EleanorException
+from eleanor.kernel.eq36.data1 import Data1
 from eleanor.parameters import (
     ListParameter,
     NormalParameter,
@@ -14,9 +15,6 @@ from eleanor.parameters import (
     Valuation,
     ValueParameter,
 )
-from eleanor.typing import cast
-
-from .data1 import Data1
 
 
 @dataclass

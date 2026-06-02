@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from copy import deepcopy
 from dataclasses import dataclass
 from itertools import cycle, islice
-from typing import TypedDict, override
+from typing import Self, TypedDict, cast, override
 
 import numpy as np
 import numpy.typing as npt
@@ -10,10 +10,7 @@ import scipy.special
 import scipy.stats
 
 from eleanor.exceptions import EleanorException
-from eleanor.typing import Self, cast
 from eleanor.util import convert_to_number
-
-type RawParameter = dict[str, object]
 
 type ParameterScalar = int | float | np.float64 | str | bool
 

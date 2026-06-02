@@ -16,11 +16,10 @@ from types import MappingProxyType
 from typing import cast
 
 from eleanor.equilibrium_space import AqueousSpecies
-
-from .errors import ParseError, PresetScopeMissing, SplatUnknownField
-from .path import quote_predicate_value
-from .reflection import DataclassField, leaf_fields
-from .scope import AmbientScopeTable
+from eleanor.query.errors import ParseError, PresetScopeMissing, SplatUnknownField
+from eleanor.query.path import quote_predicate_value
+from eleanor.query.reflection import DataclassField, leaf_fields
+from eleanor.query.scope import AmbientScopeTable
 
 # Preset functions take the ambient scope table and the directive's argument
 # mapping; they return a sequence of column entries that ``desugar_columns``

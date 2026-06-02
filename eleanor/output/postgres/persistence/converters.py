@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum, IntEnum, StrEnum
+from typing import cast
 
 import numpy as np
 from psycopg.types.json import Jsonb
@@ -10,7 +11,6 @@ import eleanor.order as core_order
 import eleanor.variable_space as core_vs
 from eleanor.config.kernel import Config as KernelConfig
 from eleanor.exceptions import EleanorException
-from eleanor.typing import cast
 
 
 def _or_neg_inf(value: np.float64 | None) -> np.float64:

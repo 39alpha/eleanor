@@ -3,8 +3,8 @@ from collections.abc import Iterator, Mapping
 from dataclasses import dataclass
 from typing import cast
 
-from .coercion import MissingPolicy
-from .compiler import (
+from eleanor.query.coercion import MissingPolicy
+from eleanor.query.compiler import (
     CompiledColumn,
     CompiledIterFilter,
     CompiledMatchFilter,
@@ -12,8 +12,8 @@ from .compiler import (
     CompiledPredicate,
     CompiledQuery,
 )
-from .errors import MultipleMatchError, PathMissError
-from .path import Path, path_to_string
+from eleanor.query.errors import MultipleMatchError, PathMissError
+from eleanor.query.path import Path, path_to_string
 
 _MISS = object()
 _MISSING_ATTR = object()

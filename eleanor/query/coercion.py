@@ -3,7 +3,7 @@ from typing import Literal
 
 import numpy as np
 
-from .errors import InvalidFilterValue, ParseError
+from eleanor.query.errors import InvalidFilterValue, ParseError
 
 type MissingPolicy = Literal["blank", "null", "error"]
 

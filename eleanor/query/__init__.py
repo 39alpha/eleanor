@@ -1,7 +1,7 @@
-from .coercion import MissingPolicy
-from .columns import ColumnSpec
-from .compiler import CompiledQuery, compile_query
-from .errors import (
+from eleanor.query.coercion import MissingPolicy
+from eleanor.query.columns import ColumnSpec
+from eleanor.query.compiler import CompiledQuery, compile_query
+from eleanor.query.errors import (
     AliasCollision,
     AmbiguousRowScope,
     ColumnNameCollision,
@@ -19,8 +19,8 @@ from .errors import (
     UnknownRowScope,
     UnknownScope,
 )
-from .evaluator import evaluate
-from .presets import BUILTIN_PRESETS, PresetFn
+from eleanor.query.evaluator import evaluate
+from eleanor.query.presets import BUILTIN_PRESETS, PresetFn
 
 __all__ = [
     "AliasCollision",

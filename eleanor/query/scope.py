@@ -1,10 +1,17 @@
 from collections import deque
 from dataclasses import dataclass
 
-from .aliases import SHORT_FORM_INVERSE, aliases_for, singularize
-from .errors import AliasCollision, AmbiguousRowScope, InvalidRowScope, ParseError, PresetScopeMissing, UnknownRowScope
-from .path import IterFilter, Path, Segment, parse_row_scope, path_to_string
-from .reflection import (
+from eleanor.query.aliases import SHORT_FORM_INVERSE, aliases_for, singularize
+from eleanor.query.errors import (
+    AliasCollision,
+    AmbiguousRowScope,
+    InvalidRowScope,
+    ParseError,
+    PresetScopeMissing,
+    UnknownRowScope,
+)
+from eleanor.query.path import IterFilter, Path, Segment, parse_row_scope, path_to_string
+from eleanor.query.reflection import (
     DataclassField,
     DictField,
     FieldKind,

@@ -8,9 +8,9 @@ from functools import reduce
 from typing import Protocol, TypeVar, cast
 
 import numpy as np
+from numpy.typing import NDArray
 
-from .exceptions import EleanorException
-from .typing import NDArray
+from eleanor.exceptions import EleanorException
 
 MapInputT = TypeVar("MapInputT")
 ReduceT = TypeVar("ReduceT")

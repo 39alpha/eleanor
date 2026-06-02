@@ -28,11 +28,9 @@ from dataclasses import dataclass
 from multiprocessing import Process
 from multiprocessing.managers import SyncManager
 from queue import Queue
-from typing import Literal, NoReturn, Protocol, runtime_checkable
+from typing import Literal, NoReturn, Protocol, cast, runtime_checkable
 
 from tqdm import tqdm
-
-from .typing import cast
 
 Channel = Literal["sim", "out"]
 MessageKind = Literal["total", "extend", "tick", "done"]

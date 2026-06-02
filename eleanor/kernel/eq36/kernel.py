@@ -3,7 +3,7 @@ import os.path
 import sys
 from datetime import datetime
 from shutil import copyfile
-from typing import override
+from typing import Unpack, cast, override
 
 import numpy as np
 
@@ -21,7 +21,7 @@ from eleanor.kernel.eq36.util import read_pickup_lines
 from eleanor.kernel.exceptions import EleanorKernelException
 from eleanor.kernel.interface import AbstractKernel
 from eleanor.order import Order
-from eleanor.typing import EleanorKwargs, Unpack, cast
+from eleanor.typing import EleanorKwargs
 from eleanor.util import NumberFormat, guard_is_str
 
 

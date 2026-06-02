@@ -1,14 +1,13 @@
 from abc import ABC, abstractmethod
-from collections.abc import Iterator
+from collections.abc import Callable, Generator, Iterator
 from itertools import batched
-from typing import TYPE_CHECKING, override
+from typing import TYPE_CHECKING, cast, override
 
 import eleanor.variable_space as vs
 from eleanor.constraints.boatswain import Boatswain
 from eleanor.exceptions import EleanorException
 from eleanor.navigator.interface import AbstractNavigator
 from eleanor.parameters import Parameter, ValueParameter
-from eleanor.typing import Callable, Generator, cast
 
 if TYPE_CHECKING:
     from eleanor.kernel import AbstractKernel

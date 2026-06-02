@@ -3,14 +3,13 @@ from abc import ABC, abstractmethod
 from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import Self, TypedDict, override
+from typing import Self, TypedDict, cast, override
 
 import numpy as np
 
-from .exceptions import EleanorException
-from .parameters import Parameter, ParameterOrSource, ParameterSource, ValueParameter, load_parameter
-from .typing import cast
-from .util import mapreduce, require, require_dict, require_float, require_str
+from eleanor.exceptions import EleanorException
+from eleanor.parameters import Parameter, ParameterOrSource, ParameterSource, ValueParameter, load_parameter
+from eleanor.util import mapreduce, require, require_dict, require_float, require_str
 
 
 class CombinedComponentRaw(TypedDict, total=False):

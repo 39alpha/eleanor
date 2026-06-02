@@ -2,13 +2,15 @@ from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from typing import Unpack
+
     import numpy as np
 
     import eleanor.equilibrium_space as es
     import eleanor.variable_space as vs
     from eleanor.constraints.boatswain import Boatswain
     from eleanor.order import Order
-    from eleanor.typing import EleanorKwargs, Unpack
+    from eleanor.typing import EleanorKwargs
 
 
 class AbstractKernel(ABC):

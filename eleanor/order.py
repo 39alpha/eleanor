@@ -5,7 +5,7 @@ import tomllib
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Self, TypedDict, final
+from typing import Self, TypedDict, cast, final
 
 import numpy as np
 import yaml
@@ -16,7 +16,6 @@ from eleanor.constraints.config import Config as ConstraintConfig
 from eleanor.exceptions import EleanorException
 from eleanor.parameters import Parameter, ParameterOrSource, ParameterSource, load_parameter
 from eleanor.reactants import AbstractReactant, CombinedReactant, ReactantRaw
-from eleanor.typing import RawMap, cast
 from eleanor.util import is_list_of, mapreduce, require, require_opt_int, require_opt_str, require_str
 from eleanor.variable_space import Point as VSPoint
 from eleanor.version import __version__
@@ -54,7 +53,7 @@ class RawOrder(TypedDict, total=False):
     species: dict[str, ParameterSource]
     suppressions: list[str | SuppressionRaw]
     reactants: dict[str, ReactantRaw]
-    constraints: list[RawMap]
+    constraints: list[dict[str, object]]
 
 
 @dataclass(init=False)

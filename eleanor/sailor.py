@@ -6,6 +6,7 @@ from datetime import datetime
 from os.path import join
 from tempfile import TemporaryDirectory
 from traceback import print_exception
+from typing import Unpack
 
 import eleanor.equilibrium_space as es
 import eleanor.variable_space as vs
@@ -13,7 +14,7 @@ from eleanor.exceptions import EleanorException
 from eleanor.kernel.interface import AbstractKernel
 from eleanor.output.interface import AbstractOutputSink, ComputeResult, ErrorInfo, WriteOutcome
 from eleanor.progress import ProgressHandle
-from eleanor.typing import EleanorKwargs, Unpack
+from eleanor.typing import EleanorKwargs
 from eleanor.util import WorkingDirectory
 
 

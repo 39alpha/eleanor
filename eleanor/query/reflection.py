@@ -4,10 +4,19 @@ import types
 from dataclasses import dataclass
 from typing import TypeGuard, cast, get_args, get_origin, get_type_hints
 
-from .aliases import singularize
-from .coercion import coerce_filter_value
-from .errors import InvalidFilter, InvalidPath
-from .path import IterFilter, MatchFilter, Path, Predicate, Segment, match_filter_text, path_to_string, predicate_text
+from eleanor.query.aliases import singularize
+from eleanor.query.coercion import coerce_filter_value
+from eleanor.query.errors import InvalidFilter, InvalidPath
+from eleanor.query.path import (
+    IterFilter,
+    MatchFilter,
+    Path,
+    Predicate,
+    Segment,
+    match_filter_text,
+    path_to_string,
+    predicate_text,
+)
 
 
 @dataclass(frozen=True, slots=True)

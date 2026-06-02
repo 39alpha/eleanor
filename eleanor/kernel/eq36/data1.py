@@ -1,11 +1,11 @@
 # pyright: reportConstantRedefinition=false
 from dataclasses import dataclass
+from typing import TypedDict, cast
 
 import numpy as np
 
-from eleanor.typing import Array1D, TypedDict, cast
-
-from .libeq36 import read_data1
+from eleanor.kernel.eq36.libeq36 import read_data1
+from eleanor.typing import Array1D
 
 type FloatRange = tuple[np.float64, np.float64]
 type CartesianCoord = tuple[np.float64, np.float64]

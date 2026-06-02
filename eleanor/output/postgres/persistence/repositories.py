@@ -1,6 +1,7 @@
 from collections.abc import Generator
 from contextlib import contextmanager
 from datetime import datetime
+from typing import cast
 
 import psycopg
 from psycopg import sql
@@ -12,7 +13,6 @@ from eleanor.order import Order
 from eleanor.output.postgres.persistence import connection, converters, queries, schema
 from eleanor.output.postgres.persistence.converters import OrderRecord, ScratchEntry
 from eleanor.output.postgres.settings import DatabaseSettings
-from eleanor.typing import cast
 
 
 def setup_schema(config: DatabaseSettings) -> None:

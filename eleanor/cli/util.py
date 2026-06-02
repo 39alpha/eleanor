@@ -12,6 +12,7 @@ import functools
 import os.path
 from collections.abc import Callable
 from dataclasses import replace
+from typing import cast
 
 import click
 from xdg_base_dirs import xdg_config_home
@@ -19,7 +20,6 @@ from xdg_base_dirs import xdg_config_home
 from eleanor.config import Config, load_config
 from eleanor.exceptions import EleanorConfigurationException
 from eleanor.output.postgres.settings import Settings
-from eleanor.typing import cast
 
 
 def _default_config_path() -> str | None:

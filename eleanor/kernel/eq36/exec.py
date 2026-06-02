@@ -7,8 +7,8 @@ Provide a simple API for running EQ3/6.
 import re
 from subprocess import PIPE, Popen, TimeoutExpired
 
-from .codes import RunCode
-from .exceptions import Eq36Exception
+from eleanor.kernel.eq36.codes import RunCode
+from eleanor.kernel.eq36.exceptions import Eq36Exception
 
 
 def error_guard(output: bytes | str, cmd: str, code: int, fname: str | None = None) -> None:

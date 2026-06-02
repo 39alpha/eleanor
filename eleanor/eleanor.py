@@ -3,7 +3,7 @@ from dataclasses import replace
 from multiprocessing import Manager
 from multiprocessing.managers import SyncManager
 from types import TracebackType
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Self, Unpack, cast
 
 from eleanor.config import Config
 from eleanor.exceptions import EleanorConfigurationException, EleanorException, EleanorShutdown
@@ -18,7 +18,7 @@ from eleanor.output.interface import AbstractOutputSink, ComputeResult, RunStats
 from eleanor.progress import ManagedProgressHandle, Progress, ProgressHandle
 from eleanor.sailor import Sailor
 from eleanor.signals import shutdown_on_signal
-from eleanor.typing import EleanorKwargs, Self, Unpack, cast
+from eleanor.typing import EleanorKwargs
 from eleanor.util import chunks
 
 if TYPE_CHECKING:

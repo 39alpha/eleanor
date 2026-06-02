@@ -14,7 +14,7 @@ Value     ::= Unquoted | QuotedString
 from dataclasses import dataclass
 from typing import NewType
 
-from .errors import ParseError
+from eleanor.query.errors import ParseError
 
 Identifier = NewType("Identifier", str)
 

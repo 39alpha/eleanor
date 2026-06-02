@@ -5,7 +5,7 @@ import sys
 import traceback
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from typing import Self, override
+from typing import Self, cast, override
 
 import yaml
 
@@ -17,7 +17,6 @@ from eleanor.output.settings import Settings as OutputSettings
 from eleanor.progress import ProgressHandle
 from eleanor.query import CompiledQuery, compile_query, evaluate
 from eleanor.query.reflection import DataclassField, LeafField
-from eleanor.typing import cast
 from eleanor.util import guard_is_dict, guard_is_str, require_dict, require_str
 
 

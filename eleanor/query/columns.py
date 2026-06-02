@@ -4,8 +4,8 @@ from dataclasses import dataclass, replace
 from types import MappingProxyType
 from typing import cast
 
-from .coercion import MissingPolicy, parse_missing_policy
-from .errors import (
+from eleanor.query.coercion import MissingPolicy, parse_missing_policy
+from eleanor.query.errors import (
     ColumnNameCollision,
     InvalidFilter,
     InvalidFilterValue,
@@ -16,10 +16,10 @@ from .errors import (
     UnknownPreset,
     UnknownScope,
 )
-from .path import IterFilter, Path, Segment, parse_path, path_to_string
-from .presets import PresetFn
-from .reflection import DataclassField, DictField, LeafField, leaf_fields, owner_type, walk_path
-from .scope import AmbientScopeTable
+from eleanor.query.path import IterFilter, Path, Segment, parse_path, path_to_string
+from eleanor.query.presets import PresetFn
+from eleanor.query.reflection import DataclassField, DictField, LeafField, leaf_fields, owner_type, walk_path
+from eleanor.query.scope import AmbientScopeTable
 
 # Closed canonical set of meta-accessor names (spec §7.1). Update only
 # alongside the spec.

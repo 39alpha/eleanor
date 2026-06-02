@@ -18,17 +18,18 @@ build an eq36 kernel).
 
 from typing import TYPE_CHECKING
 
-from .settings import Settings
-
-__all__ = ["Kernel", "Settings"]
+from eleanor.kernel.eq36.settings import Settings
 
 if TYPE_CHECKING:
-    from .kernel import Kernel as Kernel
+    from eleanor.kernel.eq36.kernel import Kernel as Kernel
 
 
 def __getattr__(name: str) -> object:
     if name == "Kernel":
-        from .kernel import Kernel  # noqa: PLC0415
+        from eleanor.kernel.eq36.kernel import Kernel
 
         return Kernel
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
+__all__ = ["Kernel", "Settings"]

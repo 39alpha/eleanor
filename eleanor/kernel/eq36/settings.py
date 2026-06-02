@@ -1,13 +1,13 @@
 from copy import copy
 from dataclasses import dataclass, field
 from enum import IntEnum
+from typing import Self, TypeVar, cast
 
 import numpy as np
 
 from eleanor.exceptions import EleanorException
 from eleanor.kernel.exceptions import EleanorKernelException
 from eleanor.kernel.settings import Settings as KernelSettings
-from eleanor.typing import Self, TypeVar, cast
 
 SettingT = TypeVar("SettingT", bound=IntEnum)
 

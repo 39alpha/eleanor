@@ -1,39 +1,11 @@
-from collections.abc import Callable, Generator
-from types import ModuleType
-from typing import (
-    Any,
-    ClassVar,
-    Self,
-    TypeAlias,
-    TypedDict,
-    TypeVar,
-    Unpack,
-    cast,
-    override,
-)
+from typing import TypedDict
 
 import numpy as np
-from numpy.typing import NDArray
 
 __all__ = [
-    "Any",
     "Array1D",
     "Array2D",
-    "Callable",
-    "ClassVar",
     "EleanorKwargs",
-    "Generator",
-    "ModuleType",
-    "NDArray",
-    "RawMap",
-    "Self",
-    "Species",
-    "TypeAlias",
-    "TypeVar",
-    "TypedDict",
-    "Unpack",
-    "cast",
-    "override",
 ]
 
 
@@ -56,7 +28,3 @@ class EleanorKwargs(TypedDict, total=False):
 
 type Array1D[ScalarT: np.generic] = np.ndarray[tuple[int], np.dtype[ScalarT]]
 type Array2D[ScalarT: np.generic] = np.ndarray[tuple[int, int], np.dtype[ScalarT]]
-
-type Species = tuple[list[str], list[str], list[str], list[str], list[str], list[str]]
-
-type RawMap = dict[str, object]

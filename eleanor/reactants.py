@@ -349,7 +349,7 @@ _ = TitratedReactant.register(SolidSolutionReactant)
 class CombinedReactantComponent:
     """One component of a CombinedReactant.
 
-    ``fraction`` and ``relative_rate`` drive decomposition math in the Boatswain:
+    ``fraction`` and ``relative_rate`` drive decomposition math in the PointBuilder:
     ``component_log_moles = log10(fraction) + parent_log_moles``.
     When ``relative_rate`` is a ``Parameter``, the component's absolute titration
     rate is ``parent_titration_rate * relative_rate``. When ``relative_rate`` is

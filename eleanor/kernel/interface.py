@@ -8,7 +8,7 @@ if TYPE_CHECKING:
 
     import eleanor.equilibrium_space as es
     import eleanor.variable_space as vs
-    from eleanor.constraints.boatswain import Boatswain
+    from eleanor.constraints.point_builder import PointBuilder
     from eleanor.order import Order
     from eleanor.typing import EleanorKwargs
 
@@ -32,8 +32,8 @@ class AbstractKernel(ABC):
     def is_soft_exit(self, code: int) -> bool:
         return code in [0]
 
-    def constrain(self, boatswain: Boatswain) -> Boatswain:
-        return boatswain
+    def constrain(self, point_builder: PointBuilder) -> PointBuilder:
+        return point_builder
 
     def copy_data(self, vs_point: vs.Point, *args: object, dir: str = ".", **kwargs: Unpack[EleanorKwargs]) -> None:
         _ = vs_point

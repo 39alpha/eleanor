@@ -10,7 +10,7 @@ import numpy as np
 import eleanor.equilibrium_space as es
 import eleanor.util as tool_room
 import eleanor.variable_space as vs
-from eleanor.constraints.boatswain import Boatswain
+from eleanor.constraints.point_builder import PointBuilder
 from eleanor.exceptions import EleanorException
 from eleanor.kernel.eq36.constraints import TemperatureRangeConstraint, TPCurveConstraint
 from eleanor.kernel.eq36.data1 import Data1
@@ -158,26 +158,26 @@ class Eq36Kernel(AbstractKernel):
         return vs_point.kernel.settings
 
     @override
-    def constrain(self, boatswain: Boatswain) -> Boatswain:
+    def constrain(self, point_builder: PointBuilder) -> PointBuilder:
         if not self._setup:
             raise EleanorKernelException("kernel is not setup; cannot constraint orders")
 
-        boatswain.constraints.append(
+        point_builder.constraints.append(
             TemperatureRangeConstraint(
-                boatswain.order.temperature,
+                point_builder.order.temperature,
                 self._data1s,
             )
         )
 
-        boatswain.constraints.append(
+        point_builder.constraints.append(
             TPCurveConstraint(
-                boatswain.order.temperature,
-                boatswain.order.pressure,
+                point_builder.order.temperature,
+                point_builder.order.pressure,
                 self._data1s,
             )
         )
 
-        return boatswain
+        return point_builder
 
     def find_data1(self, vs_point: vs.Point, verbose: bool = False) -> Data1:
         T: np.float64 = vs_point.temperature

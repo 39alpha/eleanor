@@ -3,7 +3,7 @@ from itertools import batched
 from typing import TYPE_CHECKING, Protocol, cast, override
 
 import eleanor.variable_space as vs
-from eleanor.constraints.boatswain import Boatswain
+from eleanor.constraints.point_builder import PointBuilder
 from eleanor.exceptions import EleanorException
 from eleanor.navigator.interface import AbstractNavigator
 
@@ -61,16 +61,16 @@ class RandomNavigator(AbstractNavigator):
         last_exception: Exception | None = None
         while max_attempts > 0:
             try:
-                boatswain = Boatswain(order)
-                _ = kernel.constrain(boatswain)
+                point_builder = PointBuilder(order)
+                _ = kernel.constrain(point_builder)
 
-                parameters = boatswain.constrain()
+                parameters = point_builder.constrain()
                 while parameters:
                     for parameter in parameters:
-                        boatswain[parameter] = boatswain[parameter].random()[0]
-                    parameters = boatswain.constrain()
+                        point_builder[parameter] = point_builder[parameter].random()[0]
+                    parameters = point_builder.constrain()
 
-                return boatswain.generate_vs(order_id if order_id is not None else order.id)
+                return point_builder.generate_vs(order_id if order_id is not None else order.id)
             except Exception as e:
                 last_exception = e
                 max_attempts -= 1

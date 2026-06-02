@@ -20,7 +20,7 @@ from eleanor.reactants import (
 )
 
 
-class Boatswain(object):
+class PointBuilder(object):
     order: Order
     registry: ParameterRegistry
     parameters: list[Parameter]

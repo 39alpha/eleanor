@@ -1,10 +1,10 @@
 from typing import cast, final, override
-from unittest import mock
+from unittest import TestCase, mock
 
 import numpy as np
 
-from eleanor.constraints.boatswain import Boatswain
-from eleanor.constraints.config import Config as ConstraintConfig
+from eleanor.config.kernel import KernelConfig
+from eleanor.constraints.config import ConstraintConfig
 from eleanor.constraints.interface import (
     AbstractConstraint,
     LinearConstraint,
@@ -12,9 +12,9 @@ from eleanor.constraints.interface import (
     Transform,
     resolve_parameter,
 )
+from eleanor.constraints.point_builder import PointBuilder
 from eleanor.exceptions import EleanorException
-from eleanor.kernel.config import Config as KernelConfig
-from eleanor.kernel.config import Settings
+from eleanor.kernel.settings import KernelSettings
 from eleanor.order import Order, Suppression
 from eleanor.parameters import Parameter, ParameterRegistry, RangeParameter, Valuation, ValueParameter
 from eleanor.reactants import (
@@ -30,8 +30,6 @@ from eleanor.reactants import (
     SolidSolutionReactant,
     SpecialReactant,
 )
-
-from .common import TestCase
 
 
 @final
@@ -64,7 +62,7 @@ class EchoConstraint(AbstractConstraint):
 @final
 class DummyOrder:
     """
-    Minimal order-like object used to exercise Boatswain logic.
+    Minimal order-like object used to exercise PointBuilder logic.
     """
 
     def __init__(
@@ -88,7 +86,7 @@ class DummyOrder:
         self.species = species
         self.suppressions = suppressions
         self.reactants = reactants
-        self.kernel = KernelConfig(type="eq36", settings=Settings(timeout=1))
+        self.kernel = KernelConfig(kind="eq36", settings=KernelSettings(timeout=1))
 
     def parameters(self):
         return self._parameters
@@ -145,7 +143,7 @@ class TestConstraints(TestCase):
         Ensure placeholder :meth:`AbstractConstraint.from_order` is executable.
         """
         dummy_order = cast(Order, object())
-        dummy_constraint_config = ConstraintConfig(type="unknown", args={})
+        dummy_constraint_config = ConstraintConfig(kind="unknown", args={})
         self.assertIsNone(AbstractConstraint.from_order(dummy_order, dummy_constraint_config))
 
     def test_abstract_constraint_placeholder_methods_are_executable(self):
@@ -384,7 +382,7 @@ class TestConstraints(TestCase):
             "constant": 5.0,
             "tolerance": 1e-8,
         }
-        config = ConstraintConfig(type="linear", args=raw)
+        config = ConstraintConfig(kind="linear", args=raw)
         result = AbstractConstraint.from_order(_as_order(order), config)
         self.assertIsNotNone(result)
         self.assertIsInstance(result, LinearConstraint)
@@ -397,7 +395,7 @@ class TestConstraints(TestCase):
         Verify from_order raises when the raw dict has no 'terms' key.
         """
         order = self._make_simple_order()
-        config = ConstraintConfig(type="linear", args={"type": "linear"})
+        config = ConstraintConfig(kind="linear", args={"type": "linear"})
         with self.assertRaises(EleanorException):
             _ = LinearConstraint.from_order(_as_order(order), config)
 
@@ -407,7 +405,7 @@ class TestConstraints(TestCase):
         """
         order = self._make_simple_order()
         raw: dict[str, object] = {"type": "linear", "terms": ["not_a_dict"]}
-        config = ConstraintConfig(type="linear", args=raw)
+        config = ConstraintConfig(kind="linear", args=raw)
         with self.assertRaises(EleanorException):
             _ = LinearConstraint.from_order(_as_order(order), config)
 
@@ -417,7 +415,7 @@ class TestConstraints(TestCase):
         """
         order = self._make_simple_order()
         raw: dict[str, object] = {"type": "linear", "terms": [{"coefficient": 1.0}]}
-        config = ConstraintConfig(type="linear", args=raw)
+        config = ConstraintConfig(kind="linear", args=raw)
         with self.assertRaises(EleanorException):
             _ = LinearConstraint.from_order(_as_order(order), config)
 
@@ -431,14 +429,14 @@ class TestConstraints(TestCase):
             "terms": [{"variable": "temperature", "coefficient": True}],
         }
         with self.assertRaises(EleanorException):
-            _ = LinearConstraint.from_order(_as_order(order), ConstraintConfig(type="linear", args=raw_bool))
+            _ = LinearConstraint.from_order(_as_order(order), ConstraintConfig(kind="linear", args=raw_bool))
 
         raw_list: dict[str, object] = {
             "type": "linear",
             "terms": [{"variable": "temperature", "coefficient": [1, 2]}],
         }
         with self.assertRaises(EleanorException):
-            _ = LinearConstraint.from_order(_as_order(order), ConstraintConfig(type="linear", args=raw_list))
+            _ = LinearConstraint.from_order(_as_order(order), ConstraintConfig(kind="linear", args=raw_list))
 
     def test_from_order_invalid_transform_raises(self):
         """
@@ -449,7 +447,7 @@ class TestConstraints(TestCase):
             "type": "linear",
             "terms": [{"variable": "temperature", "transform": "ln"}],
         }
-        config = ConstraintConfig(type="linear", args=raw)
+        config = ConstraintConfig(kind="linear", args=raw)
         with self.assertRaises(EleanorException):
             _ = LinearConstraint.from_order(_as_order(order), config)
 
@@ -463,7 +461,7 @@ class TestConstraints(TestCase):
             "terms": [{"variable": "temperature"}],
             "tolerance": True,
         }
-        config = ConstraintConfig(type="linear", args=raw)
+        config = ConstraintConfig(kind="linear", args=raw)
         with self.assertRaises(EleanorException):
             _ = LinearConstraint.from_order(_as_order(order), config)
 
@@ -593,9 +591,9 @@ class TestConstraints(TestCase):
         valuation = registry.valuation()
         self.assertFalse(lc.is_resolvable(registry, valuation))
 
-    def test_boatswain_with_linear_constraint_end_to_end(self):
+    def test_point_builder_with_linear_constraint_end_to_end(self):
         """
-        End-to-end Boatswain flow resolves a linear constraint during constrain.
+        End-to-end PointBuilder flow resolves a linear constraint during constrain.
         """
         p_x = RangeParameter(np.float64(0.0), np.float64(20.0))
         p_y = ValueParameter(np.float64(3.0))
@@ -614,16 +612,16 @@ class TestConstraints(TestCase):
             suppressions=[],
             reactants=[],
         )
-        boatswain = Boatswain(_as_order(order), linear_constraint)
-        _ = boatswain.constrain()
-        resolved = boatswain[p_x]
+        point_builder = PointBuilder(_as_order(order), linear_constraint)
+        _ = point_builder.constrain()
+        resolved = point_builder[p_x]
         self.assertIsInstance(resolved, ValueParameter)
         if isinstance(resolved, ValueParameter):
             self.assertAlmostEqual(float(resolved.value), 7.0)
 
-    def test_boatswain_get_set_hardset_and_domain_errors(self):
+    def test_point_builder_get_set_hardset_and_domain_errors(self):
         """
-        Ensure Boatswain item access and refinement checks enforce registry/domain constraints.
+        Ensure PointBuilder item access and refinement checks enforce registry/domain constraints.
         """
         temp = RangeParameter(np.float64(10.0), np.float64(20.0))
         pressure = ValueParameter(np.float64(1.0))
@@ -636,31 +634,31 @@ class TestConstraints(TestCase):
             suppressions=[],
             reactants=[],
         )
-        boatswain = Boatswain(_as_order(order))
+        point_builder = PointBuilder(_as_order(order))
 
-        start = boatswain[temp]
+        start = point_builder[temp]
         self.assertIsInstance(start, RangeParameter)
         if not isinstance(start, RangeParameter):
             raise AssertionError("expected RangeParameter")
         self.assertEqual(start.min, 10.0)
-        boatswain[temp] = temp.fix(np.float64(12.0))
-        updated = boatswain[temp]
+        point_builder[temp] = temp.fix(np.float64(12.0))
+        updated = point_builder[temp]
         self.assertIsInstance(updated, ValueParameter)
         if not isinstance(updated, ValueParameter):
             raise AssertionError("expected ValueParameter")
         self.assertEqual(updated.value, 12.0)
 
         with self.assertRaises(Exception):
-            boatswain[ValueParameter(np.float64(1.0))] = ValueParameter(np.float64(1.0))
+            point_builder[ValueParameter(np.float64(1.0))] = ValueParameter(np.float64(1.0))
 
         with self.assertRaises(Exception):
-            boatswain[temp] = temp.fix(np.float64(50.0))
+            point_builder[temp] = temp.fix(np.float64(50.0))
 
-        boatswain.hardset(temp, temp.fix(np.float64(11.0)))
+        point_builder.hardset(temp, temp.fix(np.float64(11.0)))
         with self.assertRaises(Exception):
-            boatswain[temp] = temp.fix(np.float64(12.0))
+            point_builder[temp] = temp.fix(np.float64(12.0))
 
-    def test_boatswain_setitem_parameter_id_not_in_valuations(self):
+    def test_point_builder_setitem_parameter_id_not_in_valuations(self):
         """
         Ensure setitem raises when registry returns an unknown parameter id.
         """
@@ -675,12 +673,12 @@ class TestConstraints(TestCase):
             suppressions=[],
             reactants=[],
         )
-        boatswain = Boatswain(_as_order(order))
-        with mock.patch.object(boatswain.registry, "id", return_value=999):
+        point_builder = PointBuilder(_as_order(order))
+        with mock.patch.object(point_builder.registry, "id", return_value=999):
             with self.assertRaises(Exception):
-                boatswain[temp] = temp.fix(np.float64(12.0))
+                point_builder[temp] = temp.fix(np.float64(12.0))
 
-    def test_boatswain_constrain_tracks_fully_and_under_constrained(self):
+    def test_point_builder_constrain_tracks_fully_and_under_constrained(self):
         """
         Ensure constrain resolves what it can and returns fully constrained non-value parameters.
         """
@@ -700,20 +698,20 @@ class TestConstraints(TestCase):
         c_resolvable = EchoConstraint(p_fixed, p_target, np.float64(3.0))
         c_unresolved = EchoConstraint(p_other, p_target, np.float64(2.0))
 
-        boatswain = Boatswain(_as_order(order), c_resolvable, c_unresolved)
-        fully = boatswain.constrain()
+        point_builder = PointBuilder(_as_order(order), c_resolvable, c_unresolved)
+        fully = point_builder.constrain()
 
         self.assertIn(p_other, fully)
-        self.assertEqual(len(boatswain.constraints), 1)
-        self.assertIs(boatswain.constraints[0], c_unresolved)
-        constrained = boatswain[p_target]
+        self.assertEqual(len(point_builder.constraints), 1)
+        self.assertIs(point_builder.constraints[0], c_unresolved)
+        constrained = point_builder[p_target]
         self.assertIsInstance(constrained, ValueParameter)
         if not isinstance(constrained, ValueParameter):
             raise AssertionError("expected ValueParameter")
         self.assertEqual(constrained.value, 3.0)
-        self.assertEqual(boatswain.parameters, [])
+        self.assertEqual(point_builder.parameters, [])
 
-    def test_boatswain_constrain_tracks_under_constrained_branch(self):
+    def test_point_builder_constrain_tracks_under_constrained_branch(self):
         """
         Ensure parameters constrained by unresolved constraints are tracked as under-constrained.
         """
@@ -731,11 +729,11 @@ class TestConstraints(TestCase):
             suppressions=[],
             reactants=[],
         )
-        boatswain = Boatswain(_as_order(order), unresolved)
-        fully = boatswain.constrain()
+        point_builder = PointBuilder(_as_order(order), unresolved)
+        fully = point_builder.constrain()
 
         self.assertIn(p_independent, fully)
-        self.assertIn(p_dependent, boatswain.parameters)
+        self.assertIn(p_dependent, point_builder.parameters)
 
     def test_generate_vs_success_with_all_reactant_branches(self):
         """
@@ -825,9 +823,9 @@ class TestConstraints(TestCase):
             suppressions=[Suppression(name=None, type="mineral", exceptions=["Quartz"])],
             reactants=reactants,
         )
-        boatswain = Boatswain(_as_order(order))
+        point_builder = PointBuilder(_as_order(order))
 
-        point = boatswain.generate_vs(order_id=42)
+        point = point_builder.generate_vs(order_id=42)
 
         self.assertEqual(point.order_id, 42)
         self.assertEqual(len(point.elements), 2)
@@ -859,8 +857,8 @@ class TestConstraints(TestCase):
             suppressions=[],
             reactants=[],
         )
-        boatswain = Boatswain(_as_order(order))
-        point = boatswain.generate_vs()
+        point_builder = PointBuilder(_as_order(order))
+        point = point_builder.generate_vs()
 
         self.assertEqual(point.water_mass, 0.5)
 
@@ -906,8 +904,8 @@ class TestConstraints(TestCase):
             suppressions=[],
             reactants=[combined],
         )
-        boatswain = Boatswain(_as_order(order))
-        point = boatswain.generate_vs()
+        point_builder = PointBuilder(_as_order(order))
+        point = point_builder.generate_vs()
         self.assertEqual(len(point.special_reactants), 2)
         by_name = {r.name: r for r in point.special_reactants}
         self.assertAlmostEqual(by_name["SiO2"].titration_rate, 6.0)
@@ -966,7 +964,7 @@ class TestConstraints(TestCase):
             suppressions=[],
             reactants=[combined],
         )
-        point = Boatswain(_as_order(order)).generate_vs()
+        point = PointBuilder(_as_order(order)).generate_vs()
         self.assertEqual(len(point.special_reactants), 3)
         by_name = {r.name: r for r in point.special_reactants}
         self.assertAlmostEqual(by_name["SiO2"].titration_rate, 1.5)
@@ -1011,7 +1009,7 @@ class TestConstraints(TestCase):
             suppressions=[],
             reactants=[combined],
         )
-        point = Boatswain(_as_order(order)).generate_vs()
+        point = PointBuilder(_as_order(order)).generate_vs()
         by_name = {r.name: r for r in point.special_reactants}
         expected_log_moles = cast(np.float64, np.log10(np.float64(0.5))) + (-np.float64(1.0))
         self.assertAlmostEqual(by_name["SiO2"].log_moles, expected_log_moles)
@@ -1066,7 +1064,7 @@ class TestConstraints(TestCase):
             suppressions=[],
             reactants=[combined],
         )
-        point = Boatswain(_as_order(order)).generate_vs()
+        point = PointBuilder(_as_order(order)).generate_vs()
 
         self.assertEqual(len(point.mineral_reactants), 1)
         self.assertEqual(len(point.special_reactants), 1)
@@ -1094,9 +1092,9 @@ class TestConstraints(TestCase):
             suppressions=[],
             reactants=[object()],  # pyright: ignore[reportArgumentType]
         )
-        boatswain_bad_reactant = Boatswain(_as_order(order_bad_reactant))
+        point_builder_bad_reactant = PointBuilder(_as_order(order_bad_reactant))
         with self.assertRaises(Exception):
-            _ = boatswain_bad_reactant.generate_vs()
+            _ = point_builder_bad_reactant.generate_vs()
 
         p_unrefined = RangeParameter(np.float64(0.0), np.float64(1.0))
         order_unrefined = DummyOrder(
@@ -1109,9 +1107,9 @@ class TestConstraints(TestCase):
             suppressions=[],
             reactants=[],
         )
-        boatswain_unrefined = Boatswain(_as_order(order_unrefined))
+        point_builder_unrefined = PointBuilder(_as_order(order_unrefined))
         with self.assertRaises(Exception):
-            _ = boatswain_unrefined.generate_vs()
+            _ = point_builder_unrefined.generate_vs()
 
     def test_linear_constraint_term_label(self):
         """
@@ -1206,7 +1204,7 @@ class TestConstraints(TestCase):
                 {"variable": "elements[key=Na]", "coefficient": -1.0},
             ],
         }
-        lc = LinearConstraint.from_order(_as_order(order), ConstraintConfig(type="linear", args=raw))
+        lc = LinearConstraint.from_order(_as_order(order), ConstraintConfig(kind="linear", args=raw))
         self.assertIsInstance(lc, LinearConstraint)
 
         registry = ParameterRegistry()

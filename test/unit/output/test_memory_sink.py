@@ -1,14 +1,12 @@
 from types import SimpleNamespace
 from typing import cast
-from unittest import mock
+from unittest import TestCase, mock
 
-from eleanor.exceptions import EleanorConfigurationException, EleanorException
+from eleanor.exceptions import EleanorException
 from eleanor.order import Order
 from eleanor.output import ComputeResult, ErrorInfo, WriteOutcome
-from eleanor.output.memory import MemoryConfig, MemorySink
+from eleanor.output.memory import MemorySink, MemorySinkSettings
 from eleanor.variable_space import Point
-
-from .common import TestCase
 
 
 def _order(*, order_id: int | None = None, eleanor_version: str | None = None) -> Order:
@@ -36,22 +34,22 @@ class TestMemorySink(TestCase):
 
     def test_supports_worker_writes_respects_config_true(self):
         """Ensure MemorySink reports worker-write support when config enables it."""
-        config = MemoryConfig(support_worker_writes=True)
+        config = MemorySinkSettings(support_worker_writes=True)
         self.assertTrue(MemorySink(config).supports_worker_writes())
 
     def test_supports_worker_writes_respects_config_false(self):
         """Ensure MemorySink denies worker-write support when config disables it."""
-        config = MemoryConfig(support_worker_writes=False)
+        config = MemorySinkSettings(support_worker_writes=False)
         self.assertFalse(MemorySink(config).supports_worker_writes())
 
     def test_memory_config_rejects_non_bool(self):
-        """Ensure MemoryConfig raises on non-boolean support_worker_writes."""
-        with self.assertRaises(EleanorConfigurationException):
-            MemoryConfig(support_worker_writes="yes")
+        """Ensure MemorySinkSettings raises on non-boolean support_worker_writes."""
+        with self.assertRaisesRegex(EleanorException, "support_worker_writes must be a boolean"):
+            _ = MemorySinkSettings(support_worker_writes="yes")  # pyright: ignore[reportArgumentType]
 
-    def test_memory_config_from_raw_defaults(self):
-        """Ensure MemoryConfig.from_raw defaults support_worker_writes to False."""
-        config = MemoryConfig.from_raw({})
+    def test_memory_config_from_dict_defaults(self):
+        """Ensure MemorySinkSettings.from_dict defaults support_worker_writes to False."""
+        config = MemorySinkSettings.from_dict({})
         self.assertFalse(config.support_worker_writes)
 
     def test_supports_progress_returns_true(self):
@@ -64,8 +62,8 @@ class TestMemorySink(TestCase):
         first = _order()
         second = _order()
 
-        first_id = sink.begin_run(first)  # type: ignore[arg-type]
-        second_id = sink.begin_run(second)  # type: ignore[arg-type]
+        first_id = sink.begin_run(first)
+        second_id = sink.begin_run(second)
 
         self.assertEqual(first_id, 0)
         self.assertEqual(second_id, 1)
@@ -76,12 +74,12 @@ class TestMemorySink(TestCase):
         """Ensure begin_run uses a caller-supplied order id and resumes implicit ids from max+1."""
         sink = MemorySink()
         explicit = _order(order_id=42)
-        explicit_id = sink.begin_run(explicit)  # type: ignore[arg-type]
+        explicit_id = sink.begin_run(explicit)
         self.assertEqual(explicit_id, 42)
         self.assertEqual(explicit.id, 42)
 
         implicit = _order()
-        implicit_id = sink.begin_run(implicit)  # type: ignore[arg-type]
+        implicit_id = sink.begin_run(implicit)
         self.assertEqual(implicit_id, 43)
 
     def test_begin_run_is_idempotent(self):
@@ -89,9 +87,9 @@ class TestMemorySink(TestCase):
         sink = MemorySink()
         order = _order()
 
-        first_id = sink.begin_run(order)  # type: ignore[arg-type]
+        first_id = sink.begin_run(order)
         orders_after_first = dict(sink._orders)
-        second_id = sink.begin_run(order)  # type: ignore[arg-type]
+        second_id = sink.begin_run(order)
 
         self.assertEqual(first_id, second_id)
         self.assertEqual(sink._orders, orders_after_first)
@@ -101,17 +99,17 @@ class TestMemorySink(TestCase):
         sink = MemorySink()
         order = _order(eleanor_version="custom-v1")
 
-        _ = sink.begin_run(order)  # type: ignore[arg-type]
+        _ = sink.begin_run(order)
         self.assertEqual(order.eleanor_version, "custom-v1")
 
     def test_begin_run_allows_version_mismatch_for_existing_order_id(self):
         """Ensure begin_run permits caller version changes when reusing an order id."""
         sink = MemorySink()
         first = _order(order_id=7, eleanor_version="v1")
-        _ = sink.begin_run(first)  # type: ignore[arg-type]
+        _ = sink.begin_run(first)
         mismatch = _order(order_id=7, eleanor_version="v2")
 
-        order_id = sink.begin_run(mismatch)  # type: ignore[arg-type]
+        order_id = sink.begin_run(mismatch)
         self.assertEqual(order_id, 7)
         self.assertEqual(mismatch.eleanor_version, "v2")
 
@@ -119,13 +117,13 @@ class TestMemorySink(TestCase):
         """Ensure write_batch appends successful points to the registered order in input order."""
         sink = MemorySink()
         order = _order()
-        order_id = sink.begin_run(order)  # type: ignore[arg-type]
+        order_id = sink.begin_run(order)
         first = _point(exit_code=0)
         second = _point(exit_code=1)
 
         _ = sink.write_batch(
             order_id,
-            [ComputeResult(point=first), ComputeResult(point=second)],  # type: ignore[arg-type]
+            [ComputeResult(point=first), ComputeResult(point=second)],
         )
 
         self.assertEqual(order.vs_points, [first, second])
@@ -134,10 +132,10 @@ class TestMemorySink(TestCase):
         """Ensure write_batch overwrites each point's order_id with the batch order id."""
         sink = MemorySink()
         order = _order()
-        order_id = sink.begin_run(order)  # type: ignore[arg-type]
+        order_id = sink.begin_run(order)
         point = _point(exit_code=0, order_id=None)
 
-        _ = sink.write_batch(order_id, [ComputeResult(point=point)])  # type: ignore[arg-type]
+        _ = sink.write_batch(order_id, [ComputeResult(point=point)])
 
         self.assertEqual(point.order_id, order_id)
 
@@ -145,13 +143,13 @@ class TestMemorySink(TestCase):
         """Ensure successful writes return committed outcomes with source exit codes."""
         sink = MemorySink()
         order = _order()
-        order_id = sink.begin_run(order)  # type: ignore[arg-type]
+        order_id = sink.begin_run(order)
         first = _point(exit_code=0)
         second = _point(exit_code=3)
 
         outcomes = sink.write_batch(
             order_id,
-            [ComputeResult(point=first), ComputeResult(point=second)],  # type: ignore[arg-type]
+            [ComputeResult(point=first), ComputeResult(point=second)],
         )
 
         self.assertEqual(
@@ -166,13 +164,13 @@ class TestMemorySink(TestCase):
         """Ensure write_batch treats ComputeResult.error entries as committed point writes."""
         sink = MemorySink()
         order = _order()
-        order_id = sink.begin_run(order)  # type: ignore[arg-type]
+        order_id = sink.begin_run(order)
         point = _point(exit_code=7)
         error = ErrorInfo(type_name="RuntimeError", message="boom", traceback_text="trace")
 
         outcomes = sink.write_batch(
             order_id,
-            [ComputeResult(point=point, error=error)],  # type: ignore[arg-type]
+            [ComputeResult(point=point, error=error)],
         )
 
         self.assertEqual(
@@ -192,13 +190,13 @@ class TestMemorySink(TestCase):
         point = _point(exit_code=0)
 
         with self.assertRaisesRegex(EleanorException, "called before begin_run"):
-            sink.write_batch(1, [ComputeResult(point=point)])  # type: ignore[arg-type]
+            _ = sink.write_batch(1, [ComputeResult(point=point)])
 
     def test_write_batch_empty_results_is_noop(self):
         """Ensure writing an empty batch returns no outcomes and does not mutate order points."""
         sink = MemorySink()
         order = _order()
-        order_id = sink.begin_run(order)  # type: ignore[arg-type]
+        order_id = sink.begin_run(order)
 
         outcomes = sink.write_batch(order_id, [])
 
@@ -210,11 +208,11 @@ class TestMemorySink(TestCase):
         sink = MemorySink()
         first_order = _order()
         second_order = _order()
-        first_order_id = sink.begin_run(first_order)  # type: ignore[arg-type]
-        second_order_id = sink.begin_run(second_order)  # type: ignore[arg-type]
+        first_order_id = sink.begin_run(first_order)
+        second_order_id = sink.begin_run(second_order)
 
-        first_outcome = sink.write_batch(first_order_id, [ComputeResult(point=_point())])  # type: ignore[arg-type]
-        second_outcome = sink.write_batch(second_order_id, [ComputeResult(point=_point())])  # type: ignore[arg-type]
+        first_outcome = sink.write_batch(first_order_id, [ComputeResult(point=_point())])
+        second_outcome = sink.write_batch(second_order_id, [ComputeResult(point=_point())])
         self.assertTrue(first_outcome[0].committed)
         self.assertTrue(second_outcome[0].committed)
 
@@ -222,14 +220,14 @@ class TestMemorySink(TestCase):
         """Ensure write_batch emits one progress tick for each committed point."""
         sink = MemorySink()
         order = _order()
-        order_id = sink.begin_run(order)  # type: ignore[arg-type]
+        order_id = sink.begin_run(order)
         progress = mock.Mock()
 
         _ = sink.write_batch(
             order_id,
             [
-                ComputeResult(point=_point(exit_code=0)),  # type: ignore[arg-type]
-                ComputeResult(point=_point(exit_code=1)),  # type: ignore[arg-type]
+                ComputeResult(point=_point(exit_code=0)),
+                ComputeResult(point=_point(exit_code=1)),
             ],
             progress=progress,
         )

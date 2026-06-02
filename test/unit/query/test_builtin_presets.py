@@ -8,6 +8,7 @@ required aliases, error shapes) and the bundle wiring on ``compile_query``.
 """
 
 from typing import cast
+from unittest import TestCase
 
 import eleanor.query.presets as presets_module
 from eleanor.equilibrium_space import AqueousSpecies
@@ -23,8 +24,6 @@ from eleanor.query import (
 from eleanor.query.columns import Preset
 from eleanor.query.reflection import leaf_fields
 from eleanor.query.scope import AmbientScopeTable
-
-from ..common import TestCase
 
 
 def _expected_es_scalar_names() -> list[str]:

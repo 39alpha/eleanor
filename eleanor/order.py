@@ -3,7 +3,7 @@ import operator
 import os.path
 import tomllib
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Self, TypedDict, cast, final
 
@@ -104,7 +104,7 @@ class Order:
     constraints: list[ConstraintConfig]
     vs_points: list[VSPoint]
     eleanor_version: str
-    create_date: datetime
+    create_date: datetime = field(compare=False)
 
     def __init__(
         self,

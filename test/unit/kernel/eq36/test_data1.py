@@ -1,12 +1,10 @@
 from typing import cast
-from unittest import mock
+from unittest import TestCase, mock
 
 import numpy as np
 
 from eleanor.kernel.eq36.data1 import AqueousSpecies, BasisSpecies, Data1, Gas, Liquid, Mineral, TPCurve
 from eleanor.kernel.eq36.libeq36 import Data
-
-from ...common import TestCase
 
 
 class TestEq36Data1(TestCase):

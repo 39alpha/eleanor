@@ -1,6 +1,6 @@
-from eleanor.query.aliases import _validate_short_forms_static, aliases_for, singularize, validate_short_forms
+from unittest import TestCase
 
-from ..common import TestCase
+from eleanor.query.aliases import _validate_short_forms_static, aliases_for, singularize, validate_short_forms
 
 
 class TestAliases(TestCase):

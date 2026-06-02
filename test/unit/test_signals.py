@@ -1,9 +1,7 @@
 import signal
-from unittest import mock
+from unittest import TestCase, mock
 
 from eleanor.signals import ShutdownState, _safe_prev, shutdown_on_signal
-
-from .common import TestCase
 
 
 class TestSignals(TestCase):

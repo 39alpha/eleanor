@@ -41,21 +41,21 @@ from psycopg import sql
 
 import eleanor.equilibrium_space as core_es
 import eleanor.variable_space as core_vs
-from eleanor.kernel.config import Config as KernelConfig
-from eleanor.kernel.config import Settings as KernelSettings
+from eleanor.config.kernel import KernelConfig
+from eleanor.kernel.settings import KernelSettings
 from eleanor.order import Order
 from eleanor.output.interface import ComputeResult
-from eleanor.output.postgres.config import DatabaseConfig
 from eleanor.output.postgres.persistence import connection, repositories, schema
 from eleanor.output.postgres.persistence.converters import OrderRecord
+from eleanor.output.postgres.settings import PostgresDatabaseSettings, PostgresSinkSettings
 from eleanor.output.postgres.sink import PostgresSink
 from eleanor.output.postgres.tools.profile import StatementProfiler
 
 _DATABASE_URL_ENV = "ELEANOR_TEST_DATABASE_URL"
 
 
-def _config_from_env() -> DatabaseConfig | None:
-    """Parse a libpq URL from the env var into a :class:`DatabaseConfig`.
+def _config_from_env() -> PostgresDatabaseSettings | None:
+    """Parse a libpq URL from the env var into a :class:`PostgresDatabaseSettings`.
 
     Returns ``None`` when the env var is unset so callers can skip with
     a single ``unittest.skipUnless`` decorator.
@@ -64,7 +64,7 @@ def _config_from_env() -> DatabaseConfig | None:
     if not url:
         return None
     parsed = urllib.parse.urlparse(url)
-    return DatabaseConfig(
+    return PostgresDatabaseSettings(
         host=parsed.hostname,
         port=parsed.port,
         database=(parsed.path or "/").lstrip("/") or None,
@@ -103,7 +103,7 @@ def _make_kernel() -> KernelConfig:
     :class:`KernelSettings` has a single ``timeout`` field and is enough
     to round-trip through JSONB without pulling in the eq36 plugin.
     """
-    return KernelConfig(type="test-kernel", settings=KernelSettings(timeout=None))
+    return KernelConfig(kind="test-kernel", settings=KernelSettings(timeout=None))
 
 
 _DEFAULT_WATER_MASS: np.float64 = np.float64(1.0)
@@ -198,7 +198,7 @@ def _make_es_point(
 class _RealPostgresTestCase(unittest.TestCase):
     """Common scaffolding: real connection, clean schema per test."""
 
-    config: DatabaseConfig = cast(DatabaseConfig, cast(object, None))
+    config: PostgresDatabaseSettings = cast(PostgresDatabaseSettings, cast(object, None))
 
     @classmethod
     @override
@@ -223,8 +223,8 @@ class _RealPostgresTestCase(unittest.TestCase):
             password=self.config.password,
         ) as raw_conn:
             with raw_conn.cursor() as cur:
-                cur.execute("DROP SCHEMA IF EXISTS public CASCADE")
-                cur.execute("CREATE SCHEMA public")
+                _ = cur.execute("DROP SCHEMA IF EXISTS public CASCADE")
+                _ = cur.execute("CREATE SCHEMA public")
             raw_conn.commit()
         # Re-establish the persistence-layer cache and emit our DDL.
         schema.ensure_schema(connection.connect(self.config))
@@ -477,7 +477,7 @@ class TestRepositoriesIntegration(_RealPostgresTestCase):
                 ("equilibrium_solid_solutions", 1),
                 ("equilibrium_end_members", 2),
             ):
-                cur.execute(sql.SQL("SELECT count(*) FROM {}").format(sql.Identifier(table)))
+                _ = cur.execute(sql.SQL("SELECT count(*) FROM {}").format(sql.Identifier(table)))
                 row = cur.fetchone()
                 assert row is not None
                 self.assertEqual(
@@ -488,7 +488,7 @@ class TestRepositoriesIntegration(_RealPostgresTestCase):
 
             # Spot-check id fanout: every end_member's solid-solution id
             # references a real equilibrium_solid_solutions row.
-            cur.execute("""
+            _ = cur.execute("""
                 SELECT count(*) FROM equilibrium_end_members em
                 LEFT JOIN equilibrium_solid_solutions ss
                   ON ss.id = em.equilibrium_solid_solution_id
@@ -546,7 +546,7 @@ class TestRepositoriesIntegration(_RealPostgresTestCase):
 
         with conn.cursor() as cur:
             # variable_space: positive float, zero implicit in charge_imbalance via _make_es_point
-            cur.execute(
+            _ = cur.execute(
                 "SELECT water_mass, temperature, pressure FROM variable_space WHERE id = %s",
                 (vs_id,),
             )
@@ -557,7 +557,7 @@ class TestRepositoriesIntegration(_RealPostgresTestCase):
             self.assertEqual(vs_row[2], 1.0)
 
             # VS-side elements: negative float
-            cur.execute(
+            _ = cur.execute(
                 "SELECT log_molality FROM elements WHERE variable_space_id = %s AND name = 'Na'",
                 (vs_id,),
             )
@@ -566,7 +566,7 @@ class TestRepositoriesIntegration(_RealPostgresTestCase):
             self.assertEqual(el_row[0], -3.456)
 
             # equilibrium_space: zero (charge_imbalance) and typical scalars
-            cur.execute(
+            _ = cur.execute(
                 "SELECT temperature, pressure, charge_imbalance FROM equilibrium_space WHERE variable_space_id = %s",
                 (vs_id,),
             )
@@ -577,14 +577,14 @@ class TestRepositoriesIntegration(_RealPostgresTestCase):
             self.assertEqual(es_row[2], 0.0)
 
             # ES elements: small positive fraction
-            cur.execute("SELECT log_molality, mass_fraction FROM equilibrium_elements WHERE name = 'Ca'")
+            _ = cur.execute("SELECT log_molality, mass_fraction FROM equilibrium_elements WHERE name = 'Ca'")
             ee_row = cur.fetchone()
             assert ee_row is not None
             self.assertEqual(ee_row[0], -4.567)
             self.assertEqual(ee_row[1], 0.00123)
 
             # ES aqueous species: three distinct negative values
-            cur.execute(
+            _ = cur.execute(
                 "SELECT log_molality, log_activity, log_gamma FROM equilibrium_aqueous_species WHERE name = 'HCO3-'"
             )
             aq_row = cur.fetchone()
@@ -594,7 +594,9 @@ class TestRepositoriesIntegration(_RealPostgresTestCase):
             self.assertEqual(aq_row[2], -0.111)
 
             # ES solid solutions: -Infinity round-trip
-            cur.execute("SELECT log_moles, log_mass, log_volume FROM equilibrium_solid_solutions WHERE name = 'ss-rt'")
+            _ = cur.execute(
+                "SELECT log_moles, log_mass, log_volume FROM equilibrium_solid_solutions WHERE name = 'ss-rt'"
+            )
             ss_row = cur.fetchone()
             assert ss_row is not None
             self.assertEqual(ss_row[0], -math.inf)
@@ -642,19 +644,19 @@ class TestRepositoriesIntegration(_RealPostgresTestCase):
             _ = repositories.insert_point(conn, order_id, point)
 
         with conn.cursor() as cur:
-            cur.execute("SELECT count(*) FROM equilibrium_solid_solutions")
+            _ = cur.execute("SELECT count(*) FROM equilibrium_solid_solutions")
             row = cur.fetchone()
             assert row is not None
             self.assertEqual(row[0], n_ss)
 
-            cur.execute("SELECT count(*) FROM equilibrium_end_members")
+            _ = cur.execute("SELECT count(*) FROM equilibrium_end_members")
             row = cur.fetchone()
             assert row is not None
             self.assertEqual(row[0], n_ss * 2)
 
             # Each end_member's name encodes the SS index it belongs to;
             # verify the FK fan-out preserved input order across chunks.
-            cur.execute("""
+            _ = cur.execute("""
                 SELECT em.name, ss.name
                 FROM equilibrium_end_members em
                 JOIN equilibrium_solid_solutions ss
@@ -710,7 +712,7 @@ class TestRepositoriesIntegration(_RealPostgresTestCase):
         self.assertIn("equilibrium_aqueous_species", copied_tables)
 
         with conn.cursor() as cur:
-            cur.execute("SELECT count(*) FROM equilibrium_aqueous_species")
+            _ = cur.execute("SELECT count(*) FROM equilibrium_aqueous_species")
             row = cur.fetchone()
             assert row is not None
             self.assertEqual(row[0], n_aq)
@@ -718,7 +720,7 @@ class TestRepositoriesIntegration(_RealPostgresTestCase):
             # Confirm the first and last rows survived intact through the
             # binary COPY's text encoding (both the column name list order
             # and the underlying psycopg adapter chain).
-            cur.execute('SELECT name FROM equilibrium_aqueous_species ORDER BY name COLLATE "C"')
+            _ = cur.execute('SELECT name FROM equilibrium_aqueous_species ORDER BY name COLLATE "C"')
             names = {r[0] for r in cur.fetchall()}
             self.assertIn("sp0", names)
             self.assertIn(f"sp{n_aq - 1}", names)
@@ -765,7 +767,7 @@ class TestPostgresSinkWriteBatchIntegration(_RealPostgresTestCase):
         a single outer transaction and returns ``committed=True``
         outcomes.
         """
-        sink = PostgresSink(self.config)
+        sink = PostgresSink(PostgresSinkSettings(database=self.config))
         order = _MinimalOrder(name="wb-happy", eleanor_version="test-1.0.0")
         order_id = sink.begin_run(_as_order(order))
 
@@ -781,7 +783,7 @@ class TestPostgresSinkWriteBatchIntegration(_RealPostgresTestCase):
 
         conn = connection.connect(self.config)
         with conn.cursor() as cur:
-            cur.execute(
+            _ = cur.execute(
                 "SELECT count(*) FROM variable_space WHERE order_id = %s",
                 (order_id,),
             )
@@ -797,7 +799,7 @@ class TestPostgresSinkWriteBatchIntegration(_RealPostgresTestCase):
         unit tests verify, but exercised against an actual constraint
         check rather than a mocked exception.
         """
-        sink = PostgresSink(self.config)
+        sink = PostgresSink(PostgresSinkSettings(database=self.config))
         order = _MinimalOrder(name="wb-savepoint", eleanor_version="test-1.0.0")
         order_id = sink.begin_run(_as_order(order))
 
@@ -818,7 +820,7 @@ class TestPostgresSinkWriteBatchIntegration(_RealPostgresTestCase):
 
         conn = connection.connect(self.config)
         with conn.cursor() as cur:
-            cur.execute(
+            _ = cur.execute(
                 "SELECT count(*) FROM variable_space WHERE order_id = %s",
                 (order_id,),
             )
@@ -843,7 +845,7 @@ class TestStatementProfilerIntegration(_RealPostgresTestCase):
         leaf row count, and that no profiler-bucketed statement leaks
         into ``other_statements`` as a literal ``COPY`` keyword.
         """
-        sink = PostgresSink(self.config)
+        sink = PostgresSink(PostgresSinkSettings(database=self.config))
         order = _MinimalOrder(name="profiler-smoke", eleanor_version="test-1.0.0")
         order_id = sink.begin_run(_as_order(order))
 

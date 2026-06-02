@@ -1,8 +1,8 @@
+from unittest import TestCase
+
 from eleanor.exceptions import EleanorException
 from eleanor.kernel.eq36.exceptions import Eq36Exception
 from eleanor.kernel.exceptions import EleanorKernelException
-
-from ...common import TestCase
 
 
 class TestEq36Exceptions(TestCase):

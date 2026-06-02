@@ -1,15 +1,13 @@
 """Unit tests for the bulkload Click command."""
 
 from typing import override
-from unittest import mock
+from unittest import TestCase, mock
 
 from click.testing import CliRunner
 
 from eleanor.cli import main
 from eleanor.config import Config
-from eleanor.output.postgres.config import DatabaseConfig
-
-from .common import TestCase
+from eleanor.output.postgres.settings import PostgresDatabaseSettings
 
 
 class TestBulkLoadCli(TestCase):
@@ -26,7 +24,9 @@ class TestBulkLoadCli(TestCase):
             {
                 "output": {
                     "kind": "postgres",
-                    "args": {"database": {"database": "demo_db"}},
+                    "database": {
+                        "database": "demo_db",
+                    },
                 },
             }
         )
@@ -34,7 +34,7 @@ class TestBulkLoadCli(TestCase):
     def test_drop_action_dispatches_to_repository_drop_indexes(self):
         """
         Ensure 'eleanor postgres bulkload drop' calls repositories.drop_indexes
-        with the resolved DatabaseConfig.
+        with the resolved PostgresDatabaseSettings.
         """
         cfg = self._config()
         with (
@@ -52,7 +52,7 @@ class TestBulkLoadCli(TestCase):
         drop_indexes.assert_called_once()
         recreate_indexes.assert_not_called()
         passed = drop_indexes.call_args.args[0]
-        self.assertIsInstance(passed, DatabaseConfig)
+        self.assertIsInstance(passed, PostgresDatabaseSettings)
         self.assertEqual(passed.database, "demo_db")
 
     def test_recreate_action_dispatches_to_repository_recreate_indexes(self):
@@ -79,7 +79,7 @@ class TestBulkLoadCli(TestCase):
         name. The CLI must not silently no-op against the local default
         database.
         """
-        bare = Config.from_dict({"output": {"kind": "postgres", "args": {}}})
+        bare = Config.from_dict({"output": {"kind": "postgres"}})
         with (
             mock.patch("eleanor.output.postgres.cli.config_from_args", return_value=bare),
             mock.patch("eleanor.output.postgres.cli.drop_indexes") as drop_indexes,

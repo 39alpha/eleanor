@@ -1,3 +1,5 @@
+from unittest import TestCase
+
 from eleanor.exceptions import EleanorException
 from eleanor.kernel.eq36.settings import (
     EQ36_MODEL_EXTENSIONS,
@@ -7,14 +9,12 @@ from eleanor.kernel.eq36.settings import (
     IOPT_2,
     IOPT_4,
     IOPT_19,
-    EleanorKernelException,  # pyright: ignore[reportPrivateImportUsage]
-    Eq3Config,
-    Eq6Config,
-    Settings,
+    Eq3Settings,
+    Eq6Settings,
+    Eq36Settings,
     get_setting,
 )
-
-from ...common import TestCase
+from eleanor.kernel.exceptions import EleanorKernelException
 
 
 class TestEq36Settings(TestCase):
@@ -34,16 +34,16 @@ class TestEq36Settings(TestCase):
         Ensure get_setting raises for missing required values and unexpected values.
         """
         with self.assertRaises(EleanorKernelException):
-            get_setting({}, IOPT_2)
+            _ = get_setting({}, IOPT_2)
 
         with self.assertRaises(EleanorKernelException):
-            get_setting({"iopt_2": "NOT_A_MEMBER"}, IOPT_2)
+            _ = get_setting({"iopt_2": "NOT_A_MEMBER"}, IOPT_2)
 
     def test_eq3_config_properties_and_verbose_copy(self):
         """
-        Ensure Eq3Config index-array helpers and make_verbose behavior are correct.
+        Ensure Eq3Settings index-array helpers and make_verbose behavior are correct.
         """
-        cfg = Eq3Config()
+        cfg = Eq3Settings()
         self.assertEqual(len(cfg.iopt), 20)
         self.assertEqual(len(cfg.iopg), 20)
         self.assertEqual(len(cfg.iopr), 20)
@@ -58,9 +58,9 @@ class TestEq36Settings(TestCase):
 
     def test_eq6_config_properties(self):
         """
-        Ensure Eq6Config index-array helpers produce the expected lengths.
+        Ensure Eq6Settings index-array helpers produce the expected lengths.
         """
-        cfg = Eq6Config()
+        cfg = Eq6Settings()
         self.assertEqual(len(cfg.iopt), 20)
         self.assertEqual(len(cfg.iopg), 20)
         self.assertEqual(len(cfg.iopr), 20)
@@ -68,9 +68,9 @@ class TestEq36Settings(TestCase):
 
     def test_from_dict_success_with_eq6_and_string_model_extension(self):
         """
-        Ensure Settings.from_dict parses valid configs and extension-based model aliases.
+        Ensure Eq36Settings.from_dict parses valid configs and extension-based model aliases.
         """
-        cfg = Settings.from_dict(
+        cfg = Eq36Settings.from_dict(
             {
                 "model": "pit",
                 "charge_balance": "Cl-",
@@ -105,30 +105,30 @@ class TestEq36Settings(TestCase):
 
     def test_from_dict_eq6_disabled(self):
         """
-        Ensure explicitly false eq6_config disables Eq6Config creation.
+        Ensure explicitly false eq6_config disables Eq6Settings creation.
         """
-        cfg = Settings.from_dict({"model": "b-dot", "charge_balance": "Cl-", "eq6_config": False})
+        cfg = Eq36Settings.from_dict({"model": "b-dot", "charge_balance": "Cl-", "eq6_config": False})
         self.assertIsNone(cfg.eq6_config)
 
     def test_from_dict_model_as_int(self):
         """
         Ensure integer model values map through IOPG_1 enum conversion.
         """
-        cfg = Settings.from_dict({"model": int(IOPG_1.DAVIES), "charge_balance": "Cl-"})
+        cfg = Eq36Settings.from_dict({"model": int(IOPG_1.DAVIES), "charge_balance": "Cl-"})
         self.assertEqual(cfg.model, IOPG_1.DAVIES)
 
     def test_from_dict_model_davies_string(self):
         """
         Ensure explicit davies model string maps to IOPG_1.DAVIES.
         """
-        cfg = Settings.from_dict({"model": "davies", "charge_balance": "Cl-"})
+        cfg = Eq36Settings.from_dict({"model": "davies", "charge_balance": "Cl-"})
         self.assertEqual(cfg.model, IOPG_1.DAVIES)
 
     def test_from_dict_model_hc_dh_string(self):
         """
         Ensure explicit hc_dh model string maps to IOPG_1.HC_DH.
         """
-        cfg = Settings.from_dict({"model": "hc_dh", "charge_balance": "Cl-"})
+        cfg = Eq36Settings.from_dict({"model": "hc_dh", "charge_balance": "Cl-"})
         self.assertEqual(cfg.model, IOPG_1.HC_DH)
 
     def test_from_dict_model_validation(self):
@@ -136,36 +136,36 @@ class TestEq36Settings(TestCase):
         Ensure invalid model types and values raise EleanorException.
         """
         with self.assertRaises(EleanorException):
-            Settings.from_dict({"model": "unsupported", "charge_balance": "Cl-"})
+            _ = Eq36Settings.from_dict({"model": "unsupported", "charge_balance": "Cl-"})
 
         with self.assertRaises(EleanorException):
-            Settings.from_dict({"model": object(), "charge_balance": "Cl-"})
+            _ = Eq36Settings.from_dict({"model": object(), "charge_balance": "Cl-"})
 
     def test_from_dict_field_type_validations(self):
         """
         Ensure type checks for charge_balance, basis_map, redox_species, timeout, and track_path.
         """
         with self.assertRaises(EleanorException):
-            Settings.from_dict({"model": "b-dot", "charge_balance": 1})
+            _ = Eq36Settings.from_dict({"model": "b-dot", "charge_balance": 1})
 
         with self.assertRaises(EleanorException):
-            Settings.from_dict({"model": "b-dot", "charge_balance": "Cl-", "basis_map": []})
+            _ = Eq36Settings.from_dict({"model": "b-dot", "charge_balance": "Cl-", "basis_map": []})
 
         with self.assertRaises(EleanorException):
-            Settings.from_dict({"model": "b-dot", "charge_balance": "Cl-", "redox_species": 7})
+            _ = Eq36Settings.from_dict({"model": "b-dot", "charge_balance": "Cl-", "redox_species": 7})
 
         with self.assertRaises(EleanorException):
-            Settings.from_dict({"model": "b-dot", "charge_balance": "Cl-", "timeout": "10"})
+            _ = Eq36Settings.from_dict({"model": "b-dot", "charge_balance": "Cl-", "timeout": "10"})
 
         with self.assertRaises(EleanorException):
-            Settings.from_dict({"model": "b-dot", "charge_balance": "Cl-", "track_path": "yes"})
+            _ = Eq36Settings.from_dict({"model": "b-dot", "charge_balance": "Cl-", "track_path": "yes"})
 
     def test_from_dict_rejects_unsupported_eq3_iopt_19(self):
         """
         Ensure unsupported eq3_config iopt_19 values are rejected.
         """
         with self.assertRaises(EleanorException):
-            Settings.from_dict(
+            _ = Eq36Settings.from_dict(
                 {
                     "model": "b-dot",
                     "charge_balance": "Cl-",

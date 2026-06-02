@@ -1,3 +1,5 @@
+from unittest import TestCase
+
 from eleanor.query.errors import ParseError
 from eleanor.query.path import (
     IterFilter,
@@ -9,8 +11,6 @@ from eleanor.query.path import (
     path_to_string,
     quote_predicate_value,
 )
-
-from ..common import TestCase
 
 
 class TestPath(TestCase):

@@ -90,12 +90,14 @@ dev = [
     "pandas-stubs>=3.0.0.260204",
     "pre-commit>=4.6.0",
     "pytest-cov>=7.0.0",
+    "pytest-mock>=3.15.1",
     "pytest>=9.0.2",
     "python-lsp-isort>=0.2.1",
     "python-lsp-ruff>=2.3.1",
     "python-lsp-server>=1.14.0",
     "ruff>=0.15.0",
     "scipy-stubs>=1.17.1.4",
+    "tomli-w>=1.2.0",
 ]
 
 [[tool.hatch.build.targets.wheel.hooks.build-scripts.scripts]]

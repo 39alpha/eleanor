@@ -1,10 +1,9 @@
 from typing import override
+from unittest import TestCase
 
 from click.testing import CliRunner
 
 from eleanor.cli import main
-
-from ..common import TestCase
 
 
 class TestPostgresCli(TestCase):

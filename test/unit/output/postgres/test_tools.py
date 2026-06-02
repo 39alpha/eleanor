@@ -11,15 +11,13 @@ layer), but coverage of their bodies pins down their public contracts:
 """
 
 import io
-from unittest import mock
+from unittest import TestCase, mock
 
-from eleanor.output.postgres.config import DatabaseConfig
 from eleanor.output.postgres.persistence import schema
 from eleanor.output.postgres.persistence.converters import ScratchEntry
+from eleanor.output.postgres.settings import PostgresDatabaseSettings
 from eleanor.output.postgres.tools.schema import dump_schema
 from eleanor.output.postgres.tools.scratch import load_scratch_entry
-
-from ..common import TestCase
 
 
 class TestDumpSchema(TestCase):
@@ -32,7 +30,7 @@ class TestDumpSchema(TestCase):
         line per declared index. Statements terminate with a semicolon
         so the output is directly pipe-able into ``psql``.
         """
-        cfg = DatabaseConfig(database="db", username="u", password="p")
+        cfg = PostgresDatabaseSettings(database="db", username="u", password="p")
         buf = io.StringIO()
         dump_schema(cfg, buf)
         output = buf.getvalue()
@@ -58,7 +56,7 @@ class TestDumpSchema(TestCase):
         the persistence connection module: the helper is documented as
         producing static DDL that doesn't depend on any live database.
         """
-        cfg = DatabaseConfig(database="db", username="u", password="p")
+        cfg = PostgresDatabaseSettings(database="db", username="u", password="p")
         buf = io.StringIO()
         with mock.patch(
             "eleanor.output.postgres.persistence.connection.connect",
@@ -74,9 +72,9 @@ class TestLoadScratchEntry(TestCase):
         """
         Ensure :func:`load_scratch_entry` is a thin pass-through to
         :func:`repositories.get_scratch_entry` and forwards the active
-        :class:`DatabaseConfig` and ``variable_space_id`` unchanged.
+        :class:`PostgresDatabaseSettings` and ``variable_space_id`` unchanged.
         """
-        cfg = DatabaseConfig(database="db", username="u", password="p")
+        cfg = PostgresDatabaseSettings(database="db", username="u", password="p")
         entry = ScratchEntry(variable_space_id=11, exit_code=0, zip=b"payload")
         with mock.patch(
             "eleanor.output.postgres.tools.scratch.get_scratch_entry",

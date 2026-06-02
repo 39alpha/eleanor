@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from types import SimpleNamespace
 from typing import cast, override
+from unittest import TestCase
 
 import numpy as np
 
@@ -15,8 +16,6 @@ from eleanor.parameters import (
     RangeParameter,
     ValueParameter,
 )
-
-from ...common import TestCase
 
 
 @dataclass

@@ -1,33 +1,31 @@
 from types import SimpleNamespace
 from typing import cast
-from unittest import mock
+from unittest import TestCase, mock
 
 from eleanor.exceptions import EleanorException
 from eleanor.output import ComputeResult, WriteOutcome
-from eleanor.sailor import Sailor
+from eleanor.runner import Runner
 from eleanor.variable_space import Point
-
-from .common import TestCase
 
 
 def _vs_point(**kwargs: object) -> Point:
     return cast(Point, cast(object, SimpleNamespace(**kwargs)))
 
 
-class TestSailor(TestCase):
+class TestRunner(TestCase):
     """
-    Tests of the eleanor.sailor module.
+    Tests of the eleanor.runner module.
     """
 
     def test_dispatch_returns_one_compute_result_per_point(self):
         """
         Ensure that list dispatch returns one ComputeResult per input point.
         """
-        sailor = Sailor(kernel=mock.Mock())
+        runner = Runner(kernel=mock.Mock())
         points = [SimpleNamespace(exit_code=0), SimpleNamespace(exit_code=0)]
 
-        with mock.patch.object(Sailor, "work", side_effect=points) as work_mock:
-            results = sailor.dispatch([_vs_point(), _vs_point()])
+        with mock.patch.object(Runner, "work", side_effect=points) as work_mock:
+            results = runner.dispatch([_vs_point(), _vs_point()])
 
         self.assertEqual(len(results), 2)
         self.assertTrue(all(isinstance(result, ComputeResult) for result in results))
@@ -39,11 +37,11 @@ class TestSailor(TestCase):
         """
         Ensure single-point dispatch returns a single ComputeResult.
         """
-        sailor = Sailor(kernel=mock.Mock())
+        runner = Runner(kernel=mock.Mock())
 
         point = SimpleNamespace(exit_code=0)
-        with mock.patch.object(Sailor, "work", return_value=point):
-            results = sailor.dispatch(_vs_point())
+        with mock.patch.object(Runner, "work", return_value=point):
+            results = runner.dispatch(_vs_point())
 
         self.assertEqual(len(results), 1)
         self.assertIsInstance(results[0], ComputeResult)
@@ -54,7 +52,7 @@ class TestSailor(TestCase):
         Ensure dispatch forwards compute results to sink.write_batch when a
         sink and order_id are supplied, and returns the WriteOutcome list.
         """
-        sailor = Sailor(kernel=mock.Mock())
+        runner = Runner(kernel=mock.Mock())
         points = [SimpleNamespace(exit_code=0), SimpleNamespace(exit_code=0)]
         outcomes = [
             WriteOutcome(exit_code=0, committed=True),
@@ -63,8 +61,8 @@ class TestSailor(TestCase):
         sink = mock.Mock()
         sink.write_batch.return_value = outcomes
 
-        with mock.patch.object(Sailor, "work", side_effect=points):
-            results = sailor.dispatch([_vs_point(), _vs_point()], sink=sink, order_id=42)
+        with mock.patch.object(Runner, "work", side_effect=points):
+            results = runner.dispatch([_vs_point(), _vs_point()], sink=sink, order_id=42)
 
         self.assertEqual(results, outcomes)
         sink.write_batch.assert_called_once()
@@ -80,11 +78,11 @@ class TestSailor(TestCase):
         """
         Ensure dispatch calls sim_progress.tick() once per point when a progress handle is supplied.
         """
-        sailor = Sailor(kernel=mock.Mock())
+        runner = Runner(kernel=mock.Mock())
         sim_progress = mock.Mock()
 
         with mock.patch.object(
-            Sailor,
+            Runner,
             "work",
             side_effect=[
                 SimpleNamespace(exit_code=0),
@@ -92,7 +90,7 @@ class TestSailor(TestCase):
                 SimpleNamespace(exit_code=0),
             ],
         ):
-            _ = sailor.dispatch([_vs_point(), _vs_point(), _vs_point()], sim_progress=sim_progress)
+            _ = runner.dispatch([_vs_point(), _vs_point(), _vs_point()], sim_progress=sim_progress)
 
         self.assertEqual(sim_progress.tick.call_count, 3)
 
@@ -100,13 +98,13 @@ class TestSailor(TestCase):
         """
         Ensure dispatch forwards the out_progress handle into sink.write_batch.
         """
-        sailor = Sailor(kernel=mock.Mock())
+        runner = Runner(kernel=mock.Mock())
         sink = mock.Mock()
         sink.write_batch.return_value = []
         out_progress = mock.Mock()
 
-        with mock.patch.object(Sailor, "work", return_value=SimpleNamespace(exit_code=0)):
-            _ = sailor.dispatch([_vs_point()], sink=sink, order_id=1, out_progress=out_progress)
+        with mock.patch.object(Runner, "work", return_value=SimpleNamespace(exit_code=0)):
+            _ = runner.dispatch([_vs_point()], sink=sink, order_id=1, out_progress=out_progress)
 
         sink.write_batch.assert_called_once()
         self.assertIs(sink.write_batch.call_args.kwargs["progress"], out_progress)
@@ -115,10 +113,10 @@ class TestSailor(TestCase):
         """
         Ensure dispatch does not attempt any progress emission when handles are omitted.
         """
-        sailor = Sailor(kernel=mock.Mock())
+        runner = Runner(kernel=mock.Mock())
 
-        with mock.patch.object(Sailor, "work", return_value=SimpleNamespace(exit_code=0)):
-            results = sailor.dispatch([_vs_point(), _vs_point()])
+        with mock.patch.object(Runner, "work", return_value=SimpleNamespace(exit_code=0)):
+            results = runner.dispatch([_vs_point(), _vs_point()])
 
         # No exception, no interaction with a progress handle; just the compute path.
         self.assertEqual(len(results), 2)
@@ -127,22 +125,22 @@ class TestSailor(TestCase):
         """
         Ensure dispatch raises if a sink is provided without order_id.
         """
-        sailor = Sailor(kernel=mock.Mock())
+        runner = Runner(kernel=mock.Mock())
         sink = mock.Mock()
-        with mock.patch.object(Sailor, "work", return_value=SimpleNamespace(exit_code=0)):
+        with mock.patch.object(Runner, "work", return_value=SimpleNamespace(exit_code=0)):
             with self.assertRaises(EleanorException):
-                sailor.dispatch([_vs_point()], sink=sink)
+                runner.dispatch([_vs_point()], sink=sink)
         sink.write_batch.assert_not_called()
 
     def test_dispatch_serializes_error_metadata_and_clears_exception(self):
         """
         Ensure dispatch converts exceptions into ErrorInfo and clears non-pickleable exception payloads.
         """
-        sailor = Sailor(kernel=mock.Mock())
+        runner = Runner(kernel=mock.Mock())
 
         point = SimpleNamespace(exit_code=1, exception=RuntimeError("boom"))
-        with mock.patch.object(Sailor, "work", return_value=point):
-            results = sailor.dispatch([_vs_point()])
+        with mock.patch.object(Runner, "work", return_value=point):
+            results = runner.dispatch([_vs_point()])
 
         self.assertEqual(len(results), 1)
         result = cast(ComputeResult, results[0])
@@ -158,9 +156,9 @@ class TestSailor(TestCase):
         """
         kernel = mock.Mock()
         kernel.run.return_value = ["eq"]
-        sailor = Sailor(kernel=kernel)
+        runner = Runner(kernel=kernel)
         vs_point = _vs_point()
-        out = sailor.work(vs_point, scratch=False)
+        out = runner.work(vs_point, scratch=False)
         self.assertIs(out, vs_point)
         self.assertEqual(vs_point.exit_code, 0)
         self.assertEqual(vs_point.es_points, ["eq"])
@@ -170,7 +168,7 @@ class TestSailor(TestCase):
 
         kernel.reset_mock()
         vs_point2 = _vs_point()
-        out2 = sailor.work(vs_point2, scratch=True)
+        out2 = runner.work(vs_point2, scratch=True)
         self.assertIs(out2, vs_point2)
         kernel.copy_data.assert_called_once_with(vs_point2)
         self.assertTrue(hasattr(vs_point2, "scratch"))
@@ -183,11 +181,11 @@ class TestSailor(TestCase):
         Ensure that work captures exceptions and sets exit codes for Eleanor and non-Eleanor errors.
         """
         kernel = mock.Mock()
-        sailor = Sailor(kernel=kernel)
+        runner = Runner(kernel=kernel)
 
         kernel.run.side_effect = EleanorException("boom", code=9)
         vs_point = _vs_point()
-        out = sailor.work(vs_point, verbose=False)
+        out = runner.work(vs_point, verbose=False)
         self.assertIs(out, vs_point)
         self.assertEqual(vs_point.exit_code, 9)
         self.assertIsInstance(vs_point.exception, EleanorException)
@@ -196,7 +194,7 @@ class TestSailor(TestCase):
         kernel.reset_mock()
         kernel.run.side_effect = RuntimeError("oops")
         vs_point2 = _vs_point(exit_code=0)
-        out2 = sailor.work(vs_point2, verbose=False)
+        out2 = runner.work(vs_point2, verbose=False)
         self.assertIs(out2, vs_point2)
         self.assertEqual(vs_point2.exit_code, -1)
         self.assertIsInstance(vs_point2.exception, RuntimeError)
@@ -207,11 +205,11 @@ class TestSailor(TestCase):
         """
         kernel = mock.Mock()
         kernel.run.side_effect = RuntimeError("oops")
-        sailor = Sailor(kernel=kernel)
+        runner = Runner(kernel=kernel)
         vs_point = _vs_point(exit_code=0)
 
-        with mock.patch("eleanor.sailor.print_exception") as print_mock:
-            sailor.work(vs_point, verbose=True)
+        with mock.patch("eleanor.runner.print_exception") as print_mock:
+            runner.work(vs_point, verbose=True)
 
         self.assertGreaterEqual(print_mock.call_count, 2)
 
@@ -225,12 +223,12 @@ class TestSailor(TestCase):
         with TemporaryDirectory() as tmp:
             with open(join(tmp, "a.txt"), "w") as f:
                 f.write("abc")
-            scratch = Sailor.collect_scratch(tmp)
+            scratch = Runner.collect_scratch(tmp)
             self.assertIsNotNone(scratch)
             assert scratch is not None
             self.assertTrue(isinstance(scratch.zip, bytes) and len(scratch.zip) > 0)
 
-        with mock.patch("eleanor.sailor.zipfile.ZipFile", side_effect=RuntimeError("zip error")):
-            scratch = Sailor.collect_scratch(".")
+        with mock.patch("eleanor.runner.zipfile.ZipFile", side_effect=RuntimeError("zip error")):
+            scratch = Runner.collect_scratch(".")
         assert scratch is not None
         self.assertEqual(scratch.zip, bytes("\0", "ascii"))

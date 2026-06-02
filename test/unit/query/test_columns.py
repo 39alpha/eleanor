@@ -1,3 +1,5 @@
+from unittest import TestCase
+
 from eleanor.query.columns import (
     BarePath,
     Preset,
@@ -19,7 +21,6 @@ from eleanor.query.errors import (
 )
 from eleanor.query.scope import resolve_row_scope
 
-from ..common import TestCase
 from .models import Sample
 
 

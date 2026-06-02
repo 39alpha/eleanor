@@ -1,8 +1,9 @@
+from unittest import TestCase
+
 from eleanor.query import compile_query, evaluate
 from eleanor.query.errors import MultipleMatchError, ParseError
 from eleanor.query.path import parse_path, path_to_string
 
-from ..common import TestCase
 from .models import Chemistry, Point, SimpleSample
 
 

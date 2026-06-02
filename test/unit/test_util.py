@@ -3,13 +3,12 @@ import hashlib
 import os
 from os.path import join, realpath
 from tempfile import TemporaryDirectory
+from unittest import TestCase
 
 import numpy as np
 
 import eleanor.util as util
 from eleanor.exceptions import EleanorException
-
-from .common import TestCase
 
 
 class TestUtils(TestCase):

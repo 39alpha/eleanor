@@ -5,6 +5,7 @@ from importlib.metadata import entry_points
 from typing import Protocol, cast, final
 
 from eleanor.exceptions import EleanorException
+from eleanor.util import guard_is_int
 
 PLUGIN_API_VERSIONS: dict[str, tuple[int, int]] = {}
 
@@ -129,7 +130,7 @@ class PluginRegistry:
             return self._registry[name]
         except KeyError as e:
             choices = ", ".join(sorted(self._registry))
-            msg = f'the "{name}" {self._kind} is not supported; choose one of {choices}'
+            msg = f"the {name!r} {self._kind} is not supported; choose one of {choices}"
             raise EleanorException(msg) from e
 
     def __contains__(self, name: object) -> bool:
@@ -142,7 +143,7 @@ class PluginRegistry:
             raise EleanorException(msg)
 
         if name in self._builtins:
-            msg = f'"{name}" is a built-in {self._kind} and cannot be overridden'
+            msg = f"{name!r} is a built-in {self._kind} and cannot be overridden"
             raise EleanorException(msg)
 
         validated = self._validate(name, factory)
@@ -152,7 +153,7 @@ class PluginRegistry:
             return
 
         if existing is not None:
-            raise EleanorException(f'{self._kind} "{name}" is already registered')
+            raise EleanorException(f"{self._kind} {name!r} is already registered")
 
         self._registry[name] = validated
 
@@ -162,6 +163,7 @@ class PluginRegistry:
             raise EleanorException(msg)
 
         declared = factory.plugin_api_version
+        guard_is_int(declared, "plugin_api_version")
         if declared > self._current_api_version:
             msg = (
                 f"plugin {name!r} targets {self._kind} API v{declared}; "

@@ -1,7 +1,9 @@
+from unittest import TestCase
+
 import numpy as np
 
-from eleanor.kernel.config import Config as KernelConfig
-from eleanor.kernel.config import Settings
+from eleanor.config.kernel import KernelConfig
+from eleanor.kernel.settings import KernelSettings
 from eleanor.variable_space import (
     AqueousReactant,
     ElementReactant,
@@ -15,8 +17,6 @@ from eleanor.variable_space import (
     SpecialReactantComposition,
     Species,
 )
-
-from .common import TestCase
 
 
 class TestVariableSpace(TestCase):
@@ -68,7 +68,7 @@ class TestVariableSpace(TestCase):
             for i in range(reactant_sizes[6])
         ]
         return Point(
-            kernel=KernelConfig(type="eq36", settings=Settings(timeout=1)),
+            kernel=KernelConfig(kind="eq36", settings=KernelSettings(timeout=1)),
             water_mass=np.float64(1.0),
             temperature=np.float64(25.0),
             pressure=np.float64(1.0),

@@ -1,12 +1,10 @@
 from subprocess import TimeoutExpired
 from types import SimpleNamespace
-from unittest import mock
+from unittest import TestCase, mock
 
 from eleanor.kernel.eq36.codes import RunCode
 from eleanor.kernel.eq36.exceptions import Eq36Exception
 from eleanor.kernel.eq36.exec import eq3, eq6, eqpt, error_guard, run
-
-from ...common import TestCase
 
 
 class TestEq36Exec(TestCase):

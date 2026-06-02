@@ -91,7 +91,6 @@ def scratch(vs_id: int, outdir: str, config: str, database: str | None) -> None:
 @config_options()
 def bulkload(action: str, yes: bool, config: str, database: str | None) -> None:
     """Drop or recreate secondary indexes + constraints around a bulk-load window."""
-
     cfg = config_from_args(config, database).output
     if cfg is None:
         msg = "no output sink configured"

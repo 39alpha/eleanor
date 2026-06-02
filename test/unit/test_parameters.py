@@ -1,5 +1,5 @@
 from typing import cast
-from unittest import mock
+from unittest import TestCase, mock
 
 import numpy as np
 
@@ -12,8 +12,6 @@ from eleanor.parameters import (
     RangeParameter,
     ValueParameter,
 )
-
-from .common import TestCase
 
 
 class TestParameters(TestCase):
@@ -100,7 +98,7 @@ class TestParameters(TestCase):
         self.assertEqual(p.range(), (np.float64(1.0), np.float64(3.0)))
         self.assertEqual(p.volume(), np.float64(2.0))
 
-        with mock.patch("eleanor.parameters.scipy.stats.uniform.rvs", return_value=np.array([1.0, 2.0])):
+        with mock.patch("scipy.stats.uniform.rvs", return_value=np.array([1.0, 2.0])):
             out = p.random(size=2)
         self.assertEqual([x.value for x in out], [np.float64(1.0), np.float64(2.0)])
 
@@ -127,7 +125,7 @@ class TestParameters(TestCase):
         self.assertEqual(p.range(), (np.float64(1.0), np.float64(3.0)))
         self.assertEqual(p.volume(), np.float64(3))
 
-        with mock.patch("eleanor.parameters.scipy.stats.randint.rvs", return_value=np.array([0, 2])):
+        with mock.patch("scipy.stats.randint.rvs", return_value=np.array([0, 2])):
             out = p.random(size=2)
         self.assertEqual([x.value for x in out], [np.float64(1.0), np.float64(3.0)])
         self.assertEqual(
@@ -148,11 +146,11 @@ class TestParameters(TestCase):
         self.assertEqual(p1.volume(), np.float64(1.0))
         self.assertTrue(p1.in_domain(cast(Parameter, object())))
 
-        with mock.patch("eleanor.parameters.scipy.stats.norm.rvs", return_value=np.array([0.1, -0.2])):
+        with mock.patch("scipy.stats.norm.rvs", return_value=np.array([0.1, -0.2])):
             out0 = p0.random(size=2)
         self.assertEqual([round(x.value, 3) for x in out0], [0.1, -0.2])
 
-        with mock.patch("eleanor.parameters.scipy.stats.truncnorm.rvs", return_value=np.array([0.2, 0.3])):
+        with mock.patch("scipy.stats.truncnorm.rvs", return_value=np.array([0.2, 0.3])):
             out1 = p1.random(size=2)
         self.assertEqual([round(x.value, 3) for x in out1], [0.2, 0.3])
 

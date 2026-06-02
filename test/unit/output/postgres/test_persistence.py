@@ -19,21 +19,18 @@ Wire-level behaviour against a real Postgres lives in
 import os
 from contextlib import nullcontext
 from datetime import datetime
-from unittest import mock
+from unittest import TestCase, mock
 
 import numpy as np
 
+from eleanor.config.kernel import KernelConfig
 from eleanor.exceptions import EleanorException
-from eleanor.kernel.config import Config as KernelConfig
-from eleanor.kernel.eq36.settings import IOPG_1, Eq3Config, Eq6Config
-from eleanor.kernel.eq36.settings import Settings as Eq36Settings
+from eleanor.kernel.eq36.settings import IOPG_1, Eq3Settings, Eq6Settings, Eq36Settings
 from eleanor.order import Order
-from eleanor.output.postgres.config import DatabaseConfig
 from eleanor.output.postgres.persistence import connection, converters, queries, repositories, schema
+from eleanor.output.postgres.settings import PostgresDatabaseSettings
 from eleanor.parameters import Parameter
 from eleanor.reactants import ReactantType
-
-from ..common import TestCase
 
 
 def _mock_order() -> Order:
@@ -217,13 +214,13 @@ class TestConverterShapes(TestCase):
         (``id`` doubles as the FK in this table, so it is included).
         """
         kernel = KernelConfig(
-            type="eq36",
+            kind="eq36",
             settings=Eq36Settings(
                 timeout=None,
                 model=IOPG_1.B_DOT,
                 charge_balance="Cl-",
-                eq3_config=Eq3Config(),
-                eq6_config=Eq6Config(),
+                eq3_config=Eq3Settings(),
+                eq6_config=Eq6Settings(),
             ),
         )
         row = converters.kernel_to_row(kernel, variable_space_id=7)
@@ -305,13 +302,13 @@ class TestConverterShapes(TestCase):
         forward+reverse converter round-trip.
         """
         kernel = KernelConfig(
-            type="eq36",
+            kind="eq36",
             settings=Eq36Settings(
                 timeout=None,
                 model=IOPG_1.B_DOT,
                 charge_balance="Cl-",
-                eq3_config=Eq3Config(),
-                eq6_config=Eq6Config(),
+                eq3_config=Eq3Settings(),
+                eq6_config=Eq6Settings(),
             ),
         )
         forward = converters.kernel_to_row(kernel, variable_space_id=99)
@@ -323,7 +320,7 @@ class TestConverterShapes(TestCase):
             "settings": settings_obj,
         }
         restored = converters.row_to_kernel_config(round_trip_row)
-        self.assertEqual(restored.type, "eq36")
+        self.assertEqual(restored.kind, "eq36")
         self.assertIsInstance(restored.settings, Eq36Settings)
         if not isinstance(restored.settings, Eq36Settings):
             raise AssertionError("expected Eq36Settings")
@@ -559,7 +556,7 @@ class TestRepositoryErrorPaths(TestCase):
         public hook the sink's ``initialize`` calls. Mocked here so the
         unit suite covers the entry point even without a live DB.
         """
-        cfg = DatabaseConfig(database="db", username="u", password="p")
+        cfg = PostgresDatabaseSettings(database="db", username="u", password="p")
         fake_conn = mock.MagicMock()
         with (
             mock.patch.object(connection, "connect", return_value=fake_conn) as connect,
@@ -577,7 +574,7 @@ class TestRepositoryErrorPaths(TestCase):
         from real PG (a successful INSERT always RETURNS a row), so the
         only way to keep the defensive branch live is a unit test.
         """
-        cfg = DatabaseConfig(database="db", username="u", password="p")
+        cfg = PostgresDatabaseSettings(database="db", username="u", password="p")
         order = _mock_order()
         fake_conn = mock.MagicMock()
         fake_conn.transaction.return_value = nullcontext()
@@ -598,7 +595,7 @@ class TestRepositoryErrorPaths(TestCase):
         than raising when the ``WHERE id = %s`` clause matches zero
         rows. ``begin_run`` relies on this to decide whether to insert.
         """
-        cfg = DatabaseConfig(database="db", username="u", password="p")
+        cfg = PostgresDatabaseSettings(database="db", username="u", password="p")
         cursor = mock.MagicMock()
         cursor.fetchone.return_value = None
         fake_conn = mock.MagicMock()
@@ -806,7 +803,7 @@ class TestConnectionCacheBehaviour(TestCase):
         entry is non-None, otherwise long-running workers wedge on the
         first reconnect.
         """
-        cfg = DatabaseConfig(database="db", username="u", password="p")
+        cfg = PostgresDatabaseSettings(database="db", username="u", password="p")
         dead = mock.MagicMock()
         dead.closed = True
         fresh = mock.MagicMock()
@@ -841,8 +838,8 @@ class TestConnectionCacheBehaviour(TestCase):
         atexit hook must be best-effort -- partial cleanup is still
         better than leaving the interpreter holding live sockets.
         """
-        cfg_a = DatabaseConfig(database="a", username="u", password="p")
-        cfg_b = DatabaseConfig(database="b", username="u", password="p")
+        cfg_a = PostgresDatabaseSettings(database="a", username="u", password="p")
+        cfg_b = PostgresDatabaseSettings(database="b", username="u", password="p")
         broken = mock.MagicMock()
         broken.closed = False
         broken.close.side_effect = RuntimeError("close blew up")
@@ -872,8 +869,8 @@ class TestConnectionCacheBehaviour(TestCase):
         Ensure :func:`_close_all_connections` only closes connections owned
         by the local process.
         """
-        cfg_a = DatabaseConfig(database="a", username="u", password="p")
-        cfg_b = DatabaseConfig(database="b", username="u", password="p")
+        cfg_a = PostgresDatabaseSettings(database="a", username="u", password="p")
+        cfg_b = PostgresDatabaseSettings(database="b", username="u", password="p")
         local = mock.MagicMock()
         local.closed = False
         local.close.side_effect = RuntimeError("close blew up")
@@ -1103,9 +1100,9 @@ class TestBulkLoadLifecycle(TestCase):
         """
         Ensure :func:`repositories.drop_indexes` is just
         ``schema.drop_indexes(connection.connect(config))`` -- the
-        :class:`DatabaseConfig`-keyed convenience the CLI uses.
+        :class:`PostgresDatabaseSettings`-keyed convenience the CLI uses.
         """
-        cfg = DatabaseConfig(database="db", username="u", password="p")
+        cfg = PostgresDatabaseSettings(database="db", username="u", password="p")
         fake_conn = mock.MagicMock()
         with (
             mock.patch.object(
@@ -1121,7 +1118,7 @@ class TestBulkLoadLifecycle(TestCase):
 
     def test_repositories_recreate_indexes_wires_connect_to_schema(self):
         """Ensure the recreate wrapper is the same shape as the drop wrapper."""
-        cfg = DatabaseConfig(database="db", username="u", password="p")
+        cfg = PostgresDatabaseSettings(database="db", username="u", password="p")
         fake_conn = mock.MagicMock()
         with (
             mock.patch.object(
@@ -1142,7 +1139,7 @@ class TestBulkLoadLifecycle(TestCase):
         :func:`schema.bulk_load_window`, and yields once. The body
         runs while the schema-level guard is held.
         """
-        cfg = DatabaseConfig(database="db", username="u", password="p")
+        cfg = PostgresDatabaseSettings(database="db", username="u", password="p")
         fake_conn = mock.MagicMock()
         events: list[str] = []
 

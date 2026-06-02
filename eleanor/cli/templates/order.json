@@ -3,7 +3,7 @@
   "creator": "Your Name",
   "notes": "",
   "kernel": {
-    "type": "eq36",
+    "kind": "eq36",
     "model": "b-dot",
     "charge_balance": "H+"
   },

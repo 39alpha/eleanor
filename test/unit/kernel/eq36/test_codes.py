@@ -1,6 +1,6 @@
-from eleanor.kernel.eq36.codes import RunCode
+from unittest import TestCase
 
-from ...common import TestCase
+from eleanor.kernel.eq36.codes import RunCode
 
 
 class TestEq36Codes(TestCase):

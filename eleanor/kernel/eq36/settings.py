@@ -788,9 +788,11 @@ class Eq36Settings(KernelSettings):
 
     @classmethod
     def from_dict(cls, raw: dict[str, object]):
-        model_raw = raw["model"]
+        model_raw = raw.get("model")
         model: IOPG_1
-        if isinstance(model_raw, int):
+        if model_raw is None:
+            raise EleanorException("kernel.model is required")
+        elif isinstance(model_raw, int):
             model = IOPG_1(model_raw)
         elif isinstance(model_raw, str):
             model_name = EQ36_MODEL_EXTENSIONS.get(model_raw, model_raw)

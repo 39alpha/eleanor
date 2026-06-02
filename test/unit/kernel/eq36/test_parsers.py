@@ -2,7 +2,7 @@ import io
 import warnings
 from pathlib import Path
 from typing import override
-from unittest import mock
+from unittest import TestCase, mock
 
 import numpy as np
 
@@ -10,8 +10,6 @@ import eleanor.equilibrium_space as es
 from eleanor.exceptions import EleanorException, EleanorFileException, EleanorParserException
 from eleanor.kernel.eq36.codes import RunCode
 from eleanor.kernel.eq36.parsers import OutputParser, OutputParser3, OutputParser6
-
-from ...common import TestCase
 
 
 class DummyOutputParser(OutputParser):

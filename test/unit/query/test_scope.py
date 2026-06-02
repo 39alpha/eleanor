@@ -1,11 +1,11 @@
 from dataclasses import dataclass
+from unittest import TestCase
 
 from eleanor.query.errors import AliasCollision, AmbiguousRowScope, InvalidRowScope, UnknownRowScope
 from eleanor.query.path import Path, parse_path, path_to_string
 from eleanor.query.reflection import DataclassField
 from eleanor.query.scope import AmbientScopeTable, resolve_row_scope
 
-from ..common import TestCase
 from .models import Point, Sample
 
 

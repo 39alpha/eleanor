@@ -1,11 +1,10 @@
 import enum
+from unittest import TestCase
 
 import numpy as np
 
 from eleanor.query.coercion import coerce_filter_value, parse_missing_policy
 from eleanor.query.errors import InvalidFilterValue, ParseError
-
-from ..common import TestCase
 
 
 class _Kind(enum.Enum):

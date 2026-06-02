@@ -1,8 +1,6 @@
-from unittest import mock
+from unittest import TestCase, mock
 
 from eleanor.kernel.eq36.libeq36 import get_libpath, read_data1
-
-from ...common import TestCase
 
 
 class TestEq36Libeq36(TestCase):

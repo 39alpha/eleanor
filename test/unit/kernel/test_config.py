@@ -1,9 +1,7 @@
-from unittest import mock
+from unittest import TestCase, mock
 
-from eleanor.exceptions import EleanorException
-from eleanor.kernel.config import Config, Settings
-
-from ..common import TestCase
+from eleanor.config.kernel import KernelConfig
+from eleanor.kernel.settings import KernelSettings
 
 
 class TestKernelConfig(TestCase):
@@ -13,48 +11,19 @@ class TestKernelConfig(TestCase):
 
     def test_settings_parameters_default_empty(self):
         """
-        Ensure that :class:`Settings` returns an empty parameter list by default.
+        Ensure that :class:`KernelSettings` returns an empty parameter list by default.
         """
-        settings = Settings(timeout=30)
+        settings = KernelSettings(timeout=30)
         self.assertEqual(settings.parameters(), [])
-
-    def test_config_resolved_settings_rejects_dict_payload(self):
-        """
-        Ensure :meth:`Config.resolved_settings` rejects raw dict payloads.
-        """
-        config = Config(type="eq36", settings=Settings(timeout=None))
-        setattr(config, "settings", {"timeout": 12})
-        with self.assertRaises(EleanorException):
-            config.resolved_settings()
-
-    def test_config_resolved_settings_returns_existing_settings_instance(self):
-        """
-        Ensure :meth:`Config.resolved_settings` is a no-op when already typed.
-        """
-        settings = Settings(timeout=10)
-        config = Config(type="eq36", settings=settings)
-
-        resolved = config.resolved_settings()
-        self.assertIs(resolved, settings)
-
-    def test_config_resolved_settings_rejects_unknown_types(self):
-        """
-        Ensure :meth:`Config.resolved_settings` raises on unexpected payload types.
-        """
-        config = Config(type="eq36", settings=Settings(timeout=None))
-        setattr(config, "settings", 42)
-
-        with self.assertRaises(EleanorException):
-            config.resolved_settings()
 
     def test_config_parameters_delegates_to_settings(self):
         """
-        Ensure that :meth:`Config.parameters` delegates to the underlying settings object.
+        Ensure that :meth:`KernelConfig.parameters` delegates to the underlying settings object.
         """
         parameter = object()
-        settings = mock.Mock(spec=Settings)
+        settings = mock.Mock(spec=KernelSettings)
         settings.parameters.return_value = [parameter]
-        config = Config(type="eq36", settings=settings)
+        config = KernelConfig(kind="eq36", settings=settings)
 
         result = config.parameters()
 

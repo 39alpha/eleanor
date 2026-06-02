@@ -1,10 +1,10 @@
 from dataclasses import dataclass
+from unittest import TestCase
 
 from eleanor.query import compile_query, evaluate
 from eleanor.query.errors import MultipleMatchError, ParseError, PathMissError
 from eleanor.query.reflection import DataclassField, LeafField
 
-from ..common import TestCase
 from .models import Chemistry, Mineral, Point, Sample, make_sample
 
 

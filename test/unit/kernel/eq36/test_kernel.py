@@ -1,15 +1,25 @@
-# pyright: reportArgumentType=false, reportAttributeAccessIssue=false, reportOptionalMemberAccess=false
 import contextlib
 import io
 from types import SimpleNamespace
-from unittest import mock
+from typing import cast
+from unittest import TestCase, mock
 
+import numpy as np
+
+import eleanor.variable_space as vs
+from eleanor.config.kernel import KernelConfig
+from eleanor.constraints.point_builder import PointBuilder
 from eleanor.exceptions import EleanorException
-from eleanor.kernel.eq36.kernel import Kernel
-from eleanor.kernel.eq36.settings import IOPT_1, IOPT_4, Eq3Config, Eq6Config, Settings
+from eleanor.kernel.eq36.data1 import BasisSpecies, Data1
+from eleanor.kernel.eq36.kernel import Eq36Kernel
+from eleanor.kernel.eq36.settings import IOPG_1, IOPT_1, IOPT_4, Eq3Settings, Eq6Settings, Eq36Settings
 from eleanor.kernel.exceptions import EleanorKernelException
+from eleanor.kernel.settings import KernelSettings
+from eleanor.order import Order
+from eleanor.parameters import Parameter
 from eleanor.variable_space import (
     AqueousReactant,
+    Element,
     ElementReactant,
     FixedGasReactant,
     GasReactant,
@@ -18,73 +28,45 @@ from eleanor.variable_space import (
     SolidSolutionReactantEndMembers,
     SpecialReactant,
     SpecialReactantComposition,
+    Species,
+    Suppression,
+    SuppressionException,
 )
 
-from ...common import TestCase
 
-
-class _DummyPoint:
-    def __init__(
-        self,
-        settings,
-        suppressions=None,
-        has_reactants=False,
-        water_mass=1.0,
-        temperature=25.0,
-        pressure=10.0,
-        species=None,
-        elements=None,
-        mineral_reactants=None,
-        solid_solution_reactants=None,
-        special_reactants=None,
-        element_reactants=None,
-        aqueous_reactants=None,
-        gas_reactants=None,
-        fixed_gas_reactants=None,
-    ):
-        self.kernel = SimpleNamespace(settings=settings)
-        self.suppressions = [] if suppressions is None else suppressions
-        self._has_reactants = has_reactants
-        self.water_mass = water_mass
-        self.temperature = temperature
-        self.pressure = pressure
-        self.species = [] if species is None else species
-        self.elements = [] if elements is None else elements
-        self.mineral_reactants = [] if mineral_reactants is None else mineral_reactants
-        self.solid_solution_reactants = [] if solid_solution_reactants is None else solid_solution_reactants
-        self.special_reactants = [] if special_reactants is None else special_reactants
-        self.element_reactants = [] if element_reactants is None else element_reactants
-        self.aqueous_reactants = [] if aqueous_reactants is None else aqueous_reactants
-        self.gas_reactants = [] if gas_reactants is None else gas_reactants
-        self.fixed_gas_reactants = [] if fixed_gas_reactants is None else fixed_gas_reactants
-
-    def has_reactants(self):
-        return self._has_reactants
-
-    def has_species_constraint(self, name):
-        return any(s.name == name for s in self.species)
-
-    def get_species(self, name):
-        for species in self.species:
-            if species.name == name:
-                return species
-        return None
-
-    def reactant_count(self):
-        return sum(
-            map(
-                len,
-                [
-                    self.mineral_reactants,
-                    self.aqueous_reactants,
-                    self.gas_reactants,
-                    self.element_reactants,
-                    self.special_reactants,
-                    self.fixed_gas_reactants,
-                    self.solid_solution_reactants,
-                ],
-            )
-        )
+def _make_point(
+    settings: Eq36Settings,
+    *,
+    suppressions: list[vs.Suppression] | None = None,
+    water_mass: float = 1.0,
+    temperature: float = 25.0,
+    pressure: float = 10.0,
+    species: list[vs.Species] | None = None,
+    elements: list[vs.Element] | None = None,
+    mineral_reactants: list[MineralReactant] | None = None,
+    solid_solution_reactants: list[SolidSolutionReactant] | None = None,
+    special_reactants: list[SpecialReactant] | None = None,
+    element_reactants: list[ElementReactant] | None = None,
+    aqueous_reactants: list[AqueousReactant] | None = None,
+    gas_reactants: list[GasReactant] | None = None,
+    fixed_gas_reactants: list[FixedGasReactant] | None = None,
+) -> vs.Point:
+    return vs.Point(
+        kernel=KernelConfig(kind="eq36", settings=settings),
+        water_mass=np.float64(water_mass),
+        temperature=np.float64(temperature),
+        pressure=np.float64(pressure),
+        suppressions=suppressions or [],
+        species=species or [],
+        elements=elements or [],
+        mineral_reactants=mineral_reactants or [],
+        solid_solution_reactants=solid_solution_reactants or [],
+        special_reactants=special_reactants or [],
+        element_reactants=element_reactants or [],
+        aqueous_reactants=aqueous_reactants or [],
+        gas_reactants=gas_reactants or [],
+        fixed_gas_reactants=fixed_gas_reactants or [],
+    )
 
 
 class _DummyCurve:
@@ -100,7 +82,9 @@ class _DummyCurve:
 
 
 class _NamedStringIO(io.StringIO):
-    def __init__(self, name):
+    name: str
+
+    def __init__(self, name: str):
         super().__init__()
         self.name = name
 
@@ -110,17 +94,22 @@ class TestEq36Kernel(TestCase):
     Tests of selected branch behavior in eleanor.kernel.eq36.kernel.
     """
 
-    def _settings(self, with_eq6=True):
-        return Settings(
-            timeout=None,
-            model="b-dot",
+    def _data1(self) -> Data1:
+        return Data1("fake", {}, {}, {}, {}, {}, {}, {}, None)
+
+    def _settings(self, with_eq6=True) -> Eq36Settings:
+        return Eq36Settings(
+            model=IOPG_1.B_DOT,
             charge_balance="Cl-",
-            eq3_config=Eq3Config(),
-            eq6_config=Eq6Config() if with_eq6 else None,
+            eq3_config=Eq3Settings(),
+            eq6_config=Eq6Settings() if with_eq6 else None,
         )
 
-    def _kernel(self):
-        return Kernel(settings=self._settings(), data1_dir=".")
+    def _config(self) -> KernelConfig:
+        return KernelConfig(kind="eq6", settings=self._settings())
+
+    def _kernel(self) -> Eq36Kernel:
+        return Eq36Kernel()
 
     def test_is_soft_exit_accepts_code_60_and_rejects_other_nonzero(self):
         """
@@ -139,7 +128,7 @@ class TestEq36Kernel(TestCase):
             kernel.get_atomic_weight("Na")
 
         kernel._setup = True
-        kernel._data1s = [SimpleNamespace(elements={"Na": 22.99})]
+        kernel._data1s = cast(list[Data1], [SimpleNamespace(elements={"Na": 22.99})])
         self.assertEqual(kernel.get_atomic_weight("Na"), 22.99)
         self.assertIsNone(kernel.get_atomic_weight("Cl"))
 
@@ -155,7 +144,7 @@ class TestEq36Kernel(TestCase):
         sentinel = object()
         data1 = SimpleNamespace(molar_mass=mock.Mock(return_value=sentinel))
         kernel._setup = True
-        kernel._data1s = [data1]
+        kernel._data1s = cast(list[Data1], [data1])
 
         self.assertIs(kernel.get_molar_mass("H2O"), sentinel)
         data1.molar_mass.assert_called_once_with("H2O", None)
@@ -173,7 +162,7 @@ class TestEq36Kernel(TestCase):
         data1 = SimpleNamespace(molar_mass=mock.Mock(return_value=sentinel))
         kernel = self._kernel()
         kernel._setup = True
-        kernel._data1s = [data1]
+        kernel._data1s = cast(list[Data1], [data1])
 
         self.assertIs(kernel.get_molar_mass("SOLID1", fractions), sentinel)
         data1.molar_mass.assert_called_once_with("SOLID1", fractions)
@@ -189,11 +178,15 @@ class TestEq36Kernel(TestCase):
         Ensure unsuppressed solid-solution runs permit solids and switch EQ6 to titration mode when reactants exist.
         """
         kernel = self._kernel()
-        point = _DummyPoint(self._settings(with_eq6=True), has_reactants=True)
+        point = _make_point(
+            self._settings(with_eq6=True),
+            mineral_reactants=[MineralReactant(name="stub", log_moles=np.float64(0.0), titration_rate=np.float64(1.0))],
+        )
 
         resolved = kernel.resolve_kernel_settings(point)
 
         self.assertEqual(resolved.eq3_config.iopt_4, IOPT_4.PERMIT_SOLID_SOLUTIONS)
+        assert resolved.eq6_config is not None
         self.assertEqual(resolved.eq6_config.iopt_4, IOPT_4.PERMIT_SOLID_SOLUTIONS)
         self.assertEqual(resolved.eq6_config.iopt_1, IOPT_1.TITRATION_SYS)
 
@@ -203,15 +196,16 @@ class TestEq36Kernel(TestCase):
         """
         kernel = self._kernel()
         suppressions = [
-            SimpleNamespace(type="solid solution", name=None, exceptions=[]),
-            SimpleNamespace(type="solid solutions", name="SS1", exceptions=[]),
+            Suppression(type="solid solution", name=None, exceptions=[]),
+            Suppression(type="solid solutions", name="SS1", exceptions=[]),
         ]
-        point = _DummyPoint(self._settings(with_eq6=True), suppressions=suppressions, has_reactants=False)
+        point = _make_point(self._settings(with_eq6=True), suppressions=suppressions)
 
         with mock.patch("sys.stderr", new=io.StringIO()) as stderr:
             resolved = kernel.resolve_kernel_settings(point)
 
         self.assertEqual(resolved.eq3_config.iopt_4, IOPT_4.IGNORE_SOLID_SOLUTIONS)
+        assert resolved.eq6_config is not None
         self.assertEqual(resolved.eq6_config.iopt_4, IOPT_4.IGNORE_SOLID_SOLUTIONS)
         self.assertIn("all solid solutions are suppressed", stderr.getvalue())
 
@@ -220,8 +214,8 @@ class TestEq36Kernel(TestCase):
         Ensure solid-solution suppression exceptions are rejected as unsupported.
         """
         kernel = self._kernel()
-        suppressions = [SimpleNamespace(type="solid solution", name=None, exceptions=[object()])]
-        point = _DummyPoint(self._settings(with_eq6=True), suppressions=suppressions)
+        suppressions = [Suppression(type="solid solution", name=None, exceptions=[SuppressionException(name="stub")])]
+        point = _make_point(self._settings(with_eq6=True), suppressions=suppressions)
 
         with self.assertRaises(NotImplementedError):
             kernel.resolve_kernel_settings(point)
@@ -231,7 +225,10 @@ class TestEq36Kernel(TestCase):
         Ensure unsuppressed solid-solution mode still updates EQ3 when EQ6 config is disabled.
         """
         kernel = self._kernel()
-        point = _DummyPoint(self._settings(with_eq6=False), has_reactants=True)
+        point = _make_point(
+            self._settings(with_eq6=False),
+            mineral_reactants=[MineralReactant(name="stub", log_moles=np.float64(0.0), titration_rate=np.float64(1.0))],
+        )
 
         resolved = kernel.resolve_kernel_settings(point)
 
@@ -243,8 +240,8 @@ class TestEq36Kernel(TestCase):
         Ensure resolve_kernel_settings rejects points whose kernel settings are not eq36 Settings instances.
         """
         kernel = self._kernel()
-        point = _DummyPoint(self._settings())
-        point.kernel.settings = object()
+        point = _make_point(self._settings())
+        point.kernel.settings = KernelSettings()
 
         with self.assertRaises(TypeError):
             kernel.resolve_kernel_settings(point)
@@ -254,13 +251,16 @@ class TestEq36Kernel(TestCase):
         Ensure find_data1 ignores curves outside domain/non-matching pressure and returns the matching data1.
         """
         kernel = self._kernel()
-        kernel._data1s = [
-            SimpleNamespace(filename="none", tp_curve=None),
-            SimpleNamespace(filename="outside", tp_curve=_DummyCurve(in_domain=False, pressure=10.0)),
-            SimpleNamespace(filename="wrong", tp_curve=_DummyCurve(in_domain=True, pressure=7.5)),
-            SimpleNamespace(filename="right", tp_curve=_DummyCurve(in_domain=True, pressure=10.0)),
-        ]
-        point = _DummyPoint(self._settings(), temperature=25.0, pressure=10.0)
+        kernel._data1s = cast(
+            list[Data1],
+            [
+                SimpleNamespace(filename="none", tp_curve=None),
+                SimpleNamespace(filename="outside", tp_curve=_DummyCurve(in_domain=False, pressure=10.0)),
+                SimpleNamespace(filename="wrong", tp_curve=_DummyCurve(in_domain=True, pressure=7.5)),
+                SimpleNamespace(filename="right", tp_curve=_DummyCurve(in_domain=True, pressure=10.0)),
+            ],
+        )
+        point = _make_point(self._settings(), temperature=25.0, pressure=10.0)
 
         data1 = kernel.find_data1(point)
 
@@ -271,8 +271,10 @@ class TestEq36Kernel(TestCase):
         Ensure find_data1 raises when no data1 curve satisfies both temperature-domain and pressure equality checks.
         """
         kernel = self._kernel()
-        kernel._data1s = [SimpleNamespace(filename="wrong", tp_curve=_DummyCurve(in_domain=True, pressure=9.0))]
-        point = _DummyPoint(self._settings(), temperature=25.0, pressure=10.0)
+        kernel._data1s = cast(
+            list[Data1], [SimpleNamespace(filename="wrong", tp_curve=_DummyCurve(in_domain=True, pressure=9.0))]
+        )
+        point = _make_point(self._settings(), temperature=25.0, pressure=10.0)
 
         with self.assertRaises(EleanorKernelException):
             kernel.find_data1(point)
@@ -284,8 +286,8 @@ class TestEq36Kernel(TestCase):
         kernel = self._kernel()
         first = SimpleNamespace(filename="first", tp_curve=_DummyCurve(in_domain=True, pressure=10.0))
         second = SimpleNamespace(filename="second", tp_curve=_DummyCurve(in_domain=True, pressure=10.0))
-        kernel._data1s = [first, second]
-        point = _DummyPoint(self._settings(), temperature=25.0, pressure=10.0)
+        kernel._data1s = cast(list[Data1], [first, second])
+        point = _make_point(self._settings(), temperature=25.0, pressure=10.0)
 
         with mock.patch("builtins.print") as print_mock:
             data1 = kernel.find_data1(point, verbose=True)
@@ -301,7 +303,7 @@ class TestEq36Kernel(TestCase):
         """
         kernel = self._kernel()
         settings = self._settings(with_eq6=False)
-        point = _DummyPoint(settings)
+        point = _make_point(settings)
         found_data1 = SimpleNamespace(filename="/tmp/found/run.d1")
         eq3_result = SimpleNamespace(stage="eq3")
 
@@ -310,10 +312,12 @@ class TestEq36Kernel(TestCase):
             mock.patch.object(kernel, "find_data1", return_value=found_data1) as find_data1,
             mock.patch.object(kernel, "write_eq3_input", return_value="problem.3i") as write_eq3_input,
             mock.patch("eleanor.kernel.eq36.kernel.eq3") as eq3_mock,
-            mock.patch("eleanor.kernel.eq36.kernel.Kernel.read_eq3_output", return_value=eq3_result) as read_eq3_output,
+            mock.patch(
+                "eleanor.kernel.eq36.kernel.Eq36Kernel.read_eq3_output", return_value=eq3_result
+            ) as read_eq3_output,
             mock.patch("eleanor.kernel.eq36.kernel.eq6") as eq6_mock,
             mock.patch("eleanor.kernel.eq36.kernel.read_pickup_lines") as read_pickup_lines,
-            mock.patch("eleanor.kernel.eq36.kernel.Kernel.read_eq6_output") as read_eq6_output,
+            mock.patch("eleanor.kernel.eq36.kernel.Eq36Kernel.read_eq6_output") as read_eq6_output,
             mock.patch("eleanor.kernel.eq36.kernel.Data1.from_file") as from_file,
         ):
             output = kernel.run(point, verbose=True)
@@ -338,7 +342,7 @@ class TestEq36Kernel(TestCase):
         kernel = self._kernel()
         settings = self._settings(with_eq6=True)
         settings.data1_file = "/tmp/configured/run.d1"
-        point = _DummyPoint(settings)
+        point = _make_point(settings)
         loaded_data1 = SimpleNamespace(filename="/tmp/configured/run.d1")
         eq3_result = SimpleNamespace(stage="eq3")
         eq6_results = [SimpleNamespace(stage="eq6-a"), SimpleNamespace(stage="eq6-b")]
@@ -350,12 +354,14 @@ class TestEq36Kernel(TestCase):
             mock.patch("eleanor.kernel.eq36.kernel.Data1.from_file", return_value=loaded_data1) as from_file,
             mock.patch.object(kernel, "write_eq3_input", return_value="problem.3i") as write_eq3_input,
             mock.patch("eleanor.kernel.eq36.kernel.eq3") as eq3_mock,
-            mock.patch("eleanor.kernel.eq36.kernel.Kernel.read_eq3_output", return_value=eq3_result) as read_eq3_output,
+            mock.patch(
+                "eleanor.kernel.eq36.kernel.Eq36Kernel.read_eq3_output", return_value=eq3_result
+            ) as read_eq3_output,
             mock.patch("eleanor.kernel.eq36.kernel.read_pickup_lines", return_value=pickup_lines) as read_pickup_lines,
             mock.patch.object(kernel, "write_eq6_input", return_value="problem.6i") as write_eq6_input,
             mock.patch("eleanor.kernel.eq36.kernel.eq6") as eq6_mock,
             mock.patch(
-                "eleanor.kernel.eq36.kernel.Kernel.read_eq6_output", return_value=eq6_results
+                "eleanor.kernel.eq36.kernel.Eq36Kernel.read_eq6_output", return_value=eq6_results
             ) as read_eq6_output,
         ):
             output = kernel.run(point, verbose=True)
@@ -380,7 +386,7 @@ class TestEq36Kernel(TestCase):
         Ensure run re-raises EleanorException subclasses directly.
         """
         kernel = self._kernel()
-        point = _DummyPoint(self._settings())
+        point = _make_point(self._settings())
         error = EleanorKernelException("known kernel failure")
 
         with mock.patch.object(kernel, "resolve_kernel_settings", side_effect=error):
@@ -394,7 +400,7 @@ class TestEq36Kernel(TestCase):
         Ensure run wraps unexpected exceptions with a generic EleanorException while preserving the original cause.
         """
         kernel = self._kernel()
-        point = _DummyPoint(self._settings())
+        point = _make_point(self._settings())
         cause = RuntimeError("unexpected failure")
 
         with mock.patch.object(kernel, "resolve_kernel_settings", side_effect=cause):
@@ -411,7 +417,7 @@ class TestEq36Kernel(TestCase):
         kernel = self._kernel()
         handle = io.StringIO()
 
-        kernel.write_switch_grid(handle, Eq3Config())
+        kernel.write_switch_grid(handle, Eq3Settings())
 
         output = handle.getvalue()
         self.assertIn("iopg1-10=", output)
@@ -424,7 +430,7 @@ class TestEq36Kernel(TestCase):
         kernel = self._kernel()
         handle = io.StringIO()
 
-        kernel.write_switch_grid(handle, Eq6Config())
+        kernel.write_switch_grid(handle, Eq6Settings())
 
         output = handle.getvalue()
         self.assertNotIn("iopg1-10=", output)
@@ -435,8 +441,8 @@ class TestEq36Kernel(TestCase):
         Ensure write_switch_grid calls Eq3 make_verbose in verbose mode and prints rows from the returned config.
         """
         kernel = self._kernel()
-        base_cfg = Eq3Config()
-        verbose_cfg = Eq3Config(iopt_1=IOPT_1.FLOW_THROUGH_SYS)
+        base_cfg = Eq3Settings()
+        verbose_cfg = Eq3Settings(iopt_1=IOPT_1.FLOW_THROUGH_SYS)
         expected_line = "  iopt1-10= {0: >5}{1: >5}{2: >5}{3: >5}{4: >5}{5: >5}{6: >5}{7: >5}{8: >5}{9: >5}".format(
             *verbose_cfg.iopt[:10]
         )
@@ -455,7 +461,7 @@ class TestEq36Kernel(TestCase):
         kernel = self._kernel()
         settings = self._settings()
         settings.data1_file = "/tmp/source/testdata.d1"
-        point = _DummyPoint(settings)
+        point = _make_point(settings)
 
         with (
             mock.patch.object(kernel, "resolve_kernel_settings", return_value=settings) as resolve,
@@ -474,7 +480,7 @@ class TestEq36Kernel(TestCase):
         """
         kernel = self._kernel()
         settings = self._settings()
-        point = _DummyPoint(settings)
+        point = _make_point(settings)
         found = SimpleNamespace(filename="/tmp/found/fresh.d1")
 
         with (
@@ -489,15 +495,15 @@ class TestEq36Kernel(TestCase):
         self.assertEqual(settings.data1_file, "/tmp/found/fresh.d1")
         copyfile_mock.assert_called_once_with("/tmp/found/fresh.d1", "target/fresh.d1")
 
-    def test_setup_filters_data1_files_by_tp_curve_domain_and_sets_setup_flag(self):
+    def test_setup_filters_data1_files_that_intersect_target_domain(self):
         """
         Ensure setup only retains data1 files whose tp-curves intersect the requested T/P domain.
         """
         kernel = self._kernel()
-        order = SimpleNamespace(
-            temperature=SimpleNamespace(range=lambda: (1.0, 2.0)),
-            pressure=SimpleNamespace(range=lambda: (3.0, 4.0)),
-        )
+        order = mock.create_autospec(Order, instance=True)
+        order.kernel = self._config()
+        order.temperature = Parameter.load({"min": 1.0, "max": 2.0})
+        order.pressure = Parameter.load({"min": 3.0, "max": 4.0})
         rejected = SimpleNamespace(tp_curve=SimpleNamespace(set_domain=mock.Mock(return_value=False)))
         accepted = SimpleNamespace(tp_curve=SimpleNamespace(set_domain=mock.Mock(return_value=True)))
 
@@ -515,7 +521,7 @@ class TestEq36Kernel(TestCase):
                 "eleanor.kernel.eq36.kernel.Data1.from_file", side_effect=[rejected, accepted]
             ) as from_file_mock,
         ):
-            kernel.setup(order)
+            kernel.setup(cast(Order, order), data1_dir=".")
 
         wd_mock.assert_called_once_with(".")
         find_files_mock.assert_called_once_with(".d1")
@@ -528,21 +534,26 @@ class TestEq36Kernel(TestCase):
 
     def test_setup_raises_when_order_is_none(self):
         """
-        Ensure setup raises EleanorException when called without an order.
+        Ensure setup raises EleanorException when called with an invalid order.
         """
         kernel = self._kernel()
-        with self.assertRaises(EleanorException):
-            kernel.setup()
+        # order = mock.create_autospec(Order, instance=True)
+        # order.kernel = self._config()
+        # order.temperature = Parameter.load({"min": 100, "max": 200})
+        # order.pressure = Parameter.load({"min": 1, "max": 800})
+
+        with self.assertRaisesRegex(EleanorException, "order provided to Eq36Kernel.setup"):
+            kernel.setup(cast(Order, cast(object, None)), data1_dir=".")
 
     def test_validate_order_raises_kernel_has_not_been_setup(self):
         """
         Ensure validate_order raises when the kernel has not been setup.
         """
         kernel = self._kernel()
-        order = SimpleNamespace(
-            temperature=SimpleNamespace(range=lambda: (10.0, 20.0)),
-            pressure=SimpleNamespace(range=lambda: (30.0, 40.0)),
-        )
+        order = mock.create_autospec(Order, instance=True)
+        order.kernel = KernelSettings()
+        order.temperature = Parameter.load(100.0)
+        order.pressure = Parameter.load(20.0)
         rejected = SimpleNamespace(tp_curve=SimpleNamespace(set_domain=mock.Mock(return_value=False)))
 
         with (
@@ -562,10 +573,10 @@ class TestEq36Kernel(TestCase):
         Ensure validate_order raises when no discovered data1 file supports the requested temperature/pressure domain.
         """
         kernel = self._kernel()
-        order = SimpleNamespace(
-            temperature=SimpleNamespace(range=lambda: (10.0, 20.0)),
-            pressure=SimpleNamespace(range=lambda: (30.0, 40.0)),
-        )
+        order = mock.create_autospec(Order, instance=True)
+        order.kernel = self._config()
+        order.temperature = Parameter.load(10.0)
+        order.pressure = Parameter.load(30.0)
         rejected = SimpleNamespace(tp_curve=SimpleNamespace(set_domain=mock.Mock(return_value=False)))
 
         with (
@@ -574,7 +585,7 @@ class TestEq36Kernel(TestCase):
             mock.patch("eleanor.kernel.eq36.kernel.os.path.realpath", side_effect=lambda path: path),
             mock.patch("eleanor.kernel.eq36.kernel.Data1.from_file", return_value=rejected),
         ):
-            kernel.setup(order)
+            kernel.setup(order, data1_dir=".")
             with self.assertRaises(EleanorException):
                 kernel.validate_order(order)
 
@@ -583,35 +594,41 @@ class TestEq36Kernel(TestCase):
 
     def test_constrain_appends_temperature_and_tp_constraints_in_order(self):
         """
-        Ensure constrain appends temperature-range and T/P-curve constraints and returns the same boatswain.
+        Ensure constrain appends temperature-range and T/P-curve constraints and returns the same point_builder.
         """
+        order = mock.create_autospec(Order, instance=True)
+        order.kernel = self._config()
+        order.temperature = Parameter.load({"min": 100, "max": 200})
+        order.pressure = Parameter.load({"min": 1, "max": 800})
+
         kernel = self._kernel()
-        kernel._data1s = [SimpleNamespace(name="d1")]
-        boatswain = SimpleNamespace(
-            order=SimpleNamespace(temperature="TEMP", pressure="PRESS"),
-            constraints=[],
-        )
+        kernel._setup = True
+        kernel._data1s = cast(list[Data1], [SimpleNamespace(name="d1")])
+
+        point_builder = mock.create_autospec(PointBuilder, instance=True)
+        point_builder.order = order
+        point_builder.constraints = []
 
         with (
             mock.patch("eleanor.kernel.eq36.kernel.TemperatureRangeConstraint", return_value="TRANGE") as trange_mock,
             mock.patch("eleanor.kernel.eq36.kernel.TPCurveConstraint", return_value="TPCURVE") as tpcurve_mock,
         ):
-            out = kernel.constrain(boatswain)
+            out = kernel.constrain(point_builder)
 
-        self.assertIs(out, boatswain)
-        self.assertEqual(boatswain.constraints, ["TRANGE", "TPCURVE"])
-        trange_mock.assert_called_once_with("TEMP", kernel._data1s)
-        tpcurve_mock.assert_called_once_with("TEMP", "PRESS", kernel._data1s)
+        self.assertIs(out, point_builder)
+        self.assertEqual(point_builder.constraints, ["TRANGE", "TPCURVE"])
+        trange_mock.assert_called_once_with(order.temperature, kernel._data1s)
+        tpcurve_mock.assert_called_once_with(order.temperature, order.pressure, kernel._data1s)
 
     def test_write_eq3_input_requires_setup_before_writing(self):
         """
         Ensure write_eq3_input fails fast when kernel setup has not been completed.
         """
         kernel = self._kernel()
-        point = _DummyPoint(self._settings())
+        point = _make_point(self._settings())
 
         with self.assertRaises(EleanorKernelException):
-            kernel.write_eq3_input(point, data1=SimpleNamespace())
+            kernel.write_eq3_input(point, data1=self._data1())
 
     def test_write_eq3_input_rejects_unconstrained_non_fO2_redox_species(self):
         """
@@ -621,10 +638,10 @@ class TestEq36Kernel(TestCase):
         kernel._setup = True
         settings = self._settings()
         settings.redox_species = "pe"
-        point = _DummyPoint(settings, species=[SimpleNamespace(name="H+", value=-7.0)])
+        point = _make_point(settings, species=[Species(name="H+", value=np.float64(-7.0))])
 
         with self.assertRaises(EleanorKernelException):
-            kernel.write_eq3_input(point, data1=SimpleNamespace())
+            kernel.write_eq3_input(point, data1=self._data1())
 
     def test_write_eq3_input_fO2_redox_requires_O2_species_lookup(self):
         """
@@ -634,11 +651,14 @@ class TestEq36Kernel(TestCase):
         kernel._setup = True
         settings = self._settings()
         settings.redox_species = "fO2"
-        point = _DummyPoint(settings, species=[SimpleNamespace(name="fO2", value=-60.0)])
+        point = _make_point(settings, species=[Species(name="fO2", value=np.float64(-60.0))])
         handle = _NamedStringIO("problem.3i")
 
+        data1 = mock.create_autospec(Data1, instance=True)
+        data1.get_basis_species.return_value = None
+
         with self.assertRaises(EleanorKernelException):
-            kernel.write_eq3_input(point, data1=SimpleNamespace(get_basis_species=lambda _x: None), file=handle)
+            kernel.write_eq3_input(point, data1=data1, file=handle)
 
     def test_write_eq3_input_uses_fO2_fallback_via_O2_species_and_writes_expected_general_fields(self):
         """
@@ -648,16 +668,19 @@ class TestEq36Kernel(TestCase):
         kernel._setup = True
         settings = self._settings()
         settings.redox_species = "fO2"
-        point = _DummyPoint(
+        point = _make_point(
             settings,
             species=[
-                SimpleNamespace(name="O2(g)", value=-60.0),
-                SimpleNamespace(name="H+", value=-7.0),
+                Species(name="O2(g)", value=np.float64(-60.0)),
+                Species(name="H+", value=np.float64(-7.0)),
             ],
         )
         handle = _NamedStringIO("problem.3i")
 
-        path = kernel.write_eq3_input(point, data1=SimpleNamespace(get_basis_species=lambda _x: None), file=handle)
+        data1 = mock.create_autospec(Data1, instance=True)
+        data1.get_basis_species.return_value = None
+
+        path = kernel.write_eq3_input(point, data1=data1, file=handle)
         output = handle.getvalue()
 
         self.assertEqual(path, "problem.3i")
@@ -673,10 +696,13 @@ class TestEq36Kernel(TestCase):
         kernel._setup = True
         settings = self._settings()
         settings.redox_species = "fO2"
-        point = _DummyPoint(settings, water_mass=0.5, species=[SimpleNamespace(name="O2(g)", value=-60.0)])
+        point = _make_point(settings, water_mass=0.5, species=[Species(name="O2(g)", value=np.float64(-60.0))])
         handle = _NamedStringIO("problem.3i")
 
-        kernel.write_eq3_input(point, data1=SimpleNamespace(get_basis_species=lambda _x: None), file=handle)
+        data1 = mock.create_autospec(Data1, instance=True)
+        data1.get_basis_species.return_value = None
+
+        kernel.write_eq3_input(point, data1=data1, file=handle)
         output = handle.getvalue()
 
         self.assertIn("scamas=  5.00000E-01", output)
@@ -690,13 +716,14 @@ class TestEq36Kernel(TestCase):
         kernel._setup = True
         settings = self._settings()
         settings.redox_species = "fO2"
-        point = _DummyPoint(
+        point = _make_point(
             settings,
-            species=[SimpleNamespace(name="O2(g)", value=-60.0)],
-            elements=[SimpleNamespace(name="Na", log_molality=-3.0)],
+            species=[Species(name="O2(g)", value=np.float64(-60.0))],
+            elements=[Element(name="Na", log_molality=np.float64(-3.0))],
         )
         handle = _NamedStringIO("problem.3i")
-        data1 = SimpleNamespace(get_basis_species=lambda _name: None)
+        data1 = mock.create_autospec(Data1, instance=True)
+        data1.get_basis_species.return_value = None
 
         with self.assertRaises(Exception):
             kernel.write_eq3_input(point, data1=data1, file=handle)
@@ -706,7 +733,7 @@ class TestEq36Kernel(TestCase):
         Ensure write_eq6_input fails fast when eq6 configuration is disabled.
         """
         kernel = self._kernel()
-        point = _DummyPoint(self._settings(with_eq6=False))
+        point = _make_point(self._settings(with_eq6=False))
 
         with self.assertRaises(ValueError):
             kernel.write_eq6_input(point)
@@ -718,7 +745,7 @@ class TestEq36Kernel(TestCase):
         kernel = self._kernel()
         settings = self._settings()
         settings.redox_species = "pe"
-        point = _DummyPoint(settings, species=[SimpleNamespace(name="H+", value=-7.0)])
+        point = _make_point(settings, species=[Species(name="H+", value=np.float64(-7.0))])
 
         with self.assertRaises(EleanorKernelException):
             kernel.write_eq6_input(point)
@@ -729,10 +756,10 @@ class TestEq36Kernel(TestCase):
         """
         kernel = self._kernel()
         settings = self._settings()
-        point = _DummyPoint(
+        point = _make_point(
             settings,
-            species=[SimpleNamespace(name="O2(g)", value=-60.0)],
-            mineral_reactants=[object()],
+            species=[Species(name="O2(g)", value=np.float64(-60.0))],
+            mineral_reactants=cast(list[MineralReactant], [object()]),
         )
         handle = _NamedStringIO("problem.6i")
 
@@ -745,10 +772,10 @@ class TestEq36Kernel(TestCase):
         """
         kernel = self._kernel()
         settings = self._settings()
-        point = _DummyPoint(
+        point = _make_point(
             settings,
-            species=[SimpleNamespace(name="O2(g)", value=-60.0)],
-            suppressions=[SimpleNamespace(type="unexpected", name=None, exceptions=[])],
+            species=[Species(name="O2(g)", value=np.float64(-60.0))],
+            suppressions=[Suppression(type="unexpected", name=None, exceptions=[])],
         )
         handle = _NamedStringIO("problem.6i")
 
@@ -761,10 +788,10 @@ class TestEq36Kernel(TestCase):
         """
         kernel = self._kernel()
         settings = self._settings()
-        point = _DummyPoint(
+        point = _make_point(
             settings,
-            species=[SimpleNamespace(name="O2(g)", value=-60.0)],
-            fixed_gas_reactants=[object()],
+            species=[Species(name="O2(g)", value=np.float64(-60.0))],
+            fixed_gas_reactants=cast(list[FixedGasReactant], [object()]),
         )
         handle = _NamedStringIO("problem.6i")
 
@@ -777,10 +804,10 @@ class TestEq36Kernel(TestCase):
         """
         kernel = self._kernel()
         settings = self._settings()
-        point = _DummyPoint(
+        point = _make_point(
             settings,
-            species=[SimpleNamespace(name="O2(g)", value=-60.0)],
-            solid_solution_reactants=[object()],
+            species=[Species(name="O2(g)", value=np.float64(-60.0))],
+            solid_solution_reactants=cast(list[SolidSolutionReactant], [object()]),
         )
         handle = _NamedStringIO("problem.6i")
 
@@ -793,10 +820,10 @@ class TestEq36Kernel(TestCase):
         """
         kernel = self._kernel()
         settings = self._settings()
-        point = _DummyPoint(
+        point = _make_point(
             settings,
-            species=[SimpleNamespace(name="O2(g)", value=-60.0)],
-            special_reactants=[object()],
+            species=[Species(name="O2(g)", value=np.float64(-60.0))],
+            special_reactants=cast(list[SpecialReactant], [object()]),
         )
         handle = _NamedStringIO("problem.6i")
 
@@ -809,10 +836,10 @@ class TestEq36Kernel(TestCase):
         """
         kernel = self._kernel()
         settings = self._settings()
-        point = _DummyPoint(
+        point = _make_point(
             settings,
-            species=[SimpleNamespace(name="O2(g)", value=-60.0)],
-            element_reactants=[object()],
+            species=[Species(name="O2(g)", value=np.float64(-60.0))],
+            element_reactants=cast(list[ElementReactant], [object()]),
         )
         handle = _NamedStringIO("problem.6i")
 
@@ -825,10 +852,10 @@ class TestEq36Kernel(TestCase):
         """
         kernel = self._kernel()
         settings = self._settings()
-        point = _DummyPoint(
+        point = _make_point(
             settings,
-            species=[SimpleNamespace(name="O2(g)", value=-60.0)],
-            aqueous_reactants=[object()],
+            species=[Species(name="O2(g)", value=np.float64(-60.0))],
+            aqueous_reactants=cast(list[AqueousReactant], [object()]),
         )
         handle = _NamedStringIO("problem.6i")
 
@@ -841,10 +868,10 @@ class TestEq36Kernel(TestCase):
         """
         kernel = self._kernel()
         settings = self._settings()
-        point = _DummyPoint(
+        point = _make_point(
             settings,
-            species=[SimpleNamespace(name="O2(g)", value=-60.0)],
-            gas_reactants=[object()],
+            species=[Species(name="O2(g)", value=np.float64(-60.0))],
+            gas_reactants=cast(list[GasReactant], [object()]),
         )
         handle = _NamedStringIO("problem.6i")
 
@@ -858,28 +885,28 @@ class TestEq36Kernel(TestCase):
         kernel = self._kernel()
         settings = self._settings()
 
-        mineral = MineralReactant(name="Calcite", log_moles=0.0, titration_rate=1.0)
+        mineral = MineralReactant(name="Calcite", log_moles=np.float64(0.0), titration_rate=np.float64(1.0))
         solid_solution = SolidSolutionReactant(
             name="Albite_ss",
-            log_moles=0.0,
-            titration_rate=1.0,
-            end_members=[SolidSolutionReactantEndMembers(name="EM1", fraction=1.0)],
+            log_moles=np.float64(0.0),
+            titration_rate=np.float64(1.0),
+            end_members=[SolidSolutionReactantEndMembers(name="EM1", fraction=np.float64(1.0))],
         )
         special = SpecialReactant(
             name="SR",
-            log_moles=0.0,
-            titration_rate=1.0,
+            log_moles=np.float64(0.0),
+            titration_rate=np.float64(1.0),
             composition=[SpecialReactantComposition(element="Na", count=1)],
         )
-        element = ElementReactant(name="Na", log_moles=0.0, titration_rate=1.0)
-        aqueous = AqueousReactant(name="Na+", log_moles=0.0, titration_rate=1.0)
-        gas = GasReactant(name="CO2(g)", log_moles=0.0, titration_rate=1.0)
-        fixed_gas = FixedGasReactant(name="O2(g)", log_moles=0.0, log_fugacity=-50.0)
+        element = ElementReactant(name="Na", log_moles=np.float64(0.0), titration_rate=np.float64(1.0))
+        aqueous = AqueousReactant(name="Na+", log_moles=np.float64(0.0), titration_rate=np.float64(1.0))
+        gas = GasReactant(name="CO2(g)", log_moles=np.float64(0.0), titration_rate=np.float64(1.0))
+        fixed_gas = FixedGasReactant(name="O2(g)", log_moles=np.float64(0.0), log_fugacity=np.float64(-50.0))
 
-        point = _DummyPoint(
+        point = _make_point(
             settings,
-            species=[SimpleNamespace(name="O2(g)", value=-60.0)],
-            suppressions=[SimpleNamespace(type="minerals", name=None, exceptions=[SimpleNamespace(name="Quartz")])],
+            species=[Species(name="O2(g)", value=np.float64(-60.0))],
+            suppressions=[Suppression(type="minerals", name=None, exceptions=[SuppressionException(name="Quartz")])],
             mineral_reactants=[mineral],
             solid_solution_reactants=[solid_solution],
             special_reactants=[special],
@@ -912,7 +939,7 @@ class TestEq36Kernel(TestCase):
         """
         kernel = self._kernel()
         settings = self._settings()
-        point = _DummyPoint(settings, species=[SimpleNamespace(name="O2(g)", value=-60.0)])
+        point = _make_point(settings, species=[Species(name="O2(g)", value=np.float64(-60.0))])
         handle = _NamedStringIO("problem.6i")
         pickup_lines = ["pickup-a\n", "pickup-b\n"]
 
@@ -930,7 +957,7 @@ class TestEq36Kernel(TestCase):
         """
         kernel = self._kernel()
         settings = self._settings()
-        point = _DummyPoint(settings, species=[SimpleNamespace(name="O2(g)", value=-60.0)])
+        point = _make_point(settings, species=[Species(name="O2(g)", value=np.float64(-60.0))])
         handle = _NamedStringIO("wrapped.6i")
 
         with mock.patch("builtins.open", return_value=handle) as open_mock:
@@ -945,7 +972,7 @@ class TestEq36Kernel(TestCase):
         """
         kernel = self._kernel()
         settings = self._settings()
-        point = _DummyPoint(settings, species=[SimpleNamespace(name="O2(g)", value=-60.0)])
+        point = _make_point(settings, species=[Species(name="O2(g)", value=np.float64(-60.0))])
         handle = _NamedStringIO("problem.6i")
 
         with mock.patch("builtins.open", return_value=handle) as open_mock:
@@ -963,16 +990,24 @@ class TestEq36Kernel(TestCase):
         settings = self._settings()
         settings.redox_species = "pe"
         settings.basis_map = {"Na+": "NaOH(aq)"}
-        point = _DummyPoint(
+        point = _make_point(
             settings,
             species=[
-                SimpleNamespace(name="pe", value=4.0),
-                SimpleNamespace(name="H+", value=7.0),
+                Species(name="pe", value=np.float64(4.0)),
+                Species(name="H+", value=np.float64(7.0)),
             ],
-            elements=[SimpleNamespace(name="Na", log_molality=-3.0)],
-            suppressions=[SimpleNamespace(name="Quartz", type=None, exceptions=[])],
+            elements=[Element(name="Na", log_molality=np.float64(-3.0))],
+            suppressions=[Suppression(name="Quartz", type=None, exceptions=[])],
         )
-        data1 = SimpleNamespace(get_basis_species=lambda _name: SimpleNamespace(name="Na+"))
+        data1 = mock.create_autospec(Data1, instance=True)
+        data1.get_basis_species.return_value = BasisSpecies(
+            name="Na+",
+            molar_mass=np.float64(22.98977),
+            composition={"Na": 1},
+            charge=1,
+            volume=None,
+        )
+
         handle = _NamedStringIO("wrapped.3i")
 
         with mock.patch("builtins.open", return_value=contextlib.nullcontext(handle)) as open_mock:
@@ -995,8 +1030,9 @@ class TestEq36Kernel(TestCase):
         kernel._setup = True
         settings = self._settings()
         settings.redox_species = "fO2"
-        point = _DummyPoint(settings, species=[SimpleNamespace(name="O2(g)", value=-60.0)])
-        data1 = SimpleNamespace(get_basis_species=lambda _name: None)
+        point = _make_point(settings, species=[Species(name="O2(g)", value=np.float64(-60.0))])
+        data1 = mock.create_autospec(Data1, instance=True)
+        data1.get_basis_species.return_value = None
         handle = _NamedStringIO("problem.3i")
 
         with mock.patch("builtins.open", return_value=handle) as open_mock:
@@ -1011,13 +1047,13 @@ class TestEq36Kernel(TestCase):
         """
         kernel = self._kernel()
         settings = self._settings()
-        point = _DummyPoint(
+        point = _make_point(
             settings,
-            species=[SimpleNamespace(name="O2(g)", value=-60.0)],
+            species=[Species(name="O2(g)", value=np.float64(-60.0))],
             suppressions=[
-                SimpleNamespace(type=None, name="Calcite", exceptions=[]),
-                SimpleNamespace(type="minerals", name="Hematite", exceptions=[]),
-                SimpleNamespace(type="solid solutions", name=None, exceptions=[]),
+                Suppression(type=None, name="Calcite", exceptions=[]),
+                Suppression(type="minerals", name="Hematite", exceptions=[]),
+                Suppression(type="solid solutions", name=None, exceptions=[]),
             ],
         )
         handle = _NamedStringIO("problem.6i")
@@ -1034,10 +1070,10 @@ class TestEq36Kernel(TestCase):
         """
         kernel = self._kernel()
         settings = self._settings()
-        point = _DummyPoint(
+        point = _make_point(
             settings,
-            species=[SimpleNamespace(name="O2(g)", value=-60.0)],
-            suppressions=[SimpleNamespace(type=None, name=None, exceptions=[])],
+            species=[Species(name="O2(g)", value=np.float64(-60.0))],
+            suppressions=[Suppression(type=None, name=None, exceptions=[])],
         )
         handle = _NamedStringIO("problem.6i")
 
@@ -1051,16 +1087,16 @@ class TestEq36Kernel(TestCase):
         kernel = self._kernel()
         settings = self._settings()
         cases = [
-            SimpleNamespace(type=None, name="Calcite", exceptions=[SimpleNamespace(name="Quartz")]),
-            SimpleNamespace(type="minerals", name="Hematite", exceptions=[SimpleNamespace(name="Quartz")]),
-            SimpleNamespace(type="solid solutions", name="Feldspar_ss", exceptions=[SimpleNamespace(name="Albite")]),
+            Suppression(type=None, name="Calcite", exceptions=[SuppressionException(name="Quartz")]),
+            Suppression(type="minerals", name="Hematite", exceptions=[SuppressionException(name="Quartz")]),
+            Suppression(type="solid solutions", name="Feldspar_ss", exceptions=[SuppressionException(name="Albite")]),
         ]
 
         for suppression in cases:
             with self.subTest(type=suppression.type, name=suppression.name):
-                point = _DummyPoint(
+                point = _make_point(
                     settings,
-                    species=[SimpleNamespace(name="O2(g)", value=-60.0)],
+                    species=[Species(name="O2(g)", value=np.float64(-60.0))],
                     suppressions=[suppression],
                 )
                 handle = _NamedStringIO("problem.6i")
@@ -1073,10 +1109,10 @@ class TestEq36Kernel(TestCase):
         """
         kernel = self._kernel()
         settings = self._settings()
-        point = _DummyPoint(
+        point = _make_point(
             settings,
-            species=[SimpleNamespace(name="O2(g)", value=-60.0)],
-            suppressions=[SimpleNamespace(type="minerals", name="Hematite", exceptions=[])],
+            species=[Species(name="O2(g)", value=np.float64(-60.0))],
+            suppressions=[Suppression(type="minerals", name="Hematite", exceptions=[])],
         )
         handle = _NamedStringIO("problem.6i")
 
@@ -1094,10 +1130,10 @@ class TestEq36Kernel(TestCase):
         """
         kernel = self._kernel()
         settings = self._settings()
-        point = _DummyPoint(
+        point = _make_point(
             settings,
-            species=[SimpleNamespace(name="O2(g)", value=-60.0)],
-            suppressions=[SimpleNamespace(type="minerals", name=None, exceptions=[])],
+            species=[Species(name="O2(g)", value=np.float64(-60.0))],
+            suppressions=[Suppression(type="minerals", name=None, exceptions=[])],
         )
         handle = _NamedStringIO("problem.6i")
 
@@ -1117,7 +1153,7 @@ class TestEq36Kernel(TestCase):
         parser_instance.parse.return_value = SimpleNamespace(point=expected_point)
 
         with mock.patch("eleanor.kernel.eq36.kernel.OutputParser3", return_value=parser_instance) as parser_cls:
-            point = Kernel.read_eq3_output(file="custom.3o")
+            point = Eq36Kernel.read_eq3_output(file="custom.3o")
 
         parser_cls.assert_called_once_with(file="custom.3o")
         self.assertIs(point, expected_point)
@@ -1131,7 +1167,7 @@ class TestEq36Kernel(TestCase):
 
         with mock.patch("eleanor.kernel.eq36.kernel.OutputParser3", return_value=parser_instance):
             with self.assertRaises(AssertionError):
-                Kernel.read_eq3_output()
+                Eq36Kernel.read_eq3_output()
 
     def test_read_eq6_output_track_path_false_keeps_last_step_only(self):
         """
@@ -1143,7 +1179,7 @@ class TestEq36Kernel(TestCase):
         parser_instance.parse.return_value = SimpleNamespace(path=[first, last])
 
         with mock.patch("eleanor.kernel.eq36.kernel.OutputParser6", return_value=parser_instance) as parser_cls:
-            points = Kernel.read_eq6_output(file="custom.6o", track_path=False)
+            points = Eq36Kernel.read_eq6_output(file="custom.6o", track_path=False)
 
         parser_cls.assert_called_once_with(file="custom.6o")
         self.assertEqual(points, [last])
@@ -1160,7 +1196,7 @@ class TestEq36Kernel(TestCase):
         parser_instance.parse.return_value = SimpleNamespace(path=path)
 
         with mock.patch("eleanor.kernel.eq36.kernel.OutputParser6", return_value=parser_instance):
-            points = Kernel.read_eq6_output(track_path=True)
+            points = Eq36Kernel.read_eq6_output(track_path=True)
 
         self.assertIs(points, path)
 
@@ -1172,6 +1208,6 @@ class TestEq36Kernel(TestCase):
         parser_instance.parse.return_value = SimpleNamespace(path=[])
 
         with mock.patch("eleanor.kernel.eq36.kernel.OutputParser6", return_value=parser_instance):
-            points = Kernel.read_eq6_output(track_path=False)
+            points = Eq36Kernel.read_eq6_output(track_path=False)
 
         self.assertEqual(points, [])

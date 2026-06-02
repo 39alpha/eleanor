@@ -52,7 +52,7 @@ class PostgresDatabaseSettings:
 @dataclass(kw_only=True)
 class PostgresSinkSettings(OutputSinkSettings):
     database: PostgresDatabaseSettings
-    bulk_load_optimization: bool
+    bulk_load_optimization: bool = False
 
     def __post_init__(self) -> None:
         super().__post_init__()

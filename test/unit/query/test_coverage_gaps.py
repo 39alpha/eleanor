@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from typing import Dict, List
-from unittest import mock
+from unittest import TestCase, mock
 
 import eleanor.query.aliases as aliases_module
 import eleanor.query.columns as columns_module
@@ -39,7 +39,6 @@ from eleanor.query.path import MetaSegment, Path, Predicate, Segment, parse_path
 from eleanor.query.reflection import DataclassField, DictField, LeafField, ListField, StepInfo, classify_field
 from eleanor.query.scope import AmbientScopeTable
 
-from ..common import TestCase
 from .models import Chemistry, Point, Sample, make_sample
 
 

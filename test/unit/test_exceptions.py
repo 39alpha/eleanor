@@ -1,11 +1,11 @@
+from unittest import TestCase
+
 from eleanor.exceptions import (
     EleanorConfigurationException,
     EleanorException,
     EleanorFileException,
     EleanorParserException,
 )
-
-from .common import TestCase
 
 
 class TestExceptions(TestCase):

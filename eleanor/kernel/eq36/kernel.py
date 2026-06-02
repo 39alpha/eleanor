@@ -3,7 +3,7 @@ import os.path
 import sys
 from datetime import datetime
 from shutil import copyfile
-from typing import Unpack, cast, override
+from typing import TextIO, Unpack, cast, override
 
 import numpy as np
 
@@ -22,7 +22,7 @@ from eleanor.kernel.exceptions import EleanorKernelException
 from eleanor.kernel.interface import AbstractKernel
 from eleanor.order import Order
 from eleanor.typing import EleanorKwargs
-from eleanor.util import NumberFormat, guard_is_str
+from eleanor.util import NumberFormat, guard_is_instance, guard_is_str
 
 
 class Eq36Kernel(AbstractKernel):
@@ -99,6 +99,8 @@ class Eq36Kernel(AbstractKernel):
         data1_dir: object,
         **kwargs: object,
     ) -> None:
+        guard_is_instance(order, Order, f"order provided to {type(self).__name__}.setup")
+
         if not isinstance(order.kernel.settings, Eq36Settings):
             msg = f"order is not configured for the eq36 kernel, got {type(order.kernel.settings).__name__}"
             raise EleanorKernelException(msg)
@@ -244,7 +246,7 @@ class Eq36Kernel(AbstractKernel):
         self,
         vs_point: vs.Point,
         data1: Data1,
-        file: str | io.TextIOWrapper | None = None,
+        file: str | TextIO | None = None,
         verbose: bool = False,
     ) -> str:
         if not self._setup:
@@ -373,7 +375,7 @@ class Eq36Kernel(AbstractKernel):
     def write_eq6_input(
         self,
         vs_point: vs.Point,
-        file: str | io.TextIOWrapper | None = None,
+        file: str | TextIO | None = None,
         pickup_lines: list[str] | None = None,
         verbose: bool = False,
     ) -> str:
@@ -627,7 +629,7 @@ class Eq36Kernel(AbstractKernel):
 
         return file.name
 
-    def write_switch_grid(self, file: io.TextIOWrapper, c: Eq3Settings | Eq6Settings, verbose: bool = False) -> None:
+    def write_switch_grid(self, file: TextIO, c: Eq3Settings | Eq6Settings, verbose: bool = False) -> None:
         if isinstance(c, Eq3Settings) and verbose:
             c = c.make_verbose()
 

@@ -343,6 +343,13 @@ def require_bool(value: object, field_name: str) -> bool:
     return value
 
 
+def require_opt_bool(value: object, field_name: str) -> bool | None:
+    """Validate that ``value`` is an boolean or None at runtime."""
+    if value is not None and not isinstance(value, bool):
+        raise EleanorException(f"{field_name} must be a boolean or None")
+    return value
+
+
 def require[T](value: T | None, field_name: str) -> T:
     """Validate that ``value`` is a not ``None`` at runtime"""
     if value is None:

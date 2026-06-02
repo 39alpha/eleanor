@@ -1,6 +1,7 @@
-from eleanor.executor.serial import SerialExecutor
+from unittest import TestCase
 
-from ..common import TestCase
+from eleanor.executor.serial import SerialExecutor
+from eleanor.executor.settings import ExecutorSettings
 
 
 class TestSerialExecutor(TestCase):
@@ -12,7 +13,11 @@ class TestSerialExecutor(TestCase):
         """
         Ensure submit executes immediately and returns a resolved future.
         """
-        executor = SerialExecutor()
-        future = executor.submit(lambda x, y: x + y, 2, 3)
+
+        def work(x: int, y: int) -> int:
+            return x + y
+
+        executor = SerialExecutor(settings=ExecutorSettings())
+        future = executor.submit(work, 2, 3)
         self.assertEqual(executor.num_workers, 1)
         self.assertEqual(future.result(), 5)

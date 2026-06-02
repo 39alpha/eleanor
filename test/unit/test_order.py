@@ -3,17 +3,14 @@ from os.path import join
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 from typing import cast
-from unittest import mock
+from unittest import TestCase, mock
 
 import numpy as np
 
 from eleanor.exceptions import EleanorException
-from eleanor.kernel.config import Settings as KernelSettings
-from eleanor.navigator.config import Config as NavigatorConfig
-from eleanor.order import Order, OrderRaw, Suppression, SuppressionRaw, load_order
+from eleanor.kernel.settings import KernelSettings
+from eleanor.order import Order, RawOrder, Suppression, SuppressionRaw, load_order
 from eleanor.parameters import ValueParameter
-
-from .common import TestCase
 
 
 def _minimal_raw(**overrides):
@@ -21,7 +18,7 @@ def _minimal_raw(**overrides):
     base = {
         "name": "o",
         "creator": "u",
-        "kernel": {"type": "eq36", "args": {}},
+        "kernel": {"kind": "eq36", "model": "b-dot", "charge_balance": "H+"},
         "temperature": 25.0,
         "pressure": 1.0,
         "elements": {"Na": 1.0},
@@ -49,7 +46,7 @@ def _make_order(
     effective = raw if raw is not None else _minimal_raw(**overrides)
     with mock.patch("eleanor.kernel.registry.get_factory", return_value=_FAKE_KERNEL_SPEC):
         return Order.from_dict(
-            cast(OrderRaw, cast(object, effective)),
+            cast(RawOrder, cast(object, effective)),
             order_id=order_id,
             tag=tag,
             vs_points=vs_points,
@@ -61,18 +58,6 @@ class TestOrder(TestCase):
     """
     Tests of the eleanor.order module.
     """
-
-    def test_constraint_and_navigator_config(self):
-        """
-        Ensure basic config helper classes return expected defaults.
-        """
-        nav = NavigatorConfig("random")
-        self.assertEqual(nav.kind, "random")
-        self.assertEqual(nav.args, {})
-
-        nav2 = NavigatorConfig("my_plugin", args={"seed": 42})
-        self.assertEqual(nav2.kind, "my_plugin")
-        self.assertEqual(nav2.args, {"seed": 42})
 
     def test_suppression(self):
         """
@@ -171,20 +156,20 @@ class TestOrder(TestCase):
         Ensure order validation and kernel/navigator parsing branches behave correctly.
         """
         with self.assertRaises(EleanorException):
-            _ = Order.from_dict(cast(OrderRaw, cast(object, _minimal_raw(name=1))))
+            _ = Order.from_dict(cast(RawOrder, cast(object, _minimal_raw(name=1))))
         with self.assertRaises(EleanorException):
-            _ = Order.from_dict(cast(OrderRaw, cast(object, _minimal_raw(notes=1))))
+            _ = Order.from_dict(cast(RawOrder, cast(object, _minimal_raw(notes=1))))
         with self.assertRaises(EleanorException):
-            _ = Order.from_dict(cast(OrderRaw, cast(object, _minimal_raw(creator=1))))
+            _ = Order.from_dict(cast(RawOrder, cast(object, _minimal_raw(creator=1))))
 
         order = _make_order(
             name="o",
             creator="u",
-            kernel={"type": "eq36", "args": {}},
-            navigator="Random",
+            kernel={"kind": "eq36", "model": "b-dot", "charge_balance": "H+"},
+            navigator="random",
         )
         self.assertIsNotNone(order.kernel)
-        self.assertEqual(order.navigator.kind, "Random")
+        self.assertEqual(order.navigator.kind, "random")
 
     def test_order_parameters_includes_kernel_and_reactant_parameters(self):
         """
@@ -243,8 +228,9 @@ class TestOrder(TestCase):
             "name: o\n"
             "creator: u\n"
             "kernel:\n"
-            "  type: eq36\n"
-            "  args: {}\n"
+            "  kind: eq36\n"
+            "  model: b-dot\n"
+            "  charge_balance: H+\n"
             "temperature: 25.0\n"
             "pressure: 1.0\n"
             "elements:\n"
@@ -256,8 +242,9 @@ class TestOrder(TestCase):
             "temperature = 25.0\n"
             "pressure = 1.0\n"
             "[kernel]\n"
-            'type = "eq36"\n'
-            "[kernel.args]\n"
+            'kind = "eq36"\n'
+            'model = "b-dot"\n'
+            'charge_balance = "H+"\n'
             "[elements]\n"
             "Na = 1.0\n"
         )
@@ -329,7 +316,7 @@ class TestOrder(TestCase):
                     {
                         "name": "o",
                         "creator": "u",
-                        "kernel": {"type": "eq36", "args": {}},
+                        "kernel": {"kind": "eq36", "model": "b-dot", "charge_balance": "H+"},
                         "pressure": 1.0,
                         "elements": {"Na": 1.0},
                     }
@@ -343,7 +330,7 @@ class TestOrder(TestCase):
                     {
                         "name": "o",
                         "creator": "u",
-                        "kernel": {"type": "eq36", "args": {}},
+                        "kernel": {"kind": "eq36", "model": "b-dot", "charge_balance": "H+"},
                         "temperature": 25.0,
                         "elements": {"Na": 1.0},
                     }
@@ -357,7 +344,7 @@ class TestOrder(TestCase):
                     {
                         "name": "o",
                         "creator": "u",
-                        "kernel": {"type": "eq36", "args": {}},
+                        "kernel": {"kind": "eq36", "model": "b-dot", "charge_balance": "H+"},
                         "temperature": 25.0,
                         "pressure": 1.0,
                     }
@@ -367,7 +354,7 @@ class TestOrder(TestCase):
                     {
                         "name": "o",
                         "creator": "u",
-                        "kernel": {"type": "eq36", "args": {}},
+                        "kernel": {"kind": "eq36", "model": "b-dot", "charge_balance": "H+"},
                         "temperature": 25.0,
                         "pressure": 1.0,
                         "elements": {},

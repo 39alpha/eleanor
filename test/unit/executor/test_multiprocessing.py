@@ -1,16 +1,15 @@
 from concurrent.futures import FIRST_COMPLETED, Future
 from typing import cast
-from unittest import mock
+from unittest import TestCase, mock
 
 from eleanor.exceptions import EleanorException
 from eleanor.executor.interface import AbstractFuture
 from eleanor.executor.multiprocessing import MultiprocessingExecutor, MultiprocessingFuture
-
-from ..common import TestCase
+from eleanor.executor.settings import ExecutorSettings
 
 
 class _Pool:
-    def __init__(self, max_workers=None, initializer=None):
+    def __init__(self, max_workers: int | None = None, initializer: None = None):
         self.shutdown = mock.Mock()
         self._processes: dict[int, mock.Mock] = {1: mock.Mock(), 2: mock.Mock()}
 
@@ -29,9 +28,13 @@ class TestMultiprocessingExecutor(TestCase):
         """
         Ensure submit delegates to submit and returned futures resolve via result().
         """
+
+        def work(x: int, y: int) -> int:
+            return x + y
+
         with mock.patch("eleanor.executor.multiprocessing.ProcessPoolExecutor", _Pool):
-            with MultiprocessingExecutor(num_workers=4) as executor:
-                future = executor.submit(lambda x, y: x + y, 5, 7)
+            with MultiprocessingExecutor(ExecutorSettings(num_workers=4)) as executor:
+                future = executor.submit(work, 5, 7)
 
         self.assertEqual(executor.num_workers, 4)
         self.assertEqual(future.result(), 12)
@@ -40,7 +43,7 @@ class TestMultiprocessingExecutor(TestCase):
         """
         Ensure __init__ does not create the pool; it is created only on __enter__.
         """
-        executor = MultiprocessingExecutor(num_workers=2)
+        executor = MultiprocessingExecutor(ExecutorSettings(num_workers=2))
         self.assertIsNone(executor._pool)
 
     def test_shutdown_wait_true_delegates_to_pool_shutdown(self):
@@ -48,8 +51,8 @@ class TestMultiprocessingExecutor(TestCase):
         Ensure wait=True shutdown delegates to ProcessPoolExecutor.shutdown.
         """
         with mock.patch("eleanor.executor.multiprocessing.ProcessPoolExecutor", _Pool):
-            executor = MultiprocessingExecutor(num_workers=2)
-            executor.__enter__()
+            executor = MultiprocessingExecutor(ExecutorSettings(num_workers=2))
+            _ = executor.__enter__()
 
         pool = executor._pool
         self.assertIsNotNone(pool)
@@ -62,8 +65,8 @@ class TestMultiprocessingExecutor(TestCase):
         Ensure wait=False shutdown terminates workers and requests non-blocking shutdown.
         """
         with mock.patch("eleanor.executor.multiprocessing.ProcessPoolExecutor", _Pool):
-            executor = MultiprocessingExecutor(num_workers=2)
-            executor.__enter__()
+            executor = MultiprocessingExecutor(ExecutorSettings(num_workers=2))
+            _ = executor.__enter__()
 
         pool = executor._pool
         self.assertIsNotNone(pool)
@@ -78,13 +81,13 @@ class TestMultiprocessingExecutor(TestCase):
         Ensure __exit__ uses wait=False when unwinding from KeyboardInterrupt.
         """
         with mock.patch("eleanor.executor.multiprocessing.ProcessPoolExecutor", _Pool):
-            executor = MultiprocessingExecutor(num_workers=2)
-            executor.__enter__()
+            executor = MultiprocessingExecutor(ExecutorSettings(num_workers=2))
+            _ = executor.__enter__()
 
         pool = executor._pool
         self.assertIsNotNone(pool)
         typed_pool = cast(_Pool, cast(object, pool))
-        executor.__exit__(KeyboardInterrupt, KeyboardInterrupt(), None)
+        _ = executor.__exit__(KeyboardInterrupt, KeyboardInterrupt(), None)
         for process in typed_pool._processes.values():
             process.terminate.assert_called_once()
         typed_pool.shutdown.assert_called_once_with(wait=False, cancel_futures=True)
@@ -94,31 +97,35 @@ class TestMultiprocessingExecutor(TestCase):
         Ensure __exit__ uses wait=True on normal exit.
         """
         with mock.patch("eleanor.executor.multiprocessing.ProcessPoolExecutor", _Pool):
-            executor = MultiprocessingExecutor(num_workers=2)
-            executor.__enter__()
+            executor = MultiprocessingExecutor(ExecutorSettings(num_workers=2))
+            _ = executor.__enter__()
 
         pool = executor._pool
         self.assertIsNotNone(pool)
         typed_pool = cast(_Pool, cast(object, pool))
-        executor.__exit__(None, None, None)
+        _ = executor.__exit__(None, None, None)
         typed_pool.shutdown.assert_called_once_with(wait=True, cancel_futures=False)
 
     def test_submit_after_shutdown_raises(self):
         """
         Ensure submit fails once the executor has been shut down.
         """
+
+        def work(x: int) -> int:
+            return x
+
         with mock.patch("eleanor.executor.multiprocessing.ProcessPoolExecutor", _Pool):
-            executor = MultiprocessingExecutor(num_workers=2)
-            executor.__enter__()
+            executor = MultiprocessingExecutor(ExecutorSettings(num_workers=2))
+            _ = executor.__enter__()
         executor.shutdown(wait=True)
         with self.assertRaises(EleanorException):
-            executor.submit(lambda x: x, 1)
+            _ = executor.submit(work, 1)
 
     def test_pop_completed_future_uses_event_driven_wait(self):
         """
         Ensure pop_completed_future waits for FIRST_COMPLETED and pops a completed future.
         """
-        executor = MultiprocessingExecutor(num_workers=2)
+        executor = MultiprocessingExecutor(ExecutorSettings(num_workers=2))
         slow_inner: Future[int] = Future()
         ready_inner: Future[int] = Future()
         ready_inner.set_result(2)
@@ -143,7 +150,7 @@ class TestMultiprocessingExecutor(TestCase):
         Ensure pop_completed_future delegates to the base-class busy-poll when
         the futures list contains non-MultiprocessingFuture entries.
         """
-        executor = MultiprocessingExecutor(num_workers=2)
+        executor = MultiprocessingExecutor(ExecutorSettings(num_workers=2))
         foreign: AbstractFuture[int] = cast(
             AbstractFuture[int],
             cast(object, type("Fake", (), {"result": lambda self: 1, "ready": lambda self: True})()),

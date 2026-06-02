@@ -36,9 +36,8 @@ def doctor() -> None:
     ]
     for heading, names in sections:
         click.echo(f"  {click.style(heading, bold=True)}")
-        if names:
-            for name in names:
-                click.echo(f"    {click.style('•', fg='green')} {name}")
-        else:
+        for name in names:
+            click.echo(f"    {click.style('•', fg='green')} {name}")
+        if not names:
             click.echo(f"    {click.style('(none)', dim=True)}")
     click.echo()

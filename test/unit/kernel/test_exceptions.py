@@ -1,7 +1,7 @@
+from unittest import TestCase
+
 from eleanor.exceptions import EleanorException
 from eleanor.kernel.exceptions import EleanorKernelException
-
-from ..common import TestCase
 
 
 class TestKernelExceptions(TestCase):

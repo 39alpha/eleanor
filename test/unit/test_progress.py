@@ -2,12 +2,10 @@ import signal
 from multiprocessing.managers import SyncManager
 from queue import Queue
 from typing import cast, override
-from unittest import mock
+from unittest import TestCase, mock
 
 import eleanor.progress as progress_mod
 from eleanor.progress import Progress, ProgressMessage, _ChannelHandle
-
-from .common import TestCase
 
 
 class _FakeQueue:

@@ -1,3 +1,5 @@
+from unittest import TestCase
+
 from eleanor.query.errors import InvalidFilter, InvalidFilterValue, InvalidPath
 from eleanor.query.path import parse_path
 from eleanor.query.reflection import (
@@ -10,7 +12,6 @@ from eleanor.query.reflection import (
     walk_path,
 )
 
-from ..common import TestCase
 from .models import Point, Sample
 
 

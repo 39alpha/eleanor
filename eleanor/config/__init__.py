@@ -48,10 +48,18 @@ class Config:
             return cls.from_dict(raw)
 
     @classmethod
+    def from_yamls(cls, content: str) -> Self:
+        return cls.from_dict(cast(ConfigRaw, cast(object, yaml.safe_load(content))))
+
+    @classmethod
     def from_toml(cls, fname: str) -> Self:
         with open(fname, "rb") as handle:
             raw = cast(ConfigRaw, cast(object, tomllib.load(handle)))
             return cls.from_dict(raw)
+
+    @classmethod
+    def from_tomls(cls, content: str) -> Self:
+        return cls.from_dict(cast(ConfigRaw, cast(object, tomllib.loads(content))))
 
     @classmethod
     def from_json(cls, fname: str) -> Self:
@@ -60,13 +68,27 @@ class Config:
             return cls.from_dict(raw)
 
     @classmethod
+    def from_jsons(cls, content: str) -> Self:
+        return cls.from_dict(cast(ConfigRaw, cast(object, json.loads(content))))
+
+    @classmethod
+    def from_str(cls, content: str) -> Self:
+        exceptions: list[Exception] = []
+        for parser in [cls.from_yamls, cls.from_tomls, cls.from_jsons]:
+            try:
+                return parser(content)
+            except Exception as e:
+                exceptions.append(e)
+
+        eg = ExceptionGroup("failed to parse", exceptions)
+        raise EleanorException("failed to parse string as yaml, toml or json") from eg
+
+    @classmethod
     def from_file(cls, fname: str) -> Self:
         try:
             _, ext = os.path.splitext(fname)
             match ext:
-                case ".yaml":
-                    return cls.from_yaml(fname)
-                case ".yml":
+                case ".yaml" | ".yml":
                     return cls.from_yaml(fname)
                 case ".toml":
                     return cls.from_toml(fname)

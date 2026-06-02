@@ -1,5 +1,5 @@
 from typing import cast
-from unittest import mock
+from unittest import TestCase, mock
 
 import numpy as np
 
@@ -21,8 +21,6 @@ from eleanor.reactants import (
     SpecialReactant,
     TitratedReactant,
 )
-
-from .common import TestCase
 
 
 class TestReactants(TestCase):

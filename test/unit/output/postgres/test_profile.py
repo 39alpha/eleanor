@@ -8,17 +8,15 @@ real-PG integration suite.
 
 from types import SimpleNamespace
 from typing import cast, override
-from unittest import mock
+from unittest import TestCase, mock
 
 from psycopg import Cursor
 from psycopg.rows import TupleRow
 
 import eleanor.output.postgres.tools.profile as profile_module
 from eleanor.exceptions import EleanorException
-from eleanor.output.postgres.config import DatabaseConfig
+from eleanor.output.postgres.settings import PostgresDatabaseSettings
 from eleanor.output.postgres.tools.profile import StatementProfiler, _ProfilingCursor, _to_text
-
-from ..common import TestCase
 
 
 def _cursor(rowcount: int) -> Cursor[TupleRow]:
@@ -264,7 +262,7 @@ class TestStatementProfilerWiringEdges(TestCase):
         test directly invoking ``_wrapped_connect``).
         """
         prof = StatementProfiler()
-        cfg = DatabaseConfig(database="db", username="u", password="p")
+        cfg = PostgresDatabaseSettings(database="db", username="u", password="p")
         with self.assertRaisesRegex(
             EleanorException,
             "_real_connect not captured",

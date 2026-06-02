@@ -33,7 +33,7 @@ class Eleanor(object):
     output sink) for the duration of a ``with`` block, and reuses them
     across any number of :meth:`run` calls made inside that block::
 
-        with Eleanor(config=cfg, kernel_args=kargs) as eleanor:
+        with Eleanor(config=cfg) as eleanor:
             eleanor.run(order1, 1000)
             eleanor.run(order2, 2000)
 
@@ -41,7 +41,7 @@ class Eleanor(object):
     resources it needs and tears them down on exit, so one-shot usage
     remains a single method call::
 
-        Eleanor(config=cfg, kernel_args=kargs).run(order, 1000)
+        Eleanor(config=cfg).run(order, 1000)
 
     Constructor-level ``executor`` and ``output_sink`` keyword arguments
     override the Config-derived defaults for every :meth:`run` call on
@@ -57,7 +57,6 @@ class Eleanor(object):
     """
 
     config: Config
-    kernel_args: list[object]
     num_workers: int | None
 
     # Caller-supplied session-level overrides. Caller retains ownership:
@@ -77,13 +76,11 @@ class Eleanor(object):
         self,
         *,
         config: Config | None = None,
-        kernel_args: list[object] | None = None,
         num_workers: int | None = None,
         executor: AbstractExecutor | None = None,
         output_sink: AbstractOutputSink | None = None,
     ):
         self.config = config if config is not None else Config()
-        self.kernel_args = list(kernel_args) if kernel_args is not None else []
         self.num_workers = num_workers
 
         self._executor_override = executor
@@ -344,7 +341,7 @@ class Eleanor(object):
             if kernel is None:
                 kernel = load_kernel(order.kernel.kind, order.kernel.settings)
 
-            kernel_kwargs = kernel.prepare_setup_args(*(kernel_args if kernel_args is not None else self.kernel_args))
+            kernel_kwargs = kernel.prepare_setup_args(*(kernel_args or []))
             kernel.setup(order, **kernel_kwargs)
             kernel.validate_order(order)
 

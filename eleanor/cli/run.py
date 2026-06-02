@@ -129,10 +129,11 @@ def run(
 
             executor_obj = stack.enter_context(load_executor(kind=executor, settings=executor_settings))
 
-            with Eleanor(config=config_obj, kernel_args=kernel_args_list, executor=executor_obj) as eleanor:
+            with Eleanor(config=config_obj, executor=executor_obj) as eleanor:
                 order_ids = eleanor.run(
                     order_obj,
                     simulation_size,
+                    kernel_args=kernel_args_list,
                     scratch=scratch,
                     show_progress=show_progress,
                     verbose=verbose,

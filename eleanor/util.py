@@ -142,7 +142,7 @@ def norm_list(data: NDArray[np.floating]) -> list[np.floating]:
     return list((data - np.min(data)) / (np.max(data) - np.min(data)))
 
 
-class WorkingDirectory(object):
+class WorkingDirectory:
     """
     A context manager for changing the current working directory.
 

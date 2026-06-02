@@ -25,7 +25,7 @@ if TYPE_CHECKING:
     from collections.abc import Generator
 
 
-class Eleanor(object):
+class Eleanor:
     """An engine for dispatching :class:`Order` runs.
 
     An :class:`Eleanor` instance owns its long-lived resources (executor

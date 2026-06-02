@@ -18,7 +18,7 @@ from eleanor.typing import EleanorKwargs
 from eleanor.util import WorkingDirectory
 
 
-class Runner(object):
+class Runner:
     kernel: AbstractKernel
 
     def __init__(self, kernel: AbstractKernel):

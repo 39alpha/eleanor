@@ -84,7 +84,7 @@ class Gas(Species):
 
 
 @dataclass(init=False)
-class SolidSolution(object):
+class SolidSolution:
     name: str
     end_members: dict[str, np.float64]
 
@@ -133,7 +133,7 @@ class SolidSolution(object):
 
 
 @dataclass(init=False)
-class TPCurve(object):
+class TPCurve:
     T: dict[str, np.float64]
     P: tuple[Array1D[np.float64], Array1D[np.float64]]
     domain: list[FloatRange]
@@ -325,7 +325,7 @@ class TPCurve(object):
 
 
 @dataclass
-class Data1(object):
+class Data1:
     filename: str
     elements: dict[str, np.float64]
     basis_species: dict[str, BasisSpecies]

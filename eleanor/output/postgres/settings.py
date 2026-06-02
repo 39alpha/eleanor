@@ -15,7 +15,7 @@ from eleanor.util import (
 
 
 @dataclass(kw_only=True, frozen=True)
-class PostgresDatabaseSettings(object):
+class PostgresDatabaseSettings:
     """Frozen connection-config dataclass for the postgres output sink.
 
     Hashable; safe to use as a dict key in the per-process connection

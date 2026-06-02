@@ -10,13 +10,13 @@ from eleanor.config.kernel import KernelConfig
 
 @final
 @dataclass
-class SuppressionException(object):
+class SuppressionException:
     name: str
 
 
 @final
 @dataclass
-class Suppression(object):
+class Suppression:
     name: str | None
     type: str | None
     exceptions: list[SuppressionException]
@@ -24,7 +24,7 @@ class Suppression(object):
 
 @final
 @dataclass
-class MineralReactant(object):
+class MineralReactant:
     name: str
     log_moles: np.float64
     titration_rate: np.float64
@@ -32,7 +32,7 @@ class MineralReactant(object):
 
 @final
 @dataclass
-class AqueousReactant(object):
+class AqueousReactant:
     name: str
     log_moles: np.float64
     titration_rate: np.float64
@@ -40,7 +40,7 @@ class AqueousReactant(object):
 
 @final
 @dataclass
-class GasReactant(object):
+class GasReactant:
     name: str
     log_moles: np.float64
     titration_rate: np.float64
@@ -48,7 +48,7 @@ class GasReactant(object):
 
 @final
 @dataclass
-class ElementReactant(object):
+class ElementReactant:
     name: str
     log_moles: np.float64
     titration_rate: np.float64
@@ -56,14 +56,14 @@ class ElementReactant(object):
 
 @final
 @dataclass
-class SpecialReactantComposition(object):
+class SpecialReactantComposition:
     element: str
     count: int
 
 
 @final
 @dataclass
-class SpecialReactant(object):
+class SpecialReactant:
     name: str
     log_moles: np.float64
     titration_rate: np.float64
@@ -72,7 +72,7 @@ class SpecialReactant(object):
 
 @final
 @dataclass
-class FixedGasReactant(object):
+class FixedGasReactant:
     name: str
     log_moles: np.float64
     log_fugacity: np.float64
@@ -80,14 +80,14 @@ class FixedGasReactant(object):
 
 @final
 @dataclass
-class SolidSolutionReactantEndMembers(object):
+class SolidSolutionReactantEndMembers:
     name: str
     fraction: np.float64
 
 
 @final
 @dataclass
-class SolidSolutionReactant(object):
+class SolidSolutionReactant:
     name: str
     log_moles: np.float64
     titration_rate: np.float64
@@ -96,27 +96,27 @@ class SolidSolutionReactant(object):
 
 @final
 @dataclass
-class Element(object):
+class Element:
     name: str
     log_molality: np.float64
 
 
 @final
 @dataclass
-class Species(object):
+class Species:
     name: str
     value: np.float64
 
 
 @final
 @dataclass
-class Scratch(object):
+class Scratch:
     zip: bytes
 
 
 @final
 @dataclass
-class Point(object):
+class Point:
     kernel: KernelConfig
     water_mass: np.float64
     temperature: np.float64

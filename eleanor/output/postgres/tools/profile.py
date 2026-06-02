@@ -131,7 +131,7 @@ def _to_text(query: object) -> str:
 
 
 @dataclass
-class StatementProfiler(object):
+class StatementProfiler:
     """Counts and times SQL statements issued through any psycopg connection.
 
     Use as a context manager. The instance is *not* reentrant; create a

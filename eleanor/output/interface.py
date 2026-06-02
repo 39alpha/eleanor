@@ -12,7 +12,7 @@ if TYPE_CHECKING:
 
 
 @dataclass(slots=True, frozen=True)
-class ErrorInfo(object):
+class ErrorInfo:
     type_name: str
     message: str
     traceback_text: str
@@ -24,20 +24,20 @@ class ErrorInfo(object):
 
 
 @dataclass(slots=True)
-class ComputeResult(object):
+class ComputeResult:
     point: vs.Point
     error: ErrorInfo | None = None
 
 
 @dataclass(slots=True, frozen=True)
-class WriteOutcome(object):
+class WriteOutcome:
     exit_code: int
     committed: bool
     error_message: str | None = None
 
 
 @dataclass(slots=True)
-class RunStats(object):
+class RunStats:
     attempted: int = 0
     succeeded: int = 0
     failed: int = 0

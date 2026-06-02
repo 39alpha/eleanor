@@ -334,7 +334,7 @@ _ = Parameter.register(NormalParameter)
 Valuation = dict[int, Parameter]
 
 
-class ParameterRegistry(object):
+class ParameterRegistry:
     parameters: list[Parameter]
 
     def __init__(self):

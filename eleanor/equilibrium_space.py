@@ -7,7 +7,7 @@ import numpy as np
 
 @final
 @dataclass
-class Element(object):
+class Element:
     name: str
     log_molality: np.float64
     mass_fraction: np.float64
@@ -15,7 +15,7 @@ class Element(object):
 
 @final
 @dataclass
-class AqueousSpecies(object):
+class AqueousSpecies:
     name: str
     log_molality: np.float64
     log_activity: np.float64
@@ -24,7 +24,7 @@ class AqueousSpecies(object):
 
 @final
 @dataclass
-class PureSolid(object):
+class PureSolid:
     name: str
     log_qk: np.float64
     affinity: np.float64
@@ -35,7 +35,7 @@ class PureSolid(object):
 
 @final
 @dataclass
-class EndMember(object):
+class EndMember:
     name: str
     log_qk: np.float64
     affinity: np.float64
@@ -46,7 +46,7 @@ class EndMember(object):
 
 @final
 @dataclass
-class SolidSolution(object):
+class SolidSolution:
     name: str
     log_qk: np.float64
     affinity: np.float64
@@ -58,14 +58,14 @@ class SolidSolution(object):
 
 @final
 @dataclass
-class Gas(object):
+class Gas:
     name: str
     log_fugacity: np.float64
 
 
 @final
 @dataclass
-class Reactant(object):
+class Reactant:
     name: str
     affinity: np.float64
     relative_rate: np.float64
@@ -77,7 +77,7 @@ class Reactant(object):
 
 @final
 @dataclass
-class RedoxReaction(object):
+class RedoxReaction:
     couple: str
     Eh: np.float64
     pe: np.float64
@@ -87,7 +87,7 @@ class RedoxReaction(object):
 
 @final
 @dataclass(kw_only=True)
-class Point(object):
+class Point:
     stage: str
     temperature: np.float64
     pressure: np.float64

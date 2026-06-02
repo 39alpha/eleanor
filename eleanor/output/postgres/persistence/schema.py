@@ -8,7 +8,7 @@ from psycopg import sql
 
 
 @dataclass(frozen=True, slots=True)
-class ColumnDef(object):
+class ColumnDef:
     """A single column in a :class:`TableDef`.
 
     ``default`` is a raw SQL fragment (e.g. ``"''"`` for an empty string,
@@ -29,7 +29,7 @@ class ColumnDef(object):
 
 
 @dataclass(frozen=True, slots=True)
-class ForeignKeyDef(object):
+class ForeignKeyDef:
     """A foreign-key constraint.
 
     Default is ``ON DELETE CASCADE`` so removing a parent row sweeps the
@@ -44,7 +44,7 @@ class ForeignKeyDef(object):
 
 
 @dataclass(frozen=True, slots=True)
-class CheckDef(object):
+class CheckDef:
     """A named ``CHECK`` constraint.
 
     ``expression`` is a raw SQL fragment written in terms of the table's
@@ -56,7 +56,7 @@ class CheckDef(object):
 
 
 @dataclass(frozen=True, slots=True)
-class IndexDef(object):
+class IndexDef:
     """A secondary index.
 
     Primary-key indexes are implied by :attr:`TableDef.primary_key` and
@@ -69,7 +69,7 @@ class IndexDef(object):
 
 
 @dataclass(frozen=True, slots=True)
-class TableDef(object):
+class TableDef:
     """The complete description of a table the sink owns.
 
     The dependency order of :data:`TABLES` matches FK dependencies, so

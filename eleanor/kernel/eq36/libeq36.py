@@ -196,7 +196,7 @@ read_body.restype = None
 
 
 @dataclass
-class Data(object):
+class Data:
     min_temperature: np.float64
     max_temperature_range: Array1D[np.float64]
     pressure_coefficients: Array2D[np.float64]

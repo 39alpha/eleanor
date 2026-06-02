@@ -20,7 +20,7 @@ from eleanor.reactants import (
 )
 
 
-class PointBuilder(object):
+class PointBuilder:
     order: Order
     registry: ParameterRegistry
     parameters: list[Parameter]

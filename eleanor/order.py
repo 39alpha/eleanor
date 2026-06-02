@@ -57,7 +57,7 @@ class RawOrder(TypedDict, total=False):
 
 
 @dataclass(init=False)
-class Suppression(object):
+class Suppression:
     name: str | None
     type: str | None
     exceptions: list[str]

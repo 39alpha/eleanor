@@ -17,7 +17,7 @@ class ConfigRaw(TypedDict, total=False):
 
 
 @dataclass(kw_only=True)
-class Config(object):
+class Config:
     output: OutputSinkConfig | None = None
     executor: ExecutorConfig = field(default_factory=ExecutorConfig)
 

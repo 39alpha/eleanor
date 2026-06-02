@@ -58,7 +58,7 @@ class _TimedBar(Protocol):
 
 
 @dataclass(slots=True, frozen=True)
-class ProgressMessage(object):
+class ProgressMessage:
     """A single tagged progress update.
 
     :param channel: The bar the message targets -- ``'sim'`` or ``'out'``.
@@ -131,7 +131,7 @@ class ManagedProgressHandle(ProgressHandle, Protocol):
         ...
 
 
-class _ChannelHandle(object):
+class _ChannelHandle:
     """Concrete :class:`ManagedProgressHandle` that tags each message with a channel.
 
     Placed at module scope so it remains picklable for workers: the only
@@ -160,7 +160,7 @@ class _ChannelHandle(object):
         self._queue.put(ProgressMessage(channel=self._channel, kind="done", value=0))
 
 
-class Progress(object):
+class Progress:
     """Two-bar progress pump.
 
     The pump starts a dedicated listener :class:`~multiprocessing.Process` that

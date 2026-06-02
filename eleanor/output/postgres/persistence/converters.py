@@ -91,7 +91,7 @@ def order_to_row(order: core_order.Order) -> dict[str, object]:
 
 
 @dataclass(frozen=True, slots=True)
-class OrderRecord(object):
+class OrderRecord:
     """Read-side projection of an ``orders`` row.
 
     The full ``Order`` dataclass tree is rich; reconstructing it from a single
@@ -436,7 +436,7 @@ def es_redox_reaction_to_row(
 
 
 @dataclass(frozen=True, slots=True)
-class ScratchEntry(object):
+class ScratchEntry:
     """Read-side projection of a ``scratch`` row joined with its parent.
 
     Read by :func:`PostgresSink.tools.load_scratch_entry`.

@@ -3,8 +3,8 @@ from unittest import TestCase, mock
 
 import numpy as np
 
+from eleanor.config.constraint import ConstraintConfig
 from eleanor.config.kernel import KernelConfig
-from eleanor.constraints.config import ConstraintConfig
 from eleanor.constraints.interface import (
     AbstractConstraint,
     LinearConstraint,

@@ -5,7 +5,7 @@ from typing import cast, override
 
 import numpy as np
 
-from eleanor.constraints.config import ConstraintConfig
+from eleanor.config.constraint import ConstraintConfig
 from eleanor.exceptions import EleanorException
 from eleanor.order import Order
 from eleanor.parameters import Parameter, ParameterRegistry, Valuation, ValueParameter

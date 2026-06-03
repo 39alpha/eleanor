@@ -10,9 +10,9 @@ from typing import Self, TypedDict, cast, final
 import numpy as np
 import yaml
 
+from eleanor.config.constraint import ConstraintConfig
 from eleanor.config.kernel import KernelConfig
 from eleanor.config.navigator import NavigatorConfig
-from eleanor.constraints.config import ConstraintConfig
 from eleanor.exceptions import EleanorException
 from eleanor.parameters import Parameter, ParameterOrSource, ParameterSource, load_parameter
 from eleanor.reactants import AbstractReactant, CombinedReactant, ReactantRaw

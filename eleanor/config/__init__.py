@@ -8,7 +8,7 @@ import yaml
 
 from eleanor.config.executor import ExecutorConfig
 from eleanor.config.output import OutputSinkConfig
-from eleanor.exceptions import EleanorConfigurationException, EleanorException
+from eleanor.exceptions import EleanorException
 
 
 class ConfigRaw(TypedDict, total=False):
@@ -28,10 +28,11 @@ class Config:
         # Silently ignoring the key would produce a confusing "no database
         # provided" error with no hint of what changed.
         if cast(dict[str, object], cast(object, raw)).get("database") is not None:
-            raise EleanorConfigurationException(
+            msg = (
                 'the top-level "database:" config key is no longer supported; '
                 + 'move your database settings under "output.args.database:" instead'
             )
+            raise EleanorException(msg)
 
         output_raw = raw.get("output")
         output_config = OutputSinkConfig.from_dict(output_raw) if output_raw is not None else None

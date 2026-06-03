@@ -1,8 +1,13 @@
 from eleanor.exceptions import EleanorException
+from eleanor.util import require_int
 
 
 class EleanorKernelException(EleanorException):
-    pass
+    code: int
+
+    def __init__(self, *args: object, code: int | None = None):
+        super().__init__(*args)
+        self.code = require_int(code if code is not None else 1, "code")
 
 
 __all__ = ["EleanorKernelException"]

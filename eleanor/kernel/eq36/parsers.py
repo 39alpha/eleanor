@@ -8,9 +8,9 @@ from typing import Self, cast, final, override
 import numpy as np
 
 import eleanor.equilibrium_space as es
-from eleanor.exceptions import EleanorException, EleanorFileException, EleanorParserException
 from eleanor.kernel.eq36.codes import RunCode
 from eleanor.kernel.eq36.util import field_as_float
+from eleanor.kernel.exceptions import EleanorKernelException
 
 path_separator = re.compile("^( -)+$")
 blank_line = re.compile(r"^\s*$")
@@ -71,7 +71,7 @@ def _safe_log10(value: np.float64) -> np.float64:
 
 def _require_saturation_value(value: np.float64 | None, field: str, phase: str) -> np.float64:
     if value is None:
-        raise EleanorParserException(f"missing {field} for {phase}")
+        raise EleanorKernelException(f"missing {field} for {phase}", code=RunCode.PARSER_ERROR)
     return value
 
 
@@ -313,7 +313,7 @@ class OutputParser(ABC):
                 break
             self.advance()
         if not found_separator:
-            raise EleanorParserException("expected path separator after Stepping to Xi")
+            raise EleanorKernelException("expected path separator after Stepping to Xi", code=RunCode.PARSER_ERROR)
         return True
 
     def read_key_value(self) -> tuple[str, np.float64]:
@@ -328,20 +328,20 @@ class OutputParser(ABC):
     def read_basic_property(self, name: str, units: list[str] | None = None, advance: bool = True) -> np.float64:
         line = self.line().strip()
         if not line.startswith(f"{name}="):
-            raise EleanorParserException(f"expected {name} entry")
+            raise EleanorKernelException(f"expected {name} entry", code=RunCode.PARSER_ERROR)
         if units is None or len(units) == 0:
             _default_key, value = self.read_key_value()
         else:
             _default_key, value, unit = self.read_key_value_unit()
             if unit.lower() not in units:
-                raise EleanorParserException(f"expected {name} in {units[0]}")
+                raise EleanorKernelException(f"expected {name} in {units[0]}", code=RunCode.PARSER_ERROR)
         if advance:
             self.advance()
         return value
 
     def read_log_property(self, name: str, units: list[str] | None = None) -> tuple[np.float64, np.float64]:
         if len(name) == 0:
-            raise EleanorParserException("expected name to be a non-empty string")
+            raise EleanorKernelException("expected name to be a non-empty string", code=RunCode.PARSER_ERROR)
         log_name = "Log " + name.lower()
         self.consume_to_pattern(rf"\s*{name}")
         value = self.read_basic_property(name, units=units)
@@ -360,17 +360,24 @@ class OutputParser(ABC):
             name, *columns = lines[line_num].strip().split()
             if row_names is not None:
                 if len(table) >= len(row_names):
-                    raise EleanorParserException(f"expected {len(row_names)} rows, got more at line {line_num}")
+                    raise EleanorKernelException(
+                        f"expected {len(row_names)} rows, got more at line {line_num}",
+                        code=RunCode.PARSER_ERROR,
+                    )
                 name = row_names[len(table)]
             if len(column_names) != len(columns):
-                raise EleanorParserException(
-                    f"expected {len(column_names)} columns, got {len(columns)} at line {line_num}"
+                raise EleanorKernelException(
+                    f"expected {len(column_names)} columns, got {len(columns)} at line {line_num}",
+                    code=RunCode.PARSER_ERROR,
                 )
             table[name] = dict(zip(column_names, map(field_as_float, columns)))
             line_num += 1
         self.line_num = line_num
         if row_names is not None and len(table) != len(row_names):
-            raise EleanorParserException(f"expected {len(row_names)} rows, got {len(table)} at line {self.line_num}")
+            raise EleanorKernelException(
+                f"expected {len(row_names)} rows, got {len(table)} at line {self.line_num}",
+                code=RunCode.PARSER_ERROR,
+            )
         return table
 
     def consume_basic_table(self, *column_names: str, row_names: list[str] | None = None) -> None:
@@ -435,7 +442,10 @@ class OutputParser(ABC):
             self.consume_to_pattern(pattern)
             m = pattern.match(self.line())
             if m is None:
-                raise EleanorParserException(f"unexpected state in OutputParser at line {self.line_num}")
+                raise EleanorKernelException(
+                    f"unexpected state in OutputParser at line {self.line_num}",
+                    code=RunCode.PARSER_ERROR,
+                )
             found_extended = m[1] == "Extended"
             self.advance(2)
             alkalinity_s, _units = self.line().strip().split()
@@ -529,7 +539,10 @@ class OutputParser(ABC):
         while not self.eof() and not self.is_blank():
             name, affinity_s, relative_rate_s = self.line().strip().split()
             if name not in raw:
-                raise EleanorParserException(f"found affinity for unexpected reactant at line {self.line_num}")
+                raise EleanorKernelException(
+                    f"found affinity for unexpected reactant at line {self.line_num}",
+                    code=RunCode.PARSER_ERROR,
+                )
             if "*" in affinity_s or "*" in relative_rate_s:
                 self.advance()
                 continue
@@ -573,7 +586,10 @@ class OutputParser(ABC):
                 try:
                     solid, log_moles_s, moles_s, mass_s, volume_s = line.strip().split()
                 except ValueError as e:
-                    raise EleanorParserException(f"unexpected solid phase row format at line {line_num}", e)
+                    raise EleanorKernelException(
+                        f"unexpected solid phase row format at line {line_num}",
+                        code=RunCode.PARSER_ERROR,
+                    ) from e
                 if "*" in log_moles_s or "*" in moles_s or "*" in mass_s or "*" in volume_s:
                     if _blank.match(next_line):
                         line_num += 2
@@ -586,7 +602,7 @@ class OutputParser(ABC):
                 volume_value = field_as_float(volume_s)
                 if is_end_member(line):
                     if parent_phase is None:
-                        raise EleanorParserException("unexpected end member")
+                        raise EleanorKernelException("unexpected end member", code=RunCode.PARSER_ERROR)
                     if parent_phase not in self._solid_solutions:
                         self._solid_solutions[parent_phase] = _SolidSolutionAccum(name=parent_phase)
                     end_members = self._solid_solutions[parent_phase].end_members
@@ -684,9 +700,15 @@ class OutputParser(ABC):
                 break
             phase, log_qk, affinity, *rest = cur.split()
             if len(rest) > 1:
-                raise EleanorParserException(f"too many columns in {header} at line {line_num}")
+                raise EleanorKernelException(
+                    f"too many columns in {header} at line {line_num}",
+                    code=RunCode.PARSER_ERROR,
+                )
             if len(rest) != 0 and rest[0] not in ["SATD", "SSATD"]:
-                raise EleanorParserException(f"unexpected value in State column of {header} at line {line_num}")
+                raise EleanorKernelException(
+                    f"unexpected value in State column of {header} at line {line_num}",
+                    code=RunCode.PARSER_ERROR,
+                )
             if "*" in log_qk or "*" in affinity:
                 line_num += 1
                 continue
@@ -709,12 +731,14 @@ class OutputParser(ABC):
         while not self.eof() and not self.is_blank():
             _phase, _log_qk, _affinity, *rest = self.line().strip().split()
             if len(rest) > 1:
-                raise EleanorParserException(
-                    f"too many columns in Saturation States of Pure Liquids at line {self.line_num}"
+                raise EleanorKernelException(
+                    f"too many columns in Saturation States of Pure Liquids at line {self.line_num}",
+                    code=RunCode.PARSER_ERROR,
                 )
             if len(rest) != 0 and rest[0] not in ["SATD", "SSATD"]:
-                raise EleanorParserException(
-                    f"unexpected value in State column of Saturation States of Pure Liquids block at line {self.line_num}"
+                raise EleanorKernelException(
+                    f"unexpected value in State column of Saturation States of Pure Liquids block at line {self.line_num}",
+                    code=RunCode.PARSER_ERROR,
                 )
             self.advance()
 
@@ -757,13 +781,17 @@ class OutputParser(ABC):
         self.advance(n=2)
         mineral, log_qk, affinity, *state = self.line().strip().split()
         if expected_phase is not None and expected_phase != mineral:
-            raise EleanorParserException(
-                f"expected phase ({expected_phase}) and mineral ({mineral}) to match in {header} at line {self.line_num}"
+            raise EleanorKernelException(
+                f"expected phase ({expected_phase}) and mineral ({mineral}) to match in {header} at line {self.line_num}",
+                code=RunCode.PARSER_ERROR,
             )
         if len(state) > 1:
-            raise EleanorParserException(f"too many columns in {header} at {self.line_num}")
+            raise EleanorKernelException(f"too many columns in {header} at {self.line_num}", code=RunCode.PARSER_ERROR)
         if len(state) != 0 and state[0] not in ["SATD", "SSATD"]:
-            raise EleanorParserException(f"unexpected columns in {header} at line {self.line_num}")
+            raise EleanorKernelException(
+                f"unexpected columns in {header} at line {self.line_num}",
+                code=RunCode.PARSER_ERROR,
+            )
         if "*" in log_qk or "*" in affinity:
             self.advance()
             return
@@ -777,17 +805,22 @@ class OutputParser(ABC):
         while not self.eof() and not self.is_blank():
             end_member, log_qk, affinity, *state = self.line().strip().split()
             if len(state) > 1:
-                raise EleanorParserException(f"too many columns in {header} at {self.line_num}")
+                raise EleanorKernelException(
+                    f"too many columns in {header} at {self.line_num}",
+                    code=RunCode.PARSER_ERROR,
+                )
             if len(state) != 0 and state[0] not in ["SATD", "SSATD"]:
-                raise EleanorParserException(
-                    f"unexpected value in State column of {header} block at line {self.line_num}"
+                raise EleanorKernelException(
+                    f"unexpected value in State column of {header} block at line {self.line_num}",
+                    code=RunCode.PARSER_ERROR,
                 )
             if "*" in log_qk or "*" in affinity:
                 self.advance()
                 continue
             if end_member not in end_members:
-                raise EleanorParserException(
-                    f"unexpected end member ({end_member}) in {header} block at line {self.line_num}"
+                raise EleanorKernelException(
+                    f"unexpected end member ({end_member}) in {header} block at line {self.line_num}",
+                    code=RunCode.PARSER_ERROR,
                 )
             end_members[end_member].log_qk = field_as_float(log_qk)
             end_members[end_member].affinity = field_as_float(affinity)
@@ -796,7 +829,7 @@ class OutputParser(ABC):
     def read_product_phases(self, header: str) -> None:
         self.consume_to_header(header)
         if self.eof():
-            raise EleanorParserException(f"expected {header} block at line {self.line_num}")
+            raise EleanorKernelException(f"expected {header} block at line {self.line_num}", code=RunCode.PARSER_ERROR)
         self.advance(n=2)
         while not self.eof():
             match = re.match(r"^\s+---\s(.*)\s---\s*$", self.line())
@@ -852,7 +885,7 @@ class OutputParser3(OutputParser):
             else:
                 super().__init__(file)
         except FileNotFoundError as e:
-            raise EleanorFileException(e, code=RunCode.NO_3O_FILE)
+            raise EleanorKernelException("failed to open 3o file", code=RunCode.NO_3O_FILE) from e
         self.point = None
         self._solution_volume = None
         self._solution_density = None
@@ -950,11 +983,14 @@ class OutputParser3(OutputParser):
         self.advance(3)
         m = re.compile(r"^\s*---\s+Electrical Balancing on (.*)\s+---\s*$").match(self.line())
         if m is None:
-            raise EleanorParserException(f"expected Electrical Balancing block at {self.line_num}")
+            raise EleanorKernelException(
+                f"expected Electrical Balancing block at {self.line_num}",
+                code=RunCode.PARSER_ERROR,
+            )
         self.advance(4)
         try:
             self.consume_basic_table("concentration", "mass_fraction", "molality")
-        except EleanorParserException:
+        except EleanorKernelException:
             self.consume_basic_table("log_activity")
 
     def _build_point(self) -> es.Point:
@@ -1025,9 +1061,12 @@ class OutputParser3(OutputParser):
             self.read_product_phases("Saturation States of Hypothetical Solid Solutions")
             self.read_fugacities()
         except Exception as e:
-            raise EleanorParserException(f"failed to parse EQ3 output at line {self.line_num}", e)
+            raise EleanorKernelException(
+                f"failed to parse EQ3 output at line {self.line_num}",
+                code=RunCode.PARSER_ERROR,
+            ) from e
         if "Normal exit" not in self.lines[-1]:
-            raise EleanorException("eq3 terminated early", code=RunCode.EQ3_EARLY_TERMINATION)
+            raise EleanorKernelException("eq3 terminated early", code=RunCode.EQ3_EARLY_TERMINATION)
         self.point = self._build_point()
         return self
 
@@ -1052,7 +1091,7 @@ class OutputParser6(OutputParser):
             else:
                 super().__init__(file)
         except FileNotFoundError as e:
-            raise EleanorFileException(e, code=RunCode.NO_6O_FILE)
+            raise EleanorKernelException("failed to open 6o file", code=RunCode.NO_6O_FILE) from e
         self._reset_step_accumulators()
 
     def _reset_step_accumulators(self) -> None:
@@ -1074,7 +1113,7 @@ class OutputParser6(OutputParser):
             self.advance(n=2)
             table = self.read_basic_table("mass_per_volume", "mass_fraction", "molarity", "molality")
         else:
-            raise EleanorParserException("expected a table header")
+            raise EleanorKernelException("expected a table header", code=RunCode.PARSER_ERROR)
         elements: list[es.Element] = []
         with warnings.catch_warnings():
             warnings.filterwarnings("ignore", category=RuntimeWarning)
@@ -1099,7 +1138,7 @@ class OutputParser6(OutputParser):
             self.advance(n=2)
             self.consume_basic_table("mass_per_volume", "mass_fraction", "molarity", "molality")
         else:
-            raise EleanorParserException("expected a table header")
+            raise EleanorKernelException("expected a table header", code=RunCode.PARSER_ERROR)
 
     @override
     def read_sensible_composition(self) -> None:
@@ -1112,7 +1151,7 @@ class OutputParser6(OutputParser):
             self.advance(n=2)
             self.consume_basic_table("mass_per_volume", "mass_fraction", "molarity", "molality")
         else:
-            raise EleanorParserException("expected a table header")
+            raise EleanorKernelException("expected a table header", code=RunCode.PARSER_ERROR)
 
     @override
     def read_bulk_properties(self) -> None:
@@ -1259,7 +1298,10 @@ class OutputParser6(OutputParser):
             self.read_product_phases("Solid Solution Product Phases")
             self.read_fugacities()
         except Exception as e:
-            raise EleanorParserException(f"failed to parse EQ6 output at line {self.line_num}", e)
+            raise EleanorKernelException(
+                f"failed to parse EQ6 output at line {self.line_num}",
+                code=RunCode.PARSER_ERROR,
+            ) from e
         self.path.append(self._build_point())
         self._reset_step_accumulators()
         return self
@@ -1268,17 +1310,17 @@ class OutputParser6(OutputParser):
         pattern = re.compile(r"^\s*---\s+The reaction path has terminated (early|normally)\s+---\s*$")
         self.unconsume_to_pattern(pattern)
         if self.eof():
-            raise EleanorException("no reaction path termination status found", code=RunCode.EQ6_ERROR)
+            raise EleanorKernelException("no reaction path termination status found", code=RunCode.EQ6_ERROR)
         else:
             match = pattern.match(self.line())
             if match is None:
-                raise EleanorException("no reaction path termination status found", code=RunCode.EQ6_ERROR)
+                raise EleanorKernelException("no reaction path termination status found", code=RunCode.EQ6_ERROR)
             elif match[1] == "normally":
                 pass
             elif match[1] == "early":
-                raise EleanorException("eq6 reaction path terminated early", code=RunCode.EQ6_EARLY_TERMINATION)
+                raise EleanorKernelException("eq6 reaction path terminated early", code=RunCode.EQ6_EARLY_TERMINATION)
             else:
-                raise EleanorException("eq6 reaction path terminated early", code=RunCode.EQ6_EARLY_TERMINATION)
+                raise EleanorKernelException("eq6 reaction path terminated early", code=RunCode.EQ6_EARLY_TERMINATION)
 
     @override
     def parse(self) -> Self:

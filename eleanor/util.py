@@ -295,6 +295,13 @@ def require_opt_int(value: object, field_name: str) -> int | None:
     return value
 
 
+def require_int(value: object, field_name: str) -> int:
+    """Validate that ``value`` is an int  at runtime."""
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise EleanorException(f"{field_name} must be an integer")
+    return value
+
+
 def require_opt_str(value: object, field_name: str) -> str | None:
     """Validate that ``value`` is a string or ``None`` at runtime."""
     if value is not None and not isinstance(value, str):

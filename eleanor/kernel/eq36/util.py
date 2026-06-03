@@ -3,8 +3,8 @@ import re
 
 import numpy as np
 
-from eleanor.exceptions import EleanorFileException, EleanorParserException
 from eleanor.kernel.eq36.codes import RunCode
+from eleanor.kernel.exceptions import EleanorKernelException
 
 _FORTRAN_FLOAT_RE: re.Pattern[str] = re.compile(r"([-\+]?\d+(\.\d+)?)([-\+]\d+)")
 _NUMERIC_FALLBACK_RE: re.Pattern[str] = re.compile(r"[0-9Ee\+\.-]+")
@@ -36,7 +36,7 @@ def field_as_float(field: str) -> np.float64:
         except ValueError:
             pass
 
-    raise EleanorParserException(f'failed to read "{field}" as float')
+    raise EleanorKernelException(f'failed to read "{field}" as float', code=RunCode.PARSER_ERROR)
 
 
 def read_pickup_lines(file: str | io.TextIOWrapper | None = None) -> list[str]:
@@ -48,13 +48,13 @@ def read_pickup_lines(file: str | io.TextIOWrapper | None = None) -> list[str]:
             with open(file, "r") as handle:
                 return read_pickup_lines(handle)
         except FileNotFoundError as e:
-            raise EleanorFileException(e, code=RunCode.FILE_ERROR_3P)
+            raise EleanorKernelException("failed to open pickup file", code=RunCode.FILE_ERROR_3P) from e
 
     try:
         lines = file.readlines()
         for i, line in reversed(list(enumerate(lines))):
             if line.startswith("*---"):
                 return lines[i + 1 :]
-        raise EleanorFileException("failed to find seperator in pickup file", code=RunCode.FILE_ERROR_3P)
+        raise EleanorKernelException("failed to find separator in pickup file", code=RunCode.FILE_ERROR_3P)
     except FileNotFoundError as e:
-        raise EleanorFileException(e, code=RunCode.FILE_ERROR_3P)
+        raise EleanorKernelException("failed to open pickup file", code=RunCode.FILE_ERROR_3P) from e

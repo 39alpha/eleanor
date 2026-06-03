@@ -6,7 +6,7 @@ from types import TracebackType
 from typing import TYPE_CHECKING, Self, Unpack, cast
 
 from eleanor.config import Config
-from eleanor.exceptions import EleanorConfigurationException, EleanorException, EleanorShutdown
+from eleanor.exceptions import EleanorException, EleanorShutdown
 from eleanor.executor import AbstractExecutor, AbstractFuture, load_executor
 from eleanor.executor.settings import ExecutorSettings
 from eleanor.kernel import load_kernel
@@ -86,7 +86,7 @@ class Eleanor:
         self._executor_override = executor
         self._output_sink_override = output_sink
         if self.config.output is None and self._output_sink_override is None:
-            raise EleanorConfigurationException("no output sink provided via config or keyword option")
+            raise EleanorException("no output sink provided via config or keyword option")
 
         self._entered = False
         self._executor = None
@@ -258,7 +258,7 @@ class Eleanor:
             if self._output_sink is None:
                 if self.config.output is None:
                     msg = "no output sink provided via config or keyword option"
-                    raise EleanorConfigurationException(msg)
+                    raise EleanorException(msg)
 
                 settings = replace(self.config.output.settings, verbose=verbose)
                 self._output_sink = load_output_sink(self.config.output.kind, settings)
@@ -271,7 +271,7 @@ class Eleanor:
 
         if self.config.output is None:
             msg = "no output sink provided via config or keyword option"
-            raise EleanorConfigurationException(msg)
+            raise EleanorException(msg)
 
         settings = replace(self.config.output.settings, verbose=verbose)
         sink = load_output_sink(self.config.output.kind, settings)

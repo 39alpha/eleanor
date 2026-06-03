@@ -6,7 +6,7 @@ from unittest import TestCase, mock
 from eleanor.config import Config
 from eleanor.config.output import OutputSinkConfig
 from eleanor.eleanor import Eleanor
-from eleanor.exceptions import EleanorConfigurationException, EleanorException, EleanorShutdown
+from eleanor.exceptions import EleanorException, EleanorShutdown
 from eleanor.executor import AbstractExecutor
 from eleanor.executor.settings import ExecutorSettings
 from eleanor.kernel import AbstractKernel
@@ -116,7 +116,7 @@ class TestEleanorConstruction(TestCase):
     def test_init_raises_when_no_output_sink_configured(self):
         """Ensure constructor rejects a config with no output type and no sink override."""
         config = Config()
-        with self.assertRaises(EleanorConfigurationException):
+        with self.assertRaises(EleanorException):
             _ = Eleanor(config=config)
 
     def test_init_does_not_raise_when_output_sink_override_suppresses_guard(self):

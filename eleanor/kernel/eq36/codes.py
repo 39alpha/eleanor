@@ -19,6 +19,7 @@ class RunCode(IntEnum):
     OUTSIDE_SALINITY_WINDOW = 63
     EQ6_EARLY_TERMINATION = 70
     EQ36_TIMEOUT = 90
+    PARSER_ERROR = 91
 
     @override
     def __str__(self) -> str:
@@ -39,6 +40,7 @@ class RunCode(IntEnum):
             RunCode.OUTSIDE_SALINITY_WINDOW: "total disolved solute is outside the desired salinity window",
             RunCode.EQ6_EARLY_TERMINATION: "eq6 reaction path terminated early",
             RunCode.EQ36_TIMEOUT: "eq36 timed out",
+            RunCode.PARSER_ERROR: "failed to parse an eq36 output file",
         }.get(self)
         if message is None:
             raise TypeError(f"missing string mapping for {self.__class__.__name__}.{self.name}")

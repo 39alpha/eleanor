@@ -10,6 +10,7 @@ import eleanor.variable_space as vs
 from eleanor.config.kernel import KernelConfig
 from eleanor.constraints.point_builder import PointBuilder
 from eleanor.exceptions import EleanorException
+from eleanor.kernel.eq36.codes import RunCode
 from eleanor.kernel.eq36.data1 import BasisSpecies, Data1
 from eleanor.kernel.eq36.kernel import Eq36Kernel
 from eleanor.kernel.eq36.settings import IOPG_1, IOPT_1, IOPT_4, Eq3Settings, Eq6Settings, Eq36Settings
@@ -387,7 +388,7 @@ class TestEq36Kernel(TestCase):
         """
         kernel = self._kernel()
         point = _make_point(self._settings())
-        error = EleanorKernelException("known kernel failure")
+        error = EleanorKernelException("known kernel failure", code=RunCode.EQ3_ERROR)
 
         with mock.patch.object(kernel, "resolve_kernel_settings", side_effect=error):
             with self.assertRaises(EleanorKernelException) as context:

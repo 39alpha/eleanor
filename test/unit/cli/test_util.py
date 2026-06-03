@@ -4,7 +4,7 @@ from pytest_mock import MockerFixture
 
 from eleanor.cli.util import config_from_args
 from eleanor.config import Config
-from eleanor.exceptions import EleanorConfigurationException
+from eleanor.exceptions import EleanorException
 from eleanor.output.postgres.settings import PostgresDatabaseSettings, PostgresSinkSettings
 
 
@@ -56,10 +56,8 @@ def test_database_override_raises_for_non_postgres_sinks(mocker: MockerFixture):
     )
 
     _ = mocker.patch("eleanor.cli.util.load_config", return_value=non_postgres)
-    with pytest.raises(EleanorConfigurationException) as ctx:
+    with pytest.raises(EleanorException, match="postgres"):
         _ = config_from_args("/fake.yaml", "db")
-
-    assert "postgres" in str(ctx.value)
 
 
 def test_database_required_when_not_configured(mocker: MockerFixture):

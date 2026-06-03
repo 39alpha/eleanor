@@ -3,6 +3,7 @@ from typing import cast
 from unittest import TestCase, mock
 
 from eleanor.exceptions import EleanorException
+from eleanor.kernel.exceptions import EleanorKernelException
 from eleanor.output import ComputeResult, WriteOutcome
 from eleanor.runner import Runner
 from eleanor.variable_space import Point
@@ -183,7 +184,7 @@ class TestRunner(TestCase):
         kernel = mock.Mock()
         runner = Runner(kernel=kernel)
 
-        kernel.run.side_effect = EleanorException("boom", code=9)
+        kernel.run.side_effect = EleanorKernelException("boom", code=9)
         vs_point = _vs_point()
         out = runner.work(vs_point, verbose=False)
         self.assertIs(out, vs_point)

@@ -11,6 +11,7 @@ from typing import Unpack
 import eleanor.equilibrium_space as es
 import eleanor.variable_space as vs
 from eleanor.exceptions import EleanorException
+from eleanor.kernel.exceptions import EleanorKernelException
 from eleanor.kernel.interface import AbstractKernel
 from eleanor.output.interface import AbstractOutputSink, ComputeResult, ErrorInfo, WriteOutcome
 from eleanor.progress import ProgressHandle
@@ -108,7 +109,7 @@ class Runner:
                         print_exception(e, file=sys.stderr)
                     vs_point.scratch = Runner.collect_scratch(tempdir)
                     vs_point.exception = e
-                    if isinstance(e, EleanorException):
+                    if isinstance(e, EleanorKernelException):
                         code = getattr(e, "code", None)
                         vs_point.exit_code = code if isinstance(code, int) else -1
                     else:

@@ -10,7 +10,7 @@
         }
     },
     "temperature": {
-        "unit": "celcius",
+        "unit": "celsius",
         "min": 50,
         "max": 150
     },

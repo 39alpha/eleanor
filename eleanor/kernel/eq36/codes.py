@@ -25,7 +25,7 @@ class RunCode(IntEnum):
     def __str__(self) -> str:
         message = {
             RunCode.NOT_RUN: "not run",
-            RunCode.UNKNOWN: "an unrecognized error occured",
+            RunCode.UNKNOWN: "an unrecognized error occurred",
             RunCode.SUCCESS: "success",
             RunCode.EQPT_ERROR: "eqpt failed with an error",
             RunCode.EQ3_ERROR: "eq3 failed with an error",
@@ -37,7 +37,7 @@ class RunCode(IntEnum):
             RunCode.EQ6_ERROR: "eq6 failed with an error",
             RunCode.NO_6O_FILE: "no 6o file generated",
             RunCode.FILE_ERROR_6O: "eq6 ran but eleanor could not mine the 6o file",
-            RunCode.OUTSIDE_SALINITY_WINDOW: "total disolved solute is outside the desired salinity window",
+            RunCode.OUTSIDE_SALINITY_WINDOW: "total dissolved solute is outside the desired salinity window",
             RunCode.EQ6_EARLY_TERMINATION: "eq6 reaction path terminated early",
             RunCode.EQ36_TIMEOUT: "eq36 timed out",
             RunCode.PARSER_ERROR: "failed to parse an eq36 output file",

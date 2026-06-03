@@ -9,7 +9,7 @@ kernel:
     charge_balance: H+
 
 temperature:
-  unit: celcius
+  unit: celsius
   min: 50
   max: 150
 pressure:

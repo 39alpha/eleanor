@@ -270,7 +270,7 @@ contains
     !   cessa  = array of elemental composition coefficients for the species read from the data file
     !   iapxta = array of the numbers of non-zero interaction coefficients for computing activity coefficients in solid solutions
     !   iaqsla = index of the aqueous solution phase, as read from the data file
-    !   ibpxta = array of the numbers of non-zero site-mixing paramters for computing activity coefficients in solid solutions
+    !   ibpxta = array of the numbers of non-zero site-mixing parameters for computing activity coefficients in solid solutions
     !   ielam  = flag indicating no use or use of E-lambda terms
     !   igas   = index of the gas phase
     !   insgfa = array of flags for treating the activity coefficients of species that happen to be electrically neutral, as read from the data file
@@ -280,7 +280,7 @@ contains
     !   jptffl = Pitzer parameter temperature function flag
     !   jsola  = array of flags for the activity coefficient models to use for solid solutions, as read from the data file
     !   mwtspa = array of the molecular weights of the species read from the data file
-    !   nalpaa = pointer array giving the index of the set of alpha coeffcients for a given set of S-lambda coefficients, as read from the data file
+    !   nalpaa = pointer array giving the index of the set of alpha coefficients for a given set of S-lambda coefficients, as read from the data file
     !   narn1a = start of the range of aqueous species, as read from the data file
     !   narn1a = end of the range of aqueous species, as read from the data file
     !   nbaspa = array of indices of species in basis set, as read from the data file
@@ -683,7 +683,7 @@ contains
             end if
 
             ! Read coefficients for the Drummond (1981) equation. This equation
-            ! represents the activity coeficient of CO2(aq) as a function of
+            ! represents the activity coefficient of CO2(aq) as a function of
             ! temperature and ionic strength in sodium chloride solutions.
             read (nad1) ux24
             read (nad1) (cco2(n), n = 1,5)
@@ -764,7 +764,7 @@ contains
             end do
         end if
 
-        ! Read the phases and species and assocated data from the data file. The
+        ! Read the phases and species and associated data from the data file. The
         ! following variables are used as counters:
         !
         !  np     = phase index
@@ -1384,7 +1384,7 @@ contains
     !          temperature
     ! aslma  = coefficients for calculating Pitzer S-lambda(n) parameters as a
     !          function of temperature
-    ! nalpaa = pointer array giving the index of the set of alpha coeffcients for a
+    ! nalpaa = pointer array giving the index of the set of alpha coefficients for a
     !          given set of S-lambda coefficients
     ! nmuta  = number of species triplets for which mu coefficients are defined
     ! nmuxa  = indices of species in triplets for which mu coefficients are defined

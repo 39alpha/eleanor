@@ -177,7 +177,7 @@ class TestRunner(TestCase):
         assert vs_point2.scratch is not None
         self.assertIsInstance(vs_point2.scratch.zip, bytes)
 
-    def test_work_handles_eleonor_exception_and_generic_exception(self):
+    def test_work_handles_eleanor_exception_and_generic_exception(self):
         """
         Ensure that work captures exceptions and sets exit codes for Eleanor and non-Eleanor errors.
         """

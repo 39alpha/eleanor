@@ -243,7 +243,7 @@ it belongs. The `type` of the kernel is stored alongside a JSON encodedded
 `settings` object, the form of which is kernel-specific.
 
 While, at the moment, only the `eleanor.kernel.eq36` kernel is provided
-out-of-the-box, future versions may include other kernel implentations or
+out-of-the-box, future versions may include other kernel implementations or
 the user may design and implement their own. It is then difficult to design a
 schema for storing the settings. Using a JSON object makes things simpler given
 PostgreSQL's native JSON support.
@@ -791,7 +791,7 @@ stored as a row in the `equilibrium_space` table. Additional, information
 about the system, such as the quantity of reactants reacted and remaining
 ([`equilibrium_reactants`](#equilibrium_reactants)), the elemental
 composition of the fluid ([`equilibrium_elements`](#equilibrium_elements)),
-the molecular composition of the flud
+the molecular composition of the fluid
 ([`equilibrium_aqueous_species`](#equilibrium_aqueous_species)), etc..., are
 stored in auxiliary tables that link back to the equilibrium space point via a
 foreign key reference on their `equilibrium_space_id` column.
@@ -817,7 +817,7 @@ of the path). However, if the user did not enable path tracking or set the
 kernel's print settings judiciously, then the first `"eq6"` stage point may have
 a finite `log_xi`. Other examples include:
 
-1. Since mass is not transfered in the `"eq3"` stage, columns such as
+1. Since mass is not transferred in the `"eq3"` stage, columns such as
    `solid_mass_change` will be `NULL`, and
 2. Though they represent the the same quantity, more or less, the `"eq3"` stage
    outputs `sigma` while `"eq6"` outputs `total_charge` and only one of the two
@@ -978,7 +978,7 @@ SELECT
 |    | ✔  |   | [`equilibrium_space_id`](#equilibrium_elements)                 | `INTEGER`  | The id of the equilibrium space point                                                                                                                        |               |
 |    |    |   | `name`                                                          | `VARCHAR`  | The name of the element (atomic symbol)                                                                                                                      |               |
 |    |    |   | `log_molality`                                                  | `DOUBLE`   | The molality of the element in solution                                                                                                                      | $\log{molal}$ |
-|    |    |   | `mass_fraction`                                                 | `DOUBLE`   | The fraction of solution mass accounted for by ths element                                                                                                   | unitless      |
+|    |    |   | `mass_fraction`                                                 | `DOUBLE`   | The fraction of solution mass accounted for by the element                                                                                                   | unitless      |
 
 : {.striped .bordered}
 

@@ -408,7 +408,7 @@ class TestEq36Kernel(TestCase):
             with self.assertRaises(EleanorException) as context:
                 kernel.run(point)
 
-        self.assertIn("an unexpected error occured", str(context.exception))
+        self.assertIn("an unexpected error occurred", str(context.exception))
         self.assertIs(context.exception.__cause__, cause)
 
     def test_write_switch_grid_eq3_includes_iopg_rows(self):

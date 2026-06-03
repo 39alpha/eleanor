@@ -86,6 +86,7 @@ exclude = "(docs/source/conf\\.py)"
 [dependency-groups]
 dev = [
     "basedpyright>=1.38.2",
+    "codespell>=2.4.2",
     "ipython>=9.10.0",
     "pandas-stubs>=3.0.0.260204",
     "pre-commit>=4.6.0",

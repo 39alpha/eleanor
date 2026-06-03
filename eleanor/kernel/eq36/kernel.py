@@ -240,7 +240,7 @@ class Eq36Kernel(AbstractKernel):
         except EleanorException:
             raise
         except Exception as e:
-            raise EleanorException("an unexpected error occured") from e
+            raise EleanorException("an unexpected error occurred") from e
 
     def write_eq3_input(
         self,

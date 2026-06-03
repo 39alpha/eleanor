@@ -43,9 +43,9 @@ class TestUtils(TestCase):
         self.assertEqual(wd.path, new_dir)
         self.assertEqual(wd.cwd, cwd)
 
-    def test_working_directory_nonexistant_directory(self):
+    def test_working_directory_nonexistent_directory(self):
         """
-        Ensure that if you try to switch to a non-existant directory, the properties of the
+        Ensure that if you try to switch to a non-existent directory, the properties of the
         :class:`WorkingDirectory` do not change.
         """
         cwd = os.getcwd()

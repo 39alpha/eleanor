@@ -59,11 +59,14 @@ class PostgresSink(AbstractOutputSink):
             if self._prev_psycopg_log_level is None:
                 self._prev_psycopg_log_level = logger.level
             logger.setLevel(logging.DEBUG)
-        # ``repositories.setup_schema`` opens a connection via
-        # ``connection.connect`` and delegates to ``schema.ensure_schema``,
-        # which wraps every ``CREATE TABLE`` / ``CREATE INDEX`` in a single
-        # transaction so a partial schema never lands.
-        repositories.setup_schema(self.settings.database)
+        # ``repositories.apply_pending_migrations`` opens a connection via
+        # ``connection.connect`` and delegates to the migration runner, which
+        # bootstraps the tracking table, holds a session-scoped advisory lock,
+        # and applies every pending ``NNNN_*.sql`` file in order. A partial
+        # schema never lands: transactional migrations roll back as a unit,
+        # and non-transactional ones (``*.notxn.sql``) are required to be
+        # idempotent.
+        repositories.apply_pending_migrations(self.settings.database)
         if self.settings.bulk_load_optimization:
             # Strip every secondary index + FK / CHECK constraint so the
             # per-row INSERT / COPY work the sink is about to do does not

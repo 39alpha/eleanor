@@ -271,17 +271,31 @@ class TestPostgresSinkIntegration(_RealPostgresTestCase):
             self.assertEqual(fetched.id, record.id)
             self.assertEqual(fetched.name, "integration-smoke")
 
-    def test_setup_schema_invokes_connect_and_ensure_schema(self):
+    def test_apply_pending_migrations_invokes_connect_and_runs_loop(self):
         """
-        Ensure :func:`repositories.setup_schema` is the public entry
-        point that wires :func:`connection.connect` to
-        :func:`schema.ensure_schema`. Exercising it end-to-end keeps the
-        sink's ``initialize`` hook covered against a real DB.
+        Ensure :func:`repositories.apply_pending_migrations` is the public
+        entry point that wires :func:`connection.connect` to the migration
+        runner. Exercising it end-to-end keeps the sink's ``initialize``
+        hook covered against a real DB.
         """
-        # ``setUp`` already created the schema; this re-runs it through
-        # the public entry point and asserts a known table is still
-        # present afterwards.
-        repositories.setup_schema(self.config)
+        # ``setUp`` already created all data tables via ``ensure_schema``.
+        # The migration runner refuses to auto-stamp a database that has
+        # data tables but no tracking — so we pre-stamp to tell it "this
+        # schema was already applied via the legacy path." This mirrors
+        # the operator workflow documented in PLAN.md "Breaking change".
+        conn = connection.connect(self.config)
+        with conn.transaction(), conn.cursor() as cur:
+            _ = cur.execute(
+                "CREATE TABLE IF NOT EXISTS schema_migrations "
+                "(version INTEGER PRIMARY KEY, name TEXT NOT NULL, "
+                "applied_at TIMESTAMPTZ NOT NULL, eleanor_version TEXT NOT NULL)"
+            )
+            _ = cur.execute(
+                "INSERT INTO schema_migrations (version, name, applied_at, eleanor_version) "
+                "VALUES (1, 'initial_schema', NOW(), 'test') ON CONFLICT DO NOTHING"
+            )
+        # Now apply_pending_migrations should find no pending work and succeed.
+        repositories.apply_pending_migrations(self.config)
         live = schema.inspect_schema(connection.connect(self.config), ("orders",))
         self.assertIn("orders", live)
 

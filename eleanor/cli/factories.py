@@ -9,12 +9,13 @@ if TYPE_CHECKING:
 def build_postgres_group() -> click.Group:
     import click
 
-    from eleanor.output.postgres.cli import bulkload, schema, scratch
+    from eleanor.output.postgres.cli import bulkload, migrate, schema, scratch
 
     cmd = click.Group("postgres", help="Postgres output sink commands.")
     cmd.add_command(schema)
     cmd.add_command(scratch)
     cmd.add_command(bulkload)
+    cmd.add_command(migrate)
 
     return cmd
 

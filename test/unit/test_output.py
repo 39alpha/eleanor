@@ -158,10 +158,10 @@ class TestOutput(TestCase):
         sink = PostgresSink(settings)
         self.assertTrue(sink.supports_progress())
 
-    def test_postgres_initialize_runs_setup_schema(self):
+    def test_postgres_initialize_runs_apply_pending_migrations(self):
         """
-        Ensure PostgresSink.initialize calls repositories.setup_schema once
-        with the active config, and -- with bulk_load_optimization off --
+        Ensure PostgresSink.initialize calls repositories.apply_pending_migrations
+        once with the active config, and -- with bulk_load_optimization off --
         does NOT call drop_indexes.
         """
         settings = PostgresSinkSettings(
@@ -169,18 +169,18 @@ class TestOutput(TestCase):
         )
         sink = PostgresSink(settings)
         with (
-            mock.patch("eleanor.output.postgres.sink.repositories.setup_schema") as setup_schema,
+            mock.patch("eleanor.output.postgres.sink.repositories.apply_pending_migrations") as apply_mig,
             mock.patch("eleanor.output.postgres.sink.repositories.drop_indexes") as drop_indexes,
         ):
             sink.initialize()
-        setup_schema.assert_called_once_with(settings.database)
+        apply_mig.assert_called_once_with(settings.database)
         drop_indexes.assert_not_called()
 
     def test_postgres_initialize_drops_indexes_when_bulk_load_optimization_is_on(self):
         """
         Ensure PostgresSink.initialize calls
-        :func:`repositories.drop_indexes` *after* ``setup_schema`` when
-        the sink was constructed with ``bulk_load_optimization=True``.
+        :func:`repositories.drop_indexes` *after* ``apply_pending_migrations``
+        when the sink was constructed with ``bulk_load_optimization=True``.
         The order matters: tables must exist before we try to alter
         them on a fresh database.
         """
@@ -192,8 +192,8 @@ class TestOutput(TestCase):
         manager = mock.MagicMock()
         with (
             mock.patch(
-                "eleanor.output.postgres.sink.repositories.setup_schema",
-                manager.setup_schema,
+                "eleanor.output.postgres.sink.repositories.apply_pending_migrations",
+                manager.apply_pending_migrations,
             ),
             mock.patch(
                 "eleanor.output.postgres.sink.repositories.drop_indexes",
@@ -201,13 +201,13 @@ class TestOutput(TestCase):
             ),
         ):
             sink.initialize()
-        manager.setup_schema.assert_called_once_with(settings.database)
+        manager.apply_pending_migrations.assert_called_once_with(settings.database)
         manager.drop_indexes.assert_called_once_with(settings.database)
         # mock.Mock records every child-attr call on the parent in order;
-        # we use that ordering to pin the schema-then-drop sequence.
+        # we use that ordering to pin the migrate-then-drop sequence.
         self.assertEqual(
             [c[0] for c in manager.method_calls],
-            ["setup_schema", "drop_indexes"],
+            ["apply_pending_migrations", "drop_indexes"],
         )
 
     def test_postgres_finalize_closes_connection(self):
@@ -303,11 +303,11 @@ class TestOutput(TestCase):
         original_level = logging.WARNING
         logger.setLevel(original_level)
         try:
-            with mock.patch("eleanor.output.postgres.sink.repositories.setup_schema"):
+            with mock.patch("eleanor.output.postgres.sink.repositories.apply_pending_migrations"):
                 sink.initialize()
             self.assertEqual(logger.level, logging.DEBUG)
             # Second initialize must NOT overwrite the snapshot.
-            with mock.patch("eleanor.output.postgres.sink.repositories.setup_schema"):
+            with mock.patch("eleanor.output.postgres.sink.repositories.apply_pending_migrations"):
                 sink.initialize()
             self.assertEqual(logger.level, logging.DEBUG)
             with mock.patch(

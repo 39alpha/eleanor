@@ -10,7 +10,7 @@ import eleanor.equilibrium_space as core_es
 import eleanor.variable_space as core_vs
 from eleanor.exceptions import EleanorException
 from eleanor.order import Order
-from eleanor.output.postgres.persistence import connection, converters, queries, schema
+from eleanor.output.postgres.persistence import connection, converters, migrations, queries, schema
 from eleanor.output.postgres.persistence.converters import OrderRecord, ScratchEntry
 from eleanor.output.postgres.settings import PostgresDatabaseSettings
 
@@ -19,6 +19,15 @@ def setup_schema(config: PostgresDatabaseSettings) -> None:
     """Idempotently create the sink's schema on the configured DB."""
     conn = connection.connect(config)
     schema.ensure_schema(conn)
+
+
+def apply_pending_migrations(config: PostgresDatabaseSettings) -> None:
+    """:class:`PostgresDatabaseSettings`-keyed wrapper around :func:`migrations.apply_pending_migrations`.
+
+    Matches the shape of :func:`setup_schema`, :func:`drop_indexes`, etc.
+    """
+    conn = connection.connect(config)
+    migrations.apply_pending_migrations(conn)
 
 
 def drop_indexes(config: PostgresDatabaseSettings) -> None:

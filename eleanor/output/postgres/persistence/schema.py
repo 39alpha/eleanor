@@ -166,8 +166,27 @@ def _fk_constraint_name(table_name: str, fk_column: str) -> str:
     that are byte-for-byte identical to the ones the server picked when
     the table was first created, so the recreated FK is
     indistinguishable from the inline-declared one.
+
+    When the combined name would exceed :data:`_PG_MAX_IDENT_LEN`, this
+    matches PostgreSQL's ``makeObjectName`` algorithm exactly: it
+    iteratively reduces the *longer* of the two components (table name
+    vs column name) by one character until the total fits, rather than
+    simply truncating the final string. Simple truncation would lop off
+    the ``_fkey`` suffix, producing a name that does not match the one
+    the server actually stored.
     """
-    return f"{table_name}_{fk_column}_fkey"[:_PG_MAX_IDENT_LEN]
+    label = "fkey"
+    # Two underscores: one separating table from column, one before label.
+    overhead = 2 + len(label)
+    avail = _PG_MAX_IDENT_LEN - overhead
+    n1 = len(table_name)
+    n2 = len(fk_column)
+    while n1 + n2 > avail:
+        if n1 > n2:
+            n1 -= 1
+        else:
+            n2 -= 1
+    return f"{table_name[:n1]}_{fk_column[:n2]}_{label}"
 
 
 def to_drop_constraint_sql(table_name: str, constraint_name: str) -> str:
@@ -254,19 +273,20 @@ def ensure_schema(connection: psycopg.Connection) -> None:
 def inspect_schema(
     connection: psycopg.Connection,
     table_names: tuple[str, ...] | None = None,
+    schema_name: str = "public",
 ) -> dict[str, list[tuple[str, str, bool]]]:
     """Return the live ``(column_name, data_type, is_nullable)`` shape of tables.
 
     Used by tests and the (future) EQL conformance check to verify that the
     DB matches what the schema definition expects. ``table_names`` defaults
-    to every table the sink declares.
+    to every table the sink declares. ``schema_name`` defaults to ``"public"``.
     """
     if table_names is None:
         table_names = tuple(t.name for t in TABLES)
     out: dict[str, list[tuple[str, str, bool]]] = {}
     with connection.cursor() as cur:
         for name in table_names:
-            _ = cur.execute(_INSPECT_SCHEMA_QUERY, ("public", name))
+            _ = cur.execute(_INSPECT_SCHEMA_QUERY, (schema_name, name))
             rows: list[tuple[str, str, bool]] = []
             for row in cur:
                 # Pin the loosely-typed psycopg row to our 3-tuple shape.
@@ -275,6 +295,103 @@ def inspect_schema(
             if rows:
                 out[name] = rows
     return out
+
+
+_LIVE_VALID_INDEXES_QUERY: LiteralString = (
+    "SELECT t.relname, i.relname "
+    "FROM pg_class t "
+    "JOIN pg_index ix ON ix.indrelid = t.oid "
+    "JOIN pg_class i ON i.oid = ix.indexrelid "
+    "JOIN pg_namespace n ON n.oid = t.relnamespace "
+    "WHERE n.nspname = %s AND ix.indisvalid AND NOT ix.indisprimary"
+)
+
+
+def live_index_names(connection: psycopg.Connection, schema_name: str = "public") -> set[tuple[str, str]]:
+    """Return ``(table, index_name)`` for every *valid* secondary index.
+
+    ``indisvalid`` excludes the half-built index a crashed
+    ``CREATE INDEX CONCURRENTLY`` leaves behind; ``NOT indisprimary`` drops
+    the implicit PK indexes :data:`TABLES` never enumerates.
+    """
+    with connection.cursor() as cur:
+        _ = cur.execute(_LIVE_VALID_INDEXES_QUERY, (schema_name,))
+        return {(cast(str, row[0]), cast(str, row[1])) for row in cur.fetchall()}
+
+
+_LIVE_CONSTRAINTS_QUERY: LiteralString = (
+    "SELECT t.relname, c.conname "
+    "FROM pg_constraint c "
+    "JOIN pg_class t ON t.oid = c.conrelid "
+    "JOIN pg_namespace n ON n.oid = t.relnamespace "
+    "WHERE n.nspname = %s AND c.contype = ANY(%s)"
+)
+
+
+def live_constraint_names(
+    connection: psycopg.Connection,
+    schema_name: str = "public",
+    contypes: tuple[str, ...] = ("f", "c"),
+) -> set[tuple[str, str]]:
+    """Return ``(table, constraint_name)`` for FK ('f') + CHECK ('c').
+
+    PKs ('p') are excluded by default: :data:`TABLES` does not name them and
+    a missing PK fails loudly at the first ``RETURNING id`` insert.
+    """
+    with connection.cursor() as cur:
+        _ = cur.execute(_LIVE_CONSTRAINTS_QUERY, (schema_name, list(contypes)))
+        return {(cast(str, row[0]), cast(str, row[1])) for row in cur.fetchall()}
+
+
+def declared_index_names() -> set[tuple[str, str]]:
+    """Return ``(table, index_name)`` for every index declared in :data:`TABLES`."""
+    return {(t.name, idx.name) for t in TABLES for idx in t.indexes}
+
+
+def declared_constraint_names() -> set[tuple[str, str]]:
+    """Return ``(table, constraint_name)`` for every FK and CHECK in :data:`TABLES`."""
+    out: set[tuple[str, str]] = set()
+    for t in TABLES:
+        for ck in t.checks:
+            out.add((t.name, ck.name))
+        for fk in t.foreign_keys:
+            out.add((t.name, _fk_constraint_name(t.name, fk.column)))
+    return out
+
+
+def _columns_by_name(
+    shape: dict[str, list[tuple[str, str, bool]]],
+) -> dict[str, dict[str, tuple[str, bool]]]:
+    """Re-key :func:`inspect_schema` output for order-insensitive comparison."""
+    return {table: {name: (dtype, nullable) for name, dtype, nullable in cols} for table, cols in shape.items()}
+
+
+def verify_against_tables(
+    connection: psycopg.Connection,
+    schema_name: str = "public",
+) -> list[str]:
+    """Return human-readable drift messages; empty list means the schema is clean.
+
+    Compares the live database against names derivable from :data:`TABLES`.
+    Checks column presence, valid secondary indexes, FK constraints, and
+    CHECK constraints. Does **not** check object definitions (see
+    ``MIGRATIONS.md`` for the deferred definition-level escalation).
+    """
+    problems: list[str] = []
+
+    live_cols = _columns_by_name(inspect_schema(connection, schema_name=schema_name))
+    for table in TABLES:
+        want = {c.name: (c.sql_type, c.nullable) for c in table.columns}
+        got = live_cols.get(table.name, {})
+        for col in want:
+            if col not in got:
+                problems.append(f"column {col!r} missing from {table.name!r}")
+
+    for table, name in sorted(declared_index_names() - live_index_names(connection, schema_name)):
+        problems.append(f"index {name!r} on {table!r} is missing or invalid")
+    for table, name in sorted(declared_constraint_names() - live_constraint_names(connection, schema_name)):
+        problems.append(f"constraint {name!r} on {table!r} is missing")
+    return problems
 
 
 def drop_indexes(connection: psycopg.Connection) -> None:
@@ -787,6 +904,18 @@ TABLES: tuple[TableDef, ...] = (
 )
 
 
+SCHEMA_MIGRATIONS = TableDef(
+    name="schema_migrations",
+    columns=(
+        ColumnDef("version", "INTEGER", nullable=False),
+        ColumnDef("name", "TEXT", nullable=False),
+        ColumnDef("applied_at", "TIMESTAMPTZ", nullable=False),
+        ColumnDef("eleanor_version", "TEXT", nullable=False),
+    ),
+    primary_key=("version",),
+)
+
+
 # Lookup-by-name. Useful when callers want to dispatch on a table name
 # (e.g. the ``StatementProfiler`` cross-referencing INSERT statements
 # against the table list).
@@ -827,6 +956,7 @@ __all__ = [
     "EQUILIBRIUM_REDOX_REACTIONS",
     "TABLES",
     "TABLES_BY_NAME",
+    "SCHEMA_MIGRATIONS",
     "to_create_table_sql",
     "to_create_index_sql",
     "to_drop_index_sql",
@@ -838,4 +968,9 @@ __all__ = [
     "drop_indexes",
     "recreate_indexes",
     "bulk_load_window",
+    "live_index_names",
+    "live_constraint_names",
+    "declared_index_names",
+    "declared_constraint_names",
+    "verify_against_tables",
 ]

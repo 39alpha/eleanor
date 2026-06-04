@@ -19,7 +19,6 @@ from eleanor.reactants import (
     ReactantType,
     SolidSolutionReactant,
     SpecialReactant,
-    TitratedReactant,
 )
 
 
@@ -97,19 +96,6 @@ class TestReactants(TestCase):
         with mock.patch("eleanor.reactants.ReactantType", FakeReactantType):
             with self.assertRaises(EleanorException):
                 AbstractReactant.from_dict({"name": "x", "type": "anything"})
-
-    def test_titrated_reactant_from_dict_and_volume(self):
-        """
-        Ensure that :class:`TitratedReactant` parses defaults and computes volume multiplicatively.
-        """
-        raw = cast(ReactantRaw, cast(object, {"name": "calcite", "type": "mineral", "amount": 2.0}))
-        reactant = TitratedReactant.from_dict(raw)
-        self.assertEqual(reactant.name, "calcite")
-        self.assertEqual(reactant.type, ReactantType.MINERAL)
-        self.assertIsInstance(reactant.amount, ValueParameter)
-        self.assertIsInstance(reactant.titration_rate, ValueParameter)
-        self.assertEqual(reactant.parameters(), [reactant.amount, reactant.titration_rate])
-        self.assertEqual(reactant.volume(), 1.0)
 
     def test_specific_titrated_subclasses_from_dict(self):
         """
@@ -286,14 +272,6 @@ class TestReactants(TestCase):
         """
         with self.assertRaises(ValueError):
             AbstractReactant.from_dict({"name": "x", "type": "not-a-type"})
-
-    def test_titrated_reactant_parameters_are_parameter_objects(self):
-        """
-        Ensure parsed titrated reactant fields are parameter instances.
-        """
-        reactant = TitratedReactant.from_dict({"name": "x", "type": "gas", "amount": 1.0})
-        self.assertIsInstance(reactant.amount, ValueParameter)
-        self.assertIsInstance(reactant.titration_rate, ValueParameter)
 
     def test_combined_component_from_dict_validation(self):
         """

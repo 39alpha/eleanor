@@ -375,7 +375,7 @@ class SolidSolutionReactant(TitratedReactant):
                 )
             fraction += param.value
 
-        if fraction != 1.0:
+        if not np.isclose(fraction, 1.0):
             raise EleanorException(
                 f'solid solution "{self.name}" end member fractions sum to {fraction}; must sum to 1.0'
             )
@@ -591,7 +591,7 @@ class CombinedReactant(TitratedReactant):
             )
 
         fraction = mapreduce(lambda c: c.fraction.value, operator.add, components.values(), 0.0)
-        if fraction != 1.0:
+        if not np.isclose(fraction, 1.0):
             raise EleanorException(
                 f'combined reactant "{self.name}" component fractions sum to {fraction}; must sum to 1.0'
             )

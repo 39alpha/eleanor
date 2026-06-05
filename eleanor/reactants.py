@@ -350,7 +350,7 @@ _ = TitratedReactant.register(ElementReactant)
 @final
 @dataclass(init=False)
 class SolidSolutionReactant(TitratedReactant):
-    end_members: dict[str, Parameter]
+    end_members: dict[str, ValueParameter]
 
     def __init__(
         self,
@@ -361,14 +361,15 @@ class SolidSolutionReactant(TitratedReactant):
         end_members: Mapping[str, ParameterOrSource],
     ):
         super().__init__(name=name, amount=amount, titration_rate=titration_rate)
-        self.end_members = {k: load_parameter(v) for k, v in end_members.items()}
-        fraction = 0.0
-        for em_name, param in self.end_members.items():
+        end_members = {k: load_parameter(v) for k, v in end_members.items()}
+
+        fraction = np.float64(0.0)
+        for em_name, param in end_members.items():
             if not isinstance(param, ValueParameter):
                 raise EleanorException(
                     f'solid solution "{self.name}" end member "{em_name}" has a non-value parameter; list and range parameters are not supported yet'
                 )
-            elif 1.0 < param.value or param.value < 0:
+            elif 1.0 < param.value or param.value < 0.0:
                 raise EleanorException(
                     f'solid solution "{self.name}" end member "{em_name}" has a value {param.value}; must be between 0 and 1 inclusive'
                 )
@@ -378,6 +379,8 @@ class SolidSolutionReactant(TitratedReactant):
             raise EleanorException(
                 f'solid solution "{self.name}" end member fractions sum to {fraction}; must sum to 1.0'
             )
+
+        self.end_members = cast(dict[str, ValueParameter], end_members)
 
     @property
     @override
@@ -433,7 +436,7 @@ class CombinedReactantComponent:
 
     name: str
     type: ReactantType
-    fraction: np.float64
+    fraction: ValueParameter
     relative_rate: Parameter | None
     composition: dict[str, int] | None = None
     end_members: dict[str, Parameter] | None = None
@@ -443,13 +446,18 @@ class CombinedReactantComponent:
         *,
         name: str,
         type: ReactantType,
-        fraction: np.float64,
+        fraction: ParameterOrSource,
         relative_rate: ParameterOrSource | None,
         composition: dict[str, int] | None = None,
         end_members: Mapping[str, ParameterOrSource] | None = None,
     ):
         self.name = name
         self.type = type
+        fraction = load_parameter(fraction)
+        if not isinstance(fraction, ValueParameter):
+            raise EleanorException(
+                f'combined component "{self.name}" has a non-value parameter; list and range parameters are not supported yet'
+            )
         self.fraction = fraction
         self.relative_rate = None if relative_rate is None else load_parameter(relative_rate)
         self.composition = composition
@@ -582,7 +590,7 @@ class CombinedReactant(TitratedReactant):
                 f'combined reactant "{self.name}" has only one component; consider replacing it with that standalone reactant'
             )
 
-        fraction = mapreduce(lambda c: c.fraction, operator.add, components.values(), 0.0)
+        fraction = mapreduce(lambda c: c.fraction.value, operator.add, components.values(), 0.0)
         if fraction != 1.0:
             raise EleanorException(
                 f'combined reactant "{self.name}" component fractions sum to {fraction}; must sum to 1.0'

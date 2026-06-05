@@ -381,7 +381,7 @@ class TestReactants(TestCase):
         )
         self.assertEqual(reactant.type, ReactantType.COMBINED)
         self.assertEqual(set(reactant.components.keys()), {"SiO2", "Na2O"})
-        self.assertAlmostEqual(sum(c.fraction for c in reactant.components.values()), 1.0)
+        self.assertAlmostEqual(sum(c.fraction.value for c in reactant.components.values()), 1.0)
 
     def test_combined_reactant_from_dict_failures(self):
         """

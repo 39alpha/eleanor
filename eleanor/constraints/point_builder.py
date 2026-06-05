@@ -211,11 +211,13 @@ class PointBuilder:
                         parent_log_moles = valuation[self.registry.id(log_moles)].value
                         parent_titration_rate = valuation[self.registry.id(titration_rate)].value
                         for component_name, component in components.items():
-                            component_log_moles = cast(np.float64, np.log10(component.fraction)) + parent_log_moles
+                            component_log_moles = (
+                                cast(np.float64, np.log10(component.fraction.value)) + parent_log_moles
+                            )
                             if component.relative_rate is not None:
                                 component_relative_rate = valuation[self.registry.id(component.relative_rate)].value
                             else:
-                                component_relative_rate = component.fraction
+                                component_relative_rate = component.fraction.value
                             component_titration_rate = parent_titration_rate * component_relative_rate
                             match component.type:
                                 case ReactantType.MINERAL:

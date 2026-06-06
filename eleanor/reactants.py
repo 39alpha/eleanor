@@ -1,4 +1,5 @@
 import operator
+import warnings
 from abc import ABC, abstractmethod
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -7,7 +8,7 @@ from typing import Self, TypedDict, cast, final, override
 
 import numpy as np
 
-from eleanor.exceptions import EleanorException
+from eleanor.exceptions import EleanorException, EleanorWarning
 from eleanor.parameters import Parameter, ParameterOrSource, ParameterSource, ValueParameter, load_parameter
 from eleanor.util import mapreduce, require, require_dict, require_float, require_str
 
@@ -538,10 +539,12 @@ class CombinedReactantComponent:
 
         fraction = require_float(raw.get("fraction"), f'combined component "{name}" fraction specification')
 
-        if not (0.0 < fraction and fraction < 1.0):
-            raise EleanorException(
-                f'combined component "{name}" has a value {fraction}; must be between 0 and 1 exclusive'
-            )
+        if fraction < 0.0 or fraction > 1.0:
+            msg = f'combined component "{name}" has a value {fraction}; must be between 0 and 1 inclusive'
+            raise EleanorException(msg)
+        elif np.isclose(fraction, 0.0) or np.isclose(fraction, 1.0):
+            msg = f'combined component "{name}" has a value {fraction}; that might be a mistake'
+            warnings.warn(msg, EleanorWarning)
 
         relative_rate = raw.get("relative_rate")
         composition: dict[str, int] | None = None
@@ -584,11 +587,14 @@ class CombinedReactant(TitratedReactant):
         super().__init__(name=name, amount=amount, titration_rate=titration_rate)
         self.components = components
         if len(components) == 0:
-            raise EleanorException(f'combined reactant "{self.name}" has no components; consider removing it')
+            msg = f"combined reactant {self.name!r} has no components; consider removing it"
+            raise EleanorException(msg)
         elif len(components) == 1:
-            raise EleanorException(
-                f'combined reactant "{self.name}" has only one component; consider replacing it with that standalone reactant'
+            msg = (
+                f"combined reactant {self.name!r} has only one component"
+                + "; consider replacing it with that standalone reactant"
             )
+            warnings.warn(msg, EleanorWarning)
 
         fraction = mapreduce(lambda c: c.fraction.value, operator.add, components.values(), 0.0)
         if not np.isclose(fraction, 1.0):

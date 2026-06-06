@@ -3,7 +3,7 @@ from unittest import TestCase, mock
 
 import numpy as np
 
-from eleanor.exceptions import EleanorException
+from eleanor.exceptions import EleanorException, EleanorWarning
 from eleanor.parameters import ValueParameter
 from eleanor.reactants import (
     AbstractReactant,
@@ -321,16 +321,26 @@ class TestReactants(TestCase):
         self.assertEqual(solid_solution.type, ReactantType.SOLID_SOLUTION)
         self.assertIsNotNone(solid_solution.end_members)
 
-        with self.assertRaises(EleanorException):
-            CombinedReactantComponent.from_dict({"name": "fg", "type": "fixed gas", "fraction": 0.5})
-        with self.assertRaises(EleanorException):
-            CombinedReactantComponent.from_dict({"name": "nested", "type": "combined", "fraction": 0.5})
-        with self.assertRaises(EleanorException):
-            CombinedReactantComponent.from_dict({"name": "x", "type": "mineral", "fraction": 0.0})
-        with self.assertRaises(EleanorException):
-            CombinedReactantComponent.from_dict({"name": "x", "type": "mineral", "fraction": 1.0})
-        with self.assertRaises(EleanorException):
-            CombinedReactantComponent.from_dict({"name": "SiO2", "type": "special", "fraction": 0.5})
+        with self.assertRaisesRegex(EleanorException, "not supported"):
+            _ = CombinedReactantComponent.from_dict({"name": "fg", "type": "fixed gas", "fraction": 0.5})
+
+        with self.assertRaisesRegex(EleanorException, "not supported"):
+            _ = CombinedReactantComponent.from_dict({"name": "nested", "type": "combined", "fraction": 0.5})
+
+        with self.assertRaisesRegex(EleanorException, "between 0 and 1 inclusive"):
+            _ = CombinedReactantComponent.from_dict({"name": "x", "type": "mineral", "fraction": -1.0})
+
+        with self.assertRaisesRegex(EleanorException, "between 0 and 1 inclusive"):
+            _ = CombinedReactantComponent.from_dict({"name": "x", "type": "mineral", "fraction": 2.0})
+
+        with self.assertWarnsRegex(EleanorWarning, "that might be a mistake"):
+            _ = CombinedReactantComponent.from_dict({"name": "x", "type": "mineral", "fraction": 0.0})
+
+        with self.assertWarnsRegex(EleanorWarning, "that might be a mistake"):
+            _ = CombinedReactantComponent.from_dict({"name": "x", "type": "mineral", "fraction": 1.0})
+
+        with self.assertRaisesRegex(EleanorException, "must be a dictionary"):
+            _ = CombinedReactantComponent.from_dict({"name": "SiO2", "type": "special", "fraction": 0.5})
 
     def test_combined_component_parameters_handles_optional_relative_rate(self):
         """
@@ -399,9 +409,9 @@ class TestReactants(TestCase):
                     },
                 }
             )
-        with self.assertRaises(EleanorException):
+        with self.assertRaisesRegex(EleanorException, "has no components"):
             CombinedReactant.from_dict({"name": "empty", "type": "combined", "amount": 1.0, "components": {}})
-        with self.assertRaises(EleanorException):
+        with self.assertWarnsRegex(EleanorWarning, "has only one component"):
             CombinedReactant.from_dict(
                 {
                     "name": "single",

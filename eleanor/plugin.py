@@ -4,13 +4,13 @@ from dataclasses import dataclass
 from importlib.metadata import entry_points
 from typing import Protocol, cast, final
 
-from eleanor.exceptions import EleanorException
+from eleanor.exceptions import EleanorException, EleanorWarning
 from eleanor.util import guard_is_int
 
 PLUGIN_API_VERSIONS: dict[str, tuple[int, int]] = {}
 
 
-class OverrideWarning(RuntimeWarning): ...
+class OverrideWarning(EleanorWarning): ...
 
 
 class SettingsParser(Protocol):

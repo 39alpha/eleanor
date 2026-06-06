@@ -10,4 +10,7 @@ class EleanorShutdown(KeyboardInterrupt):
         self.signal_name = signal_name
 
 
-__all__ = ["EleanorException", "EleanorShutdown"]
+class EleanorWarning(UserWarning): ...
+
+
+__all__ = ["EleanorException", "EleanorShutdown", "EleanorWarning"]

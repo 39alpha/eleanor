@@ -974,7 +974,7 @@ class TestEq36Kernel(TestCase):
             path = kernel.write_eq6_input(point, file=None)
 
         self.assertEqual(path, "problem.6i")
-        open_mock.assert_called_once_with("problem.6i", "w")
+        open_mock.assert_called_once_with(Path("problem.6i"), "w")
 
     def test_write_eq3_input_string_path_wrapper_and_positive_h_branch(self):
         """

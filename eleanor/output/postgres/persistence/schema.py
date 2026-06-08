@@ -66,6 +66,7 @@ class IndexDef:
     name: str
     columns: tuple[str, ...]
     unique: bool = False
+    using: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -139,7 +140,8 @@ def to_create_index_sql(table: TableDef, idx: IndexDef) -> str:
     idx_name = _quote_ident(idx.name)
     table_name = _quote_ident(table.name)
     cols = _quote_idents(idx.columns)
-    return f"CREATE {unique}INDEX IF NOT EXISTS {idx_name} ON {table_name} ({cols})"
+    using = f"USING {idx.using} " if idx.using else ""
+    return f"CREATE {unique}INDEX IF NOT EXISTS {idx_name} ON {table_name} {using}({cols})"
 
 
 def to_drop_index_sql(idx: IndexDef) -> str:
@@ -548,7 +550,7 @@ ORDERS = TableDef(
     columns=(
         _identity_pk(),
         ColumnDef("name", "TEXT", nullable=False),
-        ColumnDef("tag", "TEXT", nullable=False, default="''"),
+        ColumnDef("tags", "TEXT[]", nullable=False, default="'{}'"),
         ColumnDef("eleanor_version", "TEXT", nullable=False),
         ColumnDef("raw", "JSONB", nullable=False),
         ColumnDef("create_date", "TIMESTAMP", nullable=False),
@@ -556,7 +558,7 @@ ORDERS = TableDef(
     primary_key=("id",),
     indexes=(
         IndexDef("orders_name_idx", ("name",)),
-        IndexDef("orders_tag_idx", ("tag",)),
+        IndexDef("orders_tags_idx", ("tags",), using="GIN"),
         IndexDef("orders_eleanor_version_idx", ("eleanor_version",)),
     ),
 )

@@ -239,7 +239,7 @@ def insert_order(config: PostgresDatabaseSettings, order: Order) -> OrderRecord:
     return OrderRecord(
         id=new_id,
         name=order.name,
-        tag=order.tag,
+        tags=order.tags,
         eleanor_version=order.eleanor_version,
         raw=converters.normalize_dict(order, "order"),
         create_date=order.create_date,
@@ -257,7 +257,7 @@ def get_order(config: PostgresDatabaseSettings, order_id: int) -> OrderRecord | 
     return OrderRecord(
         id=cast(int, row[0]),
         name=cast(str, row[1]),
-        tag=cast(str, row[2]),
+        tags=cast(list[str], row[2]),
         eleanor_version=cast(str, row[3]),
         raw=cast(dict[str, object], row[4]),
         create_date=cast(datetime, row[5]),

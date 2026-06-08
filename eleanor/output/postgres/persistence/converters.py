@@ -83,7 +83,7 @@ def order_to_row(order: core_order.Order) -> dict[str, object]:
 
     return {
         "name": order.name,
-        "tag": order.tag,
+        "tags": order.tags,
         "eleanor_version": order.eleanor_version,
         "raw": Jsonb(normalize_dict(order, "order")),
         "create_date": order.create_date,
@@ -102,7 +102,7 @@ class OrderRecord:
 
     id: int
     name: str
-    tag: str
+    tags: list[str]
     eleanor_version: str
     raw: dict[str, object]
     create_date: datetime
@@ -113,7 +113,7 @@ def row_to_order_record(row: dict[str, object]) -> OrderRecord:
     return OrderRecord(
         id=cast(int, row["id"]),
         name=cast(str, row["name"]),
-        tag=cast(str, row["tag"]),
+        tags=cast(list[str], row["tags"]),
         eleanor_version=cast(str, row["eleanor_version"]),
         raw=cast(dict[str, object], row["raw"]),
         create_date=cast(datetime, row["create_date"]),

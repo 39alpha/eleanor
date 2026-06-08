@@ -50,7 +50,7 @@ INSERTS_RETURNING_ID: dict[str, sql.SQL | sql.Composed] = {
 }
 
 
-SELECT_ORDER: sql.SQL = sql.SQL("SELECT id, name, tag, eleanor_version, raw, create_date FROM orders WHERE id = %s")
+SELECT_ORDER: sql.SQL = sql.SQL("SELECT id, name, tags, eleanor_version, raw, create_date FROM orders WHERE id = %s")
 
 
 SELECT_SCRATCH_ENTRY: sql.SQL = sql.SQL(

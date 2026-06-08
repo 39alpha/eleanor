@@ -191,11 +191,12 @@ def test_run_applies_order_id_to_loaded_order(mocker: MockerFixture, runner: Cli
     assert order.id == 321
 
 
-def test_run_applies_tag_to_loaded_order(mocker: MockerFixture, runner: CliRunner):
+def test_run_applies_single_tag_to_loaded_order(mocker: MockerFixture, runner: CliRunner):
     config = make_config()
     executor = make_executor(mocker)
     eleanor = make_eleanor(mocker)
-    order = mocker.create_autospec(Order)
+    order = mocker.create_autospec(Order, instance=True)
+    order.tags = []
 
     _ = mocker.patch("eleanor.cli.run.config_from_args", return_value=config)
     _ = mocker.patch("eleanor.cli.run.load_order", return_value=order)
@@ -205,8 +206,80 @@ def test_run_applies_tag_to_loaded_order(mocker: MockerFixture, runner: CliRunne
     result = invoke_run(runner, ["-c", "/fake.yaml", "-d", "sample", "--tag", "experiment-1"])
 
     assert result.exit_code == 0
-    assert order.tag == "experiment-1"
+    assert order.tags == ["experiment-1"]
     assert eleanor.run.call_args.args[0] is order
+
+
+def test_run_applies_multiple_tags_to_loaded_order(mocker: MockerFixture, runner: CliRunner):
+    config = make_config()
+    executor = make_executor(mocker)
+    eleanor = make_eleanor(mocker)
+    order = mocker.create_autospec(Order, instance=True)
+    order.tags = []
+
+    _ = mocker.patch("eleanor.cli.run.config_from_args", return_value=config)
+    _ = mocker.patch("eleanor.cli.run.load_order", return_value=order)
+    _ = mocker.patch("eleanor.cli.run.load_executor", return_value=executor)
+    _ = mocker.patch("eleanor.cli.run.Eleanor", return_value=eleanor)
+
+    result = invoke_run(runner, ["-c", "/fake.yaml", "-d", "sample", "--tag", "foo", "--tag", "bar"])
+
+    assert result.exit_code == 0
+    assert order.tags == ["foo", "bar"]
+
+
+def test_run_cli_tags_merge_with_order_file_tags(mocker: MockerFixture, runner: CliRunner):
+    config = make_config()
+    executor = make_executor(mocker)
+    eleanor = make_eleanor(mocker)
+    order = mocker.create_autospec(Order, instance=True)
+    order.tags = ["existing"]
+
+    _ = mocker.patch("eleanor.cli.run.config_from_args", return_value=config)
+    _ = mocker.patch("eleanor.cli.run.load_order", return_value=order)
+    _ = mocker.patch("eleanor.cli.run.load_executor", return_value=executor)
+    _ = mocker.patch("eleanor.cli.run.Eleanor", return_value=eleanor)
+
+    result = invoke_run(runner, ["-c", "/fake.yaml", "-d", "sample", "--tag", "new"])
+
+    assert result.exit_code == 0
+    assert order.tags == ["existing", "new"]
+
+
+def test_run_cli_tags_deduplicates_against_order_file_tags(mocker: MockerFixture, runner: CliRunner):
+    config = make_config()
+    executor = make_executor(mocker)
+    eleanor = make_eleanor(mocker)
+    order = mocker.create_autospec(Order, instance=True)
+    order.tags = ["foo"]
+
+    _ = mocker.patch("eleanor.cli.run.config_from_args", return_value=config)
+    _ = mocker.patch("eleanor.cli.run.load_order", return_value=order)
+    _ = mocker.patch("eleanor.cli.run.load_executor", return_value=executor)
+    _ = mocker.patch("eleanor.cli.run.Eleanor", return_value=eleanor)
+
+    result = invoke_run(runner, ["-c", "/fake.yaml", "-d", "sample", "--tag", "foo", "--tag", "bar"])
+
+    assert result.exit_code == 0
+    assert order.tags == ["foo", "bar"]
+
+
+def test_run_without_tag_flag_leaves_order_tags_unchanged(mocker: MockerFixture, runner: CliRunner):
+    config = make_config()
+    executor = make_executor(mocker)
+    eleanor = make_eleanor(mocker)
+    order = mocker.create_autospec(Order, instance=True)
+    order.tags = ["existing"]
+
+    _ = mocker.patch("eleanor.cli.run.config_from_args", return_value=config)
+    _ = mocker.patch("eleanor.cli.run.load_order", return_value=order)
+    _ = mocker.patch("eleanor.cli.run.load_executor", return_value=executor)
+    _ = mocker.patch("eleanor.cli.run.Eleanor", return_value=eleanor)
+
+    result = invoke_run(runner, ["-c", "/fake.yaml", "-d", "sample"])
+
+    assert result.exit_code == 0
+    assert order.tags == ["existing"]
 
 
 def test_run_rejects_unknown_executor_kind(mocker: MockerFixture, runner: CliRunner):

@@ -40,7 +40,7 @@ class RawOrder(TypedDict, total=False):
     """
 
     id: int | None
-    tag: str | None
+    tags: str | list[str] | None
     name: str | None
     notes: str | None
     creator: str | None
@@ -84,11 +84,28 @@ class Suppression:
         return Suppression(name, suppression_type, exceptions_raw)
 
 
+def _prepare_tags(tags: object) -> list[str] | None:
+    msg = "tags must be a string or list of strings"
+
+    if tags is None:
+        return tags
+    elif isinstance(tags, str):
+        tags = [tags]
+    elif isinstance(tags, list):
+        if not all(isinstance(t, str) for t in cast(list[object], tags)):
+            raise EleanorException(msg)
+        tags = cast(list[str], tags)
+    else:
+        raise EleanorException(msg)
+
+    return list(dict.fromkeys([tag for tag in tags if tag != ""]))
+
+
 @final
 @dataclass(init=False)
 class Order:
     id: int | None
-    tag: str
+    tags: list[str]
     name: str
     notes: str
     creator: str
@@ -116,7 +133,7 @@ class Order:
         pressure: ParameterOrSource,
         elements: Mapping[str, ParameterOrSource],
         id: int | None = None,
-        tag: str = "",
+        tags: list[str] | None = None,
         notes: str = "",
         water_mass: ParameterOrSource | None = None,
         navigator: NavigatorConfig | None = None,
@@ -129,7 +146,7 @@ class Order:
         create_date: datetime | None = None,
     ):
         self.id = id
-        self.tag = tag
+        self.tags = list(dict.fromkeys(tags)) if tags is not None else []
         self.name = name
         if self.name == "":
             raise EleanorException("name must not be empty")
@@ -182,15 +199,15 @@ class Order:
         raw: RawOrder,
         *,
         order_id: int | None = None,
-        tag: str | None = None,
+        tags: str | list[str] | None = None,
         create_date: datetime | None = None,
         vs_points: list[VSPoint] | None = None,
     ) -> Self:
         if order_id is None:
             order_id = require_opt_int(raw.get("id"), "id")
 
-        raw_tag = require_opt_str(raw.get("tag"), "tag") or ""
-        tag = tag if tag is not None else raw_tag
+        raw_tags = cast(object, raw.get("tags"))
+        tags = _prepare_tags(tags) if tags is not None else _prepare_tags(raw_tags)
 
         name = require_str(raw.get("name"), "name")
         notes = require_str(raw.get("notes", ""), "notes")
@@ -245,7 +262,7 @@ class Order:
 
         return cls(
             id=order_id,
-            tag=tag,
+            tags=tags,
             name=name,
             notes=notes,
             creator=creator,

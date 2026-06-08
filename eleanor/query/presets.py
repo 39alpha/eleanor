@@ -32,7 +32,7 @@ def _preset_run_metadata(scope_table: AmbientScopeTable, args: Mapping[str, obje
 
     The column list is closed by spec §10.3 and is intentionally hard-coded
     here. This makes it a fourth landing site for ``Order`` schema changes
-    (alongside the SQLAlchemy ``Column``, the dataclass annotation, and
+    (alongside the postgres ``ColumnDef``, the dataclass annotation, and
     ``docs/database.qmd`` -- see ``AGENTS.md``): adding or removing a
     metadata leaf on ``Order`` requires updating this list and spec §10.3
     in the same change.
@@ -49,7 +49,7 @@ def _preset_run_metadata(scope_table: AmbientScopeTable, args: Mapping[str, obje
         raise PresetScopeMissing("run_metadata", "order")
     return [
         "order.id",
-        "order.tag",
+        "order.tags",
         "order.name",
         "order.creator",
         "order.notes",

@@ -357,7 +357,7 @@ class TestOrderRecordRoundTrip(TestCase):
         row: dict[str, object] = {
             "id": 7,
             "name": "demo",
-            "tag": "",
+            "tags": ["foo", "bar"],
             "eleanor_version": "v1",
             "raw": {"k": "v"},
             "create_date": datetime(2026, 1, 1, 0, 0, 0),
@@ -365,9 +365,24 @@ class TestOrderRecordRoundTrip(TestCase):
         record = converters.row_to_order_record(row)
         self.assertEqual(record.id, 7)
         self.assertEqual(record.name, "demo")
-        self.assertEqual(record.tag, "")
+        self.assertEqual(record.tags, ["foo", "bar"])
         self.assertEqual(record.eleanor_version, "v1")
         self.assertEqual(record.raw, {"k": "v"})
+
+    def test_row_to_order_record_empty_tags(self):
+        """
+        Ensure :func:`converters.row_to_order_record` correctly handles an empty tags list.
+        """
+        row: dict[str, object] = {
+            "id": 1,
+            "name": "demo",
+            "tags": [],
+            "eleanor_version": "v1",
+            "raw": {},
+            "create_date": datetime(2026, 1, 1, 0, 0, 0),
+        }
+        record = converters.row_to_order_record(row)
+        self.assertEqual(record.tags, [])
 
 
 class _FakeCopy(object):

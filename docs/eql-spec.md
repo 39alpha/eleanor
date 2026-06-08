@@ -278,7 +278,7 @@ Queries that rely on the canonical bundle are portable across consumers; queries
 
 The canonical bundle defines:
 
-- **`run_metadata`** — emits leaf columns describing the source `Order`. Requires the ambient `order` alias (always present per §7). Takes no arguments. Emitted columns: `order.id`, `order.tag`, `order.name`, `order.creator`, `order.notes`, `order.eleanor_version`, `order.create_date`.
+- **`run_metadata`** — emits leaf columns describing the source `Order`. Requires the ambient `order` alias (always present per §7). Takes no arguments. Emitted columns: `order.id`, `order.tags`, `order.name`, `order.creator`, `order.notes`, `order.eleanor_version`, `order.create_date`.
 - **`es_scalars`** — emits one column per scalar leaf of the equilibrium-space row's `ESPoint`. Requires the ambient `es` alias. Optional `exclude: [<field>, ...]` removes named fields from the output; optional `include: [<field>, ...]` restricts the output to the named fields. `include` and `exclude` are mutually exclusive. Unknown field names raise `SplatUnknownField` against the `es` alias.
 - **`aqueous_species_table`** — emits one column per `(name, field)` pair against `es.aqueous_species`. Requires the ambient `es` alias. Required `names: [<species_name>, ...]` and `fields: [<aqueous_species_field>, ...]`; both must be non-empty lists of strings. For each pair, emits a column with path `es.aqueous_species[name=<name>].<field>` and column name `<field>_<name>`. Unknown `fields` entries raise `ParseError`; the `names` list is not validated against any data-model table.
 

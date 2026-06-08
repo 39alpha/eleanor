@@ -31,7 +31,7 @@ def _complete_executor(_ctx: click.Context, _param: click.Parameter, incomplete:
 @click.option("-s", "--scratch", is_flag=True, help="Save scratch for all systems regardless of error status.")
 @click.option("-k", "--kernel-args", multiple=True, help="Arguments to pass to the kernel.")
 @click.option("--order-id", type=int, default=None, help="Override the order id.")
-@click.option("--tag", type=str, default=None, help="Override the order tag.")
+@click.option("--tag", type=str, multiple=True, help="Add order tag(s).")
 @click.option("--null-sink", is_flag=True, help="Override config output sink with NullSink.")
 @click.option(
     "--bulk-load/--no-bulk-load",
@@ -62,7 +62,7 @@ def run(
     scratch: bool,
     kernel_args: tuple[str, ...],
     order_id: int | None,
-    tag: str | None,
+    tag: tuple[str, ...],
     null_sink: bool,
     bulk_load: bool | None,
     progress: bool,
@@ -117,8 +117,8 @@ def run(
         order_obj = load_order(order)
         if order_id is not None:
             order_obj.id = order_id
-        if tag is not None:
-            order_obj.tag = tag
+        if tag:
+            order_obj.tags = list(dict.fromkeys([*order_obj.tags, *tag]))
 
         with ExitStack() as stack:
             output_sink: AbstractOutputSink | None = None

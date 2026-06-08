@@ -6,6 +6,7 @@ from typing import cast
 from unittest import TestCase, mock
 
 import numpy as np
+import pytest
 
 from eleanor.exceptions import EleanorException
 from eleanor.kernel.settings import KernelSettings
@@ -37,7 +38,7 @@ def _make_order(
     raw=None,
     *,
     order_id=None,
-    tag=None,
+    tags=None,
     vs_points=None,
     create_date=None,
     **overrides,
@@ -48,7 +49,7 @@ def _make_order(
         return Order.from_dict(
             cast(RawOrder, cast(object, effective)),
             order_id=order_id,
-            tag=tag,
+            tags=tags,
             vs_points=vs_points,
             create_date=create_date,
         )
@@ -112,44 +113,6 @@ class TestOrder(TestCase):
 
         with self.assertRaisesRegex(EleanorException, "id must be an integer"):
             _ = _make_order(id="not-an-int")
-
-    def test_order_reads_tag_from_raw_and_defaults_to_empty_string(self):
-        """
-        Ensure Order.__init__ reads an optional ``tag`` from raw, defaults to
-        the empty string when the field is absent, and rejects non-string values.
-        """
-        order_with_tag = _make_order(tag="experiment-1")
-        self.assertEqual(order_with_tag.tag, "experiment-1")
-
-        order_without_tag = _make_order()
-        self.assertEqual(order_without_tag.tag, "")
-
-        with self.assertRaisesRegex(EleanorException, "tag must be a string"):
-            _ = _make_order(raw=_minimal_raw(tag=123))
-
-    def test_order_kwargs_override_raw_id_and_tag(self):
-        """
-        Ensure explicit order_id and tag kwargs to Order.__init__ take precedence
-        over matching fields in the raw dict.
-        """
-        order = _make_order(
-            raw=_minimal_raw(id=1, tag="raw-tag"),
-            order_id=42,
-            tag="kwarg-tag",
-        )
-        self.assertEqual(order.id, 42)
-        self.assertEqual(order.tag, "kwarg-tag")
-
-    def test_load_order_returns_order_as_is(self):
-        """
-        Ensure load_order returns an already-loaded Order unchanged.
-        """
-        order = _make_order(tag="raw-tag")
-        order.id = 7
-        returned = load_order(order)
-        self.assertIs(returned, order)
-        self.assertEqual(order.id, 7)
-        self.assertEqual(order.tag, "raw-tag")
 
     def test_order_validation_and_kernel_branches(self):
         """
@@ -406,3 +369,53 @@ class TestOrder(TestCase):
             pressure=[1.0, 2.0],
         )
         self.assertEqual(order.volume(), np.float64(20.0))
+
+
+def test_order_tags_defaults_to_empty_list():
+    assert _make_order().tags == []
+
+
+def test_order_tags_parses_scalar_string_from_raw():
+    assert _make_order(raw=_minimal_raw(tags="experiment-1")).tags == ["experiment-1"]
+
+
+def test_order_tags_parses_list_from_raw():
+    assert _make_order(raw=_minimal_raw(tags=["foo", "bar"])).tags == ["foo", "bar"]
+
+
+def test_order_tags_deduplicates_preserving_order():
+    assert _make_order(raw=_minimal_raw(tags=["foo", "bar", "foo"])).tags == ["foo", "bar"]
+
+
+def test_order_tags_rejects_non_string_raw_value():
+    with pytest.raises(EleanorException, match="tags must be a string or list of strings"):
+        _ = _make_order(raw=_minimal_raw(tags=123))
+
+
+def test_order_tags_rejects_list_with_non_string_element():
+    with pytest.raises(EleanorException, match="tags must be a string or list of strings"):
+        _ = _make_order(raw=_minimal_raw(tags=["valid", 42]))
+
+
+def test_order_tags_kwarg_as_scalar_string_wraps_to_list():
+    assert _make_order(tags="experiment-1").tags == ["experiment-1"]
+
+
+def test_order_tags_kwarg_overrides_raw():
+    order = _make_order(raw=_minimal_raw(tags="raw-tag"), tags=["kwarg-tag"])
+    assert order.tags == ["kwarg-tag"]
+
+
+def test_order_kwargs_override_raw_id_and_tags():
+    order = _make_order(raw=_minimal_raw(id=1, tags="raw-tag"), order_id=42, tags=["kwarg-tag"])
+    assert order.id == 42
+    assert order.tags == ["kwarg-tag"]
+
+
+def test_load_order_returns_order_as_is():
+    order = _make_order(tags=["raw-tag"])
+    order.id = 7
+    returned = load_order(order)
+    assert returned is order
+    assert order.id == 7
+    assert order.tags == ["raw-tag"]

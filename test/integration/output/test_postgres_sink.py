@@ -85,7 +85,7 @@ class _MinimalOrder:
     def __init__(self, name: str, eleanor_version: str) -> None:
         self.id: int | None = None
         self.name: str | None = name
-        self.tag: str = ""
+        self.tags: list[str] = []
         self.eleanor_version: str | None = eleanor_version
         self.raw: dict[str, object] = {"name": name}
         self.create_date: datetime = datetime.now()
@@ -292,7 +292,8 @@ class TestPostgresSinkIntegration(_RealPostgresTestCase):
             )
             _ = cur.execute(
                 "INSERT INTO schema_migrations (version, name, applied_at, eleanor_version) "
-                "VALUES (1, 'initial_schema', NOW(), 'test') ON CONFLICT DO NOTHING"
+                "VALUES (1, 'initial_schema', NOW(), 'test'),"
+                "       (2, 'rename_tag_to_tags', NOW(), 'test') ON CONFLICT DO NOTHING"
             )
         # Now apply_pending_migrations should find no pending work and succeed.
         repositories.apply_pending_migrations(self.config)

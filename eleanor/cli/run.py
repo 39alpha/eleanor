@@ -149,7 +149,4 @@ def run(
         print(f"Eleanor run interrupted by {name}; sink finalized cleanly.")
         sys.exit(130)
     except Exception as e:
-        if verbose:
-            print_exception(e)
-        else:
-            print(e)
+        print_exception(e)

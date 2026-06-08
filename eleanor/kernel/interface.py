@@ -10,7 +10,7 @@ if TYPE_CHECKING:
     import eleanor.variable_space as vs
     from eleanor.constraints.point_builder import PointBuilder
     from eleanor.order import Order
-    from eleanor.typing import EleanorKwargs
+    from eleanor.typing import EleanorKwargs, StrPath
 
 
 class AbstractKernel(ABC):
@@ -35,7 +35,7 @@ class AbstractKernel(ABC):
     def constrain(self, point_builder: PointBuilder) -> PointBuilder:
         return point_builder
 
-    def copy_data(self, vs_point: vs.Point, *args: object, dir: str = ".", **kwargs: Unpack[EleanorKwargs]) -> None:
+    def copy_data(self, vs_point: vs.Point, *args: object, dir: StrPath = ".", **kwargs: Unpack[EleanorKwargs]) -> None:
         _ = vs_point
         _ = args
         _ = dir

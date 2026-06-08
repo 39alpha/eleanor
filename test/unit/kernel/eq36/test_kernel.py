@@ -1,5 +1,6 @@
 import contextlib
 import io
+from pathlib import Path
 from types import SimpleNamespace
 from typing import cast
 from unittest import TestCase, mock
@@ -96,7 +97,7 @@ class TestEq36Kernel(TestCase):
     """
 
     def _data1(self) -> Data1:
-        return Data1("fake", {}, {}, {}, {}, {}, {}, {}, None)
+        return Data1(Path("fake"), {}, {}, {}, {}, {}, {}, {}, None)
 
     def _settings(self, with_eq6=True) -> Eq36Settings:
         return Eq36Settings(
@@ -342,9 +343,9 @@ class TestEq36Kernel(TestCase):
         """
         kernel = self._kernel()
         settings = self._settings(with_eq6=True)
-        settings.data1_file = "/tmp/configured/run.d1"
+        settings.data1_file = Path("/tmp").joinpath("configured", "run.d1")
         point = _make_point(settings)
-        loaded_data1 = SimpleNamespace(filename="/tmp/configured/run.d1")
+        loaded_data1 = SimpleNamespace(filename=Path("/tmp/configured/run.d1"))
         eq3_result = SimpleNamespace(stage="eq3")
         eq6_results = [SimpleNamespace(stage="eq6-a"), SimpleNamespace(stage="eq6-b")]
         pickup_lines = ["pickup-a\n", "pickup-b\n"]
@@ -369,13 +370,13 @@ class TestEq36Kernel(TestCase):
 
         resolve.assert_called_once_with(point)
         find_data1.assert_not_called()
-        from_file.assert_called_once_with("/tmp/configured/run.d1")
+        from_file.assert_called_once_with(Path("/tmp/configured/run.d1"))
         write_eq3_input.assert_called_once_with(point, loaded_data1, verbose=True)
-        eq3_mock.assert_called_once_with("/tmp/configured/run.d1", "problem.3i", timeout=settings.timeout)
+        eq3_mock.assert_called_once_with(Path("/tmp/configured/run.d1"), "problem.3i", timeout=settings.timeout)
         read_eq3_output.assert_called_once_with()
         read_pickup_lines.assert_called_once_with()
         write_eq6_input.assert_called_once_with(point, pickup_lines=pickup_lines, verbose=True)
-        eq6_mock.assert_called_once_with("/tmp/configured/run.d1", "problem.6i", timeout=settings.timeout)
+        eq6_mock.assert_called_once_with(Path("/tmp/configured/run.d1"), "problem.6i", timeout=settings.timeout)
         read_eq6_output.assert_called_once_with(track_path=settings.track_path)
         self.assertEqual(output, [eq3_result, *eq6_results])
         self.assertLessEqual(eq3_result.start_date, eq3_result.complete_date)
@@ -461,7 +462,7 @@ class TestEq36Kernel(TestCase):
         """
         kernel = self._kernel()
         settings = self._settings()
-        settings.data1_file = "/tmp/source/testdata.d1"
+        settings.data1_file = Path("/tmp").joinpath("source", "testdata.d1")
         point = _make_point(settings)
 
         with (
@@ -473,7 +474,7 @@ class TestEq36Kernel(TestCase):
 
         resolve.assert_called_once_with(point)
         find_data1.assert_not_called()
-        copyfile_mock.assert_called_once_with("/tmp/source/testdata.d1", "target/testdata.d1")
+        copyfile_mock.assert_called_once_with(Path("/tmp/source/testdata.d1"), Path("target/testdata.d1"))
 
     def test_copy_data_finds_data1_when_missing_and_updates_settings(self):
         """
@@ -482,7 +483,7 @@ class TestEq36Kernel(TestCase):
         kernel = self._kernel()
         settings = self._settings()
         point = _make_point(settings)
-        found = SimpleNamespace(filename="/tmp/found/fresh.d1")
+        found = SimpleNamespace(filename=Path("/tmp/found/fresh.d1"))
 
         with (
             mock.patch.object(kernel, "resolve_kernel_settings", return_value=settings) as resolve,
@@ -493,8 +494,8 @@ class TestEq36Kernel(TestCase):
 
         resolve.assert_called_once_with(point)
         find_data1.assert_called_once_with(point, verbose=True)
-        self.assertEqual(settings.data1_file, "/tmp/found/fresh.d1")
-        copyfile_mock.assert_called_once_with("/tmp/found/fresh.d1", "target/fresh.d1")
+        self.assertEqual(settings.data1_file, Path("/tmp/found/fresh.d1"))
+        copyfile_mock.assert_called_once_with(Path("/tmp/found/fresh.d1"), Path("target/fresh.d1"))
 
     def test_setup_filters_data1_files_that_intersect_target_domain(self):
         """
@@ -513,21 +514,15 @@ class TestEq36Kernel(TestCase):
                 "eleanor.kernel.eq36.kernel.tool_room.WorkingDirectory", return_value=contextlib.nullcontext()
             ) as wd_mock,
             mock.patch(
-                "eleanor.kernel.eq36.kernel.tool_room.find_files", return_value=([], ["first.d1", "second.d1"])
+                "eleanor.kernel.eq36.kernel.tool_room.find_files",
+                return_value=([], [Path("first.d1"), Path("second.d1")]),
             ) as find_files_mock,
-            mock.patch(
-                "eleanor.kernel.eq36.kernel.os.path.realpath", side_effect=lambda path: f"/abs/{path}"
-            ) as realpath_mock,
-            mock.patch(
-                "eleanor.kernel.eq36.kernel.Data1.from_file", side_effect=[rejected, accepted]
-            ) as from_file_mock,
+            mock.patch("eleanor.kernel.eq36.kernel.Data1.from_file", side_effect=[rejected, accepted]),
         ):
-            kernel.setup(cast(Order, order), data1_dir=".")
+            kernel.setup(cast(Order, order), data1_dir=("."))
 
-        wd_mock.assert_called_once_with(".")
+        wd_mock.assert_called_once_with(Path("."))
         find_files_mock.assert_called_once_with(".d1")
-        self.assertEqual(realpath_mock.call_count, 2)
-        from_file_mock.assert_has_calls([mock.call("/abs/first.d1"), mock.call("/abs/second.d1")])
         rejected.tp_curve.set_domain.assert_called_once_with((1.0, 2.0), (3.0, 4.0))
         accepted.tp_curve.set_domain.assert_called_once_with((1.0, 2.0), (3.0, 4.0))
         self.assertTrue(kernel._setup)
@@ -582,8 +577,7 @@ class TestEq36Kernel(TestCase):
 
         with (
             mock.patch("eleanor.kernel.eq36.kernel.tool_room.WorkingDirectory", return_value=contextlib.nullcontext()),
-            mock.patch("eleanor.kernel.eq36.kernel.tool_room.find_files", return_value=([], ["only.d1"])),
-            mock.patch("eleanor.kernel.eq36.kernel.os.path.realpath", side_effect=lambda path: path),
+            mock.patch("eleanor.kernel.eq36.kernel.tool_room.find_files", return_value=([], [Path("only.d1")])),
             mock.patch("eleanor.kernel.eq36.kernel.Data1.from_file", return_value=rejected),
         ):
             kernel.setup(order, data1_dir=".")
@@ -1040,7 +1034,7 @@ class TestEq36Kernel(TestCase):
             path = kernel.write_eq3_input(point, data1=data1, file=None)
 
         self.assertEqual(path, "problem.3i")
-        open_mock.assert_called_once_with("problem.3i", "w")
+        open_mock.assert_called_once_with(Path("problem.3i"), "w")
 
     def test_write_eq6_input_suppression_branches_for_none_named_and_solid_solution_types(self):
         """

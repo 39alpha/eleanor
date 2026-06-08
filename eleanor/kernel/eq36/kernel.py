@@ -1,7 +1,9 @@
 import io
+import os
 import os.path
 import sys
 from datetime import datetime
+from pathlib import Path
 from shutil import copyfile
 from typing import TextIO, Unpack, cast, override
 
@@ -21,8 +23,8 @@ from eleanor.kernel.eq36.util import read_pickup_lines
 from eleanor.kernel.exceptions import EleanorKernelException
 from eleanor.kernel.interface import AbstractKernel
 from eleanor.order import Order
-from eleanor.typing import EleanorKwargs
-from eleanor.util import NumberFormat, guard_is_instance, guard_is_str
+from eleanor.typing import EleanorKwargs, StrPath
+from eleanor.util import NumberFormat, guard_is_instance, guard_is_path
 
 
 class Eq36Kernel(AbstractKernel):
@@ -51,15 +53,16 @@ class Eq36Kernel(AbstractKernel):
         self,
         vs_point: vs.Point,
         *args: object,
-        dir: str = ".",
+        dir: StrPath = ".",
         **kwargs: Unpack[EleanorKwargs],
     ) -> None:
+        dir = Path(dir)
         verbose = kwargs.get("verbose", False)
         settings = self.resolve_kernel_settings(vs_point)
         if settings.data1_file is None:
             data1 = self.find_data1(vs_point, verbose=verbose)
             settings.data1_file = data1.filename
-        _ = copyfile(settings.data1_file, os.path.join(dir, os.path.basename(settings.data1_file)))
+        _ = copyfile(settings.data1_file, dir / settings.data1_file.name)
 
     @override
     def get_atomic_weight(self, element: str) -> np.float64 | None:
@@ -86,7 +89,7 @@ class Eq36Kernel(AbstractKernel):
             raise EleanorException("data1_dir argument is required")
 
         data1_dir, *_ = args
-        guard_is_str(data1_dir, "data1_dir argument")
+        guard_is_path(data1_dir, "data1_dir argument")
 
         return {"data1_dir": data1_dir}
 
@@ -105,9 +108,15 @@ class Eq36Kernel(AbstractKernel):
             msg = f"order is not configured for the eq36 kernel, got {type(order.kernel.settings).__name__}"
             raise EleanorKernelException(msg)
 
-        if not isinstance(data1_dir, str):
-            msg = f"data1_dir must be a string, got {type(data1_dir).__name__}"
+        if not isinstance(data1_dir, (str, Path)):
+            msg = f"data1_dir must be a str or Path, got {type(data1_dir).__name__}"
             raise EleanorException(msg)
+        data1_dir = Path(data1_dir)
+
+        if not data1_dir.is_absolute():
+            global_data1_dir = os.environ.get("ELEANOR_EQ36_DATA1_DIR")
+            if not data1_dir.exists() and global_data1_dir is not None:
+                data1_dir = Path(global_data1_dir) / data1_dir
 
         self._setup = False
         self._data1s = []
@@ -118,7 +127,7 @@ class Eq36Kernel(AbstractKernel):
         with tool_room.WorkingDirectory(data1_dir):
             _, data1_files, *_ = tool_room.find_files(".d1")
             for file in data1_files:
-                file = os.path.realpath(file)
+                file = file.resolve()
                 data1 = Data1.from_file(file)
                 if data1.tp_curve is not None and data1.tp_curve.set_domain(Trange, Prange):
                     self._data1s.append(data1)
@@ -246,7 +255,7 @@ class Eq36Kernel(AbstractKernel):
         self,
         vs_point: vs.Point,
         data1: Data1,
-        file: str | TextIO | None = None,
+        file: StrPath | TextIO | None = None,
         verbose: bool = False,
     ) -> str:
         if not self._setup:
@@ -260,9 +269,9 @@ class Eq36Kernel(AbstractKernel):
                 raise EleanorKernelException(f"eq3/6 redox species ({settings.redox_species}) is unconstrained")
 
         if file is None:
-            file = "problem.3i"
+            file = Path("problem.3i")
 
-        if isinstance(file, str):
+        if isinstance(file, (str, Path)):
             with open(file, "w") as handle:
                 return self.write_eq3_input(vs_point, data1, file=handle, verbose=verbose)
 
@@ -375,7 +384,7 @@ class Eq36Kernel(AbstractKernel):
     def write_eq6_input(
         self,
         vs_point: vs.Point,
-        file: str | TextIO | None = None,
+        file: StrPath | TextIO | None = None,
         pickup_lines: list[str] | None = None,
         verbose: bool = False,
     ) -> str:
@@ -390,9 +399,9 @@ class Eq36Kernel(AbstractKernel):
                 raise EleanorKernelException(f"eq3/6 redox species ({settings.redox_species}) is unconstrained")
 
         if file is None:
-            file = "problem.6i"
+            file = Path("problem.6i")
 
-        if isinstance(file, str):
+        if isinstance(file, (str, Path)):
             with open(file, "w") as handle:
                 return self.write_eq6_input(vs_point, file=handle, pickup_lines=pickup_lines, verbose=verbose)
 
@@ -670,13 +679,13 @@ class Eq36Kernel(AbstractKernel):
         )
 
     @staticmethod
-    def read_eq3_output(file: str | io.TextIOWrapper | None = None) -> es.Point:
+    def read_eq3_output(file: StrPath | io.TextIOWrapper | None = None) -> es.Point:
         parser = OutputParser3(file=file).parse()
         assert parser.point is not None
         return parser.point
 
     @staticmethod
-    def read_eq6_output(file: str | io.TextIOWrapper | None = None, track_path: bool = False) -> list[es.Point]:
+    def read_eq6_output(file: StrPath | io.TextIOWrapper | None = None, track_path: bool = False) -> list[es.Point]:
         path = OutputParser6(file=file).parse().path
         return path if track_path else path[-1:]
 

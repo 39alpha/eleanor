@@ -1,12 +1,7 @@
+from pathlib import Path
 from typing import TypedDict
 
 import numpy as np
-
-__all__ = [
-    "Array1D",
-    "Array2D",
-    "EleanorKwargs",
-]
 
 
 class EleanorKwargs(TypedDict, total=False):
@@ -28,3 +23,11 @@ class EleanorKwargs(TypedDict, total=False):
 
 type Array1D[ScalarT: np.generic] = np.ndarray[tuple[int], np.dtype[ScalarT]]
 type Array2D[ScalarT: np.generic] = np.ndarray[tuple[int, int], np.dtype[ScalarT]]
+type StrPath = str | Path
+
+__all__ = [
+    "Array1D",
+    "Array2D",
+    "EleanorKwargs",
+    "StrPath",
+]

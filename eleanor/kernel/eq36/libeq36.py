@@ -4,7 +4,7 @@ from dataclasses import dataclass
 import numpy as np
 
 from eleanor.kernel.exceptions import EleanorKernelException
-from eleanor.typing import Array1D, Array2D
+from eleanor.typing import Array1D, Array2D, StrPath
 
 
 def get_libpath():
@@ -222,8 +222,8 @@ class Data:
     nxrn2a: np.int32
 
 
-def read_data1(filename: str) -> Data:
-    fname = bytes(filename, "ascii")
+def read_data1(filename: StrPath) -> Data:
+    fname = bytes(str(filename), "ascii")
     data1 = c_int(0)
     errno = c_int(0)
 

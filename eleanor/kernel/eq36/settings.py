@@ -1,6 +1,7 @@
 from copy import copy
 from dataclasses import dataclass, field
 from enum import IntEnum
+from pathlib import Path
 from typing import Self, TypeVar, cast
 
 import numpy as np
@@ -781,7 +782,7 @@ class Eq36Settings(KernelSettings):
     charge_balance: str
     eq3_config: Eq3Settings
     eq6_config: Eq6Settings | None = None
-    data1_file: str | None = None
+    data1_file: Path | None = None
     track_path: bool = False
     basis_map: dict[str, str] = field(default_factory=dict)
     redox_species: str = "fO2"

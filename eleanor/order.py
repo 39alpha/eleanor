@@ -5,6 +5,7 @@ import tomllib
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import datetime
+from pathlib import Path
 from typing import Self, TypedDict, cast, final
 
 import numpy as np
@@ -16,6 +17,7 @@ from eleanor.config.navigator import NavigatorConfig
 from eleanor.exceptions import EleanorException
 from eleanor.parameters import Parameter, ParameterOrSource, ParameterSource, load_parameter
 from eleanor.reactants import AbstractReactant, CombinedReactant, ReactantRaw
+from eleanor.typing import StrPath
 from eleanor.util import is_list_of, mapreduce, require, require_opt_int, require_opt_str, require_str
 from eleanor.variable_space import Point as VSPoint
 from eleanor.version import __version__
@@ -303,7 +305,7 @@ class Order:
         )
 
     @classmethod
-    def from_yaml(cls, fname: str) -> Self:
+    def from_yaml(cls, fname: StrPath) -> Self:
         with open(fname, "rb") as handle:
             return cls.from_dict(cast(RawOrder, cast(object, yaml.safe_load(handle))))
 
@@ -312,7 +314,7 @@ class Order:
         return cls.from_dict(cast(RawOrder, cast(object, yaml.safe_load(content))))
 
     @classmethod
-    def from_toml(cls, fname: str) -> Self:
+    def from_toml(cls, fname: StrPath) -> Self:
         with open(fname, "rb") as handle:
             return cls.from_dict(cast(RawOrder, cast(object, tomllib.load(handle))))
 
@@ -321,7 +323,7 @@ class Order:
         return cls.from_dict(cast(RawOrder, cast(object, tomllib.loads(content))))
 
     @classmethod
-    def from_json(cls, fname: str) -> Self:
+    def from_json(cls, fname: StrPath) -> Self:
         with open(fname, "rb") as handle:
             return cls.from_dict(cast(RawOrder, cast(object, json.load(handle))))
 
@@ -330,7 +332,7 @@ class Order:
         return cls.from_dict(cast(RawOrder, cast(object, json.loads(content))))
 
     @staticmethod
-    def from_file(fname: str):
+    def from_file(fname: StrPath):
         try:
             _, ext = os.path.splitext(fname)
             match ext:
@@ -350,7 +352,7 @@ class Order:
             raise EleanorException(f'failed to parse "{fname}" as yaml, toml or json') from e
 
 
-def load_order(order: str | Order) -> Order:
+def load_order(order: StrPath | Order) -> Order:
     """Load and/or override an order.
 
     If the provided :paramref:`order` is a string, it is assumed to be a
@@ -358,7 +360,7 @@ def load_order(order: str | Order) -> Order:
 
     If the provided :paramref:`order` is an Order, then this call is a no-op.
     """
-    if isinstance(order, str):
+    if isinstance(order, (str, Path)):
         order = Order.from_file(order)
     return order
 

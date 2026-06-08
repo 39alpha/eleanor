@@ -9,6 +9,7 @@ from subprocess import PIPE, Popen, TimeoutExpired
 
 from eleanor.kernel.eq36.codes import RunCode
 from eleanor.kernel.eq36.exceptions import Eq36Exception
+from eleanor.typing import StrPath
 
 
 def error_guard(output: bytes | str, cmd: str, code: int, fname: str | None = None) -> None:
@@ -91,7 +92,7 @@ def eqpt(data0: str) -> tuple[bytes, bytes]:
     return run("eqpt", data0, fname=data0, code=RunCode.EQPT_ERROR)
 
 
-def eq3(data1: str, threei: str, timeout: int | None = None) -> tuple[bytes, bytes]:
+def eq3(data1: StrPath, threei: str, timeout: int | None = None) -> tuple[bytes, bytes]:
     """
     Run eq3nr on a data1 and 3i file, writing output files to the current
     working directory.
@@ -108,10 +109,10 @@ def eq3(data1: str, threei: str, timeout: int | None = None) -> tuple[bytes, byt
              and 3i files.
     """
     _ = timeout
-    return run("eq3nr", data1, threei, timeout=None, fname=threei, code=RunCode.EQ3_ERROR)
+    return run("eq3nr", str(data1), threei, timeout=None, fname=threei, code=RunCode.EQ3_ERROR)
 
 
-def eq6(data1: str, sixi: str, timeout: int | None = None) -> tuple[bytes, bytes]:
+def eq6(data1: StrPath, sixi: str, timeout: int | None = None) -> tuple[bytes, bytes]:
     """
     Run eq6 on a data1 and 6i file, writing output files to the current working
     directory.
@@ -130,4 +131,4 @@ def eq6(data1: str, sixi: str, timeout: int | None = None) -> tuple[bytes, bytes
     :return: the standard output and error that results from eq6 on the data1
              and 6i files.
     """
-    return run("eq6", data1, sixi, timeout=timeout, fname=sixi, code=RunCode.EQ6_ERROR)
+    return run("eq6", str(data1), sixi, timeout=timeout, fname=sixi, code=RunCode.EQ6_ERROR)

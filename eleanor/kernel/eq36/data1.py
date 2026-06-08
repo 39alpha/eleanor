@@ -1,11 +1,12 @@
 # pyright: reportConstantRedefinition=false
 from dataclasses import dataclass
+from pathlib import Path
 from typing import TypedDict, cast
 
 import numpy as np
 
 from eleanor.kernel.eq36.libeq36 import read_data1
-from eleanor.typing import Array1D
+from eleanor.typing import Array1D, StrPath
 
 type FloatRange = tuple[np.float64, np.float64]
 type CartesianCoord = tuple[np.float64, np.float64]
@@ -326,7 +327,7 @@ class TPCurve:
 
 @dataclass
 class Data1:
-    filename: str
+    filename: Path
     elements: dict[str, np.float64]
     basis_species: dict[str, BasisSpecies]
     aqueous_species: dict[str, AqueousSpecies]
@@ -390,7 +391,9 @@ class Data1:
         return total
 
     @classmethod
-    def from_file(cls, filename: str):
+    def from_file(cls, filename: StrPath):
+        filename = Path(filename)
+
         data = read_data1(filename)
 
         T: dict[str, np.float64] = {

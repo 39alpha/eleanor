@@ -2,6 +2,7 @@ import csv
 import io
 import os.path
 import tempfile
+from pathlib import Path
 from types import SimpleNamespace
 from typing import cast
 from unittest import TestCase, mock
@@ -24,7 +25,7 @@ _FAKE_KERNEL_SPEC = SimpleNamespace(
 
 
 def _write_sidecar(
-    filename: str,
+    filename: Path,
     query: dict[str, object],
     *,
     vs_points_seen: dict[int, int] | None = None,
@@ -110,18 +111,21 @@ class TestCsvSink(TestCase):
     def test_capabilities_report_csv_contract(self):
         """Ensure CSV sink opts out of worker writes and opts in to progress."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            filename = f"{tmpdir}/rows.csv"
-            sink = CsvSink(CsvSinkSettings(filename=filename, query=_query_with_order_id()))
+            filename = Path(tmpdir) / "rows.csv"
+            sink = CsvSink(CsvSinkSettings(filename=(filename), query=_query_with_order_id()))
             self.assertFalse(sink.supports_worker_writes())
             self.assertTrue(sink.supports_progress())
 
     def test_csv_config_validates_direct_constructor_and_from_dict(self):
         """Ensure CsvSinkSettings validates both direct construction and from_dict paths."""
-        with self.assertRaisesRegex(EleanorException, "filename must be a string"):
+        with self.assertRaisesRegex(EleanorException, "filename must be a Path"):
             _ = CsvSinkSettings(filename=1, query={})  # pyright: ignore[reportArgumentType]
 
         with self.assertRaisesRegex(EleanorException, "query must be a dictionary"):
-            _ = CsvSinkSettings(filename="x.csv", query="bad")  # pyright: ignore[reportArgumentType]
+            _ = CsvSinkSettings(filename=Path("x.csv"), query="bad")  # pyright: ignore[reportArgumentType]
+
+        with self.assertRaisesRegex(EleanorException, "filename must be a str or Path"):
+            _ = CsvSinkSettings.from_dict({"filename": 1})
 
         with self.assertRaisesRegex(EleanorException, "query must be a dictionary"):
             _ = CsvSinkSettings.from_dict({"filename": "x.csv"})
@@ -129,7 +133,7 @@ class TestCsvSink(TestCase):
     def test_initialize_fresh_file_creates_header_and_schema_and_order_id(self):
         """Ensure initialize on a new CSV writes an empty sidecar and begin_run claims order id 0."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            filename = f"{tmpdir}/rows.csv"
+            filename = Path(tmpdir) / "rows.csv"
             sink = CsvSink(CsvSinkSettings(filename=filename, query=_query_with_order_id()))
             sink.initialize()
 
@@ -155,7 +159,7 @@ class TestCsvSink(TestCase):
     def test_initialize_resets_sidecar_state_when_csv_deleted(self):
         """Ensure re-initialization after CSV deletion writes empty vs_points_seen and order_versions."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            filename = f"{tmpdir}/rows.csv"
+            filename = Path(tmpdir) / "rows.csv"
             sink = CsvSink(CsvSinkSettings(filename=filename, query=_query_with_order_id()))
             sink.initialize()
 
@@ -182,7 +186,7 @@ class TestCsvSink(TestCase):
     def test_initialize_existing_matching_files_claims_next_order_id(self):
         """Ensure begin_run allocates max(order_id)+1 and persists a new zero-count entry."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            filename = f"{tmpdir}/rows.csv"
+            filename = Path(tmpdir) / "rows.csv"
             with open(filename, "w", newline="") as handle:
                 writer = csv.writer(handle)
                 writer.writerow(["order_id", "exit_code"])
@@ -205,7 +209,7 @@ class TestCsvSink(TestCase):
     def test_initialize_existing_csv_without_schema_raises(self):
         """Ensure CSV-without-schema mismatch is rejected."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            filename = f"{tmpdir}/rows.csv"
+            filename = Path(tmpdir) / "rows.csv"
             with open(filename, "w", newline="") as handle:
                 writer = csv.writer(handle)
                 writer.writerow(["order_id", "exit_code"])
@@ -216,7 +220,7 @@ class TestCsvSink(TestCase):
     def test_initialize_existing_header_mismatch_raises(self):
         """Ensure existing header names/order must match compiled query columns exactly."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            filename = f"{tmpdir}/rows.csv"
+            filename = Path(tmpdir) / "rows.csv"
             with open(filename, "w", newline="") as handle:
                 writer = csv.writer(handle)
                 writer.writerow(["exit_code", "order_id"])
@@ -228,7 +232,7 @@ class TestCsvSink(TestCase):
     def test_initialize_header_only_csv_with_sidecar_succeeds(self):
         """Ensure header-only existing CSV initializes when sidecar has a valid vs_points_seen mapping."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            filename = f"{tmpdir}/rows.csv"
+            filename = Path(tmpdir) / "rows.csv"
             with open(filename, "w", newline="") as handle:
                 csv.writer(handle).writerow(["order_id", "exit_code"])
             _write_sidecar(filename, _query_with_order_id(), vs_points_seen={})
@@ -238,7 +242,7 @@ class TestCsvSink(TestCase):
     def test_initialize_uses_missing_vs_points_seen_as_empty_mapping(self):
         """Ensure sidecars without vs_points_seen are accepted as an empty mapping."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            filename = f"{tmpdir}/rows.csv"
+            filename = Path(tmpdir) / "rows.csv"
             with open(filename, "w", newline="") as handle:
                 writer = csv.writer(handle)
                 writer.writerow(["exit_code"])
@@ -259,7 +263,7 @@ class TestCsvSink(TestCase):
         for raw_value, expected in cases:
             with self.subTest(raw_value=raw_value):
                 with tempfile.TemporaryDirectory() as tmpdir:
-                    filename = f"{tmpdir}/rows.csv"
+                    filename = Path(tmpdir) / "rows.csv"
                     with open(filename, "w", newline="") as handle:
                         csv.writer(handle).writerow(["order_id", "exit_code"])
                     with open(_schema_path(filename), "w") as handle:
@@ -278,7 +282,7 @@ class TestCsvSink(TestCase):
     def test_begin_run_stamps_order_fields_and_is_idempotent(self):
         """Ensure begin_run is idempotent per object and stamps fields for each new order."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            filename = f"{tmpdir}/rows.csv"
+            filename = Path(tmpdir) / "rows.csv"
             sink = CsvSink(CsvSinkSettings(filename=filename, query=_query_with_order_id()))
             sink.initialize()
 
@@ -298,7 +302,7 @@ class TestCsvSink(TestCase):
     def test_begin_run_raises_on_version_mismatch_for_reused_order_id(self):
         """Ensure persisted sidecar versions reject reusing an order id with a different eleanor_version."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            filename = f"{tmpdir}/rows.csv"
+            filename = Path(tmpdir) / "rows.csv"
             sink = CsvSink(CsvSinkSettings(filename=filename, query=_query_with_order_id()))
             sink.initialize()
 
@@ -318,7 +322,7 @@ class TestCsvSink(TestCase):
     def test_begin_run_issues_sequential_ids_for_distinct_orders(self):
         """Ensure distinct order objects receive sequential IDs from one initialized sink."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            filename = f"{tmpdir}/rows.csv"
+            filename = Path(tmpdir) / "rows.csv"
             sink = CsvSink(CsvSinkSettings(filename=filename, query=_query_with_order_id()))
             sink.initialize()
 
@@ -334,7 +338,7 @@ class TestCsvSink(TestCase):
     def test_begin_run_honors_explicit_order_id_and_resumes_from_max_key(self):
         """Ensure explicit order ids are accepted and subsequent implicit ids continue from max key + 1."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            filename = f"{tmpdir}/rows.csv"
+            filename = Path(tmpdir) / "rows.csv"
             sink = CsvSink(CsvSinkSettings(filename=filename, query=_query_with_order_id()))
             sink.initialize()
 
@@ -348,7 +352,7 @@ class TestCsvSink(TestCase):
     def test_begin_run_before_initialize_writes_sidecar(self):
         """Ensure begin_run can persist sidecar state without initialize, but write_batch still requires initialize."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            filename = f"{tmpdir}/rows.csv"
+            filename = Path(tmpdir) / "rows.csv"
             sink = CsvSink(CsvSinkSettings(filename=filename, query=_query_with_order_id()))
             order = _minimal_order()
             self.assertEqual(sink.begin_run(order), 0)
@@ -363,7 +367,7 @@ class TestCsvSink(TestCase):
     def test_write_batch_success_appends_rows_converts_none_and_ticks_progress(self):
         """Ensure write_batch appends rows, maps None->\"\", preserves points, and returns outcomes."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            filename = f"{tmpdir}/rows.csv"
+            filename = Path(tmpdir) / "rows.csv"
             sink = CsvSink(CsvSinkSettings(filename=filename, query=_query_with_order_id()))
             sink.initialize()
             order = _minimal_order()
@@ -402,7 +406,7 @@ class TestCsvSink(TestCase):
     def test_write_batch_evaluates_each_point_against_order_copy(self):
         """Ensure each evaluate call receives a per-point Order shell, not the canonical Order object."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            filename = f"{tmpdir}/rows.csv"
+            filename = Path(tmpdir) / "rows.csv"
             sink = CsvSink(CsvSinkSettings(filename=filename, query=_query_with_order_id()))
             sink.initialize()
             order = _minimal_order()
@@ -435,7 +439,7 @@ class TestCsvSink(TestCase):
     def test_write_batch_failure_logs_traceback_reraises_and_keeps_zero_count_state(self):
         """Ensure evaluate failures are loud, re-raised, and preserve zero-count state for the active order."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            filename = f"{tmpdir}/rows.csv"
+            filename = Path(tmpdir) / "rows.csv"
             sink = CsvSink(CsvSinkSettings(filename=filename, query=_query_with_order_id()))
             sink.initialize()
             order = _minimal_order()
@@ -465,7 +469,7 @@ class TestCsvSink(TestCase):
     def test_write_batch_failure_after_success_persists_progress_on_next_begin_run(self):
         """Ensure successful in-memory progress survives a later failure and is persisted on the next begin_run."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            filename = f"{tmpdir}/rows.csv"
+            filename = Path(tmpdir) / "rows.csv"
             sink = CsvSink(CsvSinkSettings(filename=filename, query=_query_with_order_id()))
             sink.initialize()
             _ = sink.begin_run(_minimal_order())
@@ -499,7 +503,7 @@ class TestCsvSink(TestCase):
     def test_vs_points_seen_counter_is_per_order_not_global(self):
         """Ensure per-order ``vs_points_seen`` counters reset for each new order."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            filename = f"{tmpdir}/rows.csv"
+            filename = Path(tmpdir) / "rows.csv"
             sink = CsvSink(CsvSinkSettings(filename=filename, query=_query_with_order_id()))
             sink.initialize()
 
@@ -534,7 +538,7 @@ class TestCsvSink(TestCase):
     def test_write_batch_persists_advanced_vs_points_seen_for_order(self):
         """Ensure successful write_batch flushes the advanced per-order count to the sidecar."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            filename = f"{tmpdir}/rows.csv"
+            filename = Path(tmpdir) / "rows.csv"
             sink = CsvSink(CsvSinkSettings(filename=filename, query=_query_with_order_id()))
             sink.initialize()
             _ = sink.begin_run(_minimal_order())
@@ -557,7 +561,7 @@ class TestCsvSink(TestCase):
     def test_initialize_resumes_existing_order_count_from_sidecar(self):
         """Ensure explicit order ids resume from persisted per-order counts in the sidecar."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            filename = f"{tmpdir}/rows.csv"
+            filename = Path(tmpdir) / "rows.csv"
             with open(filename, "w", newline="") as handle:
                 csv.writer(handle).writerow(["order_id", "exit_code"])
             _write_sidecar(filename, _query_with_order_id(), vs_points_seen={10: 100})
@@ -588,7 +592,7 @@ class TestCsvSink(TestCase):
         ]:
             with self.subTest(label=label):
                 with tempfile.TemporaryDirectory() as tmpdir:
-                    filename = f"{tmpdir}/rows.csv"
+                    filename = Path(tmpdir) / "rows.csv"
                     with open(filename, "w", newline="") as handle:
                         csv.writer(handle).writerow(["order_id", "exit_code"])
                     with open(_schema_path(filename), "w") as handle:
@@ -615,7 +619,7 @@ class TestCsvSink(TestCase):
         for raw_value, expected in cases:
             with self.subTest(raw_value=raw_value):
                 with tempfile.TemporaryDirectory() as tmpdir:
-                    filename = f"{tmpdir}/rows.csv"
+                    filename = Path(tmpdir) / "rows.csv"
                     with open(filename, "w", newline="") as handle:
                         csv.writer(handle).writerow(["order_id", "exit_code"])
                     with open(_schema_path(filename), "w") as handle:
@@ -636,7 +640,7 @@ class TestCsvSink(TestCase):
     def test_write_batch_failure_after_empty_rows_keeps_order_count_unchanged(self):
         """Ensure empty evaluate output does not advance per-order counts across a later failure."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            filename = f"{tmpdir}/rows.csv"
+            filename = Path(tmpdir) / "rows.csv"
             sink = CsvSink(CsvSinkSettings(filename=filename, query=_query_with_order_id()))
             sink.initialize()
             _ = sink.begin_run(_minimal_order())
@@ -659,7 +663,7 @@ class TestCsvSink(TestCase):
     def test_write_batch_skips_errored_compute_result(self):
         """Ensure ``ComputeResult.error`` produces a non-committed outcome with no row, no tick, no id consumed."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            filename = f"{tmpdir}/rows.csv"
+            filename = Path(tmpdir) / "rows.csv"
             sink = CsvSink(CsvSinkSettings(filename=filename, query=_query_with_order_id()))
             sink.initialize()
             _ = sink.begin_run(_minimal_order())
@@ -691,7 +695,7 @@ class TestCsvSink(TestCase):
     def test_write_batch_handles_mixed_errored_and_healthy_batch(self):
         """Ensure healthy results in a mixed batch get per-order ids and errored ones are skipped."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            filename = f"{tmpdir}/rows.csv"
+            filename = Path(tmpdir) / "rows.csv"
             sink = CsvSink(CsvSinkSettings(filename=filename, query=_query_with_order_id()))
             sink.initialize()
             _ = sink.begin_run(_minimal_order())
@@ -731,7 +735,7 @@ class TestCsvSink(TestCase):
     def test_write_batch_does_not_advance_count_when_evaluate_returns_no_rows(self):
         """Ensure empty evaluate output yields an uncommitted outcome and does not consume a point id."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            filename = f"{tmpdir}/rows.csv"
+            filename = Path(tmpdir) / "rows.csv"
             sink = CsvSink(CsvSinkSettings(filename=filename, query=_query_with_order_id()))
             sink.initialize()
             _ = sink.begin_run(_minimal_order())
@@ -757,7 +761,7 @@ class TestCsvSink(TestCase):
     def test_write_batch_stamps_vs_index_columns_with_per_order_point_id(self):
         """Ensure query columns bound to ``vs_point.@index`` are overwritten with per-order point ids."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            filename = f"{tmpdir}/rows.csv"
+            filename = Path(tmpdir) / "rows.csv"
             sink = CsvSink(CsvSinkSettings(filename=filename, query=_query_with_vs_index_column()))
             sink.initialize()
             _ = sink.begin_run(_minimal_order())
@@ -801,7 +805,7 @@ class TestCsvSink(TestCase):
     def test_initialize_creates_asset_directories(self):
         """Ensure initialize creates per-column asset directories for binary columns."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            filename = f"{tmpdir}/rows.csv"
+            filename = Path(tmpdir) / "rows.csv"
             sink = CsvSink(CsvSinkSettings(filename=filename, query=_query_with_binary_column()))
             sink.initialize()
             self.assertTrue(os.path.isdir(f"{tmpdir}/scratch_zip"))
@@ -809,7 +813,7 @@ class TestCsvSink(TestCase):
     def test_write_batch_extracts_binary_to_file_and_writes_path(self):
         """Ensure binary cells are written to disk and replaced with relative asset paths in CSV output."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            filename = f"{tmpdir}/rows.csv"
+            filename = Path(tmpdir) / "rows.csv"
             sink = CsvSink(CsvSinkSettings(filename=filename, query=_query_with_binary_column()))
             sink.initialize()
             _ = sink.begin_run(_minimal_order())
@@ -822,7 +826,7 @@ class TestCsvSink(TestCase):
                 outcomes = sink.write_batch(0, [result])
 
             self.assertTrue(outcomes[0].committed)
-            asset_file = f"{tmpdir}/scratch_zip/0_0.zip"
+            asset_file = Path(tmpdir) / "scratch_zip/0_0.zip"
             self.assertTrue(os.path.exists(asset_file))
             with open(asset_file, "rb") as handle:
                 self.assertEqual(handle.read(), b"zip-bytes")
@@ -834,7 +838,7 @@ class TestCsvSink(TestCase):
     def test_write_batch_binary_none_writes_blank(self):
         """Ensure None-valued binary cells remain blank and do not emit files."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            filename = f"{tmpdir}/rows.csv"
+            filename = Path(tmpdir) / "rows.csv"
             sink = CsvSink(CsvSinkSettings(filename=filename, query=_query_with_binary_column()))
             sink.initialize()
             _ = sink.begin_run(_minimal_order())
@@ -855,7 +859,7 @@ class TestCsvSink(TestCase):
     def test_initialize_resume_creates_asset_directories(self):
         """Ensure initialize on an existing CSV with binary columns creates per-column asset directories."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            filename = f"{tmpdir}/rows.csv"
+            filename = Path(tmpdir) / "rows.csv"
             with open(filename, "w", newline="") as handle:
                 csv.writer(handle).writerow(["exit_code", "scratch_zip"])
             _write_sidecar(filename, _query_with_binary_column(), vs_points_seen={0: 1})
@@ -866,7 +870,7 @@ class TestCsvSink(TestCase):
     def test_binary_asset_naming_uses_order_and_point_counter(self):
         """Ensure extracted binary file names follow <column>/<order_id>_<point_counter>.zip."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            filename = f"{tmpdir}/rows.csv"
+            filename = Path(tmpdir) / "rows.csv"
             sink = CsvSink(CsvSinkSettings(filename=filename, query=_query_with_binary_column()))
             sink.initialize()
             _ = sink.begin_run(_minimal_order())
@@ -893,7 +897,7 @@ class TestCsvSink(TestCase):
     def test_write_batch_binary_multi_row_uses_row_suffix(self):
         """Ensure multi-row binary outputs for one point use a row-index suffix."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            filename = f"{tmpdir}/rows.csv"
+            filename = Path(tmpdir) / "rows.csv"
             sink = CsvSink(CsvSinkSettings(filename=filename, query=_query_with_binary_column()))
             sink.initialize()
             _ = sink.begin_run(_minimal_order())

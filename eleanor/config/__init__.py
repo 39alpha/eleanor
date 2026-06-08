@@ -2,6 +2,7 @@ import json
 import os.path
 import tomllib
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Self, TypedDict, cast
 
 import yaml
@@ -9,6 +10,7 @@ import yaml
 from eleanor.config.executor import ExecutorConfig
 from eleanor.config.output import OutputSinkConfig
 from eleanor.exceptions import EleanorException
+from eleanor.typing import StrPath
 
 
 class ConfigRaw(TypedDict, total=False):
@@ -43,7 +45,7 @@ class Config:
         )
 
     @classmethod
-    def from_yaml(cls, fname: str) -> Self:
+    def from_yaml(cls, fname: StrPath) -> Self:
         with open(fname, "rb") as handle:
             raw = cast(ConfigRaw, cast(object, yaml.safe_load(handle)))
             return cls.from_dict(raw)
@@ -53,7 +55,7 @@ class Config:
         return cls.from_dict(cast(ConfigRaw, cast(object, yaml.safe_load(content))))
 
     @classmethod
-    def from_toml(cls, fname: str) -> Self:
+    def from_toml(cls, fname: StrPath) -> Self:
         with open(fname, "rb") as handle:
             raw = cast(ConfigRaw, cast(object, tomllib.load(handle)))
             return cls.from_dict(raw)
@@ -63,7 +65,7 @@ class Config:
         return cls.from_dict(cast(ConfigRaw, cast(object, tomllib.loads(content))))
 
     @classmethod
-    def from_json(cls, fname: str) -> Self:
+    def from_json(cls, fname: StrPath) -> Self:
         with open(fname, "rb") as handle:
             raw = cast(ConfigRaw, cast(object, json.load(handle)))
             return cls.from_dict(raw)
@@ -85,7 +87,7 @@ class Config:
         raise EleanorException("failed to parse string as yaml, toml or json") from eg
 
     @classmethod
-    def from_file(cls, fname: str) -> Self:
+    def from_file(cls, fname: StrPath) -> Self:
         try:
             _, ext = os.path.splitext(fname)
             match ext:
@@ -101,10 +103,10 @@ class Config:
             raise EleanorException(f'failed to parse "{fname}" as yaml, toml or json') from e
 
 
-def load_config(config: str | Config | None) -> Config:
+def load_config(config: StrPath | Config | None) -> Config:
     if config is None:
         return Config()
-    if isinstance(config, str):
+    elif isinstance(config, (str, Path)):
         return Config.from_file(config)
     return config
 

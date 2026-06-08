@@ -3,6 +3,7 @@ import re
 import warnings
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Self, cast, final, override
 
 import numpy as np
@@ -11,6 +12,7 @@ import eleanor.equilibrium_space as es
 from eleanor.kernel.eq36.codes import RunCode
 from eleanor.kernel.eq36.util import field_as_float
 from eleanor.kernel.exceptions import EleanorKernelException
+from eleanor.typing import StrPath
 
 path_separator = re.compile("^( -)+$")
 blank_line = re.compile(r"^\s*$")
@@ -875,11 +877,11 @@ class OutputParser3(OutputParser):
     _total_charge: np.float64 | None
     _mean_charge: np.float64 | None
 
-    def __init__(self, file: str | io.TextIOBase | None = None):
+    def __init__(self, file: StrPath | io.TextIOBase | None = None):
         if file is None:
-            file = "problem.3o"
+            file = Path("problem.3o")
         try:
-            if isinstance(file, str):
+            if isinstance(file, (str, Path)):
                 with open(file, "r") as handle:
                     super().__init__(handle)
             else:
@@ -1093,12 +1095,12 @@ class OutputParser6(OutputParser):
     _charge_discrepancy: np.float64 | None
     _sigma: np.float64 | None
 
-    def __init__(self, file: str | io.TextIOBase | None = None):
+    def __init__(self, file: StrPath | io.TextIOBase | None = None):
         self.path = []
         if file is None:
-            file = "problem.6o"
+            file = Path("problem.6o")
         try:
-            if isinstance(file, str):
+            if isinstance(file, (str, Path)):
                 with open(file, "r") as handle:
                     super().__init__(handle)
             else:

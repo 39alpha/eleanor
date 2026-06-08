@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum, IntEnum, StrEnum
+from pathlib import Path
 from typing import cast
 
 import numpy as np
@@ -34,6 +35,8 @@ def _coerce_property_types(value: object) -> object:
         return value.item()
     if isinstance(value, np.ndarray):
         return [_coerce_property_types(v) for v in cast(list[object], value.tolist())]
+    if isinstance(value, Path):
+        return str(value)
     if isinstance(value, dict):
         return {str(k): _coerce_property_types(v) for k, v in cast(dict[object, object], value).items()}
     if isinstance(value, (list, tuple)):

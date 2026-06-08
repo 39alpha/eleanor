@@ -15,7 +15,7 @@ from eleanor.kernel.exceptions import EleanorKernelException
 from eleanor.kernel.interface import AbstractKernel
 from eleanor.output.interface import AbstractOutputSink, ComputeResult, ErrorInfo, WriteOutcome
 from eleanor.progress import ProgressHandle
-from eleanor.typing import EleanorKwargs
+from eleanor.typing import EleanorKwargs, StrPath
 from eleanor.util import WorkingDirectory
 
 
@@ -121,7 +121,7 @@ class Runner:
                 return vs_point
 
     @staticmethod
-    def collect_scratch(dir: str) -> vs.Scratch | None:
+    def collect_scratch(dir: StrPath) -> vs.Scratch | None:
         try:
             buffer = io.BytesIO()
             with zipfile.ZipFile(buffer, "w", compression=zipfile.ZIP_BZIP2, allowZip64=True, compresslevel=9) as zip:

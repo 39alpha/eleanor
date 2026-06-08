@@ -1,10 +1,10 @@
 import copy
 import csv
-import os
 import sys
 import traceback
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Self, cast, override
 
 import yaml
@@ -17,25 +17,26 @@ from eleanor.output.settings import OutputSinkSettings
 from eleanor.progress import ProgressHandle
 from eleanor.query import CompiledQuery, compile_query, evaluate
 from eleanor.query.reflection import DataclassField, LeafField
-from eleanor.util import guard_is_dict, guard_is_str, require_dict, require_str
+from eleanor.typing import StrPath
+from eleanor.util import guard_is_dict, guard_is_path, require_dict, require_path
 
 
 @dataclass(kw_only=True)
 class CsvSinkSettings(OutputSinkSettings):
-    filename: str
+    filename: Path
     query: dict[str, object]
 
     def __post_init__(self) -> None:
         super().__post_init__()
 
-        guard_is_str(self.filename, "filename")
+        guard_is_path(self.filename, "filename")
         guard_is_dict(self.query, "query")
 
     @classmethod
     @override
     def from_dict(cls, raw: dict[str, object]) -> Self:
         base_settings = OutputSinkSettings.from_dict(raw)
-        filename = require_str(raw.get("filename"), "filename")
+        filename = require_path(raw.get("filename"), "filename")
         query: dict[str, object] = require_dict(raw.get("query"), "query")
 
         return cls(
@@ -45,20 +46,17 @@ class CsvSinkSettings(OutputSinkSettings):
         )
 
 
-def _schema_path(filename: str) -> str:
-    stem, ext = os.path.splitext(filename)
-    if ext:
-        return f"{stem}_schema.yaml"
-    return f"{filename}_schema.yaml"
+def _schema_path(filename: Path) -> Path:
+    return filename.with_name(filename.stem + "_schema.yaml")
 
 
-def _write_csv_header(filename: str, columns: list[str]) -> None:
+def _write_csv_header(filename: Path, columns: list[str]) -> None:
     with open(filename, "w", newline="") as handle:
         writer = csv.writer(handle)
         writer.writerow(columns)
 
 
-def _read_csv_header(filename: str) -> list[str]:
+def _read_csv_header(filename: Path) -> list[str]:
     with open(filename, newline="") as handle:
         reader = csv.reader(handle)
         try:
@@ -67,7 +65,7 @@ def _read_csv_header(filename: str) -> list[str]:
             return []
 
 
-def _read_schema(schema_path: str) -> dict[str, object]:
+def _read_schema(schema_path: Path) -> dict[str, object]:
     with open(schema_path) as handle:
         raw = cast(object, yaml.safe_load(handle))
     if not isinstance(raw, dict):
@@ -76,7 +74,7 @@ def _read_schema(schema_path: str) -> dict[str, object]:
     return {str(k): v for k, v in cast(dict[object, object], raw).items()}
 
 
-def _require_vs_points_seen(schema: dict[str, object], schema_path: str) -> dict[int, int]:
+def _require_vs_points_seen(schema: dict[str, object], schema_path: Path) -> dict[int, int]:
     vs_points_seen = schema.get("vs_points_seen", {})
 
     if not isinstance(vs_points_seen, dict):
@@ -94,7 +92,7 @@ def _require_vs_points_seen(schema: dict[str, object], schema_path: str) -> dict
     return cast(dict[int, int], vs_points_seen)
 
 
-def _require_order_versions(schema: dict[str, object], schema_path: str) -> dict[int, str]:
+def _require_order_versions(schema: dict[str, object], schema_path: Path) -> dict[int, str]:
     order_versions = schema.get("order_versions", {})
 
     if not isinstance(order_versions, dict):
@@ -113,7 +111,7 @@ def _require_order_versions(schema: dict[str, object], schema_path: str) -> dict
 
 
 def _write_schema(
-    schema_path: str,
+    schema_path: Path,
     query: dict[str, object],
     *,
     vs_points_seen: dict[int, int],
@@ -128,8 +126,8 @@ def _write_schema(
         yaml.safe_dump(payload, handle, sort_keys=False)
 
 
-def _asset_dir(csv_filename: str, column_name: str) -> str:
-    return os.path.join(os.path.abspath(os.path.dirname(csv_filename)), column_name)
+def _asset_dir(csv_filename: Path, column_name: StrPath) -> Path:
+    return (csv_filename.parent / column_name).resolve()
 
 
 def _classify_columns(compiled: CompiledQuery) -> tuple[list[str], frozenset[str]]:
@@ -179,7 +177,7 @@ def _prepare_rows(
 
 
 def _extract_binary_assets(
-    filename: str,
+    filename: Path,
     binary_columns: frozenset[str],
     order_id: int,
     point_counter: int,
@@ -217,14 +215,14 @@ def _extract_binary_assets(
             binary_value_indexes[column] += 1
             suffix = "" if binary_value_counts[column] == 1 else f"_{row_index}"
             asset_filename = f"{order_id}_{point_counter}{suffix}.zip"
-            with open(os.path.join(_asset_dir(filename, column), asset_filename), "wb") as handle:
+            with open(_asset_dir(filename, column) / asset_filename, "wb") as handle:
                 _ = handle.write(value)
             cooked_row[column] = f"{column}/{asset_filename}"
         extracted_rows.append(cooked_row)
     return extracted_rows
 
 
-def _append_rows(filename: str, columns: list[str], rows: Sequence[Mapping[str, object]]) -> None:
+def _append_rows(filename: Path, columns: list[str], rows: Sequence[Mapping[str, object]]) -> None:
     with open(filename, "a", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=columns)
         for row in rows:
@@ -237,7 +235,7 @@ class CsvSink(AbstractOutputSink):
     _columns: list[str]
     _order_id: int | None
     _order: Order | None
-    _schema_file: str
+    _schema_file: Path
     _rows_written: bool
     _vs_index_columns: list[str]
     _binary_columns: frozenset[str]
@@ -261,10 +259,10 @@ class CsvSink(AbstractOutputSink):
         filename = self.settings.filename
         schema_file = self._schema_file
 
-        if not os.path.exists(filename):
+        if not filename.exists():
             _write_csv_header(filename, self._columns)
             for column in self._binary_columns:
-                os.makedirs(_asset_dir(filename, column), exist_ok=True)
+                _asset_dir(filename, column).mkdir(parents=True, exist_ok=True)
             self._vs_points_seen = {}
             self._order_versions = {}
             _write_schema(
@@ -278,7 +276,7 @@ class CsvSink(AbstractOutputSink):
             self._rows_written = False
             return
 
-        if not os.path.exists(schema_file):
+        if not schema_file.exists():
             msg = f"csv file {filename!r} exists but companion schema {schema_file!r} is missing"
             raise EleanorException(msg)
 
@@ -291,7 +289,7 @@ class CsvSink(AbstractOutputSink):
             msg = f"csv header does not match configured query columns: expected {self._columns!r}, found {existing_header!r}"
             raise EleanorException(msg)
         for column in self._binary_columns:
-            os.makedirs(_asset_dir(filename, column), exist_ok=True)
+            _asset_dir(filename, column).mkdir(parents=True, exist_ok=True)
 
         self._order_id = None
         self._order = None
@@ -346,7 +344,7 @@ class CsvSink(AbstractOutputSink):
             msg = "csv sink write_batch called before begin_run"
             raise EleanorException(msg)
 
-        if not os.path.exists(filename):
+        if not filename.exists():
             msg = "csv sink write_batch requires initialize() to create the CSV header"
             raise EleanorException(msg)
 

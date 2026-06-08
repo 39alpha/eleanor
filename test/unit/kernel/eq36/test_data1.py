@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import cast
 from unittest import TestCase, mock
 
@@ -271,7 +272,7 @@ class TestEq36Data1(TestCase):
         Ensure Data1 basis-species lookup and from_file parser wiring work for normal payloads.
         """
         d = Data1(
-            filename="x",
+            filename=Path("x"),
             elements={"H": np.float64(1.0)},
             basis_species={
                 "H+": BasisSpecies(name="H+", composition={"H": 1}, charge=1, volume=None, molar_mass=np.float64(1.0))
@@ -291,7 +292,7 @@ class TestEq36Data1(TestCase):
 
         with mock.patch("eleanor.kernel.eq36.data1.read_data1", return_value=self._read_data1_payload()):
             parsed = Data1.from_file("fake.d1")
-        self.assertEqual(parsed.filename, "fake.d1")
+        self.assertEqual(parsed.filename, Path("fake.d1"))
         self.assertIn("H", parsed.elements)
         self.assertIn("H+", parsed.basis_species)
         self.assertEqual(parsed.basis_species["H+"].molar_mass, np.float64(1.0))
@@ -521,7 +522,7 @@ class TestEq36Data1(TestCase):
         Ensure get_basis_species rejects ambiguous element mappings with multiple matches.
         """
         d = Data1(
-            filename="x",
+            filename=Path("x"),
             elements={"H": np.float64(1.0)},
             basis_species={
                 "H+": BasisSpecies(name="H+", composition={"H": 1}, charge=1, volume=None, molar_mass=np.float64(1.0)),

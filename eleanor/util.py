@@ -1,16 +1,17 @@
 import datetime
 import hashlib
 import os
-import sys
 from collections.abc import Callable, Generator, Iterable, Sequence
 from enum import StrEnum
 from functools import reduce
+from pathlib import Path
 from typing import Protocol, TypeVar, cast
 
 import numpy as np
 from numpy.typing import NDArray
 
 from eleanor.exceptions import EleanorException
+from eleanor.typing import StrPath
 
 MapInputT = TypeVar("MapInputT")
 ReduceT = TypeVar("ReduceT")
@@ -24,7 +25,7 @@ class HashLike(Protocol):
 
 
 # TODO: Use an enumeration for str_loc parameter
-def find_files(match: str, location: str = ".", str_loc: str = "suffix") -> tuple[list[str], list[str]]:
+def find_files(match: str, location: StrPath = ".", str_loc: str = "suffix") -> tuple[list[Path], list[Path]]:
     """
     Find all files in folders downstream from 'location', with extension 'file_extension'
 
@@ -40,22 +41,17 @@ def find_files(match: str, location: str = ".", str_loc: str = "suffix") -> tupl
     :return: list containing file names, list containing file paths
     :rtype: list, list
     """
-    file_names: list[str] = []
-    file_paths: list[str] = []
-    for root, _dirs, files in os.walk(location):
+    file_names: list[Path] = []
+    file_paths: list[Path] = []
+    for root, _dirs, files in Path(location).walk():
         for file in files:
-            if str_loc == "suffix":
-                if file.endswith(match):
-                    file_names.append(file)
-                    file_paths.append(os.path.join(root, file))
-            if str_loc == "prefix":
-                if file.startswith(match):
-                    file_names.append(file)
-                    file_paths.append(os.path.join(root, file))
+            if (str_loc == "suffix" and file.endswith(match)) or (str_loc == "prefix" and file.startswith(match)):
+                file_names.append(Path(file))
+                file_paths.append(Path(root) / file)
     return file_names, file_paths
 
 
-def ensure_directory(path: str) -> None:
+def ensure_directory(path: StrPath) -> None:
     """
     This code checks for the dir being created. It will make the directory if it doesn't exist.
 
@@ -64,26 +60,6 @@ def ensure_directory(path: str) -> None:
     """
     if not os.path.exists(path):
         os.makedirs(path)
-
-
-def mk_check_del_file(path: str) -> None:
-    """
-    Check if the file being created/moved already exists at the destination.
-    """
-    if os.path.isfile(path):
-        os.remove(path)
-
-
-def ck_for_empty_file(path: str) -> None:
-    """
-    Check if path is empty.
-
-    :param path: file path
-    :type path: str
-    """
-    if os.stat(path).st_size == 0:
-        print("file: " + path + " is empty.")
-        sys.exit()
 
 
 class NumberFormat(StrEnum):
@@ -150,14 +126,14 @@ class WorkingDirectory:
     :type path: str
     """
 
-    path: str
-    cwd: str
+    path: Path
+    cwd: Path
 
-    def __init__(self, path: str):
-        self.path = os.path.realpath(path)
-        self.cwd = os.getcwd()
+    def __init__(self, path: StrPath):
+        self.path = Path(path).resolve()
+        self.cwd = Path.cwd()
 
-    def __enter__(self) -> str:
+    def __enter__(self) -> Path:
         """
         Change into the new current working directory that path.
 
@@ -176,12 +152,12 @@ class WorkingDirectory:
         self.cwd, self.path = self.path, self.cwd
 
 
-def hash_file(path: str, hasher: HashLike | None = None) -> str:
+def hash_file(path: StrPath, hasher: HashLike | None = None) -> str:
     """
     Hash the contents of a file
 
     :param path: the path to the filename
-    :type path: str
+    :type path: str | Path
 
     :param hasher: an (optional) hasher algorithm, defaults to `haslib.sha256`
     :type hasher: haslib._Hash | None
@@ -197,14 +173,14 @@ def hash_file(path: str, hasher: HashLike | None = None) -> str:
     return hasher.hexdigest()
 
 
-def hash_dir(path: str, hasher: HashLike | None = None) -> str:
+def hash_dir(path: StrPath, hasher: HashLike | None = None) -> str:
     """
     Compute the hash of a named directory (sha256 by default). The hash is computed in a
     depth-first fashion. For a given directory, this function is called on each subdirectory in
     sorted order. Then :func:`hash_file` is called on each file at that level.
 
     :param path: path to a directory
-    :type path: str
+    :type path: str | Path
 
     :param hasher: an (optional) hasher algorithm, defaults to `haslib.sha256`
 
@@ -316,6 +292,26 @@ def require_str(value: object, field_name: str) -> str:
     return value
 
 
+def require_opt_path(value: object, field_name: str) -> Path | None:
+    """Validate that ``value`` is a str, Path or ``None`` at runtime."""
+    if isinstance(value, Path):
+        return value
+    elif isinstance(value, str):
+        return Path(value)
+    elif value is not None:
+        raise EleanorException(f"{field_name} must be a str, Path or None")
+
+
+def require_path(value: object, field_name: str) -> Path:
+    """Validate that ``value`` is a Path at runtime"""
+    if isinstance(value, Path):
+        return value
+    elif isinstance(value, str):
+        return Path(value)
+    else:
+        raise EleanorException(f"{field_name} must be a str or Path")
+
+
 def require_dict[T](value: object, field_name: str) -> dict[str, T]:
     """Validate that ``value`` is a ``dict`` at runtime and return it typed."""
     if not isinstance(value, dict):
@@ -387,6 +383,16 @@ def guard_is_str(value: object, field_name: str) -> None:
 def guard_is_str_or_none(value: object, field_name: str) -> None:
     if value is not None and not isinstance(value, str):
         raise EleanorException(f"{field_name} must be an string or None; got {type(value).__name__}")
+
+
+def guard_is_path(value: object, field_name: str) -> None:
+    if not isinstance(value, Path):
+        raise EleanorException(f"{field_name} must be a Path; got {type(value).__name__}")
+
+
+def guard_is_path_or_none(value: object, field_name: str) -> None:
+    if value is not None and not isinstance(value, Path):
+        raise EleanorException(f"{field_name} must be a Path or None; got {type(value).__name__}")
 
 
 def guard_is_dict(value: object, field_name: str) -> None:

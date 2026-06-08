@@ -1,10 +1,12 @@
 import io
 import re
+from pathlib import Path
 
 import numpy as np
 
 from eleanor.kernel.eq36.codes import RunCode
 from eleanor.kernel.exceptions import EleanorKernelException
+from eleanor.typing import StrPath
 
 _FORTRAN_FLOAT_RE: re.Pattern[str] = re.compile(r"([-\+]?\d+(\.\d+)?)([-\+]\d+)")
 _NUMERIC_FALLBACK_RE: re.Pattern[str] = re.compile(r"[0-9Ee\+\.-]+")
@@ -39,11 +41,11 @@ def field_as_float(field: str) -> np.float64:
     raise EleanorKernelException(f'failed to read "{field}" as float', code=RunCode.PARSER_ERROR)
 
 
-def read_pickup_lines(file: str | io.TextIOWrapper | None = None) -> list[str]:
+def read_pickup_lines(file: StrPath | io.TextIOWrapper | None = None) -> list[str]:
     if file is None:
         return read_pickup_lines("problem.3p")
 
-    if isinstance(file, str):
+    if isinstance(file, (str, Path)):
         try:
             with open(file, "r") as handle:
                 return read_pickup_lines(handle)

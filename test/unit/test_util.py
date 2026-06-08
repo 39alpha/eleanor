@@ -1,7 +1,8 @@
 import datetime
 import hashlib
 import os
-from os.path import join, realpath
+from os.path import join
+from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import TestCase
 
@@ -26,8 +27,8 @@ class TestUtils(TestCase):
         """
         Ensure that :class:`WorkingDirectory` changes directory to the desired path and back again.
         """
-        cwd = os.getcwd()
-        new_dir = realpath(join(cwd, ".."))
+        cwd = Path.cwd()
+        new_dir = (cwd / "..").resolve()
 
         wd = util.WorkingDirectory("..")
 
@@ -36,10 +37,10 @@ class TestUtils(TestCase):
 
         with wd as new_cwd:
             self.assertEqual(new_cwd, new_dir)
-            self.assertEqual(os.getcwd(), new_cwd)
+            self.assertEqual(Path.cwd(), new_cwd)
             self.assertEqual(wd.path, cwd)
 
-        self.assertEqual(os.getcwd(), cwd)
+        self.assertEqual(Path.cwd(), cwd)
         self.assertEqual(wd.path, new_dir)
         self.assertEqual(wd.cwd, cwd)
 
@@ -48,19 +49,19 @@ class TestUtils(TestCase):
         Ensure that if you try to switch to a non-existent directory, the properties of the
         :class:`WorkingDirectory` do not change.
         """
-        cwd = os.getcwd()
+        cwd = Path.cwd()
 
         wd = util.WorkingDirectory("not-real")
 
-        self.assertEqual(wd.path, join(cwd, "not-real"))
+        self.assertEqual(wd.path, cwd / "not-real")
         self.assertEqual(wd.cwd, cwd)
 
         with self.assertRaises(FileNotFoundError):
             with wd:
                 pass
 
-        self.assertEqual(os.getcwd(), cwd)
-        self.assertEqual(wd.path, join(cwd, "not-real"))
+        self.assertEqual(Path.cwd(), cwd)
+        self.assertEqual(wd.path, cwd / "not-real")
         self.assertEqual(wd.cwd, cwd)
 
     def test_working_directory_handles_error(self):
@@ -68,37 +69,38 @@ class TestUtils(TestCase):
         Ensure that if the :class:`WorkingDirectory` code block raises, we switch back to the
         previous working directory.
         """
-        cwd = os.getcwd()
+        cwd = Path.cwd()
 
         wd = util.WorkingDirectory("..")
 
-        self.assertEqual(wd.path, realpath(join(cwd, "..")))
+        self.assertEqual(wd.path, (cwd / "..").resolve())
         self.assertEqual(wd.cwd, cwd)
 
         with self.assertRaises(ValueError):
             with wd:
                 raise ValueError("whomp")
 
-        self.assertEqual(os.getcwd(), cwd)
-        self.assertEqual(wd.path, realpath(join(cwd, "..")))
+        self.assertEqual(Path.cwd(), cwd)
+        self.assertEqual(wd.path, (cwd / "..").resolve())
         self.assertEqual(wd.cwd, cwd)
 
     def test_working_directory_can_be_nested(self):
         """
         Ensure that the :class:`WorkingDirectory` context manager can be nested.
         """
-        cwd0 = os.getcwd()
+        cwd0 = Path.cwd()
         with TemporaryDirectory() as root:
+            root = Path(root)
             self.assertNotEqual(root, cwd0)
-            os.mkdir(join(root, "abc"))
+            (root / "abc").mkdir()
             with util.WorkingDirectory(root) as cwd1:
-                self.assertEqual(os.getcwd(), root)
+                self.assertEqual(Path.cwd(), root)
                 self.assertEqual(cwd1, root)
                 with util.WorkingDirectory("abc") as cwd2:
-                    self.assertEqual(os.getcwd(), join(root, "abc"))
-                    self.assertEqual(cwd2, join(root, "abc"))
-                self.assertEqual(os.getcwd(), root)
-            self.assertEqual(os.getcwd(), cwd0)
+                    self.assertEqual(Path.cwd(), root / "abc")
+                    self.assertEqual(cwd2, root / "abc")
+                self.assertEqual(Path.cwd(), root)
+            self.assertEqual(Path.cwd(), cwd0)
 
     def test_number_format_fmt(self):
         """
@@ -107,7 +109,7 @@ class TestUtils(TestCase):
         self.assertEqual(util.NumberFormat.FLOATING.fmt(np.float64(1.23456), 2), "1.23")
         self.assertEqual(util.NumberFormat.SCIENTIFIC.fmt(np.float64(123.0), 2), "1.23E+02")
         with self.assertRaises(EleanorException):
-            util.NumberFormat.FLOATING.fmt(np.float64(1.23), -1)
+            _ = util.NumberFormat.FLOATING.fmt(np.float64(1.23), -1)
 
     def test_log_rng_and_norm_list(self):
         """
@@ -166,61 +168,25 @@ class TestUtils(TestCase):
         Ensure that :func:`find_files` matches files correctly for both prefix and suffix modes.
         """
         with TemporaryDirectory() as root:
-            os.mkdir(join(root, "sub"))
+            root = Path(root)
+            (root / "sub").mkdir()
             names = ["alpha.txt", "beta.txt", "a_config.json", "sub/alpha.cfg"]
             for name in names:
-                path = join(root, name)
+                path = root / name
                 with open(path, "w") as f:
                     f.write("x")
 
             suffix_names, suffix_paths = util.find_files(".txt", location=root, str_loc="suffix")
-            self.assertEqual(sorted(suffix_names), ["alpha.txt", "beta.txt"])
+            self.assertEqual(sorted(suffix_names), [Path("alpha.txt"), Path("beta.txt")])
             self.assertEqual(len(suffix_paths), 2)
 
             prefix_names, prefix_paths = util.find_files("alpha", location=root, str_loc="prefix")
-            self.assertEqual(sorted(prefix_names), ["alpha.cfg", "alpha.txt"])
+            self.assertEqual(sorted(prefix_names), [Path("alpha.cfg"), Path("alpha.txt")])
             self.assertEqual(len(prefix_paths), 2)
 
             names0, paths0 = util.find_files("alpha", location=root, str_loc="middle")
             self.assertEqual(names0, [])
             self.assertEqual(paths0, [])
-
-    def test_ensure_directory_and_mk_check_del_file(self):
-        """
-        Ensure that directory creation is idempotent and checked file deletion is safe.
-        """
-        with TemporaryDirectory() as root:
-            new_dir = join(root, "created")
-            self.assertFalse(os.path.exists(new_dir))
-            util.ensure_directory(new_dir)
-            self.assertTrue(os.path.isdir(new_dir))
-            util.ensure_directory(new_dir)
-            self.assertTrue(os.path.isdir(new_dir))
-
-            path = join(new_dir, "temp.txt")
-            with open(path, "w") as f:
-                f.write("x")
-            self.assertTrue(os.path.isfile(path))
-            util.mk_check_del_file(path)
-            self.assertFalse(os.path.exists(path))
-            util.mk_check_del_file(path)
-            self.assertFalse(os.path.exists(path))
-
-    def test_ck_for_empty_file(self):
-        """
-        Ensure that :func:`ck_for_empty_file` exits on empty files and passes non-empty files.
-        """
-        with TemporaryDirectory() as root:
-            empty = join(root, "empty.txt")
-            nonempty = join(root, "nonempty.txt")
-            open(empty, "w").close()
-            with open(nonempty, "w") as f:
-                f.write("x")
-
-            with self.assertRaises(SystemExit):
-                util.ck_for_empty_file(empty)
-
-            util.ck_for_empty_file(nonempty)
 
     def test_convert_to_number(self):
         """

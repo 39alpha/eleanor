@@ -994,6 +994,40 @@ class OutputParser3(OutputParser):
             self.consume_basic_table("log_activity")
 
     def _build_point(self) -> es.Point:
+        custom_properties: dict[str, object] = {
+            "mole_fraction_water": self._mole_fraction_water,
+            "log_gamma_water": self._log_activity_coefficient_water,
+            "pe": self._pe,
+            "Ah": self._Ah,
+            "log_stoichiometric_ionic_strength": self._log_stoichiometric_ionic_strength,
+            "ionic_asymmetry": self._ionic_asymmetry,
+            "stoichiometric_ionic_asymmetry": self._stoichiometric_ionic_asymmetry,
+            "osmotic_coefficient": self._osmotic_coefficient,
+            "stoichiometric_osmotic_coefficient": self._stoichiometric_osmotic_coefficient,
+            "log_sum_molalities": self._log_sum_molalities,
+            "log_sum_stoichiometric_molalities": self._log_sum_stoichiometric_molalities,
+            "charge_imbalance": self._charge_imbalance,
+            "solute_fraction": self._solute_fraction,
+            "solvent_fraction": self._solvent_fraction,
+        }
+
+        if self._pcH is not None:
+            custom_properties["pcH"] = self._pcH
+        if self._pHCl is not None:
+            custom_properties["pHCl"] = self._pHCl
+        if self._anions is not None:
+            custom_properties["anions"] = self._anions
+        if self._cations is not None:
+            custom_properties["cations"] = self._cations
+        if self._total_charge is not None:
+            custom_properties["total_charge"] = self._total_charge
+        if self._mean_charge is not None:
+            custom_properties["mean_charge"] = self._mean_charge
+        if self._solution_volume is not None:
+            custom_properties["solution_volume"] = self._solution_volume
+        if self._extended_alkalinity is not None:
+            custom_properties["extended_alkalinity"] = self._extended_alkalinity
+
         return es.Point(
             stage="eq3",
             temperature=self._temperature,
@@ -1001,40 +1035,19 @@ class OutputParser3(OutputParser):
             pH=self._pH,
             log_fO2=self._log_fO2,
             log_activity_water=self._log_activity_water,
-            mole_fraction_water=self._mole_fraction_water,
-            log_gamma_water=self._log_activity_coefficient_water,
             Eh=self._Eh,
-            pe=self._pe,
-            Ah=self._Ah,
-            pcH=self._pcH,
-            pHCl=self._pHCl,
             log_ionic_strength=self._log_ionic_strength,
-            log_stoichiometric_ionic_strength=self._log_stoichiometric_ionic_strength,
-            ionic_asymmetry=self._ionic_asymmetry,
-            stoichiometric_ionic_asymmetry=self._stoichiometric_ionic_asymmetry,
-            osmotic_coefficient=self._osmotic_coefficient,
-            stoichiometric_osmotic_coefficient=self._stoichiometric_osmotic_coefficient,
-            log_sum_molalities=self._log_sum_molalities,
-            log_sum_stoichiometric_molalities=self._log_sum_stoichiometric_molalities,
-            charge_imbalance=self._charge_imbalance,
-            anions=self._anions,
-            cations=self._cations,
-            total_charge=self._total_charge,
-            mean_charge=self._mean_charge,
             solute_mass=self._solute_mass,
             solvent_mass=self._solvent_mass,
             solution_mass=self._solution_mass,
-            solution_volume=self._solution_volume,
             tds=self._tds,
-            solute_fraction=self._solute_fraction,
-            solvent_fraction=self._solvent_fraction,
-            extended_alkalinity=self._extended_alkalinity,
             elements=self._elements,
             aqueous_species=self._aqueous_species,
             pure_solids=[_freeze_pure_solid(a) for a in self._pure_solids.values()],
             solid_solutions=[_freeze_solid_solution(a) for a in self._solid_solutions.values()],
             gases=self._gases,
             redox_reactions=self._redox_reactions,
+            custom_properties=custom_properties,
         )
 
     @override
@@ -1218,6 +1231,42 @@ class OutputParser6(OutputParser):
         _ = self.read_basic_property("Relative charge discrepancy")
 
     def _build_point(self) -> es.Point:
+        custom_properties: dict[str, object] = {
+            "pe": self._pe,
+            "Ah": self._Ah,
+            "mole_fraction_water": self._mole_fraction_water,
+            "log_gamma_water": self._log_activity_coefficient_water,
+            "osmotic_coefficient": self._osmotic_coefficient,
+            "stoichiometric_osmotic_coefficient": self._stoichiometric_osmotic_coefficient,
+            "log_sum_molalities": self._log_sum_molalities,
+            "log_sum_stoichiometric_molalities": self._log_sum_stoichiometric_molalities,
+            "log_stoichiometric_ionic_strength": self._log_stoichiometric_ionic_strength,
+            "ionic_asymmetry": self._ionic_asymmetry,
+            "stoichiometric_ionic_asymmetry": self._stoichiometric_ionic_asymmetry,
+            "solute_fraction": self._solute_fraction,
+            "solvent_fraction": self._solvent_fraction,
+            "charge_imbalance": self._charge_imbalance,
+            "solid_mass_created": self._solid_mass_created,
+            "solid_mass_destroyed": self._solid_mass_destroyed,
+            "solid_mass_change": self._solid_mass_change,
+            "solid_volume_created": self._solid_volume_created,
+            "solid_volume_destroyed": self._solid_volume_destroyed,
+            "solid_volume_change": self._solid_volume_change,
+        }
+
+        if self._pHCl is not None:
+            custom_properties["pHCl"] = self._pHCl
+        if self._expected_charge_imbalance is not None:
+            custom_properties["expected_charge_imbalance"] = self._expected_charge_imbalance
+        if self._charge_discrepancy is not None:
+            custom_properties["charge_discrepancy"] = self._charge_discrepancy
+        if self._sigma is not None:
+            custom_properties["sigma"] = self._sigma
+        if self._extended_alkalinity is not None:
+            custom_properties["extended_alkalinity"] = self._extended_alkalinity
+        if self._overall_affinity is not None:
+            custom_properties["overall_affinity"] = self._overall_affinity
+
         return es.Point(
             stage="eq6",
             log_xi=self._log_xi,
@@ -1225,41 +1274,15 @@ class OutputParser6(OutputParser):
             pressure=self._pressure,
             pH=self._pH,
             Eh=self._Eh,
-            pe=self._pe,
-            Ah=self._Ah,
-            pHCl=self._pHCl,
             log_fO2=self._log_fO2,
             log_activity_water=self._log_activity_water,
-            mole_fraction_water=self._mole_fraction_water,
-            log_gamma_water=self._log_activity_coefficient_water,
-            osmotic_coefficient=self._osmotic_coefficient,
-            stoichiometric_osmotic_coefficient=self._stoichiometric_osmotic_coefficient,
-            log_sum_molalities=self._log_sum_molalities,
-            log_sum_stoichiometric_molalities=self._log_sum_stoichiometric_molalities,
             log_ionic_strength=self._log_ionic_strength,
-            log_stoichiometric_ionic_strength=self._log_stoichiometric_ionic_strength,
-            ionic_asymmetry=self._ionic_asymmetry,
-            stoichiometric_ionic_asymmetry=self._stoichiometric_ionic_asymmetry,
             solute_mass=self._solute_mass,
             solvent_mass=self._solvent_mass,
             solution_mass=self._solution_mass,
             tds=self._tds,
-            solute_fraction=self._solute_fraction,
-            solvent_fraction=self._solvent_fraction,
-            charge_imbalance=self._charge_imbalance,
-            expected_charge_imbalance=self._expected_charge_imbalance,
-            charge_discrepancy=self._charge_discrepancy,
-            sigma=self._sigma,
-            extended_alkalinity=self._extended_alkalinity,
-            overall_affinity=self._overall_affinity,
             reactant_mass_reacted=self._reactant_mass_reacted,
             reactant_mass_remaining=self._reactant_mass_remaining,
-            solid_mass_created=self._solid_mass_created,
-            solid_mass_destroyed=self._solid_mass_destroyed,
-            solid_mass_change=self._solid_mass_change,
-            solid_volume_created=self._solid_volume_created,
-            solid_volume_destroyed=self._solid_volume_destroyed,
-            solid_volume_change=self._solid_volume_change,
             elements=self._elements,
             aqueous_species=self._aqueous_species,
             pure_solids=[_freeze_pure_solid(a) for a in self._pure_solids.values()],
@@ -1267,6 +1290,7 @@ class OutputParser6(OutputParser):
             gases=self._gases,
             reactants=self._reactants,
             redox_reactions=self._redox_reactions,
+            custom_properties=custom_properties,
         )
 
     def parse_step(self) -> Self:

@@ -1,7 +1,7 @@
 import io
 import warnings
 from pathlib import Path
-from typing import override
+from typing import cast, override
 from unittest import TestCase, mock
 
 import numpy as np
@@ -657,10 +657,10 @@ class TestEq36ParsersRealOutputs(TestCase):
                 self.assertAlmostEqual(float(point.pressure), expected["pressure"])
                 self.assertAlmostEqual(float(point.log_fO2), -3.0)
                 self.assertAlmostEqual(float(point.pH), expected["nbs_pH"])
-                assert point.pcH is not None
-                assert point.pHCl is not None
-                self.assertAlmostEqual(float(point.pcH), expected["pcH"])
-                self.assertAlmostEqual(float(point.pHCl), expected["pHCl"])
+                assert point.custom_properties.get("pcH") is not None
+                assert point.custom_properties.get("pHCl") is not None
+                self.assertAlmostEqual(cast(np.float64, point.custom_properties["pcH"]), expected["pcH"])
+                self.assertAlmostEqual(cast(np.float64, point.custom_properties["pHCl"]), expected["pHCl"])
                 self.assertAlmostEqual(float(hydrogen.log_activity), expected["h_log_activity"])
                 self.assertEqual(len(point.elements), 16)
                 self.assertEqual(len(point.aqueous_species), 132)
@@ -742,14 +742,22 @@ class TestEq36ParsersRealOutputs(TestCase):
 
                 first_reactant_names = sorted(reactant.name for reactant in first.reactants)
                 self.assertEqual(first_reactant_names, ["olivine-ss"])
-                assert first.overall_affinity is not None
-                assert last.overall_affinity is not None
-                assert last.solid_mass_created is not None
-                assert last.solid_mass_change is not None
-                self.assertAlmostEqual(float(first.overall_affinity), expected["overall_affinity_first"])
-                self.assertAlmostEqual(float(last.overall_affinity), expected["overall_affinity_last"])
-                self.assertAlmostEqual(float(last.solid_mass_created), expected["solids_created_mass_last"])
-                self.assertAlmostEqual(float(last.solid_mass_change), expected["solids_net_mass_last"])
+                assert first.custom_properties.get("overall_affinity") is not None
+                assert last.custom_properties.get("overall_affinity") is not None
+                assert last.custom_properties.get("solid_mass_created") is not None
+                assert last.custom_properties.get("solid_mass_change") is not None
+                self.assertAlmostEqual(
+                    cast(np.float64, first.custom_properties["overall_affinity"]), expected["overall_affinity_first"]
+                )
+                self.assertAlmostEqual(
+                    cast(np.float64, last.custom_properties["overall_affinity"]), expected["overall_affinity_last"]
+                )
+                self.assertAlmostEqual(
+                    cast(np.float64, last.custom_properties["solid_mass_created"]), expected["solids_created_mass_last"]
+                )
+                self.assertAlmostEqual(
+                    cast(np.float64, last.custom_properties["solid_mass_change"]), expected["solids_net_mass_last"]
+                )
 
                 log_xis: list[float] = []
                 for step in path:
@@ -774,7 +782,10 @@ class TestEq36ParsersRealOutputs(TestCase):
                 self.assertAlmostEqual(float(eq3.pressure), float(eq6_first.pressure))
                 self.assertAlmostEqual(float(eq3.log_fO2), float(eq6_first.log_fO2))
                 self.assertAlmostEqual(float(eq3.pH), float(eq6_first.pH))
-                assert eq3.pHCl is not None
-                assert eq6_first.pHCl is not None
-                self.assertAlmostEqual(float(eq3.pHCl), float(eq6_first.pHCl))
-                self.assertAlmostEqual(float(eq3_hydrogen.log_activity), float(eq6_hydrogen.log_activity))
+                assert eq3.custom_properties.get("pHCl") is not None
+                assert eq6_first.custom_properties.get("pHCl") is not None
+                self.assertAlmostEqual(
+                    cast(np.float64, eq3.custom_properties["pHCl"]),
+                    cast(np.float64, eq6_first.custom_properties["pHCl"]),
+                )
+                self.assertAlmostEqual(eq3_hydrogen.log_activity, eq6_hydrogen.log_activity)

@@ -159,27 +159,13 @@ def _make_es_point(
         pressure=np.float64(1.0),
         pH=np.float64(7.0),
         log_fO2=-np.float64(60.0),
-        log_activity_water=-np.float64(0.01),
-        mole_fraction_water=np.float64(0.98),
-        log_gamma_water=np.float64(0.02),
         Eh=np.float64(0.1),
-        pe=np.float64(4.0),
-        Ah=np.float64(1.2),
+        log_activity_water=-np.float64(0.01),
         log_ionic_strength=-np.float64(2.0),
-        log_stoichiometric_ionic_strength=-np.float64(1.8),
-        ionic_asymmetry=np.float64(0.006),
-        stoichiometric_ionic_asymmetry=np.float64(0.007),
-        osmotic_coefficient=np.float64(0.8),
-        stoichiometric_osmotic_coefficient=np.float64(0.81),
-        log_sum_molalities=-np.float64(1.0),
-        log_sum_stoichiometric_molalities=-np.float64(0.9),
-        charge_imbalance=np.float64(0.0),
         solute_mass=np.float64(0.1),
         solvent_mass=np.float64(1.0),
         solution_mass=np.float64(1.1),
         tds=np.float64(100.0),
-        solute_fraction=np.float64(0.1),
-        solvent_fraction=np.float64(0.9),
         elements=elements or [],
         aqueous_species=aqueous_species or [],
         pure_solids=pure_solids or [],
@@ -189,6 +175,22 @@ def _make_es_point(
         reactants=reactants or [],
         start_date=now,
         complete_date=now,
+        custom_properties={
+            "mole_fraction_water": np.float64(0.98),
+            "log_gamma_water": np.float64(0.02),
+            "pe": np.float64(4.0),
+            "Ah": np.float64(1.2),
+            "log_stoichiometric_ionic_strength": -np.float64(1.8),
+            "ionic_asymmetry": np.float64(0.006),
+            "stoichiometric_ionic_asymmetry": np.float64(0.007),
+            "osmotic_coefficient": np.float64(0.8),
+            "stoichiometric_osmotic_coefficient": np.float64(0.81),
+            "log_sum_molalities": -np.float64(1.0),
+            "log_sum_stoichiometric_molalities": -np.float64(0.9),
+            "charge_imbalance": np.float64(0.0),
+            "solute_fraction": np.float64(0.1),
+            "solvent_fraction": np.float64(0.9),
+        },
     )
 
 
@@ -585,7 +587,7 @@ class TestRepositoriesIntegration(_RealPostgresTestCase):
 
             # equilibrium_space: zero (charge_imbalance) and typical scalars
             _ = cur.execute(
-                "SELECT temperature, pressure, charge_imbalance FROM equilibrium_space WHERE variable_space_id = %s",
+                "SELECT temperature, pressure, (custom_properties->>'charge_imbalance')::double precision FROM equilibrium_space WHERE variable_space_id = %s",
                 (vs_id,),
             )
             es_row = cur.fetchone()

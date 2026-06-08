@@ -108,7 +108,7 @@ class TestSchemaDdlEmission(TestCase):
         ``UndefinedColumn``.
         """
         ddl = schema.to_create_table_sql(schema.EQUILIBRIUM_SPACE)
-        for case_sensitive in ("pH", "log_fO2", "Eh", "Ah", "pcH", "pHCl"):
+        for case_sensitive in ("pH", "log_fO2", "Eh"):
             self.assertIn(f'"{case_sensitive}"', ddl)
 
     def test_pure_solids_ddl_emits_neg_inf_default(self):
@@ -242,33 +242,35 @@ class TestConverterShapes(TestCase):
             pressure=np.float64(1.0),
             pH=np.float64(7.0),
             log_fO2=-np.float64(60.0),
-            log_activity_water=-np.float64(0.01),
-            mole_fraction_water=np.float64(0.98),
-            log_gamma_water=np.float64(0.02),
             Eh=np.float64(0.1),
-            pe=np.float64(4.0),
-            Ah=np.float64(1.2),
+            log_activity_water=-np.float64(0.01),
             log_ionic_strength=-np.float64(2.0),
-            log_stoichiometric_ionic_strength=-np.float64(1.8),
-            ionic_asymmetry=np.float64(0.006),
-            stoichiometric_ionic_asymmetry=np.float64(0.007),
-            osmotic_coefficient=np.float64(0.8),
-            stoichiometric_osmotic_coefficient=np.float64(0.81),
-            log_sum_molalities=-np.float64(1.0),
-            log_sum_stoichiometric_molalities=-np.float64(0.9),
-            charge_imbalance=np.float64(0.0),
             solute_mass=np.float64(0.1),
             solvent_mass=np.float64(1.0),
             solution_mass=np.float64(1.1),
             tds=np.float64(100.0),
-            solute_fraction=np.float64(0.1),
-            solvent_fraction=np.float64(0.9),
             elements=[],
             aqueous_species=[],
             pure_solids=[],
             solid_solutions=[],
             gases=[],
             redox_reactions=[],
+            custom_properties={
+                "mole_fraction_water": np.float64(0.98),
+                "log_gamma_water": np.float64(0.02),
+                "pe": np.float64(4.0),
+                "Ah": np.float64(1.2),
+                "log_stoichiometric_ionic_strength": -np.float64(1.8),
+                "ionic_asymmetry": np.float64(0.006),
+                "stoichiometric_ionic_asymmetry": np.float64(0.007),
+                "osmotic_coefficient": np.float64(0.8),
+                "stoichiometric_osmotic_coefficient": np.float64(0.81),
+                "log_sum_molalities": -np.float64(1.0),
+                "log_sum_stoichiometric_molalities": -np.float64(0.9),
+                "charge_imbalance": np.float64(0.0),
+                "solute_fraction": np.float64(0.1),
+                "solvent_fraction": np.float64(0.9),
+            },
         )
         row = converters.es_point_to_row(point, variable_space_id=42)
         self.assertEqual(set(row.keys()), self._expected_keys(schema.EQUILIBRIUM_SPACE))

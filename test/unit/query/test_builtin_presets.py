@@ -180,13 +180,12 @@ class TestEsScalarsPreset(TestCase):
             {
                 "row_scope": "es",
                 "columns": [
-                    {"preset": "es_scalars", "exclude": ["charge_discrepancy", "sigma"]},
+                    {"preset": "es_scalars", "exclude": ["log_xi"]},
                 ],
             },
         )
         names = {c.spec.name for c in compiled.compiled_columns}
-        self.assertNotIn("charge_discrepancy", names)
-        self.assertNotIn("sigma", names)
+        self.assertNotIn("log_xi", names)
         self.assertIn("pH", names)
 
     def test_es_scalars_include_restricts_to_named_fields(self):

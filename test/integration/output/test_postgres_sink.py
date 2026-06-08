@@ -42,6 +42,7 @@ from psycopg import sql
 import eleanor.equilibrium_space as core_es
 import eleanor.variable_space as core_vs
 from eleanor.config.kernel import KernelConfig
+from eleanor.kernel.exceptions import EleanorKernelException
 from eleanor.kernel.settings import KernelSettings
 from eleanor.order import Order
 from eleanor.output.interface import ComputeResult
@@ -293,7 +294,9 @@ class TestPostgresSinkIntegration(_RealPostgresTestCase):
             _ = cur.execute(
                 "INSERT INTO schema_migrations (version, name, applied_at, eleanor_version) "
                 "VALUES (1, 'initial_schema', NOW(), 'test'),"
-                "       (2, 'rename_tag_to_tags', NOW(), 'test') ON CONFLICT DO NOTHING"
+                "       (2, 'rename_tag_to_tags', NOW(), 'test'),"
+                "       (3, 'indexes', NOW(), 'test'),"
+                "       (4, 'add_exception_to_variable_space', NOW(), 'test') ON CONFLICT DO NOTHING"
             )
         # Now apply_pending_migrations should find no pending work and succeed.
         repositories.apply_pending_migrations(self.config)
@@ -739,6 +742,37 @@ class TestRepositoriesIntegration(_RealPostgresTestCase):
             names = {r[0] for r in cur.fetchall()}
             self.assertIn("sp0", names)
             self.assertIn(f"sp{n_aq - 1}", names)
+
+    def test_writes_exception_message(self):
+        order_id, conn = self._make_order_and_vs("exceptions")
+
+        # Case 1: No exception
+        plain = _make_vs_point()
+        with conn.transaction(savepoint_name="exceptions"):
+            plain_id = repositories.insert_point(conn, order_id, plain)
+
+        with conn.cursor() as cur:
+            _ = cur.execute("SELECT error, exit_code FROM variable_space WHERE id = %s", (plain_id,))
+            row = cur.fetchone()
+            assert row is not None
+            self.assertIsNone(row[0])
+            self.assertEqual(row[1], 0)
+
+        # Case 2: Exception
+        msg = "something wicked this way comes"
+        code = 19
+        plain = _make_vs_point()
+        plain.exception = EleanorKernelException(msg, code=code)
+        plain.exit_code = plain.exception.code
+        with conn.transaction(savepoint_name="exceptions"):
+            plain_id = repositories.insert_point(conn, order_id, plain)
+
+        with conn.cursor() as cur:
+            _ = cur.execute("SELECT error, exit_code FROM variable_space WHERE id = %s", (plain_id,))
+            row = cur.fetchone()
+            assert row is not None
+            self.assertEqual(row[0], msg)
+            self.assertEqual(row[1], code)
 
     def test_get_scratch_entry_round_trips_zip_payload(self):
         """

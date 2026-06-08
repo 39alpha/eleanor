@@ -578,6 +578,7 @@ VARIABLE_SPACE = TableDef(
         ColumnDef("temperature", "DOUBLE PRECISION", nullable=False),
         ColumnDef("pressure", "DOUBLE PRECISION", nullable=False),
         ColumnDef("exit_code", "INTEGER", nullable=False),
+        ColumnDef("error", "TEXT", nullable=True),
         ColumnDef("create_date", "TIMESTAMP", nullable=False),
         ColumnDef("start_date", "TIMESTAMP", nullable=False),
         ColumnDef("complete_date", "TIMESTAMP", nullable=False),

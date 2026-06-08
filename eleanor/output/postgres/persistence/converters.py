@@ -127,6 +127,7 @@ def vs_point_to_row(point: core_vs.Point, order_id: int) -> dict[str, object]:
         "temperature": point.temperature,
         "pressure": point.pressure,
         "exit_code": point.exit_code,
+        "error": str(point.exception) if point.exception is not None else None,
         "create_date": point.create_date,
         "start_date": point.start_date,
         "complete_date": point.complete_date,

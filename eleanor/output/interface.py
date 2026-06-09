@@ -5,8 +5,9 @@ from traceback import format_exception
 from types import TracebackType
 from typing import TYPE_CHECKING, Self
 
+import eleanor.variable_space as vs
+
 if TYPE_CHECKING:
-    import eleanor.variable_space as vs
     from eleanor.order import Order
     from eleanor.progress import ProgressHandle
 

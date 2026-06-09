@@ -34,7 +34,7 @@ class PostgresSink(AbstractOutputSink):
     settings: PostgresSinkSettings
     _prev_psycopg_log_level: int | None
 
-    def __init__(self, settings: PostgresSinkSettings):
+    def __init__(self, settings: PostgresSinkSettings) -> None:
         self.settings = settings
         self._prev_psycopg_log_level = None
 

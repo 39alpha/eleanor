@@ -12,14 +12,14 @@ class TestPathParsing(TestCase):
     Tests for EQL path parsing and canonical rendering.
     """
 
-    def test_parse_path_round_trips_quoted_predicates(self):
+    def test_parse_path_round_trips_quoted_predicates(self) -> None:
         """
         Ensure quoted predicate values with escapes survive parse and stringify.
         """
         path = parse_path('point.minerals[name="Ca\\"CO3"]')
         self.assertEqual(path_to_string(path), 'point.minerals[name="Ca\\"CO3"]')
 
-    def test_parse_path_rejects_trailing_dot(self):
+    def test_parse_path_rejects_trailing_dot(self) -> None:
         """
         Ensure malformed paths with trailing separators raise ParseError.
         """
@@ -32,7 +32,7 @@ class TestCompileAndEvaluate(TestCase):
     Integration tests for compile_query + evaluate over representative dataclasses.
     """
 
-    def test_shortname_row_scope_and_missing_default(self):
+    def test_shortname_row_scope_and_missing_default(self) -> None:
         """
         Ensure shortname row_scope resolves and per-column null-default fills path misses.
         """
@@ -48,7 +48,12 @@ class TestCompileAndEvaluate(TestCase):
             "columns": [
                 "point.index",
                 {"path": "point.chemistry.ph", "name": "ph"},
-                {"path": "point.chemistry.pe", "name": "pe_or_default", "on_missing": "null", "default": -99.0},
+                {
+                    "path": "point.chemistry.pe",
+                    "name": "pe_or_default",
+                    "on_missing": "null",
+                    "default": -99.0,
+                },
             ],
         }
 
@@ -64,7 +69,7 @@ class TestCompileAndEvaluate(TestCase):
             ],
         )
 
-    def test_evaluate_raises_on_multiple_match_filter_results(self):
+    def test_evaluate_raises_on_multiple_match_filter_results(self) -> None:
         """
         Ensure list match filters that produce multiple matches raise MultipleMatchError.
         """

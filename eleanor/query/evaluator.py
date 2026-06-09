@@ -262,7 +262,9 @@ def _segment_values_with_meta(
                     elif isinstance(state, dict):
                         for i, (k, v) in enumerate(cast(dict[object, object], state).items()):
                             next_states.append((v, IterPosition(index=i, key=k)))
-                    # else: non-iterable -> empty (consistent with ``_iter_filter_values``).
+                    else:
+                        # non-iterable -> empty (consistent with ``_iter_filter_values``).
+                        pass
                 else:
                     # Inner [*] in a multi-filter segment: preserve the outer
                     # position by convention. The spec does not define @index

@@ -72,12 +72,12 @@ target-version = "py314"
 extend-exclude = ["eleanor/kernel/eq36/parsers"]
 
 [tool.ruff.lint]
-# Defaults give us pycodestyle (E) + Pyflakes (F); add isort (I) and pycodestyle
-# warnings (W).
-extend-select = ["I", "W"]
-# E501 (line too long) was disabled under pycodestyle; keep it disabled while
-# we settle on a final policy.
+extend-select = ["ANN", "E", "ERA", "I", "W"]
 ignore = ["E501"]
+
+[tool.ruff.format]
+docstring-code-format = true
+docstring-code-line-length = 80
 
 [tool.mypy]
 check_untyped_defs = true

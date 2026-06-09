@@ -10,9 +10,8 @@ required aliases, error shapes) and the bundle wiring on ``compile_query``.
 from typing import cast
 from unittest import TestCase
 
-import pytest
-
 import eleanor.query.presets as presets_module
+import pytest
 from eleanor.equilibrium_space import AqueousSpecies
 from eleanor.order import Order
 from eleanor.query import (
@@ -40,7 +39,7 @@ class TestBuiltinPresetsRegistry(TestCase):
     Tests of ``BUILTIN_PRESETS`` shape and immutability.
     """
 
-    def test_builtin_presets_lists_canonical_three_names(self):
+    def test_builtin_presets_lists_canonical_three_names(self) -> None:
         """
         Ensure the canonical bundle contains exactly the spec §17.5 names.
         """
@@ -49,7 +48,7 @@ class TestBuiltinPresetsRegistry(TestCase):
             ["aqueous_species_table", "es_scalars", "run_metadata"],
         )
 
-    def test_builtin_presets_is_immutable_proxy(self):
+    def test_builtin_presets_is_immutable_proxy(self) -> None:
         """
         Ensure callers can't mutate the canonical bundle in place.
         """
@@ -69,7 +68,7 @@ class TestRunMetadataPreset(TestCase):
             "compile_query raises InvalidPath until EQL gains list[str] terminal support."
         ),
     )
-    def test_run_metadata_emits_fixed_columns(self):
+    def test_run_metadata_emits_fixed_columns(self) -> None:
         """
         Ensure ``run_metadata`` emits the expected columns enumerated in spec §10.3,
         with column names matching path terminals.
@@ -80,10 +79,18 @@ class TestRunMetadataPreset(TestCase):
         )
         self.assertEqual(
             [c.spec.name for c in compiled.compiled_columns],
-            ["id", "tags", "name", "creator", "notes", "eleanor_version", "create_date"],
+            [
+                "id",
+                "tags",
+                "name",
+                "creator",
+                "notes",
+                "eleanor_version",
+                "create_date",
+            ],
         )
 
-    def test_run_metadata_emits_fixed_columns_with_container_terminals(self):
+    def test_run_metadata_emits_fixed_columns_with_container_terminals(self) -> None:
         """
         Ensure ``run_metadata`` emits the expected columns enumerated in spec §10.3,
         with column names matching path terminals.
@@ -95,7 +102,15 @@ class TestRunMetadataPreset(TestCase):
         )
         self.assertEqual(
             [c.spec.name for c in compiled.compiled_columns],
-            ["id", "tags", "name", "creator", "notes", "eleanor_version", "create_date"],
+            [
+                "id",
+                "tags",
+                "name",
+                "creator",
+                "notes",
+                "eleanor_version",
+                "create_date",
+            ],
         )
 
     @pytest.mark.xfail(
@@ -105,7 +120,7 @@ class TestRunMetadataPreset(TestCase):
             "compile_query raises InvalidPath until EQL gains list[str] terminal support."
         ),
     )
-    def test_run_metadata_columns_attributed_to_preset(self):
+    def test_run_metadata_columns_attributed_to_preset(self) -> None:
         """
         Ensure the preset stamps its own name on every emitted column's source.
         """
@@ -116,7 +131,9 @@ class TestRunMetadataPreset(TestCase):
         for column in compiled.compiled_columns:
             self.assertEqual(column.spec.source, Preset(name="run_metadata"))
 
-    def test_run_metadata_columns_attributed_to_preset_with_container_terminals(self):
+    def test_run_metadata_columns_attributed_to_preset_with_container_terminals(
+        self,
+    ) -> None:
         """
         Ensure the preset stamps its own name on every emitted column's source.
         """
@@ -128,7 +145,7 @@ class TestRunMetadataPreset(TestCase):
         for column in compiled.compiled_columns:
             self.assertEqual(column.spec.source, Preset(name="run_metadata"))
 
-    def test_run_metadata_rejects_arguments(self):
+    def test_run_metadata_rejects_arguments(self) -> None:
         """
         Ensure ``run_metadata`` rejects any argument; it is parameter-free.
         """
@@ -141,7 +158,7 @@ class TestRunMetadataPreset(TestCase):
                 },
             )
 
-    def test_run_metadata_missing_order_alias_raises_preset_scope_missing(self):
+    def test_run_metadata_missing_order_alias_raises_preset_scope_missing(self) -> None:
         """
         Ensure the defensive ``order`` alias check fires when called against
         a malformed scope table that omits the root binding.
@@ -157,7 +174,7 @@ class TestEsScalarsPreset(TestCase):
     Tests for the canonical ``es_scalars`` preset.
     """
 
-    def test_es_scalars_default_emits_all_es_leaves(self):
+    def test_es_scalars_default_emits_all_es_leaves(self) -> None:
         """
         Ensure ``es_scalars`` with no arguments emits one column per ``ESPoint``
         leaf field.
@@ -171,7 +188,7 @@ class TestEsScalarsPreset(TestCase):
             _expected_es_scalar_names(),
         )
 
-    def test_es_scalars_exclude_filters_named_fields(self):
+    def test_es_scalars_exclude_filters_named_fields(self) -> None:
         """
         Ensure ``exclude`` removes named scalars from the output.
         """
@@ -188,7 +205,7 @@ class TestEsScalarsPreset(TestCase):
         self.assertNotIn("log_xi", names)
         self.assertIn("pH", names)
 
-    def test_es_scalars_include_restricts_to_named_fields(self):
+    def test_es_scalars_include_restricts_to_named_fields(self) -> None:
         """
         Ensure ``include`` restricts the output to the named scalars.
         """
@@ -206,7 +223,7 @@ class TestEsScalarsPreset(TestCase):
             ["temperature", "pH"],
         )
 
-    def test_es_scalars_include_and_exclude_are_mutually_exclusive(self):
+    def test_es_scalars_include_and_exclude_are_mutually_exclusive(self) -> None:
         """
         Ensure passing both ``include`` and ``exclude`` raises ``ParseError``.
         """
@@ -216,12 +233,16 @@ class TestEsScalarsPreset(TestCase):
                 {
                     "row_scope": "es",
                     "columns": [
-                        {"preset": "es_scalars", "include": ["pH"], "exclude": ["sigma"]},
+                        {
+                            "preset": "es_scalars",
+                            "include": ["pH"],
+                            "exclude": ["sigma"],
+                        },
                     ],
                 },
             )
 
-    def test_es_scalars_unknown_args_raise_parse_error(self):
+    def test_es_scalars_unknown_args_raise_parse_error(self) -> None:
         """
         Ensure unknown extra arguments are rejected at compile time.
         """
@@ -234,7 +255,7 @@ class TestEsScalarsPreset(TestCase):
                 },
             )
 
-    def test_es_scalars_unknown_field_raises_splat_unknown_field(self):
+    def test_es_scalars_unknown_field_raises_splat_unknown_field(self) -> None:
         """
         Ensure naming a non-existent ESPoint scalar in ``include`` or
         ``exclude`` raises ``SplatUnknownField`` against the ``es`` alias.
@@ -259,7 +280,7 @@ class TestEsScalarsPreset(TestCase):
                 },
             )
 
-    def test_es_scalars_name_list_must_be_strings(self):
+    def test_es_scalars_name_list_must_be_strings(self) -> None:
         """
         Ensure non-list and non-string-list arguments raise ``ParseError``.
         """
@@ -280,7 +301,7 @@ class TestEsScalarsPreset(TestCase):
                 },
             )
 
-    def test_es_scalars_missing_es_alias_raises_preset_scope_missing(self):
+    def test_es_scalars_missing_es_alias_raises_preset_scope_missing(self) -> None:
         """
         Ensure the preset rejects a scope table that lacks ``es``.
         """
@@ -289,7 +310,7 @@ class TestEsScalarsPreset(TestCase):
         self.assertEqual(cm.exception.preset, "es_scalars")
         self.assertEqual(cm.exception.missing_alias, "es")
 
-    def test_es_scalars_non_dataclass_es_alias_raises_parse_error(self):
+    def test_es_scalars_non_dataclass_es_alias_raises_parse_error(self) -> None:
         """
         Ensure the defensive non-dataclass guard fires when ``es`` is bound
         to a non-dataclass kind. Surfaces a clean ``ParseError`` rather than
@@ -317,7 +338,7 @@ class TestAqueousSpeciesTablePreset(TestCase):
     def _aqs_field_names(self) -> list[str]:
         return [leaf.name for leaf in leaf_fields(AqueousSpecies)]
 
-    def test_aqueous_species_table_emits_cross_product(self):
+    def test_aqueous_species_table_emits_cross_product(self) -> None:
         """
         Ensure the preset emits one column per ``(name, field)`` pair, named
         ``<field>_<name>`` and pathed via ``es.aqueous_species[name=<name>]``.
@@ -345,7 +366,7 @@ class TestAqueousSpeciesTablePreset(TestCase):
             ],
         )
 
-    def test_aqueous_species_table_quotes_names_with_unsafe_chars(self):
+    def test_aqueous_species_table_quotes_names_with_unsafe_chars(self) -> None:
         """
         Ensure species names that contain characters illegal under the
         ``Unquoted`` production (whitespace, ``=``, ``,``, ``]``, ``"``) are
@@ -372,7 +393,9 @@ class TestAqueousSpeciesTablePreset(TestCase):
         # Each compiled column's path predicate should preserve the raw name
         # via the quoted form, so the predicate's coerced value matches the
         # input name byte-for-byte.
-        for column, expected in zip(compiled.compiled_columns, ["weird name", 'has"quote'], strict=True):
+        for column, expected in zip(
+            compiled.compiled_columns, ["weird name", 'has"quote'], strict=True
+        ):
             terminal_filters = column.compiled_path.segments[-2].filters
             assert len(terminal_filters) == 1
             match_filter = terminal_filters[0]
@@ -382,7 +405,7 @@ class TestAqueousSpeciesTablePreset(TestCase):
             self.assertEqual(match_filter.predicates[0].coerced_value, expected)
             self.assertTrue(match_filter.predicates[0].value_quoted)
 
-    def test_aqueous_species_table_requires_both_args(self):
+    def test_aqueous_species_table_requires_both_args(self) -> None:
         """
         Ensure missing ``names`` or ``fields`` raises ``ParseError``.
         """
@@ -405,7 +428,7 @@ class TestAqueousSpeciesTablePreset(TestCase):
                 },
             )
 
-    def test_aqueous_species_table_rejects_empty_lists(self):
+    def test_aqueous_species_table_rejects_empty_lists(self) -> None:
         """
         Ensure empty ``names`` or ``fields`` raise ``ParseError``.
         """
@@ -415,7 +438,11 @@ class TestAqueousSpeciesTablePreset(TestCase):
                 {
                     "row_scope": "es",
                     "columns": [
-                        {"preset": "aqueous_species_table", "names": [], "fields": ["log_molality"]},
+                        {
+                            "preset": "aqueous_species_table",
+                            "names": [],
+                            "fields": ["log_molality"],
+                        },
                     ],
                 },
             )
@@ -425,12 +452,16 @@ class TestAqueousSpeciesTablePreset(TestCase):
                 {
                     "row_scope": "es",
                     "columns": [
-                        {"preset": "aqueous_species_table", "names": ["Ca+2"], "fields": []},
+                        {
+                            "preset": "aqueous_species_table",
+                            "names": ["Ca+2"],
+                            "fields": [],
+                        },
                     ],
                 },
             )
 
-    def test_aqueous_species_table_rejects_unknown_field(self):
+    def test_aqueous_species_table_rejects_unknown_field(self) -> None:
         """
         Ensure ``fields`` entries are validated against ``AqueousSpecies``'s
         leaf fields.
@@ -454,7 +485,7 @@ class TestAqueousSpeciesTablePreset(TestCase):
         for leaf in self._aqs_field_names():
             self.assertIn(leaf, str(cm.exception))
 
-    def test_aqueous_species_table_rejects_unknown_extra_args(self):
+    def test_aqueous_species_table_rejects_unknown_extra_args(self) -> None:
         """
         Ensure unknown extra arguments are rejected at compile time.
         """
@@ -474,7 +505,7 @@ class TestAqueousSpeciesTablePreset(TestCase):
                 },
             )
 
-    def test_aqueous_species_table_rejects_non_string_names_and_fields(self):
+    def test_aqueous_species_table_rejects_non_string_names_and_fields(self) -> None:
         """
         Ensure non-list / non-string-list arguments raise ``ParseError``.
         """
@@ -507,7 +538,9 @@ class TestAqueousSpeciesTablePreset(TestCase):
                 },
             )
 
-    def test_aqueous_species_table_missing_es_alias_raises_preset_scope_missing(self):
+    def test_aqueous_species_table_missing_es_alias_raises_preset_scope_missing(
+        self,
+    ) -> None:
         """
         Ensure the preset rejects a scope table that lacks ``es``.
         """
@@ -529,7 +562,7 @@ class TestCompileQueryPresetsParameter(TestCase):
             "compile_query raises InvalidPath until EQL gains list[str] terminal support."
         ),
     )
-    def test_default_uses_canonical_bundle(self):
+    def test_default_uses_canonical_bundle(self) -> None:
         """
         Ensure ``presets=None`` (the default) resolves canonical names.
         """
@@ -539,7 +572,7 @@ class TestCompileQueryPresetsParameter(TestCase):
         )
         self.assertEqual(len(compiled.compiled_columns), 7)
 
-    def test_default_uses_canonical_bundle_with_container_terminals(self):
+    def test_default_uses_canonical_bundle_with_container_terminals(self) -> None:
         """
         Ensure ``presets=None`` (the default) resolves canonical names.
         """
@@ -557,7 +590,7 @@ class TestCompileQueryPresetsParameter(TestCase):
             "compile_query raises InvalidPath until EQL gains list[str] terminal support."
         ),
     )
-    def test_explicit_canonical_bundle_works(self):
+    def test_explicit_canonical_bundle_works(self) -> None:
         """
         Ensure passing ``BUILTIN_PRESETS`` explicitly behaves identically to
         the default.
@@ -569,7 +602,7 @@ class TestCompileQueryPresetsParameter(TestCase):
         )
         self.assertEqual(len(compiled.compiled_columns), 7)
 
-    def test_explicit_canonical_bundle_works_with_container_terminals(self):
+    def test_explicit_canonical_bundle_works_with_container_terminals(self) -> None:
         """
         Ensure passing ``BUILTIN_PRESETS`` explicitly behaves identically to
         the default.
@@ -582,7 +615,7 @@ class TestCompileQueryPresetsParameter(TestCase):
         )
         self.assertEqual(len(compiled.compiled_columns), 7)
 
-    def test_empty_bundle_disables_canonical_presets(self):
+    def test_empty_bundle_disables_canonical_presets(self) -> None:
         """
         Ensure ``presets={}`` disables presets entirely so canonical names
         raise ``UnknownPreset``.
@@ -595,7 +628,7 @@ class TestCompileQueryPresetsParameter(TestCase):
             )
         self.assertEqual(cm.exception.name, "run_metadata")
 
-    def test_custom_bundle_replaces_canonical(self):
+    def test_custom_bundle_replaces_canonical(self) -> None:
         """
         Ensure a caller-supplied bundle is the only one in effect; canonical
         names are unavailable when not present in the supplied mapping.
@@ -612,7 +645,9 @@ class TestCompileQueryPresetsParameter(TestCase):
             {"row_scope": "order", "columns": [{"preset": "custom"}]},
             presets=bundle,
         )
-        self.assertEqual([c.spec.name for c in compiled.compiled_columns], ["custom_id"])
+        self.assertEqual(
+            [c.spec.name for c in compiled.compiled_columns], ["custom_id"]
+        )
 
         # Canonical preset name is unavailable under the custom bundle.
         with self.assertRaises(UnknownPreset):
@@ -622,7 +657,7 @@ class TestCompileQueryPresetsParameter(TestCase):
                 presets=bundle,
             )
 
-    def test_custom_bundle_supports_recursive_preset_expansion(self):
+    def test_custom_bundle_supports_recursive_preset_expansion(self) -> None:
         """
         Ensure a custom preset that emits another preset entry resolves the
         inner reference under the same bundle (spec §10).

@@ -19,7 +19,7 @@ def _ignore_sigint() -> None:
 class MultiprocessingFuture(AbstractFuture[T]):
     _future: Future[T]
 
-    def __init__(self, future: Future[T]):
+    def __init__(self, future: Future[T]) -> None:
         self._future = future
 
     @override
@@ -39,7 +39,7 @@ class MultiprocessingExecutor(AbstractExecutor):
     _pool: ProcessPoolExecutor | None
     _num_workers: int
 
-    def __init__(self, settings: ExecutorSettings):
+    def __init__(self, settings: ExecutorSettings) -> None:
         self._pool = None
         self._num_workers = settings.num_workers if settings.num_workers is not None else (os.cpu_count() or 1)
 

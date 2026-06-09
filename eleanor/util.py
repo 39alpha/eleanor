@@ -129,7 +129,7 @@ class WorkingDirectory:
     path: Path
     cwd: Path
 
-    def __init__(self, path: StrPath):
+    def __init__(self, path: StrPath) -> None:
         self.path = Path(path).resolve()
         self.cwd = Path.cwd()
 

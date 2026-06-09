@@ -2,7 +2,7 @@
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import cast
+from typing import Self, cast
 
 import numpy as np
 
@@ -18,7 +18,7 @@ class Species:
     name: str
     molar_mass: np.float64
 
-    def __init__(self, *, name: str, molar_mass: np.float64):
+    def __init__(self, *, name: str, molar_mass: np.float64) -> None:
         self.name = name
         self.molar_mass = molar_mass
 
@@ -43,7 +43,7 @@ class BasisSpecies(Species):
         composition: dict[str, int],
         charge: int,
         volume: np.float64 | None,
-    ):
+    ) -> None:
         super().__init__(name=name, molar_mass=molar_mass)
         self.composition = composition
         self.charge = charge
@@ -85,7 +85,7 @@ class SolidSolution:
     name: str
     end_members: dict[str, np.float64]
 
-    def __init__(self, *, name: str, end_members: dict[str, np.float64]):
+    def __init__(self, *, name: str, end_members: dict[str, np.float64]) -> None:
         self.name = name
         self.end_members = end_members
 
@@ -135,7 +135,7 @@ class TPCurve:
     P: tuple[Array1D[np.float64], Array1D[np.float64]]
     domain: list[FloatRange]
 
-    def __init__(self, T: dict[str, np.float64], P: tuple[Array1D[np.float64], Array1D[np.float64]]):
+    def __init__(self, T: dict[str, np.float64], P: tuple[Array1D[np.float64], Array1D[np.float64]]) -> None:
         if not ("min" in T and "mid" in T and "max" in T):
             raise ValueError("temperature dictionary must have min, mid and max keys")
 
@@ -163,7 +163,7 @@ class TPCurve:
         if not np.isclose(left, right):
             raise ValueError("provided polynomials differ at the common temperature")
 
-    def reset_domain(self):
+    def reset_domain(self) -> Self:
         self.domain = [(self.T["min"], self.T["max"])]
         return self
 
@@ -184,7 +184,7 @@ class TPCurve:
             raise TypeError(value)
         return value
 
-    def set_domain(self, temperature_range: FloatRange, pressure_range: FloatRange):
+    def set_domain(self, temperature_range: FloatRange, pressure_range: FloatRange) -> bool:
         Tmin, Tmax = temperature_range
         Pmin, Pmax = pressure_range
 
@@ -387,7 +387,7 @@ class Data1:
         return total
 
     @classmethod
-    def from_file(cls, filename: StrPath):
+    def from_file(cls, filename: StrPath) -> Self:
         filename = Path(filename)
 
         data = read_data1(filename)

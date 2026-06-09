@@ -1,11 +1,13 @@
 import click
 import pytest
-from pytest_mock import MockerFixture
-
 from eleanor.cli.util import config_from_args
 from eleanor.config import Config
 from eleanor.exceptions import EleanorException
-from eleanor.output.postgres.settings import PostgresDatabaseSettings, PostgresSinkSettings
+from eleanor.output.postgres.settings import (
+    PostgresDatabaseSettings,
+    PostgresSinkSettings,
+)
+from pytest_mock import MockerFixture
 
 
 def test_database_overrides_postgres_database(mocker: MockerFixture) -> None:
@@ -25,7 +27,9 @@ def test_database_overrides_postgres_database(mocker: MockerFixture) -> None:
     assert result.output.settings.database.database == "override_db"
 
 
-def test_database_override_does_not_modify_other_properties(mocker: MockerFixture):
+def test_database_override_does_not_modify_other_properties(
+    mocker: MockerFixture,
+) -> None:
     base = Config.from_dict(
         {
             "output": {
@@ -46,7 +50,7 @@ def test_database_override_does_not_modify_other_properties(mocker: MockerFixtur
     )
 
 
-def test_database_override_raises_for_non_postgres_sinks(mocker: MockerFixture):
+def test_database_override_raises_for_non_postgres_sinks(mocker: MockerFixture) -> None:
     non_postgres = Config.from_dict(
         {
             "output": {
@@ -60,7 +64,7 @@ def test_database_override_raises_for_non_postgres_sinks(mocker: MockerFixture):
         _ = config_from_args("/fake.yaml", "db")
 
 
-def test_database_required_when_not_configured(mocker: MockerFixture):
+def test_database_required_when_not_configured(mocker: MockerFixture) -> None:
     base = Config.from_dict(
         {
             "output": {
@@ -73,7 +77,7 @@ def test_database_required_when_not_configured(mocker: MockerFixture):
         _ = config_from_args("/fake.yaml", None)
 
 
-def test_database_requirement_can_be_disabled(mocker: MockerFixture):
+def test_database_requirement_can_be_disabled(mocker: MockerFixture) -> None:
     base = Config.from_dict(
         {
             "output": {"kind": "postgres"},

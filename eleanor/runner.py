@@ -22,7 +22,7 @@ from eleanor.util import WorkingDirectory
 class Runner:
     kernel: AbstractKernel
 
-    def __init__(self, kernel: AbstractKernel):
+    def __init__(self, kernel: AbstractKernel) -> None:
         self.kernel = kernel
 
     def dispatch(

@@ -242,7 +242,7 @@ class CsvSink(AbstractOutputSink):
     _vs_points_seen: dict[int, int]
     _order_versions: dict[int, str]
 
-    def __init__(self, settings: CsvSinkSettings):
+    def __init__(self, settings: CsvSinkSettings) -> None:
         self.settings = settings
         self._compiled = compile_query(Order, settings.query)
         self._columns = [spec.name for spec in self._compiled.columns]

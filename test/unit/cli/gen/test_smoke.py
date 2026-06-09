@@ -1,6 +1,5 @@
 import pytest
 from click.testing import CliRunner
-
 from eleanor.cli import main
 from eleanor.cli.gen import FORMATS, validate_template
 from eleanor.config import Config

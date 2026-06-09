@@ -2,12 +2,14 @@ from pathlib import Path
 from typing import Protocol
 
 import pytest
-
 from eleanor.config import Config
 from eleanor.config.executor import ExecutorConfig
 from eleanor.config.output import OutputSinkConfig
 from eleanor.exceptions import EleanorException
-from eleanor.output.postgres.settings import PostgresDatabaseSettings, PostgresSinkSettings
+from eleanor.output.postgres.settings import (
+    PostgresDatabaseSettings,
+    PostgresSinkSettings,
+)
 
 FORMATS = ["yaml", "yml", "toml", "json"]
 
@@ -23,7 +25,9 @@ def test_default_config() -> None:
 
 
 @pytest.mark.parametrize("fmt", FORMATS)
-def test_config_from_file_format(helpers: type[Helpers], tmp_path: Path, fmt: str) -> None:
+def test_config_from_file_format(
+    helpers: type[Helpers], tmp_path: Path, fmt: str
+) -> None:
     data: dict[str, object] = {
         "output": {
             "kind": "postgres",
@@ -67,7 +71,9 @@ def test_config_from_file_format(helpers: type[Helpers], tmp_path: Path, fmt: st
 
 
 @pytest.mark.parametrize("fmt", FORMATS)
-def test_config_from_string_format(helpers: type[Helpers], tmp_path: Path, fmt: str) -> None:
+def test_config_from_string_format(
+    helpers: type[Helpers], tmp_path: Path, fmt: str
+) -> None:
     data: dict[str, object] = {
         "output": {
             "kind": "postgres",

@@ -2,7 +2,6 @@ from typing import cast
 from unittest import TestCase, mock
 
 import numpy as np
-
 from eleanor.exceptions import EleanorException, EleanorWarning
 from eleanor.parameters import ValueParameter
 from eleanor.reactants import (
@@ -25,17 +24,20 @@ class TestReactants(TestCase):
     Tests of the eleanor.reactants module.
     """
 
-    def test_abstract_reactant_dispatch(self):
+    def test_abstract_reactant_dispatch(self) -> None:
         """
         Ensure that :meth:`AbstractReactant.from_dict` dispatches to the matching subclass.
         """
         raw: dict[str, object] = {"name": "r", "type": "mineral", "amount": 1.0}
-        with mock.patch("eleanor.reactants.MineralReactant.from_dict", return_value="mineral-reactant") as m:
+        with mock.patch(
+            "eleanor.reactants.MineralReactant.from_dict",
+            return_value="mineral-reactant",
+        ) as m:
             out = AbstractReactant.from_dict(raw)
         m.assert_called_once_with(raw, None)
         self.assertEqual(out, "mineral-reactant")
 
-    def test_abstract_reactant_dispatch_all_types(self):
+    def test_abstract_reactant_dispatch_all_types(self) -> None:
         """
         Ensure that :meth:`AbstractReactant.from_dict` dispatches all supported reactant types.
         """
@@ -58,8 +60,17 @@ class TestReactants(TestCase):
                 raw["end_members"] = {"em1": 0.5, "em2": 0.5}
             if reactant_type == "combined":
                 raw["components"] = {
-                    "SiO2": {"name": "SiO2", "type": "special", "composition": {"Si": 1, "O": 2}, "fraction": 0.5},
-                    "fayalite": {"name": "fayalite", "type": "mineral", "fraction": 0.5},
+                    "SiO2": {
+                        "name": "SiO2",
+                        "type": "special",
+                        "composition": {"Si": 1, "O": 2},
+                        "fraction": 0.5,
+                    },
+                    "fayalite": {
+                        "name": "fayalite",
+                        "type": "mineral",
+                        "fraction": 0.5,
+                    },
                 }
             with self.subTest(reactant_type=reactant_type):
                 with mock.patch(target, return_value=f"{reactant_type}-reactant") as m:
@@ -67,13 +78,15 @@ class TestReactants(TestCase):
                 m.assert_called_once_with(raw, None)
                 self.assertEqual(out, f"{reactant_type}-reactant")
 
-    def test_abstract_reactant_parameters_placeholder(self):
+    def test_abstract_reactant_parameters_placeholder(self) -> None:
         """
         Ensure the abstract placeholder body for :meth:`AbstractReactant.parameters` is executable.
         """
-        self.assertEqual(AbstractReactant.parameters(cast(AbstractReactant, object())), [])
+        self.assertEqual(
+            AbstractReactant.parameters(cast(AbstractReactant, object())), []
+        )
 
-    def test_abstract_reactant_unexpected_type_branch(self):
+    def test_abstract_reactant_unexpected_type_branch(self) -> None:
         """
         Ensure that the explicit unexpected-type fallback in dispatch raises :class:`EleanorException`.
         """
@@ -95,14 +108,20 @@ class TestReactants(TestCase):
             with self.assertRaises(EleanorException):
                 AbstractReactant.from_dict({"name": "x", "type": "anything"})
 
-    def test_specific_titrated_subclasses_from_dict(self):
+    def test_specific_titrated_subclasses_from_dict(self) -> None:
         """
         Ensure that typed titrated reactants parse successfully for their matching type.
         """
-        mineral = MineralReactant.from_dict({"name": "m", "type": "mineral", "amount": 1.0})
-        aqueous = AqueousReactant.from_dict({"name": "a", "type": "aqueous", "amount": 1.0})
+        mineral = MineralReactant.from_dict(
+            {"name": "m", "type": "mineral", "amount": 1.0}
+        )
+        aqueous = AqueousReactant.from_dict(
+            {"name": "a", "type": "aqueous", "amount": 1.0}
+        )
         gas = GasReactant.from_dict({"name": "g", "type": "gas", "amount": 1.0})
-        element = ElementReactant.from_dict({"name": "e", "type": "element", "amount": 1.0})
+        element = ElementReactant.from_dict(
+            {"name": "e", "type": "element", "amount": 1.0}
+        )
         special = SpecialReactant.from_dict(
             {
                 "name": "s",
@@ -117,7 +136,7 @@ class TestReactants(TestCase):
         self.assertEqual(element.type, ReactantType.ELEMENT)
         self.assertEqual(special.composition, {"Na": 1})
 
-    def test_specific_titrated_subclasses_reject_wrong_type(self):
+    def test_specific_titrated_subclasses_reject_wrong_type(self) -> None:
         """
         Ensure specialized titrated reactants reject mismatched types.
         """
@@ -128,29 +147,35 @@ class TestReactants(TestCase):
         with self.assertRaises(EleanorException):
             GasReactant.from_dict({"name": "g", "type": "aqueous", "amount": 1.0})
         with self.assertRaises(EleanorException):
-            SpecialReactant.from_dict({"name": "s", "type": "gas", "amount": 1.0, "composition": {"Na": 1}})
+            SpecialReactant.from_dict(
+                {"name": "s", "type": "gas", "amount": 1.0, "composition": {"Na": 1}}
+            )
         with self.assertRaises(EleanorException):
             ElementReactant.from_dict({"name": "e", "type": "gas", "amount": 1.0})
 
-    def test_fixed_gas_from_dict_and_volume(self):
+    def test_fixed_gas_from_dict_and_volume(self) -> None:
         """
         Ensure that :class:`FixedGasReactant` parsing/volume logic works for valid configs.
         """
-        reactant = FixedGasReactant.from_dict({"name": "co2", "type": "fixed gas", "amount": 1.0, "fugacity": 0.1})
+        reactant = FixedGasReactant.from_dict(
+            {"name": "co2", "type": "fixed gas", "amount": 1.0, "fugacity": 0.1}
+        )
         self.assertEqual(reactant.type, ReactantType.FIXED_GAS)
         self.assertIsInstance(reactant.amount, ValueParameter)
         self.assertIsInstance(reactant.fugacity, ValueParameter)
         self.assertEqual(reactant.parameters(), [reactant.amount, reactant.fugacity])
         self.assertEqual(reactant.volume(), 1.0)
 
-    def test_fixed_gas_from_dict_rejects_wrong_type(self):
+    def test_fixed_gas_from_dict_rejects_wrong_type(self) -> None:
         """
         Ensure that :class:`FixedGasReactant` rejects non-fixed-gas configs.
         """
         with self.assertRaises(EleanorException):
-            FixedGasReactant.from_dict({"name": "bad", "type": "gas", "amount": 1.0, "fugacity": 0.1})
+            FixedGasReactant.from_dict(
+                {"name": "bad", "type": "gas", "amount": 1.0, "fugacity": 0.1}
+            )
 
-    def test_solid_solution_from_dict_success(self):
+    def test_solid_solution_from_dict_success(self) -> None:
         """
         Ensure that :class:`SolidSolutionReactant` parses valid end-member fractions.
         """
@@ -167,7 +192,7 @@ class TestReactants(TestCase):
         self.assertEqual(len(reactant.parameters()), 4)
         self.assertEqual(reactant.volume(), 2.0)
 
-    def test_solid_solution_rejects_non_value_parameter(self):
+    def test_solid_solution_rejects_non_value_parameter(self) -> None:
         """
         Ensure that solid-solution end members reject list/range parameters.
         """
@@ -201,7 +226,7 @@ class TestReactants(TestCase):
                 }
             )
 
-    def test_solid_solution_rejects_loaded_non_value_parameter(self):
+    def test_solid_solution_rejects_loaded_non_value_parameter(self) -> None:
         """
         Ensure that loaded non-value end-member parameters trigger the explicit runtime type check.
         """
@@ -216,7 +241,7 @@ class TestReactants(TestCase):
                     }
                 )
 
-    def test_solid_solution_rejects_wrong_type(self):
+    def test_solid_solution_rejects_wrong_type(self) -> None:
         """
         Ensure that :class:`SolidSolutionReactant` rejects configs with non-solid-solution types.
         """
@@ -230,7 +255,7 @@ class TestReactants(TestCase):
                 }
             )
 
-    def test_solid_solution_rejects_out_of_range_and_bad_sum(self):
+    def test_solid_solution_rejects_out_of_range_and_bad_sum(self) -> None:
         """
         Ensure that solid-solution fractions must be in [0, 1] and sum to 1.0.
         """
@@ -264,18 +289,20 @@ class TestReactants(TestCase):
                 }
             )
 
-    def test_abstract_reactant_from_dict_unexpected_type_raises(self):
+    def test_abstract_reactant_from_dict_unexpected_type_raises(self) -> None:
         """
         Ensure unexpected reactant types surface as value/enum errors.
         """
         with self.assertRaises(ValueError):
             AbstractReactant.from_dict({"name": "x", "type": "not-a-type"})
 
-    def test_combined_component_from_dict_validation(self):
+    def test_combined_component_from_dict_validation(self) -> None:
         """
         Ensure CombinedReactantComponent.from_dict validates type-specific payloads and constraints.
         """
-        mineral = CombinedReactantComponent.from_dict({"name": "fayalite", "type": "mineral", "fraction": 0.2})
+        mineral = CombinedReactantComponent.from_dict(
+            {"name": "fayalite", "type": "mineral", "fraction": 0.2}
+        )
         self.assertEqual(mineral.name, "fayalite")
         self.assertEqual(mineral.type, ReactantType.MINERAL)
         self.assertIsNone(mineral.relative_rate)
@@ -308,36 +335,57 @@ class TestReactants(TestCase):
         self.assertIsNotNone(solid_solution.end_members)
 
         with self.assertRaisesRegex(EleanorException, "not supported"):
-            _ = CombinedReactantComponent.from_dict({"name": "fg", "type": "fixed gas", "fraction": 0.5})
+            _ = CombinedReactantComponent.from_dict(
+                {"name": "fg", "type": "fixed gas", "fraction": 0.5}
+            )
 
         with self.assertRaisesRegex(EleanorException, "not supported"):
-            _ = CombinedReactantComponent.from_dict({"name": "nested", "type": "combined", "fraction": 0.5})
+            _ = CombinedReactantComponent.from_dict(
+                {"name": "nested", "type": "combined", "fraction": 0.5}
+            )
 
         with self.assertRaisesRegex(EleanorException, "between 0 and 1 inclusive"):
-            _ = CombinedReactantComponent.from_dict({"name": "x", "type": "mineral", "fraction": -1.0})
+            _ = CombinedReactantComponent.from_dict(
+                {"name": "x", "type": "mineral", "fraction": -1.0}
+            )
 
         with self.assertRaisesRegex(EleanorException, "between 0 and 1 inclusive"):
-            _ = CombinedReactantComponent.from_dict({"name": "x", "type": "mineral", "fraction": 2.0})
+            _ = CombinedReactantComponent.from_dict(
+                {"name": "x", "type": "mineral", "fraction": 2.0}
+            )
 
         with self.assertWarnsRegex(EleanorWarning, "that might be a mistake"):
-            _ = CombinedReactantComponent.from_dict({"name": "x", "type": "mineral", "fraction": 0.0})
+            _ = CombinedReactantComponent.from_dict(
+                {"name": "x", "type": "mineral", "fraction": 0.0}
+            )
 
         with self.assertWarnsRegex(EleanorWarning, "that might be a mistake"):
-            _ = CombinedReactantComponent.from_dict({"name": "x", "type": "mineral", "fraction": 1.0})
+            _ = CombinedReactantComponent.from_dict(
+                {"name": "x", "type": "mineral", "fraction": 1.0}
+            )
 
         with self.assertRaisesRegex(EleanorException, "must be a dictionary"):
-            _ = CombinedReactantComponent.from_dict({"name": "SiO2", "type": "special", "fraction": 0.5})
+            _ = CombinedReactantComponent.from_dict(
+                {"name": "SiO2", "type": "special", "fraction": 0.5}
+            )
 
-    def test_combined_component_parameters_handles_optional_relative_rate(self):
+    def test_combined_component_parameters_handles_optional_relative_rate(self) -> None:
         """
         Ensure CombinedReactantComponent.parameters() includes relative_rate only when present and always includes end members.
         """
-        proportional = CombinedReactantComponent.from_dict({"name": "fayalite", "type": "mineral", "fraction": 0.5})
+        proportional = CombinedReactantComponent.from_dict(
+            {"name": "fayalite", "type": "mineral", "fraction": 0.5}
+        )
         self.assertIsNone(proportional.relative_rate)
         self.assertEqual(proportional.parameters(), [])
 
         explicit = CombinedReactantComponent.from_dict(
-            {"name": "forsterite", "type": "mineral", "fraction": 0.5, "relative_rate": 0.8}
+            {
+                "name": "forsterite",
+                "type": "mineral",
+                "fraction": 0.5,
+                "relative_rate": 0.8,
+            }
         )
         self.assertIsNotNone(explicit.relative_rate)
         if explicit.relative_rate is None:
@@ -359,7 +407,7 @@ class TestReactants(TestCase):
             [*solid_solution.end_members.values()],
         )
 
-    def test_combined_reactant_from_dict_success(self):
+    def test_combined_reactant_from_dict_success(self) -> None:
         """
         Ensure CombinedReactant.from_dict parses valid configurations.
         """
@@ -370,16 +418,26 @@ class TestReactants(TestCase):
                 "amount": 1.0,
                 "titration_rate": 2.0,
                 "components": {
-                    "SiO2": {"type": "special", "composition": {"Si": 1, "O": 2}, "fraction": 0.4},
-                    "Na2O": {"type": "special", "composition": {"Na": 2, "O": 1}, "fraction": 0.6},
+                    "SiO2": {
+                        "type": "special",
+                        "composition": {"Si": 1, "O": 2},
+                        "fraction": 0.4,
+                    },
+                    "Na2O": {
+                        "type": "special",
+                        "composition": {"Na": 2, "O": 1},
+                        "fraction": 0.6,
+                    },
                 },
             }
         )
         self.assertEqual(reactant.type, ReactantType.COMBINED)
         self.assertEqual(set(reactant.components.keys()), {"SiO2", "Na2O"})
-        self.assertAlmostEqual(sum(c.fraction.value for c in reactant.components.values()), 1.0)
+        self.assertAlmostEqual(
+            sum(c.fraction.value for c in reactant.components.values()), 1.0
+        )
 
-    def test_combined_reactant_from_dict_failures(self):
+    def test_combined_reactant_from_dict_failures(self) -> None:
         """
         Ensure CombinedReactant.from_dict rejects invalid combined-reactant definitions.
         """
@@ -390,20 +448,36 @@ class TestReactants(TestCase):
                     "type": "mineral",
                     "amount": 1.0,
                     "components": {
-                        "SiO2": {"type": "special", "composition": {"Si": 1, "O": 2}, "fraction": 0.5},
-                        "Al2O3": {"type": "special", "composition": {"Al": 2, "O": 3}, "fraction": 0.5},
+                        "SiO2": {
+                            "type": "special",
+                            "composition": {"Si": 1, "O": 2},
+                            "fraction": 0.5,
+                        },
+                        "Al2O3": {
+                            "type": "special",
+                            "composition": {"Al": 2, "O": 3},
+                            "fraction": 0.5,
+                        },
                     },
                 }
             )
         with self.assertRaisesRegex(EleanorException, "has no components"):
-            CombinedReactant.from_dict({"name": "empty", "type": "combined", "amount": 1.0, "components": {}})
+            CombinedReactant.from_dict(
+                {"name": "empty", "type": "combined", "amount": 1.0, "components": {}}
+            )
         with self.assertWarnsRegex(EleanorWarning, "has only one component"):
             CombinedReactant.from_dict(
                 {
                     "name": "single",
                     "type": "combined",
                     "amount": 1.0,
-                    "components": {"SiO2": {"type": "special", "composition": {"Si": 1, "O": 2}, "fraction": 1.0}},
+                    "components": {
+                        "SiO2": {
+                            "type": "special",
+                            "composition": {"Si": 1, "O": 2},
+                            "fraction": 1.0,
+                        }
+                    },
                 }
             )
         with self.assertRaises(EleanorException):
@@ -413,8 +487,16 @@ class TestReactants(TestCase):
                     "type": "combined",
                     "amount": 1.0,
                     "components": {
-                        "SiO2": {"type": "special", "composition": {"Si": 1, "O": 2}, "fraction": 0.5},
-                        "Na2O": {"type": "special", "composition": {"Na": 2, "O": 1}, "fraction": 0.4},
+                        "SiO2": {
+                            "type": "special",
+                            "composition": {"Si": 1, "O": 2},
+                            "fraction": 0.5,
+                        },
+                        "Na2O": {
+                            "type": "special",
+                            "composition": {"Na": 2, "O": 1},
+                            "fraction": 0.4,
+                        },
                     },
                 }
             )
@@ -425,13 +507,19 @@ class TestReactants(TestCase):
                     "type": "combined",
                     "amount": 1.0,
                     "components": {
-                        "one": {"type": "special", "composition": {"Si": 1, "O": 2}, "fraction": 0.5},
+                        "one": {
+                            "type": "special",
+                            "composition": {"Si": 1, "O": 2},
+                            "fraction": 0.5,
+                        },
                         "two": {"type": "fixed gas", "fraction": 0.5},
                     },
                 }
             )
 
-    def test_combined_reactant_from_dict_rejects_wrong_type_before_components(self):
+    def test_combined_reactant_from_dict_rejects_wrong_type_before_components(
+        self,
+    ) -> None:
         """
         Ensure CombinedReactant.from_dict raises the type-mismatch error before component parsing.
         """
@@ -445,12 +533,16 @@ class TestReactants(TestCase):
                     "type": "mineral",
                     "amount": 1.0,
                     "components": {
-                        "only-one": {"type": "special", "composition": {"Si": 1}, "fraction": 0.5},
+                        "only-one": {
+                            "type": "special",
+                            "composition": {"Si": 1},
+                            "fraction": 0.5,
+                        },
                     },
                 }
             )
 
-    def test_combined_reactant_parameters(self):
+    def test_combined_reactant_parameters(self) -> None:
         """
         Ensure CombinedReactant.parameters() includes base and all component parameters.
         """
@@ -461,7 +553,11 @@ class TestReactants(TestCase):
                 "amount": 1.0,
                 "titration_rate": 2.0,
                 "components": {
-                    "fayalite": {"type": "mineral", "fraction": 0.6, "relative_rate": 1.5},
+                    "fayalite": {
+                        "type": "mineral",
+                        "fraction": 0.6,
+                        "relative_rate": 1.5,
+                    },
                     "olivine-ss": {
                         "type": "solid solution",
                         "fraction": 0.4,
@@ -474,7 +570,7 @@ class TestReactants(TestCase):
         params = reactant.parameters()
         self.assertEqual(len(params), 6)
 
-    def test_combined_reactant_volume_folds_in_component_parameters(self):
+    def test_combined_reactant_volume_folds_in_component_parameters(self) -> None:
         """
         Ensure CombinedReactant.volume() folds each component's parameter
         block (relative_rate plus any nested end_members) into the parent
@@ -509,7 +605,9 @@ class TestReactants(TestCase):
         base_volume = reactant.amount.volume() * reactant.titration_rate.volume()
         component_contribution = sum(
             (
-                component.relative_rate.volume() if component.relative_rate is not None else np.float64(1.0)
+                component.relative_rate.volume()
+                if component.relative_rate is not None
+                else np.float64(1.0)
                 for component in reactant.components.values()
             ),
             start=np.float64(0.0),
@@ -517,7 +615,7 @@ class TestReactants(TestCase):
         expected = base_volume + component_contribution
         self.assertEqual(reactant.volume(), expected)
 
-    def test_combined_reactant_volume_includes_solid_solution_end_members(self):
+    def test_combined_reactant_volume_includes_solid_solution_end_members(self) -> None:
         """
         Ensure a solid-solution component contributes the product of its
         relative_rate and end_member parameter volumes to the combined volume.

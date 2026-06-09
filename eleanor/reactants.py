@@ -28,7 +28,7 @@ class ReactantType(StrEnum):
 class AbstractReactant(ABC):
     name: str
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if self.name == "":
             raise EleanorException("reactant name is empty")
 
@@ -86,7 +86,7 @@ class TitratedReactant(AbstractReactant, ABC):
         name: str,
         amount: ParameterOrSource,
         titration_rate: ParameterOrSource | None = None,
-    ):
+    ) -> None:
         super().__init__(name=name)
         self.amount = load_parameter(amount)
         self.titration_rate = load_parameter(1.0 if titration_rate is None else titration_rate)
@@ -106,7 +106,13 @@ _ = AbstractReactant.register(TitratedReactant)
 @final
 @dataclass(init=False)
 class MineralReactant(TitratedReactant):
-    def __init__(self, *, name: str, amount: ParameterOrSource, titration_rate: ParameterOrSource | None = None):
+    def __init__(
+        self,
+        *,
+        name: str,
+        amount: ParameterOrSource,
+        titration_rate: ParameterOrSource | None = None,
+    ) -> None:
         super().__init__(name=name, amount=amount, titration_rate=titration_rate)
 
     @property
@@ -137,7 +143,13 @@ _ = TitratedReactant.register(MineralReactant)
 @final
 @dataclass(init=False)
 class AqueousReactant(TitratedReactant):
-    def __init__(self, *, name: str, amount: ParameterOrSource, titration_rate: ParameterOrSource | None = None):
+    def __init__(
+        self,
+        *,
+        name: str,
+        amount: ParameterOrSource,
+        titration_rate: ParameterOrSource | None = None,
+    ) -> None:
         super().__init__(name=name, amount=amount, titration_rate=titration_rate)
 
     @property
@@ -167,7 +179,13 @@ _ = TitratedReactant.register(AqueousReactant)
 @final
 @dataclass(init=False)
 class GasReactant(TitratedReactant):
-    def __init__(self, *, name: str, amount: ParameterOrSource, titration_rate: ParameterOrSource | None = None):
+    def __init__(
+        self,
+        *,
+        name: str,
+        amount: ParameterOrSource,
+        titration_rate: ParameterOrSource | None = None,
+    ) -> None:
         super().__init__(name=name, amount=amount, titration_rate=titration_rate)
 
     @property
@@ -200,7 +218,7 @@ class FixedGasReactant(AbstractReactant):
     amount: Parameter
     fugacity: Parameter
 
-    def __init__(self, *, name: str, amount: ParameterOrSource, fugacity: ParameterOrSource):
+    def __init__(self, *, name: str, amount: ParameterOrSource, fugacity: ParameterOrSource) -> None:
         super().__init__(name=name)
         self.amount = load_parameter(amount)
         self.fugacity = load_parameter(fugacity)
@@ -251,7 +269,7 @@ class SpecialReactant(TitratedReactant):
         amount: ParameterOrSource,
         titration_rate: ParameterOrSource | None = None,
         composition: dict[str, int],
-    ):
+    ) -> None:
         super().__init__(name=name, amount=amount, titration_rate=titration_rate)
         self.composition = composition
         if len(self.composition) == 0:
@@ -291,7 +309,13 @@ _ = TitratedReactant.register(SpecialReactant)
 @final
 @dataclass(init=False)
 class ElementReactant(TitratedReactant):
-    def __init__(self, *, name: str, amount: ParameterOrSource, titration_rate: ParameterOrSource | None = None):
+    def __init__(
+        self,
+        *,
+        name: str,
+        amount: ParameterOrSource,
+        titration_rate: ParameterOrSource | None = None,
+    ) -> None:
         super().__init__(name=name, amount=amount, titration_rate=titration_rate)
 
     @property
@@ -330,7 +354,7 @@ class SolidSolutionReactant(TitratedReactant):
         amount: ParameterOrSource,
         titration_rate: ParameterOrSource | None = None,
         end_members: Mapping[str, ParameterOrSource],
-    ):
+    ) -> None:
         super().__init__(name=name, amount=amount, titration_rate=titration_rate)
         end_members = {k: load_parameter(v) for k, v in end_members.items()}
 
@@ -421,7 +445,7 @@ class CombinedReactantComponent:
         relative_rate: ParameterOrSource | None,
         composition: dict[str, int] | None = None,
         end_members: Mapping[str, ParameterOrSource] | None = None,
-    ):
+    ) -> None:
         self.name = name
         self.type = type
         fraction = load_parameter(fraction)
@@ -553,7 +577,7 @@ class CombinedReactant(TitratedReactant):
         amount: ParameterOrSource,
         titration_rate: ParameterOrSource | None = None,
         components: dict[str, CombinedReactantComponent],
-    ):
+    ) -> None:
         super().__init__(name=name, amount=amount, titration_rate=titration_rate)
         self.components = components
         if len(components) == 0:

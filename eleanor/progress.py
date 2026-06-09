@@ -143,7 +143,7 @@ class _ChannelHandle:
     _queue: "Queue[ProgressMessage | None]"
     _channel: Channel
 
-    def __init__(self, queue: "Queue[ProgressMessage | None]", channel: Channel):
+    def __init__(self, queue: "Queue[ProgressMessage | None]", channel: Channel) -> None:
         self._queue = queue
         self._channel = channel
 
@@ -175,7 +175,7 @@ class Progress:
     queue: "Queue[ProgressMessage | None]"
     process: Process
 
-    def __init__(self, manager: SyncManager):
+    def __init__(self, manager: SyncManager) -> None:
         # SyncManager.Queue() is typed as Any by the stubs; narrow it here so
         # downstream users see the ProgressMessage shape we expect.
         self.queue = cast("Queue[ProgressMessage | None]", manager.Queue())

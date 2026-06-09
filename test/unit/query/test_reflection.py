@@ -20,7 +20,7 @@ class TestReflection(TestCase):
     Tests for dataclass reflection and typed path walking.
     """
 
-    def test_dataclass_fields_classify_collection_kinds(self):
+    def test_dataclass_fields_classify_collection_kinds(self) -> None:
         """
         Ensure field introspection identifies dataclass, list, and dict field kinds.
         """
@@ -29,7 +29,7 @@ class TestReflection(TestCase):
         self.assertIsInstance(kinds["points"], ListField)
         self.assertIsInstance(kinds["point_map"], DictField)
 
-    def test_leaf_fields_only_returns_non_container_fields(self):
+    def test_leaf_fields_only_returns_non_container_fields(self) -> None:
         """
         Ensure leaf_fields only includes scalar leaves for a dataclass.
         """
@@ -37,7 +37,7 @@ class TestReflection(TestCase):
         self.assertEqual({field.name for field in leaves}, {"index"})
         self.assertTrue(all(isinstance(field, LeafField) for field in leaves))
 
-    def test_walk_path_allows_list_match_and_nested_segments(self):
+    def test_walk_path_allows_list_match_and_nested_segments(self) -> None:
         """
         Ensure list match filters validate and advance to nested leaf segments.
         """
@@ -46,21 +46,21 @@ class TestReflection(TestCase):
         self.assertEqual(steps[0].segment.name, "points")
         self.assertEqual(steps[-1].segment.name, "ph")
 
-    def test_walk_path_rejects_unknown_segment(self):
+    def test_walk_path_rejects_unknown_segment(self) -> None:
         """
         Ensure unknown segments raise InvalidPath.
         """
         with self.assertRaises(InvalidPath):
             walk_path(Sample, parse_path("point.chemistry.unknown"))
 
-    def test_walk_path_rejects_invalid_filter_target(self):
+    def test_walk_path_rejects_invalid_filter_target(self) -> None:
         """
         Ensure wildcard filters on non-container fields raise InvalidFilter.
         """
         with self.assertRaises(InvalidFilter):
             walk_path(Sample, parse_path("point.chemistry[*]"))
 
-    def test_walk_path_rejects_invalid_filter_value_type(self):
+    def test_walk_path_rejects_invalid_filter_value_type(self) -> None:
         """
         Ensure predicate literals that cannot coerce to declared types raise InvalidFilterValue.
         """

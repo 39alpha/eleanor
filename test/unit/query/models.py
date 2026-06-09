@@ -34,10 +34,20 @@ class SimpleSample:
 
 def make_sample() -> Sample:
     return Sample(
-        point=Point(index=0, chemistry=Chemistry(ph=6.8, pe=2.7), minerals=[Mineral(name="calcite", amount=0.2)]),
+        point=Point(
+            index=0,
+            chemistry=Chemistry(ph=6.8, pe=2.7),
+            minerals=[Mineral(name="calcite", amount=0.2)],
+        ),
         points=[
-            Point(index=1, chemistry=Chemistry(ph=7.1, pe=4.2), minerals=[Mineral(name="calcite", amount=0.3)]),
-            Point(index=2, chemistry=None, minerals=[Mineral(name="quartz", amount=0.1)]),
+            Point(
+                index=1,
+                chemistry=Chemistry(ph=7.1, pe=4.2),
+                minerals=[Mineral(name="calcite", amount=0.3)],
+            ),
+            Point(
+                index=2, chemistry=None, minerals=[Mineral(name="quartz", amount=0.1)]
+            ),
         ],
         point_map={
             "a": Point(index=1, chemistry=Chemistry(ph=7.0, pe=3.1), minerals=[]),

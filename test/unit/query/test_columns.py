@@ -33,7 +33,7 @@ class TestColumns(TestCase):
         _, table = resolve_row_scope(Sample, "points[*]")
         return table
 
-    def test_desugar_columns_supports_string_and_structured_entries(self):
+    def test_desugar_columns_supports_string_and_structured_entries(self) -> None:
         """
         Ensure bare path and structured mapping entries produce expected source kinds.
         """
@@ -41,7 +41,12 @@ class TestColumns(TestCase):
         specs = desugar_columns(
             [
                 "point.index",
-                {"path": "point.chemistry.ph", "name": "ph", "on_missing": "null", "default": 0.0},
+                {
+                    "path": "point.chemistry.ph",
+                    "name": "ph",
+                    "on_missing": "null",
+                    "default": 0.0,
+                },
             ],
             table,
         )
@@ -51,7 +56,7 @@ class TestColumns(TestCase):
         self.assertEqual(specs[1].on_missing, "null")
         self.assertEqual(specs[1].default, 0.0)
 
-    def test_desugar_columns_rejects_invalid_shape(self):
+    def test_desugar_columns_rejects_invalid_shape(self) -> None:
         """
         Ensure column mappings must contain exactly one shape discriminator.
         """
@@ -61,7 +66,7 @@ class TestColumns(TestCase):
         with self.assertRaises(ParseError):
             desugar_columns([{"path": "point.index", "splat": "point"}], table)
 
-    def test_desugar_columns_splat_and_preset_expansions(self):
+    def test_desugar_columns_splat_and_preset_expansions(self) -> None:
         """
         Ensure splat and preset entries expand into generated column specs with source metadata.
         """
@@ -86,7 +91,7 @@ class TestColumns(TestCase):
         self.assertTrue(any(spec.name == "pt_index" for spec in specs))
         self.assertTrue(any(spec.name == "point_idx" for spec in specs))
 
-    def test_desugar_columns_unknown_preset_raises(self):
+    def test_desugar_columns_unknown_preset_raises(self) -> None:
         """
         Ensure a preset directive whose name isn't in the bundle in effect
         raises ``UnknownPreset``. Default bundle for ``desugar_columns`` is
@@ -96,7 +101,7 @@ class TestColumns(TestCase):
         with self.assertRaises(UnknownPreset):
             desugar_columns([{"preset": "missing"}], table)
 
-    def test_nested_preset_preserves_inner_source_attribution(self):
+    def test_nested_preset_preserves_inner_source_attribution(self) -> None:
         """
         Ensure a preset that emits another preset entry (or a splat) leaves
         the inner expansion's source intact instead of overwriting it with
@@ -123,10 +128,12 @@ class TestColumns(TestCase):
         specs = desugar_columns([{"preset": "outer"}], table, presets=bundle)
         sources_by_name = {spec.name: spec.source for spec in specs}
         self.assertEqual(sources_by_name["inner_idx"], Preset(name="inner"))
-        self.assertEqual(sources_by_name["outer_index"], Splat(alias="point", prefix="outer_"))
+        self.assertEqual(
+            sources_by_name["outer_index"], Splat(alias="point", prefix="outer_")
+        )
         self.assertEqual(sources_by_name["outer_direct"], Preset(name="outer"))
 
-    def test_desugar_columns_splat_rejects_unknown_field(self):
+    def test_desugar_columns_splat_rejects_unknown_field(self) -> None:
         """
         Ensure splat include/exclude lists reject unknown fields.
         """
@@ -134,7 +141,7 @@ class TestColumns(TestCase):
         with self.assertRaises(SplatUnknownField):
             desugar_columns([{"splat": "point", "include": ["missing"]}], table)
 
-    def test_assign_column_names_disambiguates_implicit_duplicates(self):
+    def test_assign_column_names_disambiguates_implicit_duplicates(self) -> None:
         """
         Ensure implicit duplicate terminal names get alias-prefixed disambiguation.
         """
@@ -143,7 +150,7 @@ class TestColumns(TestCase):
         named = assign_column_names(specs)
         self.assertEqual({spec.name for spec in named}, {"point_ph", "self_ph"})
 
-    def test_assign_column_names_rejects_explicit_name_collisions(self):
+    def test_assign_column_names_rejects_explicit_name_collisions(self) -> None:
         """
         Ensure explicit duplicate names across columns raise ColumnNameCollision.
         """
@@ -158,13 +165,17 @@ class TestColumns(TestCase):
         with self.assertRaises(ColumnNameCollision):
             assign_column_names(specs)
 
-    def test_validate_column_paths_checks_alias_filters_and_terminal_kind(self):
+    def test_validate_column_paths_checks_alias_filters_and_terminal_kind(self) -> None:
         """
         Ensure validation rejects unknown aliases, alias filters, and container terminals by default.
         """
         table = self._point_scope()
         with self.assertRaises(UnknownScope):
-            validate_column_paths(desugar_columns(["ghost.index"], table), table, allow_container_terminals=False)
+            validate_column_paths(
+                desugar_columns(["ghost.index"], table),
+                table,
+                allow_container_terminals=False,
+            )
         with self.assertRaises(InvalidFilter):
             validate_column_paths(
                 desugar_columns(["point[index=1].index"], table),
@@ -172,9 +183,13 @@ class TestColumns(TestCase):
                 allow_container_terminals=False,
             )
         with self.assertRaises(InvalidPath):
-            validate_column_paths(desugar_columns(["point.minerals"], table), table, allow_container_terminals=False)
+            validate_column_paths(
+                desugar_columns(["point.minerals"], table),
+                table,
+                allow_container_terminals=False,
+            )
 
-    def test_validate_column_paths_can_allow_container_terminals(self):
+    def test_validate_column_paths_can_allow_container_terminals(self) -> None:
         """
         Ensure container terminal paths are accepted when explicitly enabled.
         """
@@ -182,7 +197,7 @@ class TestColumns(TestCase):
         specs = desugar_columns(["point.minerals"], table)
         validate_column_paths(specs, table, allow_container_terminals=True)
 
-    def test_validate_column_paths_rejects_iter_filters_in_columns(self):
+    def test_validate_column_paths_rejects_iter_filters_in_columns(self) -> None:
         """
         Ensure iter filters [*] are rejected anywhere in column paths (spec §8).
         """
@@ -200,7 +215,7 @@ class TestColumns(TestCase):
                 allow_container_terminals=False,
             )
 
-    def test_validate_column_paths_accepts_index_meta_on_iter_alias(self):
+    def test_validate_column_paths_accepts_index_meta_on_iter_alias(self) -> None:
         """
         Ensure ``<iter-alias>.@index`` validates cleanly against an iter-bound
         alias produced by a list row_scope (spec §7.1).
@@ -209,7 +224,7 @@ class TestColumns(TestCase):
         specs = desugar_columns(["point.@index"], table)
         validate_column_paths(specs, table, allow_container_terminals=False)
 
-    def test_validate_column_paths_accepts_key_meta_on_dict_iter_alias(self):
+    def test_validate_column_paths_accepts_key_meta_on_dict_iter_alias(self) -> None:
         """
         Ensure ``<dict-iter-alias>.@key`` and ``.@index`` validate cleanly
         against a dict-iter row_scope.
@@ -218,7 +233,7 @@ class TestColumns(TestCase):
         specs = desugar_columns(["point_map.@index", "point_map.@key"], table)
         validate_column_paths(specs, table, allow_container_terminals=False)
 
-    def test_validate_column_paths_rejects_meta_on_non_iter_alias(self):
+    def test_validate_column_paths_rejects_meta_on_non_iter_alias(self) -> None:
         """
         Ensure meta-accessors anchored on a non-iter-bound alias (here
         ``order`` from a list-iter row_scope) raise ``InvalidMetaAccessor``.
@@ -233,7 +248,7 @@ class TestColumns(TestCase):
         self.assertEqual(cm.exception.accessor, "index")
         self.assertIn("order", cm.exception.reason)
 
-    def test_validate_column_paths_rejects_unknown_meta_name(self):
+    def test_validate_column_paths_rejects_unknown_meta_name(self) -> None:
         """
         Ensure unknown ``@<name>`` accessors raise ``InvalidMetaAccessor``.
         """
@@ -247,7 +262,7 @@ class TestColumns(TestCase):
         self.assertEqual(cm.exception.accessor, "bogus")
         self.assertIn("unknown meta-accessor", cm.exception.reason)
 
-    def test_validate_column_paths_rejects_key_meta_on_list_iter(self):
+    def test_validate_column_paths_rejects_key_meta_on_list_iter(self) -> None:
         """
         Ensure ``@key`` on a list-iter alias raises ``InvalidMetaAccessor``.
         """
@@ -261,7 +276,7 @@ class TestColumns(TestCase):
         self.assertEqual(cm.exception.accessor, "key")
         self.assertIn("dict iter scope", cm.exception.reason)
 
-    def test_validate_column_paths_rejects_meta_after_extra_segment(self):
+    def test_validate_column_paths_rejects_meta_after_extra_segment(self) -> None:
         """
         Ensure a meta-accessor preceded by more than the alias head (e.g.
         ``alias.field.@index``) raises ``InvalidMetaAccessor``. Spec §7.1
@@ -278,7 +293,9 @@ class TestColumns(TestCase):
             )
         self.assertEqual(cm.exception.accessor, "index")
 
-    def test_validate_column_paths_meta_with_unknown_alias_raises_unknown_scope(self):
+    def test_validate_column_paths_meta_with_unknown_alias_raises_unknown_scope(
+        self,
+    ) -> None:
         """
         Ensure a meta-accessor whose head alias is not in the scope table
         raises ``UnknownScope`` (consistent with non-meta paths). Catches

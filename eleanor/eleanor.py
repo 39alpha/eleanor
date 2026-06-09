@@ -79,7 +79,7 @@ class Eleanor:
         num_workers: int | None = None,
         executor: AbstractExecutor | None = None,
         output_sink: AbstractOutputSink | None = None,
-    ):
+    ) -> None:
         self.config = config if config is not None else Config()
         self.num_workers = num_workers
 

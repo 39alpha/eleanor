@@ -47,7 +47,7 @@ class AmbientScope:
 class AmbientScopeTable:
     _scopes: dict[str, AmbientScope]
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._scopes = {}
 
     def __contains__(self, alias: str) -> bool:

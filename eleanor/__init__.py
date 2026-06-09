@@ -15,7 +15,7 @@ if TYPE_CHECKING:
     from eleanor.eleanor import Eleanor
 
 
-def __getattr__(name: str):
+def __getattr__(name: str) -> type[Eleanor]:
     if name == "Eleanor":
         from eleanor.eleanor import Eleanor
 

@@ -29,7 +29,7 @@ class Suppression:
     type: str | None
     exceptions: list[str]
 
-    def __init__(self, name: str | None, type: str | None, exceptions: list[str]):
+    def __init__(self, name: str | None, type: str | None, exceptions: list[str]) -> None:
         if name is None and type is None:
             raise EleanorException("suppression must have a name or a type")
 
@@ -111,7 +111,7 @@ class Order:
         vs_points: list[VSPoint] | None = None,
         eleanor_version: str | None = None,
         create_date: datetime | None = None,
-    ):
+    ) -> None:
         self.id = id
         self.tags = list(dict.fromkeys(tags)) if tags is not None else []
         self.name = name
@@ -294,19 +294,19 @@ class Order:
     def from_jsons(cls, content: str) -> Self:
         return cls.from_dict(cast(dict[str, object], json.loads(content)))
 
-    @staticmethod
-    def from_file(fname: StrPath):
+    @classmethod
+    def from_file(cls, fname: StrPath) -> Self:
         try:
             _, ext = os.path.splitext(fname)
             match ext:
                 case ".yaml":
-                    return Order.from_yaml(fname)
+                    return cls.from_yaml(fname)
                 case ".yml":
-                    return Order.from_yaml(fname)
+                    return cls.from_yaml(fname)
                 case ".toml":
-                    return Order.from_toml(fname)
+                    return cls.from_toml(fname)
                 case ".json":
-                    return Order.from_json(fname)
+                    return cls.from_json(fname)
                 case _:
                     raise RuntimeError(f'unsupported file extension "{ext}"')
         except EleanorException:

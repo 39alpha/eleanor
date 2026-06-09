@@ -142,7 +142,7 @@ class RangeParameter(Parameter):
     min: np.float64
     max: np.float64
 
-    def __init__(self, a: np.float64, b: np.float64):
+    def __init__(self, a: np.float64, b: np.float64) -> None:
         super().__init__()
         self.min = np.float64(min(a, b))
         self.max = np.float64(max(a, b))
@@ -190,7 +190,7 @@ _ = Parameter.register(RangeParameter)
 class ListParameter(Parameter):
     values: list[np.float64]
 
-    def __init__(self, values: list[np.float64]):
+    def __init__(self, values: list[np.float64]) -> None:
         if not values:
             raise EleanorException("cannot create the empty ListParameter")
         super().__init__()
@@ -248,7 +248,7 @@ class NormalParameter(Parameter):
         stddev: np.float64 | None = None,
         a: np.float64 = NEG_INF,
         b: np.float64 = POS_INF,
-    ):
+    ) -> None:
         super().__init__()
         self.mean = mean
         self.min = np.float64(min(a, b))
@@ -317,7 +317,7 @@ Valuation = dict[int, Parameter]
 class ParameterRegistry:
     parameters: list[Parameter]
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.parameters = []
 
     def add_parameter(self, parameter: Parameter) -> None:

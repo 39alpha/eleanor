@@ -2,13 +2,16 @@ from collections.abc import Iterator
 from typing import cast, final, override
 from unittest import TestCase, mock
 
-import numpy as np
-
 import eleanor.variable_space as vs
+import numpy as np
 from eleanor.exceptions import EleanorException
 from eleanor.kernel import AbstractKernel
 from eleanor.navigator import AbstractNavigator
-from eleanor.navigator.lattice import AbstractLatticeNavigator, LatticeNavigator, RandomLatticeNavigator
+from eleanor.navigator.lattice import (
+    AbstractLatticeNavigator,
+    LatticeNavigator,
+    RandomLatticeNavigator,
+)
 from eleanor.navigator.random import RandomNavigator
 from eleanor.order import Order
 from eleanor.parameters import Parameter, RangeParameter, ValueParameter
@@ -53,29 +56,37 @@ class TestNavigator(TestCase):
     Tests of the eleanor.navigator module.
     """
 
-    def test_abstract_navigator_default_helpers(self):
+    def test_abstract_navigator_default_helpers(self) -> None:
         """
         Ensure that :class:`AbstractNavigator` default helper methods behave as documented.
         """
         nav = DummyNavigator()
         self.assertEqual(nav.num_systems(mock.Mock(), 3), 3)
 
-    def test_abstract_placeholder_methods(self):
+    def test_abstract_placeholder_methods(self) -> None:
         """
         Ensure that abstract placeholder method bodies are executable when called directly.
         """
         abstract_navigator = cast(AbstractNavigator, object())
         lattice_navigator = cast(AbstractLatticeNavigator, object())
         parameter = cast(Parameter, object())
-        self.assertIsNone(AbstractNavigator.navigate(abstract_navigator, mock.Mock(), mock.Mock(), 1, 1))
-        self.assertIsNone(AbstractLatticeNavigator.generate(lattice_navigator, parameter, 1))
+        self.assertIsNone(
+            AbstractNavigator.navigate(
+                abstract_navigator, mock.Mock(), mock.Mock(), 1, 1
+            )
+        )
+        self.assertIsNone(
+            AbstractLatticeNavigator.generate(lattice_navigator, parameter, 1)
+        )
 
-    def test_random_navigate_and_num_systems(self):
+    def test_random_navigate_and_num_systems(self) -> None:
         """
         Ensure that :class:`RandomNavigator` navigation delegates to generate per requested scale.
         """
         nav = RandomNavigator()
-        with mock.patch.object(RandomNavigator, "generate", side_effect=["a", "b", "c"]) as gen_mock:
+        with mock.patch.object(
+            RandomNavigator, "generate", side_effect=["a", "b", "c"]
+        ) as gen_mock:
             batches = list(nav.navigate(mock.Mock(), mock.Mock(), 3, 2))
 
         self.assertEqual(batches, [["a", "b"], ["c"]])
@@ -83,7 +94,7 @@ class TestNavigator(TestCase):
         self.assertTrue(all(len(batch) <= 2 for batch in batches))
         self.assertEqual(nav.num_systems(mock.Mock(), 7), 7)
 
-    def test_random_generate_success(self):
+    def test_random_generate_success(self) -> None:
         """
         Ensure that :meth:`RandomNavigator.generate` applies constraints and returns generated points.
         """
@@ -95,7 +106,7 @@ class TestNavigator(TestCase):
 
         @final
         class FakePointBuilder:
-            def __init__(self, order):
+            def __init__(self, order) -> None:
                 self.order = order
                 self.param = FakeParameter()
                 self.values = {}
@@ -108,7 +119,7 @@ class TestNavigator(TestCase):
             def __getitem__(self, key):
                 return self.param
 
-            def __setitem__(self, key, value):
+            def __setitem__(self, key, value) -> None:
                 self.values[key] = value
 
             def generate_vs(self, order_id):
@@ -116,23 +127,28 @@ class TestNavigator(TestCase):
 
         with mock.patch("eleanor.navigator.random.PointBuilder", FakePointBuilder):
             nav = RandomNavigator()
-            point = cast(dict[str, object], cast(object, nav.generate(mock.Mock(), kernel, order_id=11)))
+            point = cast(
+                dict[str, object],
+                cast(object, nav.generate(mock.Mock(), kernel, order_id=11)),
+            )
 
         kernel.constrain.assert_called_once()
         self.assertEqual(point["order_id"], 11)
         self.assertEqual(point["values"], {"p": "chosen"})
 
-    def test_random_generate_wraps_errors(self):
+    def test_random_generate_wraps_errors(self) -> None:
         """
         Ensure that :meth:`RandomNavigator.generate` wraps internal failures with a stable message.
         """
         nav = RandomNavigator()
-        with mock.patch("eleanor.navigator.random.PointBuilder", side_effect=RuntimeError("boom")):
+        with mock.patch(
+            "eleanor.navigator.random.PointBuilder", side_effect=RuntimeError("boom")
+        ):
             with self.assertRaises(Exception) as cm:
                 _ = nav.generate(mock.Mock(), mock.Mock())
         self.assertIn("failed to select VS point", str(cm.exception))
 
-    def test_random_generate_default_max_attempts_does_not_retry(self):
+    def test_random_generate_default_max_attempts_does_not_retry(self) -> None:
         """
         Ensure that :meth:`RandomNavigator.generate` makes exactly one attempt when no
         ``max_attempts`` is supplied. The default of 1 preserves the prior
@@ -147,7 +163,7 @@ class TestNavigator(TestCase):
                 _ = nav.generate(mock.Mock(), mock.Mock())
         self.assertEqual(boat_class_mock.call_count, 1)
 
-    def test_random_generate_retries_until_success(self):
+    def test_random_generate_retries_until_success(self) -> None:
         """
         Ensure that :meth:`RandomNavigator.generate` retries on failure and returns
         the first successful point. After two failed PointBuilder constructions
@@ -172,7 +188,7 @@ class TestNavigator(TestCase):
         self.assertEqual(boat_class_mock.call_count, 3)
         successful_boat.generate_vs.assert_called_once()
 
-    def test_random_generate_stops_retrying_once_attempt_succeeds(self):
+    def test_random_generate_stops_retrying_once_attempt_succeeds(self) -> None:
         """
         Ensure that :meth:`RandomNavigator.generate` does not consume retries past the
         first success. With ``max_attempts=5`` and a successful first attempt,
@@ -192,7 +208,7 @@ class TestNavigator(TestCase):
         self.assertEqual(point, "the_point")
         self.assertEqual(boat_class_mock.call_count, 1)
 
-    def test_random_generate_retry_exhaustion_chains_last_cause(self):
+    def test_random_generate_retry_exhaustion_chains_last_cause(self) -> None:
         """
         Ensure that when every attempt fails, :meth:`RandomNavigator.generate` raises
         :class:`EleanorException` whose ``__cause__`` is the *last* underlying
@@ -214,7 +230,7 @@ class TestNavigator(TestCase):
         self.assertIs(cm.exception.__cause__, last)
         self.assertEqual(boat_class_mock.call_count, 3)
 
-    def test_random_generate_rejects_non_int_max_attempts(self):
+    def test_random_generate_rejects_non_int_max_attempts(self) -> None:
         """
         Ensure that :meth:`RandomNavigator.generate` rejects a non-integer
         ``max_attempts`` with :class:`EleanorException` before any work is
@@ -222,11 +238,13 @@ class TestNavigator(TestCase):
         """
         nav = RandomNavigator()
         with mock.patch("eleanor.navigator.random.PointBuilder") as boat_class_mock:
-            with self.assertRaisesRegex(EleanorException, "max_attempts must be an integer"):
+            with self.assertRaisesRegex(
+                EleanorException, "max_attempts must be an integer"
+            ):
                 _ = nav.generate(mock.Mock(), mock.Mock(), max_attempts="3")
         boat_class_mock.assert_not_called()
 
-    def test_random_generate_rejects_bool_max_attempts(self):
+    def test_random_generate_rejects_bool_max_attempts(self) -> None:
         """
         Ensure that :meth:`RandomNavigator.generate` rejects a ``bool`` ``max_attempts``.
         ``bool`` is a subclass of ``int`` in Python, so ``True``/``False``
@@ -234,10 +252,12 @@ class TestNavigator(TestCase):
         misuse surfaces as an error rather than as a silent zero-attempt run.
         """
         nav = RandomNavigator()
-        with self.assertRaisesRegex(EleanorException, "max_attempts must be an integer"):
+        with self.assertRaisesRegex(
+            EleanorException, "max_attempts must be an integer"
+        ):
             _ = nav.generate(mock.Mock(), mock.Mock(), max_attempts=True)
 
-    def test_random_generate_rejects_zero_max_attempts(self):
+    def test_random_generate_rejects_zero_max_attempts(self) -> None:
         """
         Ensure that :meth:`RandomNavigator.generate` rejects ``max_attempts=0`` with
         :class:`EleanorException` rather than silently raising the generic
@@ -245,19 +265,23 @@ class TestNavigator(TestCase):
         """
         nav = RandomNavigator()
         with mock.patch("eleanor.navigator.random.PointBuilder") as boat_class_mock:
-            with self.assertRaisesRegex(EleanorException, "max_attempts must be at least one"):
+            with self.assertRaisesRegex(
+                EleanorException, "max_attempts must be at least one"
+            ):
                 _ = nav.generate(mock.Mock(), mock.Mock(), max_attempts=0)
         boat_class_mock.assert_not_called()
 
-    def test_random_generate_rejects_negative_max_attempts(self):
+    def test_random_generate_rejects_negative_max_attempts(self) -> None:
         """
         Ensure that :meth:`RandomNavigator.generate` rejects a negative ``max_attempts``.
         """
         nav = RandomNavigator()
-        with self.assertRaisesRegex(EleanorException, "max_attempts must be at least one"):
+        with self.assertRaisesRegex(
+            EleanorException, "max_attempts must be at least one"
+        ):
             _ = nav.generate(mock.Mock(), mock.Mock(), max_attempts=-1)
 
-    def test_random_navigate_threads_max_attempts_to_generate(self):
+    def test_random_navigate_threads_max_attempts_to_generate(self) -> None:
         """
         Ensure that :meth:`RandomNavigator.navigate` forwards ``max_attempts`` from its
         kwargs to every :meth:`RandomNavigator.generate` call. This is the wiring on
@@ -265,14 +289,16 @@ class TestNavigator(TestCase):
         ``max_attempts=max_nav_attempts`` to ``navigator.navigate``.
         """
         nav = RandomNavigator()
-        with mock.patch.object(RandomNavigator, "generate", return_value="point") as gen_mock:
+        with mock.patch.object(
+            RandomNavigator, "generate", return_value="point"
+        ) as gen_mock:
             _ = list(nav.navigate(mock.Mock(), mock.Mock(), 3, 2, max_attempts=5))
 
         self.assertEqual(gen_mock.call_count, 3)
         for call in gen_mock.call_args_list:
             self.assertEqual(call.kwargs.get("max_attempts"), 5)
 
-    def test_lattice_navigate_iterate_and_num_systems(self):
+    def test_lattice_navigate_iterate_and_num_systems(self) -> None:
         """
         Ensure that :class:`LatticeNavigator` traverses generated values and computes system count.
         """
@@ -280,7 +306,7 @@ class TestNavigator(TestCase):
 
         @final
         class FakePointBuilder:
-            def __init__(self, order):
+            def __init__(self, order) -> None:
                 self.values = {}
                 self.hardset_calls = []
 
@@ -290,10 +316,10 @@ class TestNavigator(TestCase):
             def __getitem__(self, key):
                 return "seed"
 
-            def __setitem__(self, key, value):
+            def __setitem__(self, key, value) -> None:
                 self.values[key] = value
 
-            def hardset(self, key, value):
+            def hardset(self, key, value) -> None:
                 self.hardset_calls.append((key, value))
                 self.values.pop(key, None)
 
@@ -306,7 +332,9 @@ class TestNavigator(TestCase):
         points = [point for batch in batches for point in batch]
 
         kernel.constrain.assert_called_once()
-        self.assertEqual(points, [{"value": "v0", "order_id": 5}, {"value": "v1", "order_id": 5}])
+        self.assertEqual(
+            points, [{"value": "v0", "order_id": 5}, {"value": "v1", "order_id": 5}]
+        )
         self.assertEqual([len(batch) for batch in batches], [1, 1])
 
         order = mock.Mock()
@@ -317,7 +345,7 @@ class TestNavigator(TestCase):
         nav2 = DummyLatticeNavigator()
         self.assertEqual(nav2.num_systems(order, 3), 3)
 
-    def test_lattice_iterate_handles_generation_errors(self):
+    def test_lattice_iterate_handles_generation_errors(self) -> None:
         """
         Ensure that :meth:`LatticeNavigator.iterate` surfaces generation errors.
         """
@@ -326,27 +354,33 @@ class TestNavigator(TestCase):
         point_builder.constrain.return_value = ["p"]
         point_builder.__getitem__ = mock.Mock(return_value="seed")
 
-        with mock.patch.object(DummyLatticeNavigator, "generate", side_effect=RuntimeError("bad")):
+        with mock.patch.object(
+            DummyLatticeNavigator, "generate", side_effect=RuntimeError("bad")
+        ):
             with self.assertRaisesRegex(RuntimeError, "bad"):
                 _ = list(nav.iterate(mock.Mock(), point_builder, [], 2))
 
-    def test_random_navigate_respects_batch_size(self):
+    def test_random_navigate_respects_batch_size(self) -> None:
         """
         Ensure RandomNavigator.navigate partitions output into max-size batches.
         """
         nav = RandomNavigator()
-        with mock.patch.object(RandomNavigator, "generate", side_effect=[f"p{i}" for i in range(10)]):
+        with mock.patch.object(
+            RandomNavigator, "generate", side_effect=[f"p{i}" for i in range(10)]
+        ):
             batches = list(nav.navigate(mock.Mock(), mock.Mock(), 10, 3))
 
         self.assertEqual([len(batch) for batch in batches], [3, 3, 3, 1])
 
-    def test_lattice_navigate_respects_batch_size(self):
+    def test_lattice_navigate_respects_batch_size(self) -> None:
         """
         Ensure LatticeNavigator.navigate partitions iterator output by batch_size.
         """
         nav = DummyLatticeNavigator()
         with (
-            mock.patch("eleanor.navigator.lattice.PointBuilder", return_value=mock.Mock()),
+            mock.patch(
+                "eleanor.navigator.lattice.PointBuilder", return_value=mock.Mock()
+            ),
             mock.patch.object(
                 DummyLatticeNavigator,
                 "iterate",
@@ -357,7 +391,7 @@ class TestNavigator(TestCase):
 
         self.assertEqual([len(batch) for batch in batches], [4, 4, 1])
 
-    def test_random_lattice_and_lattice_generate(self):
+    def test_random_lattice_and_lattice_generate(self) -> None:
         """
         Ensure RandomLatticeNavigator and LatticeNavigator generation delegate to parameter helpers with validation.
         """

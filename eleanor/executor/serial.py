@@ -11,7 +11,7 @@ T = TypeVar("T")
 class SerialFuture(AbstractFuture[T]):
     _value: T
 
-    def __init__(self, value: T):
+    def __init__(self, value: T) -> None:
         self._value = value
 
     @override
@@ -20,7 +20,7 @@ class SerialFuture(AbstractFuture[T]):
 
 
 class SerialExecutor(AbstractExecutor):
-    def __init__(self, settings: ExecutorSettings):
+    def __init__(self, settings: ExecutorSettings) -> None:
         if settings.num_workers is not None and settings.num_workers != 1:
             warnings.warn(
                 f"serial executor does not support multiple workers; ignoring num_workers={settings.num_workers}"

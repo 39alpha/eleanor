@@ -10,11 +10,13 @@ class TestPostgresConfig(TestCase):
     Tests of the postgres sink's settings module
     """
 
-    def test_database_config_allows_missing_credentials(self):
+    def test_database_config_allows_missing_credentials(self) -> None:
         """
         Ensure that missing credential fields are allowed at construction time.
         """
-        cfg = PostgresDatabaseSettings(database="main", username=None, password="secret")
+        cfg = PostgresDatabaseSettings(
+            database="main", username=None, password="secret"
+        )
         self.assertIsNone(cfg.username)
         self.assertEqual(cfg.password, "secret")
 
@@ -22,7 +24,7 @@ class TestPostgresConfig(TestCase):
         self.assertEqual(cfg.username, "alice")
         self.assertIsNone(cfg.password)
 
-    def test_postgres_config_module_does_not_load_sqlalchemy(self):
+    def test_postgres_config_module_does_not_load_sqlalchemy(self) -> None:
         """
         Ensure importing eleanor.output.postgres.config does not transitively
         load SQLAlchemy. Protects the lazy-import contract maintained by

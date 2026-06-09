@@ -166,7 +166,7 @@ class OutputParser(ABC):
     _solid_volume_change: np.float64
     _charge_imbalance: np.float64
 
-    def __init__(self, file: io.TextIOBase):
+    def __init__(self, file: io.TextIOBase) -> None:
         self.line_num = 0
         self.lines = file.readlines()
         self._reset_common_accumulators()
@@ -237,10 +237,10 @@ class OutputParser(ABC):
     def eof(self) -> bool:
         return 0 > self.line_num or self.line_num >= len(self.lines)
 
-    def retreat(self, n: int = 1):
+    def retreat(self, n: int = 1) -> None:
         self.line_num -= n
 
-    def advance(self, n: int = 1):
+    def advance(self, n: int = 1) -> None:
         self.line_num += n
 
     def line(self) -> str:
@@ -877,7 +877,7 @@ class OutputParser3(OutputParser):
     _total_charge: np.float64 | None
     _mean_charge: np.float64 | None
 
-    def __init__(self, file: StrPath | io.TextIOBase | None = None):
+    def __init__(self, file: StrPath | io.TextIOBase | None = None) -> None:
         if file is None:
             file = Path("problem.3o")
         try:
@@ -1095,7 +1095,7 @@ class OutputParser6(OutputParser):
     _charge_discrepancy: np.float64 | None
     _sigma: np.float64 | None
 
-    def __init__(self, file: StrPath | io.TextIOBase | None = None):
+    def __init__(self, file: StrPath | io.TextIOBase | None = None) -> None:
         self.path = []
         if file is None:
             file = Path("problem.6o")
@@ -1332,7 +1332,7 @@ class OutputParser6(OutputParser):
         self._reset_step_accumulators()
         return self
 
-    def check_path_termination(self):
+    def check_path_termination(self) -> None:
         pattern = re.compile(r"^\s*---\s+The reaction path has terminated (early|normally)\s+---\s*$")
         self.unconsume_to_pattern(pattern)
         if self.eof():

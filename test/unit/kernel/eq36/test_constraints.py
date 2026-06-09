@@ -4,9 +4,11 @@ from typing import cast, override
 from unittest import TestCase
 
 import numpy as np
-
 from eleanor.exceptions import EleanorException
-from eleanor.kernel.eq36.constraints import TemperatureRangeConstraint, TPCurveConstraint
+from eleanor.kernel.eq36.constraints import (
+    TemperatureRangeConstraint,
+    TPCurveConstraint,
+)
 from eleanor.kernel.eq36.data1 import Data1
 from eleanor.parameters import (
     ListParameter,
@@ -68,14 +70,14 @@ class TestEq36Constraints(TestCase):
         registry.add_parameters(list(params))
         return registry, registry.valuation()
 
-    def test_temperature_range_init_requires_data1(self):
+    def test_temperature_range_init_requires_data1(self) -> None:
         """
         Ensure at least one data1 object is required.
         """
         with self.assertRaises(EleanorException):
             _ = TemperatureRangeConstraint(ValueParameter(np.float64(25.0)), [])
 
-    def test_temperature_range_init_uses_tp_curves_only(self):
+    def test_temperature_range_init_uses_tp_curves_only(self) -> None:
         """
         Ensure constructor aggregates min/max temperatures only from data1 entries with curves.
         """
@@ -84,8 +86,12 @@ class TestEq36Constraints(TestCase):
             temp,
             [
                 _data1_with_curve(None),
-                _data1_with_curve(_DummyCurve({"min": np.float64(10.0), "max": np.float64(40.0)})),
-                _data1_with_curve(_DummyCurve({"min": np.float64(5.0), "max": np.float64(50.0)})),
+                _data1_with_curve(
+                    _DummyCurve({"min": np.float64(10.0), "max": np.float64(40.0)})
+                ),
+                _data1_with_curve(
+                    _DummyCurve({"min": np.float64(5.0), "max": np.float64(50.0)})
+                ),
             ],
         )
         self.assertEqual(c.min_t, np.float64(5.0))
@@ -93,11 +99,15 @@ class TestEq36Constraints(TestCase):
         self.assertEqual(c.independent_parameters, [])
         self.assertEqual(c.dependent_parameters, [temp])
 
-    def test_temperature_range_apply_value_range_list_normal(self):
+    def test_temperature_range_apply_value_range_list_normal(self) -> None:
         """
         Ensure apply refines each supported parameter type to the curve temperature bounds.
         """
-        data1s = [_data1_with_curve(_DummyCurve({"min": np.float64(10.0), "max": np.float64(40.0)}))]
+        data1s = [
+            _data1_with_curve(
+                _DummyCurve({"min": np.float64(10.0), "max": np.float64(40.0)})
+            )
+        ]
 
         t_value = ValueParameter(np.float64(25.0))
         c_value = TemperatureRangeConstraint(t_value, data1s)
@@ -115,7 +125,9 @@ class TestEq36Constraints(TestCase):
         self.assertIsInstance(refined_range, RangeParameter)
         if not isinstance(refined_range, RangeParameter):
             raise AssertionError("expected RangeParameter")
-        self.assertEqual((refined_range.min, refined_range.max), (np.float64(10.0), np.float64(40.0)))
+        self.assertEqual(
+            (refined_range.min, refined_range.max), (np.float64(10.0), np.float64(40.0))
+        )
 
         t_list = ListParameter(
             [np.float64(1.0), np.float64(12.0), np.float64(30.0), np.float64(99.0)],
@@ -140,13 +152,22 @@ class TestEq36Constraints(TestCase):
         self.assertIsInstance(refined_normal, NormalParameter)
         if not isinstance(refined_normal, NormalParameter):
             raise AssertionError("expected NormalParameter")
-        self.assertEqual((refined_normal.min, refined_normal.max), (np.float64(10.0), np.float64(40.0)))
+        self.assertEqual(
+            (refined_normal.min, refined_normal.max),
+            (np.float64(10.0), np.float64(40.0)),
+        )
 
-    def test_temperature_range_apply_incompatible_and_unexpected_parameter(self):
+    def test_temperature_range_apply_incompatible_and_unexpected_parameter(
+        self,
+    ) -> None:
         """
         Ensure apply raises wrapped compatibility errors and rejects unexpected parameter types.
         """
-        data1s = [_data1_with_curve(_DummyCurve({"min": np.float64(10.0), "max": np.float64(40.0)}))]
+        data1s = [
+            _data1_with_curve(
+                _DummyCurve({"min": np.float64(10.0), "max": np.float64(40.0)})
+            )
+        ]
 
         out_of_range = ValueParameter(np.float64(90.0))
         c = TemperatureRangeConstraint(out_of_range, data1s)
@@ -165,7 +186,7 @@ class TestEq36Constraints(TestCase):
         with self.assertRaises(EleanorException):
             _ = c3.apply(registry, valuation)
 
-    def test_tp_curve_constraint_properties_and_non_value_temperature(self):
+    def test_tp_curve_constraint_properties_and_non_value_temperature(self) -> None:
         """
         Ensure TP-curve constraint dependency properties and temperature precondition checks.
         """
@@ -179,7 +200,7 @@ class TestEq36Constraints(TestCase):
         with self.assertRaises(EleanorException):
             _ = c.apply(registry, valuation)
 
-    def test_tp_curve_constraint_apply_success_and_empty_candidates_error(self):
+    def test_tp_curve_constraint_apply_success_and_empty_candidates_error(self) -> None:
         """
         Ensure apply filters candidate pressures and wraps errors when no valid pressure remains.
         """
@@ -187,15 +208,33 @@ class TestEq36Constraints(TestCase):
         pressure = RangeParameter(np.float64(5.0), np.float64(20.0))
         data1s = [
             _data1_with_curve(None),
-            _data1_with_curve(_DummyCurve({"min": np.float64(0.0), "max": np.float64(100.0)}, p=None, in_domain=True)),
             _data1_with_curve(
-                _DummyCurve({"min": np.float64(0.0), "max": np.float64(100.0)}, p=np.float64(30.0), in_domain=True)
+                _DummyCurve(
+                    {"min": np.float64(0.0), "max": np.float64(100.0)},
+                    p=None,
+                    in_domain=True,
+                )
             ),
             _data1_with_curve(
-                _DummyCurve({"min": np.float64(0.0), "max": np.float64(100.0)}, p=np.float64(10.0), in_domain=False)
+                _DummyCurve(
+                    {"min": np.float64(0.0), "max": np.float64(100.0)},
+                    p=np.float64(30.0),
+                    in_domain=True,
+                )
             ),
             _data1_with_curve(
-                _DummyCurve({"min": np.float64(0.0), "max": np.float64(100.0)}, p=np.float64(12.0), in_domain=True)
+                _DummyCurve(
+                    {"min": np.float64(0.0), "max": np.float64(100.0)},
+                    p=np.float64(10.0),
+                    in_domain=False,
+                )
+            ),
+            _data1_with_curve(
+                _DummyCurve(
+                    {"min": np.float64(0.0), "max": np.float64(100.0)},
+                    p=np.float64(12.0),
+                    in_domain=True,
+                )
             ),
         ]
         c = TPCurveConstraint(temp, pressure, data1s)

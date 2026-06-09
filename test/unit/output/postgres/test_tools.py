@@ -23,7 +23,7 @@ from eleanor.output.postgres.tools.scratch import load_scratch_entry
 class TestDumpSchema(TestCase):
     """Coverage of :func:`tools.schema.dump_schema`."""
 
-    def test_dumps_create_table_and_index_for_every_declared_table(self):
+    def test_dumps_create_table_and_index_for_every_declared_table(self) -> None:
         """
         Ensure every :class:`schema.TableDef` lands in the output as a
         ``CREATE TABLE IF NOT EXISTS`` followed by one ``CREATE INDEX``
@@ -44,13 +44,15 @@ class TestDumpSchema(TestCase):
         # designed to be runnable without further processing).
         for line in output.splitlines():
             stripped = line.strip()
-            if stripped.startswith(("CREATE TABLE", "CREATE INDEX", "CREATE UNIQUE INDEX")):
+            if stripped.startswith(
+                ("CREATE TABLE", "CREATE INDEX", "CREATE UNIQUE INDEX")
+            ):
                 self.assertTrue(
                     stripped.endswith(";") or stripped.endswith("("),
                     f"statement {stripped!r} should end with semicolon or open paren",
                 )
 
-    def test_dump_schema_does_not_consult_database(self):
+    def test_dump_schema_does_not_consult_database(self) -> None:
         """
         Ensure the dump is purely table-driven and never reaches into
         the persistence connection module: the helper is documented as
@@ -68,7 +70,7 @@ class TestDumpSchema(TestCase):
 class TestLoadScratchEntry(TestCase):
     """Coverage of :func:`tools.scratch.load_scratch_entry`."""
 
-    def test_delegates_to_repositories_get_scratch_entry(self):
+    def test_delegates_to_repositories_get_scratch_entry(self) -> None:
         """
         Ensure :func:`load_scratch_entry` is a thin pass-through to
         :func:`repositories.get_scratch_entry` and forwards the active

@@ -22,12 +22,17 @@ from datetime import datetime
 from unittest import TestCase, mock
 
 import numpy as np
-
 from eleanor.config.kernel import KernelConfig
 from eleanor.exceptions import EleanorException
 from eleanor.kernel.eq36.settings import IOPG_1, Eq3Settings, Eq6Settings, Eq36Settings
 from eleanor.order import Order
-from eleanor.output.postgres.persistence import connection, converters, queries, repositories, schema
+from eleanor.output.postgres.persistence import (
+    connection,
+    converters,
+    queries,
+    repositories,
+    schema,
+)
 from eleanor.output.postgres.settings import PostgresDatabaseSettings
 from eleanor.parameters import Parameter
 from eleanor.reactants import ReactantType
@@ -53,7 +58,7 @@ class TestSchemaDdlEmission(TestCase):
     and matches the structure declared in :data:`schema.TABLES`.
     """
 
-    def test_every_table_emits_create_table_sql(self):
+    def test_every_table_emits_create_table_sql(self) -> None:
         """
         Ensure :func:`schema.to_create_table_sql` produces a non-empty
         ``CREATE TABLE IF NOT EXISTS`` statement for every declared table.
@@ -63,9 +68,11 @@ class TestSchemaDdlEmission(TestCase):
             self.assertIn("CREATE TABLE IF NOT EXISTS", sql)
             self.assertIn(table.name, sql)
             for col in table.columns:
-                self.assertIn(col.name, sql, f"column {col.name} missing in {table.name} DDL")
+                self.assertIn(
+                    col.name, sql, f"column {col.name} missing in {table.name} DDL"
+                )
 
-    def test_orders_ddl_includes_primary_key_and_indexes(self):
+    def test_orders_ddl_includes_primary_key_and_indexes(self) -> None:
         """
         Ensure the orders table emits a primary key clause and every declared
         index gets its own ``CREATE INDEX`` statement. Identifiers are
@@ -80,7 +87,7 @@ class TestSchemaDdlEmission(TestCase):
             self.assertIn("CREATE INDEX IF NOT EXISTS", idx_sql)
             self.assertIn(f'"{idx.name}"', idx_sql)
 
-    def test_variable_space_ddl_emits_foreign_key(self):
+    def test_variable_space_ddl_emits_foreign_key(self) -> None:
         """
         Ensure FK clauses (with ON DELETE CASCADE) land in the DDL for tables
         that declare a parent. Identifiers are double-quoted.
@@ -90,7 +97,7 @@ class TestSchemaDdlEmission(TestCase):
         self.assertIn('REFERENCES "orders"("id")', ddl)
         self.assertIn("ON DELETE CASCADE", ddl)
 
-    def test_suppressions_ddl_emits_check_constraint(self):
+    def test_suppressions_ddl_emits_check_constraint(self) -> None:
         """
         Ensure the suppressions ``CHECK`` constraint is rendered with its name.
         The constraint name is double-quoted alongside other identifiers.
@@ -99,7 +106,7 @@ class TestSchemaDdlEmission(TestCase):
         self.assertIn('CONSTRAINT "suppressions_well_defined"', ddl)
         self.assertIn("name is not null or type is not null", ddl)
 
-    def test_mixed_case_columns_are_quoted_in_ddl(self):
+    def test_mixed_case_columns_are_quoted_in_ddl(self) -> None:
         """
         Ensure mixed-case columns like ``pH`` / ``Eh`` / ``log_fO2`` survive
         DDL emission as quoted identifiers. Without quoting, Postgres folds
@@ -111,7 +118,7 @@ class TestSchemaDdlEmission(TestCase):
         for case_sensitive in ("pH", "log_fO2", "Eh"):
             self.assertIn(f'"{case_sensitive}"', ddl)
 
-    def test_pure_solids_ddl_emits_neg_inf_default(self):
+    def test_pure_solids_ddl_emits_neg_inf_default(self) -> None:
         """
         Ensure the saturation-state ``log_*`` columns carry their ``-Infinity``
         default in the DDL output, matching the schema-level default the
@@ -120,7 +127,7 @@ class TestSchemaDdlEmission(TestCase):
         ddl = schema.to_create_table_sql(schema.EQUILIBRIUM_PURE_SOLIDS)
         self.assertIn("DEFAULT '-Infinity'::double precision", ddl)
 
-    def test_to_drop_index_sql_emits_quoted_drop_if_exists(self):
+    def test_to_drop_index_sql_emits_quoted_drop_if_exists(self) -> None:
         """
         Ensure :func:`schema.to_drop_index_sql` is the
         bulk-load-lifecycle counterpart of :func:`to_create_index_sql`,
@@ -133,7 +140,7 @@ class TestSchemaDdlEmission(TestCase):
             'DROP INDEX IF EXISTS "orders_name_idx"',
         )
 
-    def test_to_drop_constraint_sql_emits_quoted_alter_if_exists(self):
+    def test_to_drop_constraint_sql_emits_quoted_alter_if_exists(self) -> None:
         """
         Ensure :func:`schema.to_drop_constraint_sql` produces an
         ``ALTER TABLE ... DROP CONSTRAINT IF EXISTS`` with both the
@@ -142,11 +149,15 @@ class TestSchemaDdlEmission(TestCase):
         yet had the constraint added.
         """
         self.assertEqual(
-            schema.to_drop_constraint_sql("variable_space", "variable_space_order_id_fkey"),
+            schema.to_drop_constraint_sql(
+                "variable_space", "variable_space_order_id_fkey"
+            ),
             'ALTER TABLE "variable_space" DROP CONSTRAINT IF EXISTS "variable_space_order_id_fkey"',
         )
 
-    def test_to_add_foreign_key_sql_uses_pg_default_name_and_preserves_on_delete(self):
+    def test_to_add_foreign_key_sql_uses_pg_default_name_and_preserves_on_delete(
+        self,
+    ) -> None:
         """
         Ensure :func:`schema.to_add_foreign_key_sql` emits an
         ``ALTER TABLE ... ADD CONSTRAINT ... FOREIGN KEY ... ON DELETE``
@@ -166,7 +177,7 @@ class TestSchemaDdlEmission(TestCase):
         self.assertIn('REFERENCES "orders"("id")', ddl)
         self.assertIn("ON DELETE CASCADE", ddl)
 
-    def test_to_add_foreign_key_sql_truncates_long_names_to_pg_limit(self):
+    def test_to_add_foreign_key_sql_truncates_long_names_to_pg_limit(self) -> None:
         """
         Ensure :func:`schema._fk_constraint_name` (and therefore the DDL
         emitted by :func:`to_add_foreign_key_sql`) is capped at PG's
@@ -183,7 +194,7 @@ class TestSchemaDdlEmission(TestCase):
             63,
         )
 
-    def test_to_add_check_sql_uses_declared_name_and_expression(self):
+    def test_to_add_check_sql_uses_declared_name_and_expression(self) -> None:
         """
         Ensure :func:`schema.to_add_check_sql` emits the same
         ``CONSTRAINT <name> CHECK (<expression>)`` shape as the
@@ -192,7 +203,9 @@ class TestSchemaDdlEmission(TestCase):
         """
         ddl = schema.to_add_check_sql(
             schema.SUPPRESSIONS,
-            schema.CheckDef("suppressions_well_defined", "name is not null or type is not null"),
+            schema.CheckDef(
+                "suppressions_well_defined", "name is not null or type is not null"
+            ),
         )
         self.assertIn('ALTER TABLE "suppressions"', ddl)
         self.assertIn('ADD CONSTRAINT "suppressions_well_defined"', ddl)
@@ -208,7 +221,7 @@ class TestConverterShapes(TestCase):
     def _expected_keys(self, table: schema.TableDef) -> set[str]:
         return {c.name for c in table.columns if not c.identity}
 
-    def test_kernel_to_row_shape(self):
+    def test_kernel_to_row_shape(self) -> None:
         """
         Ensure :func:`converters.kernel_to_row` populates the expected key set
         (``id`` doubles as the FK in this table, so it is included).
@@ -228,7 +241,7 @@ class TestConverterShapes(TestCase):
         self.assertEqual(row["id"], 7)
         self.assertEqual(row["type"], "eq36")
 
-    def test_es_point_to_row_covers_every_equilibrium_space_column(self):
+    def test_es_point_to_row_covers_every_equilibrium_space_column(self) -> None:
         """
         Ensure :func:`converters.es_point_to_row` populates every non-identity
         column declared on ``equilibrium_space`` -- the row dict's keys are
@@ -276,7 +289,7 @@ class TestConverterShapes(TestCase):
         self.assertEqual(set(row.keys()), self._expected_keys(schema.EQUILIBRIUM_SPACE))
         self.assertEqual(row["variable_space_id"], 42)
 
-    def test_es_pure_solid_to_row_replaces_none_with_neg_inf(self):
+    def test_es_pure_solid_to_row_replaces_none_with_neg_inf(self) -> None:
         """
         Ensure :func:`converters.es_pure_solid_to_row` substitutes
         ``-math.inf`` for ``None`` on the saturation-state columns (matches
@@ -297,7 +310,7 @@ class TestConverterShapes(TestCase):
         self.assertEqual(row["log_mass"], -math.inf)
         self.assertEqual(row["log_volume"], -math.inf)
 
-    def test_kernel_round_trip_via_converters(self):
+    def test_kernel_round_trip_via_converters(self) -> None:
         """
         Ensure :func:`converters.row_to_kernel_config` rehydrates a
         ``KernelConfig`` whose ``type`` matches the source after a
@@ -328,7 +341,7 @@ class TestConverterShapes(TestCase):
             raise AssertionError("expected Eq36Settings")
         self.assertEqual(restored.settings.charge_balance, "Cl-")
 
-    def test_scratch_entry_shape(self):
+    def test_scratch_entry_shape(self) -> None:
         """
         Ensure :func:`converters.row_to_scratch_entry` projects a
         ``scratch`` row joined with its parent into the right dataclass.
@@ -351,7 +364,7 @@ class TestOrderRecordRoundTrip(TestCase):
     metadata used by ``PostgresSink.begin_run``.
     """
 
-    def test_row_to_order_record_reconstructs_fields(self):
+    def test_row_to_order_record_reconstructs_fields(self) -> None:
         """
         Ensure :func:`converters.row_to_order_record` projects a row dict
         into the right ``OrderRecord`` shape.
@@ -371,7 +384,7 @@ class TestOrderRecordRoundTrip(TestCase):
         self.assertEqual(record.eleanor_version, "v1")
         self.assertEqual(record.raw, {"k": "v"})
 
-    def test_row_to_order_record_empty_tags(self):
+    def test_row_to_order_record_empty_tags(self) -> None:
         """
         Ensure :func:`converters.row_to_order_record` correctly handles an empty tags list.
         """
@@ -418,7 +431,9 @@ class _FakeCopy(object):
 class TestBulkInsertHelpers(TestCase):
     """Internal bulk helpers chunk oversized INSERTs and COPY large leaf batches."""
 
-    def test_bulk_insert_returning_ids_chunks_large_batches_and_preserves_order(self):
+    def test_bulk_insert_returning_ids_chunks_large_batches_and_preserves_order(
+        self,
+    ) -> None:
         """Ensure oversized RETURNING batches split into multiple execute calls."""
         cursor = mock.MagicMock()
         cursor.fetchall.side_effect = [[(11,), (12,)], [(13,), (14,)], [(15,)]]
@@ -441,7 +456,7 @@ class TestBulkInsertHelpers(TestCase):
         flat_lengths = [len(call.args[1]) for call in cursor.execute.call_args_list]
         self.assertEqual(flat_lengths, [6, 6, 3])
 
-    def test_bulk_insert_uses_copy_above_threshold(self):
+    def test_bulk_insert_uses_copy_above_threshold(self) -> None:
         """Ensure large fire-and-forget batches route through COPY."""
         cursor = mock.MagicMock()
         rows: list[dict[str, object]] = [
@@ -462,7 +477,7 @@ class TestBulkInsertHelpers(TestCase):
         bulk_copy.assert_called_once_with(cursor, "equilibrium_elements", rows)
         cursor.executemany.assert_not_called()
 
-    def test_bulk_insert_uses_executemany_below_threshold(self):
+    def test_bulk_insert_uses_executemany_below_threshold(self) -> None:
         """Ensure small fire-and-forget batches stay on ``executemany``."""
         cursor = mock.MagicMock()
         rows: list[dict[str, object]] = [
@@ -485,14 +500,24 @@ class TestBulkInsertHelpers(TestCase):
             rows,
         )
 
-    def test_bulk_copy_writes_rows_in_dict_key_order(self):
+    def test_bulk_copy_writes_rows_in_dict_key_order(self) -> None:
         """Ensure binary COPY receives tuple rows + per-column types in dict key order."""
         cursor = mock.MagicMock()
         fake_copy = _FakeCopy()
         cursor.copy.return_value = fake_copy
         rows: list[dict[str, object]] = [
-            {"equilibrium_space_id": 7, "name": "Na", "log_molality": -1.0, "mass_fraction": 0.5},
-            {"equilibrium_space_id": 7, "name": "Cl", "log_molality": -1.2, "mass_fraction": 0.4},
+            {
+                "equilibrium_space_id": 7,
+                "name": "Na",
+                "log_molality": -1.0,
+                "mass_fraction": 0.5,
+            },
+            {
+                "equilibrium_space_id": 7,
+                "name": "Cl",
+                "log_molality": -1.2,
+                "mass_fraction": 0.4,
+            },
         ]
 
         repositories._bulk_copy(
@@ -516,7 +541,7 @@ class TestBulkInsertHelpers(TestCase):
             ["int4", "text", "float8", "float8"],
         )
 
-    def test_bulk_insert_returning_ids_is_noop_for_empty_rows(self):
+    def test_bulk_insert_returning_ids_is_noop_for_empty_rows(self) -> None:
         """
         Ensure ``_bulk_insert_returning_ids`` short-circuits before
         building any SQL when handed an empty rows list. Callers in
@@ -533,7 +558,7 @@ class TestBulkInsertHelpers(TestCase):
         cursor.execute.assert_not_called()
         cursor.fetchall.assert_not_called()
 
-    def test_bulk_copy_is_noop_for_empty_rows(self):
+    def test_bulk_copy_is_noop_for_empty_rows(self) -> None:
         """
         Ensure ``_bulk_copy`` short-circuits when handed an empty rows
         list -- the ``cursor.copy()`` call is never opened, so we don't
@@ -547,7 +572,7 @@ class TestBulkInsertHelpers(TestCase):
         )
         cursor.copy.assert_not_called()
 
-    def test_bulk_insert_is_noop_for_empty_rows(self):
+    def test_bulk_insert_is_noop_for_empty_rows(self) -> None:
         """
         Ensure ``_bulk_insert`` short-circuits before reaching either
         the ``executemany`` or ``COPY`` branch when handed an empty
@@ -566,7 +591,7 @@ class TestBulkInsertHelpers(TestCase):
 class TestRepositoryErrorPaths(TestCase):
     """Defensive error branches in :mod:`repositories` that real PG can't easily induce."""
 
-    def test_setup_schema_wires_connect_to_ensure_schema(self):
+    def test_setup_schema_wires_connect_to_ensure_schema(self) -> None:
         """
         Ensure :func:`repositories.setup_schema` is just
         ``schema.ensure_schema(connection.connect(config))`` -- the
@@ -583,7 +608,7 @@ class TestRepositoryErrorPaths(TestCase):
         connect.assert_called_once_with(cfg)
         ensure_schema.assert_called_once_with(fake_conn)
 
-    def test_insert_order_raises_when_returning_clause_yields_no_row(self):
+    def test_insert_order_raises_when_returning_clause_yields_no_row(self) -> None:
         """
         Ensure ``insert_order`` raises a clear ``EleanorException`` when
         the ``RETURNING id`` clause comes back empty -- the only way the
@@ -603,10 +628,12 @@ class TestRepositoryErrorPaths(TestCase):
             "connect",
             return_value=fake_conn,
         ):
-            with self.assertRaisesRegex(EleanorException, "order INSERT did not return an id"):
+            with self.assertRaisesRegex(
+                EleanorException, "order INSERT did not return an id"
+            ):
                 _ = repositories.insert_order(cfg, order)
 
-    def test_get_order_returns_none_when_no_row_matches(self):
+    def test_get_order_returns_none_when_no_row_matches(self) -> None:
         """
         Ensure :func:`repositories.get_order` returns ``None`` rather
         than raising when the ``WHERE id = %s`` clause matches zero
@@ -624,7 +651,7 @@ class TestRepositoryErrorPaths(TestCase):
         ):
             self.assertIsNone(repositories.get_order(cfg, 999))
 
-    def test_insert_variable_space_raises_when_returning_yields_nothing(self):
+    def test_insert_variable_space_raises_when_returning_yields_nothing(self) -> None:
         """
         Ensure :func:`_insert_variable_space_and_pair` raises an
         ``EleanorException`` when the ``variable_space`` INSERT's
@@ -656,7 +683,7 @@ class TestRepositoryErrorPaths(TestCase):
 class TestConverterErrorAndReactantPaths(TestCase):
     """Converter error paths + the reactant-family converters not exercised elsewhere."""
 
-    def test_normalize_dict_rejects_non_mapping_payloads(self):
+    def test_normalize_dict_rejects_non_mapping_payloads(self) -> None:
         """
         Ensure :func:`normalize_dict` raises a clear
         :class:`EleanorException` (instead of letting psycopg's JSONB
@@ -666,7 +693,7 @@ class TestConverterErrorAndReactantPaths(TestCase):
         with self.assertRaisesRegex(EleanorException, "must serialize to a dict"):
             _ = converters.normalize_dict(42, "order")
 
-    def test_order_to_row_allows_missing_name(self):
+    def test_order_to_row_allows_missing_name(self) -> None:
         """
         Ensure :func:`order_to_row` leaves ``name`` enforcement to DB-level
         constraints and only performs the sink-required metadata checks.
@@ -678,7 +705,7 @@ class TestConverterErrorAndReactantPaths(TestCase):
         self.assertIn("name", row)
         self.assertIsNone(row["name"])
 
-    def test_reactant_family_converters_emit_uniform_row_shape(self):
+    def test_reactant_family_converters_emit_uniform_row_shape(self) -> None:
         """
         Ensure every reactant-family converter that shares the
         ``(name, log_moles, titration_rate)`` shape produces a row dict
@@ -691,28 +718,44 @@ class TestConverterErrorAndReactantPaths(TestCase):
         cases = [
             (
                 converters.mineral_reactant_to_row(
-                    core_vs.MineralReactant(name="m", log_moles=np.float64(0.0), titration_rate=np.float64(1.0)),
+                    core_vs.MineralReactant(
+                        name="m",
+                        log_moles=np.float64(0.0),
+                        titration_rate=np.float64(1.0),
+                    ),
                     variable_space_id=7,
                 ),
                 schema.MINERAL_REACTANTS,
             ),
             (
                 converters.aqueous_reactant_to_row(
-                    core_vs.AqueousReactant(name="a", log_moles=np.float64(0.0), titration_rate=np.float64(1.0)),
+                    core_vs.AqueousReactant(
+                        name="a",
+                        log_moles=np.float64(0.0),
+                        titration_rate=np.float64(1.0),
+                    ),
                     variable_space_id=7,
                 ),
                 schema.AQUEOUS_REACTANTS,
             ),
             (
                 converters.gas_reactant_to_row(
-                    core_vs.GasReactant(name="g", log_moles=np.float64(0.0), titration_rate=np.float64(1.0)),
+                    core_vs.GasReactant(
+                        name="g",
+                        log_moles=np.float64(0.0),
+                        titration_rate=np.float64(1.0),
+                    ),
                     variable_space_id=7,
                 ),
                 schema.GAS_REACTANTS,
             ),
             (
                 converters.element_reactant_to_row(
-                    core_vs.ElementReactant(name="e", log_moles=np.float64(0.0), titration_rate=np.float64(1.0)),
+                    core_vs.ElementReactant(
+                        name="e",
+                        log_moles=np.float64(0.0),
+                        titration_rate=np.float64(1.0),
+                    ),
                     variable_space_id=7,
                 ),
                 schema.ELEMENT_REACTANTS,
@@ -752,7 +795,7 @@ class TestConverterErrorAndReactantPaths(TestCase):
                 )
                 self.assertEqual(row["variable_space_id"], 7)
 
-    def test_special_reactant_composition_to_row_shape(self):
+    def test_special_reactant_composition_to_row_shape(self) -> None:
         """Ensure the special-reactant child composition row shape matches its table."""
         import eleanor.variable_space as core_vs
 
@@ -760,23 +803,31 @@ class TestConverterErrorAndReactantPaths(TestCase):
             core_vs.SpecialReactantComposition(element="Fe", count=1),
             special_reactant_id=11,
         )
-        expected = {c.name for c in schema.SPECIAL_REACTANT_COMPOSITIONS.columns if not c.identity}
+        expected = {
+            c.name
+            for c in schema.SPECIAL_REACTANT_COMPOSITIONS.columns
+            if not c.identity
+        }
         self.assertEqual(set(row.keys()), expected)
         self.assertEqual(row["special_reactant_id"], 11)
 
-    def test_fixed_gas_reactant_to_row_shape(self):
+    def test_fixed_gas_reactant_to_row_shape(self) -> None:
         """Ensure the fixed-gas reactant row shape includes ``log_fugacity`` instead of ``titration_rate``."""
         import eleanor.variable_space as core_vs
 
         row = converters.fixed_gas_reactant_to_row(
-            core_vs.FixedGasReactant(name="O2(g)", log_moles=-np.float64(2.0), log_fugacity=-np.float64(2.0)),
+            core_vs.FixedGasReactant(
+                name="O2(g)", log_moles=-np.float64(2.0), log_fugacity=-np.float64(2.0)
+            ),
             variable_space_id=7,
         )
-        expected = {c.name for c in schema.FIXED_GAS_REACTANTS.columns if not c.identity}
+        expected = {
+            c.name for c in schema.FIXED_GAS_REACTANTS.columns if not c.identity
+        }
         self.assertEqual(set(row.keys()), expected)
         self.assertIn("log_fugacity", row)
 
-    def test_es_reactant_to_row_shape(self):
+    def test_es_reactant_to_row_shape(self) -> None:
         """Ensure the ES-side reactant row shape carries every kinetic field."""
         import eleanor.equilibrium_space as core_es
 
@@ -792,13 +843,17 @@ class TestConverterErrorAndReactantPaths(TestCase):
             ),
             equilibrium_space_id=11,
         )
-        expected = {c.name for c in schema.EQUILIBRIUM_REACTANTS.columns if not c.identity}
+        expected = {
+            c.name for c in schema.EQUILIBRIUM_REACTANTS.columns if not c.identity
+        }
         self.assertEqual(set(row.keys()), expected)
         self.assertEqual(row["equilibrium_space_id"], 11)
 
-    def test_normalize_dict_recurses_through_lists_and_enums(self):
+    def test_normalize_dict_recurses_through_lists_and_enums(self) -> None:
         payload = {
-            "reactants": [{"type": ReactantType.MINERAL, "log_moles": np.float64(-1.0)}],
+            "reactants": [
+                {"type": ReactantType.MINERAL, "log_moles": np.float64(-1.0)}
+            ],
             "nested": {"v": [np.int64(2), {"x": np.float64(0.5)}]},
         }
         out = converters.normalize_dict(payload, "test")
@@ -812,7 +867,7 @@ class TestConverterErrorAndReactantPaths(TestCase):
 class TestConnectionCacheBehaviour(TestCase):
     """Process-local connection memoization paths in :mod:`connection`."""
 
-    def test_connect_evicts_and_reopens_a_dead_cached_connection(self):
+    def test_connect_evicts_and_reopens_a_dead_cached_connection(self) -> None:
         """
         Ensure :func:`connection.connect` transparently replaces a
         cached connection that's been closed under us (server restart,
@@ -848,7 +903,7 @@ class TestConnectionCacheBehaviour(TestCase):
         connect.assert_called_once()
         set_json.assert_called_once_with(connection._json_dumps, fresh)
 
-    def test_close_all_connections_drains_cache_even_when_close_raises(self):
+    def test_close_all_connections_drains_cache_even_when_close_raises(self) -> None:
         """
         Ensure :func:`_close_all_connections` empties the process-local
         cache regardless of any :meth:`Connection.close` raising. The
@@ -881,7 +936,7 @@ class TestConnectionCacheBehaviour(TestCase):
         self.assertEqual(broken.close.call_count, 1)
         self.assertEqual(ok.close.call_count, 1)
 
-    def test_close_all_connections_only_closes_locally_owned_connections(self):
+    def test_close_all_connections_only_closes_locally_owned_connections(self) -> None:
         """
         Ensure :func:`_close_all_connections` only closes connections owned
         by the local process.
@@ -951,7 +1006,9 @@ class TestBulkLoadLifecycle(TestCase):
             out.append(stmt if isinstance(stmt, str) else str(stmt))
         return out
 
-    def test_drop_indexes_introspects_fks_and_drops_named_checks_and_indexes(self):
+    def test_drop_indexes_introspects_fks_and_drops_named_checks_and_indexes(
+        self,
+    ) -> None:
         """
         Ensure :func:`schema.drop_indexes` issues, for every declared
         table, an introspection query against ``information_schema``
@@ -970,12 +1027,16 @@ class TestBulkLoadLifecycle(TestCase):
 
         def fake_execute(stmt: object, params: object = None) -> object:
             text = stmt if isinstance(stmt, str) else str(stmt)
-            if "information_schema.table_constraints" in text and isinstance(params, tuple):
+            if "information_schema.table_constraints" in text and isinstance(
+                params, tuple
+            ):
                 fk_calls_seen.append(params[1])  # the table name
             return cursor
 
         cursor.execute.side_effect = fake_execute
-        cursor.fetchall.side_effect = ([(f"{table.name}_fk_synth",)] for table in schema.TABLES)
+        cursor.fetchall.side_effect = (
+            [(f"{table.name}_fk_synth",)] for table in schema.TABLES
+        )
         conn, _ = self._fake_conn_with_cursor(cursor)
 
         schema.drop_indexes(conn)
@@ -992,12 +1053,18 @@ class TestBulkLoadLifecycle(TestCase):
         # matter for correctness; what matters is the substrings.
         for table in schema.TABLES:
             self.assertTrue(
-                any(f'DROP CONSTRAINT IF EXISTS "{table.name}_fk_synth"' in s for s in statements),
+                any(
+                    f'DROP CONSTRAINT IF EXISTS "{table.name}_fk_synth"' in s
+                    for s in statements
+                ),
                 f"expected synthesized FK drop for table {table.name!r}",
             )
             for check in table.checks:
                 self.assertTrue(
-                    any(f'DROP CONSTRAINT IF EXISTS "{check.name}"' in s for s in statements),
+                    any(
+                        f'DROP CONSTRAINT IF EXISTS "{check.name}"' in s
+                        for s in statements
+                    ),
                     f"expected CHECK drop for {check.name!r}",
                 )
             for idx in table.indexes:
@@ -1006,7 +1073,7 @@ class TestBulkLoadLifecycle(TestCase):
                     f"expected index drop for {idx.name!r}",
                 )
 
-    def test_drop_indexes_runs_inside_a_transaction(self):
+    def test_drop_indexes_runs_inside_a_transaction(self) -> None:
         """
         Ensure :func:`schema.drop_indexes` opens a transaction so a
         partial drop never lands. Without the bracket, a mid-loop error
@@ -1019,7 +1086,7 @@ class TestBulkLoadLifecycle(TestCase):
         schema.drop_indexes(conn)
         conn.transaction.assert_called_once_with()
 
-    def test_recreate_indexes_emits_create_then_check_then_fk(self):
+    def test_recreate_indexes_emits_create_then_check_then_fk(self) -> None:
         """
         Ensure :func:`schema.recreate_indexes` emits, for every
         declared table, ``CREATE INDEX IF NOT EXISTS`` for each
@@ -1039,22 +1106,31 @@ class TestBulkLoadLifecycle(TestCase):
         for table in schema.TABLES:
             for idx in table.indexes:
                 self.assertTrue(
-                    any(f'CREATE INDEX IF NOT EXISTS "{idx.name}"' in s for s in statements),
+                    any(
+                        f'CREATE INDEX IF NOT EXISTS "{idx.name}"' in s
+                        for s in statements
+                    ),
                     f"missing CREATE INDEX for {idx.name!r}",
                 )
             for check in table.checks:
                 self.assertTrue(
-                    any(f'ADD CONSTRAINT "{check.name}"' in s and "CHECK" in s for s in statements),
+                    any(
+                        f'ADD CONSTRAINT "{check.name}"' in s and "CHECK" in s
+                        for s in statements
+                    ),
                     f"missing ADD CHECK for {check.name!r}",
                 )
             for fk in table.foreign_keys:
                 fk_name = schema._fk_constraint_name(table.name, fk.column)
                 self.assertTrue(
-                    any(f'ADD CONSTRAINT "{fk_name}"' in s and "FOREIGN KEY" in s for s in statements),
+                    any(
+                        f'ADD CONSTRAINT "{fk_name}"' in s and "FOREIGN KEY" in s
+                        for s in statements
+                    ),
                     f"missing ADD FK for {fk_name!r}",
                 )
 
-    def test_recreate_indexes_runs_inside_a_transaction(self):
+    def test_recreate_indexes_runs_inside_a_transaction(self) -> None:
         """Ensure the recreate also runs inside a single transaction."""
         cursor = mock.MagicMock()
         conn, _ = self._fake_conn_with_cursor(cursor)
@@ -1062,7 +1138,7 @@ class TestBulkLoadLifecycle(TestCase):
         schema.recreate_indexes(conn)
         conn.transaction.assert_called_once_with()
 
-    def test_bulk_load_window_drops_on_enter_and_recreates_on_exit(self):
+    def test_bulk_load_window_drops_on_enter_and_recreates_on_exit(self) -> None:
         """
         Ensure :func:`schema.bulk_load_window` calls
         :func:`drop_indexes` before yielding and
@@ -1087,7 +1163,7 @@ class TestBulkLoadLifecycle(TestCase):
 
         self.assertEqual(events, ["drop", "body", "recreate"])
 
-    def test_bulk_load_window_recreates_even_when_body_raises(self):
+    def test_bulk_load_window_recreates_even_when_body_raises(self) -> None:
         """
         Ensure the recreate phase runs in :keyword:`finally`, so a
         bulk-load that fails mid-flight still puts the constraints
@@ -1113,7 +1189,7 @@ class TestBulkLoadLifecycle(TestCase):
 
         self.assertEqual(events, ["drop", "body", "recreate"])
 
-    def test_repositories_drop_indexes_wires_connect_to_schema(self):
+    def test_repositories_drop_indexes_wires_connect_to_schema(self) -> None:
         """
         Ensure :func:`repositories.drop_indexes` is just
         ``schema.drop_indexes(connection.connect(config))`` -- the
@@ -1133,7 +1209,7 @@ class TestBulkLoadLifecycle(TestCase):
         connect.assert_called_once_with(cfg)
         drop_indexes.assert_called_once_with(fake_conn)
 
-    def test_repositories_recreate_indexes_wires_connect_to_schema(self):
+    def test_repositories_recreate_indexes_wires_connect_to_schema(self) -> None:
         """Ensure the recreate wrapper is the same shape as the drop wrapper."""
         cfg = PostgresDatabaseSettings(database="db", username="u", password="p")
         fake_conn = mock.MagicMock()
@@ -1149,7 +1225,7 @@ class TestBulkLoadLifecycle(TestCase):
         connect.assert_called_once_with(cfg)
         recreate_indexes.assert_called_once_with(fake_conn)
 
-    def test_repositories_bulk_load_window_delegates_to_schema_window(self):
+    def test_repositories_bulk_load_window_delegates_to_schema_window(self) -> None:
         """
         Ensure :func:`repositories.bulk_load_window` opens the
         process-local connection, delegates to
@@ -1176,7 +1252,9 @@ class TestBulkLoadLifecycle(TestCase):
             mock.patch.object(
                 schema,
                 "bulk_load_window",
-                side_effect=lambda c: __import__("contextlib").contextmanager(fake_window)(c),
+                side_effect=lambda c: __import__("contextlib").contextmanager(
+                    fake_window
+                )(c),
             ),
         ):
             with repositories.bulk_load_window(cfg):

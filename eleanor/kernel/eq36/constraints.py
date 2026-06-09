@@ -23,7 +23,7 @@ class TemperatureRangeConstraint(AbstractConstraint):
     min_t: np.float64
     max_t: np.float64
 
-    def __init__(self, temperature: Parameter, data1s: list[Data1]):
+    def __init__(self, temperature: Parameter, data1s: list[Data1]) -> None:
         self.temperature = temperature
 
         if len(data1s) == 0:

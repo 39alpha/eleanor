@@ -1,7 +1,12 @@
 from dataclasses import dataclass
 from unittest import TestCase
 
-from eleanor.query.errors import AliasCollision, AmbiguousRowScope, InvalidRowScope, UnknownRowScope
+from eleanor.query.errors import (
+    AliasCollision,
+    AmbiguousRowScope,
+    InvalidRowScope,
+    UnknownRowScope,
+)
 from eleanor.query.path import Path, parse_path, path_to_string
 from eleanor.query.reflection import DataclassField
 from eleanor.query.scope import AmbientScopeTable, resolve_row_scope
@@ -19,7 +24,7 @@ class TestScope(TestCase):
     Tests for row_scope resolution and ambient alias table construction.
     """
 
-    def test_resolve_row_scope_order_includes_root_aliases(self):
+    def test_resolve_row_scope_order_includes_root_aliases(self) -> None:
         """
         Ensure row_scope=order binds both order and self aliases at root.
         """
@@ -28,7 +33,7 @@ class TestScope(TestCase):
         self.assertIn("order", table)
         self.assertIn("self", table)
 
-    def test_resolve_row_scope_shortname_unique_path(self):
+    def test_resolve_row_scope_shortname_unique_path(self) -> None:
         """
         Ensure a unique shortname resolves to its canonical iterative path.
         """
@@ -37,28 +42,28 @@ class TestScope(TestCase):
         self.assertIn("point", table)
         self.assertIn("self", table)
 
-    def test_resolve_row_scope_ambiguous_shortname_raises(self):
+    def test_resolve_row_scope_ambiguous_shortname_raises(self) -> None:
         """
         Ensure overlapping shortname candidates raise AmbiguousRowScope.
         """
         with self.assertRaises(AmbiguousRowScope):
             resolve_row_scope(Sample, "point")
 
-    def test_resolve_row_scope_unknown_shortname_raises(self):
+    def test_resolve_row_scope_unknown_shortname_raises(self) -> None:
         """
         Ensure unknown shortname inputs raise UnknownRowScope.
         """
         with self.assertRaises(UnknownRowScope):
             resolve_row_scope(Sample, "missing")
 
-    def test_resolve_row_scope_rejects_leaf_terminal_path(self):
+    def test_resolve_row_scope_rejects_leaf_terminal_path(self) -> None:
         """
         Ensure explicit row_scope paths ending in leaf fields are rejected.
         """
         with self.assertRaises(InvalidRowScope):
             resolve_row_scope(Sample, "points[index=1].index")
 
-    def test_ambient_scope_table_alias_collision_raises(self):
+    def test_ambient_scope_table_alias_collision_raises(self) -> None:
         """
         Ensure adding a reused alias for a different path raises AliasCollision.
         """

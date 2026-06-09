@@ -1,5 +1,4 @@
 import pytest
-
 from eleanor.config.executor import ExecutorConfig
 from eleanor.exceptions import EleanorException
 from eleanor.executor.settings import ExecutorSettings

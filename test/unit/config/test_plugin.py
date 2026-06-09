@@ -1,10 +1,9 @@
 import pytest
-from pytest_mock import MockerFixture
-
 from eleanor.config.plugin import PluginConfig
 from eleanor.exceptions import EleanorException
 from eleanor.parameters import Parameter
 from eleanor.settings import Settings, SettingsLike
+from pytest_mock import MockerFixture
 
 
 def test_can_construct_plugin_config() -> None:

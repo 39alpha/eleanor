@@ -4,7 +4,6 @@ from dataclasses import dataclass
 
 import click
 import pytest
-
 from eleanor.cli.registry import registry
 from eleanor.plugin import SimplePluginSpec
 

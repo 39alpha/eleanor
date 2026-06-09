@@ -2,7 +2,6 @@ from typing import cast
 from unittest import TestCase, mock
 
 import numpy as np
-
 from eleanor.exceptions import EleanorException
 from eleanor.parameters import (
     ListParameter,
@@ -19,18 +18,20 @@ class TestParameters(TestCase):
     Tests of the eleanor.parameters module.
     """
 
-    def test_parameter_abstract_placeholders(self):
+    def test_parameter_abstract_placeholders(self) -> None:
         """
         Ensure abstract placeholder bodies on :class:`Parameter` are executable directly.
         """
         placeholder = cast(Parameter, object())
-        self.assertFalse(Parameter.in_domain(placeholder, cast(Parameter, cast(object, None))))
+        self.assertFalse(
+            Parameter.in_domain(placeholder, cast(Parameter, cast(object, None)))
+        )
         self.assertEqual(Parameter.range(placeholder), (np.float64(0), np.float64(0)))
         self.assertEqual(Parameter.volume(placeholder), np.float64(1.0))
         self.assertIsNone(Parameter.random(placeholder))
         self.assertIsNone(Parameter.lattice(placeholder))
 
-    def test_parameter_from_dict_and_load_dispatch(self):
+    def test_parameter_from_dict_and_load_dispatch(self) -> None:
         """
         Ensure parameter parsing/load dispatch covers value/list/range/normal forms.
         """
@@ -55,7 +56,7 @@ class TestParameters(TestCase):
         self.assertIsInstance(Parameter.load([1.0, 2.0]), ListParameter)
         self.assertIsInstance(Parameter.load(1.0), ValueParameter)
 
-    def test_parameter_refine_and_restrict(self):
+    def test_parameter_refine_and_restrict(self) -> None:
         """
         Ensure refine/restrict/fix collapse degenerate list/range parameters to value parameters.
         """
@@ -68,7 +69,7 @@ class TestParameters(TestCase):
         self.assertIsInstance(fixed, ValueParameter)
         self.assertEqual(cast(ValueParameter, fixed).value, np.float64(1.0))
 
-    def test_value_parameter_methods(self):
+    def test_value_parameter_methods(self) -> None:
         """
         Ensure :class:`ValueParameter` domain/range/volume/random/lattice behave as expected.
         """
@@ -78,10 +79,15 @@ class TestParameters(TestCase):
         self.assertFalse(p.in_domain(RangeParameter(np.float64(1.0), np.float64(2.0))))
         self.assertEqual(p.range(), (np.float64(2.0), np.float64(2.0)))
         self.assertEqual(p.volume(), np.float64(1.0))
-        self.assertEqual([x.value for x in p.random(size=2)], [np.float64(2.0), np.float64(2.0)])
-        self.assertEqual([x.value for x in p.lattice(size=3)], [np.float64(2.0), np.float64(2.0), np.float64(2.0)])
+        self.assertEqual(
+            [x.value for x in p.random(size=2)], [np.float64(2.0), np.float64(2.0)]
+        )
+        self.assertEqual(
+            [x.value for x in p.lattice(size=3)],
+            [np.float64(2.0), np.float64(2.0), np.float64(2.0)],
+        )
 
-    def test_range_parameter_methods(self):
+    def test_range_parameter_methods(self) -> None:
         """
         Ensure :class:`RangeParameter` ordering, domain checks, and generation helpers work.
         """
@@ -92,7 +98,11 @@ class TestParameters(TestCase):
         self.assertTrue(p.in_domain(ValueParameter(np.float64(2.0))))
         self.assertFalse(p.in_domain(ValueParameter(np.float64(4.0))))
         self.assertTrue(p.in_domain(RangeParameter(np.float64(1.5), np.float64(2.5))))
-        self.assertTrue(p.in_domain(ListParameter([np.float64(1.0), np.float64(2.0), np.float64(3.0)])))
+        self.assertTrue(
+            p.in_domain(
+                ListParameter([np.float64(1.0), np.float64(2.0), np.float64(3.0)])
+            )
+        )
         self.assertFalse(p.in_domain(ListParameter([np.float64(0.0), np.float64(2.0)])))
         self.assertFalse(p.in_domain(cast(Parameter, object())))
         self.assertEqual(p.range(), (np.float64(1.0), np.float64(3.0)))
@@ -103,9 +113,11 @@ class TestParameters(TestCase):
         self.assertEqual([x.value for x in out], [np.float64(1.0), np.float64(2.0)])
 
         out2 = p.lattice(size=3)
-        self.assertEqual([x.value for x in out2], [np.float64(1.0), np.float64(2.0), np.float64(3.0)])
+        self.assertEqual(
+            [x.value for x in out2], [np.float64(1.0), np.float64(2.0), np.float64(3.0)]
+        )
 
-    def test_list_parameter_methods(self):
+    def test_list_parameter_methods(self) -> None:
         """
         Ensure :class:`ListParameter` validation, domain checks, and generation helpers work.
         """
@@ -114,7 +126,10 @@ class TestParameters(TestCase):
 
         p = ListParameter([np.float64(3.0), np.float64(1.0), np.float64(2.0)])
         self.assertEqual(p.values, [np.float64(1.0), np.float64(2.0), np.float64(3.0)])
-        self.assertEqual([e.value for e in p.elements], [np.float64(1.0), np.float64(2.0), np.float64(3.0)])
+        self.assertEqual(
+            [e.value for e in p.elements],
+            [np.float64(1.0), np.float64(2.0), np.float64(3.0)],
+        )
         self.assertTrue(p.in_domain(ValueParameter(np.float64(2.0))))
         self.assertFalse(p.in_domain(ValueParameter(np.float64(5.0))))
         self.assertTrue(p.in_domain(RangeParameter(np.float64(2.0), np.float64(2.0))))
@@ -130,17 +145,25 @@ class TestParameters(TestCase):
         self.assertEqual([x.value for x in out], [np.float64(1.0), np.float64(3.0)])
         self.assertEqual(
             [x.value for x in p.lattice(size=5)],
-            [np.float64(1.0), np.float64(2.0), np.float64(3.0), np.float64(1.0), np.float64(2.0)],
+            [
+                np.float64(1.0),
+                np.float64(2.0),
+                np.float64(3.0),
+                np.float64(1.0),
+                np.float64(2.0),
+            ],
         )
 
-    def test_normal_parameter_defaults_and_generation(self):
+    def test_normal_parameter_defaults_and_generation(self) -> None:
         """
         Ensure :class:`NormalParameter` default stddev, random, and lattice generation behave.
         """
         p0 = NormalParameter(mean=np.float64(0.0))
         self.assertEqual(p0.stddev, np.float64(1.0))
 
-        p1 = NormalParameter(mean=np.float64(0.0), a=np.float64(-3.0), b=np.float64(3.0))
+        p1 = NormalParameter(
+            mean=np.float64(0.0), a=np.float64(-3.0), b=np.float64(3.0)
+        )
         self.assertEqual(p1.stddev, np.float64(1.0))
         self.assertEqual(p1.range(), (-np.inf, np.inf))
         self.assertEqual(p1.volume(), np.float64(1.0))
@@ -162,7 +185,7 @@ class TestParameters(TestCase):
         self.assertEqual(len(out3), 3)
         self.assertTrue(all(isinstance(v, ValueParameter) for v in out3))
 
-    def test_parameter_registry(self):
+    def test_parameter_registry(self) -> None:
         """
         Ensure :class:`ParameterRegistry` supports add/lookup and validates duplicates/bounds.
         """

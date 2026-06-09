@@ -37,7 +37,7 @@ class TestKernelInterface(TestCase):
     Tests of the eleanor.kernel.interface module.
     """
 
-    def test_default_helpers(self):
+    def test_default_helpers(self) -> None:
         """
         Ensure that :class:`AbstractKernel` default helper methods return expected values.
         """
@@ -47,7 +47,7 @@ class TestKernelInterface(TestCase):
         point_builder = cast(PointBuilder, object())
         self.assertIs(kernel.constrain(point_builder), point_builder)
 
-    def test_abstract_placeholder_methods(self):
+    def test_abstract_placeholder_methods(self) -> None:
         """
         Ensure that abstract placeholder method bodies are executable when called directly.
         """

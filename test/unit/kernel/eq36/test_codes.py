@@ -8,7 +8,7 @@ class TestEq36Codes(TestCase):
     Tests of the eleanor.kernel.eq36.codes module.
     """
 
-    def test_run_code_string_rendering(self):
+    def test_run_code_string_rendering(self) -> None:
         """
         Ensure known run codes render to expected status messages.
         """
@@ -17,7 +17,7 @@ class TestEq36Codes(TestCase):
         self.assertEqual(str(RunCode.EQPT_ERROR), "eqpt failed with an error")
         self.assertEqual(str(RunCode.EQ36_TIMEOUT), "eq36 timed out")
 
-    def test_run_code_missing_string_mapping(self):
+    def test_run_code_missing_string_mapping(self) -> None:
         """
         Ensure unmapped enum values surface as TypeError due non-string __str__ return.
         """

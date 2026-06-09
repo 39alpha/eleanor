@@ -27,7 +27,7 @@ class PointBuilder:
     constraints: list[AbstractConstraint]
     valuations: Valuation
 
-    def __init__(self, order: Order, *constraints: AbstractConstraint):
+    def __init__(self, order: Order, *constraints: AbstractConstraint) -> None:
         self.order = order
         self.registry = ParameterRegistry()
         self.registry.add_parameters(order.parameters())
@@ -49,7 +49,7 @@ class PointBuilder:
     def __getitem__(self, parameter: Parameter) -> Parameter:
         return self.valuations[self.registry.id(parameter)]
 
-    def __setitem__(self, parameter: Parameter, value: Parameter):
+    def __setitem__(self, parameter: Parameter, value: Parameter) -> None:
         if self.registry.id(parameter) not in self.valuations:
             raise Exception(f"{parameter} ({self.registry.id(parameter)}) is not in the registry")
         elif not parameter.in_domain(value):
@@ -63,7 +63,7 @@ class PointBuilder:
 
         self.valuations[parameter_id] = value
 
-    def hardset(self, parameter: Parameter, value: Parameter):
+    def hardset(self, parameter: Parameter, value: Parameter) -> None:
         self.valuations[self.registry.id(parameter)] = value
 
     def constrain(self) -> list[Parameter]:

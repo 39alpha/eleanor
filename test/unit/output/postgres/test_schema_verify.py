@@ -4,8 +4,6 @@ Tests the pure functions: declared-name helpers, _columns_by_name,
 and the mocked-reader ``verify_against_tables`` verifier check.
 """
 
-from pytest_mock import MockerFixture
-
 from eleanor.output.postgres.persistence import schema
 from eleanor.output.postgres.persistence.schema import (
     TABLES,
@@ -13,6 +11,7 @@ from eleanor.output.postgres.persistence.schema import (
     declared_index_names,
     verify_against_tables,
 )
+from pytest_mock import MockerFixture
 
 
 def test_declared_index_names_includes_every_index_def() -> None:
@@ -55,7 +54,9 @@ def test_verify_reports_missing_index_from_mocked_reader(mocker: MockerFixture) 
     reduced = full_index_names - {missing_entry}
 
     mocker.patch.object(schema, "live_index_names", return_value=reduced)
-    mocker.patch.object(schema, "live_constraint_names", return_value=declared_constraint_names())
+    mocker.patch.object(
+        schema, "live_constraint_names", return_value=declared_constraint_names()
+    )
     mocker.patch.object(schema, "inspect_schema", return_value={})
 
     problems = verify_against_tables(mocker.MagicMock())

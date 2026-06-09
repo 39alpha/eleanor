@@ -31,7 +31,7 @@ class Eq36Kernel(AbstractKernel):
     _setup: bool
     _data1s: list[Data1]
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._setup = False
         self._data1s = []
 

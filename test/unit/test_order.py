@@ -7,7 +7,6 @@ from unittest import TestCase, mock
 
 import numpy as np
 import pytest
-
 from eleanor.exceptions import EleanorException
 from eleanor.kernel.settings import KernelSettings
 from eleanor.order import Order, Suppression, load_order
@@ -45,7 +44,9 @@ def _make_order(
 ):
     """Build an Order with the kernel registry mocked out."""
     effective = raw if raw is not None else _minimal_raw(**overrides)
-    with mock.patch("eleanor.kernel.registry.get_factory", return_value=_FAKE_KERNEL_SPEC):
+    with mock.patch(
+        "eleanor.kernel.registry.get_factory", return_value=_FAKE_KERNEL_SPEC
+    ):
         return Order.from_dict(
             cast(dict[str, object], cast(object, effective)),
             order_id=order_id,
@@ -60,7 +61,7 @@ class TestOrder(TestCase):
     Tests of the eleanor.order module.
     """
 
-    def test_suppression(self):
+    def test_suppression(self) -> None:
         """
         Ensure suppression construction and parsing validate name/type/exception constraints.
         """
@@ -77,13 +78,19 @@ class TestOrder(TestCase):
         self.assertEqual(s2.type, "mineral")
 
         with self.assertRaises(EleanorException):
-            _ = Suppression.from_dict(cast(dict[str, object], cast(object, {"name": 1})))
+            _ = Suppression.from_dict(
+                cast(dict[str, object], cast(object, {"name": 1}))
+            )
         with self.assertRaises(EleanorException):
-            _ = Suppression.from_dict(cast(dict[str, object], cast(object, {"name": "x", "type": 2})))
+            _ = Suppression.from_dict(
+                cast(dict[str, object], cast(object, {"name": "x", "type": 2}))
+            )
         with self.assertRaises(EleanorException):
-            _ = Suppression.from_dict(cast(dict[str, object], cast(object, {"name": "x", "except": [1]})))
+            _ = Suppression.from_dict(
+                cast(dict[str, object], cast(object, {"name": "x", "except": [1]}))
+            )
 
-    def test_order_core_methods(self):
+    def test_order_core_methods(self) -> None:
         """
         Ensure order parsing and parameter collection work for common paths.
         """
@@ -100,7 +107,7 @@ class TestOrder(TestCase):
         params = order.parameters()
         self.assertTrue(any(isinstance(p, ValueParameter) for p in params))
 
-    def test_order_reads_id_from_raw(self):
+    def test_order_reads_id_from_raw(self) -> None:
         """
         Ensure Order.__init__ reads an optional numeric ``id`` from raw
         and defaults to None when the field is absent.
@@ -114,16 +121,22 @@ class TestOrder(TestCase):
         with self.assertRaisesRegex(EleanorException, "id must be an integer"):
             _ = _make_order(id="not-an-int")
 
-    def test_order_validation_and_kernel_branches(self):
+    def test_order_validation_and_kernel_branches(self) -> None:
         """
         Ensure order validation and kernel/navigator parsing branches behave correctly.
         """
         with self.assertRaises(EleanorException):
-            _ = Order.from_dict(cast(dict[str, object], cast(object, _minimal_raw(name=1))))
+            _ = Order.from_dict(
+                cast(dict[str, object], cast(object, _minimal_raw(name=1)))
+            )
         with self.assertRaises(EleanorException):
-            _ = Order.from_dict(cast(dict[str, object], cast(object, _minimal_raw(notes=1))))
+            _ = Order.from_dict(
+                cast(dict[str, object], cast(object, _minimal_raw(notes=1)))
+            )
         with self.assertRaises(EleanorException):
-            _ = Order.from_dict(cast(dict[str, object], cast(object, _minimal_raw(creator=1))))
+            _ = Order.from_dict(
+                cast(dict[str, object], cast(object, _minimal_raw(creator=1)))
+            )
 
         order = _make_order(
             name="o",
@@ -134,7 +147,7 @@ class TestOrder(TestCase):
         self.assertIsNotNone(order.kernel)
         self.assertEqual(order.navigator.kind, "random")
 
-    def test_order_parameters_includes_kernel_and_reactant_parameters(self):
+    def test_order_parameters_includes_kernel_and_reactant_parameters(self) -> None:
         """
         Ensure :meth:`Order.parameters` includes kernel and reactant-derived parameter lists.
         """
@@ -148,7 +161,9 @@ class TestOrder(TestCase):
         self.assertIn(kparam, params)
         self.assertIn(rparam, params)
 
-    def test_order_rejects_duplicate_names_between_reactants_and_combined_components(self):
+    def test_order_rejects_duplicate_names_between_reactants_and_combined_components(
+        self,
+    ) -> None:
         """
         Ensure duplicate concrete names across standalone reactants and combined components are rejected.
         """
@@ -182,7 +197,7 @@ class TestOrder(TestCase):
                 }
             )
 
-    def test_order_file_loaders_and_load_order(self):
+    def test_order_file_loaders_and_load_order(self) -> None:
         """
         Ensure order file/string loaders and load_order dispatch behave across formats.
         """
@@ -213,7 +228,9 @@ class TestOrder(TestCase):
         )
         json_content = json.dumps(raw)
 
-        with mock.patch("eleanor.kernel.registry.get_factory", return_value=_FAKE_KERNEL_SPEC):
+        with mock.patch(
+            "eleanor.kernel.registry.get_factory", return_value=_FAKE_KERNEL_SPEC
+        ):
             with TemporaryDirectory() as tmp:
                 yml = join(tmp, "o.yaml")
                 yml2 = join(tmp, "o.yml")
@@ -250,15 +267,17 @@ class TestOrder(TestCase):
         o = _make_order(name="x")
         self.assertIs(load_order(o), o)
 
-    def test_order_from_file_re_raises_eleanor_exception(self):
+    def test_order_from_file_re_raises_eleanor_exception(self) -> None:
         """
         Ensure Order.from_file re-raises EleanorException from parser branches without wrapping.
         """
-        with mock.patch("eleanor.order.Order.from_yaml", side_effect=EleanorException("boom")):
+        with mock.patch(
+            "eleanor.order.Order.from_yaml", side_effect=EleanorException("boom")
+        ):
             with self.assertRaisesRegex(EleanorException, "boom"):
                 _ = Order.from_file("test.yaml")
 
-    def test_order_requires_kernel(self):
+    def test_order_requires_kernel(self) -> None:
         """Ensure Order raises when kernel is absent."""
         with self.assertRaisesRegex(EleanorException, "kernel is required"):
             _ = Order.from_dict(
@@ -271,43 +290,61 @@ class TestOrder(TestCase):
                 },
             )
 
-    def test_order_requires_temperature(self):
+    def test_order_requires_temperature(self) -> None:
         """Ensure Order raises when temperature is absent."""
-        with mock.patch("eleanor.kernel.registry.get_factory", return_value=_FAKE_KERNEL_SPEC):
+        with mock.patch(
+            "eleanor.kernel.registry.get_factory", return_value=_FAKE_KERNEL_SPEC
+        ):
             with self.assertRaisesRegex(EleanorException, "temperature is required"):
                 _ = Order.from_dict(
                     {
                         "name": "o",
                         "creator": "u",
-                        "kernel": {"kind": "eq36", "model": "b-dot", "charge_balance": "H+"},
+                        "kernel": {
+                            "kind": "eq36",
+                            "model": "b-dot",
+                            "charge_balance": "H+",
+                        },
                         "pressure": 1.0,
                         "elements": {"Na": 1.0},
                     }
                 )
 
-    def test_order_requires_pressure(self):
+    def test_order_requires_pressure(self) -> None:
         """Ensure Order raises when pressure is absent."""
-        with mock.patch("eleanor.kernel.registry.get_factory", return_value=_FAKE_KERNEL_SPEC):
+        with mock.patch(
+            "eleanor.kernel.registry.get_factory", return_value=_FAKE_KERNEL_SPEC
+        ):
             with self.assertRaisesRegex(EleanorException, "pressure is required"):
                 _ = Order.from_dict(
                     {
                         "name": "o",
                         "creator": "u",
-                        "kernel": {"kind": "eq36", "model": "b-dot", "charge_balance": "H+"},
+                        "kernel": {
+                            "kind": "eq36",
+                            "model": "b-dot",
+                            "charge_balance": "H+",
+                        },
                         "temperature": 25.0,
                         "elements": {"Na": 1.0},
                     }
                 )
 
-    def test_order_requires_nonempty_elements(self):
+    def test_order_requires_nonempty_elements(self) -> None:
         """Ensure Order raises when elements is empty or absent."""
-        with mock.patch("eleanor.kernel.registry.get_factory", return_value=_FAKE_KERNEL_SPEC):
+        with mock.patch(
+            "eleanor.kernel.registry.get_factory", return_value=_FAKE_KERNEL_SPEC
+        ):
             with self.assertRaisesRegex(EleanorException, "elements must not be empty"):
                 _ = Order.from_dict(
                     {
                         "name": "o",
                         "creator": "u",
-                        "kernel": {"kind": "eq36", "model": "b-dot", "charge_balance": "H+"},
+                        "kernel": {
+                            "kind": "eq36",
+                            "model": "b-dot",
+                            "charge_balance": "H+",
+                        },
                         "temperature": 25.0,
                         "pressure": 1.0,
                     }
@@ -317,14 +354,18 @@ class TestOrder(TestCase):
                     {
                         "name": "o",
                         "creator": "u",
-                        "kernel": {"kind": "eq36", "model": "b-dot", "charge_balance": "H+"},
+                        "kernel": {
+                            "kind": "eq36",
+                            "model": "b-dot",
+                            "charge_balance": "H+",
+                        },
                         "temperature": 25.0,
                         "pressure": 1.0,
                         "elements": {},
                     }
                 )
 
-    def test_order_volume_all_scalar(self):
+    def test_order_volume_all_scalar(self) -> None:
         """
         All-scalar parameters yield a volume of 1.0 (ValueParameter.volume returns 1.0
         for each, and the product of 1s is 1).
@@ -332,7 +373,7 @@ class TestOrder(TestCase):
         order = _make_order()
         self.assertEqual(order.volume(), np.float64(1.0))
 
-    def test_order_volume_single_range_parameter(self):
+    def test_order_volume_single_range_parameter(self) -> None:
         """
         A single RangeParameter contributes its width (max - min); all other
         parameters remain scalar so the total volume equals that width.
@@ -340,7 +381,7 @@ class TestOrder(TestCase):
         order = _make_order(temperature={"min": 20.0, "max": 30.0})
         self.assertEqual(order.volume(), np.float64(10.0))
 
-    def test_order_volume_multiple_range_parameters(self):
+    def test_order_volume_multiple_range_parameters(self) -> None:
         """
         Multiple RangeParameters each contribute their width; the total volume
         is the product of those widths.
@@ -351,7 +392,7 @@ class TestOrder(TestCase):
         )
         self.assertEqual(order.volume(), np.float64(20.0))
 
-    def test_order_volume_list_parameter(self):
+    def test_order_volume_list_parameter(self) -> None:
         """
         A ListParameter contributes its length; the total volume equals that
         count when all other parameters are scalar.
@@ -359,7 +400,7 @@ class TestOrder(TestCase):
         order = _make_order(pressure=[1.0, 2.0, 3.0])
         self.assertEqual(order.volume(), np.float64(3.0))
 
-    def test_order_volume_mixed_range_and_list(self):
+    def test_order_volume_mixed_range_and_list(self) -> None:
         """
         A mix of RangeParameter (width) and ListParameter (length) multiplies
         their contributions together.
@@ -371,48 +412,57 @@ class TestOrder(TestCase):
         self.assertEqual(order.volume(), np.float64(20.0))
 
 
-def test_order_tags_defaults_to_empty_list():
+def test_order_tags_defaults_to_empty_list() -> None:
     assert _make_order().tags == []
 
 
-def test_order_tags_parses_scalar_string_from_raw():
+def test_order_tags_parses_scalar_string_from_raw() -> None:
     assert _make_order(raw=_minimal_raw(tags="experiment-1")).tags == ["experiment-1"]
 
 
-def test_order_tags_parses_list_from_raw():
+def test_order_tags_parses_list_from_raw() -> None:
     assert _make_order(raw=_minimal_raw(tags=["foo", "bar"])).tags == ["foo", "bar"]
 
 
-def test_order_tags_deduplicates_preserving_order():
-    assert _make_order(raw=_minimal_raw(tags=["foo", "bar", "foo"])).tags == ["foo", "bar"]
+def test_order_tags_deduplicates_preserving_order() -> None:
+    assert _make_order(raw=_minimal_raw(tags=["foo", "bar", "foo"])).tags == [
+        "foo",
+        "bar",
+    ]
 
 
-def test_order_tags_rejects_non_string_raw_value():
-    with pytest.raises(EleanorException, match="tags must be a string or list of strings"):
+def test_order_tags_rejects_non_string_raw_value() -> None:
+    with pytest.raises(
+        EleanorException, match="tags must be a string or list of strings"
+    ):
         _ = _make_order(raw=_minimal_raw(tags=123))
 
 
-def test_order_tags_rejects_list_with_non_string_element():
-    with pytest.raises(EleanorException, match="tags must be a string or list of strings"):
+def test_order_tags_rejects_list_with_non_string_element() -> None:
+    with pytest.raises(
+        EleanorException, match="tags must be a string or list of strings"
+    ):
         _ = _make_order(raw=_minimal_raw(tags=["valid", 42]))
 
 
-def test_order_tags_kwarg_as_scalar_string_wraps_to_list():
+def test_order_tags_kwarg_as_scalar_string_wraps_to_list() -> None:
     assert _make_order(tags="experiment-1").tags == ["experiment-1"]
 
 
-def test_order_tags_kwarg_overrides_raw():
+def test_order_tags_kwarg_overrides_raw() -> None:
     order = _make_order(raw=_minimal_raw(tags="raw-tag"), tags=["kwarg-tag"])
     assert order.tags == ["kwarg-tag"]
 
 
-def test_order_kwargs_override_raw_id_and_tags():
-    order = _make_order(raw=_minimal_raw(id=1, tags="raw-tag"), order_id=42, tags=["kwarg-tag"])
+def test_order_kwargs_override_raw_id_and_tags() -> None:
+    order = _make_order(
+        raw=_minimal_raw(id=1, tags="raw-tag"), order_id=42, tags=["kwarg-tag"]
+    )
     assert order.id == 42
     assert order.tags == ["kwarg-tag"]
 
 
-def test_load_order_returns_order_as_is():
+def test_load_order_returns_order_as_is() -> None:
     order = _make_order(tags=["raw-tag"])
     order.id = 7
     returned = load_order(order)

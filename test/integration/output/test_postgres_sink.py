@@ -35,12 +35,10 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import cast, override
 
-import numpy as np
-import psycopg
-from psycopg import sql
-
 import eleanor.equilibrium_space as core_es
 import eleanor.variable_space as core_vs
+import numpy as np
+import psycopg
 from eleanor.config.kernel import KernelConfig
 from eleanor.kernel.exceptions import EleanorKernelException
 from eleanor.kernel.settings import KernelSettings
@@ -48,9 +46,13 @@ from eleanor.order import Order
 from eleanor.output.interface import ComputeResult
 from eleanor.output.postgres.persistence import connection, repositories, schema
 from eleanor.output.postgres.persistence.converters import OrderRecord
-from eleanor.output.postgres.settings import PostgresDatabaseSettings, PostgresSinkSettings
+from eleanor.output.postgres.settings import (
+    PostgresDatabaseSettings,
+    PostgresSinkSettings,
+)
 from eleanor.output.postgres.sink import PostgresSink
 from eleanor.output.postgres.tools.profile import StatementProfiler
+from psycopg import sql
 
 _DATABASE_URL_ENV = "ELEANOR_TEST_DATABASE_URL"
 
@@ -201,7 +203,9 @@ def _make_es_point(
 class _RealPostgresTestCase(unittest.TestCase):
     """Common scaffolding: real connection, clean schema per test."""
 
-    config: PostgresDatabaseSettings = cast(PostgresDatabaseSettings, cast(object, None))
+    config: PostgresDatabaseSettings = cast(
+        PostgresDatabaseSettings, cast(object, None)
+    )
 
     @classmethod
     @override
@@ -240,7 +244,7 @@ class _RealPostgresTestCase(unittest.TestCase):
 class TestPostgresSinkIntegration(_RealPostgresTestCase):
     """Schema + order round-trip smoke tests."""
 
-    def test_ensure_schema_is_idempotent(self):
+    def test_ensure_schema_is_idempotent(self) -> None:
         """
         Ensure :func:`schema.ensure_schema` succeeds on a fresh DB and is
         safe to call again on the same connection.
@@ -257,7 +261,7 @@ class TestPostgresSinkIntegration(_RealPostgresTestCase):
         self.assertIn("name", cols)
         self.assertIn("eleanor_version", cols)
 
-    def test_insert_order_round_trip(self):
+    def test_insert_order_round_trip(self) -> None:
         """
         Ensure :func:`repositories.insert_order` writes a row and
         :func:`repositories.get_order` reads it back with matching
@@ -274,7 +278,7 @@ class TestPostgresSinkIntegration(_RealPostgresTestCase):
             self.assertEqual(fetched.id, record.id)
             self.assertEqual(fetched.name, "integration-smoke")
 
-    def test_apply_pending_migrations_invokes_connect_and_runs_loop(self):
+    def test_apply_pending_migrations_invokes_connect_and_runs_loop(self) -> None:
         """
         Ensure :func:`repositories.apply_pending_migrations` is the public
         entry point that wires :func:`connection.connect` to the migration
@@ -305,7 +309,7 @@ class TestPostgresSinkIntegration(_RealPostgresTestCase):
         live = schema.inspect_schema(connection.connect(self.config), ("orders",))
         self.assertIn("orders", live)
 
-    def test_inspect_schema_defaults_to_every_known_table(self):
+    def test_inspect_schema_defaults_to_every_known_table(self) -> None:
         """
         Ensure :func:`schema.inspect_schema` called with no ``table_names``
         returns the full set of tables :data:`schema.TABLES` declares,
@@ -333,7 +337,7 @@ class TestRepositoriesIntegration(_RealPostgresTestCase):
         record = repositories.insert_order(self.config, _as_order(order))
         return record.id, connection.connect(self.config)
 
-    def test_insert_point_round_trip_persists_full_subtree(self):
+    def test_insert_point_round_trip_persists_full_subtree(self) -> None:
         """
         Ensure ``insert_point`` lands every collection it owns -- VS-side
         side-tables, the equilibrium_space parent, every ES leaf table,
@@ -361,19 +365,33 @@ class TestRepositoriesIntegration(_RealPostgresTestCase):
         # aqueous, gas, element, fixed_gas) all run end-to-end on a real
         # Postgres.
         point.mineral_reactants = [
-            core_vs.MineralReactant(name="forsterite", log_moles=np.float64(0.0), titration_rate=np.float64(1.0)),
+            core_vs.MineralReactant(
+                name="forsterite",
+                log_moles=np.float64(0.0),
+                titration_rate=np.float64(1.0),
+            ),
         ]
         point.aqueous_reactants = [
-            core_vs.AqueousReactant(name="Na+", log_moles=-np.float64(1.0), titration_rate=np.float64(1.0)),
+            core_vs.AqueousReactant(
+                name="Na+", log_moles=-np.float64(1.0), titration_rate=np.float64(1.0)
+            ),
         ]
         point.gas_reactants = [
-            core_vs.GasReactant(name="CO2(g)", log_moles=-np.float64(3.0), titration_rate=np.float64(1.0)),
+            core_vs.GasReactant(
+                name="CO2(g)",
+                log_moles=-np.float64(3.0),
+                titration_rate=np.float64(1.0),
+            ),
         ]
         point.element_reactants = [
-            core_vs.ElementReactant(name="Fe", log_moles=-np.float64(6.0), titration_rate=np.float64(1.0)),
+            core_vs.ElementReactant(
+                name="Fe", log_moles=-np.float64(6.0), titration_rate=np.float64(1.0)
+            ),
         ]
         point.fixed_gas_reactants = [
-            core_vs.FixedGasReactant(name="O2(g)", log_moles=-np.float64(2.0), log_fugacity=-np.float64(2.0)),
+            core_vs.FixedGasReactant(
+                name="O2(g)", log_moles=-np.float64(2.0), log_fugacity=-np.float64(2.0)
+            ),
         ]
         point.special_reactants = [
             core_vs.SpecialReactant(
@@ -392,8 +410,12 @@ class TestRepositoriesIntegration(_RealPostgresTestCase):
                 log_moles=np.float64(0.0),
                 titration_rate=np.float64(1.0),
                 end_members=[
-                    core_vs.SolidSolutionReactantEndMembers(name="em-a", fraction=np.float64(0.5)),
-                    core_vs.SolidSolutionReactantEndMembers(name="em-b", fraction=np.float64(0.5)),
+                    core_vs.SolidSolutionReactantEndMembers(
+                        name="em-a", fraction=np.float64(0.5)
+                    ),
+                    core_vs.SolidSolutionReactantEndMembers(
+                        name="em-b", fraction=np.float64(0.5)
+                    ),
                 ],
             ),
         ]
@@ -402,7 +424,11 @@ class TestRepositoriesIntegration(_RealPostgresTestCase):
         point.es_points = [
             _make_es_point(
                 elements=[
-                    core_es.Element(name="Na", log_molality=-np.float64(1.0), mass_fraction=np.float64(0.5)),
+                    core_es.Element(
+                        name="Na",
+                        log_molality=-np.float64(1.0),
+                        mass_fraction=np.float64(0.5),
+                    ),
                 ],
                 aqueous_species=[
                     core_es.AqueousSpecies(
@@ -413,7 +439,9 @@ class TestRepositoriesIntegration(_RealPostgresTestCase):
                     ),
                 ],
                 pure_solids=[
-                    core_es.PureSolid(name="Halite", log_qk=np.float64(0.0), affinity=np.float64(0.0)),
+                    core_es.PureSolid(
+                        name="Halite", log_qk=np.float64(0.0), affinity=np.float64(0.0)
+                    ),
                 ],
                 gases=[core_es.Gas(name="CO2(g)", log_fugacity=-np.float64(3.5))],
                 # ES-side reactants are accumulated in the same
@@ -447,14 +475,28 @@ class TestRepositoriesIntegration(_RealPostgresTestCase):
                         log_mass=np.float64(-np.inf),
                         log_volume=np.float64(-np.inf),
                         end_members=[
-                            core_es.EndMember(name="ss0_em0", log_qk=np.float64(0.0), affinity=np.float64(0.0)),
-                            core_es.EndMember(name="ss0_em1", log_qk=np.float64(0.0), affinity=np.float64(0.0)),
+                            core_es.EndMember(
+                                name="ss0_em0",
+                                log_qk=np.float64(0.0),
+                                affinity=np.float64(0.0),
+                            ),
+                            core_es.EndMember(
+                                name="ss0_em1",
+                                log_qk=np.float64(0.0),
+                                affinity=np.float64(0.0),
+                            ),
                         ],
                     ),
                 ],
             ),
             _make_es_point(
-                elements=[core_es.Element(name="Cl", log_molality=-np.float64(1.0), mass_fraction=np.float64(0.5))],
+                elements=[
+                    core_es.Element(
+                        name="Cl",
+                        log_molality=-np.float64(1.0),
+                        mass_fraction=np.float64(0.5),
+                    )
+                ],
                 aqueous_species=[
                     core_es.AqueousSpecies(
                         name="Cl-",
@@ -497,7 +539,9 @@ class TestRepositoriesIntegration(_RealPostgresTestCase):
                 ("equilibrium_solid_solutions", 1),
                 ("equilibrium_end_members", 2),
             ):
-                _ = cur.execute(sql.SQL("SELECT count(*) FROM {}").format(sql.Identifier(table)))
+                _ = cur.execute(
+                    sql.SQL("SELECT count(*) FROM {}").format(sql.Identifier(table))
+                )
                 row = cur.fetchone()
                 assert row is not None
                 self.assertEqual(
@@ -520,7 +564,7 @@ class TestRepositoriesIntegration(_RealPostgresTestCase):
 
         self.assertGreater(vs_id, 0)
 
-    def test_insert_point_float64_values_round_trip(self):
+    def test_insert_point_float64_values_round_trip(self) -> None:
         """
         Ensure np.float64 values survive the Postgres write/read round-trip
         across multiple tables and value categories: positive, negative,
@@ -537,7 +581,11 @@ class TestRepositoriesIntegration(_RealPostgresTestCase):
         point.es_points = [
             _make_es_point(
                 elements=[
-                    core_es.Element(name="Ca", log_molality=-np.float64(4.567), mass_fraction=np.float64(0.00123)),
+                    core_es.Element(
+                        name="Ca",
+                        log_molality=-np.float64(4.567),
+                        mass_fraction=np.float64(0.00123),
+                    ),
                 ],
                 aqueous_species=[
                     core_es.AqueousSpecies(
@@ -597,7 +645,9 @@ class TestRepositoriesIntegration(_RealPostgresTestCase):
             self.assertEqual(es_row[2], 0.0)
 
             # ES elements: small positive fraction
-            _ = cur.execute("SELECT log_molality, mass_fraction FROM equilibrium_elements WHERE name = 'Ca'")
+            _ = cur.execute(
+                "SELECT log_molality, mass_fraction FROM equilibrium_elements WHERE name = 'Ca'"
+            )
             ee_row = cur.fetchone()
             assert ee_row is not None
             self.assertEqual(ee_row[0], -4.567)
@@ -623,7 +673,7 @@ class TestRepositoriesIntegration(_RealPostgresTestCase):
             self.assertEqual(ss_row[1], -math.inf)
             self.assertEqual(ss_row[2], -math.inf)
 
-    def test_insert_point_chunks_solid_solutions_under_low_param_cap(self):
+    def test_insert_point_chunks_solid_solutions_under_low_param_cap(self) -> None:
         """
         Ensure ``_bulk_insert_returning_ids`` chunks the SS fan-out under
         a deliberately-low parameter cap, that all rows land, and that
@@ -644,8 +694,16 @@ class TestRepositoriesIntegration(_RealPostgresTestCase):
                         log_mass=np.float64(-np.inf),
                         log_volume=np.float64(-np.inf),
                         end_members=[
-                            core_es.EndMember(name=f"ss{i}_em0", log_qk=np.float64(0.0), affinity=np.float64(0.0)),
-                            core_es.EndMember(name=f"ss{i}_em1", log_qk=np.float64(0.0), affinity=np.float64(0.0)),
+                            core_es.EndMember(
+                                name=f"ss{i}_em0",
+                                log_qk=np.float64(0.0),
+                                affinity=np.float64(0.0),
+                            ),
+                            core_es.EndMember(
+                                name=f"ss{i}_em1",
+                                log_qk=np.float64(0.0),
+                                affinity=np.float64(0.0),
+                            ),
                         ],
                     )
                     for i in range(n_ss)
@@ -690,7 +748,7 @@ class TestRepositoriesIntegration(_RealPostgresTestCase):
                     f"end_member {em_name!r} bound to wrong solid_solution {ss_name!r}",
                 )
 
-    def test_insert_point_routes_large_aqueous_batch_through_copy(self):
+    def test_insert_point_routes_large_aqueous_batch_through_copy(self) -> None:
         """
         Ensure ``_bulk_insert`` switches to binary COPY for a leaf batch
         above :data:`_COPY_ROW_THRESHOLD`, that every row lands, and that
@@ -740,12 +798,14 @@ class TestRepositoriesIntegration(_RealPostgresTestCase):
             # Confirm the first and last rows survived intact through the
             # binary COPY's text encoding (both the column name list order
             # and the underlying psycopg adapter chain).
-            _ = cur.execute('SELECT name FROM equilibrium_aqueous_species ORDER BY name COLLATE "C"')
+            _ = cur.execute(
+                'SELECT name FROM equilibrium_aqueous_species ORDER BY name COLLATE "C"'
+            )
             names = {r[0] for r in cur.fetchall()}
             self.assertIn("sp0", names)
             self.assertIn(f"sp{n_aq - 1}", names)
 
-    def test_writes_exception_message(self):
+    def test_writes_exception_message(self) -> None:
         order_id, conn = self._make_order_and_vs("exceptions")
 
         # Case 1: No exception
@@ -754,7 +814,9 @@ class TestRepositoriesIntegration(_RealPostgresTestCase):
             plain_id = repositories.insert_point(conn, order_id, plain)
 
         with conn.cursor() as cur:
-            _ = cur.execute("SELECT error, exit_code FROM variable_space WHERE id = %s", (plain_id,))
+            _ = cur.execute(
+                "SELECT error, exit_code FROM variable_space WHERE id = %s", (plain_id,)
+            )
             row = cur.fetchone()
             assert row is not None
             self.assertIsNone(row[0])
@@ -770,13 +832,15 @@ class TestRepositoriesIntegration(_RealPostgresTestCase):
             plain_id = repositories.insert_point(conn, order_id, plain)
 
         with conn.cursor() as cur:
-            _ = cur.execute("SELECT error, exit_code FROM variable_space WHERE id = %s", (plain_id,))
+            _ = cur.execute(
+                "SELECT error, exit_code FROM variable_space WHERE id = %s", (plain_id,)
+            )
             row = cur.fetchone()
             assert row is not None
             self.assertEqual(row[0], msg)
             self.assertEqual(row[1], code)
 
-    def test_get_scratch_entry_round_trips_zip_payload(self):
+    def test_get_scratch_entry_round_trips_zip_payload(self) -> None:
         """
         Ensure ``get_scratch_entry`` reads back the exact bytes a sink
         wrote into the scratch table via ``insert_point``. Distinguishes
@@ -812,7 +876,7 @@ class TestRepositoriesIntegration(_RealPostgresTestCase):
 class TestPostgresSinkWriteBatchIntegration(_RealPostgresTestCase):
     """End-to-end coverage of :class:`PostgresSink.write_batch`."""
 
-    def test_write_batch_commits_all_rows_when_every_point_succeeds(self):
+    def test_write_batch_commits_all_rows_when_every_point_succeeds(self) -> None:
         """
         Ensure a clean batch of two valid VS points commits both rows in
         a single outer transaction and returns ``committed=True``
@@ -842,7 +906,9 @@ class TestPostgresSinkWriteBatchIntegration(_RealPostgresTestCase):
             assert row is not None
             self.assertEqual(row[0], 2)
 
-    def test_write_batch_isolates_failing_point_via_savepoint_at_wire_level(self):
+    def test_write_batch_isolates_failing_point_via_savepoint_at_wire_level(
+        self,
+    ) -> None:
         """
         Ensure a real-PG ``NotNullViolation`` on one VS point rolls back
         only that point's savepoint while the surviving point commits in
@@ -889,7 +955,7 @@ class TestStatementProfilerIntegration(_RealPostgresTestCase):
     are bucketed under the per-table counters in the report.
     """
 
-    def test_profiler_counts_inserts_and_copies_during_write_batch(self):
+    def test_profiler_counts_inserts_and_copies_during_write_batch(self) -> None:
         """
         Ensure a profiled ``write_batch`` with > 1000 aqueous species per
         ES point shows up in the per-table report with the COPY-driven
@@ -907,7 +973,10 @@ class TestStatementProfilerIntegration(_RealPostgresTestCase):
         # is 1000 rows, so a 5-row leaf insert deliberately stays on the
         # ``executemany`` branch and exercises the matching profiler
         # override).
-        point.elements = [core_vs.Element(name=f"el{i}", log_molality=-np.float64(1.0)) for i in range(5)]
+        point.elements = [
+            core_vs.Element(name=f"el{i}", log_molality=-np.float64(1.0))
+            for i in range(5)
+        ]
         point.es_points = [
             _make_es_point(
                 aqueous_species=[

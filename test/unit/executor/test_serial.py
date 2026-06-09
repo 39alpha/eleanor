@@ -9,7 +9,7 @@ class TestSerialExecutor(TestCase):
     Tests of the serial executor backend.
     """
 
-    def test_submit_returns_immediate_future(self):
+    def test_submit_returns_immediate_future(self) -> None:
         """
         Ensure submit executes immediately and returns a resolved future.
         """

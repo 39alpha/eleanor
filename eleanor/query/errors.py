@@ -12,7 +12,7 @@ class ParseError(EleanorException):
     message: str
     position: int | None
 
-    def __init__(self, message: str, *, position: int | None = None):
+    def __init__(self, message: str, *, position: int | None = None) -> None:
         super().__init__(message)
         self.message = message
         self.position = position
@@ -28,7 +28,7 @@ class UnknownRowScope(EleanorException):
     shortname: str
     hint: str | None
 
-    def __init__(self, shortname: str, *, hint: str | None = None):
+    def __init__(self, shortname: str, *, hint: str | None = None) -> None:
         super().__init__(shortname)
         self.shortname = shortname
         self.hint = hint
@@ -44,7 +44,7 @@ class AmbiguousRowScope(EleanorException):
     shortname: str
     candidates: list[str]
 
-    def __init__(self, shortname: str, candidates: list[str]):
+    def __init__(self, shortname: str, candidates: list[str]) -> None:
         super().__init__(shortname, *candidates)
         self.shortname = shortname
         self.candidates = candidates
@@ -59,7 +59,7 @@ class InvalidRowScope(EleanorException):
     path: str
     reason: str
 
-    def __init__(self, path: str, reason: str):
+    def __init__(self, path: str, reason: str) -> None:
         super().__init__(path, reason)
         self.path = path
         self.reason = reason
@@ -74,7 +74,7 @@ class InvalidPath(EleanorException):
     segment: str
     owner_type: type[object]
 
-    def __init__(self, path: str, segment: str, owner_type: type[object]):
+    def __init__(self, path: str, segment: str, owner_type: type[object]) -> None:
         super().__init__(path, segment, owner_type.__name__)
         self.path = path
         self.segment = segment
@@ -90,7 +90,7 @@ class InvalidFilter(EleanorException):
     segment: str
     predicate: str
 
-    def __init__(self, path: str, segment: str, predicate: str):
+    def __init__(self, path: str, segment: str, predicate: str) -> None:
         super().__init__(path, segment, predicate)
         self.path = path
         self.segment = segment
@@ -107,7 +107,7 @@ class InvalidFilterValue(EleanorException):
     value: str
     target_type: type[object]
 
-    def __init__(self, path: str, predicate: str, value: str, target_type: type[object]):
+    def __init__(self, path: str, predicate: str, value: str, target_type: type[object]) -> None:
         super().__init__(path, predicate, value, target_type.__name__)
         self.path = path
         self.predicate = predicate
@@ -126,7 +126,7 @@ class UnknownScope(EleanorException):
     alias: str
     available: list[str]
 
-    def __init__(self, alias: str, available: list[str]):
+    def __init__(self, alias: str, available: list[str]) -> None:
         super().__init__(alias, *available)
         self.alias = alias
         self.available = available
@@ -141,7 +141,7 @@ class AliasCollision(EleanorException):
     alias: str
     paths: list[str]
 
-    def __init__(self, alias: str, paths: list[str]):
+    def __init__(self, alias: str, paths: list[str]) -> None:
         super().__init__(alias, *paths)
         self.alias = alias
         self.paths = paths
@@ -156,7 +156,7 @@ class ColumnNameCollision(EleanorException):
     name: str
     paths: list[str]
 
-    def __init__(self, name: str, paths: list[str]):
+    def __init__(self, name: str, paths: list[str]) -> None:
         super().__init__(name, *paths)
         self.name = name
         self.paths = paths
@@ -172,7 +172,7 @@ class SplatUnknownField(EleanorException):
     field: str
     available: list[str]
 
-    def __init__(self, alias: str, field: str, available: list[str]):
+    def __init__(self, alias: str, field: str, available: list[str]) -> None:
         super().__init__(alias, field, *available)
         self.alias = alias
         self.field = field
@@ -188,7 +188,7 @@ class PresetScopeMissing(EleanorException):
     preset: str
     missing_alias: str
 
-    def __init__(self, preset: str, missing_alias: str):
+    def __init__(self, preset: str, missing_alias: str) -> None:
         super().__init__(preset, missing_alias)
         self.preset = preset
         self.missing_alias = missing_alias
@@ -201,7 +201,7 @@ class PresetScopeMissing(EleanorException):
 class UnknownPreset(EleanorException):
     name: str
 
-    def __init__(self, name: str):
+    def __init__(self, name: str) -> None:
         super().__init__(name)
         self.name = name
 
@@ -215,7 +215,7 @@ class InvalidMetaAccessor(EleanorException):
     accessor: str
     reason: str
 
-    def __init__(self, path: str, accessor: str, reason: str):
+    def __init__(self, path: str, accessor: str, reason: str) -> None:
         super().__init__(path, accessor, reason)
         self.path = path
         self.accessor = accessor
@@ -231,7 +231,7 @@ class PathMissError(EleanorException):
     column: str
     segment: str
 
-    def __init__(self, row_index: int, column: str, segment: str):
+    def __init__(self, row_index: int, column: str, segment: str) -> None:
         super().__init__(row_index, column, segment)
         self.row_index = row_index
         self.column = column
@@ -247,7 +247,7 @@ class MultipleMatchError(EleanorException):
     predicate: str
     match_count: int
 
-    def __init__(self, path: str, predicate: str, match_count: int):
+    def __init__(self, path: str, predicate: str, match_count: int) -> None:
         super().__init__(path, predicate, match_count)
         self.path = path
         self.predicate = predicate

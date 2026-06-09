@@ -70,7 +70,7 @@ class PluginRegistry:
         builtin_names: frozenset[str] | None = None,
         api_version: int = 1,
         min_api_version: int = 1,
-    ):
+    ) -> None:
         self._kind = _normalize_kind(kind)
         if self._kind == "":
             msg = f"plugin kind {kind!r}: must be a non-empty string after stripping whitespace"

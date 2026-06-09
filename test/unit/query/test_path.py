@@ -18,7 +18,7 @@ class TestPath(TestCase):
     Tests for EQL path parsing and canonical string rendering.
     """
 
-    def test_adjacent_match_filters_are_merged(self):
+    def test_adjacent_match_filters_are_merged(self) -> None:
         """
         Ensure consecutive match filters on a segment merge into one predicate set.
         """
@@ -30,14 +30,14 @@ class TestPath(TestCase):
         assert isinstance(merged, MatchFilter)
         self.assertEqual(len(merged.predicates), 2)
 
-    def test_path_to_string_escapes_quoted_predicates(self):
+    def test_path_to_string_escapes_quoted_predicates(self) -> None:
         """
         Ensure stringification preserves escapes for quoted predicate values.
         """
         parsed = parse_path('point.minerals[name="Ca\\"CO3"]')
         self.assertEqual(path_to_string(parsed), 'point.minerals[name="Ca\\"CO3"]')
 
-    def test_parse_row_scope_returns_identifier_for_simple_name(self):
+    def test_parse_row_scope_returns_identifier_for_simple_name(self) -> None:
         """
         Ensure a single unfiltered segment row scope parses as an identifier-like string.
         """
@@ -45,7 +45,7 @@ class TestPath(TestCase):
         self.assertIsInstance(parsed, str)
         self.assertEqual(parsed, "point")
 
-    def test_parse_row_scope_returns_path_when_filters_present(self):
+    def test_parse_row_scope_returns_path_when_filters_present(self) -> None:
         """
         Ensure filtered row_scope text returns a Path object.
         """
@@ -55,7 +55,7 @@ class TestPath(TestCase):
         self.assertEqual(len(parsed.segments), 1)
         self.assertIsInstance(parsed.segments[0].filters[0], IterFilter)
 
-    def test_parse_path_rejects_invalid_structures(self):
+    def test_parse_path_rejects_invalid_structures(self) -> None:
         """
         Ensure malformed path grammar is rejected with ParseError.
         """
@@ -66,7 +66,7 @@ class TestPath(TestCase):
         with self.assertRaises(ParseError):
             parse_path('point.minerals[name="bad\\q"]')
 
-    def test_quote_predicate_value_keeps_safe_values_bare(self):
+    def test_quote_predicate_value_keeps_safe_values_bare(self) -> None:
         """
         Ensure values whose characters are all legal under ``Unquoted`` round-trip verbatim.
         """
@@ -78,7 +78,7 @@ class TestPath(TestCase):
         self.assertEqual(match.predicates[0].value, "Ca+2")
         self.assertFalse(match.predicates[0].value_quoted)
 
-    def test_quote_predicate_value_quotes_and_escapes_unsafe_values(self):
+    def test_quote_predicate_value_quotes_and_escapes_unsafe_values(self) -> None:
         """
         Ensure whitespace, ``=``, ``,``, ``]``, ``"``, and the empty string
         force a quoted form whose escapes round-trip through ``parse_path``.
@@ -100,7 +100,7 @@ class TestPath(TestCase):
             self.assertEqual(match.predicates[0].value, unsafe)
             self.assertTrue(match.predicates[0].value_quoted)
 
-    def test_parse_path_recognizes_terminal_meta_accessor(self):
+    def test_parse_path_recognizes_terminal_meta_accessor(self) -> None:
         """
         Ensure ``<alias>.@<name>`` parses to a Path whose ``meta`` field
         carries the accessor name (spec §4). The non-meta segments retain
@@ -119,7 +119,7 @@ class TestPath(TestCase):
         assert deep.meta is not None
         self.assertEqual(deep.meta.name, "key")
 
-    def test_path_to_string_round_trips_meta_segment(self):
+    def test_path_to_string_round_trips_meta_segment(self) -> None:
         """
         Ensure ``path_to_string`` re-emits the trailing ``.@<name>`` and that
         the result parses back to an equal Path.
@@ -129,7 +129,7 @@ class TestPath(TestCase):
         self.assertEqual(path_to_string(parsed), text)
         self.assertEqual(parse_path(path_to_string(parsed)), parsed)
 
-    def test_path_to_string_renders_orphan_meta(self):
+    def test_path_to_string_renders_orphan_meta(self) -> None:
         """
         Ensure ``path_to_string`` renders a Path constructed with no segments
         and a meta as ``@<name>``. Such a Path is unreachable through the
@@ -140,7 +140,7 @@ class TestPath(TestCase):
         orphan = Path(segments=tuple(), meta=MetaSegment(name="index"))
         self.assertEqual(path_to_string(orphan), "@index")
 
-    def test_parse_row_scope_rejects_meta_accessor_terminal(self):
+    def test_parse_row_scope_rejects_meta_accessor_terminal(self) -> None:
         """
         Ensure ``parse_row_scope`` raises ``ParseError`` for any input whose
         path has a meta-accessor terminal. Meta-accessors are only valid in
@@ -153,7 +153,7 @@ class TestPath(TestCase):
         with self.assertRaises(ParseError):
             parse_row_scope("points[*].@index")
 
-    def test_parse_path_rejects_malformed_meta_segments(self):
+    def test_parse_path_rejects_malformed_meta_segments(self) -> None:
         """
         Ensure malformed meta-accessor surfaces (no leading segment, missing
         identifier, anything after the meta) raise ``ParseError`` at parse

@@ -35,7 +35,7 @@ class AbstractConstraint(ABC):
             for p in self.independent_parameters
         )
 
-    def resolve(self, registry: ParameterRegistry, valuation: Valuation):
+    def resolve(self, registry: ParameterRegistry, valuation: Valuation) -> None:
         if not self.is_resolvable(registry, valuation):
             raise EleanorException("cannot resolve an unresolvable constraint")
 

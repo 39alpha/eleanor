@@ -4,12 +4,17 @@ from unittest import TestCase, mock
 
 from eleanor.exceptions import EleanorException
 from eleanor.executor.interface import AbstractFuture
-from eleanor.executor.multiprocessing import MultiprocessingExecutor, MultiprocessingFuture
+from eleanor.executor.multiprocessing import (
+    MultiprocessingExecutor,
+    MultiprocessingFuture,
+)
 from eleanor.executor.settings import ExecutorSettings
 
 
 class _Pool:
-    def __init__(self, max_workers: int | None = None, initializer: None = None):
+    def __init__(
+        self, max_workers: int | None = None, initializer: None = None
+    ) -> None:
         self.shutdown = mock.Mock()
         self._processes: dict[int, mock.Mock] = {1: mock.Mock(), 2: mock.Mock()}
 
@@ -24,7 +29,7 @@ class TestMultiprocessingExecutor(TestCase):
     Tests of the multiprocessing executor backend.
     """
 
-    def test_submit_and_result(self):
+    def test_submit_and_result(self) -> None:
         """
         Ensure submit delegates to submit and returned futures resolve via result().
         """
@@ -39,14 +44,14 @@ class TestMultiprocessingExecutor(TestCase):
         self.assertEqual(executor.num_workers, 4)
         self.assertEqual(future.result(), 12)
 
-    def test_pool_is_none_before_enter(self):
+    def test_pool_is_none_before_enter(self) -> None:
         """
         Ensure __init__ does not create the pool; it is created only on __enter__.
         """
         executor = MultiprocessingExecutor(ExecutorSettings(num_workers=2))
         self.assertIsNone(executor._pool)
 
-    def test_shutdown_wait_true_delegates_to_pool_shutdown(self):
+    def test_shutdown_wait_true_delegates_to_pool_shutdown(self) -> None:
         """
         Ensure wait=True shutdown delegates to ProcessPoolExecutor.shutdown.
         """
@@ -60,7 +65,7 @@ class TestMultiprocessingExecutor(TestCase):
         executor.shutdown(wait=True)
         typed_pool.shutdown.assert_called_once_with(wait=True, cancel_futures=False)
 
-    def test_shutdown_wait_false_terminates_pool(self):
+    def test_shutdown_wait_false_terminates_pool(self) -> None:
         """
         Ensure wait=False shutdown terminates workers and requests non-blocking shutdown.
         """
@@ -76,7 +81,7 @@ class TestMultiprocessingExecutor(TestCase):
             process.terminate.assert_called_once()
         typed_pool.shutdown.assert_called_once_with(wait=False, cancel_futures=True)
 
-    def test_exit_uses_wait_false_on_keyboard_interrupt(self):
+    def test_exit_uses_wait_false_on_keyboard_interrupt(self) -> None:
         """
         Ensure __exit__ uses wait=False when unwinding from KeyboardInterrupt.
         """
@@ -92,7 +97,7 @@ class TestMultiprocessingExecutor(TestCase):
             process.terminate.assert_called_once()
         typed_pool.shutdown.assert_called_once_with(wait=False, cancel_futures=True)
 
-    def test_exit_uses_wait_true_on_normal_exit(self):
+    def test_exit_uses_wait_true_on_normal_exit(self) -> None:
         """
         Ensure __exit__ uses wait=True on normal exit.
         """
@@ -106,7 +111,7 @@ class TestMultiprocessingExecutor(TestCase):
         _ = executor.__exit__(None, None, None)
         typed_pool.shutdown.assert_called_once_with(wait=True, cancel_futures=False)
 
-    def test_submit_after_shutdown_raises(self):
+    def test_submit_after_shutdown_raises(self) -> None:
         """
         Ensure submit fails once the executor has been shut down.
         """
@@ -121,7 +126,7 @@ class TestMultiprocessingExecutor(TestCase):
         with self.assertRaises(EleanorException):
             _ = executor.submit(work, 1)
 
-    def test_pop_completed_future_uses_event_driven_wait(self):
+    def test_pop_completed_future_uses_event_driven_wait(self) -> None:
         """
         Ensure pop_completed_future waits for FIRST_COMPLETED and pops a completed future.
         """
@@ -145,7 +150,7 @@ class TestMultiprocessingExecutor(TestCase):
         self.assertIs(popped, ready)
         self.assertEqual(futures, [slow])
 
-    def test_pop_completed_future_falls_back_for_mixed_future_types(self):
+    def test_pop_completed_future_falls_back_for_mixed_future_types(self) -> None:
         """
         Ensure pop_completed_future delegates to the base-class busy-poll when
         the futures list contains non-MultiprocessingFuture entries.
@@ -153,7 +158,12 @@ class TestMultiprocessingExecutor(TestCase):
         executor = MultiprocessingExecutor(ExecutorSettings(num_workers=2))
         foreign: AbstractFuture[int] = cast(
             AbstractFuture[int],
-            cast(object, type("Fake", (), {"result": lambda self: 1, "ready": lambda self: True})()),
+            cast(
+                object,
+                type(
+                    "Fake", (), {"result": lambda self: 1, "ready": lambda self: True}
+                )(),
+            ),
         )
         futures: list[AbstractFuture[int]] = [foreign]
         popped = executor.pop_completed_future(futures)

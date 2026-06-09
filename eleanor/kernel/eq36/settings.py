@@ -788,7 +788,7 @@ class Eq36Settings(KernelSettings):
     redox_species: str = "fO2"
 
     @classmethod
-    def from_dict(cls, raw: dict[str, object]):
+    def from_dict(cls, raw: dict[str, object]) -> Self:
         model_raw = raw.get("model")
         model: IOPG_1
         if model_raw is None:

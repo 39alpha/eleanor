@@ -1,5 +1,4 @@
 import pytest
-
 from eleanor.cli.gen import FORMATS, validate_template
 
 

@@ -1,5 +1,4 @@
 import pytest
-
 from eleanor.config import Config
 from eleanor.config.output import OutputSinkConfig
 from eleanor.exceptions import EleanorException
@@ -27,5 +26,7 @@ def test_config_rejects_legacy_database_key() -> None:
 
 
 def test_output_config_raises_for_non_output_settings_type() -> None:
-    with pytest.raises(EleanorException, match=f"requires {OutputSinkSettings.__name__}"):
+    with pytest.raises(
+        EleanorException, match=f"requires {OutputSinkSettings.__name__}"
+    ):
         _ = OutputSinkConfig(kind="null", settings=ExecutorSettings())  # pyright: ignore[reportArgumentType]

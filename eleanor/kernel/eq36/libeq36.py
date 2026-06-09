@@ -7,7 +7,7 @@ from eleanor.kernel.exceptions import EleanorKernelException
 from eleanor.typing import Array1D, Array2D, StrPath
 
 
-def get_libpath():
+def get_libpath() -> str:
     """
     Get the library path of the the distributed inform binary.
     """

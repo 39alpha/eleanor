@@ -35,8 +35,23 @@ from eleanor.query.errors import (
     UnknownRowScope,
     UnknownScope,
 )
-from eleanor.query.path import MetaSegment, Path, Predicate, Segment, parse_path, predicate_text
-from eleanor.query.reflection import DataclassField, DictField, LeafField, ListField, StepInfo, classify_field
+from eleanor.query.path import (
+    MatchFilter,
+    MetaSegment,
+    Path,
+    Predicate,
+    Segment,
+    parse_path,
+    predicate_text,
+)
+from eleanor.query.reflection import (
+    DataclassField,
+    DictField,
+    LeafField,
+    ListField,
+    StepInfo,
+    classify_field,
+)
 from eleanor.query.scope import AmbientScopeTable
 
 from .models import Chemistry, Point, Sample, make_sample
@@ -93,7 +108,7 @@ class TestAliasesCoverage(TestCase):
     Additional alias-logic coverage for remaining singularization and validation branches.
     """
 
-    def test_singularize_remaining_suffix_branches(self):
+    def test_singularize_remaining_suffix_branches(self) -> None:
         """
         Ensure singularize handles "men", trailing "s", and "ss" preservation branches.
         """
@@ -108,7 +123,9 @@ class TestCoercionCoverage(TestCase):
     Additional coercion coverage for float-failure and unsupported target branches.
     """
 
-    def test_coerce_filter_value_rejects_invalid_float_and_unsupported_target(self):
+    def test_coerce_filter_value_rejects_invalid_float_and_unsupported_target(
+        self,
+    ) -> None:
         """
         Ensure float parse failures and non-supported target types raise InvalidFilterValue.
         """
@@ -125,7 +142,7 @@ class TestPathCoverage(TestCase):
     Additional parser coverage for remaining parse error branches.
     """
 
-    def test_parse_path_remaining_error_branches(self):
+    def test_parse_path_remaining_error_branches(self) -> None:
         """
         Ensure parser reports malformed filters, values, identifiers, and escapes.
         """
@@ -164,7 +181,7 @@ class TestErrorsCoverage(TestCase):
     Exercise __str__ branches for query-specific structured exceptions.
     """
 
-    def test_query_error_string_representations(self):
+    def test_query_error_string_representations(self) -> None:
         """
         Ensure all query error types render expected user-facing messages.
         """
@@ -175,14 +192,20 @@ class TestErrorsCoverage(TestCase):
         self.assertIn("invalid row_scope", str(InvalidRowScope("x", "why")))
         self.assertIn("invalid path", str(InvalidPath("x", "y", dict)))
         self.assertIn("invalid filter", str(InvalidFilter("x", "y", "z")))
-        self.assertIn("invalid filter value", str(InvalidFilterValue("x", "p", "v", int)))
+        self.assertIn(
+            "invalid filter value", str(InvalidFilterValue("x", "p", "v", int))
+        )
         self.assertIn("unknown scope alias", str(UnknownScope("a", ["b"])))
         self.assertIn("alias collision", str(AliasCollision("a", ["x", "y"])))
-        self.assertIn("column name collision", str(ColumnNameCollision("c", ["x", "y"])))
+        self.assertIn(
+            "column name collision", str(ColumnNameCollision("c", ["x", "y"]))
+        )
         self.assertIn("splat on", str(SplatUnknownField("a", "f", ["g"])))
         self.assertIn("requires missing alias", str(PresetScopeMissing("p", "x")))
         self.assertIn("unknown preset", str(UnknownPreset("p")))
-        self.assertIn("invalid meta-accessor", str(InvalidMetaAccessor("a.@b", "b", "because")))
+        self.assertIn(
+            "invalid meta-accessor", str(InvalidMetaAccessor("a.@b", "b", "because"))
+        )
         self.assertIn("@b", str(InvalidMetaAccessor("a.@b", "b", "because")))
         self.assertIn("path miss", str(PathMissError(1, "c", "s")))
         self.assertIn("multiple matches", str(MultipleMatchError("p", "k=1", 2)))
@@ -193,16 +216,23 @@ class TestReflectionCoverage(TestCase):
     Additional reflection coverage for private helper and rare validation branches.
     """
 
-    def test_classification_and_non_dataclass_helpers(self):
+    def test_classification_and_non_dataclass_helpers(self) -> None:
         """
         Ensure generic type fallback classification and non-dataclass reflection behavior.
         """
         self.assertEqual(reflection_module.dataclass_fields(dict), [])
-        self.assertEqual(reflection_module.unwrap_optional(int | str), (int | str, False))
-        self.assertEqual(reflection_module.unwrap_optional(type(None) | int), (int, True))
+        self.assertEqual(
+            reflection_module.unwrap_optional(int | str), (int | str, False)
+        )
+        self.assertEqual(
+            reflection_module.unwrap_optional(type(None) | int), (int, True)
+        )
         # Multi-arm unions (3+) and 2-arm unions without ``None`` both fall
         # through to ``(t, False)`` per ``unwrap_optional``'s contract.
-        self.assertEqual(reflection_module.unwrap_optional(int | str | None), (int | str | None, False))
+        self.assertEqual(
+            reflection_module.unwrap_optional(int | str | None),
+            (int | str | None, False),
+        )
 
         # typing.List / typing.Dict are deprecated as of 3.9 but they are the
         # natural way to exercise classify_field's empty-args fallback for the
@@ -221,7 +251,7 @@ class TestReflectionCoverage(TestCase):
         self.assertIs(reflection_module.coercion_target("not_a_type"), object)
         self.assertFalse(reflection_module._is_union_origin(None))
 
-    def test_walk_path_additional_invalid_filter_branches(self):
+    def test_walk_path_additional_invalid_filter_branches(self) -> None:
         """
         Ensure list/dict filter validation rejects unknown, non-leaf, and key coercion failures.
         """
@@ -238,7 +268,7 @@ class TestReflectionCoverage(TestCase):
         with self.assertRaises(InvalidFilter):
             reflection_module.walk_path(Sample, parse_path("point.index[id=1]"))
 
-    def test_walk_path_invalid_path_reports_container_owner_type(self):
+    def test_walk_path_invalid_path_reports_container_owner_type(self) -> None:
         """
         Ensure unresolved segments on list/dict/leaf kinds raise InvalidPath
         whose owner_type is rendered in the error message. This exercises the
@@ -266,7 +296,7 @@ class TestScopeCoverage(TestCase):
     Additional scope coverage for table helpers, traversal limits, and terminal validation.
     """
 
-    def test_ambient_scope_table_helpers(self):
+    def test_ambient_scope_table_helpers(self) -> None:
         """
         Ensure table helpers report aliases/items and require missing aliases correctly.
         """
@@ -280,15 +310,21 @@ class TestScopeCoverage(TestCase):
         with self.assertRaises(PresetScopeMissing):
             table.require("preset", "missing")
 
-    def test_enumerate_shortname_paths_depth_and_state_branches(self):
+    def test_enumerate_shortname_paths_depth_and_state_branches(self) -> None:
         """
         Ensure shortname enumeration handles depth cutoff and non-dataclass continuation.
         """
-        self.assertEqual(scope_module.enumerate_shortname_paths(SingleRoot, "point", max_depth=0), [])
-        self.assertTrue(len(scope_module.enumerate_shortname_paths(AxisRoot, "axis")) >= 1)
-        self.assertEqual(len(scope_module.enumerate_shortname_paths(NumberRoot, "number")), 1)
+        self.assertEqual(
+            scope_module.enumerate_shortname_paths(SingleRoot, "point", max_depth=0), []
+        )
+        self.assertTrue(
+            len(scope_module.enumerate_shortname_paths(AxisRoot, "axis")) >= 1
+        )
+        self.assertEqual(
+            len(scope_module.enumerate_shortname_paths(NumberRoot, "number")), 1
+        )
 
-    def test_resolve_row_scope_additional_terminal_cases(self):
+    def test_resolve_row_scope_additional_terminal_cases(self) -> None:
         """
         Ensure row_scope resolution handles None input, no-filter segments, and terminal helper branches.
         """
@@ -297,14 +333,22 @@ class TestScopeCoverage(TestCase):
         resolved, table = scope_module.resolve_row_scope(SingleRoot, "point")
         self.assertEqual(len(resolved.segments), 1)
         self.assertIn("point", table)
-        self.assertEqual(len(scope_module.resolve_row_scope(NumberRoot, "numbers[*]")[0].segments), 1)
+        self.assertEqual(
+            len(scope_module.resolve_row_scope(NumberRoot, "numbers[*]")[0].segments), 1
+        )
 
         fake_steps: list[StepInfo] = []
         nonempty_path = Path(segments=(Segment(name="x", filters=tuple()),))
-        self.assertFalse(scope_module._valid_row_scope_terminal(nonempty_path, fake_steps))
-        self.assertTrue(scope_module._valid_row_scope_terminal(Path(segments=tuple()), []))
+        self.assertFalse(
+            scope_module._valid_row_scope_terminal(nonempty_path, fake_steps)
+        )
+        self.assertTrue(
+            scope_module._valid_row_scope_terminal(Path(segments=tuple()), [])
+        )
 
-    def test_validate_short_forms_for_root_rejects_colliding_default_alias(self):
+    def test_validate_short_forms_for_root_rejects_colliding_default_alias(
+        self,
+    ) -> None:
         """
         Ensure a field whose default alias singularizes to a registered short-form
         value (e.g., ``vses``→``vs``) raises ``AliasCollision`` with the offending
@@ -316,7 +360,7 @@ class TestScopeCoverage(TestCase):
         self.assertEqual(cm.exception.alias, "vs")
         self.assertIn("vses", cm.exception.paths[0])
 
-    def test_validate_short_forms_for_root_passes_for_clean_model(self):
+    def test_validate_short_forms_for_root_passes_for_clean_model(self) -> None:
         """
         Ensure ``Sample`` (which has no fields singularizing to ``vs``/``es``)
         validates without raising. Also covers the ``next_type is None`` and
@@ -326,7 +370,7 @@ class TestScopeCoverage(TestCase):
         """
         scope_module.validate_short_forms_for_root(Sample)
 
-    def test_validate_short_forms_for_root_skips_walk_when_table_empty(self):
+    def test_validate_short_forms_for_root_skips_walk_when_table_empty(self) -> None:
         """
         Ensure the early-return short-circuit triggers when no short forms are
         registered. We patch ``SHORT_FORM_INVERSE`` to an empty mapping so the
@@ -335,7 +379,7 @@ class TestScopeCoverage(TestCase):
         with mock.patch.object(scope_module, "SHORT_FORM_INVERSE", {}):
             scope_module.validate_short_forms_for_root(_CollidingShortFormRoot)
 
-    def test_unknown_row_scope_includes_depth_hint_when_cap_hit(self):
+    def test_unknown_row_scope_includes_depth_hint_when_cap_hit(self) -> None:
         """
         Ensure ``UnknownRowScope`` carries a depth-limit hint when the BFS hit
         the depth cap before finding (or failing to find) the shortname.
@@ -347,7 +391,7 @@ class TestScopeCoverage(TestCase):
         self.assertIsNotNone(cm.exception.hint)
         self.assertIn("depth limit", str(cm.exception))
 
-    def test_resolve_row_scope_shortname_validates_terminal(self):
+    def test_resolve_row_scope_shortname_validates_terminal(self) -> None:
         """
         Ensure shortname-resolved paths are run through the row_scope terminal
         validator. The current shortname enumerator only emits valid terminals,
@@ -356,7 +400,11 @@ class TestScopeCoverage(TestCase):
         """
         leaf_path = parse_path("point.index")
         with (
-            mock.patch.object(scope_module, "_enumerate_with_diagnostic", return_value=([leaf_path], False)),
+            mock.patch.object(
+                scope_module,
+                "_enumerate_with_diagnostic",
+                return_value=([leaf_path], False),
+            ),
             self.assertRaises(InvalidRowScope),
         ):
             scope_module.resolve_row_scope(Sample, "index")
@@ -370,7 +418,7 @@ class TestColumnsCoverage(TestCase):
     def _point_scope(self):
         return scope_module.resolve_row_scope(Sample, "points[*]")[1]
 
-    def test_validate_column_paths_wraps_tail_walk_errors(self):
+    def test_validate_column_paths_wraps_tail_walk_errors(self) -> None:
         """
         Ensure path/filter/value errors in tail walking are re-raised with full path context.
         """
@@ -389,19 +437,23 @@ class TestColumnsCoverage(TestCase):
             )
         with self.assertRaises(InvalidFilterValue):
             columns_module.validate_column_paths(
-                columns_module.desugar_columns(["point.minerals[amount=abc].amount"], table),
+                columns_module.desugar_columns(
+                    ["point.minerals[amount=abc].amount"], table
+                ),
                 table,
                 allow_container_terminals=False,
             )
 
-    def test_validate_column_paths_non_dataclass_and_empty_path(self):
+    def test_validate_column_paths_non_dataclass_and_empty_path(self) -> None:
         """
         Ensure non-dataclass heads and empty paths are rejected.
         """
         number_table = scope_module.resolve_row_scope(NumberRoot, "numbers[*]")[1]
         specs = columns_module.desugar_columns(["number.value"], number_table)
         with self.assertRaises(InvalidPath):
-            columns_module.validate_column_paths(specs, number_table, allow_container_terminals=False)
+            columns_module.validate_column_paths(
+                specs, number_table, allow_container_terminals=False
+            )
 
         empty_spec = ColumnSpec(
             name="empty",
@@ -412,9 +464,11 @@ class TestColumnsCoverage(TestCase):
             source=BarePath(),
         )
         with self.assertRaises(InvalidPath):
-            columns_module.validate_column_paths([empty_spec], self._point_scope(), allow_container_terminals=False)
+            columns_module.validate_column_paths(
+                [empty_spec], self._point_scope(), allow_container_terminals=False
+            )
 
-    def test_desugar_additional_error_branches(self):
+    def test_desugar_additional_error_branches(self) -> None:
         """
         Ensure desugaring rejects invalid entry types and malformed structured columns.
         """
@@ -426,7 +480,7 @@ class TestColumnsCoverage(TestCase):
         with self.assertRaises(ParseError):
             columns_module.desugar_columns([{"path": "point.index", "name": 5}], table)
 
-    def test_splat_additional_error_and_filtering_branches(self):
+    def test_splat_additional_error_and_filtering_branches(self) -> None:
         """
         Ensure splat handling covers alias typing, scope typing, include/exclude, and on_missing parsing.
         """
@@ -441,11 +495,15 @@ class TestColumnsCoverage(TestCase):
                 table,
             )
         with self.assertRaises(ParseError):
-            columns_module.desugar_columns([{"splat": "point", "on_missing": "nope"}], table)
+            columns_module.desugar_columns(
+                [{"splat": "point", "on_missing": "nope"}], table
+            )
         with self.assertRaises(ParseError):
             columns_module.desugar_columns([{"splat": "point", "include": 3}], table)
         with self.assertRaises(ParseError):
-            columns_module.desugar_columns([{"splat": "point", "include": ["index", 3]}], table)
+            columns_module.desugar_columns(
+                [{"splat": "point", "include": ["index", 3]}], table
+            )
         with self.assertRaises(ParseError):
             columns_module.desugar_columns([{"splat": "point", "prefix": 3}], table)
 
@@ -453,10 +511,12 @@ class TestColumnsCoverage(TestCase):
         with self.assertRaises(ParseError):
             columns_module.desugar_columns([{"splat": "number"}], number_table)
 
-        specs = columns_module.desugar_columns([{"splat": "point", "exclude": ["index"]}], table)
+        specs = columns_module.desugar_columns(
+            [{"splat": "point", "exclude": ["index"]}], table
+        )
         self.assertTrue(all(spec.name != "index" for spec in specs))
 
-    def test_preset_entry_requires_string_name(self):
+    def test_preset_entry_requires_string_name(self) -> None:
         """
         Ensure non-string preset entries raise ParseError before lookup.
         """
@@ -464,7 +524,7 @@ class TestColumnsCoverage(TestCase):
         with self.assertRaises(ParseError):
             columns_module.desugar_columns([{"preset": 1}], table)
 
-    def test_validate_column_paths_dataclass_terminal_reports_class_name(self):
+    def test_validate_column_paths_dataclass_terminal_reports_class_name(self) -> None:
         """
         Ensure a column path that ends at a non-leaf dataclass field raises
         ``InvalidPath`` whose ``owner_type`` is the dataclass type. This
@@ -488,7 +548,7 @@ class TestCompilerCoverage(TestCase):
     Additional compiler coverage for private helper branches and rare filter failure modes.
     """
 
-    def test_compile_query_missing_required_keys(self):
+    def test_compile_query_missing_required_keys(self) -> None:
         """
         Ensure missing row_scope and columns keys both raise ParseError.
         """
@@ -497,17 +557,21 @@ class TestCompilerCoverage(TestCase):
         with self.assertRaises(ParseError):
             compile_query(Sample, {"row_scope": "order"})
 
-    def test_compile_query_rejects_bool_version(self):
+    def test_compile_query_rejects_bool_version(self) -> None:
         """
         Ensure ``version: True`` is rejected even though ``True == 1``
         evaluates true under Python's ``bool``-is-``int`` quirk.
         """
         with self.assertRaises(ParseError):
-            compile_query(Sample, {"row_scope": "order", "columns": [], "version": True})
+            compile_query(
+                Sample, {"row_scope": "order", "columns": [], "version": True}
+            )
         with self.assertRaises(ParseError):
-            compile_query(Sample, {"row_scope": "order", "columns": [], "version": False})
+            compile_query(
+                Sample, {"row_scope": "order", "columns": [], "version": False}
+            )
 
-    def test_compile_column_private_empty_and_single_segment_paths(self):
+    def test_compile_column_private_empty_and_single_segment_paths(self) -> None:
         """
         Ensure _compile_column handles empty and single-segment paths.
         """
@@ -520,7 +584,14 @@ class TestCompilerCoverage(TestCase):
             has_default=False,
             source=BarePath(),
         )
-        self.assertEqual(len(compiler_module._compile_column(empty_spec, table).compiled_path.segments), 0)
+        self.assertEqual(
+            len(
+                compiler_module._compile_column(
+                    empty_spec, table
+                ).compiled_path.segments
+            ),
+            0,
+        )
 
         single_spec = ColumnSpec(
             name="single",
@@ -530,9 +601,16 @@ class TestCompilerCoverage(TestCase):
             has_default=False,
             source=BarePath(),
         )
-        self.assertEqual(len(compiler_module._compile_column(single_spec, table).compiled_path.segments), 1)
+        self.assertEqual(
+            len(
+                compiler_module._compile_column(
+                    single_spec, table
+                ).compiled_path.segments
+            ),
+            1,
+        )
 
-    def test_compile_additional_filter_branches(self):
+    def test_compile_additional_filter_branches(self) -> None:
         """
         Ensure list/dict filter compile paths and failures cover remaining branches.
         """
@@ -550,17 +628,35 @@ class TestCompilerCoverage(TestCase):
         with self.assertRaises(InvalidFilter):
             compile_query(Sample, {"row_scope": "order", "columns": ["order.point[*]"]})
         with self.assertRaises(InvalidFilter):
-            compile_query(NumberRoot, {"row_scope": "order", "columns": ["order.numbers[index=1]"]})
+            compile_query(
+                NumberRoot,
+                {"row_scope": "order", "columns": ["order.numbers[index=1]"]},
+            )
         with self.assertRaises(InvalidFilter):
-            compile_query(Sample, {"row_scope": "order", "columns": ["order.points[missing=1].index"]})
+            compile_query(
+                Sample,
+                {"row_scope": "order", "columns": ["order.points[missing=1].index"]},
+            )
         with self.assertRaises(InvalidFilter):
-            compile_query(Sample, {"row_scope": "order", "columns": ["order.points[chemistry=1].index"]})
+            compile_query(
+                Sample,
+                {"row_scope": "order", "columns": ["order.points[chemistry=1].index"]},
+            )
         with self.assertRaises(InvalidFilter):
-            compile_query(Sample, {"row_scope": "order", "columns": ["order.point_map[missing=1].index"]})
+            compile_query(
+                Sample,
+                {"row_scope": "order", "columns": ["order.point_map[missing=1].index"]},
+            )
         with self.assertRaises(InvalidFilter):
-            compile_query(Sample, {"row_scope": "order", "columns": ["order.point_map[chemistry=1].index"]})
+            compile_query(
+                Sample,
+                {
+                    "row_scope": "order",
+                    "columns": ["order.point_map[chemistry=1].index"],
+                },
+            )
 
-    def test_resolve_match_filter_dispatch_and_validation(self):
+    def test_resolve_match_filter_dispatch_and_validation(self) -> None:
         """
         Ensure ``reflection.resolve_match_filter`` raises ``InvalidFilter``
         for the leaf, list-without-dataclass-element, missing-list-field,
@@ -570,36 +666,50 @@ class TestCompilerCoverage(TestCase):
         ``test_compile_additional_filter_branches`` exercises the same
         branches via ``compile_query``.
         """
-        match_filter = compiler_module.MatchFilter((Predicate(field="x", value="1", value_quoted=False),))  # pyright: ignore[reportPrivateImportUsage]
+        match_filter = MatchFilter(
+            (Predicate(field="x", value="1", value_quoted=False),)
+        )
         leaf = LeafField(name="v", declared_type=int, optional=False)
         with self.assertRaises(InvalidFilter):
             reflection_module.resolve_match_filter(leaf, match_filter, "p", "x")
 
-        bad_list = ListField(name="n", element_type=int, element_kind=leaf, optional=False)
+        bad_list = ListField(
+            name="n", element_type=int, element_kind=leaf, optional=False
+        )
         with self.assertRaises(InvalidFilter):
             reflection_module.resolve_match_filter(bad_list, match_filter, "p", "n")
 
         good_list = ListField(
             name="points",
             element_type=Point,
-            element_kind=DataclassField(name="point", dataclass_type=Point, optional=False),
+            element_kind=DataclassField(
+                name="point", dataclass_type=Point, optional=False
+            ),
             optional=False,
         )
-        missing_filter = compiler_module.MatchFilter((Predicate(field="missing", value="1", value_quoted=False),))  # pyright: ignore[reportPrivateImportUsage]
+        missing_filter = MatchFilter(
+            (Predicate(field="missing", value="1", value_quoted=False),)
+        )
         with self.assertRaises(InvalidFilter):
-            reflection_module.resolve_match_filter(good_list, missing_filter, "p", "points")
+            reflection_module.resolve_match_filter(
+                good_list, missing_filter, "p", "points"
+            )
 
         good_dict = DictField(
             name="points",
             key_type=str,
             value_type=Point,
-            value_kind=DataclassField(name="point", dataclass_type=Point, optional=False),
+            value_kind=DataclassField(
+                name="point", dataclass_type=Point, optional=False
+            ),
             optional=False,
         )
         with self.assertRaises(InvalidFilter):
-            reflection_module.resolve_match_filter(good_dict, missing_filter, "p", "points")
+            reflection_module.resolve_match_filter(
+                good_dict, missing_filter, "p", "points"
+            )
 
-    def test_path_predicate_text_handles_quoted_values(self):
+    def test_path_predicate_text_handles_quoted_values(self) -> None:
         """
         Ensure ``path.predicate_text`` escapes embedded quotes/backslashes for
         quoted-value predicates. Unquoted predicates are exercised broadly via
@@ -616,22 +726,30 @@ class TestEvaluatorCoverage(TestCase):
     Additional evaluator coverage for private helpers and defensive branches.
     """
 
-    def test_walk_row_scope_no_filter_segment(self):
+    def test_walk_row_scope_no_filter_segment(self) -> None:
         """
         Ensure ``_walk_row_scope`` handles the no-filter row_scope segment
         case (e.g., row_scope resolving to a ``DataclassField`` such as
         ``SingleRoot.point``). The walker reaches the leaf binding and
         ``evaluate`` yields a single row.
         """
-        compiled = compile_query(SingleRoot, {"row_scope": "point", "columns": ["self.index"]})
-        rows = list(evaluate(compiled, SingleRoot(point=Point(index=42, chemistry=None, minerals=[]))))
+        compiled = compile_query(
+            SingleRoot, {"row_scope": "point", "columns": ["self.index"]}
+        )
+        rows = list(
+            evaluate(
+                compiled, SingleRoot(point=Point(index=42, chemistry=None, minerals=[]))
+            )
+        )
         self.assertEqual(rows, [{"index": 42}])
 
-    def test_walk_row_scope_none_and_empty_values_paths(self):
+    def test_walk_row_scope_none_and_empty_values_paths(self) -> None:
         """
         Ensure row-scope walker handles None nodes and empty filtered values.
         """
-        compiled = compile_query(Sample, {"row_scope": "points[*]", "columns": ["point.index"]})
+        compiled = compile_query(
+            Sample, {"row_scope": "points[*]", "columns": ["point.index"]}
+        )
         aliases = evaluator_module._aliases_by_path(compiled)
         self.assertEqual(
             list(
@@ -665,11 +783,13 @@ class TestEvaluatorCoverage(TestCase):
             [],
         )
 
-    def test_evaluate_column_and_segment_helper_branches(self):
+    def test_evaluate_column_and_segment_helper_branches(self) -> None:
         """
         Ensure column-path and segment helper edge branches are covered.
         """
-        compiled = compile_query(Sample, {"row_scope": "order", "columns": ["order.point.index"]})
+        compiled = compile_query(
+            Sample, {"row_scope": "order", "columns": ["order.point.index"]}
+        )
         spec = compiled.compiled_columns[0].spec
 
         empty_column = CompiledColumn(
@@ -684,7 +804,11 @@ class TestEvaluatorCoverage(TestCase):
             compiled_path=CompiledPath(path=Path(segments=tuple()), segments=tuple()),
             terminal_kind=None,
         )
-        self.assertTrue(evaluator_module._evaluate_column_path(empty_column, {"order": make_sample()}, {})[1])
+        self.assertTrue(
+            evaluator_module._evaluate_column_path(
+                empty_column, {"order": make_sample()}, {}
+            )[1]
+        )
 
         missing_alias_column = CompiledColumn(
             spec=spec,
@@ -694,7 +818,10 @@ class TestEvaluatorCoverage(TestCase):
             ),
             terminal_kind=compiled.compiled_columns[0].terminal_kind,
         )
-        self.assertEqual(evaluator_module._evaluate_column_path(missing_alias_column, {}, {})[2], "order")
+        self.assertEqual(
+            evaluator_module._evaluate_column_path(missing_alias_column, {}, {})[2],
+            "order",
+        )
 
         # ``_segment_values`` requires non-empty filters; the no-filter
         # terminal-None / non-terminal-None handling lives in
@@ -702,27 +829,37 @@ class TestEvaluatorCoverage(TestCase):
         # the column-path tests above. Here we cover the
         # ``value is None`` early return for the filter case.
         self.assertEqual(
-            evaluator_module._segment_values(None, (CompiledIterFilter(),), path_text="x"),
+            evaluator_module._segment_values(
+                None, (CompiledIterFilter(),), path_text="x"
+            ),
             [],
         )
 
         container_column = compile_query(
             Sample,
-            {"row_scope": "order", "columns": [{"path": "order.points", "name": "points"}]},
+            {
+                "row_scope": "order",
+                "columns": [{"path": "order.points", "name": "points"}],
+            },
             allow_container_terminals=True,
         ).compiled_columns[0]
-        value, missing, _ = evaluator_module._evaluate_column_path(container_column, {"order": make_sample()}, {})
+        value, missing, _ = evaluator_module._evaluate_column_path(
+            container_column, {"order": make_sample()}, {}
+        )
         self.assertFalse(missing)
         self.assertIsInstance(value, list)
 
-    def test_evaluate_column_path_meta_with_missing_meta_binding_misses(self):
+    def test_evaluate_column_path_meta_with_missing_meta_binding_misses(self) -> None:
         """
         Ensure ``_evaluate_column_path`` returns a miss when a meta-accessor's
         anchor alias is bound but absent from ``meta_binding``. The validator
         prevents this in normal flow, but the defensive branch fires if a
         caller hands the evaluator a binding/meta_binding pair out of sync.
         """
-        meta_path = Path(segments=(Segment(name="point", filters=tuple()),), meta=MetaSegment(name="index"))
+        meta_path = Path(
+            segments=(Segment(name="point", filters=tuple()),),
+            meta=MetaSegment(name="index"),
+        )
         meta_column = CompiledColumn(
             spec=ColumnSpec(
                 name="position",
@@ -734,29 +871,35 @@ class TestEvaluatorCoverage(TestCase):
             ),
             compiled_path=CompiledPath(
                 path=meta_path,
-                segments=(compiler_module.CompiledSegment(name="point", filters=tuple()),),
+                segments=(
+                    compiler_module.CompiledSegment(name="point", filters=tuple()),
+                ),
             ),
             terminal_kind=None,
         )
         # Anchor alias is in ``binding`` (so the head-lookup branch passes)
         # but absent from ``meta_binding``: defensive miss.
-        value, missing, segment = evaluator_module._evaluate_column_path(meta_column, {"point": object()}, {})
+        value, missing, segment = evaluator_module._evaluate_column_path(
+            meta_column, {"point": object()}, {}
+        )
         self.assertIsNone(value)
         self.assertTrue(missing)
         self.assertEqual(segment, "point")
 
-    def test_segment_values_with_meta_short_circuits_on_none(self):
+    def test_segment_values_with_meta_short_circuits_on_none(self) -> None:
         """
         Ensure ``_segment_values_with_meta`` returns ``[]`` immediately when
         the input value is ``None``. Mirrors ``_segment_values`` semantics
         for the row-scope walker variant.
         """
         self.assertEqual(
-            evaluator_module._segment_values_with_meta(None, (CompiledIterFilter(),), path_text="x"),
+            evaluator_module._segment_values_with_meta(
+                None, (CompiledIterFilter(),), path_text="x"
+            ),
             [],
         )
 
-    def test_segment_values_with_meta_inner_iter_preserves_outer_position(self):
+    def test_segment_values_with_meta_inner_iter_preserves_outer_position(self) -> None:
         """
         Ensure that when a single segment carries two iter filters
         (``[*][*]`` over a ``list[list[T]]``), the outer iter establishes
@@ -774,11 +917,15 @@ class TestEvaluatorCoverage(TestCase):
         # Outer index should match each leaf's containing list (0 for ``a``
         # and ``b``, 1 for ``c``); ``key`` is None throughout (list iter).
         self.assertEqual(
-            [(value, position.index, position.key) for value, position in result if position is not None],
+            [
+                (value, position.index, position.key)
+                for value, position in result
+                if position is not None
+            ],
             [("a", 0, None), ("b", 0, None), ("c", 1, None)],
         )
 
-    def test_segment_values_iter_filter_branch_is_reachable_via_helper(self):
+    def test_segment_values_iter_filter_branch_is_reachable_via_helper(self) -> None:
         """
         Ensure ``_segment_values`` handles iter filters when invoked directly.
         Production code routes iter filters through ``_segment_values_with_meta``
@@ -787,11 +934,13 @@ class TestEvaluatorCoverage(TestCase):
         of the module's stable surface.
         """
         self.assertEqual(
-            evaluator_module._segment_values([1, 2, 3], (CompiledIterFilter(),), path_text="x"),
+            evaluator_module._segment_values(
+                [1, 2, 3], (CompiledIterFilter(),), path_text="x"
+            ),
             [1, 2, 3],
         )
 
-    def test_segment_values_with_meta_match_filter_branches(self):
+    def test_segment_values_with_meta_match_filter_branches(self) -> None:
         """
         Ensure ``_segment_values_with_meta`` handles match filters: a hit
         produces a ``(value, None)`` pair (no iter position introduced), and
@@ -800,24 +949,38 @@ class TestEvaluatorCoverage(TestCase):
         match-only row_scope segments such as ``points[index=1]``.
         """
         match_hit = CompiledMatchFilter(
-            predicates=(CompiledPredicate(field="index", value="1", value_quoted=False, coerced_value=1),),
+            predicates=(
+                CompiledPredicate(
+                    field="index", value="1", value_quoted=False, coerced_value=1
+                ),
+            ),
         )
         points = [
             Point(index=1, chemistry=None, minerals=[]),
             Point(index=2, chemistry=None, minerals=[]),
         ]
-        result = evaluator_module._segment_values_with_meta(points, (match_hit,), path_text="points[index=1]")
-        self.assertEqual([(value, position) for value, position in result], [(points[0], None)])
-
-        match_miss = CompiledMatchFilter(
-            predicates=(CompiledPredicate(field="index", value="99", value_quoted=False, coerced_value=99),),
+        result = evaluator_module._segment_values_with_meta(
+            points, (match_hit,), path_text="points[index=1]"
         )
         self.assertEqual(
-            evaluator_module._segment_values_with_meta(points, (match_miss,), path_text="points[index=99]"),
+            [(value, position) for value, position in result], [(points[0], None)]
+        )
+
+        match_miss = CompiledMatchFilter(
+            predicates=(
+                CompiledPredicate(
+                    field="index", value="99", value_quoted=False, coerced_value=99
+                ),
+            ),
+        )
+        self.assertEqual(
+            evaluator_module._segment_values_with_meta(
+                points, (match_miss,), path_text="points[index=99]"
+            ),
             [],
         )
 
-    def test_iter_match_attr_and_missing_helpers(self):
+    def test_iter_match_attr_and_missing_helpers(self) -> None:
         """
         Ensure iterable, match, attribute, and missing-value helper edge branches are covered.
         """
@@ -826,11 +989,23 @@ class TestEvaluatorCoverage(TestCase):
         self.assertEqual(evaluator_module._iter_filter_values(7), [])
 
         filter_expr = CompiledMatchFilter(
-            predicates=(CompiledPredicate(field="x", value='a"b', value_quoted=True, coerced_value=1),),
+            predicates=(
+                CompiledPredicate(
+                    field="x", value='a"b', value_quoted=True, coerced_value=1
+                ),
+            ),
         )
-        self.assertIs(evaluator_module._match_filter_value(7, filter_expr, "p"), evaluator_module._MISS)
-        self.assertIs(evaluator_module._match_filter_value([object()], filter_expr, "p"), evaluator_module._MISS)
-        self.assertEqual(evaluator_module._compiled_match_text(filter_expr), 'x="a\\"b"')
+        self.assertIs(
+            evaluator_module._match_filter_value(7, filter_expr, "p"),
+            evaluator_module._MISS,
+        )
+        self.assertIs(
+            evaluator_module._match_filter_value([object()], filter_expr, "p"),
+            evaluator_module._MISS,
+        )
+        self.assertEqual(
+            evaluator_module._compiled_match_text(filter_expr), 'x="a\\"b"'
+        )
 
         self.assertEqual(
             evaluator_module._segment_values([object()], (filter_expr,), path_text="p"),
@@ -844,31 +1019,45 @@ class TestEvaluatorCoverage(TestCase):
             evaluator_module._dict_item_matches(
                 "k",
                 Item(),
-                (CompiledPredicate(field="key", value="k", value_quoted=False, coerced_value="k"),),
+                (
+                    CompiledPredicate(
+                        field="key", value="k", value_quoted=False, coerced_value="k"
+                    ),
+                ),
             )
         )
         self.assertFalse(
             evaluator_module._dict_item_matches(
                 "k",
                 object(),
-                (CompiledPredicate(field="value", value="1", value_quoted=False, coerced_value=1),),
+                (
+                    CompiledPredicate(
+                        field="value", value="1", value_quoted=False, coerced_value=1
+                    ),
+                ),
             )
         )
         self.assertFalse(
             evaluator_module._list_item_matches(
                 object(),
-                (CompiledPredicate(field="value", value="1", value_quoted=False, coerced_value=1),),
+                (
+                    CompiledPredicate(
+                        field="value", value="1", value_quoted=False, coerced_value=1
+                    ),
+                ),
             )
         )
 
         self.assertIsNone(evaluator_module._get_attr(None, "x"))
         self.assertIsNone(evaluator_module._get_attr(object(), "x"))
 
-        column = compile_query(Sample, {"row_scope": "order", "columns": ["order.point.index"]}).compiled_columns[0]
+        column = compile_query(
+            Sample, {"row_scope": "order", "columns": ["order.point.index"]}
+        ).compiled_columns[0]
         self.assertIsNone(evaluator_module._missing_value("blank", column, 0, "x"))
         self.assertIsNone(evaluator_module._missing_value("null", column, 0, "x"))
 
-    def test_missing_value_error_policy_raises_path_miss(self):
+    def test_missing_value_error_policy_raises_path_miss(self) -> None:
         """
         Ensure on_missing=error still routes through PathMissError.
         """

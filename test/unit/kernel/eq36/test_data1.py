@@ -3,8 +3,15 @@ from typing import cast
 from unittest import TestCase, mock
 
 import numpy as np
-
-from eleanor.kernel.eq36.data1 import AqueousSpecies, BasisSpecies, Data1, Gas, Liquid, Mineral, TPCurve
+from eleanor.kernel.eq36.data1 import (
+    AqueousSpecies,
+    BasisSpecies,
+    Data1,
+    Gas,
+    Liquid,
+    Mineral,
+    TPCurve,
+)
 from eleanor.kernel.eq36.libeq36 import Data
 
 
@@ -19,18 +26,25 @@ class TestEq36Data1(TestCase):
             (np.array([1.0], dtype=np.float64), np.array([1.0], dtype=np.float64)),
         )
 
-    def test_tpcurve_init_validation_errors(self):
+    def test_tpcurve_init_validation_errors(self) -> None:
         """
         Ensure TPCurve validates input temperature metadata and polynomial shape/content.
         """
         with self.assertRaises(ValueError):
             _ = TPCurve(
-                cast(dict[str, np.float64], cast(object, {"min": np.float64(0.0), "max": np.float64(10.0)})),
+                cast(
+                    dict[str, np.float64],
+                    cast(object, {"min": np.float64(0.0), "max": np.float64(10.0)}),
+                ),
                 (np.array([1.0], dtype=np.float64), np.array([1.0], dtype=np.float64)),
             )
         with self.assertRaises(ValueError):
             _ = TPCurve(
-                {"min": np.float64(0.0), "mid": np.float64(5.0), "max": np.float64(10.0)},
+                {
+                    "min": np.float64(0.0),
+                    "mid": np.float64(5.0),
+                    "max": np.float64(10.0),
+                },
                 cast(
                     tuple[
                         np.ndarray[tuple[int], np.dtype[np.float64]],
@@ -41,7 +55,11 @@ class TestEq36Data1(TestCase):
             )
         with self.assertRaises(ValueError):
             _ = TPCurve(
-                {"min": np.float64(0.0), "mid": np.float64(5.0), "max": np.float64(10.0)},
+                {
+                    "min": np.float64(0.0),
+                    "mid": np.float64(5.0),
+                    "max": np.float64(10.0),
+                },
                 cast(
                     tuple[
                         np.ndarray[tuple[int], np.dtype[np.float64]],
@@ -52,7 +70,11 @@ class TestEq36Data1(TestCase):
             )
         with self.assertRaises(ValueError):
             _ = TPCurve(
-                {"min": np.float64(0.0), "mid": np.float64(5.0), "max": np.float64(10.0)},
+                {
+                    "min": np.float64(0.0),
+                    "mid": np.float64(5.0),
+                    "max": np.float64(10.0),
+                },
                 cast(
                     tuple[
                         np.ndarray[tuple[int], np.dtype[np.float64]],
@@ -62,25 +84,39 @@ class TestEq36Data1(TestCase):
                 ),
             )
 
-    def test_tpcurve_init_requires_float64_dot_results(self):
+    def test_tpcurve_init_requires_float64_dot_results(self) -> None:
         """
         Ensure TPCurve constructor rejects non-np.float64 polynomial evaluations.
         """
         with mock.patch("numpy.dot", side_effect=[1.0, np.float64(1.0)]):
             with self.assertRaises(TypeError):
                 _ = TPCurve(
-                    {"min": np.float64(0.0), "mid": np.float64(5.0), "max": np.float64(10.0)},
-                    (np.array([1.0], dtype=np.float64), np.array([1.0], dtype=np.float64)),
+                    {
+                        "min": np.float64(0.0),
+                        "mid": np.float64(5.0),
+                        "max": np.float64(10.0),
+                    },
+                    (
+                        np.array([1.0], dtype=np.float64),
+                        np.array([1.0], dtype=np.float64),
+                    ),
                 )
 
         with mock.patch("numpy.dot", side_effect=[np.float64(1.0), 1.0]):
             with self.assertRaises(TypeError):
                 _ = TPCurve(
-                    {"min": np.float64(0.0), "mid": np.float64(5.0), "max": np.float64(10.0)},
-                    (np.array([1.0], dtype=np.float64), np.array([1.0], dtype=np.float64)),
+                    {
+                        "min": np.float64(0.0),
+                        "mid": np.float64(5.0),
+                        "max": np.float64(10.0),
+                    },
+                    (
+                        np.array([1.0], dtype=np.float64),
+                        np.array([1.0], dtype=np.float64),
+                    ),
                 )
 
-    def test_tpcurve_domain_and_call(self):
+    def test_tpcurve_domain_and_call(self) -> None:
         """
         Ensure domain helpers and polynomial evaluation dispatch behave as expected.
         """
@@ -102,7 +138,7 @@ class TestEq36Data1(TestCase):
         with self.assertRaises(ValueError):
             _ = c(np.float64(99.0))
 
-    def test_tpcurve_call_requires_float64_dot_result(self):
+    def test_tpcurve_call_requires_float64_dot_result(self) -> None:
         """
         Ensure TPCurve.__call__ rejects non-np.float64 dot-product outputs.
         """
@@ -111,35 +147,60 @@ class TestEq36Data1(TestCase):
             with self.assertRaises(TypeError):
                 _ = c(np.float64(1.0))
 
-    def test_tpcurve_set_domain_zero_intersections_branches(self):
+    def test_tpcurve_set_domain_zero_intersections_branches(self) -> None:
         """
         Ensure zero-intersection branches handle empty, inconsistent, and full-domain outcomes.
         """
         with mock.patch.object(TPCurve, "find_boundary_intersections", return_value=[]):
             c = self._curve()
-            self.assertFalse(c.set_domain((np.float64(20.0), np.float64(30.0)), (np.float64(0.0), np.float64(2.0))))
+            self.assertFalse(
+                c.set_domain(
+                    (np.float64(20.0), np.float64(30.0)),
+                    (np.float64(0.0), np.float64(2.0)),
+                )
+            )
             self.assertEqual(c.domain, [])
             c = self._curve()
 
             with self.assertRaises(Exception):
-                _ = c.set_domain((np.float64(0.0), np.float64(3.0)), (np.float64(0.0), np.float64(2.0)))
+                _ = c.set_domain(
+                    (np.float64(0.0), np.float64(3.0)),
+                    (np.float64(0.0), np.float64(2.0)),
+                )
             c = self._curve()
 
-            self.assertTrue(c.set_domain((-np.float64(1.0), np.float64(11.0)), (np.float64(0.0), np.float64(2.0))))
+            self.assertTrue(
+                c.set_domain(
+                    (-np.float64(1.0), np.float64(11.0)),
+                    (np.float64(0.0), np.float64(2.0)),
+                )
+            )
             self.assertEqual(c.domain, [(0.0, 10.0)])
 
-    def test_tpcurve_set_domain_one_and_multiple_intersections(self):
+    def test_tpcurve_set_domain_one_and_multiple_intersections(self) -> None:
         """
         Ensure one-intersection and multi-intersection branches build expected subdomains.
         """
         c = self._curve()
-        with mock.patch.object(TPCurve, "find_boundary_intersections", return_value=[(5.0, 1.0)]):
+        with mock.patch.object(
+            TPCurve, "find_boundary_intersections", return_value=[(5.0, 1.0)]
+        ):
             c = self._curve()
-            self.assertTrue(c.set_domain((np.float64(5.0), np.float64(5.0)), (np.float64(0.0), np.float64(2.0))))
+            self.assertTrue(
+                c.set_domain(
+                    (np.float64(5.0), np.float64(5.0)),
+                    (np.float64(0.0), np.float64(2.0)),
+                )
+            )
             self.assertEqual(c.domain, [(5.0, 5.0)])
             c = self._curve()
 
-            self.assertTrue(c.set_domain((np.float64(0.0), np.float64(10.0)), (np.float64(0.0), np.float64(2.0))))
+            self.assertTrue(
+                c.set_domain(
+                    (np.float64(0.0), np.float64(10.0)),
+                    (np.float64(0.0), np.float64(2.0)),
+                )
+            )
             self.assertEqual(c.domain, [(0.0, 5.0), (5.0, 10.0)])
 
         with mock.patch.object(
@@ -148,10 +209,15 @@ class TestEq36Data1(TestCase):
             return_value=[(1.0, 1.0), (3.0, 1.0), (8.0, 1.0)],
         ):
             c = self._curve()
-            self.assertTrue(c.set_domain((np.float64(0.0), np.float64(10.0)), (np.float64(0.0), np.float64(2.0))))
+            self.assertTrue(
+                c.set_domain(
+                    (np.float64(0.0), np.float64(10.0)),
+                    (np.float64(0.0), np.float64(2.0)),
+                )
+            )
             self.assertEqual(c.domain, [(1.0, 3.0), (3.0, 8.0)])
 
-    def test_tpcurve_find_intersections_union_and_sample(self):
+    def test_tpcurve_find_intersections_union_and_sample(self) -> None:
         """
         Ensure intersection detection, domain unioning, and sampling flow execute as expected.
         """
@@ -162,7 +228,10 @@ class TestEq36Data1(TestCase):
         self.assertTrue((0.0, 1.0) in intersections and (10.0, 1.0) in intersections)
 
         c1 = self._curve()
-        c1.domain = [(np.float64(0.0), np.float64(2.0)), (np.float64(3.0), np.float64(4.0))]
+        c1.domain = [
+            (np.float64(0.0), np.float64(2.0)),
+            (np.float64(3.0), np.float64(4.0)),
+        ]
         c2 = self._curve()
         c2.domain = [(np.float64(1.0), np.float64(3.5))]
         self.assertEqual(TPCurve.union_domains([]), [])
@@ -179,7 +248,7 @@ class TestEq36Data1(TestCase):
         self.assertEqual(list(Ps), [1.0, 1.0])
         self.assertEqual(len(selected), 2)
 
-    def test_tpcurve_find_intersections_skips_temperatures_outside_domain(self):
+    def test_tpcurve_find_intersections_skips_temperatures_outside_domain(self) -> None:
         """
         Ensure find_boundary_intersections skips candidate temperatures outside the active curve domain.
         """
@@ -190,7 +259,7 @@ class TestEq36Data1(TestCase):
         )
         self.assertFalse(any(t == 0.0 for t, _ in intersections))
 
-    def test_tpcurve_find_intersections_includes_right_polynomial_roots(self):
+    def test_tpcurve_find_intersections_includes_right_polynomial_roots(self) -> None:
         """
         Ensure find_boundary_intersections includes roots from the right-hand polynomial branch.
         """
@@ -201,7 +270,7 @@ class TestEq36Data1(TestCase):
             )
         self.assertIn((8.0, 1.0), intersections)
 
-    def test_tpcurve_union_domains_disjoint_subdomains(self):
+    def test_tpcurve_union_domains_disjoint_subdomains(self) -> None:
         """
         Ensure union_domains preserves separated intervals when subdomains do not overlap.
         """
@@ -211,7 +280,7 @@ class TestEq36Data1(TestCase):
         c2.domain = [(np.float64(3.0), np.float64(4.0))]
         self.assertEqual(TPCurve.union_domains([c1, c2]), [(0.0, 1.0), (3.0, 4.0)])
 
-    def test_tpcurve_sample_adjusts_across_domain_steps(self):
+    def test_tpcurve_sample_adjusts_across_domain_steps(self) -> None:
         """
         Ensure sample shifts candidate temperatures across gaps between disjoint domain intervals.
         """
@@ -237,7 +306,11 @@ class TestEq36Data1(TestCase):
                 b"H2O(l)                  ",
                 b"CO2(g)                  ",
                 b"EM1                     SOLID1",
-                (b"EM1                     SOLID1" if duplicate_end_member else b"EM2                     SOLID1"),
+                (
+                    b"EM1                     SOLID1"
+                    if duplicate_end_member
+                    else b"EM2                     SOLID1"
+                ),
             ],
             dtype="|S48",
         )
@@ -267,7 +340,7 @@ class TestEq36Data1(TestCase):
             nxrn2a=np.int32(6),
         )
 
-    def test_data1_get_basis_species_and_from_file(self):
+    def test_data1_get_basis_species_and_from_file(self) -> None:
         """
         Ensure Data1 basis-species lookup and from_file parser wiring work for normal payloads.
         """
@@ -275,9 +348,17 @@ class TestEq36Data1(TestCase):
             filename=Path("x"),
             elements={"H": np.float64(1.0)},
             basis_species={
-                "H+": BasisSpecies(name="H+", composition={"H": 1}, charge=1, volume=None, molar_mass=np.float64(1.0))
+                "H+": BasisSpecies(
+                    name="H+",
+                    composition={"H": 1},
+                    charge=1,
+                    volume=None,
+                    molar_mass=np.float64(1.0),
+                )
             },
-            aqueous_species={"H+": AqueousSpecies(name="H+", molar_mass=np.float64(1.0))},
+            aqueous_species={
+                "H+": AqueousSpecies(name="H+", molar_mass=np.float64(1.0))
+            },
             minerals={},
             liquids={},
             gases={},
@@ -290,16 +371,30 @@ class TestEq36Data1(TestCase):
         self.assertEqual(h_basis.name, "H+")
         self.assertIsNone(d.get_basis_species("Na"))
 
-        with mock.patch("eleanor.kernel.eq36.data1.read_data1", return_value=self._read_data1_payload()):
+        with mock.patch(
+            "eleanor.kernel.eq36.data1.read_data1",
+            return_value=self._read_data1_payload(),
+        ):
             parsed = Data1.from_file("fake.d1")
         self.assertEqual(parsed.filename, Path("fake.d1"))
         self.assertIn("H", parsed.elements)
         self.assertIn("H+", parsed.basis_species)
         self.assertEqual(parsed.basis_species["H+"].molar_mass, np.float64(1.0))
-        self.assertEqual(parsed.aqueous_species, {"H+": AqueousSpecies(name="H+", molar_mass=np.float64(1.0))})
-        self.assertEqual(parsed.minerals, {"Calcite": Mineral(name="Calcite", molar_mass=np.float64(100.09))})
-        self.assertEqual(parsed.liquids, {"H2O(l)": Liquid(name="H2O(l)", molar_mass=np.float64(18.0))})
-        self.assertEqual(parsed.gases, {"CO2(g)": Gas(name="CO2(g)", molar_mass=np.float64(44.01))})
+        self.assertEqual(
+            parsed.aqueous_species,
+            {"H+": AqueousSpecies(name="H+", molar_mass=np.float64(1.0))},
+        )
+        self.assertEqual(
+            parsed.minerals,
+            {"Calcite": Mineral(name="Calcite", molar_mass=np.float64(100.09))},
+        )
+        self.assertEqual(
+            parsed.liquids,
+            {"H2O(l)": Liquid(name="H2O(l)", molar_mass=np.float64(18.0))},
+        )
+        self.assertEqual(
+            parsed.gases, {"CO2(g)": Gas(name="CO2(g)", molar_mass=np.float64(44.01))}
+        )
         self.assertIn("SOLID1", parsed.solid_solutions)
         self.assertEqual(
             parsed.solid_solutions["SOLID1"].end_members,
@@ -317,7 +412,9 @@ class TestEq36Data1(TestCase):
             self.assertEqual(parsed.molar_mass("SOLID1"), np.float64(60.0))
 
         self.assertEqual(
-            parsed.molar_mass("SOLID1", {"EM1": np.float64(0.25), "EM2": np.float64(0.75)}),
+            parsed.molar_mass(
+                "SOLID1", {"EM1": np.float64(0.25), "EM2": np.float64(0.75)}
+            ),
             np.float64(0.25 * 50.0 + 0.75 * 70.0),
         )
         with self.assertRaises(KeyError):
@@ -331,7 +428,7 @@ class TestEq36Data1(TestCase):
         with self.assertRaises(ValueError):
             _ = parsed.compute_molar_mass({"H": -1})
 
-    def test_species_init_validation(self):
+    def test_species_init_validation(self) -> None:
         """
         Ensure Species rejects empty names and negative molar masses via concrete subclasses.
         """
@@ -340,20 +437,36 @@ class TestEq36Data1(TestCase):
         with self.assertRaises(ValueError):
             _ = AqueousSpecies(name="H2O", molar_mass=np.float64(-1.0))
 
-    def test_basis_species_init_validation(self):
+    def test_basis_species_init_validation(self) -> None:
         """
         Ensure BasisSpecies rejects empty compositions, negative element counts, and negative volumes.
         """
         with self.assertRaises(ValueError):
-            _ = BasisSpecies(name="H+", composition={}, charge=1, volume=None, molar_mass=np.float64(1.0))
-        with self.assertRaises(ValueError):
-            _ = BasisSpecies(name="H+", composition={"H": -1}, charge=1, volume=None, molar_mass=np.float64(1.0))
+            _ = BasisSpecies(
+                name="H+",
+                composition={},
+                charge=1,
+                volume=None,
+                molar_mass=np.float64(1.0),
+            )
         with self.assertRaises(ValueError):
             _ = BasisSpecies(
-                name="H+", composition={"H": 1}, charge=1, volume=np.float64(-1.0), molar_mass=np.float64(1.0)
+                name="H+",
+                composition={"H": -1},
+                charge=1,
+                volume=None,
+                molar_mass=np.float64(1.0),
+            )
+        with self.assertRaises(ValueError):
+            _ = BasisSpecies(
+                name="H+",
+                composition={"H": 1},
+                charge=1,
+                volume=np.float64(-1.0),
+                molar_mass=np.float64(1.0),
             )
 
-    def test_solid_solution_init_validation(self):
+    def test_solid_solution_init_validation(self) -> None:
         """
         Ensure SolidSolution rejects empty names, empty end-member dicts, and negative end-member molar masses.
         """
@@ -366,7 +479,7 @@ class TestEq36Data1(TestCase):
         with self.assertRaises(ValueError):
             _ = SolidSolution(name="SS", end_members={"A": np.float64(-1.0)})
 
-    def test_data1_from_file_returns_empty_species_for_zero_range(self):
+    def test_data1_from_file_returns_empty_species_for_zero_range(self) -> None:
         """
         Ensure Data1.from_file returns an empty dict for a species category whose range index is zero.
         """
@@ -376,20 +489,27 @@ class TestEq36Data1(TestCase):
             parsed = Data1.from_file("zero-range.d1")
         self.assertEqual(parsed.aqueous_species, {})
 
-    def test_data1_from_file_rejects_non_float64_species_molar_weight(self):
+    def test_data1_from_file_rejects_non_float64_species_molar_weight(self) -> None:
         """
         Ensure Data1.from_file raises TypeError for a non-float64 molar weight in a species category range.
         """
         payload = self._read_data1_payload()
         payload.species_molar_weights = np.array(
-            [42, np.float64(100.09), np.float64(18.0), np.float64(44.01), np.float64(50.0), np.float64(70.0)],
+            [
+                42,
+                np.float64(100.09),
+                np.float64(18.0),
+                np.float64(44.01),
+                np.float64(50.0),
+                np.float64(70.0),
+            ],
             dtype=object,
         )
         with mock.patch("eleanor.kernel.eq36.data1.read_data1", return_value=payload):
             with self.assertRaises(TypeError):
                 _ = Data1.from_file("bad-species-weight.d1")
 
-    def test_data1_from_file_rejects_invalid_basis_species_name(self):
+    def test_data1_from_file_rejects_invalid_basis_species_name(self) -> None:
         """
         Ensure Data1.from_file raises TypeError for a basis species name not covered by any category range.
         """
@@ -413,7 +533,9 @@ class TestEq36Data1(TestCase):
             with self.assertRaises(TypeError):
                 _ = Data1.from_file("bad-basis-name.d1")
 
-    def test_data1_from_file_rejects_non_float64_basis_species_molar_weight(self):
+    def test_data1_from_file_rejects_non_float64_basis_species_molar_weight(
+        self,
+    ) -> None:
         """
         Ensure Data1.from_file raises TypeError for a non-float64 molar weight in the basis-species loop.
         """
@@ -423,27 +545,43 @@ class TestEq36Data1(TestCase):
         payload.nlrn1a = np.int32(0)
         payload.ngrn1a = np.int32(0)
         payload.species_molar_weights = np.array(
-            [42, np.float64(100.09), np.float64(18.0), np.float64(44.01), np.float64(50.0), np.float64(70.0)],
+            [
+                42,
+                np.float64(100.09),
+                np.float64(18.0),
+                np.float64(44.01),
+                np.float64(50.0),
+                np.float64(70.0),
+            ],
             dtype=object,
         )
         with mock.patch("eleanor.kernel.eq36.data1.read_data1", return_value=payload):
             with self.assertRaises(TypeError):
                 _ = Data1.from_file("bad-basis-weight.d1")
 
-    def test_data1_from_file_rejects_non_float64_solid_solution_molar_weight(self):
+    def test_data1_from_file_rejects_non_float64_solid_solution_molar_weight(
+        self,
+    ) -> None:
         """
         Ensure Data1.from_file raises TypeError for a non-float64 molar weight in the solid-solution loop.
         """
         payload = self._read_data1_payload()
         payload.species_molar_weights = np.array(
-            [np.float64(1.0), np.float64(100.09), np.float64(18.0), np.float64(44.01), 42, np.float64(70.0)],
+            [
+                np.float64(1.0),
+                np.float64(100.09),
+                np.float64(18.0),
+                np.float64(44.01),
+                42,
+                np.float64(70.0),
+            ],
             dtype=object,
         )
         with mock.patch("eleanor.kernel.eq36.data1.read_data1", return_value=payload):
             with self.assertRaises(TypeError):
                 _ = Data1.from_file("bad-solid-solution-weight.d1")
 
-    def test_data1_from_file_duplicate_end_member_raises(self):
+    def test_data1_from_file_duplicate_end_member_raises(self) -> None:
         """
         Ensure duplicate solid-solution end members in read_data1 payload are rejected.
         """
@@ -454,7 +592,7 @@ class TestEq36Data1(TestCase):
             with self.assertRaises(RuntimeError):
                 _ = Data1.from_file("dup.d1")
 
-    def test_data1_from_file_rejects_non_bytes_element_names(self):
+    def test_data1_from_file_rejects_non_bytes_element_names(self) -> None:
         """
         Ensure Data1.from_file rejects element names that are not bytes.
         """
@@ -464,7 +602,7 @@ class TestEq36Data1(TestCase):
             with self.assertRaises(TypeError):
                 _ = Data1.from_file("bad-elements.d1")
 
-    def test_data1_from_file_rejects_non_bytes_species_names(self):
+    def test_data1_from_file_rejects_non_bytes_species_names(self) -> None:
         """
         Ensure Data1.from_file rejects basis-species names that are not bytes.
         """
@@ -477,7 +615,7 @@ class TestEq36Data1(TestCase):
             with self.assertRaises(TypeError):
                 _ = Data1.from_file("bad-species-name.d1")
 
-    def test_data1_from_file_rejects_non_float64_composition_counts(self):
+    def test_data1_from_file_rejects_non_float64_composition_counts(self) -> None:
         """
         Ensure Data1.from_file rejects composition counts that are not np.float64.
         """
@@ -487,7 +625,7 @@ class TestEq36Data1(TestCase):
             with self.assertRaises(TypeError):
                 _ = Data1.from_file("bad-counts.d1")
 
-    def test_data1_from_file_preserves_nonzero_basis_species_volume(self):
+    def test_data1_from_file_preserves_nonzero_basis_species_volume(self) -> None:
         """
         Ensure Data1.from_file preserves nonzero basis-species volume values.
         """
@@ -497,7 +635,7 @@ class TestEq36Data1(TestCase):
             parsed = Data1.from_file("with-volume.d1")
         self.assertEqual(parsed.basis_species["H+"].volume, 1.5)
 
-    def test_data1_from_file_rejects_non_bytes_solid_solution_lines(self):
+    def test_data1_from_file_rejects_non_bytes_solid_solution_lines(self) -> None:
         """
         Ensure Data1.from_file rejects solid-solution lines that are not bytes.
         """
@@ -517,7 +655,7 @@ class TestEq36Data1(TestCase):
             with self.assertRaises(TypeError):
                 _ = Data1.from_file("bad-solid-solution-line.d1")
 
-    def test_data1_get_basis_species_raises_on_multiple_matches(self):
+    def test_data1_get_basis_species_raises_on_multiple_matches(self) -> None:
         """
         Ensure get_basis_species rejects ambiguous element mappings with multiple matches.
         """
@@ -525,7 +663,13 @@ class TestEq36Data1(TestCase):
             filename=Path("x"),
             elements={"H": np.float64(1.0)},
             basis_species={
-                "H+": BasisSpecies(name="H+", composition={"H": 1}, charge=1, volume=None, molar_mass=np.float64(1.0)),
+                "H+": BasisSpecies(
+                    name="H+",
+                    composition={"H": 1},
+                    charge=1,
+                    volume=None,
+                    molar_mass=np.float64(1.0),
+                ),
                 "H2+": BasisSpecies(
                     name="H2+",
                     composition={"H": 2},
@@ -547,7 +691,7 @@ class TestEq36Data1(TestCase):
         with self.assertRaises(Exception):
             _ = d.get_basis_species("H")
 
-    def test_solid_solution_molar_mass(self):
+    def test_solid_solution_molar_mass(self) -> None:
         """
         Ensure SolidSolution molar mass supports defaults, custom fractions, and error cases.
         """
@@ -557,8 +701,16 @@ class TestEq36Data1(TestCase):
             name="SS",
             end_members={"A": np.float64(40.0), "B": np.float64(60.0)},
         )
-        self.assertEqual(ss.molar_mass(mole_fractions={"A": np.float64(0.25), "B": np.float64(0.75)}), np.float64(55.0))
-        self.assertEqual(ss.molar_mass({"A": np.float64(1.0), "B": np.float64(3.0)}), np.float64(55.0))
+        self.assertEqual(
+            ss.molar_mass(
+                mole_fractions={"A": np.float64(0.25), "B": np.float64(0.75)}
+            ),
+            np.float64(55.0),
+        )
+        self.assertEqual(
+            ss.molar_mass({"A": np.float64(1.0), "B": np.float64(3.0)}),
+            np.float64(55.0),
+        )
 
         with self.assertRaises(ValueError):
             _ = ss.molar_mass({})

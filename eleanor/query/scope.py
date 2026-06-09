@@ -135,8 +135,8 @@ def _enumerate_with_diagnostic(root_type: type[object], shortname: str, *, max_d
     candidates: list[Path] = []
     cap_hit = False
     queue: deque[tuple[type[object], Path, tuple[str, ...], int]] = deque()
-    queue.append((root_type, Path(segments=()), tuple(), 0))
-    visited: set[tuple[type[object], tuple[str, ...]]] = {(root_type, tuple())}
+    queue.append((root_type, Path(segments=()), (), 0))
+    visited: set[tuple[type[object], tuple[str, ...]]] = {(root_type, ())}
     seen_paths: set[str] = set()
 
     while queue:
@@ -149,7 +149,7 @@ def _enumerate_with_diagnostic(root_type: type[object], shortname: str, *, max_d
             if isinstance(field, LeafField):
                 continue
             if isinstance(field, DataclassField):
-                segment = Segment(name=field.name, filters=tuple())
+                segment = Segment(name=field.name, filters=())
                 next_kind = field
             elif isinstance(field, ListField):
                 segment = Segment(name=field.name, filters=(IterFilter(),))
@@ -238,8 +238,8 @@ def _short_form_walk_step(field: FieldKind) -> tuple[Segment, type[object] | Non
         next_type = field.value_kind.dataclass_type if isinstance(field.value_kind, DataclassField) else None
         return Segment(name=field.name, filters=(IterFilter(),)), next_type
     if isinstance(field, DataclassField):
-        return Segment(name=field.name, filters=tuple()), field.dataclass_type
-    return Segment(name=field.name, filters=tuple()), None
+        return Segment(name=field.name, filters=()), field.dataclass_type
+    return Segment(name=field.name, filters=()), None
 
 
 def resolve_row_scope(root_type: type[object], raw: object) -> tuple[Path, AmbientScopeTable]:
@@ -260,7 +260,7 @@ def resolve_row_scope(root_type: type[object], raw: object) -> tuple[Path, Ambie
             # resolution; if such a field is reachable from a non-root scope,
             # ``AmbientScopeTable.add`` will surface the conflict via
             # ``AliasCollision`` when the scope table is built.
-            resolved = Path(segments=tuple())
+            resolved = Path(segments=())
             walk_steps = []
         else:
             matches, cap_hit = _enumerate_with_diagnostic(root_type, shortname, max_depth=_DEFAULT_SHORTNAME_MAX_DEPTH)
@@ -292,10 +292,10 @@ def resolve_row_scope(root_type: type[object], raw: object) -> tuple[Path, Ambie
 
     table = AmbientScopeTable()
     root_kind: FieldKind = DataclassField(name="order", dataclass_type=root_type, optional=False)
-    table.add("order", Path(segments=tuple()), root_kind, terminal=len(resolved.segments) == 0)
+    table.add("order", Path(segments=()), root_kind, terminal=len(resolved.segments) == 0)
 
     if len(resolved.segments) == 0:
-        table.add("self", Path(segments=tuple()), root_kind, terminal=True)
+        table.add("self", Path(segments=()), root_kind, terminal=True)
         return resolved, table
 
     for index, step in enumerate(walk_steps):

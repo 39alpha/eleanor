@@ -41,7 +41,7 @@ def evaluate(compiled: CompiledQuery, root: object) -> Iterator[Mapping[str, obj
         # ``aliases_by_path[Path(())]`` is sufficient; no separate
         # ``self``-injection fallback is needed.
         binding: dict[str, object] = {}
-        for alias in aliases_by_path.get(Path(segments=tuple()), []):
+        for alias in aliases_by_path.get(Path(segments=()), []):
             binding[alias] = root
         # Empty row_scope binds no iter aliases; meta_binding is empty. The
         # validator rejects meta paths anchored on a non-iter-bound alias,
@@ -79,7 +79,7 @@ def _iter_row_scope_bindings(
 ) -> Iterator[tuple[dict[str, object], dict[str, IterPosition]]]:
     binding: dict[str, object] = {}
     meta_binding: dict[str, IterPosition] = {}
-    for alias in aliases_by_path.get(Path(segments=tuple()), []):
+    for alias in aliases_by_path.get(Path(segments=()), []):
         binding[alias] = root
 
     row_scope_text = path_to_string(compiled.row_scope_compiled_path.path)
@@ -286,10 +286,10 @@ def _segment_values_with_meta(
 def _iter_filter_values(state: object) -> list[object]:
     if isinstance(state, list):
         values = cast(list[object], state)
-        return [item for item in values]
+        return list(values)
     if isinstance(state, dict):
         values = cast(dict[object, object], state).values()
-        return [item for item in values]
+        return list(values)
     return []
 
 

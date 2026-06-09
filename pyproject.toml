@@ -77,7 +77,7 @@ extend-select = [
   "ARG",
   "ASYNC",
   "B",
-  # "C4",
+  "C4",
   # "C90",
   # "COM",
   # "D",

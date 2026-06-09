@@ -154,7 +154,7 @@ def _parse_version(raw: object) -> int:
 
 def _compile_row_scope(root_type: type[object], path: Path) -> CompiledPath:
     if len(path.segments) == 0:
-        return CompiledPath(path=path, segments=tuple())
+        return CompiledPath(path=path, segments=())
     start_kind: FieldKind = DataclassField(name="order", dataclass_type=root_type, optional=False)
     segments, _ = _compile_segments(start_kind, path.segments, path_to_string(path))
     return CompiledPath(path=path, segments=segments)
@@ -163,11 +163,11 @@ def _compile_row_scope(root_type: type[object], path: Path) -> CompiledPath:
 def _compile_column(spec: ColumnSpec, scope_table: AmbientScopeTable) -> CompiledColumn:
     path = spec.path
     if len(path.segments) == 0:
-        return CompiledColumn(spec=spec, compiled_path=CompiledPath(path=path, segments=tuple()), terminal_kind=None)
+        return CompiledColumn(spec=spec, compiled_path=CompiledPath(path=path, segments=()), terminal_kind=None)
 
     head = path.segments[0]
     alias_scope = scope_table[head.name]
-    compiled_head = CompiledSegment(name=head.name, filters=tuple())
+    compiled_head = CompiledSegment(name=head.name, filters=())
     if len(path.segments) == 1:
         compiled_path = CompiledPath(path=path, segments=(compiled_head,))
         return CompiledColumn(spec=spec, compiled_path=compiled_path, terminal_kind=alias_scope.type_kind)

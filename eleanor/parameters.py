@@ -330,7 +330,7 @@ class ParameterRegistry:
             self.add_parameter(parameter)
 
     def valuation(self) -> Valuation:
-        return {i: p for i, p in enumerate(self.parameters)}
+        return dict(enumerate(self.parameters))
 
     def id(self, parameter: Parameter) -> int:
         for i, p in enumerate(self.parameters):

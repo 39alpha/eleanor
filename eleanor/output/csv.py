@@ -203,7 +203,7 @@ def _extract_binary_assets(
     binary_value_counts = {
         column: sum(1 for row in rows if isinstance(row.get(column), bytes)) for column in binary_columns
     }
-    binary_value_indexes = {column: 0 for column in binary_columns}
+    binary_value_indexes = dict.fromkeys(binary_columns, 0)
     extracted_rows: list[dict[str, object]] = []
     for row in rows:
         cooked_row = dict(row)

@@ -294,7 +294,7 @@ class TPCurve:
         cls, curves: list[TPCurve], num_samples: int
     ) -> tuple[Array1D[np.float64], Array1D[np.float64], list[TPCurve]]:
         domain = cls.union_domains(curves)
-        domain_size = sum(map(lambda s: s[1] - s[0], domain))
+        domain_size = sum(s[1] - s[0] for s in domain)
         steps = [domain[i + 1][0] - domain[i][1] for i in range(len(domain) - 1)]
 
         Ts: Array1D[np.float64] = np.random.uniform(0, domain_size, num_samples) + domain[0][0]
@@ -440,7 +440,7 @@ class Data1:
         liquids = _make_species(data.nlrn1a, data.nlrn2a, Liquid)
         gases = _make_species(data.ngrn1a, data.ngrn2a, Gas)
 
-        basis_species: dict[str, BasisSpecies] = dict()
+        basis_species: dict[str, BasisSpecies] = {}
         for i, (raw_species_name_obj, c, charge, volume) in enumerate(
             zip(
                 cast(list[object], list(data.species_names)),
@@ -459,7 +459,7 @@ class Data1:
             a = int(cast(np.int32, data.nessra[0, i]))
             b = int(cast(np.int32, data.nessra[1, i]))
             indices = cast(Array1D[np.int32], data.nessa[a - 1 : b])
-            composition: dict[str, int] = dict()
+            composition: dict[str, int] = {}
             selected_elements = [element_names[int(idx) - 1] for idx in indices]
             counts = cast(list[object], list(data.cessa[a - 1 : b]))
             for element, count in zip(selected_elements, counts, strict=False):
@@ -480,7 +480,7 @@ class Data1:
                 volume=resolved_volume,
             )
 
-        solid_solutions: dict[str, SolidSolution] = dict()
+        solid_solutions: dict[str, SolidSolution] = {}
         for i in range(int(data.nxrn1a) - 1, int(data.nxrn2a)):
             line = cast(object, data.species_names[i])
             if not isinstance(line, bytes):

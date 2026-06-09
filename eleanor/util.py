@@ -190,7 +190,7 @@ def hash_dir(path: StrPath, hasher: HashLike | None = None) -> str:
     if hasher is None:
         hasher = hashlib.sha256()
 
-    contents = list(map(lambda f: os.path.join(path, f), os.listdir(path)))
+    contents = [os.path.join(path, f) for f in os.listdir(path)]
 
     for dir in sorted(filter(os.path.isdir, contents)):
         _ = hash_dir(dir, hasher)

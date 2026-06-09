@@ -150,13 +150,13 @@ def _preset_aqueous_species_table(scope_table: AmbientScopeTable, args: Mapping[
         # an unhelpful ``ParseError``. ``quote_predicate_value`` keeps the
         # bare form when it's safe and quotes otherwise.
         quoted_name = quote_predicate_value(name)
-        for field in fields:
-            specs.append(
-                {
-                    "path": f"es.aqueous_species[name={quoted_name}].{field}",
-                    "name": f"{field}_{name}",
-                },
-            )
+        specs.extend(
+            {
+                "path": f"es.aqueous_species[name={quoted_name}].{field}",
+                "name": f"{field}_{name}",
+            }
+            for field in fields
+        )
     return specs
 
 

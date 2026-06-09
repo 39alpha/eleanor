@@ -188,10 +188,7 @@ def _bulk_insert_returning_ids(
     for start in range(0, len(rows), chunk_size):
         chunk = rows[start : start + chunk_size]
         statement = _build_multi_row_insert_returning_id(table_name, columns, len(chunk))
-        flat_params: list[object] = []
-        for row in chunk:
-            for column in columns:
-                flat_params.append(row[column])
+        flat_params = [row[column] for row in chunk for column in columns]
         _ = cursor.execute(statement, flat_params)
         ids.extend(cast(int, fetched[0]) for fetched in cursor.fetchall())
     return ids
@@ -362,30 +359,33 @@ def _insert_vs_side_leaves(
     if point.suppressions:
         sup_rows = [converters.suppression_to_row(s, vs_id) for s in point.suppressions]
         sup_ids = _bulk_insert_returning_ids(cur, "suppressions", sup_rows)
-        ex_rows: list[dict[str, object]] = []
-        for sup_id, sup in zip(sup_ids, point.suppressions, strict=True):
-            for ex in sup.exceptions:
-                ex_rows.append(converters.suppression_exception_to_row(ex, sup_id))
+        ex_rows = [
+            converters.suppression_exception_to_row(ex, sup_id)
+            for sup_id, sup in zip(sup_ids, point.suppressions, strict=True)
+            for ex in sup.exceptions
+        ]
         _bulk_insert(cur, "suppression_exceptions", ex_rows)
 
     # special_reactants -> special_reactant_compositions
     if point.special_reactants:
         sr_rows = [converters.special_reactant_to_row(r, vs_id) for r in point.special_reactants]
         sr_ids = _bulk_insert_returning_ids(cur, "special_reactants", sr_rows)
-        sr_comp_rows: list[dict[str, object]] = []
-        for sr_id, sr in zip(sr_ids, point.special_reactants, strict=True):
-            for comp in sr.composition:
-                sr_comp_rows.append(converters.special_reactant_composition_to_row(comp, sr_id))
+        sr_comp_rows = [
+            converters.special_reactant_composition_to_row(comp, sr_id)
+            for sr_id, sr in zip(sr_ids, point.special_reactants, strict=True)
+            for comp in sr.composition
+        ]
         _bulk_insert(cur, "special_reactant_compositions", sr_comp_rows)
 
     # solid_solution_reactants -> solid_solution_reactant_end_members
     if point.solid_solution_reactants:
         ssr_rows = [converters.solid_solution_reactant_to_row(r, vs_id) for r in point.solid_solution_reactants]
         ssr_ids = _bulk_insert_returning_ids(cur, "solid_solution_reactants", ssr_rows)
-        em_rows: list[dict[str, object]] = []
-        for ssr_id, ssr in zip(ssr_ids, point.solid_solution_reactants, strict=True):
-            for em in ssr.end_members:
-                em_rows.append(converters.solid_solution_reactant_end_member_to_row(em, ssr_id))
+        em_rows = [
+            converters.solid_solution_reactant_end_member_to_row(em, ssr_id)
+            for ssr_id, ssr in zip(ssr_ids, point.solid_solution_reactants, strict=True)
+            for em in ssr.end_members
+        ]
         _bulk_insert(cur, "solid_solution_reactant_end_members", em_rows)
 
 
@@ -419,21 +419,15 @@ def _insert_es_subtree(
     end_member_lists: list[list[core_es.EndMember]] = []
 
     for es_id, es in zip(es_ids, es_points, strict=True):
-        for el in es.elements:
-            elements_rows.append(converters.es_element_to_row(el, es_id))
-        for sp in es.aqueous_species:
-            aqueous_rows.append(converters.es_aqueous_species_to_row(sp, es_id))
-        for ps in es.pure_solids:
-            pure_solid_rows.append(converters.es_pure_solid_to_row(ps, es_id))
-        for g in es.gases:
-            gas_rows.append(converters.es_gas_to_row(g, es_id))
-        for r in es.reactants:
-            reactant_rows.append(converters.es_reactant_to_row(r, es_id))
-        for rr in es.redox_reactions:
-            redox_rows.append(converters.es_redox_reaction_to_row(rr, es_id))
-        for ss in es.solid_solutions:
-            ss_rows.append(converters.es_solid_solution_to_row(ss, es_id))
-            end_member_lists.append(list(ss.end_members))
+        elements_rows.extend(converters.es_element_to_row(el, es_id) for el in es.elements)
+        aqueous_rows.extend(converters.es_aqueous_species_to_row(sp, es_id) for sp in es.aqueous_species)
+        pure_solid_rows.extend(converters.es_pure_solid_to_row(ps, es_id) for ps in es.pure_solids)
+        gas_rows.extend(converters.es_gas_to_row(g, es_id) for g in es.gases)
+        reactant_rows.extend(converters.es_reactant_to_row(r, es_id) for r in es.reactants)
+        redox_rows.extend(converters.es_redox_reaction_to_row(rr, es_id) for rr in es.redox_reactions)
+
+        ss_rows.extend(converters.es_solid_solution_to_row(ss, es_id) for ss in es.solid_solutions)
+        end_member_lists.extend(list(ss.end_members) for ss in es.solid_solutions)
 
     # 3. Single executemany per leaf table.
     _bulk_insert(cur, "equilibrium_elements", elements_rows)
@@ -446,10 +440,11 @@ def _insert_es_subtree(
     # 4. Solid solutions need their ids fanned out to end_members.
     if ss_rows:
         ss_ids = _bulk_insert_returning_ids(cur, "equilibrium_solid_solutions", ss_rows)
-        em_rows: list[dict[str, object]] = []
-        for ss_id, em_list in zip(ss_ids, end_member_lists, strict=True):
-            for em in em_list:
-                em_rows.append(converters.es_end_member_to_row(em, ss_id))
+        em_rows = [
+            converters.es_end_member_to_row(em, ss_id)
+            for ss_id, em_list in zip(ss_ids, end_member_lists, strict=True)
+            for em in em_list
+        ]
         _bulk_insert(cur, "equilibrium_end_members", em_rows)
 
 

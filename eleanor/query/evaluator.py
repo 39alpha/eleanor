@@ -270,8 +270,7 @@ def _segment_values_with_meta(
                     # position by convention. The spec does not define @index
                     # semantics for double-iteration on a single segment; this
                     # branch is unreachable from normal Eleanor data models.
-                    for sub in _iter_filter_values(state):
-                        next_states.append((sub, position))
+                    next_states.extend((sub, position) for sub in _iter_filter_values(state))
             else:
                 match = _match_filter_value(state, filter_expr, path_text)
                 if match is _MISS:
@@ -296,9 +295,8 @@ def _iter_filter_values(state: object) -> list[object]:
 def _match_filter_value(state: object, filter_expr: CompiledMatchFilter, path_text: str) -> object:
     matches: list[object] = []
     if isinstance(state, list):
-        for item in cast(list[object], state):
-            if _list_item_matches(item, filter_expr.predicates):
-                matches.append(item)
+        matches.extend(item for item in cast(list[object], state) if _list_item_matches(item, filter_expr.predicates))
+
     elif isinstance(state, dict):
         for key, value in cast(dict[object, object], state).items():
             if _dict_item_matches(key, value, filter_expr.predicates):

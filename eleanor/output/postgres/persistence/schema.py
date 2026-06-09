@@ -127,10 +127,10 @@ def to_create_table_sql(table: TableDef) -> str:
         ref_table = _quote_ident(fk.references_table)
         ref_col = _quote_ident(fk.references_column)
         parts.append(f"FOREIGN KEY ({fk_col}) REFERENCES {ref_table}({ref_col}) ON DELETE {fk.on_delete}")
-    for ck in table.checks:
-        # ``ck.expression`` is raw SQL authored alongside the table; if it
-        # references a mixed-case column it must quote that name itself.
-        parts.append(f"CONSTRAINT {_quote_ident(ck.name)} CHECK ({ck.expression})")
+    # ``ck.expression`` is raw SQL authored alongside the table; if it
+    # references a mixed-case column it must quote that name itself.
+    parts.extend(f"CONSTRAINT {_quote_ident(ck.name)} CHECK ({ck.expression})" for ck in table.checks)
+
     body = ",\n  ".join(parts)
     return f"CREATE TABLE IF NOT EXISTS {_quote_ident(table.name)} (\n  {body}\n)"
 
@@ -389,9 +389,7 @@ def verify_against_tables(
     for table in TABLES:
         want = {c.name: (c.sql_type, c.nullable) for c in table.columns}
         got = live_cols.get(table.name, {})
-        for col in want:
-            if col not in got:
-                problems.append(f"column {col!r} missing from {table.name!r}")
+        problems.extend(f"column {col!r} missing from {table.name!r}" for col in want if col not in got)
 
     for table, name in sorted(declared_index_names() - live_index_names(connection, schema_name)):
         problems.append(f"index {name!r} on {table!r} is missing or invalid")

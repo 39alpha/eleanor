@@ -255,23 +255,23 @@ class TPCurve:
                 coefficients[0] -= P
                 roots = np.roots(coefficients[::-1])
                 real_roots: Array1D[np.float64] = np.asarray(np.real(roots[np.isreal(roots)]), dtype=np.float64)
-                for T in real_roots:
+
+                intersections.extend(
+                    (T, self(T))
+                    for T in real_roots
                     if (
                         Tmin <= T
                         and T <= Tmax
                         and (i == 0 and self.T["min"] <= T and T <= self.T["mid"])
                         or (i == 1 and self.T["mid"] <= T and T <= self.T["max"])
-                    ):
-                        intersections.append((T, self(T)))
+                    )
+                )
 
         return sorted(set(intersections))
 
     @staticmethod
     def union_domains(curves: list[TPCurve]) -> list[FloatRange]:
-        subdomains: list[FloatRange] = []
-        for curve in curves:
-            for subdomain in curve.domain:
-                subdomains.append(subdomain)
+        subdomains = [subdomain for curve in curves for subdomain in curve.domain]
         subdomains = sorted(set(subdomains))
 
         if len(subdomains) == 0:
@@ -339,10 +339,7 @@ class Data1:
     tp_curve: TPCurve | None
 
     def get_basis_species(self, element: str) -> BasisSpecies | None:
-        basis_species: list[BasisSpecies] = []
-        for species in self.basis_species.values():
-            if element in species.composition:
-                basis_species.append(species)
+        basis_species = [species for species in self.basis_species.values() if element in species.composition]
 
         if len(basis_species) > 1:
             raise Exception(f"data1 file contains multiple basis species with element {element}")

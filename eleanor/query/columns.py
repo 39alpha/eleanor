@@ -312,18 +312,18 @@ def _expand_splat(entry: Mapping[object, object], scope_table: AmbientScopeTable
         denied = set(exclude)
         leaves = [leaf for leaf in leaves if leaf.name not in denied]
 
-    specs: list[ColumnSpec] = []
-    for leaf in leaves:
-        specs.append(
-            ColumnSpec(
-                name=f"{prefix}{leaf.name}",
-                path=parse_path(f"{alias}.{leaf.name}"),
-                on_missing=on_missing,
-                default=None,
-                has_default=False,
-                source=Splat(alias=alias, prefix=prefix),
-            ),
+    specs = [
+        ColumnSpec(
+            name=f"{prefix}{leaf.name}",
+            path=parse_path(f"{alias}.{leaf.name}"),
+            on_missing=on_missing,
+            default=None,
+            has_default=False,
+            source=Splat(alias=alias, prefix=prefix),
         )
+        for leaf in leaves
+    ]
+
     return specs
 
 

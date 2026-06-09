@@ -35,7 +35,7 @@ eq36_spec = ConfigurablePluginSpec(
 
 
 __all__ = [
-    "build_eq36_settings",
     "build_eq36",
+    "build_eq36_settings",
     "eq36_spec",
 ]

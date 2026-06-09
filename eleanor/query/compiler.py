@@ -173,7 +173,7 @@ def _compile_column(spec: ColumnSpec, scope_table: AmbientScopeTable) -> Compile
         return CompiledColumn(spec=spec, compiled_path=compiled_path, terminal_kind=alias_scope.type_kind)
 
     tail_segments, terminal_kind = _compile_segments(alias_scope.type_kind, path.segments[1:], path_to_string(path))
-    compiled_path = CompiledPath(path=path, segments=(compiled_head,) + tail_segments)
+    compiled_path = CompiledPath(path=path, segments=(compiled_head, *tail_segments))
     return CompiledColumn(spec=spec, compiled_path=compiled_path, terminal_kind=terminal_kind)
 
 

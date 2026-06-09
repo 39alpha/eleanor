@@ -106,7 +106,7 @@ def _preset_es_scalars(scope_table: AmbientScopeTable, args: Mapping[str, object
 
 
 def _preset_aqueous_species_table(scope_table: AmbientScopeTable, args: Mapping[str, object]) -> Sequence[object]:
-    """Canonical preset: cross-product columns over ``names`` × ``fields``."""
+    """Canonical preset: cross-product columns over ``names`` x ``fields``."""
     if "es" not in scope_table:
         raise PresetScopeMissing("aqueous_species_table", "es")
 

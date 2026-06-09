@@ -23,9 +23,9 @@ from eleanor.query.evaluator import evaluate
 from eleanor.query.presets import BUILTIN_PRESETS, PresetFn
 
 __all__ = [
+    "BUILTIN_PRESETS",
     "AliasCollision",
     "AmbiguousRowScope",
-    "BUILTIN_PRESETS",
     "ColumnNameCollision",
     "ColumnSpec",
     "CompiledQuery",

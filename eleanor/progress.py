@@ -138,7 +138,7 @@ class _ChannelHandle:
     state is a queue proxy and a string literal.
     """
 
-    __slots__: tuple[str, ...] = ("_queue", "_channel")
+    __slots__: tuple[str, ...] = ("_channel", "_queue")
 
     _queue: "Queue[ProgressMessage | None]"
     _channel: Channel

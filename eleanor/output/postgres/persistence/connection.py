@@ -96,4 +96,4 @@ def _close_all_connections() -> None:
 _ = atexit.register(_close_all_connections)
 
 
-__all__ = ["connect", "close_connection"]
+__all__ = ["close_connection", "connect"]

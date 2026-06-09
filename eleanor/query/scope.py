@@ -161,7 +161,7 @@ def _enumerate_with_diagnostic(root_type: type[object], shortname: str, *, max_d
                 segment = Segment(name=field.name, filters=(IterFilter(),))
                 next_kind = field.value_kind
 
-            next_path = Path(segments=current_path.segments + (segment,))
+            next_path = Path(segments=(*current_path.segments, segment))
             default_alias = aliases_for(field.name)[0]
             if shortname in aliases_for(field.name):
                 serialized = path_to_string(next_path)
@@ -171,7 +171,7 @@ def _enumerate_with_diagnostic(root_type: type[object], shortname: str, *, max_d
             if not isinstance(next_kind, DataclassField):
                 continue
 
-            next_alias_chain = alias_chain + (default_alias,)
+            next_alias_chain = (*alias_chain, default_alias)
             state = (next_kind.dataclass_type, next_alias_chain)
             if state in visited:
                 continue
@@ -211,13 +211,13 @@ def validate_short_forms_for_root(root_type: type[object]) -> None:
 
             default_alias = singularize(field.name)
             if default_alias in short_form_values:
-                next_path = Path(segments=current_path.segments + (segment,))
+                next_path = Path(segments=(*current_path.segments, segment))
                 collisions.setdefault(default_alias, []).append(path_to_string(next_path))
 
             if next_type is None or next_type in visited:
                 continue
             visited.add(next_type)
-            queue.append((next_type, Path(segments=current_path.segments + (segment,))))
+            queue.append((next_type, Path(segments=(*current_path.segments, segment))))
 
     if collisions:
         # Report the first collision deterministically (sorted by alias).

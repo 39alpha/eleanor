@@ -21,7 +21,7 @@ def get_factory(name: str) -> PluginSpec:
 
 
 __all__ = [
-    "register_executor",
     "available_executors",
     "get_factory",
+    "register_executor",
 ]

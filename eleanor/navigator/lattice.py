@@ -92,6 +92,6 @@ _ = AbstractLatticeNavigator.register(LatticeNavigator)
 
 __all__ = [
     "AbstractLatticeNavigator",
-    "RandomLatticeNavigator",
     "LatticeNavigator",
+    "RandomLatticeNavigator",
 ]

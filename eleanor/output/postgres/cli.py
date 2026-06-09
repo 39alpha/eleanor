@@ -252,4 +252,4 @@ def _read_applied_versions(settings: PostgresSinkSettings) -> set[int]:
         return set()
 
 
-__all__ = ["schema", "scratch", "bulkload", "migrate"]
+__all__ = ["bulkload", "migrate", "schema", "scratch"]

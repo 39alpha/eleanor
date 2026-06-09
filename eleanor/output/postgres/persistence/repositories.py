@@ -475,12 +475,12 @@ def get_scratch_entry(
 
 
 __all__ = [
-    "setup_schema",
-    "drop_indexes",
-    "recreate_indexes",
     "bulk_load_window",
-    "insert_order",
+    "drop_indexes",
     "get_order",
-    "insert_point",
     "get_scratch_entry",
+    "insert_order",
+    "insert_point",
+    "recreate_indexes",
+    "setup_schema",
 ]

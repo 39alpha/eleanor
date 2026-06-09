@@ -21,7 +21,7 @@ def get_factory(name: str) -> PluginSpec:
 
 
 __all__ = [
-    "register_navigator",
     "available_navigators",
     "get_factory",
+    "register_navigator",
 ]

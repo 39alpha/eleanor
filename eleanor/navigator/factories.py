@@ -44,6 +44,6 @@ lattice_spec = SimplePluginSpec(
 
 __all__ = [
     "lattice_spec",
-    "random_spec",
     "random_lattice_spec",
+    "random_spec",
 ]

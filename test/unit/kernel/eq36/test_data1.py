@@ -239,11 +239,12 @@ class TestEq36Data1(TestCase):
 
         c3 = self._curve()
         c3.domain = [(np.float64(0.0), np.float64(2.0))]
-        with (
-            mock.patch("numpy.random.uniform", return_value=np.array([0.5, 1.5])),
-            mock.patch("numpy.random.randint", side_effect=[0, 0]),
-        ):
-            Ts, Ps, selected = TPCurve.sample([c3], 2)
+
+        rng = mock.MagicMock(np.random.Generator, instance=True)
+        rng.uniform.return_value= np.array([0.5, 1.5])
+        rng.integers.side_effect = [0, 0]
+
+        Ts, Ps, selected = TPCurve.sample([c3], 2, rng=rng)
         self.assertEqual(list(Ts), [0.5, 1.5])
         self.assertEqual(list(Ps), [1.0, 1.0])
         self.assertEqual(len(selected), 2)
@@ -288,11 +289,12 @@ class TestEq36Data1(TestCase):
         c1.domain = [(np.float64(0.0), np.float64(1.0))]
         c2 = self._curve()
         c2.domain = [(np.float64(3.0), np.float64(4.0))]
-        with (
-            mock.patch("numpy.random.uniform", return_value=np.array([0.2, 1.8])),
-            mock.patch("numpy.random.randint", side_effect=[0, 0]),
-        ):
-            Ts, Ps, selected = TPCurve.sample([c1, c2], 2)
+
+        rng = mock.MagicMock(np.random.Generator, instance=True)
+        rng.uniform.return_value= np.array([0.2, 1.8])
+        rng.integers.side_effect = [0, 0]
+
+        Ts, Ps, selected = TPCurve.sample([c1, c2], 2, rng=rng)
         self.assertEqual(list(Ts), [0.2, 3.8])
         self.assertEqual(list(Ps), [1.0, 1.0])
         self.assertEqual(selected[0], c1)

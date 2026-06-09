@@ -95,7 +95,7 @@ extend-select = [
   "ICN",
   "INP",
   "LOG",
-  # "NPY",
+  "NPY",
   "PD",
   # "PERF",
   "PGH",

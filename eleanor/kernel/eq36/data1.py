@@ -293,15 +293,16 @@ class TPCurve:
 
     @classmethod
     def sample(
-        cls,
-        curves: list[TPCurve],
-        num_samples: int,
+        cls, curves: list[TPCurve], num_samples: int, *, rng: np.random.Generator | None = None
     ) -> tuple[Array1D[np.float64], Array1D[np.float64], list[TPCurve]]:
+        if rng is None:
+            rng = np.random.default_rng()
+
         domain = cls.union_domains(curves)
         domain_size = sum(s[1] - s[0] for s in domain)
         steps = [domain[i + 1][0] - domain[i][1] for i in range(len(domain) - 1)]
 
-        Ts: Array1D[np.float64] = np.random.uniform(0, domain_size, num_samples) + domain[0][0]
+        Ts: Array1D[np.float64] = rng.uniform(0, domain_size, num_samples) + domain[0][0]
         Ps: list[np.float64] = []
         selected_curves: list[TPCurve] = []
         for i, T in enumerate(Ts):
@@ -314,7 +315,7 @@ class TPCurve:
             Ts[i] = T
 
             curves_above = [curve for curve in curves if curve.temperature_in_domain(T)]
-            selected_index = np.random.randint(0, len(curves_above))
+            selected_index = rng.integers(0, len(curves_above))
             selected_curve = curves_above[selected_index]
 
             P = selected_curve(T)

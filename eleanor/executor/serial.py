@@ -23,7 +23,8 @@ class SerialExecutor(AbstractExecutor):
     def __init__(self, settings: ExecutorSettings) -> None:
         if settings.num_workers is not None and settings.num_workers != 1:
             warnings.warn(
-                f"serial executor does not support multiple workers; ignoring num_workers={settings.num_workers}"
+                f"serial executor does not support multiple workers; ignoring num_workers={settings.num_workers}",
+                stacklevel=2,
             )
 
     @property

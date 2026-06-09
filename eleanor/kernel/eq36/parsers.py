@@ -372,7 +372,7 @@ class OutputParser(ABC):
                     f"expected {len(column_names)} columns, got {len(columns)} at line {line_num}",
                     code=RunCode.PARSER_ERROR,
                 )
-            table[name] = dict(zip(column_names, map(field_as_float, columns)))
+            table[name] = dict(zip(column_names, map(field_as_float, columns), strict=True))
             line_num += 1
         self.line_num = line_num
         if row_names is not None and len(table) != len(row_names):

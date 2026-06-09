@@ -363,7 +363,7 @@ def _insert_vs_side_leaves(
         sup_rows = [converters.suppression_to_row(s, vs_id) for s in point.suppressions]
         sup_ids = _bulk_insert_returning_ids(cur, "suppressions", sup_rows)
         ex_rows: list[dict[str, object]] = []
-        for sup_id, sup in zip(sup_ids, point.suppressions):
+        for sup_id, sup in zip(sup_ids, point.suppressions, strict=True):
             for ex in sup.exceptions:
                 ex_rows.append(converters.suppression_exception_to_row(ex, sup_id))
         _bulk_insert(cur, "suppression_exceptions", ex_rows)
@@ -373,7 +373,7 @@ def _insert_vs_side_leaves(
         sr_rows = [converters.special_reactant_to_row(r, vs_id) for r in point.special_reactants]
         sr_ids = _bulk_insert_returning_ids(cur, "special_reactants", sr_rows)
         sr_comp_rows: list[dict[str, object]] = []
-        for sr_id, sr in zip(sr_ids, point.special_reactants):
+        for sr_id, sr in zip(sr_ids, point.special_reactants, strict=True):
             for comp in sr.composition:
                 sr_comp_rows.append(converters.special_reactant_composition_to_row(comp, sr_id))
         _bulk_insert(cur, "special_reactant_compositions", sr_comp_rows)
@@ -383,7 +383,7 @@ def _insert_vs_side_leaves(
         ssr_rows = [converters.solid_solution_reactant_to_row(r, vs_id) for r in point.solid_solution_reactants]
         ssr_ids = _bulk_insert_returning_ids(cur, "solid_solution_reactants", ssr_rows)
         em_rows: list[dict[str, object]] = []
-        for ssr_id, ssr in zip(ssr_ids, point.solid_solution_reactants):
+        for ssr_id, ssr in zip(ssr_ids, point.solid_solution_reactants, strict=True):
             for em in ssr.end_members:
                 em_rows.append(converters.solid_solution_reactant_end_member_to_row(em, ssr_id))
         _bulk_insert(cur, "solid_solution_reactant_end_members", em_rows)
@@ -418,7 +418,7 @@ def _insert_es_subtree(
     # returns ids so we can fan them out as the FK on end_members.
     end_member_lists: list[list[core_es.EndMember]] = []
 
-    for es_id, es in zip(es_ids, es_points):
+    for es_id, es in zip(es_ids, es_points, strict=True):
         for el in es.elements:
             elements_rows.append(converters.es_element_to_row(el, es_id))
         for sp in es.aqueous_species:
@@ -447,7 +447,7 @@ def _insert_es_subtree(
     if ss_rows:
         ss_ids = _bulk_insert_returning_ids(cur, "equilibrium_solid_solutions", ss_rows)
         em_rows: list[dict[str, object]] = []
-        for ss_id, em_list in zip(ss_ids, end_member_lists):
+        for ss_id, em_list in zip(ss_ids, end_member_lists, strict=True):
             for em in em_list:
                 em_rows.append(converters.es_end_member_to_row(em, ss_id))
         _bulk_insert(cur, "equilibrium_end_members", em_rows)

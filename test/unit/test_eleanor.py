@@ -923,7 +923,7 @@ class TestEleanorConstructorOverrides(TestCase):
         """Ensure constructor executor override is reused across runs."""
         eleanor = _make_eleanor()
         ctor_executor = _FakeExecutor()
-        setattr(eleanor, "_executor_override", ctor_executor)
+        eleanor._executor_override = ctor_executor
 
         seen_executors = []
 
@@ -961,7 +961,7 @@ class TestEleanorConstructorOverrides(TestCase):
         """Ensure Eleanor does not manage lifecycle of caller-owned executor override."""
         eleanor = _make_eleanor()
         ctor_executor = _FakeExecutor()
-        setattr(eleanor, "_executor_override", ctor_executor)
+        eleanor._executor_override = ctor_executor
         eleanor.process = mock.Mock(return_value=[])
         sink = mock.Mock()
         sink.begin_run.return_value = 1
@@ -987,7 +987,7 @@ class TestEleanorConstructorOverrides(TestCase):
         eleanor = _make_eleanor()
         ctor_executor = _FakeExecutor()
         _ = ctor_executor.__enter__()
-        setattr(eleanor, "_executor_override", ctor_executor)
+        eleanor._executor_override = ctor_executor
         eleanor.process = mock.Mock(return_value=[])
         sink = mock.Mock()
         sink.begin_run.return_value = 1

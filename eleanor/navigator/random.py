@@ -39,6 +39,7 @@ class RandomNavigator(AbstractNavigator):
         for batch in batched(
             (generate(order, kernel, *args, order_id=order_id, **kwargs) for _ in range(scale)),
             batch_size,
+            strict=False,
         ):
             yield list(batch)
 

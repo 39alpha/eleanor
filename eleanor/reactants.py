@@ -538,7 +538,7 @@ class CombinedReactantComponent:
             raise EleanorException(msg)
         elif np.isclose(fraction, 0.0) or np.isclose(fraction, 1.0):
             msg = f'combined component "{name}" has a value {fraction}; that might be a mistake'
-            warnings.warn(msg, EleanorWarning)
+            warnings.warn(msg, EleanorWarning, stacklevel=2)
 
         relative_rate = cast(ParameterOrSource | None, raw.get("relative_rate"))
         composition: dict[str, int] | None = None
@@ -588,7 +588,7 @@ class CombinedReactant(TitratedReactant):
                 f"combined reactant {self.name!r} has only one component"
                 + "; consider replacing it with that standalone reactant"
             )
-            warnings.warn(msg, EleanorWarning)
+            warnings.warn(msg, EleanorWarning, stacklevel=2)
 
         fraction = mapreduce(lambda c: c.fraction.value, operator.add, components.values(), 0.0)
         if not np.isclose(fraction, 1.0):

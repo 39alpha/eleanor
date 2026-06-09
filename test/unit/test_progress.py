@@ -246,7 +246,7 @@ class TestProgressListener(TestCase):
     def _run_listener(self, messages):
         queue = _FakeQueue(messages=messages)
         p = object.__new__(Progress)
-        setattr(p, "queue", queue)
+        p.queue = queue
         with (
             mock.patch.object(progress_mod, "tqdm", _FakeTqdm),
             mock.patch("eleanor.progress.signal.signal") as signal_mock,
@@ -415,7 +415,7 @@ class TestProgressListener(TestCase):
             ]
         )
         p = object.__new__(Progress)
-        setattr(p, "queue", queue)
+        p.queue = queue
 
         # ``reset_timer_to_now`` reads ``bar._time()`` so it stays in the same
         # clock domain as tqdm's elapsed display; route the fake bar's clock
@@ -444,7 +444,7 @@ class TestProgressListener(TestCase):
             ]
         )
         p = object.__new__(Progress)
-        setattr(p, "queue", queue)
+        p.queue = queue
 
         # If ``reset_timer_to_now`` were (incorrectly) called here, both
         # fields would be 999.0 instead of the _FakeTqdm -1.0 sentinel.

@@ -328,7 +328,7 @@ class TestConverterShapes(TestCase):
         )
         forward = converters.kernel_to_row(kernel, variable_space_id=99)
         # Drop the Jsonb wrapper to mimic what psycopg returns on read.
-        settings_obj = getattr(forward["settings"], "obj")
+        settings_obj = forward["settings"].obj  # pyright: ignore[reportAttributeAccessIssue]
         round_trip_row = {
             "id": forward["id"],
             "type": forward["type"],

@@ -57,14 +57,14 @@ def run(
     try:
         stdout, stderr = process.communicate(timeout=timeout)
         error_guard(stdout, cmd, code=code, fname=fname)
-    except TimeoutExpired:
+    except TimeoutExpired as terr:
         process.kill()
         stdout, stderr = process.communicate()
         try:
             error_guard(stdout, cmd, code=code, fname=fname)
         except Eq36Exception as e:
             raise Eq36Exception(f"{cmd} timed out with errors", code=RunCode.EQ36_TIMEOUT) from e
-        raise Eq36Exception(f"{cmd} timed out without errors", code=RunCode.EQ36_TIMEOUT)
+        raise Eq36Exception(f"{cmd} timed out without errors", code=RunCode.EQ36_TIMEOUT) from terr
 
     if process.returncode != 0:
         raise Eq36Exception(f"{cmd} exited with an unexpected error", code=process.returncode)

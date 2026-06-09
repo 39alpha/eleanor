@@ -154,8 +154,8 @@ class TestOrder(TestCase):
         order = _make_order()
         kparam = ValueParameter(np.float64(1.0))
         rparam = ValueParameter(np.float64(2.0))
-        setattr(order, "kernel", SimpleNamespace(parameters=lambda: [kparam]))
-        setattr(order, "reactants", [SimpleNamespace(parameters=lambda: [rparam])])
+        order.kernel = SimpleNamespace(parameters=lambda: [kparam])
+        order.reactants = [SimpleNamespace(parameters=lambda: [rparam])]
 
         params = order.parameters()
         self.assertIn(kparam, params)

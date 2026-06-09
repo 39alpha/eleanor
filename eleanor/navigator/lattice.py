@@ -30,7 +30,11 @@ class AbstractLatticeNavigator(AbstractNavigator, ABC):
         _ = kernel.constrain(point_builder)
 
         iterate = cast(Callable[..., Generator[vs.Point, None, None]], self.iterate)
-        for batch in batched(iterate(order, point_builder, [], scale, *args, order_id=order_id, **kwargs), batch_size):
+        for batch in batched(
+            iterate(order, point_builder, [], scale, *args, order_id=order_id, **kwargs),
+            batch_size,
+            strict=False,
+        ):
             yield list(batch)
 
     def iterate(

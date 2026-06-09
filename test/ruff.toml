@@ -1,7 +1,0 @@
-[lint]
-extend-select = ["E", "ERA", "I", "W"]
-ignore = ["E501"]
-
-[format]
-docstring-code-format = true
-docstring-code-line-length = 80

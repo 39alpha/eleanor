@@ -402,7 +402,11 @@ class Data1:
 
         element_names: list[str] = []
         elements: dict[str, np.float64] = {}
-        for raw_name_obj, weight in zip(cast(list[object], list(data.element_names)), data.atomic_weights):
+        for raw_name_obj, weight in zip(
+            cast(list[object], list(data.element_names)),
+            data.atomic_weights,
+            strict=True,
+        ):
             if not isinstance(raw_name_obj, bytes):
                 raise TypeError(raw_name_obj)
             name = str(raw_name_obj.strip(), "ascii")
@@ -438,7 +442,13 @@ class Data1:
 
         basis_species: dict[str, BasisSpecies] = dict()
         for i, (raw_species_name_obj, c, charge, volume) in enumerate(
-            zip(cast(list[object], list(data.species_names)), data.cdrsa, data.charges, data.volumes)
+            zip(
+                cast(list[object], list(data.species_names)),
+                data.cdrsa,
+                data.charges,
+                data.volumes,
+                strict=False,
+            )
         ):
             if not isinstance(raw_species_name_obj, bytes):
                 raise TypeError(raw_species_name_obj)
@@ -452,7 +462,7 @@ class Data1:
             composition: dict[str, int] = dict()
             selected_elements = [element_names[int(idx) - 1] for idx in indices]
             counts = cast(list[object], list(data.cessa[a - 1 : b]))
-            for element, count in zip(selected_elements, counts):
+            for element, count in zip(selected_elements, counts, strict=False):
                 if not isinstance(count, np.float64):
                     raise TypeError(count)
                 # TODO: Is this conversion correct? Can the compositions be non-integers?

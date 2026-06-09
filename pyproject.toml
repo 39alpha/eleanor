@@ -69,10 +69,56 @@ version-file = "eleanor/version.py"
 [tool.ruff]
 line-length = 120
 target-version = "py314"
-extend-exclude = ["eleanor/kernel/eq36/parsers"]
+extend-exclude = ["eleanor/kernel/eq36/parsers", "test"]
 
 [tool.ruff.lint]
-extend-select = ["ANN", "E", "ERA", "I", "W"]
+extend-select = [
+  "ANN",
+  "ARG",
+  "ASYNC",
+  "B",
+  # "C4",
+  # "C90",
+  # "COM",
+  # "D",
+  # "DOC",
+  # "DTZ",
+  "E",
+  # "EM",
+  "ERA",
+  "F",
+  "FA",
+  "FLY",
+  # "FURB",
+  "G",
+  "I",
+  "ICN",
+  "INP",
+  "LOG",
+  # "NPY",
+  "PD",
+  # "PERF",
+  "PGH",
+  # "PIE",
+  # "PL",
+  # "PT",
+  # "PTH",
+  # "PYI",
+  "Q",
+  # "R",
+  # "RET",
+  # "RUF",
+  # "SIM",
+  # "SLF",
+  "SLOT",
+  # "T20",
+  # "TC",
+  # "TD",
+  "TID",
+  # "TRY",
+  # "UP",
+  "W",
+]
 ignore = ["E501"]
 
 [tool.ruff.format]

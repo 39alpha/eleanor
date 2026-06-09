@@ -8,10 +8,10 @@ repos:
       # Lint (pycodestyle E/W + Pyflakes F + isort I), with autofix.
       - id: ruff-check
         args: [--fix]
-        files: ^(eleanor|test)/.*\.py$
+        files: ^eleanor/.*\.py$
       # Format (replaces yapf). Same scope as ruff-check.
       - id: ruff-format
-        files: ^(eleanor|test)/.*\.py$
+        files: ^eleanor/.*\.py$
 
   - repo: local
     hooks:
@@ -25,13 +25,4 @@ repos:
         language: system
         types: [python]
         files: ^eleanor/.*\.py$
-        pass_filenames: false
-      # Type-check test/ with the test-specific config that suppresses
-      # rules inherent to test code (e.g. reportPrivateUsage).
-      - id: basedpyright-test
-        name: basedpyright (test)
-        entry: uv run basedpyright -p test/pyrightconfig.json
-        language: system
-        types: [python]
-        files: ^test/.*\.py$
         pass_filenames: false

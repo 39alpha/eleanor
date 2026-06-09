@@ -172,7 +172,7 @@ class PostgresSink(AbstractOutputSink):
         # ``committed=True`` and tick the output bar -- once per durably
         # written row, matching the per-row cadence the docstring on
         # :meth:`OutputSink.write_batch` documents.
-        for slot, exit_code in zip(pending_slots, pending_results):
+        for slot, exit_code in zip(pending_slots, pending_results, strict=True):
             outcomes[slot] = WriteOutcome(
                 exit_code=exit_code,
                 committed=True,

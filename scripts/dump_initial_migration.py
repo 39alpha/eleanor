@@ -17,14 +17,8 @@ from eleanor.output.postgres.persistence.schema import (
     to_create_table_sql,
 )
 
-lines: list[str] = []
-
-for t in TABLES:
-    lines.append(to_create_table_sql(t) + ";\n")
-
-for t in TABLES:
-    for idx in t.indexes:
-        lines.append(to_create_index_sql(t, idx) + ";\n")
+lines = [to_create_table_sql(t) + ";\n" for t in TABLES]
+lines.extend(to_create_index_sql(t, idx) + ";\n" for t in TABLES for idx in t.indexes)
 
 _ = sys.stdout.write("\n".join(lines))
 if lines:

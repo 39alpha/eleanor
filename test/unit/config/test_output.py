@@ -19,7 +19,7 @@ def test_config_rejects_legacy_database_key() -> None:
     with pytest.raises(EleanorException, match='the top-level "database:"'):
         _ = Config.from_dict(
             {
-                "database": {  # pyright: ignore[reportArgumentType]
+                "database": {
                     "database": "sample",
                 }
             }

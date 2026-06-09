@@ -10,7 +10,7 @@ import pytest
 
 from eleanor.exceptions import EleanorException
 from eleanor.kernel.settings import KernelSettings
-from eleanor.order import Order, RawOrder, Suppression, SuppressionRaw, load_order
+from eleanor.order import Order, Suppression, load_order
 from eleanor.parameters import ValueParameter
 
 
@@ -47,7 +47,7 @@ def _make_order(
     effective = raw if raw is not None else _minimal_raw(**overrides)
     with mock.patch("eleanor.kernel.registry.get_factory", return_value=_FAKE_KERNEL_SPEC):
         return Order.from_dict(
-            cast(RawOrder, cast(object, effective)),
+            cast(dict[str, object], cast(object, effective)),
             order_id=order_id,
             tags=tags,
             vs_points=vs_points,
@@ -77,11 +77,11 @@ class TestOrder(TestCase):
         self.assertEqual(s2.type, "mineral")
 
         with self.assertRaises(EleanorException):
-            _ = Suppression.from_dict(cast(SuppressionRaw, cast(object, {"name": 1})))
+            _ = Suppression.from_dict(cast(dict[str, object], cast(object, {"name": 1})))
         with self.assertRaises(EleanorException):
-            _ = Suppression.from_dict(cast(SuppressionRaw, cast(object, {"name": "x", "type": 2})))
+            _ = Suppression.from_dict(cast(dict[str, object], cast(object, {"name": "x", "type": 2})))
         with self.assertRaises(EleanorException):
-            _ = Suppression.from_dict(cast(SuppressionRaw, cast(object, {"name": "x", "except": [1]})))
+            _ = Suppression.from_dict(cast(dict[str, object], cast(object, {"name": "x", "except": [1]})))
 
     def test_order_core_methods(self):
         """
@@ -119,11 +119,11 @@ class TestOrder(TestCase):
         Ensure order validation and kernel/navigator parsing branches behave correctly.
         """
         with self.assertRaises(EleanorException):
-            _ = Order.from_dict(cast(RawOrder, cast(object, _minimal_raw(name=1))))
+            _ = Order.from_dict(cast(dict[str, object], cast(object, _minimal_raw(name=1))))
         with self.assertRaises(EleanorException):
-            _ = Order.from_dict(cast(RawOrder, cast(object, _minimal_raw(notes=1))))
+            _ = Order.from_dict(cast(dict[str, object], cast(object, _minimal_raw(notes=1))))
         with self.assertRaises(EleanorException):
-            _ = Order.from_dict(cast(RawOrder, cast(object, _minimal_raw(creator=1))))
+            _ = Order.from_dict(cast(dict[str, object], cast(object, _minimal_raw(creator=1))))
 
         order = _make_order(
             name="o",

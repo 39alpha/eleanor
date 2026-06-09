@@ -2,11 +2,11 @@ import json
 import operator
 import os.path
 import tomllib
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Self, TypedDict, cast, final
+from typing import Self, cast, final
 
 import numpy as np
 import yaml
@@ -15,47 +15,12 @@ from eleanor.config.constraint import ConstraintConfig
 from eleanor.config.kernel import KernelConfig
 from eleanor.config.navigator import NavigatorConfig
 from eleanor.exceptions import EleanorException
-from eleanor.parameters import Parameter, ParameterOrSource, ParameterSource, load_parameter
-from eleanor.reactants import AbstractReactant, CombinedReactant, ReactantRaw
+from eleanor.parameters import Parameter, ParameterOrSource, load_parameter
+from eleanor.reactants import AbstractReactant, CombinedReactant
 from eleanor.typing import StrPath
-from eleanor.util import is_list_of, mapreduce, require, require_opt_int, require_opt_str, require_str
+from eleanor.util import is_list_of, mapreduce, require, require_dict, require_opt_int, require_opt_str, require_str
 from eleanor.variable_space import Point as VSPoint
 from eleanor.version import __version__
-
-# ``except`` is a Python keyword, so the functional TypedDict syntax is used.
-SuppressionRaw = TypedDict(
-    "SuppressionRaw",
-    {
-        "name": str | None,
-        "type": str | None,
-        "except": list[str],
-    },
-    total=False,
-)
-
-
-class RawOrder(TypedDict, total=False):
-    """Schema for a raw order document.
-
-    All keys are optional at the schema level; runtime validation enforces
-    which are required in each concrete context.
-    """
-
-    id: int | None
-    tags: str | list[str] | None
-    name: str | None
-    notes: str | None
-    creator: str | None
-    kernel: dict[str, object]
-    navigator: str | dict[str, object]
-    water_mass: ParameterSource
-    temperature: ParameterSource
-    pressure: ParameterSource
-    elements: dict[str, ParameterSource]
-    species: dict[str, ParameterSource]
-    suppressions: list[str | SuppressionRaw]
-    reactants: dict[str, ReactantRaw]
-    constraints: list[dict[str, object]]
 
 
 @dataclass(init=False)
@@ -73,7 +38,7 @@ class Suppression:
         self.exceptions = exceptions
 
     @staticmethod
-    def from_dict(raw: SuppressionRaw, name: str | None = None) -> "Suppression":
+    def from_dict(raw: dict[str, object], name: str | None = None) -> "Suppression":
         if name is None:
             name = require_opt_str(raw.get("name"), "suppression.name")
 
@@ -83,7 +48,7 @@ class Suppression:
         if not is_list_of(exceptions_raw, str, allowNone=False):
             raise EleanorException("suppression exceptions must be a list of strings")
 
-        return Suppression(name, suppression_type, exceptions_raw)
+        return Suppression(name, suppression_type, cast(list[str], exceptions_raw))
 
 
 def _prepare_tags(tags: object) -> list[str] | None:
@@ -198,7 +163,7 @@ class Order:
     @classmethod
     def from_dict(
         cls,
-        raw: RawOrder,
+        raw: dict[str, object],
         *,
         order_id: int | None = None,
         tags: str | list[str] | None = None,
@@ -220,32 +185,30 @@ class Order:
         if "kernel" not in raw:
             raise EleanorException("kernel is required")
 
-        kernel_config = KernelConfig.from_dict(raw["kernel"])
+        kernel_config = KernelConfig.from_dict(require_dict(raw["kernel"], "kernel"))
 
         navigator_raw = raw.get("navigator", {})
         if isinstance(navigator_raw, str):
             navigator = NavigatorConfig(kind=navigator_raw)
         else:
             try:
-                navigator = NavigatorConfig.from_dict(navigator_raw)
+                navigator = NavigatorConfig.from_dict(require_dict(navigator_raw, "navigator"))
             except TypeError as e:
                 raise EleanorException("invalid navigator config") from e
 
-        water_mass = raw.get("water_mass")
-        temperature = require(raw.get("temperature"), "temperature")
-        pressure = require(raw.get("pressure"), "pressure")
-        elements = raw.get("elements") or {}
-        species = raw.get("species") or {}
+        water_mass = cast(ParameterOrSource | None, raw.get("water_mass"))
+        temperature = cast(ParameterOrSource, require(raw.get("temperature"), "temperature"))
+        pressure = cast(ParameterOrSource, require(raw.get("pressure"), "pressure"))
+        elements = cast(Mapping[str, ParameterOrSource], require_dict(raw.get("elements") or {}, "elements"))
+        species = cast(Mapping[str, ParameterOrSource], require_dict(raw.get("species") or {}, "species"))
 
-        suppressions_raw = raw.get("suppressions") or []
+        suppressions_raw = cast(Sequence[str | dict[str, object]], raw.get("suppressions") or [])
         suppressions = [
-            Suppression.from_dict(SuppressionRaw(), name=value)
-            if isinstance(value, str)
-            else Suppression.from_dict(value)
+            Suppression.from_dict({"name": value}) if isinstance(value, str) else Suppression.from_dict(value)
             for value in suppressions_raw
         ]
 
-        reactants_raw = raw.get("reactants") or {}
+        reactants_raw = cast(dict[str, dict[str, object]], require_dict(raw.get("reactants") or {}, "reactants"))
         reactants = [AbstractReactant.from_dict(value, name=re_name) for re_name, value in reactants_raw.items()]
 
         constraints_obj = cast(object, raw.get("constraints") or [])
@@ -307,29 +270,29 @@ class Order:
     @classmethod
     def from_yaml(cls, fname: StrPath) -> Self:
         with open(fname, "rb") as handle:
-            return cls.from_dict(cast(RawOrder, cast(object, yaml.safe_load(handle))))
+            return cls.from_dict(cast(dict[str, object], yaml.safe_load(handle)))
 
     @classmethod
     def from_yamls(cls, content: str) -> Self:
-        return cls.from_dict(cast(RawOrder, cast(object, yaml.safe_load(content))))
+        return cls.from_dict(cast(dict[str, object], yaml.safe_load(content)))
 
     @classmethod
     def from_toml(cls, fname: StrPath) -> Self:
         with open(fname, "rb") as handle:
-            return cls.from_dict(cast(RawOrder, cast(object, tomllib.load(handle))))
+            return cls.from_dict(cast(dict[str, object], tomllib.load(handle)))
 
     @classmethod
     def from_tomls(cls, content: str) -> Self:
-        return cls.from_dict(cast(RawOrder, cast(object, tomllib.loads(content))))
+        return cls.from_dict(cast(dict[str, object], tomllib.loads(content)))
 
     @classmethod
     def from_json(cls, fname: StrPath) -> Self:
         with open(fname, "rb") as handle:
-            return cls.from_dict(cast(RawOrder, cast(object, json.load(handle))))
+            return cls.from_dict(cast(dict[str, object], json.load(handle)))
 
     @classmethod
     def from_jsons(cls, content: str) -> Self:
-        return cls.from_dict(cast(RawOrder, cast(object, json.loads(content))))
+        return cls.from_dict(cast(dict[str, object], json.loads(content)))
 
     @staticmethod
     def from_file(fname: StrPath):

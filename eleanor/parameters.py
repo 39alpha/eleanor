@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from copy import deepcopy
 from dataclasses import dataclass
 from itertools import cycle, islice
-from typing import Self, TypedDict, cast, override
+from typing import Self, cast, override
 
 import numpy as np
 import numpy.typing as npt
@@ -12,25 +12,7 @@ from eleanor.util import convert_to_number
 
 type ParameterScalar = int | float | np.float64 | str | bool
 
-
-class ParameterRaw(TypedDict, total=False):
-    """Raw schema for a parameter dict accepted by :meth:`Parameter.from_dict`.
-
-    All fields are optional because a raw parameter may take any of four
-    shapes (``value``, ``values``, ``mean[/stddev/min/max]``, ``min+max``);
-    the runtime validator below dispatches on which keys are present.
-    """
-
-    value: ParameterScalar
-    values: list[ParameterScalar]
-    mean: ParameterScalar
-    stddev: ParameterScalar
-    min: ParameterScalar
-    max: ParameterScalar
-
-
-# ``ParameterSource`` captures every shape :meth:`Parameter.load` accepts.
-type ParameterSource = ParameterRaw | list[ParameterScalar] | ParameterScalar
+type ParameterSource = dict[str, object] | list[ParameterScalar] | ParameterScalar
 NEG_INF = np.float64(-np.inf)
 POS_INF = np.float64(np.inf)
 
@@ -97,11 +79,11 @@ class Parameter(ABC):
         return parameter
 
     @classmethod
-    def from_dict(cls, raw: ParameterRaw) -> "Parameter":
+    def from_dict(cls, raw: dict[str, object]) -> "Parameter":
         if "value" in raw:
             parameter: Parameter = ValueParameter(_as_float(raw["value"]))
         elif "values" in raw:
-            parameter = ListParameter([_as_float(v) for v in raw["values"]])
+            parameter = ListParameter([_as_float(v) for v in cast(list[object], raw["values"])])
         elif "mean" in raw:
             mean = _as_float(raw["mean"])
             stddev = _as_float(raw["stddev"]) if "stddev" in raw else None
@@ -118,13 +100,11 @@ class Parameter(ABC):
     @classmethod
     def load(cls, raw: object) -> "Parameter":
         if isinstance(raw, dict):
-            return cls.from_dict(cast(ParameterRaw, cast(object, raw)))
+            return cls.from_dict(cast(dict[str, object], raw))
         elif isinstance(raw, list):
-            return cls.from_dict(
-                ParameterRaw(values=cast(list[ParameterScalar], cast(object, raw))),
-            )
+            return cls.from_dict({"values": cast(list[ParameterScalar], raw)})
         else:
-            return cls.from_dict(ParameterRaw(value=cast(ParameterScalar, raw)))
+            return cls.from_dict({"value": cast(ParameterScalar, raw)})
 
 
 @dataclass

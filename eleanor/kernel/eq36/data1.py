@@ -1,7 +1,8 @@
 # pyright: reportConstantRedefinition=false
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TypedDict, cast
+from typing import cast
 
 import numpy as np
 
@@ -10,11 +11,6 @@ from eleanor.typing import Array1D, StrPath
 
 type FloatRange = tuple[np.float64, np.float64]
 type CartesianCoord = tuple[np.float64, np.float64]
-
-
-class _SpeciesRaw(TypedDict):
-    name: str
-    molar_mass: np.float64
 
 
 @dataclass(init=False)
@@ -419,8 +415,12 @@ class Data1:
                 raise TypeError(raw)
             return str(raw[:24].strip(), "ascii")
 
-        def _raw_species(start: np.int32, stop: np.int32) -> dict[str, _SpeciesRaw]:
-            result: dict[str, _SpeciesRaw] = {}
+        def _make_species[S: Species](
+            start: np.int32,
+            stop: np.int32,
+            factory: Callable[..., S],
+        ) -> dict[str, S]:
+            result: dict[str, S] = {}
             if int(start) <= 0 or int(stop) <= 0:
                 return result
             for idx in range(int(start) - 1, int(stop)):
@@ -428,13 +428,13 @@ class Data1:
                 if not isinstance(weight, np.float64):
                     raise TypeError(weight)
                 name = _species_name(idx)
-                result[name] = {"name": name, "molar_mass": weight}
+                result[name] = factory(name=name, molar_mass=weight)
             return result
 
-        aqueous_species = {k: AqueousSpecies(**v) for k, v in _raw_species(data.narn1a, data.narn2a).items()}
-        minerals = {k: Mineral(**v) for k, v in _raw_species(data.nmrn1a, data.nmrn2a).items()}
-        liquids = {k: Liquid(**v) for k, v in _raw_species(data.nlrn1a, data.nlrn2a).items()}
-        gases = {k: Gas(**v) for k, v in _raw_species(data.ngrn1a, data.ngrn2a).items()}
+        aqueous_species = _make_species(data.narn1a, data.narn2a, AqueousSpecies)
+        minerals = _make_species(data.nmrn1a, data.nmrn2a, Mineral)
+        liquids = _make_species(data.nlrn1a, data.nlrn2a, Liquid)
+        gases = _make_species(data.ngrn1a, data.ngrn2a, Gas)
 
         basis_species: dict[str, BasisSpecies] = dict()
         for i, (raw_species_name_obj, c, charge, volume) in enumerate(

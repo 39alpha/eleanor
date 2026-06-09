@@ -8,14 +8,12 @@ from eleanor.parameters import ValueParameter
 from eleanor.reactants import (
     AbstractReactant,
     AqueousReactant,
-    CombinedComponentRaw,
     CombinedReactant,
     CombinedReactantComponent,
     ElementReactant,
     FixedGasReactant,
     GasReactant,
     MineralReactant,
-    ReactantRaw,
     ReactantType,
     SolidSolutionReactant,
     SpecialReactant,
@@ -31,7 +29,7 @@ class TestReactants(TestCase):
         """
         Ensure that :meth:`AbstractReactant.from_dict` dispatches to the matching subclass.
         """
-        raw = cast(ReactantRaw, cast(object, {"name": "r", "type": "mineral", "amount": 1.0}))
+        raw: dict[str, object] = {"name": "r", "type": "mineral", "amount": 1.0}
         with mock.patch("eleanor.reactants.MineralReactant.from_dict", return_value="mineral-reactant") as m:
             out = AbstractReactant.from_dict(raw)
         m.assert_called_once_with(raw, None)
@@ -65,7 +63,7 @@ class TestReactants(TestCase):
                 }
             with self.subTest(reactant_type=reactant_type):
                 with mock.patch(target, return_value=f"{reactant_type}-reactant") as m:
-                    out = AbstractReactant.from_dict(cast(ReactantRaw, cast(object, raw)))
+                    out = AbstractReactant.from_dict(raw)
                 m.assert_called_once_with(raw, None)
                 self.assertEqual(out, f"{reactant_type}-reactant")
 
@@ -285,19 +283,13 @@ class TestReactants(TestCase):
         self.assertIsNone(mineral.end_members)
 
         special = CombinedReactantComponent.from_dict(
-            cast(
-                CombinedComponentRaw,
-                cast(
-                    object,
-                    {
-                        "name": "SiO2",
-                        "type": "special",
-                        "composition": {"Si": 1, "O": 2},
-                        "fraction": 0.5,
-                        "relative_rate": 2.5,
-                    },
-                ),
-            )
+            {
+                "name": "SiO2",
+                "type": "special",
+                "composition": {"Si": 1, "O": 2},
+                "fraction": 0.5,
+                "relative_rate": 2.5,
+            },
         )
         self.assertEqual(special.type, ReactantType.SPECIAL)
         self.assertEqual(special.composition, {"Si": 1, "O": 2})
@@ -305,18 +297,12 @@ class TestReactants(TestCase):
         self.assertEqual(cast(ValueParameter, special.relative_rate).value, 2.5)
 
         solid_solution = CombinedReactantComponent.from_dict(
-            cast(
-                CombinedComponentRaw,
-                cast(
-                    object,
-                    {
-                        "name": "olivine",
-                        "type": "solid solution",
-                        "fraction": 0.3,
-                        "end_members": {"fayalite": 0.6, "forsterite": 0.4},
-                    },
-                ),
-            )
+            {
+                "name": "olivine",
+                "type": "solid solution",
+                "fraction": 0.3,
+                "end_members": {"fayalite": 0.6, "forsterite": 0.4},
+            },
         )
         self.assertEqual(solid_solution.type, ReactantType.SOLID_SOLUTION)
         self.assertIsNotNone(solid_solution.end_members)

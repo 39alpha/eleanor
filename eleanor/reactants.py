@@ -4,43 +4,13 @@ from abc import ABC, abstractmethod
 from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import Self, TypedDict, cast, final, override
+from typing import Self, cast, final, override
 
 import numpy as np
 
 from eleanor.exceptions import EleanorException, EleanorWarning
-from eleanor.parameters import Parameter, ParameterOrSource, ParameterSource, ValueParameter, load_parameter
+from eleanor.parameters import Parameter, ParameterOrSource, ValueParameter, load_parameter
 from eleanor.util import mapreduce, require, require_dict, require_float, require_str
-
-
-class CombinedComponentRaw(TypedDict, total=False):
-    """Raw schema for a single component block inside a combined reactant."""
-
-    name: str | None
-    type: str
-    fraction: float | np.float64
-    relative_rate: ParameterSource
-    composition: dict[str, int]
-    end_members: dict[str, ParameterSource]
-
-
-class ReactantRaw(TypedDict, total=False):
-    """Raw schema shared by every reactant variant.
-
-    Variant-specific keys (``fugacity`` for fixed gas, ``composition`` for
-    special, ``end_members`` for solid solution, ``components`` for combined) are
-    declared here so that the ``TypedDict`` covers the full surface area;
-    each concrete ``from_dict`` only reads the subset it needs.
-    """
-
-    type: str
-    name: str | None
-    amount: ParameterSource
-    titration_rate: ParameterSource
-    fugacity: ParameterSource
-    composition: dict[str, int]
-    end_members: dict[str, ParameterSource]
-    components: dict[str, CombinedComponentRaw]
 
 
 class ReactantType(StrEnum):
@@ -72,7 +42,7 @@ class AbstractReactant(ABC):
         return []
 
     @classmethod
-    def from_dict(cls, raw: ReactantRaw, name: str | None = None) -> "AbstractReactant":
+    def from_dict(cls, raw: dict[str, object], name: str | None = None) -> "AbstractReactant":
         # ``cls`` is unused: concrete subclass dispatch is performed based on
         # ``raw['type']``. ``@classmethod`` is kept (instead of
         # ``@staticmethod``) so that subclass ``from_dict`` methods can be
@@ -146,14 +116,14 @@ class MineralReactant(TitratedReactant):
 
     @classmethod
     @override
-    def from_dict(cls, raw: ReactantRaw, name: str | None = None) -> Self:
+    def from_dict(cls, raw: dict[str, object], name: str | None = None) -> Self:
         if name is None:
-            name = raw.get("name")
-        if not isinstance(name, str):
-            raise EleanorException("reactant name must be a string")
+            name = require_str(raw.get("name"), "reactant.name")
+        else:
+            name = require_str(name, "name argument")
 
-        amount = require(raw.get("amount"), "reactant.amount")
-        titration_rate = raw.get("titration_rate", 1.0)
+        amount = cast(ParameterOrSource, require(raw.get("amount"), "reactant.amount"))
+        titration_rate = cast(ParameterOrSource, raw.get("titration_rate", 1.0))
         reactant_type = ReactantType(require_str(raw.get("type"), "reactant.type"))
         if reactant_type != ReactantType.MINERAL:
             raise EleanorException(f'cannot create a mineral reactant from config of type "{reactant_type}"')
@@ -177,14 +147,14 @@ class AqueousReactant(TitratedReactant):
 
     @classmethod
     @override
-    def from_dict(cls, raw: ReactantRaw, name: str | None = None) -> Self:
+    def from_dict(cls, raw: dict[str, object], name: str | None = None) -> Self:
         if name is None:
-            name = raw.get("name")
-        if not isinstance(name, str):
-            raise EleanorException("reactant name must be a string")
+            name = require_str(raw.get("name"), "reactant.name")
+        else:
+            name = require_str(name, "name argument")
 
-        amount = require(raw.get("amount"), "reactant.amount")
-        titration_rate = raw.get("titration_rate", 1.0)
+        amount = cast(ParameterOrSource, require(raw.get("amount"), "reactant.amount"))
+        titration_rate = cast(ParameterOrSource, raw.get("titration_rate", 1.0))
         reactant_type = ReactantType(require_str(raw.get("type"), "reactant.type"))
         if reactant_type != ReactantType.AQUEOUS:
             raise EleanorException(f'cannot create an aqueous reactant from config of type "{reactant_type}"')
@@ -207,14 +177,14 @@ class GasReactant(TitratedReactant):
 
     @classmethod
     @override
-    def from_dict(cls, raw: ReactantRaw, name: str | None = None) -> Self:
+    def from_dict(cls, raw: dict[str, object], name: str | None = None) -> Self:
         if name is None:
-            name = raw.get("name")
-        if not isinstance(name, str):
-            raise EleanorException("reactant name must be a string")
+            name = require_str(raw.get("name"), "reactant.name")
+        else:
+            name = require_str(name, "name argument")
 
-        amount = require(raw.get("amount"), "reactant.amount")
-        titration_rate = raw.get("titration_rate", 1.0)
+        amount = cast(ParameterOrSource, require(raw.get("amount"), "reactant.amount"))
+        titration_rate = cast(ParameterOrSource, raw.get("titration_rate", 1.0))
         reactant_type = ReactantType(require_str(raw.get("type"), "reactant.type"))
         if reactant_type != ReactantType.GAS:
             raise EleanorException(f'cannot create a gas reactant from config of type "{reactant_type}"')
@@ -246,18 +216,18 @@ class FixedGasReactant(AbstractReactant):
 
     @classmethod
     @override
-    def from_dict(cls, raw: ReactantRaw, name: str | None = None) -> Self:
+    def from_dict(cls, raw: dict[str, object], name: str | None = None) -> Self:
         if name is None:
-            name = raw.get("name")
-        if not isinstance(name, str):
-            raise EleanorException("reactant name must be a string")
+            name = require_str(raw.get("name"), "reactant.name")
+        else:
+            name = require_str(name, "name argument")
 
         reactant_type = ReactantType(require_str(raw.get("type"), "reactant.type"))
         if reactant_type != ReactantType.FIXED_GAS:
             raise EleanorException(f'cannot create a fixed gas reactant from config of type "{reactant_type}"')
 
-        amount = require(raw.get("amount"), "reactant.amount")
-        fugacity = require(raw.get("fugacity"), "reactant.fugacity")
+        amount = cast(ParameterOrSource, require(raw.get("amount"), "reactant.amount"))
+        fugacity = cast(ParameterOrSource, require(raw.get("fugacity"), "reactant.fugacity"))
 
         return cls(name=name, amount=amount, fugacity=fugacity)
 
@@ -298,14 +268,14 @@ class SpecialReactant(TitratedReactant):
 
     @classmethod
     @override
-    def from_dict(cls, raw: ReactantRaw, name: str | None = None) -> Self:
+    def from_dict(cls, raw: dict[str, object], name: str | None = None) -> Self:
         if name is None:
-            name = raw.get("name")
-        if not isinstance(name, str):
-            raise EleanorException("reactant name must be a string")
+            name = require_str(raw.get("name"), "reactant.name")
+        else:
+            name = require_str(name, "name argument")
 
-        amount = require(raw.get("amount"), "reactant.amount")
-        titration_rate = raw.get("titration_rate", 1.0)
+        amount = cast(ParameterOrSource, require(raw.get("amount"), "reactant.amount"))
+        titration_rate = cast(ParameterOrSource, raw.get("titration_rate", 1.0))
         reactant_type = ReactantType(require_str(raw.get("type"), "reactant.type"))
         if reactant_type != ReactantType.SPECIAL:
             raise EleanorException(f'cannot create a special reactant from config of type "{reactant_type}"')
@@ -331,14 +301,14 @@ class ElementReactant(TitratedReactant):
 
     @classmethod
     @override
-    def from_dict(cls, raw: ReactantRaw, name: str | None = None) -> Self:
+    def from_dict(cls, raw: dict[str, object], name: str | None = None) -> Self:
         if name is None:
-            name = raw.get("name")
-        if not isinstance(name, str):
-            raise EleanorException("reactant name must be a string")
+            name = require_str(raw.get("name"), "reactant.name")
+        else:
+            name = require_str(name, "name argument")
 
-        amount = require(raw.get("amount"), "reactant.amount")
-        titration_rate = raw.get("titration_rate", 1.0)
+        amount = cast(ParameterOrSource, require(raw.get("amount"), "reactant.amount"))
+        titration_rate = cast(ParameterOrSource, raw.get("titration_rate", 1.0))
         reactant_type = ReactantType(require_str(raw.get("type"), "reactant.type"))
         if reactant_type != ReactantType.ELEMENT:
             raise EleanorException(f'cannot create a element reactant from config of type "{reactant_type}"')
@@ -394,19 +364,19 @@ class SolidSolutionReactant(TitratedReactant):
 
     @classmethod
     @override
-    def from_dict(cls, raw: ReactantRaw, name: str | None = None) -> Self:
+    def from_dict(cls, raw: dict[str, object], name: str | None = None) -> Self:
         if name is None:
-            name = raw.get("name")
-        if not isinstance(name, str):
-            raise EleanorException("reactant name must be a string")
+            name = require_str(raw.get("name"), "reactant.name")
+        else:
+            name = require_str(name, "name argument")
 
-        amount = require(raw.get("amount"), "reactant.amount")
-        titration_rate = raw.get("titration_rate", 1.0)
+        amount = cast(ParameterOrSource, require(raw.get("amount"), "reactant.amount"))
+        titration_rate = cast(ParameterOrSource, raw.get("titration_rate", 1.0))
         reactant_type = ReactantType(require_str(raw.get("type"), "reactant.type"))
         if reactant_type != ReactantType.SOLID_SOLUTION:
             raise EleanorException(f'cannot create a solid solution reactant from config of type "{reactant_type}"')
 
-        end_members: dict[str, ParameterSource] = require_dict(
+        end_members: dict[str, ParameterOrSource] = require_dict(
             raw.get("end_members"),
             "solid solution end_members",
         )
@@ -524,11 +494,11 @@ class CombinedReactantComponent:
         return params
 
     @classmethod
-    def from_dict(cls, raw: CombinedComponentRaw, name: str | None = None) -> Self:
+    def from_dict(cls, raw: dict[str, object], name: str | None = None) -> Self:
         if name is None:
-            name = raw.get("name")
-        if not isinstance(name, str):
-            raise EleanorException("combined component name must be a string")
+            name = require_str(raw.get("name"), "combined component name")
+        else:
+            name = require_str(name, "name argument")
 
         component_type = ReactantType(require_str(raw.get("type"), f'combined component "{name}".type'))
         if component_type == ReactantType.FIXED_GAS or component_type == ReactantType.COMBINED:
@@ -546,9 +516,9 @@ class CombinedReactantComponent:
             msg = f'combined component "{name}" has a value {fraction}; that might be a mistake'
             warnings.warn(msg, EleanorWarning)
 
-        relative_rate = raw.get("relative_rate")
+        relative_rate = cast(ParameterOrSource | None, raw.get("relative_rate"))
         composition: dict[str, int] | None = None
-        end_members: dict[str, ParameterSource] | None = None
+        end_members: dict[str, ParameterOrSource] | None = None
 
         if component_type == ReactantType.SPECIAL:
             composition = require_dict(
@@ -616,19 +586,19 @@ class CombinedReactant(TitratedReactant):
 
     @classmethod
     @override
-    def from_dict(cls, raw: ReactantRaw, name: str | None = None) -> Self:
+    def from_dict(cls, raw: dict[str, object], name: str | None = None) -> Self:
         if name is None:
-            name = raw.get("name")
-        if not isinstance(name, str):
-            raise EleanorException("reactant name must be a string")
+            name = require_str(raw.get("name"), "reactant.name")
+        else:
+            name = require_str(name, "name argument")
 
-        amount = require(raw.get("amount"), "reactant.amount")
-        titration_rate = raw.get("titration_rate", 1.0)
+        amount = cast(ParameterOrSource, require(raw.get("amount"), "reactant.amount"))
+        titration_rate = cast(ParameterOrSource, raw.get("titration_rate", 1.0))
         reactant_type = ReactantType(require_str(raw.get("type"), "reactant.type"))
         if reactant_type != ReactantType.COMBINED:
             raise EleanorException(f'cannot create a combined reactant from config of type "{reactant_type}"')
 
-        typed_components: dict[str, CombinedComponentRaw] = require_dict(
+        typed_components: dict[str, dict[str, object]] = require_dict(
             raw.get("components"),
             "combined reactant components",
         )

@@ -311,8 +311,7 @@ class TPCurve:
             for j, subdomain in enumerate(domain):
                 if subdomain[1] >= t:
                     break
-                else:
-                    t += steps[j]
+                t += steps[j]
             Ts[i] = t
 
             curves_above = [curve for curve in curves if curve.temperature_in_domain(t)]

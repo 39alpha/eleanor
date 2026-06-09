@@ -184,7 +184,7 @@ class PostgresSink(AbstractOutputSink):
     @override
     def finalize_run(self) -> None:
         """Per-run cleanup. Currently a no-op; reserved for the bulk-load follow-up."""
-        return None
+        return
 
     @override
     def finalize(self) -> None:

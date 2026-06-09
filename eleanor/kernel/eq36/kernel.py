@@ -146,7 +146,7 @@ class Eq36Kernel(AbstractKernel):
             if suppression.type in ["solid solution", "solid solutions"]:
                 if len(suppression.exceptions) != 0:
                     raise NotImplementedError("solid solution exemptions are not yet supported")
-                elif suppression.name is None:
+                if suppression.name is None:
                     suppress_all_solid_solutions = True
                 elif suppress_all_solid_solutions:
                     suppress_named_solid_solutions = True
@@ -201,7 +201,7 @@ class Eq36Kernel(AbstractKernel):
 
         if len(d1s) == 0:
             raise EleanorKernelException(f"failed to find a data1 file with temperature {T} and pressure {P}")
-        elif len(d1s) > 1 and verbose:
+        if len(d1s) > 1 and verbose:
             # DGM: For now we just take the first data1, but we could randomly choose. Ideally, all of the thermodynamic
             #      parameters in the files should be identical.
             print(f"warning: multiple data1 files pass through temperature {T} and pressure {P}; choosing first")

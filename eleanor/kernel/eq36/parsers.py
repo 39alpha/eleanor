@@ -846,7 +846,7 @@ class OutputParser(ABC):
             if match and match[1] == "Fugacities":
                 self.line_num -= 1
                 break
-            elif match:
+            if match:
                 phase = match[1]
                 if phase not in self._solid_solutions:
                     self._solid_solutions[phase] = _SolidSolutionAccum(name=phase)
@@ -1347,16 +1347,12 @@ class OutputParser6(OutputParser):
         self.unconsume_to_pattern(pattern)
         if self.eof():
             raise EleanorKernelException("no reaction path termination status found", code=RunCode.EQ6_ERROR)
-        else:
-            match = pattern.match(self.line())
-            if match is None:
-                raise EleanorKernelException("no reaction path termination status found", code=RunCode.EQ6_ERROR)
-            elif match[1] == "normally":
-                pass
-            elif match[1] == "early":
-                raise EleanorKernelException("eq6 reaction path terminated early", code=RunCode.EQ6_EARLY_TERMINATION)
-            else:
-                raise EleanorKernelException("eq6 reaction path terminated early", code=RunCode.EQ6_EARLY_TERMINATION)
+
+        match = pattern.match(self.line())
+        if match is None:
+            raise EleanorKernelException("no reaction path termination status found", code=RunCode.EQ6_ERROR)
+        if match[1] != "normally":
+            raise EleanorKernelException("eq6 reaction path terminated early", code=RunCode.EQ6_EARLY_TERMINATION)
 
     @override
     def parse(self) -> Self:

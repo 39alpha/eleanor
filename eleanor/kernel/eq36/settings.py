@@ -793,7 +793,7 @@ class Eq36Settings(KernelSettings):
         model: IOPG_1
         if model_raw is None:
             raise EleanorException("kernel.model is required")
-        elif isinstance(model_raw, int):
+        if isinstance(model_raw, int):
             model = IOPG_1(model_raw)
         elif isinstance(model_raw, str):
             model_name = EQ36_MODEL_EXTENSIONS.get(model_raw, model_raw)
@@ -830,7 +830,7 @@ class Eq36Settings(KernelSettings):
         timeout = raw.get("timeout", 0)
         if timeout is not None and not isinstance(timeout, int):
             raise EleanorException("kernel.timeout must be an integer or None")
-        elif timeout == 0:
+        if timeout == 0:
             timeout = None
 
         track_path = raw.get("track_path", False)

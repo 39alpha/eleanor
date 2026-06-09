@@ -249,6 +249,8 @@ def load_plugin_settings[S](
         msg = f"{registry.kind!r} plugin {name!r} does not support settings"
         raise EleanorException(msg)
 
+    return None
+
 
 def load_plugin[T](
     registry: PluginRegistry,

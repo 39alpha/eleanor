@@ -104,7 +104,7 @@ class Config:
 def load_config(config: StrPath | Config | None) -> Config:
     if config is None:
         return Config()
-    elif isinstance(config, (str, Path)):
+    if isinstance(config, (str, Path)):
         return Config.from_file(config)
     return config
 

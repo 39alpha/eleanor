@@ -55,7 +55,7 @@ def _prepare_tags(tags: object) -> list[str] | None:
 
     if tags is None:
         return tags
-    elif isinstance(tags, str):
+    if isinstance(tags, str):
         tags = [tags]
     elif isinstance(tags, list):
         if not all(isinstance(t, str) for t in cast(list[object], tags)):

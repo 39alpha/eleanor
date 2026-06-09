@@ -52,7 +52,7 @@ class PointBuilder:
     def __setitem__(self, parameter: Parameter, value: Parameter) -> None:
         if self.registry.id(parameter) not in self.valuations:
             raise Exception(f"{parameter} ({self.registry.id(parameter)}) is not in the registry")
-        elif not parameter.in_domain(value):
+        if not parameter.in_domain(value):
             raise Exception(f"{value} is not a refinement of {parameter}")
 
         parameter_id = self.registry.id(parameter)

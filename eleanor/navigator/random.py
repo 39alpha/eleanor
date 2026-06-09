@@ -55,7 +55,7 @@ class RandomNavigator(AbstractNavigator):
         if not isinstance(max_attempts, int) or isinstance(max_attempts, bool):
             msg = f"max_attempts must be an integer, got {type(max_attempts).__name__}"
             raise EleanorException(msg)
-        elif max_attempts < 1:
+        if max_attempts < 1:
             msg = f"max_attempts must be at least one, got {max_attempts}"
             raise EleanorException(msg)
 

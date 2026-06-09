@@ -364,7 +364,7 @@ class SolidSolutionReactant(TitratedReactant):
                 raise EleanorException(
                     f'solid solution "{self.name}" end member "{em_name}" has a non-value parameter; list and range parameters are not supported yet',
                 )
-            elif 1.0 < param.value or param.value < 0.0:
+            if 1.0 < param.value or param.value < 0.0:
                 raise EleanorException(
                     f'solid solution "{self.name}" end member "{em_name}" has a value {param.value}; must be between 0 and 1 inclusive',
                 )
@@ -487,7 +487,7 @@ class CombinedReactantComponent:
                             f'combined component "{self.name}" end member "{em_name}" '
                             + "has a non-value parameter; list and range parameters are not supported yet",
                         )
-                    elif 1.0 < param.value or param.value < 0:
+                    if 1.0 < param.value or param.value < 0:
                         raise EleanorException(
                             f'combined component "{self.name}" end member "{em_name}" has a value {param.value}; '
                             + "must be between 0 and 1 inclusive",
@@ -536,7 +536,7 @@ class CombinedReactantComponent:
         if fraction < 0.0 or fraction > 1.0:
             msg = f'combined component "{name}" has a value {fraction}; must be between 0 and 1 inclusive'
             raise EleanorException(msg)
-        elif np.isclose(fraction, 0.0) or np.isclose(fraction, 1.0):
+        if np.isclose(fraction, 0.0) or np.isclose(fraction, 1.0):
             msg = f'combined component "{name}" has a value {fraction}; that might be a mistake'
             warnings.warn(msg, EleanorWarning, stacklevel=2)
 
@@ -583,7 +583,7 @@ class CombinedReactant(TitratedReactant):
         if len(components) == 0:
             msg = f"combined reactant {self.name!r} has no components; consider removing it"
             raise EleanorException(msg)
-        elif len(components) == 1:
+        if len(components) == 1:
             msg = (
                 f"combined reactant {self.name!r} has only one component"
                 + "; consider replacing it with that standalone reactant"

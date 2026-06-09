@@ -74,7 +74,7 @@ class AbstractOutputSink(ABC):
         :meth:`finalize_run` bracket each individual run within that
         lifetime.
         """
-        return None
+        return
 
     @abstractmethod
     def begin_run(self, order: Order) -> int:
@@ -153,7 +153,7 @@ class AbstractOutputSink(ABC):
         :meth:`finalize_run` bracket each individual run within that
         lifetime.
         """
-        return None
+        return
 
     def __enter__(self) -> Self:
         """Enter the sink's lifetime: calls :meth:`initialize`."""

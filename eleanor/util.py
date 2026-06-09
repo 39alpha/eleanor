@@ -295,20 +295,20 @@ def require_opt_path(value: object, field_name: str) -> Path | None:
     """Validate that ``value`` is a str, Path or ``None`` at runtime."""
     if isinstance(value, Path):
         return value
-    elif isinstance(value, str):
+    if isinstance(value, str):
         return Path(value)
-    elif value is not None:
+    if value is not None:
         raise EleanorException(f"{field_name} must be a str, Path or None")
+    return value
 
 
 def require_path(value: object, field_name: str) -> Path:
     """Validate that ``value`` is a Path at runtime"""
     if isinstance(value, Path):
         return value
-    elif isinstance(value, str):
+    if isinstance(value, str):
         return Path(value)
-    else:
-        raise EleanorException(f"{field_name} must be a str or Path")
+    raise EleanorException(f"{field_name} must be a str or Path")
 
 
 def require_dict[T](value: object, field_name: str) -> dict[str, T]:

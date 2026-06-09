@@ -312,7 +312,7 @@ def _expand_splat(entry: Mapping[object, object], scope_table: AmbientScopeTable
         denied = set(exclude)
         leaves = [leaf for leaf in leaves if leaf.name not in denied]
 
-    specs = [
+    return [
         ColumnSpec(
             name=f"{prefix}{leaf.name}",
             path=parse_path(f"{alias}.{leaf.name}"),
@@ -323,8 +323,6 @@ def _expand_splat(entry: Mapping[object, object], scope_table: AmbientScopeTable
         )
         for leaf in leaves
     ]
-
-    return specs
 
 
 def _expand_preset(

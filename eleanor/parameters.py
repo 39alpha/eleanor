@@ -71,7 +71,7 @@ class Parameter(ABC):
     def refine(parameter: "Parameter") -> "Parameter":
         if isinstance(parameter, RangeParameter) and parameter.min == parameter.max:
             return parameter.fix(parameter.min)
-        elif isinstance(parameter, ListParameter):
+        if isinstance(parameter, ListParameter):
             unique = set(parameter.values)
             if len(unique) == 1:
                 return parameter.fix(unique.pop())
@@ -101,10 +101,9 @@ class Parameter(ABC):
     def load(cls, raw: object) -> "Parameter":
         if isinstance(raw, dict):
             return cls.from_dict(cast(dict[str, object], raw))
-        elif isinstance(raw, list):
+        if isinstance(raw, list):
             return cls.from_dict({"values": cast(list[ParameterScalar], raw)})
-        else:
-            return cls.from_dict({"value": cast(ParameterScalar, raw)})
+        return cls.from_dict({"value": cast(ParameterScalar, raw)})
 
 
 @dataclass
@@ -155,9 +154,9 @@ class RangeParameter(Parameter):
     def in_domain(self, parameter: Parameter) -> bool:
         if isinstance(parameter, ValueParameter):
             return bool(self.min <= parameter.value and parameter.value <= self.max)
-        elif isinstance(parameter, RangeParameter):
+        if isinstance(parameter, RangeParameter):
             return all(self.in_domain(b) for b in parameter.bounds)
-        elif isinstance(parameter, ListParameter):
+        if isinstance(parameter, ListParameter):
             return all(self.in_domain(x) for x in parameter.elements)
 
         return False
@@ -204,10 +203,10 @@ class ListParameter(Parameter):
     def in_domain(self, parameter: Parameter) -> bool:
         if isinstance(parameter, ValueParameter):
             return parameter.value in self.values
-        elif isinstance(parameter, RangeParameter):
+        if isinstance(parameter, RangeParameter):
             a, b = parameter.bounds
             return a == b and self.in_domain(a)
-        elif isinstance(parameter, ListParameter):
+        if isinstance(parameter, ListParameter):
             return all(self.in_domain(x) for x in parameter.elements)
 
         return False

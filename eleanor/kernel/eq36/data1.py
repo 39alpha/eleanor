@@ -168,10 +168,7 @@ class TPCurve:
         return self
 
     def temperature_in_domain(self, T: np.float64) -> bool:
-        for subdomain in self.domain:
-            if subdomain[0] <= T <= subdomain[1]:
-                return True
-        return False
+        return any(subdomain[0] <= T <= subdomain[1] for subdomain in self.domain)
 
     def __call__(self, T: np.float64) -> np.float64:
         if not self.temperature_in_domain(T):
@@ -210,7 +207,7 @@ class TPCurve:
             ((Tint, _),) = intersections
             is_single_point = True
             for T in [self.T["min"], self.T["mid"], self.T["max"]]:
-                if T == Tint or Tmax < T or T < Tmin:
+                if T == Tint or not (Tmin <= T <= Tmax):
                     continue
 
                 P = self(T)

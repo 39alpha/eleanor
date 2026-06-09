@@ -123,10 +123,7 @@ class MineralReactant(TitratedReactant):
     @classmethod
     @override
     def from_dict(cls, raw: dict[str, object], name: str | None = None) -> Self:
-        if name is None:
-            name = require_str(raw.get("name"), "reactant.name")
-        else:
-            name = require_str(name, "name argument")
+        name = require_str(raw.get("name"), "reactant.name") if name is None else require_str(name, "name argument")
 
         amount = cast(ParameterOrSource, require(raw.get("amount"), "reactant.amount"))
         titration_rate = cast(ParameterOrSource, raw.get("titration_rate", 1.0))
@@ -160,10 +157,7 @@ class AqueousReactant(TitratedReactant):
     @classmethod
     @override
     def from_dict(cls, raw: dict[str, object], name: str | None = None) -> Self:
-        if name is None:
-            name = require_str(raw.get("name"), "reactant.name")
-        else:
-            name = require_str(name, "name argument")
+        name = require_str(raw.get("name"), "reactant.name") if name is None else require_str(name, "name argument")
 
         amount = cast(ParameterOrSource, require(raw.get("amount"), "reactant.amount"))
         titration_rate = cast(ParameterOrSource, raw.get("titration_rate", 1.0))
@@ -196,10 +190,7 @@ class GasReactant(TitratedReactant):
     @classmethod
     @override
     def from_dict(cls, raw: dict[str, object], name: str | None = None) -> Self:
-        if name is None:
-            name = require_str(raw.get("name"), "reactant.name")
-        else:
-            name = require_str(name, "name argument")
+        name = require_str(raw.get("name"), "reactant.name") if name is None else require_str(name, "name argument")
 
         amount = cast(ParameterOrSource, require(raw.get("amount"), "reactant.amount"))
         titration_rate = cast(ParameterOrSource, raw.get("titration_rate", 1.0))
@@ -235,10 +226,7 @@ class FixedGasReactant(AbstractReactant):
     @classmethod
     @override
     def from_dict(cls, raw: dict[str, object], name: str | None = None) -> Self:
-        if name is None:
-            name = require_str(raw.get("name"), "reactant.name")
-        else:
-            name = require_str(name, "name argument")
+        name = require_str(raw.get("name"), "reactant.name") if name is None else require_str(name, "name argument")
 
         reactant_type = ReactantType(require_str(raw.get("type"), "reactant.type"))
         if reactant_type != ReactantType.FIXED_GAS:
@@ -287,10 +275,7 @@ class SpecialReactant(TitratedReactant):
     @classmethod
     @override
     def from_dict(cls, raw: dict[str, object], name: str | None = None) -> Self:
-        if name is None:
-            name = require_str(raw.get("name"), "reactant.name")
-        else:
-            name = require_str(name, "name argument")
+        name = require_str(raw.get("name"), "reactant.name") if name is None else require_str(name, "name argument")
 
         amount = cast(ParameterOrSource, require(raw.get("amount"), "reactant.amount"))
         titration_rate = cast(ParameterOrSource, raw.get("titration_rate", 1.0))
@@ -326,10 +311,7 @@ class ElementReactant(TitratedReactant):
     @classmethod
     @override
     def from_dict(cls, raw: dict[str, object], name: str | None = None) -> Self:
-        if name is None:
-            name = require_str(raw.get("name"), "reactant.name")
-        else:
-            name = require_str(name, "name argument")
+        name = require_str(raw.get("name"), "reactant.name") if name is None else require_str(name, "name argument")
 
         amount = cast(ParameterOrSource, require(raw.get("amount"), "reactant.amount"))
         titration_rate = cast(ParameterOrSource, raw.get("titration_rate", 1.0))
@@ -364,7 +346,7 @@ class SolidSolutionReactant(TitratedReactant):
                 raise EleanorException(
                     f'solid solution "{self.name}" end member "{em_name}" has a non-value parameter; list and range parameters are not supported yet',
                 )
-            if 1.0 < param.value or param.value < 0.0:
+            if not (0.0 <= param.value <= 1.0):
                 raise EleanorException(
                     f'solid solution "{self.name}" end member "{em_name}" has a value {param.value}; must be between 0 and 1 inclusive',
                 )
@@ -389,10 +371,7 @@ class SolidSolutionReactant(TitratedReactant):
     @classmethod
     @override
     def from_dict(cls, raw: dict[str, object], name: str | None = None) -> Self:
-        if name is None:
-            name = require_str(raw.get("name"), "reactant.name")
-        else:
-            name = require_str(name, "name argument")
+        name = require_str(raw.get("name"), "reactant.name") if name is None else require_str(name, "name argument")
 
         amount = cast(ParameterOrSource, require(raw.get("amount"), "reactant.amount"))
         titration_rate = cast(ParameterOrSource, raw.get("titration_rate", 1.0))
@@ -487,7 +466,7 @@ class CombinedReactantComponent:
                             f'combined component "{self.name}" end member "{em_name}" '
                             + "has a non-value parameter; list and range parameters are not supported yet",
                         )
-                    if 1.0 < param.value or param.value < 0:
+                    if not (0.0 <= param.value <= 1.0):
                         raise EleanorException(
                             f'combined component "{self.name}" end member "{em_name}" has a value {param.value}; '
                             + "must be between 0 and 1 inclusive",
@@ -611,10 +590,7 @@ class CombinedReactant(TitratedReactant):
     @classmethod
     @override
     def from_dict(cls, raw: dict[str, object], name: str | None = None) -> Self:
-        if name is None:
-            name = require_str(raw.get("name"), "reactant.name")
-        else:
-            name = require_str(name, "name argument")
+        name = require_str(raw.get("name"), "reactant.name") if name is None else require_str(name, "name argument")
 
         amount = cast(ParameterOrSource, require(raw.get("amount"), "reactant.amount"))
         titration_rate = cast(ParameterOrSource, raw.get("titration_rate", 1.0))

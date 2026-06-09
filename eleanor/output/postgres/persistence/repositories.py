@@ -224,14 +224,13 @@ def insert_order(config: PostgresDatabaseSettings, order: Order) -> OrderRecord:
     """Insert ``order`` into the orders table and return the persisted record."""
     conn = connection.connect(config)
     row = converters.order_to_row(order)
-    with conn.transaction():
-        with conn.cursor() as cur:
-            _ = cur.execute(queries.INSERTS_RETURNING_ID["orders"], row)
-            result = cur.fetchone()
-            if result is None:
-                msg = "order INSERT did not return an id"
-                raise EleanorException(msg)
-            new_id = cast(int, result[0])
+    with conn.transaction(), conn.cursor() as cur:
+        _ = cur.execute(queries.INSERTS_RETURNING_ID["orders"], row)
+        result = cur.fetchone()
+        if result is None:
+            msg = "order INSERT did not return an id"
+            raise EleanorException(msg)
+        new_id = cast(int, result[0])
 
     return OrderRecord(
         id=new_id,

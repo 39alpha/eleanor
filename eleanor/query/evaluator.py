@@ -321,10 +321,7 @@ def _list_item_matches(item: object, predicates: tuple[CompiledPredicate, ...]) 
 
 def _dict_item_matches(key: object, value: object, predicates: tuple[CompiledPredicate, ...]) -> bool:
     for predicate in predicates:
-        if predicate.field == "key":
-            actual = key
-        else:
-            actual = getattr(value, predicate.field, _MISSING_ATTR)
+        actual = key if predicate.field == "key" else getattr(value, predicate.field, _MISSING_ATTR)
         if actual is _MISSING_ATTR or actual != predicate.coerced_value:
             return False
     return True

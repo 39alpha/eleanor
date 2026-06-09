@@ -260,10 +260,7 @@ def load_plugin[T](
 ) -> T:
     spec = registry.get(name)
     try:
-        if isinstance(spec, SimplePluginSpec):
-            plugin = spec.build()
-        else:
-            plugin = spec.build(settings)
+        plugin = spec.build() if isinstance(spec, SimplePluginSpec) else spec.build(settings)
     except TypeError as e:
         if not is_abstract_instantiation_error(e):
             raise

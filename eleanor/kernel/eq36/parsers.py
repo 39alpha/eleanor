@@ -1,3 +1,4 @@
+import contextlib
 import io
 import re
 import warnings
@@ -237,7 +238,7 @@ class OutputParser(ABC):
         self._charge_imbalance = np.float64(0.0)
 
     def eof(self) -> bool:
-        return 0 > self.line_num or self.line_num >= len(self.lines)
+        return not (0 <= self.line_num < len(self.lines))
 
     def retreat(self, n: int = 1) -> None:
         self.line_num -= n
@@ -428,14 +429,12 @@ class OutputParser(ABC):
                 self._Ah = field_as_float(ah)
             self.advance()
         self.consume_blank_lines()
-        try:
+
+        with contextlib.suppress(Exception):
             self._pcH = self.read_basic_property("pcH")
-        except Exception:
-            pass
-        try:
+
+        with contextlib.suppress(Exception):
             self._pHCl = self.read_basic_property("pHCl")
-        except Exception:
-            pass
 
     def read_alkalinity(self) -> None:
         self._extended_alkalinity = None

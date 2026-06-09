@@ -36,7 +36,7 @@ class Eq36Kernel(AbstractKernel):
 
     @override
     def is_soft_exit(self, code: int) -> bool:
-        return code in [0, 60]
+        return code in {0, 60}
 
     @override
     def validate_order(self, order: Order) -> None:
@@ -195,9 +195,8 @@ class Eq36Kernel(AbstractKernel):
         d1s: list[Data1] = []
         for data1 in self._data1s:
             curve = data1.tp_curve
-            if curve is not None and curve.temperature_in_domain(T):
-                if curve(T) == P:
-                    d1s.append(data1)
+            if curve is not None and curve.temperature_in_domain(T) and curve(T) == P:
+                d1s.append(data1)
 
         if len(d1s) == 0:
             raise EleanorKernelException(f"failed to find a data1 file with temperature {T} and pressure {P}")

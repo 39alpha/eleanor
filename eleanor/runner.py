@@ -52,11 +52,7 @@ class Runner:
         """
         compute_results: list[ComputeResult] = []
 
-        point_list: list[vs.Point]
-        if isinstance(points, list):
-            point_list = points
-        else:
-            point_list = [points]
+        point_list = points if isinstance(points, list) else [points]
 
         for point in point_list:
             vs_point = self.work(point, *args, **kwargs)
@@ -90,34 +86,33 @@ class Runner:
         scratch = kwargs.get("scratch", False)
         verbose = kwargs.get("verbose", False)
 
-        with TemporaryDirectory(prefix="eleanor_") as tempdir:
-            with WorkingDirectory(tempdir):
-                vs_point.start_date = datetime.now()
-                es_points: list[es.Point] = []
-                try:
-                    es_points = self.kernel.run(vs_point, *args, **kwargs)
-                    if scratch:
-                        self.kernel.copy_data(vs_point)
-                        vs_point.scratch = Runner.collect_scratch(tempdir)
-                    vs_point.exit_code = 0
-                except Exception as e:
+        with TemporaryDirectory(prefix="eleanor_") as tempdir, WorkingDirectory(tempdir):
+            vs_point.start_date = datetime.now()
+            es_points: list[es.Point] = []
+            try:
+                es_points = self.kernel.run(vs_point, *args, **kwargs)
+                if scratch:
                     self.kernel.copy_data(vs_point)
-                    with Path("traceback.txt").open("w") as file:
-                        print_exception(e, file=file)
-                    if verbose:
-                        print_exception(e, file=sys.stderr)
                     vs_point.scratch = Runner.collect_scratch(tempdir)
-                    vs_point.exception = e
-                    if isinstance(e, EleanorKernelException):
-                        code = getattr(e, "code", None)
-                        vs_point.exit_code = code if isinstance(code, int) else -1
-                    else:
-                        vs_point.exit_code = -1
+                vs_point.exit_code = 0
+            except Exception as e:
+                self.kernel.copy_data(vs_point)
+                with Path("traceback.txt").open("w") as file:
+                    print_exception(e, file=file)
+                if verbose:
+                    print_exception(e, file=sys.stderr)
+                vs_point.scratch = Runner.collect_scratch(tempdir)
+                vs_point.exception = e
+                if isinstance(e, EleanorKernelException):
+                    code = getattr(e, "code", None)
+                    vs_point.exit_code = code if isinstance(code, int) else -1
+                else:
+                    vs_point.exit_code = -1
 
-                vs_point.es_points = es_points
-                vs_point.complete_date = datetime.now()
+            vs_point.es_points = es_points
+            vs_point.complete_date = datetime.now()
 
-                return vs_point
+            return vs_point
 
     @staticmethod
     def collect_scratch(dir: StrPath) -> vs.Scratch | None:

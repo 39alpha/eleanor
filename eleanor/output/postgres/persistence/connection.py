@@ -1,4 +1,5 @@
 import atexit
+import contextlib
 import json
 import os
 
@@ -81,11 +82,8 @@ def _close_all_connections() -> None:
             continue
 
         if not conn.closed:
-            try:
+            with contextlib.suppress(Exception):
                 conn.close()
-            except Exception:
-                # Best-effort cleanup; never raise from atexit.
-                pass
 
         closed_connections.append(key)
 

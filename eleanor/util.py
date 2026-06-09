@@ -219,10 +219,7 @@ def convert_to_number(value: float | np.floating | str) -> int | np.float64:
 
 def is_list_of(value: object, types: type | tuple[type, ...], allowNone: bool = False) -> bool:
     if allowNone:
-        if isinstance(types, tuple):
-            types = (*types, type(None))
-        else:
-            types = (types, type(None))
+        types = (*types, type(None)) if isinstance(types, tuple) else (types, type(None))
 
     if value is None:
         return allowNone

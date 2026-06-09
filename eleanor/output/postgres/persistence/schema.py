@@ -267,13 +267,12 @@ def ensure_schema(connection: psycopg.Connection) -> None:
     Idempotent. Runs all DDL inside a single transaction so a partial
     schema never lands. Safe to call repeatedly across runs.
     """
-    with connection.transaction():
-        with connection.cursor() as cur:
-            for table in TABLES:
-                _run_ddl(cur, to_create_table_sql(table))
-            for table in TABLES:
-                for idx in table.indexes:
-                    _run_ddl(cur, to_create_index_sql(table, idx))
+    with connection.transaction(), connection.cursor() as cur:
+        for table in TABLES:
+            _run_ddl(cur, to_create_table_sql(table))
+        for table in TABLES:
+            for idx in table.indexes:
+                _run_ddl(cur, to_create_index_sql(table, idx))
 
 
 def inspect_schema(
@@ -418,26 +417,25 @@ def drop_indexes(connection: psycopg.Connection) -> None:
     :func:`recreate_indexes` (or the :func:`bulk_load_window` context
     manager) to put everything back when the workload completes.
     """
-    with connection.transaction():
-        with connection.cursor() as cur:
-            for table in TABLES:
-                # FKs: introspect the live database so we drop whatever
-                # is actually there, named or not.
-                _ = cur.execute(
-                    _LIST_CONSTRAINTS_QUERY,
-                    ("public", table.name, "FOREIGN KEY"),
-                )
-                fk_names = [cast(str, row[0]) for row in cur.fetchall()]
-                for fk_name in fk_names:
-                    _run_ddl(cur, to_drop_constraint_sql(table.name, fk_name))
-                # CHECK constraints: drop by declared name. ``IF EXISTS``
-                # makes this idempotent for fresh databases that have
-                # not yet had the constraint added.
-                for check in table.checks:
-                    _run_ddl(cur, to_drop_constraint_sql(table.name, check.name))
-                # Indexes: drop by declared name.
-                for idx in table.indexes:
-                    _run_ddl(cur, to_drop_index_sql(idx))
+    with connection.transaction(), connection.cursor() as cur:
+        for table in TABLES:
+            # FKs: introspect the live database so we drop whatever
+            # is actually there, named or not.
+            _ = cur.execute(
+                _LIST_CONSTRAINTS_QUERY,
+                ("public", table.name, "FOREIGN KEY"),
+            )
+            fk_names = [cast(str, row[0]) for row in cur.fetchall()]
+            for fk_name in fk_names:
+                _run_ddl(cur, to_drop_constraint_sql(table.name, fk_name))
+            # CHECK constraints: drop by declared name. ``IF EXISTS``
+            # makes this idempotent for fresh databases that have
+            # not yet had the constraint added.
+            for check in table.checks:
+                _run_ddl(cur, to_drop_constraint_sql(table.name, check.name))
+            # Indexes: drop by declared name.
+            for idx in table.indexes:
+                _run_ddl(cur, to_drop_index_sql(idx))
 
 
 def recreate_indexes(connection: psycopg.Connection) -> None:
@@ -459,15 +457,14 @@ def recreate_indexes(connection: psycopg.Connection) -> None:
     bulk-loaded data violates the constraint), the whole transaction
     rolls back and the caller can fix the data and re-run.
     """
-    with connection.transaction():
-        with connection.cursor() as cur:
-            for table in TABLES:
-                for idx in table.indexes:
-                    _run_ddl(cur, to_create_index_sql(table, idx))
-                for check in table.checks:
-                    _run_ddl(cur, to_add_check_sql(table, check))
-                for fk in table.foreign_keys:
-                    _run_ddl(cur, to_add_foreign_key_sql(table, fk))
+    with connection.transaction(), connection.cursor() as cur:
+        for table in TABLES:
+            for idx in table.indexes:
+                _run_ddl(cur, to_create_index_sql(table, idx))
+            for check in table.checks:
+                _run_ddl(cur, to_add_check_sql(table, check))
+            for fk in table.foreign_keys:
+                _run_ddl(cur, to_add_foreign_key_sql(table, fk))
 
 
 @contextmanager

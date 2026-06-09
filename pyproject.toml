@@ -108,7 +108,7 @@ extend-select = [
   "R",
   "RET",
   "RUF",
-  # "SIM",
+  "SIM",
   # "SLF",
   "SLOT",
   # "T20",
@@ -127,6 +127,7 @@ ignore = [
   "PLR0913", # (TBD) too many arguments
   "PLR0915", # (TBD) too many statements
   "PLC0415", # import should be at top-level
+  "SIM300",  # yoda conditions (sometimes they read better)
 ]
 
 [tool.ruff.format]

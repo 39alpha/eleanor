@@ -49,12 +49,7 @@ class MemorySink(AbstractOutputSink):
             if existing is order:
                 return order_id
 
-        order_id: int
-        if order.id is None:
-            order_id = max(self._orders.keys() or [-1]) + 1
-        else:
-            order_id = order.id
-
+        order_id = order.id if order.id is not None else max(self._orders.keys() or [-1]) + 1
         order.id = order_id
         self._orders[order_id] = order
 

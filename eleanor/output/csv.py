@@ -306,10 +306,7 @@ class CsvSink(AbstractOutputSink):
             assert self._order_id is not None
             return self._order_id
 
-        if order.id is None:
-            order_id = max(self._vs_points_seen.keys() or [-1]) + 1
-        else:
-            order_id = order.id
+        order_id = order.id if order.id is not None else max(self._vs_points_seen.keys() or [-1]) + 1
 
         existing_version = self._order_versions.get(order_id)
         if existing_version is not None and order.eleanor_version != existing_version:

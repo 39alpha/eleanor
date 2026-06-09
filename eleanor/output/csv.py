@@ -351,7 +351,8 @@ class CsvSink(AbstractOutputSink):
             msg = "csv sink write_batch requires initialize() to create the CSV header"
             raise EleanorException(msg)
 
-        assert self._order_id is not None and self._order_id in self._vs_points_seen
+        assert self._order_id is not None
+        assert self._order_id in self._vs_points_seen
 
         outcomes: list[WriteOutcome] = []
         for index, result in enumerate(results):

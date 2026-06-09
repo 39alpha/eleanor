@@ -101,7 +101,7 @@ extend-select = [
   "PGH",
   "PIE",
   "PL",
-  # "PT",
+  "PT",
   # "PTH",
   # "PYI",
   "Q",

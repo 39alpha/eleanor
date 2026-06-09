@@ -155,7 +155,7 @@ def _preset_aqueous_species_table(scope_table: AmbientScopeTable, args: Mapping[
                 {
                     "path": f"es.aqueous_species[name={quoted_name}].{field}",
                     "name": f"{field}_{name}",
-                }
+                },
             )
     return specs
 
@@ -178,7 +178,7 @@ BUILTIN_PRESETS: Mapping[str, PresetFn] = MappingProxyType(
         "run_metadata": _preset_run_metadata,
         "es_scalars": _preset_es_scalars,
         "aqueous_species_table": _preset_aqueous_species_table,
-    }
+    },
 )
 """Canonical preset bundle (spec §10.3).
 

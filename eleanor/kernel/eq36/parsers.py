@@ -351,7 +351,9 @@ class OutputParser(ABC):
         return value, log_value
 
     def read_basic_table(
-        self, *column_names: str, row_names: list[str] | None = None
+        self,
+        *column_names: str,
+        row_names: list[str] | None = None,
     ) -> dict[str, dict[str, np.float64]]:
         table: dict[str, dict[str, np.float64]] = {}
         lines = self.lines
@@ -482,7 +484,7 @@ class OutputParser(ABC):
                     log_molality=np.float64(-np.inf) if molality == 0 else field_as_float(log_molality_s),
                     log_activity=np.float64(-np.inf) if log_activity == -99999 else log_activity,
                     log_gamma=field_as_float(log_gamma_s),
-                )
+                ),
             )
             line_num += 1
         self.line_num = line_num
@@ -505,7 +507,7 @@ class OutputParser(ABC):
                     pe=field_as_float(pe),
                     log_fO2=field_as_float(log_fO2),
                     Ah=field_as_float(ah),
-                )
+                ),
             )
             self.advance()
         self._redox_reactions = reactions
@@ -553,7 +555,8 @@ class OutputParser(ABC):
             self.advance()
         self.consume_blank_lines()
         self._overall_affinity = self.read_basic_property(
-            "Affinity of the overall irreversible reaction", units=["kcal", "kcal."]
+            "Affinity of the overall irreversible reaction",
+            units=["kcal", "kcal."],
         )
         self.consume_blank_lines()
         for name, props in raw.items():
@@ -568,7 +571,7 @@ class OutputParser(ABC):
                     log_moles_remaining=props["log_moles_remaining"],
                     log_mass_reacted=props["log_mass_reacted"],
                     log_mass_remaining=props["log_mass_remaining"],
-                )
+                ),
             )
 
     def read_solid_blocks(self) -> None:
@@ -746,7 +749,7 @@ class OutputParser(ABC):
 
     def read_solid_solution_saturation_states(self) -> None:
         for phase, (log_qk, affinity) in self._read_saturation_state_rows(
-            "Saturation States of Solid Solutions"
+            "Saturation States of Solid Solutions",
         ).items():
             if phase not in self._solid_solutions:
                 self._solid_solutions[phase] = _SolidSolutionAccum(name=phase)
@@ -777,7 +780,10 @@ class OutputParser(ABC):
             self.advance()
 
     def read_mineral(
-        self, header: str, phases: dict[str, _SolidSolutionAccum], expected_phase: str | None = None
+        self,
+        header: str,
+        phases: dict[str, _SolidSolutionAccum],
+        expected_phase: str | None = None,
     ) -> None:
         self.consume_to_pattern(r"^\s*Mineral\s+Log Q/K\s+Aff, kcal\s+State\s*$")
         self.advance(n=2)
@@ -911,7 +917,7 @@ class OutputParser3(OutputParser):
                         name=name,
                         log_molality=_safe_log10(props["molality"]),
                         mass_fraction=props["mass_fraction"] * np.float64(1e-6),
-                    )
+                    ),
                 )
         self._elements = elements
 
@@ -935,7 +941,7 @@ class OutputParser3(OutputParser):
         self._activity_water, self._log_activity_water = self.read_log_property("Activity of water")
         self._mole_fraction_water, self._log_mole_fraction_water = self.read_log_property("Mole fraction of water")
         self._activity_coefficient_water, self._log_activity_coefficient_water = self.read_log_property(
-            "Activity coefficient of water"
+            "Activity coefficient of water",
         )
         self.consume_to_pattern(r"\s*Osmotic coefficient")
         self._osmotic_coefficient = self.read_basic_property("Osmotic coefficient")
@@ -949,7 +955,8 @@ class OutputParser3(OutputParser):
         self.consume_to_pattern(r"\s*Ionic asymmetry \(J\)")
         self._ionic_asymmetry = self.read_basic_property("Ionic asymmetry (J)", units=["molal"])
         self._stoichiometric_ionic_asymmetry = self.read_basic_property(
-            "Stoichiometric ionic asymmetry", units=["molal"]
+            "Stoichiometric ionic asymmetry",
+            units=["molal"],
         )
         self.consume_to_pattern(r"\s*Solvent mass")
         self._solvent_mass = self.read_basic_property("Solvent mass", units=["grams", "gram", "g"])
@@ -1138,7 +1145,7 @@ class OutputParser6(OutputParser):
                         name=name,
                         log_molality=_safe_log10(props["molality"]),
                         mass_fraction=props["mass_fraction"] * np.float64(1e-6),
-                    )
+                    ),
                 )
         self._elements = elements
 
@@ -1174,7 +1181,7 @@ class OutputParser6(OutputParser):
         self._activity_water, self._log_activity_water = self.read_log_property("Activity of water")
         self._mole_fraction_water, self._log_mole_fraction_water = self.read_log_property("Mole fraction of water")
         self._activity_coefficient_water, self._log_activity_coefficient_water = self.read_log_property(
-            "Activity coefficient of water"
+            "Activity coefficient of water",
         )
         self.consume_to_pattern(r"\s*Osmotic coefficient")
         self._osmotic_coefficient = self.read_basic_property("Osmotic coefficient")
@@ -1188,7 +1195,8 @@ class OutputParser6(OutputParser):
         self.consume_to_pattern(r"\s*Ionic asymmetry \(J\)")
         self._ionic_asymmetry = self.read_basic_property("Ionic asymmetry (J)", units=["molal"])
         self._stoichiometric_ionic_asymmetry = self.read_basic_property(
-            "Stoichiometric ionic asymmetry", units=["molal"]
+            "Stoichiometric ionic asymmetry",
+            units=["molal"],
         )
         self.consume_to_pattern(r"\s*Solvent mass")
         self._solvent_mass = self.read_basic_property("Solvent mass", units=["grams", "gram", "g"])

@@ -171,7 +171,10 @@ class PointBuilder:
                             ),
                         )
                     case SpecialReactant(
-                        name=name, amount=log_moles, titration_rate=titration_rate, composition=composition
+                        name=name,
+                        amount=log_moles,
+                        titration_rate=titration_rate,
+                        composition=composition,
                     ):
                         special_reactants.append(
                             vs.SpecialReactant(
@@ -192,7 +195,10 @@ class PointBuilder:
                             ),
                         )
                     case SolidSolutionReactant(
-                        name=name, amount=log_moles, titration_rate=titration_rate, end_members=end_members
+                        name=name,
+                        amount=log_moles,
+                        titration_rate=titration_rate,
+                        end_members=end_members,
                     ):
                         solid_solution_reactants.append(
                             vs.SolidSolutionReactant(
@@ -201,7 +207,8 @@ class PointBuilder:
                                 titration_rate=valuation[self.registry.id(titration_rate)].value,
                                 end_members=[
                                     vs.SolidSolutionReactantEndMembers(
-                                        name=name, fraction=valuation[self.registry.id(end_member_param)].value
+                                        name=name,
+                                        fraction=valuation[self.registry.id(end_member_param)].value,
                                     )
                                     for name, end_member_param in end_members.items()
                                 ],

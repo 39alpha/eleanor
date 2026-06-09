@@ -162,7 +162,7 @@ class Point:
                     self.fixed_gas_reactants,
                     self.solid_solution_reactants,
                 ],
-            )
+            ),
         )
 
     def has_reactants(self) -> bool:

@@ -76,7 +76,7 @@ class TemperatureRangeConstraint(AbstractConstraint):
                         stddev=refined.stddev,
                         a=min_t,
                         b=max_t,
-                    )
+                    ),
                 }
         except EleanorException as e:
             raise EleanorException("temperature is incompatible with the data1 temperature range") from e

@@ -46,7 +46,9 @@ class AbstractKernel(ABC):
         return None
 
     def get_molar_mass(
-        self, species_name: str, mole_fractions: dict[str, np.float64] | None = None
+        self,
+        species_name: str,
+        mole_fractions: dict[str, np.float64] | None = None,
     ) -> np.float64 | None:
         _ = species_name
         _ = mole_fractions

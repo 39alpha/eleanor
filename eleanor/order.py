@@ -144,7 +144,7 @@ class Order:
             if candidate in seen_names:
                 raise EleanorException(
                     f'reactant name "{candidate}" appears more than once '
-                    + "across reactants and combined-reactant components"
+                    + "across reactants and combined-reactant components",
                 )
             seen_names.add(candidate)
 

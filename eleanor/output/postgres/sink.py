@@ -133,7 +133,7 @@ class PostgresSink(AbstractOutputSink):
                             WriteOutcome(
                                 exit_code=-1,
                                 committed=False,
-                            )
+                            ),
                         )
                     except Exception as e:
                         # The savepoint already rolled this VS point's writes
@@ -154,7 +154,7 @@ class PostgresSink(AbstractOutputSink):
                                 exit_code=-1,
                                 committed=False,
                                 error_message=str(e),
-                            )
+                            ),
                         )
         except Exception as e:
             # The outer transaction failed at commit time; every pending

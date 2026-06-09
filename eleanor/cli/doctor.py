@@ -109,7 +109,7 @@ def _print_postgres_health(settings: PostgresSinkSettings) -> None:
         if pending_count > 0:
             pending_versions = [str(m.version) for m in declared if max_applied is None or m.version > max_applied]
             click.echo(
-                f"    {click.style('pending:', fg='yellow')} {pending_count} migration(s): {', '.join(pending_versions)}"
+                f"    {click.style('pending:', fg='yellow')} {pending_count} migration(s): {', '.join(pending_versions)}",
             )
         else:
             click.echo(f"    {click.style('migrations up to date', fg='green')} (v{latest_declared})")

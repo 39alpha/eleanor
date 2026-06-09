@@ -568,7 +568,7 @@ class Eleanor:
                                     order_id,
                                     result,
                                     progress=out_progress,
-                                )
+                                ),
                             )
 
                     outcomes.extend(batch_outcomes)

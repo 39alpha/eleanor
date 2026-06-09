@@ -70,7 +70,7 @@ class Runner:
                 ComputeResult(
                     point=vs_point,
                     error=error,
-                )
+                ),
             )
 
             if sim_progress is not None:

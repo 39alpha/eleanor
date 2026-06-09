@@ -165,7 +165,10 @@ def _classify_columns(compiled: CompiledQuery) -> tuple[list[str], frozenset[str
 
 
 def _prepare_rows(
-    columns: list[str], vs_index_columns: list[str], vs_index: int, rows: Sequence[Mapping[str, object]]
+    columns: list[str],
+    vs_index_columns: list[str],
+    vs_index: int,
+    rows: Sequence[Mapping[str, object]],
 ) -> Sequence[Mapping[str, object]]:
     cooked: list[Mapping[str, object]] = []
     for row in rows:
@@ -358,7 +361,7 @@ class CsvSink(AbstractOutputSink):
                         exit_code=-1,
                         committed=False,
                         error_message=result.error.message,
-                    )
+                    ),
                 )
                 continue
 
@@ -403,7 +406,7 @@ class CsvSink(AbstractOutputSink):
                 WriteOutcome(
                     exit_code=result.point.exit_code,
                     committed=committed,
-                )
+                ),
             )
             if progress is not None:
                 progress.tick()

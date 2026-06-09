@@ -799,7 +799,7 @@ class Eq36Settings(KernelSettings):
             model_name = EQ36_MODEL_EXTENSIONS.get(model_raw, model_raw)
             if model_name not in ["pitzer", "davies", "b-dot", "hc_dh"]:
                 raise EleanorException(
-                    'kernel.model must be "pitzer", "davies", "b-dot", "hc_dh" or a standard EQ3/6 file extension'
+                    'kernel.model must be "pitzer", "davies", "b-dot", "hc_dh" or a standard EQ3/6 file extension',
                 )
             match model_name:
                 case "davies":

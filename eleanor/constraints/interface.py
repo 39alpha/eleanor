@@ -224,7 +224,7 @@ class LinearConstraint(AbstractConstraint):
                 lhs = np.float64(lhs + term.coefficient * term.transform.forward(term_param.value))
             if np.abs(lhs - c) > self.tolerance:
                 raise EleanorException(
-                    f"LinearConstraint violated: |{lhs} - {c}| = {np.abs(lhs - c)} > tolerance {self.tolerance}"
+                    f"LinearConstraint violated: |{lhs} - {c}| = {np.abs(lhs - c)} > tolerance {self.tolerance}",
                 )
             return {}
 
@@ -243,7 +243,7 @@ class LinearConstraint(AbstractConstraint):
         fixed = dep.parameter.fix(dep_value)
         if not dep.parameter.in_domain(fixed):
             raise EleanorException(
-                f"linear constraint solved '{dep.label()}' to {dep_value}, which is outside its admissible domain"
+                f"linear constraint solved '{dep.label()}' to {dep_value}, which is outside its admissible domain",
             )
         return {registry.id(dep.parameter): fixed}
 
@@ -280,7 +280,7 @@ class LinearConstraint(AbstractConstraint):
                 transform = Transform(transform_str)
             except ValueError as exc:
                 raise EleanorException(
-                    f"constraint term {i}: unknown transform '{transform_str}'; must be one of: identity, log10, pow10"
+                    f"constraint term {i}: unknown transform '{transform_str}'; must be one of: identity, log10, pow10",
                 ) from exc
 
             parameter = resolve_parameter(order, variable_str)
@@ -290,7 +290,7 @@ class LinearConstraint(AbstractConstraint):
                     coefficient=coefficient,
                     transform=transform,
                     name=variable_str,
-                )
+                ),
             )
 
         constant: Parameter | None = None

@@ -111,7 +111,10 @@ class AmbientScopeTable:
 
 
 def enumerate_shortname_paths(
-    root_type: type[object], shortname: str, *, max_depth: int = _DEFAULT_SHORTNAME_MAX_DEPTH
+    root_type: type[object],
+    shortname: str,
+    *,
+    max_depth: int = _DEFAULT_SHORTNAME_MAX_DEPTH,
 ) -> list[Path]:
     """Enumerate every dataclass-tree path whose terminal alias matches ``shortname``.
 

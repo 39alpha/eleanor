@@ -79,7 +79,7 @@ extend-select = [
   "B",
   "C4",
   # "C90",
-  # "COM",
+  "COM",
   # "D",
   # "DOC",
   # "DTZ",
@@ -119,7 +119,10 @@ extend-select = [
   # "UP",
   "W",
 ]
-ignore = ["E501"]
+ignore = [
+  "COM812",
+  "E501"
+]
 
 [tool.ruff.format]
 docstring-code-format = true

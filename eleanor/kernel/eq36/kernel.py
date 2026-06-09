@@ -137,7 +137,7 @@ class Eq36Kernel(AbstractKernel):
     def resolve_kernel_settings(self, vs_point: vs.Point) -> Eq36Settings:
         if not isinstance(vs_point.kernel.settings, Eq36Settings):
             raise TypeError(
-                f"the provided problem.kernel has type {type(vs_point.kernel.settings)} expected {Eq36Settings}"
+                f"the provided problem.kernel has type {type(vs_point.kernel.settings)} expected {Eq36Settings}",
             )
 
         settings = vs_point.kernel.settings
@@ -177,7 +177,7 @@ class Eq36Kernel(AbstractKernel):
             TemperatureRangeConstraint(
                 point_builder.order.temperature,
                 self._data1s,
-            )
+            ),
         )
 
         point_builder.constraints.append(
@@ -185,7 +185,7 @@ class Eq36Kernel(AbstractKernel):
                 point_builder.order.temperature,
                 point_builder.order.pressure,
                 self._data1s,
-            )
+            ),
         )
 
         return point_builder
@@ -653,12 +653,12 @@ class Eq36Kernel(AbstractKernel):
         )
         if isinstance(c, Eq3Settings):
             line = "  iopg1-10= {0: >5}{1: >5}{2: >5}{3: >5}{4: >5}{5: >5}{6: >5}{7: >5}{8: >5}{9: >5}".format(
-                *c.iopg[:10]
+                *c.iopg[:10],
             )
             print(line, file=file)
 
             line = " iopg11-20= {0: >5}{1: >5}{2: >5}{3: >5}{4: >5}{5: >5}{6: >5}{7: >5}{8: >5}{9: >5}".format(
-                *c.iopg[10:]
+                *c.iopg[10:],
             )
             print(line, file=file)
         print(

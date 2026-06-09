@@ -231,7 +231,7 @@ def _desugar_entry(
                 default=None,
                 has_default=False,
                 source=BarePath(),
-            )
+            ),
         ]
 
     if not isinstance(entry, Mapping):
@@ -322,7 +322,7 @@ def _expand_splat(entry: Mapping[object, object], scope_table: AmbientScopeTable
                 default=None,
                 has_default=False,
                 source=Splat(alias=alias, prefix=prefix),
-            )
+            ),
         )
     return specs
 

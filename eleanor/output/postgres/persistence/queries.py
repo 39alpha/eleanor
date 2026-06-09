@@ -54,7 +54,7 @@ SELECT_ORDER: sql.SQL = sql.SQL("SELECT id, name, tags, eleanor_version, raw, cr
 
 
 SELECT_SCRATCH_ENTRY: sql.SQL = sql.SQL(
-    "SELECT vs.id AS variable_space_id, vs.exit_code, sc.zip FROM variable_space AS vs LEFT JOIN scratch AS sc ON sc.id = vs.id WHERE vs.id = %s"
+    "SELECT vs.id AS variable_space_id, vs.exit_code, sc.zip FROM variable_space AS vs LEFT JOIN scratch AS sc ON sc.id = vs.id WHERE vs.id = %s",
 )
 
 

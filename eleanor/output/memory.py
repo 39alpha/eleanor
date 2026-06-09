@@ -80,7 +80,7 @@ class MemorySink(AbstractOutputSink):
                 WriteOutcome(
                     exit_code=result.point.exit_code,
                     committed=True,
-                )
+                ),
             )
             if progress is not None:
                 progress.tick()

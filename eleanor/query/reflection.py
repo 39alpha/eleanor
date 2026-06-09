@@ -102,7 +102,11 @@ def classify_field(name: str, declared: object) -> FieldKind:
         value_declared = args[1] if len(args) == 2 else object
         value_kind = classify_field(name, value_declared)
         return DictField(
-            name=name, key_type=key_type, value_type=value_declared, value_kind=value_kind, optional=optional
+            name=name,
+            key_type=key_type,
+            value_type=value_declared,
+            value_kind=value_kind,
+            optional=optional,
         )
 
     declared_type = inner if isinstance(inner, type) else object
@@ -141,7 +145,7 @@ def walk_path(start_type: type[object], path: Path) -> list[StepInfo]:
                 kind_after=kind_after,
                 alias=alias,
                 segment_kind=segment_kind,
-            )
+            ),
         )
         current_kind = kind_after
 
@@ -214,7 +218,10 @@ def _resolve_hints(t: type[object]) -> dict[str, object]:
 
 
 def _apply_filters(
-    kind: FieldKind, filters: tuple[IterFilter | MatchFilter, ...], path_text: str, segment_name: str
+    kind: FieldKind,
+    filters: tuple[IterFilter | MatchFilter, ...],
+    path_text: str,
+    segment_name: str,
 ) -> FieldKind:
     current = kind
     for filter_expr in filters:
@@ -226,7 +233,10 @@ def _apply_filters(
 
 
 def resolve_match_filter(
-    kind: FieldKind, filter_expr: MatchFilter, path_text: str, segment_name: str
+    kind: FieldKind,
+    filter_expr: MatchFilter,
+    path_text: str,
+    segment_name: str,
 ) -> tuple[FieldKind, list[tuple[Predicate, object]]]:
     """Validate ``filter_expr`` against ``kind`` and resolve each predicate.
 
@@ -263,7 +273,10 @@ def resolve_match_filter(
 
 
 def _resolve_list_match(
-    kind: ListField, filter_expr: MatchFilter, path_text: str, segment_name: str
+    kind: ListField,
+    filter_expr: MatchFilter,
+    path_text: str,
+    segment_name: str,
 ) -> list[tuple[Predicate, object]]:
     if not isinstance(kind.element_kind, DataclassField):
         raise InvalidFilter(path_text, segment_name, match_filter_text(filter_expr))
@@ -285,7 +298,10 @@ def _resolve_list_match(
 
 
 def _resolve_dict_match(
-    kind: DictField, filter_expr: MatchFilter, path_text: str, segment_name: str
+    kind: DictField,
+    filter_expr: MatchFilter,
+    path_text: str,
+    segment_name: str,
 ) -> list[tuple[Predicate, object]]:
     available: dict[str, FieldKind] = {}
     if isinstance(kind.value_kind, DataclassField):

@@ -110,13 +110,13 @@ class SolidSolution:
         missing = set(self.end_members) - set(mole_fractions)
         if missing:
             raise KeyError(
-                f"missing mole fractions for end member(s) for solid solution {self.name!r}: {sorted(missing)}"
+                f"missing mole fractions for end member(s) for solid solution {self.name!r}: {sorted(missing)}",
             )
 
         for end_member, fraction in mole_fractions.items():
             if fraction < 0.0:
                 raise ValueError(
-                    f"mole fraction for solid solution {self.name!r} end member {end_member!r} is negative"
+                    f"mole fraction for solid solution {self.name!r} end member {end_member!r} is negative",
                 )
 
         total = sum(mole_fractions.values())
@@ -233,7 +233,9 @@ class TPCurve:
         return notEmpty
 
     def find_boundary_intersections(
-        self, temperature_range: FloatRange, pressure_range: FloatRange
+        self,
+        temperature_range: FloatRange,
+        pressure_range: FloatRange,
     ) -> list[CartesianCoord]:
         Tmin, Tmax = temperature_range
         Pmin, Pmax = pressure_range
@@ -291,7 +293,9 @@ class TPCurve:
 
     @classmethod
     def sample(
-        cls, curves: list[TPCurve], num_samples: int
+        cls,
+        curves: list[TPCurve],
+        num_samples: int,
     ) -> tuple[Array1D[np.float64], Array1D[np.float64], list[TPCurve]]:
         domain = cls.union_domains(curves)
         domain_size = sum(s[1] - s[0] for s in domain)
@@ -448,7 +452,7 @@ class Data1:
                 data.charges,
                 data.volumes,
                 strict=False,
-            )
+            ),
         ):
             if not isinstance(raw_species_name_obj, bytes):
                 raise TypeError(raw_species_name_obj)
@@ -495,7 +499,7 @@ class Data1:
             if solid_solution in solid_solutions:
                 if end_member in solid_solutions[solid_solution].end_members:
                     raise RuntimeError(
-                        f"solid solution ({solid_solution}) end member ({end_member}) occurs multiple times"
+                        f"solid solution ({solid_solution}) end member ({end_member}) occurs multiple times",
                     )
                 solid_solutions[solid_solution].end_members[end_member] = end_member_mass
             else:

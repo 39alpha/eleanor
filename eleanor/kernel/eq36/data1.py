@@ -464,7 +464,6 @@ class Data1:
             for element, count in zip(selected_elements, counts, strict=False):
                 if not isinstance(count, np.float64):
                     raise TypeError(count)
-                # TODO: Is this conversion correct? Can the compositions be non-integers?
                 composition[element] = int(count)
             molar_mass_obj = cast(object, data.species_molar_weights[i])
             if not isinstance(molar_mass_obj, np.float64):

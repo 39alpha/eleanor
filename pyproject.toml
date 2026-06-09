@@ -109,11 +109,11 @@ extend-select = [
   "RET",
   "RUF",
   "SIM",
-  # "SLF",
+  # "SLF", private member access (TBD)
   "SLOT",
-  # "T20",
-  # "TC",
-  # "TD",
+  # "T20", remove print (TBD, gotta implement logging)
+  # "TC",  type checking rules (TBD, tried and failed)
+  "TD",
   "TID",
   # "TRY",
   # "UP",

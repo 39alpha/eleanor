@@ -24,8 +24,12 @@ class HashLike(Protocol):
     def hexdigest(self) -> str: ...
 
 
-# TODO: Use an enumeration for str_loc parameter
-def find_files(match: str, location: StrPath = ".", str_loc: str = "suffix") -> tuple[list[Path], list[Path]]:
+class StrLoc(StrEnum):
+    PREFIX = "prefix"
+    SUFFIX = "suffix"
+
+
+def find_files(match: str, location: StrPath = ".", str_loc: StrLoc = StrLoc.SUFFIX) -> tuple[list[Path], list[Path]]:
     """
     Find all files in folders downstream from 'location', with extension 'file_extension'
 
@@ -45,7 +49,9 @@ def find_files(match: str, location: StrPath = ".", str_loc: str = "suffix") -> 
     file_paths: list[Path] = []
     for root, _dirs, files in Path(location).walk():
         for file in files:
-            if (str_loc == "suffix" and file.endswith(match)) or (str_loc == "prefix" and file.startswith(match)):
+            if (str_loc == StrLoc.SUFFIX and file.endswith(match)) or (
+                str_loc == StrLoc.PREFIX and file.startswith(match)
+            ):
                 file_names.append(Path(file))
                 file_paths.append(Path(root) / file)
     return file_names, file_paths
@@ -69,7 +75,6 @@ class NumberFormat(StrEnum):
     SCIENTIFIC = "E"
     FLOATING = "f"
 
-    # TODO: Handle units
     def fmt(self, value: np.float64, precision: int) -> str:
         """
         Format a numeric value as a string to some precision.

@@ -92,7 +92,6 @@ class Eq36Kernel(AbstractKernel):
 
         return {"data1_dir": data1_dir}
 
-    # TODO: Return basic setup information, e.g. species, etc...
     @override
     def setup(
         self,

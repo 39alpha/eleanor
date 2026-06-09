@@ -1,6 +1,6 @@
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from functools import lru_cache
+from functools import cache
 
 from eleanor.query.coercion import MissingPolicy, parse_missing_policy
 from eleanor.query.columns import ColumnSpec, assign_column_names, desugar_columns, validate_column_paths
@@ -130,7 +130,7 @@ def compile_query(
     )
 
 
-@lru_cache(maxsize=None)
+@cache
 def _validate_short_forms_for_root_cached(root_type: type[object]) -> None:
     """Run live-reflection short-form validation once per root type.
 

@@ -140,10 +140,10 @@ class _ChannelHandle:
 
     __slots__: tuple[str, ...] = ("_channel", "_queue")
 
-    _queue: "Queue[ProgressMessage | None]"
+    _queue: Queue[ProgressMessage | None]
     _channel: Channel
 
-    def __init__(self, queue: "Queue[ProgressMessage | None]", channel: Channel) -> None:
+    def __init__(self, queue: Queue[ProgressMessage | None], channel: Channel) -> None:
         self._queue = queue
         self._channel = channel
 
@@ -172,7 +172,7 @@ class Progress:
         used to allocate the cross-process queue.
     """
 
-    queue: "Queue[ProgressMessage | None]"
+    queue: Queue[ProgressMessage | None]
     process: Process
 
     def __init__(self, manager: SyncManager) -> None:

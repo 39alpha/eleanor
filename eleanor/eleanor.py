@@ -1,9 +1,10 @@
+from collections.abc import Generator
 from contextlib import ExitStack, contextmanager
 from dataclasses import replace
 from multiprocessing import Manager
 from multiprocessing.managers import SyncManager
 from types import TracebackType
-from typing import TYPE_CHECKING, Self, Unpack, cast
+from typing import Self, Unpack, cast
 
 from eleanor.config import Config
 from eleanor.exceptions import EleanorException, EleanorShutdown
@@ -20,9 +21,6 @@ from eleanor.runner import Runner
 from eleanor.signals import shutdown_on_signal
 from eleanor.typing import EleanorKwargs
 from eleanor.util import chunks
-
-if TYPE_CHECKING:
-    from collections.abc import Generator
 
 
 class Eleanor:
@@ -169,7 +167,7 @@ class Eleanor:
         *,
         kind: str,
         settings: ExecutorSettings | None,
-    ) -> "Generator[AbstractExecutor, None, None]":
+    ) -> Generator[AbstractExecutor]:
         """Yield an executor for the duration of one :meth:`run` call.
 
         Preference order:
@@ -197,7 +195,7 @@ class Eleanor:
             yield executor
 
     @contextmanager
-    def _manager_scope(self) -> "Generator[SyncManager, None, None]":
+    def _manager_scope(self) -> Generator[SyncManager]:
         """Yield a :class:`SyncManager` for the duration of one :meth:`run`.
 
         Session-scoped when inside a ``with`` block, lazily initialised
@@ -221,7 +219,7 @@ class Eleanor:
         override: AbstractOutputSink | None,
         *,
         verbose: bool,
-    ) -> "Generator[AbstractOutputSink, None, None]":
+    ) -> Generator[AbstractOutputSink]:
         """Yield an :class:`AbstractOutputSink` for the duration of one :meth:`run` call.
 
         Preference order:

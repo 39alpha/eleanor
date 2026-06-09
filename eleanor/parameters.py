@@ -41,7 +41,7 @@ def _as_int_array(values: object) -> npt.NDArray[np.int_]:
 @dataclass
 class Parameter(ABC):
     @abstractmethod
-    def in_domain(self, parameter: "Parameter") -> bool:
+    def in_domain(self, parameter: Parameter) -> bool:
         return False
 
     @abstractmethod
@@ -53,22 +53,22 @@ class Parameter(ABC):
         return np.float64(1.0)
 
     @abstractmethod
-    def random(self, size: int = 1) -> list["ValueParameter"]:
+    def random(self, size: int = 1) -> list[ValueParameter]:
         pass
 
     @abstractmethod
-    def lattice(self, size: int = 2) -> list["ValueParameter"]:
+    def lattice(self, size: int = 2) -> list[ValueParameter]:
         pass
 
-    def restrict(self, cls: type["Parameter"], *args: object, **kwargs: object) -> "Parameter":
+    def restrict(self, cls: type[Parameter], *args: object, **kwargs: object) -> Parameter:
         new = cls(*args, **kwargs)
         return Parameter.refine(new)
 
-    def fix(self, value: np.float64) -> "Parameter":
+    def fix(self, value: np.float64) -> Parameter:
         return self.restrict(ValueParameter, value)
 
     @staticmethod
-    def refine(parameter: "Parameter") -> "Parameter":
+    def refine(parameter: Parameter) -> Parameter:
         if isinstance(parameter, RangeParameter) and parameter.min == parameter.max:
             return parameter.fix(parameter.min)
         if isinstance(parameter, ListParameter):
@@ -79,7 +79,7 @@ class Parameter(ABC):
         return parameter
 
     @classmethod
-    def from_dict(cls, raw: dict[str, object]) -> "Parameter":
+    def from_dict(cls, raw: dict[str, object]) -> Parameter:
         if "value" in raw:
             parameter: Parameter = ValueParameter(_as_float(raw["value"]))
         elif "values" in raw:
@@ -98,7 +98,7 @@ class Parameter(ABC):
         return cls.refine(parameter)
 
     @classmethod
-    def load(cls, raw: object) -> "Parameter":
+    def load(cls, raw: object) -> Parameter:
         if isinstance(raw, dict):
             return cls.from_dict(cast(dict[str, object], raw))
         if isinstance(raw, list):

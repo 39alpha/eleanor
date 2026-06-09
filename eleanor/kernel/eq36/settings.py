@@ -2,15 +2,13 @@ from copy import copy
 from dataclasses import dataclass, field
 from enum import IntEnum
 from pathlib import Path
-from typing import Self, TypeVar, cast
+from typing import Self, cast
 
 import numpy as np
 
 from eleanor.exceptions import EleanorException
 from eleanor.kernel.exceptions import EleanorKernelException
 from eleanor.kernel.settings import KernelSettings
-
-SettingT = TypeVar("SettingT", bound=IntEnum)
 
 
 def _get_float(cfg: dict[str, object], key: str, default: np.float64 | float) -> np.float64:
@@ -23,7 +21,7 @@ def _get_int(cfg: dict[str, object], key: str, default: int) -> int:
     return int(cast(int | float | str, cfg.get(key, default)))
 
 
-def get_setting(cfg: dict[str, object], setting: type[SettingT], default: SettingT | None = None) -> SettingT:
+def get_setting[T: IntEnum](cfg: dict[str, object], setting: type[T], default: T | None = None) -> T:
     key: str = setting.__name__.lower()
     value: object | None = cfg.get(key, default)
     if value is None:

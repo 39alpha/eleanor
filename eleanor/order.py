@@ -37,7 +37,7 @@ class Suppression:
         self.exceptions = exceptions
 
     @staticmethod
-    def from_dict(raw: dict[str, object], name: str | None = None) -> "Suppression":
+    def from_dict(raw: dict[str, object], name: str | None = None) -> Suppression:
         if name is None:
             name = require_opt_str(raw.get("name"), "suppression.name")
 

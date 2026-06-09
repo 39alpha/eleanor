@@ -2,14 +2,14 @@ import time
 from abc import ABC, abstractmethod
 from collections.abc import Callable
 from types import TracebackType
-from typing import Generic, Self, TypeVar
+from typing import Self, TypeVar
 
 from eleanor.exceptions import EleanorException
 
 T = TypeVar("T")
 
 
-class AbstractFuture(ABC, Generic[T]):
+class AbstractFuture[T](ABC):
     @abstractmethod
     def result(self) -> T: ...
 

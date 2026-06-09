@@ -447,7 +447,7 @@ class Eq36Kernel(AbstractKernel):
             for end_member in ssr.end_members:
                 name, fraction = end_member.name, end_member.fraction
                 frac = NumberFormat.SCIENTIFIC.fmt(fraction, precision=5)
-                print("   {name: <28}          {frac}".format(name=name, frac=frac), file=file)
+                print(f"   {name: <28}          {frac}", file=file)
 
             print("   endit.", file=file)
             print("       nsk=  0               sfcar=  0.00000E+00    ssfcar=  0.00000E+00", file=file)
@@ -469,7 +469,7 @@ class Eq36Kernel(AbstractKernel):
             for component in sr.composition:
                 element, count = component.element, component.count
                 c = NumberFormat.SCIENTIFIC.fmt(np.float64(count), precision=5)
-                print("   {element: <2}          {count}".format(element=element, count=c), file=file)
+                print(f"   {element: <2}          {c}", file=file)
 
             print("   endit.", file=file)
             print("* Reaction", file=file)
@@ -489,7 +489,7 @@ class Eq36Kernel(AbstractKernel):
             print("     jcode=  2               jreac=  0", file=file)
             print(f"      morr={morr: >13}      modr=  0.00000E+00", file=file)
             print("     vreac=  0.00000E+00", file=file)
-            print("   {element: <2}          1.00000E+00".format(element=er.name), file=file)
+            print(f"   {er.name: <2}          1.00000E+00", file=file)
             print("   endit.", file=file)
             print("* Reaction", file=file)
             print("   endit.", file=file)
@@ -640,37 +640,37 @@ class Eq36Kernel(AbstractKernel):
 
         print("*               1    2    3    4    5    6    7    8    9   10", file=file)
         print(
-            "  iopt1-10= {0: >5}{1: >5}{2: >5}{3: >5}{4: >5}{5: >5}{6: >5}{7: >5}{8: >5}{9: >5}".format(*c.iopt[:10]),
+            "  iopt1-10= {: >5}{: >5}{: >5}{: >5}{: >5}{: >5}{: >5}{: >5}{: >5}{: >5}".format(*c.iopt[:10]),
             file=file,
         )
         print(
-            " iopt11-20= {0: >5}{1: >5}{2: >5}{3: >5}{4: >5}{5: >5}{6: >5}{7: >5}{8: >5}{9: >5}".format(*c.iopt[10:]),
+            " iopt11-20= {: >5}{: >5}{: >5}{: >5}{: >5}{: >5}{: >5}{: >5}{: >5}{: >5}".format(*c.iopt[10:]),
             file=file,
         )
         if isinstance(c, Eq3Settings):
-            line = "  iopg1-10= {0: >5}{1: >5}{2: >5}{3: >5}{4: >5}{5: >5}{6: >5}{7: >5}{8: >5}{9: >5}".format(
+            line = "  iopg1-10= {: >5}{: >5}{: >5}{: >5}{: >5}{: >5}{: >5}{: >5}{: >5}{: >5}".format(
                 *c.iopg[:10],
             )
             print(line, file=file)
 
-            line = " iopg11-20= {0: >5}{1: >5}{2: >5}{3: >5}{4: >5}{5: >5}{6: >5}{7: >5}{8: >5}{9: >5}".format(
+            line = " iopg11-20= {: >5}{: >5}{: >5}{: >5}{: >5}{: >5}{: >5}{: >5}{: >5}{: >5}".format(
                 *c.iopg[10:],
             )
             print(line, file=file)
         print(
-            "  iopr1-10= {0: >5}{1: >5}{2: >5}{3: >5}{4: >5}{5: >5}{6: >5}{7: >5}{8: >5}{9: >5}".format(*c.iopr[:10]),
+            "  iopr1-10= {: >5}{: >5}{: >5}{: >5}{: >5}{: >5}{: >5}{: >5}{: >5}{: >5}".format(*c.iopr[:10]),
             file=file,
         )
         print(
-            " iopr11-20= {0: >5}{1: >5}{2: >5}{3: >5}{4: >5}{5: >5}{6: >5}{7: >5}{8: >5}{9: >5}".format(*c.iopr[10:]),
+            " iopr11-20= {: >5}{: >5}{: >5}{: >5}{: >5}{: >5}{: >5}{: >5}{: >5}{: >5}".format(*c.iopr[10:]),
             file=file,
         )
         print(
-            "  iodb1-10= {0: >5}{1: >5}{2: >5}{3: >5}{4: >5}{5: >5}{6: >5}{7: >5}{8: >5}{9: >5}".format(*c.iodb[:10]),
+            "  iodb1-10= {: >5}{: >5}{: >5}{: >5}{: >5}{: >5}{: >5}{: >5}{: >5}{: >5}".format(*c.iodb[:10]),
             file=file,
         )
         print(
-            " iodb11-20= {0: >5}{1: >5}{2: >5}{3: >5}{4: >5}{5: >5}{6: >5}{7: >5}{8: >5}{9: >5}".format(*c.iodb[10:]),
+            " iodb11-20= {: >5}{: >5}{: >5}{: >5}{: >5}{: >5}{: >5}{: >5}{: >5}{: >5}".format(*c.iodb[10:]),
             file=file,
         )
 

@@ -45,7 +45,7 @@ class ShutdownState:
 
 
 @contextmanager
-def shutdown_on_signal() -> "Generator[ShutdownState, None, None]":
+def shutdown_on_signal() -> Generator[ShutdownState]:
     """Translate SIGINT/SIGTERM into an immediate ``KeyboardInterrupt``.
 
     On the first signal: set ``state.requested = True``, capture

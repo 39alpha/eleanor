@@ -54,7 +54,7 @@ class _ProfilingCursor(psycopg.Cursor[TupleRow]):
         *,
         prepare: bool | None = None,
         binary: bool | None = None,
-    ) -> "psycopg.Cursor[TupleRow]":
+    ) -> psycopg.Cursor[TupleRow]:
         # ``psycopg.Cursor.execute``'s type stub admits ``Query`` (which
         # includes ``string.templatelib.Template``), but the runtime
         # implementation only accepts ``QueryNoTemplate``. Narrowing the

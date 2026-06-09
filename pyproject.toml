@@ -115,8 +115,8 @@ extend-select = [
   # "TC",  type checking rules (TBD, tried and failed)
   "TD",
   "TID",
-  # "TRY",
-  # "UP",
+  # "TRY", exception-related errors (TBD, are they worth the work?)
+  "UP",
   "W",
 ]
 ignore = [

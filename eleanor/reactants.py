@@ -42,7 +42,7 @@ class AbstractReactant(ABC):
         return []
 
     @classmethod
-    def from_dict(cls, raw: dict[str, object], name: str | None = None) -> "AbstractReactant":
+    def from_dict(cls, raw: dict[str, object], name: str | None = None) -> AbstractReactant:
         # ``cls`` is unused: concrete subclass dispatch is performed based on
         # ``raw['type']``. ``@classmethod`` is kept (instead of
         # ``@staticmethod``) so that subclass ``from_dict`` methods can be
@@ -388,7 +388,7 @@ class SolidSolutionReactant(TitratedReactant):
 
     @override
     def volume(self) -> np.float64:
-        volume = super(SolidSolutionReactant, self).volume()
+        volume = super().volume()
         volume += mapreduce(lambda em: em.volume(), operator.mul, self.end_members.values(), 1.0)
         return volume
 

@@ -5,17 +5,13 @@ from collections.abc import Callable, Generator, Iterable, Sequence
 from enum import StrEnum
 from functools import reduce
 from pathlib import Path
-from typing import Protocol, TypeVar, cast
+from typing import Protocol, cast
 
 import numpy as np
 from numpy.typing import NDArray
 
 from eleanor.exceptions import EleanorException
 from eleanor.typing import StrPath
-
-MapInputT = TypeVar("MapInputT")
-ReduceT = TypeVar("ReduceT")
-ChunkInputT = TypeVar("ChunkInputT")
 
 
 class HashLike(Protocol):
@@ -242,7 +238,7 @@ def parse_date(date: str) -> datetime.date | datetime.datetime:
         return datetime.datetime.fromisoformat(date)
 
 
-def chunks(indexable: Sequence[ChunkInputT], n: int) -> Generator[Sequence[ChunkInputT], None, None]:
+def chunks[T](indexable: Sequence[T], n: int) -> Generator[Sequence[T]]:
     N = len(indexable)
     chunk_size = N // n
     residual = N - n * chunk_size
@@ -256,12 +252,7 @@ def chunks(indexable: Sequence[ChunkInputT], n: int) -> Generator[Sequence[Chunk
         start += chunk_size
 
 
-def mapreduce(
-    mapper: Callable[[MapInputT], ReduceT],
-    reducer: Callable[[ReduceT, ReduceT], ReduceT],
-    values: Iterable[MapInputT],
-    initial: ReduceT,
-) -> ReduceT:
+def mapreduce[S, T](mapper: Callable[[S], T], reducer: Callable[[T, T], T], values: Iterable[S], initial: T) -> T:
     return reduce(reducer, map(mapper, values), initial)
 
 

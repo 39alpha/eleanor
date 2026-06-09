@@ -249,7 +249,7 @@ class LinearConstraint(AbstractConstraint):
 
     @classmethod
     @override
-    def from_order(cls, order: Order, constraint_config: ConstraintConfig) -> "LinearConstraint":
+    def from_order(cls, order: Order, constraint_config: ConstraintConfig) -> LinearConstraint:
         raw = constraint_config.args
         terms_args = raw.get("terms")
         if not isinstance(terms_args, list):

@@ -37,7 +37,7 @@ class DataclassField:
 class ListField:
     name: str
     element_type: object
-    element_kind: "FieldKind"
+    element_kind: FieldKind
     optional: bool
 
 
@@ -46,7 +46,7 @@ class DictField:
     name: str
     key_type: object
     value_type: object
-    value_kind: "FieldKind"
+    value_kind: FieldKind
     optional: bool
 
 

@@ -169,7 +169,7 @@ class TPCurve:
 
     def temperature_in_domain(self, T: np.float64) -> bool:
         for subdomain in self.domain:
-            if subdomain[0] <= T and T <= subdomain[1]:
+            if subdomain[0] <= T <= subdomain[1]:
                 return True
         return False
 
@@ -196,7 +196,7 @@ class TPCurve:
             endpoints = 0
             for T in [self.T["min"], self.T["max"]]:
                 P = self(T)
-                if Tmin <= T and T <= Tmax and Pmin <= P and P <= Pmax:
+                if Tmin <= T <= Tmax and Pmin <= P <= Pmax:
                     endpoints += 1
 
             if endpoints == 0:
@@ -214,7 +214,7 @@ class TPCurve:
                     continue
 
                 P = self(T)
-                if Pmin <= P and P <= Pmax:
+                if Pmin <= P <= Pmax:
                     domain.append((min(T, Tint), max(T, Tint)))
                     is_single_point = False
 
@@ -225,7 +225,7 @@ class TPCurve:
                 T1, _ = intersections[i]
                 T2, _ = intersections[i + 1]
                 P = self((T1 + T2) / 2)
-                if Pmin <= P and P <= Pmax:
+                if Pmin <= P <= Pmax:
                     domain.append((T1, T2))
 
         self.domain = domain
@@ -246,24 +246,25 @@ class TPCurve:
                 continue
 
             P = self(T)
-            if Pmin <= P and P <= Pmax:
+            if Pmin <= P <= Pmax:
                 intersections.append((T, P))
 
         for P in pressure_range:
             for i, coefficients in enumerate(self.P):
-                coefficients = np.copy(coefficients)
-                coefficients[0] -= P
-                roots = np.roots(coefficients[::-1])
+                coeff = np.copy(coefficients)
+                coeff[0] -= P
+                roots = np.roots(coeff[::-1])
                 real_roots: Array1D[np.float64] = np.asarray(np.real(roots[np.isreal(roots)]), dtype=np.float64)
 
                 intersections.extend(
                     (T, self(T))
                     for T in real_roots
                     if (
-                        Tmin <= T
-                        and T <= Tmax
-                        and (i == 0 and self.T["min"] <= T and T <= self.T["mid"])
-                        or (i == 1 and self.T["mid"] <= T and T <= self.T["max"])
+                        Tmin <= T <= Tmax
+                        and (
+                            (i == 0 and self.T["min"] <= T <= self.T["mid"])
+                            or (i == 1 and self.T["mid"] <= T <= self.T["max"])
+                        )
                     )
                 )
 
@@ -281,7 +282,7 @@ class TPCurve:
         (start, stop), *_rest = subdomains
         for i in range(1, len(subdomains)):
             (a, b) = subdomains[i]
-            if a <= stop and stop < b:
+            if a <= stop < b:
                 stop = b
             elif stop < b:
                 domain.append((start, stop))
@@ -305,20 +306,20 @@ class TPCurve:
         Ts: Array1D[np.float64] = rng.uniform(0, domain_size, num_samples) + domain[0][0]
         Ps: list[np.float64] = []
         selected_curves: list[TPCurve] = []
-        for i, T in enumerate(Ts):
+        for i in range(len(Ts)):
+            t = cast(np.float64, Ts[i])
             for j, subdomain in enumerate(domain):
-                if subdomain[1] >= T:
+                if subdomain[1] >= t:
                     break
                 else:
-                    T += steps[j]
+                    t += steps[j]
+            Ts[i] = t
 
-            Ts[i] = T
-
-            curves_above = [curve for curve in curves if curve.temperature_in_domain(T)]
+            curves_above = [curve for curve in curves if curve.temperature_in_domain(t)]
             selected_index = rng.integers(0, len(curves_above))
             selected_curve = curves_above[selected_index]
 
-            P = selected_curve(T)
+            P = selected_curve(t)
             Ps.append(P)
 
             selected_curves.append(selected_curve)

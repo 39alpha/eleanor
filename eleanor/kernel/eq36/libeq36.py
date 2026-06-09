@@ -332,7 +332,6 @@ def read_data1(filename: StrPath) -> Data:
 
         nbtafd = nbta_asv
 
-        nbta_asv = nbta_asv
         npta_asv = c_int(npta_asv.value - 1)
         nsta_asv = c_int(nsta_asv.value - 1)
 

@@ -14,6 +14,8 @@ from eleanor.kernel.eq36.util import field_as_float
 from eleanor.kernel.exceptions import EleanorKernelException
 from eleanor.typing import StrPath
 
+EQ36_NEG_INF = -99999
+
 path_separator = re.compile("^( -)+$")
 blank_line = re.compile(r"^\s*$")
 _pattern_cache: dict[str, re.Pattern[str]] = {}
@@ -82,9 +84,9 @@ def _freeze_pure_solid(a: _PureSolidAccum) -> es.PureSolid:
         name=a.name,
         log_qk=_require_saturation_value(a.log_qk, "log_qk", f"pure solid {a.name}"),
         affinity=_require_saturation_value(a.affinity, "affinity", f"pure solid {a.name}"),
-        log_moles=np.float64(-np.inf) if (a.moles is not None and a.moles == -99999) else a.log_moles,
-        log_mass=np.float64(-np.inf) if (a.mass is not None and a.mass == -99999) else a.log_mass,
-        log_volume=np.float64(-np.inf) if (a.volume is not None and a.volume == -99999) else a.log_volume,
+        log_moles=np.float64(-np.inf) if (a.moles is not None and a.moles == EQ36_NEG_INF) else a.log_moles,
+        log_mass=np.float64(-np.inf) if (a.mass is not None and a.mass == EQ36_NEG_INF) else a.log_mass,
+        log_volume=np.float64(-np.inf) if (a.volume is not None and a.volume == EQ36_NEG_INF) else a.log_volume,
     )
 
 
@@ -482,7 +484,7 @@ class OutputParser(ABC):
                 es.AqueousSpecies(
                     name=species,
                     log_molality=np.float64(-np.inf) if molality == 0 else field_as_float(log_molality_s),
-                    log_activity=np.float64(-np.inf) if log_activity == -99999 else log_activity,
+                    log_activity=np.float64(-np.inf) if log_activity == EQ36_NEG_INF else log_activity,
                     log_gamma=field_as_float(log_gamma_s),
                 ),
             )

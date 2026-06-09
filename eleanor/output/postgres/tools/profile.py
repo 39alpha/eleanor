@@ -160,7 +160,7 @@ class StatementProfiler:
     _real_connect: Callable[[PostgresDatabaseSettings], psycopg.Connection] | None = None
 
     def __enter__(self) -> StatementProfiler:
-        global _active
+        global _active  # noqa: PLW0603
         if self._started:
             msg = "StatementProfiler is not reentrant"
             raise EleanorException(msg)
@@ -190,7 +190,7 @@ class StatementProfiler:
         _exc: BaseException | None,
         _tb: TracebackType | None,
     ) -> None:
-        global _active
+        global _active  # noqa: PLW0603
         if self._real_connect is not None:
             connection_module.connect = self._real_connect
             self._real_connect = None

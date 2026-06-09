@@ -127,8 +127,7 @@ class Eq36Kernel(AbstractKernel):
         with tool_room.WorkingDirectory(data1_dir):
             _, data1_files, *_ = tool_room.find_files(".d1")
             for file in data1_files:
-                file = file.resolve()
-                data1 = Data1.from_file(file)
+                data1 = Data1.from_file(file.resolve())
                 if data1.tp_curve is not None and data1.tp_curve.set_domain(Trange, Prange):
                     self._data1s.append(data1)
 
@@ -291,7 +290,7 @@ class Eq36Kernel(AbstractKernel):
         P = NumberFormat.SCIENTIFIC.fmt(vs_point.pressure, precision=5)
         charge_balance = settings.charge_balance
 
-        if settings.redox_species == "fO2" or settings.redox_species == "O2(g)":
+        if settings.redox_species in {"fO2", "O2(g)"}:
             use_other_species = 0
             fO2 = vs_point.get_species("O2(g)")
             if fO2 is None:

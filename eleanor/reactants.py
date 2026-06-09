@@ -525,7 +525,7 @@ class CombinedReactantComponent:
             name = require_str(name, "name argument")
 
         component_type = ReactantType(require_str(raw.get("type"), f'combined component "{name}".type'))
-        if component_type == ReactantType.FIXED_GAS or component_type == ReactantType.COMBINED:
+        if component_type in {ReactantType.FIXED_GAS, ReactantType.COMBINED}:
             raise EleanorException(
                 f'combined component "{name}" type "{component_type}" is not supported; '
                 + "expected a titrated reactant type",

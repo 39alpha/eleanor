@@ -63,7 +63,7 @@ class TemperatureRangeConstraint(AbstractConstraint):
 
                 return {temperature_id: refined.restrict(RangeParameter, min_t, max_t)}
             if isinstance(refined, ListParameter):
-                values = [t for t in refined.values if self.min_t <= t and t <= self.max_t]
+                values = [t for t in refined.values if self.min_t <= t <= self.max_t]
                 return {temperature_id: refined.restrict(ListParameter, values)}
             if isinstance(refined, NormalParameter):
                 min_t = max(refined.min, self.min_t)

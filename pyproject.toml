@@ -100,7 +100,7 @@ extend-select = [
   "PERF",
   "PGH",
   "PIE",
-  # "PL",
+  "PL",
   # "PT",
   # "PTH",
   # "PYI",
@@ -120,8 +120,13 @@ extend-select = [
   "W",
 ]
 ignore = [
-  "COM812",
-  "E501"
+  "COM812",  # trailing commas
+  "E501",    # line-length
+  "PLR0911", # (TBD) too many return statements
+  "PLR0912", # (TBD) too many branches
+  "PLR0913", # (TBD) too many arguments
+  "PLR0915", # (TBD) too many statements
+  "PLC0415", # import should be at top-level
 ]
 
 [tool.ruff.format]

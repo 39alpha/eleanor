@@ -53,6 +53,9 @@ class DictField:
 type FieldKind = LeafField | DataclassField | ListField | DictField
 
 
+PAIR_LEN = 2
+
+
 @dataclass(frozen=True, slots=True)
 class StepInfo:
     segment: Segment
@@ -75,7 +78,7 @@ def unwrap_optional(t: object) -> tuple[object, bool]:
         return t, False
 
     args = get_args(t)
-    if len(args) != 2 or type(None) not in args:
+    if len(args) != PAIR_LEN or type(None) not in args:
         return t, False
 
     if args[0] is type(None):
@@ -98,8 +101,8 @@ def classify_field(name: str, declared: object) -> FieldKind:
 
     if origin is dict:
         args = get_args(inner)
-        key_type = args[0] if len(args) == 2 else object
-        value_declared = args[1] if len(args) == 2 else object
+        key_type = args[0] if len(args) == PAIR_LEN else object
+        value_declared = args[1] if len(args) == PAIR_LEN else object
         value_kind = classify_field(name, value_declared)
         return DictField(
             name=name,

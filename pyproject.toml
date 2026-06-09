@@ -78,18 +78,18 @@ extend-select = [
   "ASYNC",
   "B",
   "C4",
-  # "C90",
+  # "C90", cyclomatic complexity (TBD, tricky)
   "COM",
-  # "D",
-  # "DOC",
-  # "DTZ",
+  # "D", pydocstyle (TBD)
+  # "DOC", pydoclint (TBD, requires preview)
+  # "DTZ", datatimez (TBD, not sure what to do about timezones yet)
   "E",
-  # "EM",
+  # "EM", errmsg (TBD, lots to update manually)
   "ERA",
   "F",
   "FA",
   "FLY",
-  # "FURB",
+  "FURB",
   "G",
   "I",
   "ICN",

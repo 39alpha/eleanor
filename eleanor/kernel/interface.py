@@ -30,7 +30,7 @@ class AbstractKernel(ABC):
         _ = order
 
     def is_soft_exit(self, code: int) -> bool:
-        return code in [0]
+        return code == 0
 
     def constrain(self, point_builder: PointBuilder) -> PointBuilder:
         return point_builder

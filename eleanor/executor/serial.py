@@ -39,7 +39,6 @@ class SerialExecutor(AbstractExecutor):
     @override
     def shutdown(self, wait: bool = True) -> None:
         _ = wait
-        pass
 
 
 __all__ = [

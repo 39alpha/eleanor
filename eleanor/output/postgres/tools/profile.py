@@ -5,7 +5,7 @@ from collections.abc import Callable, Generator, Iterable, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from types import TracebackType
-from typing import override
+from typing import Self, override
 
 import psycopg
 from psycopg import sql
@@ -159,7 +159,7 @@ class StatementProfiler:
     # restore it. Initialised in ``__enter__`` after we capture the value.
     _real_connect: Callable[[PostgresDatabaseSettings], psycopg.Connection] | None = None
 
-    def __enter__(self) -> StatementProfiler:
+    def __enter__(self) -> Self:
         global _active  # noqa: PLW0603
         if self._started:
             msg = "StatementProfiler is not reentrant"

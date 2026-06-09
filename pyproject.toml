@@ -103,7 +103,7 @@ extend-select = [
   "PL",
   "PT",
   "PTH",
-  # "PYI",
+  "PYI",
   "Q",
   # "R",
   # "RET",

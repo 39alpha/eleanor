@@ -200,7 +200,7 @@ def hash_dir(path: StrPath, hasher: HashLike | None = None) -> str:
     return hasher.hexdigest()
 
 
-def convert_to_number(value: int | float | np.floating | str) -> int | np.float64:
+def convert_to_number(value: float | np.floating | str) -> int | np.float64:
     if isinstance(value, int) and not isinstance(value, bool):
         return value
     if isinstance(value, (float, np.floating)):

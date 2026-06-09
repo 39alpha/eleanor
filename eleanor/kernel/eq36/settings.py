@@ -13,7 +13,7 @@ from eleanor.kernel.settings import KernelSettings
 SettingT = TypeVar("SettingT", bound=IntEnum)
 
 
-def _get_float(cfg: dict[str, object], key: str, default: np.float64 | int | float) -> np.float64:
+def _get_float(cfg: dict[str, object], key: str, default: np.float64 | float) -> np.float64:
     """Read ``key`` from ``cfg`` and coerce to ``np.float64``, using ``default`` if missing."""
     return np.float64(cast(int | float | str, cfg.get(key, default)))
 

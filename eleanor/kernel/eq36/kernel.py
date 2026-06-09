@@ -1,6 +1,5 @@
 import io
 import os
-import os.path
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -271,11 +270,11 @@ class Eq36Kernel(AbstractKernel):
             file = Path("problem.3i")
 
         if isinstance(file, (str, Path)):
-            with open(file, "w") as handle:
+            with Path(file).open("w") as handle:
                 return self.write_eq3_input(vs_point, data1, file=handle, verbose=verbose)
 
         # Write header
-        print(f"EQ3NR input file name= {os.path.basename(file.name)}", file=file)
+        print(f"EQ3NR input file name= {Path(file.name).name}", file=file)
         print("endit.", file=file)
 
         # Write basis switches
@@ -401,7 +400,7 @@ class Eq36Kernel(AbstractKernel):
             file = Path("problem.6i")
 
         if isinstance(file, (str, Path)):
-            with open(file, "w") as handle:
+            with Path(file).open("w") as handle:
                 return self.write_eq6_input(vs_point, file=handle, pickup_lines=pickup_lines, verbose=verbose)
 
         # Write Header
@@ -413,7 +412,7 @@ class Eq36Kernel(AbstractKernel):
 
         nrct = vs_point.reactant_count() - len(vs_point.fixed_gas_reactants)
 
-        print(f"EQ3NR input file name= {os.path.basename(file.name)}", file=file)
+        print(f"EQ3NR input file name= {Path(file.name).name}", file=file)
         print("endit.", file=file)
         print(f"     jtemp=  {jtemp}", file=file)
         print(f"    tempcb=  {T}", file=file)

@@ -1,4 +1,5 @@
 import io
+from pathlib import Path
 from typing import cast
 from unittest import TestCase, mock
 
@@ -38,9 +39,7 @@ class TestEq36Util(TestCase):
             ["line1\n", "line2\n"],
         )
 
-        with mock.patch(
-            "builtins.open", return_value=io.StringIO("head\n*---\nline1\n")
-        ):
+        with mock.patch.object(Path, "open", return_value=io.StringIO("head\n*---\nline1\n")):
             self.assertEqual(read_pickup_lines("file.3p"), ["line1\n"])
 
         with self.assertRaises(EleanorKernelException) as cm:
@@ -49,7 +48,7 @@ class TestEq36Util(TestCase):
             )
         self.assertEqual(cm.exception.code, RunCode.FILE_ERROR_3P)
 
-        with mock.patch("builtins.open", side_effect=FileNotFoundError("missing")):
+        with mock.patch.object(Path, "open", side_effect=FileNotFoundError("missing")):
             with self.assertRaises(EleanorKernelException) as cm2:
                 _ = read_pickup_lines("missing.3p")
         self.assertEqual(cm2.exception.code, RunCode.FILE_ERROR_3P)

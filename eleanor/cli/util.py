@@ -9,9 +9,9 @@ versioning policy as the ``eleanor.cli_commands`` entry-point group.
 """
 
 import functools
-import os.path
 from collections.abc import Callable
 from dataclasses import replace
+from pathlib import Path
 from typing import cast
 
 import click
@@ -20,6 +20,7 @@ from xdg_base_dirs import xdg_config_home
 from eleanor.config import Config, load_config
 from eleanor.exceptions import EleanorException
 from eleanor.output.postgres.settings import PostgresSinkSettings
+from eleanor.typing import StrPath
 
 
 def _default_config_path() -> str | None:
@@ -62,12 +63,12 @@ def config_options[F: Callable[..., object]](*, required: bool = True) -> Callab
 
 
 def config_from_args(
-    config_file: str,
+    config_file: StrPath,
     database: str | None,
     *,
     require_database: bool = True,
 ) -> Config:
-    config_path = os.path.expanduser(config_file)
+    config_path = Path(config_file).expanduser()
 
     config = load_config(config_path)
     if database is not None:

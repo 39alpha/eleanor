@@ -51,13 +51,13 @@ def _schema_path(filename: Path) -> Path:
 
 
 def _write_csv_header(filename: Path, columns: list[str]) -> None:
-    with open(filename, "w", newline="") as handle:
+    with filename.open("w", newline="") as handle:
         writer = csv.writer(handle)
         writer.writerow(columns)
 
 
 def _read_csv_header(filename: Path) -> list[str]:
-    with open(filename, newline="") as handle:
+    with filename.open(newline="") as handle:
         reader = csv.reader(handle)
         try:
             return next(reader)
@@ -66,7 +66,7 @@ def _read_csv_header(filename: Path) -> list[str]:
 
 
 def _read_schema(schema_path: Path) -> dict[str, object]:
-    with open(schema_path) as handle:
+    with schema_path.open() as handle:
         raw = cast(object, yaml.safe_load(handle))
     if not isinstance(raw, dict):
         msg = f"csv schema {schema_path!r} must be a mapping"
@@ -122,7 +122,7 @@ def _write_schema(
         "vs_points_seen": vs_points_seen,
         "order_versions": order_versions,
     }
-    with open(schema_path, "w") as handle:
+    with schema_path.open("w") as handle:
         yaml.safe_dump(payload, handle, sort_keys=False)
 
 
@@ -218,7 +218,7 @@ def _extract_binary_assets(
             binary_value_indexes[column] += 1
             suffix = "" if binary_value_counts[column] == 1 else f"_{row_index}"
             asset_filename = f"{order_id}_{point_counter}{suffix}.zip"
-            with open(_asset_dir(filename, column) / asset_filename, "wb") as handle:
+            with (_asset_dir(filename, column) / asset_filename).open("wb") as handle:
                 _ = handle.write(value)
             cooked_row[column] = f"{column}/{asset_filename}"
         extracted_rows.append(cooked_row)
@@ -226,7 +226,7 @@ def _extract_binary_assets(
 
 
 def _append_rows(filename: Path, columns: list[str], rows: Sequence[Mapping[str, object]]) -> None:
-    with open(filename, "a", newline="") as handle:
+    with filename.open("a", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=columns)
         for row in rows:
             writer.writerow(row)

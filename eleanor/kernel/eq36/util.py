@@ -47,7 +47,7 @@ def read_pickup_lines(file: StrPath | io.TextIOWrapper | None = None) -> list[st
 
     if isinstance(file, (str, Path)):
         try:
-            with open(file, "r") as handle:
+            with Path(file).open("r") as handle:
                 return read_pickup_lines(handle)
         except FileNotFoundError as e:
             raise EleanorKernelException("failed to open pickup file", code=RunCode.FILE_ERROR_3P) from e

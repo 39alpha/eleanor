@@ -1,6 +1,5 @@
 import json
 import operator
-import os.path
 import tomllib
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
@@ -269,7 +268,7 @@ class Order:
 
     @classmethod
     def from_yaml(cls, fname: StrPath) -> Self:
-        with open(fname, "rb") as handle:
+        with Path(fname).open("rb") as handle:
             return cls.from_dict(cast(dict[str, object], yaml.safe_load(handle)))
 
     @classmethod
@@ -278,7 +277,7 @@ class Order:
 
     @classmethod
     def from_toml(cls, fname: StrPath) -> Self:
-        with open(fname, "rb") as handle:
+        with Path(fname).open("rb") as handle:
             return cls.from_dict(cast(dict[str, object], tomllib.load(handle)))
 
     @classmethod
@@ -287,7 +286,7 @@ class Order:
 
     @classmethod
     def from_json(cls, fname: StrPath) -> Self:
-        with open(fname, "rb") as handle:
+        with Path(fname).open("rb") as handle:
             return cls.from_dict(cast(dict[str, object], json.load(handle)))
 
     @classmethod
@@ -297,8 +296,8 @@ class Order:
     @classmethod
     def from_file(cls, fname: StrPath) -> Self:
         try:
-            _, ext = os.path.splitext(fname)
-            match ext:
+            fname = Path(fname)
+            match fname.suffix:
                 case ".yaml":
                     return cls.from_yaml(fname)
                 case ".yml":
@@ -308,7 +307,7 @@ class Order:
                 case ".json":
                     return cls.from_json(fname)
                 case _:
-                    raise RuntimeError(f'unsupported file extension "{ext}"')
+                    raise RuntimeError(f'unsupported file extension "{fname.suffix}"')
         except EleanorException:
             raise
         except Exception as e:

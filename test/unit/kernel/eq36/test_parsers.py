@@ -85,7 +85,7 @@ class TestEq36Parsers(TestCase):
         """
         Ensure OutputParser3 wraps missing file errors in EleanorKernelException with code.
         """
-        with mock.patch("builtins.open", side_effect=FileNotFoundError("missing")):
+        with mock.patch.object(Path, "open", side_effect=FileNotFoundError("missing")):
             with self.assertRaises(EleanorKernelException) as cm:
                 OutputParser3("missing.3o")
         self.assertEqual(cm.exception.code, RunCode.NO_3O_FILE)
@@ -266,7 +266,7 @@ class TestEq36Parsers(TestCase):
         """
         Ensure OutputParser6 wraps missing-file errors in EleanorKernelException with NO_6O_FILE code.
         """
-        with mock.patch("builtins.open", side_effect=FileNotFoundError("missing")):
+        with mock.patch.object(Path, "open", side_effect=FileNotFoundError("missing")):
             with self.assertRaises(EleanorKernelException) as cm:
                 OutputParser6("missing.6o")
         self.assertEqual(cm.exception.code, RunCode.NO_6O_FILE)

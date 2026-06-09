@@ -1,9 +1,8 @@
 import io
-import os
 import sys
 import zipfile
 from datetime import datetime
-from os.path import join
+from pathlib import Path
 from tempfile import TemporaryDirectory
 from traceback import print_exception
 from typing import Unpack
@@ -103,7 +102,7 @@ class Runner:
                     vs_point.exit_code = 0
                 except Exception as e:
                     self.kernel.copy_data(vs_point)
-                    with open("traceback.txt", "w") as file:
+                    with Path("traceback.txt").open("w") as file:
                         print_exception(e, file=file)
                     if verbose:
                         print_exception(e, file=sys.stderr)
@@ -125,8 +124,8 @@ class Runner:
         try:
             buffer = io.BytesIO()
             with zipfile.ZipFile(buffer, "w", compression=zipfile.ZIP_BZIP2, allowZip64=True, compresslevel=9) as zip:
-                for filename in os.listdir(dir):
-                    zip.write(join(dir, filename), filename)
+                for filename in Path(dir).iterdir():
+                    zip.write(filename, filename.name)
             return vs.Scratch(zip=buffer.getvalue())
         except Exception:
             return vs.Scratch(zip=bytes("\0", "ascii"))

@@ -890,7 +890,7 @@ class OutputParser3(OutputParser):
             file = Path("problem.3o")
         try:
             if isinstance(file, (str, Path)):
-                with open(file, "r") as handle:
+                with Path(file).open("r") as handle:
                     super().__init__(handle)
             else:
                 super().__init__(file)
@@ -1110,7 +1110,7 @@ class OutputParser6(OutputParser):
             file = Path("problem.6o")
         try:
             if isinstance(file, (str, Path)):
-                with open(file, "r") as handle:
+                with Path(file).open("r") as handle:
                     super().__init__(handle)
             else:
                 super().__init__(file)

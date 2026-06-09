@@ -1,5 +1,4 @@
 import json
-import os.path
 import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -45,7 +44,7 @@ class Config:
 
     @classmethod
     def from_yaml(cls, fname: StrPath) -> Self:
-        with open(fname, "rb") as handle:
+        with Path(fname).open("rb") as handle:
             raw = cast(dict[str, object], yaml.safe_load(handle))
             return cls.from_dict(raw)
 
@@ -55,7 +54,7 @@ class Config:
 
     @classmethod
     def from_toml(cls, fname: StrPath) -> Self:
-        with open(fname, "rb") as handle:
+        with Path(fname).open("rb") as handle:
             raw = cast(dict[str, object], tomllib.load(handle))
             return cls.from_dict(raw)
 
@@ -65,7 +64,7 @@ class Config:
 
     @classmethod
     def from_json(cls, fname: StrPath) -> Self:
-        with open(fname, "rb") as handle:
+        with Path(fname).open("rb") as handle:
             raw = cast(dict[str, object], json.load(handle))
             return cls.from_dict(raw)
 
@@ -88,8 +87,8 @@ class Config:
     @classmethod
     def from_file(cls, fname: StrPath) -> Self:
         try:
-            _, ext = os.path.splitext(fname)
-            match ext:
+            fname = Path(fname)
+            match fname.suffix:
                 case ".yaml" | ".yml":
                     return cls.from_yaml(fname)
                 case ".toml":
@@ -97,7 +96,7 @@ class Config:
                 case ".json":
                     return cls.from_json(fname)
                 case _:
-                    raise RuntimeError(f'unsupported file extension "{ext}"')
+                    raise RuntimeError(f'unsupported file extension "{fname.suffix}"')
         except Exception as e:
             raise EleanorException(f'failed to parse "{fname}" as yaml, toml or json') from e
 

@@ -58,8 +58,7 @@ def ensure_directory(path: StrPath) -> None:
     :param path: directory path to be created
     :type path: str
     """
-    if not os.path.exists(path):
-        os.makedirs(path)
+    Path(path).mkdir(parents=True, exist_ok=True)
 
 
 class NumberFormat(StrEnum):
@@ -167,7 +166,7 @@ def hash_file(path: StrPath, hasher: HashLike | None = None) -> str:
     """
     if hasher is None:
         hasher = hashlib.sha256()
-    with open(path, "rb") as handle:
+    with Path(path).open("rb") as handle:
         for chunk in iter(lambda: handle.read(4096), b""):
             _ = hasher.update(chunk)
     return hasher.hexdigest()
@@ -190,12 +189,12 @@ def hash_dir(path: StrPath, hasher: HashLike | None = None) -> str:
     if hasher is None:
         hasher = hashlib.sha256()
 
-    contents = [os.path.join(path, f) for f in os.listdir(path)]
+    contents = list(Path(path).iterdir())
 
-    for dir in sorted(filter(os.path.isdir, contents)):
+    for dir in sorted(dir for dir in contents if dir.is_dir()):
         _ = hash_dir(dir, hasher)
 
-    for filename in sorted(filter(os.path.isfile, contents)):
+    for filename in sorted(file for file in contents if file.is_file()):
         _ = hash_file(filename, hasher)
 
     return hasher.hexdigest()

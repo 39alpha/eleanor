@@ -1,5 +1,5 @@
 import io
-import os
+from pathlib import Path
 from typing import LiteralString, TextIO, cast
 from zipfile import ZipFile
 
@@ -54,7 +54,7 @@ def scratch(vs_id: int, outdir: str, config: str, database: str | None) -> None:
     """Dump scratch results to a directory."""
 
     variable_space_id = vs_id
-    directory = outdir
+    directory = Path(outdir)
 
     print(f"Loading {config}")
     cfg = config_from_args(config, database).output
@@ -88,7 +88,7 @@ def scratch(vs_id: int, outdir: str, config: str, database: str | None) -> None:
         if len(result.zip) == 0:
             raise click.ClickException("no data in scratch zip")
 
-        os.makedirs(directory, exist_ok=True)
+        directory.mkdir(parents=True, exist_ok=True)
         ZipFile(io.BytesIO(result.zip)).extractall(path=directory)
     except click.ClickException:
         raise

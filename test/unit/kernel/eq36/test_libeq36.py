@@ -40,10 +40,10 @@ class TestEq36Libeq36(TestCase):
         Ensure supported platforms map to expected shared-library names.
         """
         with mock.patch("platform.system", return_value="Linux"):
-            self.assertTrue(get_libpath().endswith("lib/libeq36.so"))
+            self.assertTrue(str(get_libpath()).endswith("lib/libeq36.so"))
 
         with mock.patch("platform.system", return_value="Darwin"):
-            self.assertTrue(get_libpath().endswith("lib/libeq36.dylib"))
+            self.assertTrue(str(get_libpath()).endswith("lib/libeq36.dylib"))
 
     def test_get_libpath_rejects_unsupported_platforms(self) -> None:
         """

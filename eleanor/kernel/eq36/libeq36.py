@@ -1,5 +1,6 @@
 from ctypes import CDLL, POINTER, byref, c_bool, c_char_p, c_double, c_int, c_long
 from dataclasses import dataclass
+from pathlib import Path
 
 import numpy as np
 
@@ -7,11 +8,10 @@ from eleanor.kernel.exceptions import EleanorKernelException
 from eleanor.typing import Array1D, Array2D, StrPath
 
 
-def get_libpath() -> str:
+def get_libpath() -> Path:
     """
-    Get the library path of the the distributed inform binary.
+    Get the library path of the the distributed libeq36 binary.
     """
-    from os.path import dirname, join, realpath
     from platform import system
 
     platform_name = system()
@@ -23,7 +23,7 @@ def get_libpath() -> str:
         case _:
             raise RuntimeError(f"{platform_name} is not supported")
 
-    return realpath(join(dirname(__file__), "lib", library))
+    return (Path(__file__).parent / "lib" / library).resolve()
 
 
 libeq36 = CDLL(get_libpath())

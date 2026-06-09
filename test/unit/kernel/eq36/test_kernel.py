@@ -1124,10 +1124,10 @@ class TestEq36Kernel(TestCase):
         )
         handle = _NamedStringIO("wrapped.6i")
 
-        with mock.patch("builtins.open", return_value=handle) as open_mock:
+        with mock.patch.object(Path, "open", return_value=handle) as open_mock:
             path = kernel.write_eq6_input(point, file="wrapped.6i")
 
-        open_mock.assert_called_once_with("wrapped.6i", "w")
+        open_mock.assert_called_once_with("w")
         self.assertEqual(path, "wrapped.6i")
 
     def test_write_eq6_input_none_file_defaults_to_problem_6i(self) -> None:
@@ -1141,11 +1141,11 @@ class TestEq36Kernel(TestCase):
         )
         handle = _NamedStringIO("problem.6i")
 
-        with mock.patch("builtins.open", return_value=handle) as open_mock:
+        with mock.patch.object(Path, "open", return_value=handle) as open_mock:
             path = kernel.write_eq6_input(point, file=None)
 
         self.assertEqual(path, "problem.6i")
-        open_mock.assert_called_once_with(Path("problem.6i"), "w")
+        open_mock.assert_called_once_with("w")
 
     def test_write_eq3_input_string_path_wrapper_and_positive_h_branch(self) -> None:
         """
@@ -1176,14 +1176,12 @@ class TestEq36Kernel(TestCase):
 
         handle = _NamedStringIO("wrapped.3i")
 
-        with mock.patch(
-            "builtins.open", return_value=contextlib.nullcontext(handle)
-        ) as open_mock:
+        with mock.patch.object(Path, "open", return_value=contextlib.nullcontext(handle)) as open_mock:
             path = kernel.write_eq3_input(point, data1=data1, file="wrapped.3i")
 
         output = handle.getvalue()
         self.assertEqual(path, "wrapped.3i")
-        open_mock.assert_called_once_with("wrapped.3i", "w")
+        open_mock.assert_called_once_with("w")
         self.assertIn("irdxc3=   1", output)
         self.assertIn("uredox= pe", output)
         self.assertIn("switch with= NaOH(aq)", output)
@@ -1205,11 +1203,11 @@ class TestEq36Kernel(TestCase):
         data1.get_basis_species.return_value = None
         handle = _NamedStringIO("problem.3i")
 
-        with mock.patch("builtins.open", return_value=handle) as open_mock:
+        with mock.patch.object(Path, "open", return_value=handle) as open_mock:
             path = kernel.write_eq3_input(point, data1=data1, file=None)
 
         self.assertEqual(path, "problem.3i")
-        open_mock.assert_called_once_with(Path("problem.3i"), "w")
+        open_mock.assert_called_once_with("w")
 
     def test_write_eq6_input_suppression_branches_for_none_named_and_solid_solution_types(
         self,

@@ -23,7 +23,7 @@ from eleanor.kernel.exceptions import EleanorKernelError
 from eleanor.kernel.interface import AbstractKernel
 from eleanor.order import Order
 from eleanor.typing import EleanorKwargs, StrPath
-from eleanor.util import NumberFormat, guard_is_instance, guard_is_path
+from eleanor.util import NumberFormat, guard_is_instance
 
 
 class Eq36Kernel(AbstractKernel):
@@ -93,7 +93,9 @@ class Eq36Kernel(AbstractKernel):
             raise EleanorError(msg)
 
         data1_dir, *_ = args
-        guard_is_path(data1_dir, "data1_dir argument")
+        if not isinstance(data1_dir, (str, Path)):
+            msg = f"data1_dir argument must be a str or path; got {type(data1_dir).__name__}"
+            raise EleanorError(msg)
 
         return {"data1_dir": data1_dir}
 

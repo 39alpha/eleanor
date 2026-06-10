@@ -13,7 +13,7 @@ from eleanor.query.compiler import (
     CompiledQuery,
 )
 from eleanor.query.errors import MultipleMatchError, PathMissError
-from eleanor.query.path import Path, path_to_string
+from eleanor.query.path import MetaSegment, Path, path_to_string
 
 _MISS = object()
 _MISSING_ATTR = object()
@@ -142,34 +142,45 @@ def _walk_row_scope(
         )
 
 
+def _evaluate_meta_accessor(
+    meta: MetaSegment,
+    head_name: str,
+    meta_binding: Mapping[str, IterPosition],
+) -> tuple[object, bool, str]:
+    # Spec §7.1: meta-accessor terminal. The validator guarantees the
+    # head alias is iter-bound, so ``meta_binding`` always has an entry
+    # at runtime; the ``get`` lookup below mirrors the head ``binding``
+    # lookup above for parallelism.
+    position = meta_binding.get(head_name)
+    if position is None:
+        return None, True, head_name
+    if meta.name == "index":
+        return position.index, False, ""
+    # Validator guarantees ``@key`` is only on dict-iter aliases, so
+    # ``position.key`` is set whenever this branch executes.
+    return position.key, False, ""
+
+
 def _evaluate_column_path(
     compiled_column: CompiledColumn,
     binding: Mapping[str, object],
     meta_binding: Mapping[str, IterPosition],
 ) -> tuple[object, bool, str]:
+    # Root
     compiled_path = compiled_column.compiled_path
     if len(compiled_path.segments) == 0:
         return None, True, "<root>"
 
+    # Head Miss
     head = compiled_path.segments[0]
     start = binding.get(head.name, _MISS)
     if start is _MISS:
         return None, True, head.name
 
+    # Meta Accessor
     meta = compiled_path.path.meta
     if meta is not None:
-        # Spec §7.1: meta-accessor terminal. The validator guarantees the
-        # head alias is iter-bound, so ``meta_binding`` always has an entry
-        # at runtime; the ``get`` lookup below mirrors the head ``binding``
-        # lookup above for parallelism.
-        position = meta_binding.get(head.name)
-        if position is None:
-            return None, True, head.name
-        if meta.name == "index":
-            return position.index, False, ""
-        # Validator guarantees ``@key`` is only on dict-iter aliases, so
-        # ``position.key`` is set whenever this branch executes.
-        return position.key, False, ""
+        return _evaluate_meta_accessor(meta, head.name, meta_binding)
 
     values: list[object] = [start]
     path_text = path_to_string(compiled_path.path)

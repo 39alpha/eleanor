@@ -29,27 +29,24 @@ def _or_neg_inf(value: np.float64 | None) -> np.float64:
 
 def _coerce_property_types(value: object) -> object:
     "Recursively coerce numpy scalars, ndarrays, enums and tuples to JSON-native equivalents."
-    if isinstance(value, np.floating):
-        return value.item()
-    if isinstance(value, np.integer):
-        return value.item()
-    if isinstance(value, np.ndarray):
-        return [_coerce_property_types(v) for v in cast(list[object], value.tolist())]
-    if isinstance(value, Path):
-        return str(value)
-    if isinstance(value, dict):
-        return {str(k): _coerce_property_types(v) for k, v in cast(dict[object, object], value).items()}
-    if isinstance(value, (list, tuple)):
+    result: object = value
+    if isinstance(value, (np.floating, np.integer)):
+        result = value.item()
+    elif isinstance(value, np.ndarray):
+        result = [_coerce_property_types(v) for v in cast(list[object], value.tolist())]
+    elif isinstance(value, Path):
+        result = str(value)
+    elif isinstance(value, dict):
+        result = {str(k): _coerce_property_types(v) for k, v in cast(dict[object, object], value).items()}
+    elif isinstance(value, (list, tuple)):
         # Tuples are not a JSON type, so we coerce to a list
-        return [_coerce_property_types(v) for v in cast(list[object], value)]
-    if isinstance(value, StrEnum):
-        return value.value
-    if isinstance(value, IntEnum):
-        return value.value
-    if isinstance(value, Enum):
+        result = [_coerce_property_types(v) for v in cast(list[object], value)]
+    elif isinstance(value, (StrEnum, IntEnum)):
+        result = value.value
+    elif isinstance(value, Enum):
         msg = f"cannot serialize {type(value).__name__}: only IntEnum/StrEnum are supported"
         raise EleanorException(msg)
-    return value
+    return result
 
 
 def normalize_dict(value: object, field_name: str) -> dict[str, object]:

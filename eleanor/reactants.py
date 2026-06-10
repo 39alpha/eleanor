@@ -50,27 +50,26 @@ class AbstractReactant(ABC):
         # typed as ``@classmethod`` + ``@override`` without triggering a
         # method-override-compatibility error from the type checker.
         _ = cls
-        reactant_type = cast(object, ReactantType(require_str(raw.get("type"), "reactant.type")))
-        match reactant_type:
-            case ReactantType.MINERAL:
-                return MineralReactant.from_dict(raw, name)
-            case ReactantType.AQUEOUS:
-                return AqueousReactant.from_dict(raw, name)
-            case ReactantType.GAS:
-                return GasReactant.from_dict(raw, name)
-            case ReactantType.FIXED_GAS:
-                return FixedGasReactant.from_dict(raw, name)
-            case ReactantType.SPECIAL:
-                return SpecialReactant.from_dict(raw, name)
-            case ReactantType.ELEMENT:
-                return ElementReactant.from_dict(raw, name)
-            case ReactantType.SOLID_SOLUTION:
-                return SolidSolutionReactant.from_dict(raw, name)
-            case ReactantType.COMBINED:
-                return CombinedReactant.from_dict(raw, name)
-            case _:
-                msg = f'unexpected reactant type "{reactant_type}"'
-                raise EleanorException(msg)
+
+        FACTORIES = {
+            ReactantType.MINERAL: MineralReactant.from_dict,
+            ReactantType.AQUEOUS: AqueousReactant.from_dict,
+            ReactantType.GAS: GasReactant.from_dict,
+            ReactantType.FIXED_GAS: FixedGasReactant.from_dict,
+            ReactantType.SPECIAL: SpecialReactant.from_dict,
+            ReactantType.ELEMENT: ElementReactant.from_dict,
+            ReactantType.SOLID_SOLUTION: SolidSolutionReactant.from_dict,
+            ReactantType.COMBINED: CombinedReactant.from_dict,
+        }
+
+        reactant_type = ReactantType(require_str(raw.get("type"), "reactant.type"))
+
+        reactant = FACTORIES.get(reactant_type)
+        if reactant is None:
+            msg = f'unexpected reactant type "{reactant_type}"'
+            raise EleanorException(msg)
+
+        return reactant(raw, name)
 
     @abstractmethod
     def volume(self) -> np.float64:

@@ -122,7 +122,6 @@ extend-select = [
 ignore = [
   "COM812",  # trailing commas
   "E501",    # line-length
-  "PLR0911", # (TBD) too many return statements
   "PLR0912", # (TBD) too many branches
   "PLR0913", # (TBD) too many arguments
   "PLR0915", # (TBD) too many statements

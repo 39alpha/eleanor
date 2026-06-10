@@ -126,7 +126,7 @@ def bulkload(action: str, yes: bool, config: str, database: str | None) -> None:
     if action == "drop":
         if not yes:
             _ = click.confirm(
-                f'This will drop all secondary indexes and constraints on "{settings.database.database}". Continue?',
+                f"This will drop all secondary indexes and constraints on {settings.database.database!r}. Continue?",
                 abort=True,
             )
         drop_indexes(settings.database)

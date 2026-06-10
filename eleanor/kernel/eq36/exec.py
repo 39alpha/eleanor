@@ -33,7 +33,7 @@ def error_guard(output: bytes | str, cmd: str, code: int, fname: str | None = No
             if re.match("^\\s*$", message) is None:
                 if fname is None:
                     raise Eq36Exception(message, code=code)
-                msg = f'{message} in file "{fname}"'
+                msg = f"{message} in file {fname!r}"
                 raise Eq36Exception(msg, code=code)
 
 

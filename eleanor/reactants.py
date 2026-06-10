@@ -66,7 +66,7 @@ class AbstractReactant(ABC):
 
         reactant = FACTORIES.get(reactant_type)
         if reactant is None:
-            msg = f'unexpected reactant type "{reactant_type}"'
+            msg = f"unexpected reactant type {str(reactant_type)!r}"
             raise EleanorException(msg)
 
         return reactant(raw, name)
@@ -130,7 +130,7 @@ class MineralReactant(TitratedReactant):
         titration_rate = cast(ParameterOrSource, raw.get("titration_rate", 1.0))
         reactant_type = ReactantType(require_str(raw.get("type"), "reactant.type"))
         if reactant_type != ReactantType.MINERAL:
-            msg = f'cannot create a mineral reactant from config of type "{reactant_type}"'
+            msg = f"cannot create a mineral reactant from config of type {str(reactant_type)!r}"
             raise EleanorException(msg)
 
         return cls(name=name, amount=amount, titration_rate=titration_rate)
@@ -165,7 +165,7 @@ class AqueousReactant(TitratedReactant):
         titration_rate = cast(ParameterOrSource, raw.get("titration_rate", 1.0))
         reactant_type = ReactantType(require_str(raw.get("type"), "reactant.type"))
         if reactant_type != ReactantType.AQUEOUS:
-            msg = f'cannot create an aqueous reactant from config of type "{reactant_type}"'
+            msg = f"cannot create an aqueous reactant from config of type {str(reactant_type)!r}"
             raise EleanorException(msg)
         return cls(name=name, amount=amount, titration_rate=titration_rate)
 
@@ -199,7 +199,7 @@ class GasReactant(TitratedReactant):
         titration_rate = cast(ParameterOrSource, raw.get("titration_rate", 1.0))
         reactant_type = ReactantType(require_str(raw.get("type"), "reactant.type"))
         if reactant_type != ReactantType.GAS:
-            msg = f'cannot create a gas reactant from config of type "{reactant_type}"'
+            msg = f"cannot create a gas reactant from config of type {str(reactant_type)!r}"
             raise EleanorException(msg)
         return cls(name=name, amount=amount, titration_rate=titration_rate)
 
@@ -234,7 +234,7 @@ class FixedGasReactant(AbstractReactant):
 
         reactant_type = ReactantType(require_str(raw.get("type"), "reactant.type"))
         if reactant_type != ReactantType.FIXED_GAS:
-            msg = f'cannot create a fixed gas reactant from config of type "{reactant_type}"'
+            msg = f"cannot create a fixed gas reactant from config of type {str(reactant_type)!r}"
             raise EleanorException(msg)
 
         amount = cast(ParameterOrSource, require(raw.get("amount"), "reactant.amount"))
@@ -288,7 +288,7 @@ class SpecialReactant(TitratedReactant):
         titration_rate = cast(ParameterOrSource, raw.get("titration_rate", 1.0))
         reactant_type = ReactantType(require_str(raw.get("type"), "reactant.type"))
         if reactant_type != ReactantType.SPECIAL:
-            msg = f'cannot create a special reactant from config of type "{reactant_type}"'
+            msg = f"cannot create a special reactant from config of type {str(reactant_type)!r}"
             raise EleanorException(msg)
 
         composition: dict[str, int] = require_dict(raw.get("composition"), "special reactant composition")
@@ -325,7 +325,7 @@ class ElementReactant(TitratedReactant):
         titration_rate = cast(ParameterOrSource, raw.get("titration_rate", 1.0))
         reactant_type = ReactantType(require_str(raw.get("type"), "reactant.type"))
         if reactant_type != ReactantType.ELEMENT:
-            msg = f'cannot create a element reactant from config of type "{reactant_type}"'
+            msg = f"cannot create a element reactant from config of type {str(reactant_type)!r}"
             raise EleanorException(msg)
         return cls(name=name, amount=amount, titration_rate=titration_rate)
 
@@ -352,15 +352,15 @@ class SolidSolutionReactant(TitratedReactant):
         fraction = np.float64(0.0)
         for em_name, param in end_members.items():
             if not isinstance(param, ValueParameter):
-                msg = f'solid solution "{self.name}" end member "{em_name}" has a non-value parameter; list and range parameters are not supported yet'
+                msg = f"solid solution {self.name!r} end member {em_name!r} has a non-value parameter; list and range parameters are not supported yet"
                 raise EleanorException(msg)
             if not (0.0 <= param.value <= 1.0):
-                msg = f'solid solution "{self.name}" end member "{em_name}" has a value {param.value}; must be between 0 and 1 inclusive'
+                msg = f"solid solution {self.name!r} end member {em_name!r} has a value {param.value}; must be between 0 and 1 inclusive"
                 raise EleanorException(msg)
             fraction += param.value
 
         if not np.isclose(fraction, 1.0):
-            msg = f'solid solution "{self.name}" end member fractions sum to {fraction}; must sum to 1.0'
+            msg = f"solid solution {self.name!r} end member fractions sum to {fraction}; must sum to 1.0"
             raise EleanorException(msg)
 
         self.end_members = cast(dict[str, ValueParameter], end_members)
@@ -383,7 +383,7 @@ class SolidSolutionReactant(TitratedReactant):
         titration_rate = cast(ParameterOrSource, raw.get("titration_rate", 1.0))
         reactant_type = ReactantType(require_str(raw.get("type"), "reactant.type"))
         if reactant_type != ReactantType.SOLID_SOLUTION:
-            msg = f'cannot create a solid solution reactant from config of type "{reactant_type}"'
+            msg = f"cannot create a solid solution reactant from config of type {str(reactant_type)!r}"
             raise EleanorException(msg)
 
         end_members: dict[str, ParameterOrSource] = require_dict(
@@ -436,7 +436,7 @@ class CombinedReactantComponent:
         self.type = type
         fraction = load_parameter(fraction)
         if not isinstance(fraction, ValueParameter):
-            msg = f'combined component "{self.name}" has a non-value parameter; list and range parameters are not supported yet'
+            msg = f"combined component {self.name!r} has a non-value parameter; list and range parameters are not supported yet"
             raise EleanorException(msg)
         self.fraction = fraction
         self.relative_rate = None if relative_rate is None else load_parameter(relative_rate)
@@ -446,10 +446,10 @@ class CombinedReactantComponent:
         match self.type:
             case ReactantType.SPECIAL:
                 if self.composition is None:
-                    msg = f'special combined component "{self.name}" must have a composition'
+                    msg = f"special combined component {self.name!r} must have a composition"
                     raise EleanorException(msg)
                 if self.end_members is not None:
-                    msg = f'special combined component "{self.name}" cannot have end_members'
+                    msg = f"special combined component {self.name!r} cannot have end_members"
                     raise EleanorException(msg)
 
                 if len(self.composition) == 0:
@@ -463,40 +463,40 @@ class CombinedReactantComponent:
 
             case ReactantType.SOLID_SOLUTION:
                 if self.composition is not None:
-                    msg = f'solid solution combined component "{self.name}" cannot have a composition'
+                    msg = f"solid solution combined component {self.name!r} cannot have a composition"
                     raise EleanorException(msg)
                 if self.end_members is None or len(self.end_members) == 0:
-                    msg = f'solid solution combined component "{self.name}" must have end_members'
+                    msg = f"solid solution combined component {self.name!r} must have end_members"
                     raise EleanorException(msg)
 
                 em_fraction = 0.0
                 for em_name, param in self.end_members.items():
                     if not isinstance(param, ValueParameter):
                         msg = (
-                            f'combined component "{self.name}" end member "{em_name}" '
-                            + "has a non-value parameter; list and range parameters are not supported yet",
+                            f"combined component {self.name!r} end member {em_name!r} "
+                            + "has a non-value parameter; list and range parameters are not supported yet"
                         )
                         raise EleanorException(msg)
                     if not (0.0 <= param.value <= 1.0):
                         msg = (
-                            f'combined component "{self.name}" end member "{em_name}" has a value {param.value}; '
-                            + "must be between 0 and 1 inclusive",
+                            f"combined component {self.name!r} end member {em_name!r} has a value {param.value}; "
+                            + "must be between 0 and 1 inclusive"
                         )
                         raise EleanorException(msg)
                     em_fraction += param.value
 
                 if em_fraction != 1.0:
                     msg = (
-                        f'combined component "{self.name}" end member fractions sum to {em_fraction}; '
-                        + "must sum to 1.0",
+                        f"combined component {self.name!r} end member fractions sum to {em_fraction}; "
+                        + "must sum to 1.0"
                     )
                     raise EleanorException(msg)
             case _:
                 if self.composition is not None:
-                    msg = f'"{self.type.value}" combined component "{self.name}" cannot have a composition'
+                    msg = f"{self.type.value!r} combined component {self.name!r} cannot have a composition"
                     raise EleanorException(msg)
                 if self.end_members is not None:
-                    msg = f'"{self.type.value}" combined component "{self.name}" cannot have end_members'
+                    msg = f"{self.type.value!r} combined component {self.name!r} cannot have end_members"
                     raise EleanorException(msg)
 
     def parameters(self) -> list[Parameter]:
@@ -514,21 +514,21 @@ class CombinedReactantComponent:
         else:
             name = require_str(name, "name argument")
 
-        component_type = ReactantType(require_str(raw.get("type"), f'combined component "{name}".type'))
+        component_type = ReactantType(require_str(raw.get("type"), f"combined component {name!r}.type"))
         if component_type in {ReactantType.FIXED_GAS, ReactantType.COMBINED}:
             msg = (
-                f'combined component "{name}" type "{component_type}" is not supported; '
-                + "expected a titrated reactant type",
+                f"combined component {name!r} type {str(component_type)!r} is not supported; "
+                + "expected a titrated reactant type"
             )
             raise EleanorException(msg)
 
-        fraction = require_float(raw.get("fraction"), f'combined component "{name}" fraction specification')
+        fraction = require_float(raw.get("fraction"), f"combined component {name!r} fraction specification")
 
         if fraction < 0.0 or fraction > 1.0:
-            msg = f'combined component "{name}" has a value {fraction}; must be between 0 and 1 inclusive'
+            msg = f"combined component {name!r} has a value {fraction}; must be between 0 and 1 inclusive"
             raise EleanorException(msg)
         if np.isclose(fraction, 0.0) or np.isclose(fraction, 1.0):
-            msg = f'combined component "{name}" has a value {fraction}; that might be a mistake'
+            msg = f"combined component {name!r} has a value {fraction}; that might be a mistake"
             warnings.warn(msg, EleanorWarning, stacklevel=2)
 
         relative_rate = cast(ParameterOrSource | None, raw.get("relative_rate"))
@@ -538,12 +538,12 @@ class CombinedReactantComponent:
         if component_type == ReactantType.SPECIAL:
             composition = require_dict(
                 raw.get("composition"),
-                f'combined component "{name}" composition specification',
+                f"combined component {name!r} composition specification",
             )
         elif component_type == ReactantType.SOLID_SOLUTION:
             end_members = require_dict(
                 raw.get("end_members"),
-                f'combined component "{name}" end_members',
+                f"combined component {name!r} end_members",
             )
 
         return cls(
@@ -583,7 +583,7 @@ class CombinedReactant(TitratedReactant):
 
         fraction = mapreduce(lambda c: c.fraction.value, operator.add, components.values(), 0.0)
         if not np.isclose(fraction, 1.0):
-            msg = f'combined reactant "{self.name}" component fractions sum to {fraction}; must sum to 1.0'
+            msg = f"combined reactant {self.name!r} component fractions sum to {fraction}; must sum to 1.0"
             raise EleanorException(msg)
 
     @property
@@ -607,7 +607,7 @@ class CombinedReactant(TitratedReactant):
         titration_rate = cast(ParameterOrSource, raw.get("titration_rate", 1.0))
         reactant_type = ReactantType(require_str(raw.get("type"), "reactant.type"))
         if reactant_type != ReactantType.COMBINED:
-            msg = f'cannot create a combined reactant from config of type "{reactant_type}"'
+            msg = f"cannot create a combined reactant from config of type {str(reactant_type)!r}"
             raise EleanorException(msg)
 
         typed_components: dict[str, dict[str, object]] = require_dict(

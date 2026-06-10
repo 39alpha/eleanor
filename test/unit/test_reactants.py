@@ -525,7 +525,7 @@ class TestReactants(TestCase):
         """
         with self.assertRaisesRegex(
             EleanorException,
-            'cannot create a combined reactant from config of type "mineral"',
+            "cannot create a combined reactant from config of type 'mineral'",
         ):
             CombinedReactant.from_dict(
                 {

@@ -120,16 +120,12 @@ class SolidSolution:
         missing = set(self.end_members) - set(mole_fractions)
         if missing:
             msg = f"missing mole fractions for end member(s) for solid solution {self.name!r}: {sorted(missing)}"
-            raise KeyError(
-                msg,
-            )
+            raise KeyError(msg)
 
         for end_member, fraction in mole_fractions.items():
             if fraction < 0.0:
                 msg = f"mole fraction for solid solution {self.name!r} end member {end_member!r} is negative"
-                raise ValueError(
-                    msg,
-                )
+                raise ValueError(msg)
 
         total = sum(mole_fractions.values())
         if total <= 0:
@@ -515,9 +511,7 @@ class Data1:
             if solid_solution in solid_solutions:
                 if end_member in solid_solutions[solid_solution].end_members:
                     msg = f"solid solution ({solid_solution}) end member ({end_member}) occurs multiple times"
-                    raise RuntimeError(
-                        msg,
-                    )
+                    raise RuntimeError(msg)
                 solid_solutions[solid_solution].end_members[end_member] = end_member_mass
             else:
                 solid_solutions[solid_solution] = SolidSolution(

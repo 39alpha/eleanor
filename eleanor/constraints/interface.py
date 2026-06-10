@@ -74,7 +74,7 @@ def resolve_parameter(order: Order, path_str: str) -> Parameter:
     for segment in segments:
         next_value = getattr(current, segment.name, missing)
         if next_value is missing:
-            msg = f"cannot resolve '{segment.name}' on {type(current).__name__} in path '{path_str}'"
+            msg = f"cannot resolve {segment.name!r} on {type(current).__name__} in path {path_str!r}"
             raise EleanorException(msg)
         current = cast(object, next_value)
 
@@ -94,7 +94,7 @@ def resolve_parameter(order: Order, path_str: str) -> Parameter:
                     msg = f"dict filters must use key=<value>: {path_str}"
                     raise EleanorException(msg)
                 if value not in current_dict:
-                    msg = f"key '{value}' not found in dict for path '{path_str}'"
+                    msg = f"key {value!r} not found in dict for path {path_str!r}"
                     raise EleanorException(msg)
                 current = current_dict[value]
             elif isinstance(current, list):
@@ -105,15 +105,15 @@ def resolve_parameter(order: Order, path_str: str) -> Parameter:
                         found = item
                         break
                 if found is None:
-                    msg = f"{pred.field}={value} not found in list for path '{path_str}'"
+                    msg = f"{pred.field}={value} not found in list for path {path_str!r}"
                     raise EleanorException(msg)
                 current = found
             else:
-                msg = f"cannot apply filter to {type(current).__name__} in path '{path_str}'"
+                msg = f"cannot apply filter to {type(current).__name__} in path {path_str!r}"
                 raise EleanorException(msg)
 
     if not isinstance(current, Parameter):
-        msg = f"path '{path_str}' does not resolve to a Parameter (got {type(current).__name__})"
+        msg = f"path {path_str!r} does not resolve to a Parameter (got {type(current).__name__})"
         raise EleanorException(msg)
     return current
 
@@ -236,7 +236,7 @@ class LinearConstraint(AbstractConstraint):
             for term in self._independent_terms:
                 term_param = valuation[registry.id(term.parameter)]
                 if not isinstance(term_param, ValueParameter):
-                    msg = f"parameter '{term.label()}' is not resolved"
+                    msg = f"parameter {term.label()!r} is not resolved"
                     raise EleanorException(msg)
                 lhs = np.float64(lhs + term.coefficient * term.transform.forward(term_param.value))
             if np.abs(lhs - c) > self.tolerance:
@@ -248,7 +248,7 @@ class LinearConstraint(AbstractConstraint):
         for term in self._independent_terms:
             term_param = valuation[registry.id(term.parameter)]
             if not isinstance(term_param, ValueParameter):
-                msg = f"independent parameter '{term.label()}' is not resolved"
+                msg = f"independent parameter {term.label()!r} is not resolved"
                 raise EleanorException(msg)
             rhs = np.float64(rhs - term.coefficient * term.transform.forward(term_param.value))
 
@@ -260,7 +260,7 @@ class LinearConstraint(AbstractConstraint):
         dep_value = dep.transform.inverse(dep_transformed)
         fixed = dep.parameter.fix(dep_value)
         if not dep.parameter.in_domain(fixed):
-            msg = f"linear constraint solved '{dep.label()}' to {dep_value}, which is outside its admissible domain"
+            msg = f"linear constraint solved {dep.label()!r} to {dep_value}, which is outside its admissible domain"
             raise EleanorException(msg)
         return {registry.id(dep.parameter): fixed}
 
@@ -303,7 +303,7 @@ class LinearConstraint(AbstractConstraint):
                 transform = Transform(transform_str)
             except ValueError as exc:
                 msg = (
-                    f"constraint term {i}: unknown transform '{transform_str}'; must be one of: identity, log10, pow10"
+                    f"constraint term {i}: unknown transform {transform_str!r}; must be one of: identity, log10, pow10"
                 )
                 raise EleanorException(msg) from exc
 

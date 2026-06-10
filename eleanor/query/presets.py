@@ -39,10 +39,7 @@ def _preset_run_metadata(scope_table: AmbientScopeTable, args: Mapping[str, obje
     """
     if args:
         msg = f"preset 'run_metadata' takes no arguments (got: {sorted(args)})"
-        raise ParseError(
-            msg,
-            position=None,
-        )
+        raise ParseError(msg, position=None)
     if "order" not in scope_table:
         # The spec guarantees ``order`` is always bound (§7); guard defensively
         # so a malformed scope table surfaces as ``PresetScopeMissing`` rather
@@ -72,10 +69,7 @@ def _preset_es_scalars(scope_table: AmbientScopeTable, args: Mapping[str, object
         raise ParseError(msg, position=None)
     if "include" in args and "exclude" in args:
         msg = "preset 'es_scalars' include/exclude are mutually exclusive"
-        raise ParseError(
-            msg,
-            position=None,
-        )
+        raise ParseError(msg, position=None)
 
     include = _coerce_name_list(args["include"], "es_scalars", "include") if "include" in args else None
     exclude = _coerce_name_list(args["exclude"], "es_scalars", "exclude") if "exclude" in args else None
@@ -87,10 +81,7 @@ def _preset_es_scalars(scope_table: AmbientScopeTable, args: Mapping[str, object
         # dataclass node. Surface a clean error if a caller has wired up a
         # non-canonical scope table that breaks this assumption.
         msg = "preset 'es_scalars' requires 'es' to refer to a dataclass scope"
-        raise ParseError(
-            msg,
-            position=None,
-        )
+        raise ParseError(msg, position=None)
 
     leaves = leaf_fields(scope.type_kind.dataclass_type)
     available = [leaf.name for leaf in leaves]
@@ -134,16 +125,10 @@ def _preset_aqueous_species_table(scope_table: AmbientScopeTable, args: Mapping[
     fields = _coerce_name_list(args["fields"], "aqueous_species_table", "fields")
     if not names:
         msg = "preset 'aqueous_species_table' 'names' must be a non-empty list"
-        raise ParseError(
-            msg,
-            position=None,
-        )
+        raise ParseError(msg, position=None)
     if not fields:
         msg = "preset 'aqueous_species_table' 'fields' must be a non-empty list"
-        raise ParseError(
-            msg,
-            position=None,
-        )
+        raise ParseError(msg, position=None)
 
     aqs_leaves = [leaf.name for leaf in leaf_fields(AqueousSpecies)]
     available_text = ", ".join(aqs_leaves)

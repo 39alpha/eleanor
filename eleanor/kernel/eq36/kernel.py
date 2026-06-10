@@ -139,9 +139,7 @@ class Eq36Kernel(AbstractKernel):
     def resolve_kernel_settings(self, vs_point: vs.Point) -> Eq36Settings:
         if not isinstance(vs_point.kernel.settings, Eq36Settings):
             msg = f"the provided problem.kernel has type {type(vs_point.kernel.settings)} expected {Eq36Settings}"
-            raise TypeError(
-                msg,
-            )
+            raise TypeError(msg)
 
         settings = vs_point.kernel.settings
 
@@ -303,7 +301,7 @@ class Eq36Kernel(AbstractKernel):
             use_other_species = 0
             fO2 = vs_point.get_species("O2(g)")
             if fO2 is None:
-                msg = f'cannot find redox species "{settings.redox_species}"'
+                msg = f"cannot find redox species {settings.redox_species!r}"
                 raise EleanorKernelException(msg)
 
             value = NumberFormat.SCIENTIFIC.fmt(fO2.value, precision=5)

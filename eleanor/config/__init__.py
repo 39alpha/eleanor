@@ -97,10 +97,10 @@ class Config:
                 case ".json":
                     return cls.from_json(fname)
                 case _:
-                    msg = f'unsupported file extension "{fname.suffix}"'
+                    msg = f"unsupported file extension {fname.suffix!r}"
                     raise RuntimeError(msg)
         except Exception as e:
-            msg = f'failed to parse "{fname}" as yaml, toml or json'
+            msg = f"failed to parse {str(fname)!r} as yaml, toml or json"
             raise EleanorException(msg) from e
 
 

@@ -284,10 +284,7 @@ def parse_row_scope(text: str) -> Identifier | Path:
     parsed = parse_path(text)
     if parsed.meta is not None:
         msg = "meta-accessors (@index, @key) are not valid in row_scope position"
-        raise ParseError(
-            msg,
-            position=None,
-        )
+        raise ParseError(msg, position=None)
     if len(parsed.segments) == 1 and len(parsed.segments[0].filters) == 0:
         return Identifier(parsed.segments[0].name)
     return parsed

@@ -99,7 +99,7 @@ def run(
             executors = available_executors()
             if executor not in executors:
                 choices = ", ".join(sorted(executors))
-                msg = f'unsupported executor "{executor}"; choose from {choices}'
+                msg = f"unsupported executor {executor!r}; choose from {choices}"
                 raise EleanorException(msg)
 
         if chunks_per_worker is None:

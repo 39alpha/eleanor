@@ -32,7 +32,7 @@ class TestEq36Exec(TestCase):
                 b"Error - bad file thing", "eq6", RunCode.EQ6_ERROR, fname="sample.6i"
             )
         self.assertEqual(cm2.exception.code, RunCode.EQ6_ERROR)
-        self.assertIn('in file "sample.6i"', str(cm2.exception))
+        self.assertIn("in file 'sample.6i'", str(cm2.exception))
 
     def test_run_success(self) -> None:
         """

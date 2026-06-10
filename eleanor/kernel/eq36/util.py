@@ -38,7 +38,7 @@ def field_as_float(field: str) -> np.float64:
         except ValueError:
             pass
 
-    msg = f'failed to read "{field}" as float'
+    msg = f"failed to read {field!r} as float"
     raise EleanorKernelException(msg, code=RunCode.PARSER_ERROR)
 
 

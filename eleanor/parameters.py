@@ -154,7 +154,7 @@ class RangeParameter(Parameter):
     @override
     def in_domain(self, parameter: Parameter) -> bool:
         if isinstance(parameter, ValueParameter):
-            return bool(self.min <= parameter.value and parameter.value <= self.max)
+            return bool(self.min <= parameter.value <= self.max)
         if isinstance(parameter, RangeParameter):
             return all(self.in_domain(b) for b in parameter.bounds)
         if isinstance(parameter, ListParameter):
@@ -302,9 +302,9 @@ class NormalParameter(Parameter):
             b = (self.max - self.mean) / self.stddev
 
             phi_alpha = _as_float(cast(object, norm.cdf(a)))
-            Z = _as_float(cast(object, norm.cdf(b))) - phi_alpha
+            z = _as_float(cast(object, norm.cdf(b))) - phi_alpha
 
-            u = Z * u + phi_alpha
+            u = z * u + phi_alpha
 
         values = _as_float_array(cast(object, self.stddev * np.sqrt(2) * erfinv(2 * u - 1) + self.mean))
         return [ValueParameter(cast(np.float64, values[i])) for i in range(values.size)]

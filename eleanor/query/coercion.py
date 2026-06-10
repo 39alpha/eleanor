@@ -4,7 +4,7 @@ from typing import Literal, cast
 
 import numpy as np
 
-from eleanor.query.errors import InvalidFilterValue, ParseError
+from eleanor.query.errors import InvalidFilterValueError, ParseError
 
 type MissingPolicy = Literal["blank", "null", "error"]
 
@@ -74,4 +74,4 @@ def coerce_filter_value(target: type[object], raw: str, *, path: str, predicate:
         except ValueError:
             pass
 
-    raise InvalidFilterValue(path, predicate, raw, target)
+    raise InvalidFilterValueError(path, predicate, raw, target)

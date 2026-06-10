@@ -6,15 +6,15 @@ from typing import cast
 
 from eleanor.query.coercion import MissingPolicy, parse_missing_policy
 from eleanor.query.errors import (
-    ColumnNameCollision,
-    InvalidFilter,
-    InvalidFilterValue,
-    InvalidMetaAccessor,
-    InvalidPath,
+    ColumnNameCollisionError,
+    InvalidFilterError,
+    InvalidFilterValueError,
+    InvalidMetaAccessorError,
+    InvalidPathError,
     ParseError,
-    SplatUnknownField,
-    UnknownPreset,
-    UnknownScope,
+    SplatUnknownFieldError,
+    UnknownPresetError,
+    UnknownScopeError,
 )
 from eleanor.query.path import IterFilter, Path, Segment, parse_path, path_to_string
 from eleanor.query.presets import PresetFn
@@ -80,7 +80,7 @@ def desugar_columns(
     ``presets`` is the bundle in effect for any ``{preset: name}`` entries
     encountered (spec §10.2). Callers that don't use presets can omit it; the
     default is the empty bundle, which causes any preset reference to raise
-    ``UnknownPreset``. ``compile_query`` passes ``BUILTIN_PRESETS`` here by
+    ``UnknownPresetError``. ``compile_query`` passes ``BUILTIN_PRESETS`` here by
     default.
     """
     specs: list[ColumnSpec] = []
@@ -116,7 +116,7 @@ def assign_column_names(specs: list[ColumnSpec]) -> list[ColumnSpec]:
         if len(indices) <= 1:
             continue
         paths = [path_to_string(specs[index].path) for index in indices]
-        raise ColumnNameCollision(name, paths)
+        raise ColumnNameCollisionError(name, paths)
 
     return [replace(spec, name=resolved_names[index]) for index, spec in enumerate(specs)]
 
@@ -131,11 +131,11 @@ def validate_column_paths(
         path = spec.path
         path_text = path_to_string(path)
         if len(path.segments) == 0:
-            raise InvalidPath(path_text, "<root>", object)
+            raise InvalidPathError(path_text, "<root>", object)
 
         head = path.segments[0]
         if len(head.filters) != 0:
-            raise InvalidFilter(path_text, head.name, "filters are not allowed on aliases")
+            raise InvalidFilterError(path_text, head.name, "filters are not allowed on aliases")
 
         if path.meta is not None:
             _validate_meta_path(path, path_text, head, scope_table)
@@ -144,14 +144,14 @@ def validate_column_paths(
         for segment in path.segments[1:]:
             for filter_expr in segment.filters:
                 if isinstance(filter_expr, IterFilter):
-                    raise InvalidFilter(
+                    raise InvalidFilterError(
                         path_text,
                         segment.name,
                         "iter filter [*] is not allowed in column paths",
                     )
 
         if head.name not in scope_table:
-            raise UnknownScope(head.name, scope_table.available_aliases())
+            raise UnknownScopeError(head.name, scope_table.available_aliases())
 
         current_kind = scope_table[head.name].type_kind
         terminal_kind = current_kind
@@ -159,15 +159,15 @@ def validate_column_paths(
         if len(path.segments) > 1:
             tail = Path(segments=path.segments[1:])
             if not isinstance(current_kind, DataclassField):
-                raise InvalidPath(path_text, tail.segments[0].name, owner_type(current_kind))
+                raise InvalidPathError(path_text, tail.segments[0].name, owner_type(current_kind))
             try:
                 steps = walk_path(current_kind.dataclass_type, tail)
-            except InvalidPath as exc:
-                raise InvalidPath(path_text, exc.segment, exc.owner_type) from exc
-            except InvalidFilter as exc:
-                raise InvalidFilter(path_text, exc.segment, exc.predicate) from exc
-            except InvalidFilterValue as exc:
-                raise InvalidFilterValue(path_text, exc.predicate, exc.value, exc.target_type) from exc
+            except InvalidPathError as exc:
+                raise InvalidPathError(path_text, exc.segment, exc.owner_type) from exc
+            except InvalidFilterError as exc:
+                raise InvalidFilterError(path_text, exc.segment, exc.predicate) from exc
+            except InvalidFilterValueError as exc:
+                raise InvalidFilterValueError(path_text, exc.predicate, exc.value, exc.target_type) from exc
 
             if len(steps) > 0:
                 terminal_kind = steps[-1].kind_after
@@ -175,7 +175,7 @@ def validate_column_paths(
         if allow_container_terminals:
             continue
         if not isinstance(terminal_kind, LeafField):
-            raise InvalidPath(path_text, path.segments[-1].name, owner_type(terminal_kind))
+            raise InvalidPathError(path_text, path.segments[-1].name, owner_type(terminal_kind))
 
 
 def _validate_meta_path(path: Path, path_text: str, head: Segment, scope_table: AmbientScopeTable) -> None:
@@ -189,28 +189,28 @@ def _validate_meta_path(path: Path, path_text: str, head: Segment, scope_table: 
     assert path.meta is not None
     accessor = path.meta.name
     if head.name not in scope_table:
-        raise UnknownScope(head.name, scope_table.available_aliases())
+        raise UnknownScopeError(head.name, scope_table.available_aliases())
     if len(path.segments) != 1:
-        raise InvalidMetaAccessor(
+        raise InvalidMetaAccessorError(
             path_text,
             accessor,
             f"meta-accessor must follow an alias directly (e.g. <alias>.@{accessor})",
         )
     scope = scope_table[head.name]
     if scope.iter_source_kind is None:
-        raise InvalidMetaAccessor(
+        raise InvalidMetaAccessorError(
             path_text,
             accessor,
             f"alias '{head.name}' is not iter-bound; meta-accessors require an iterative [*] segment",
         )
     if accessor not in _CANONICAL_META_ACCESSORS:
-        raise InvalidMetaAccessor(
+        raise InvalidMetaAccessorError(
             path_text,
             accessor,
             f"unknown meta-accessor; expected one of {sorted(_CANONICAL_META_ACCESSORS)}",
         )
     if accessor == "key" and not isinstance(scope.iter_source_kind, DictField):
-        raise InvalidMetaAccessor(
+        raise InvalidMetaAccessorError(
             path_text,
             accessor,
             f"@key requires a dict iter scope; '{head.name}' iterates a list",
@@ -288,7 +288,7 @@ def _expand_splat(entry: Mapping[object, object], scope_table: AmbientScopeTable
         msg = "splat alias must be a string"
         raise ParseError(msg, position=None)
     if alias not in scope_table:
-        raise UnknownScope(alias, scope_table.available_aliases())
+        raise UnknownScopeError(alias, scope_table.available_aliases())
 
     scope = scope_table[alias]
     if not isinstance(scope.type_kind, DataclassField):
@@ -344,7 +344,7 @@ def _expand_preset(
 
     fn = presets.get(name)
     if fn is None:
-        raise UnknownPreset(name)
+        raise UnknownPresetError(name)
     args: dict[str, object] = {
         str(key): value for key, value in entry.items() if isinstance(key, str) and key != "preset"
     }
@@ -391,7 +391,7 @@ def _validate_splat_fields(alias: str, requested: list[str], available: list[str
     available_set = set(available)
     for field in requested:
         if field not in available_set:
-            raise SplatUnknownField(alias, field, available)
+            raise SplatUnknownFieldError(alias, field, available)
 
 
 def _default_column_name(path: Path) -> str:

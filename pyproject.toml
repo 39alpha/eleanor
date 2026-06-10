@@ -95,6 +95,7 @@ extend-select = [
   "ICN",
   "INP",
   "LOG",
+  "N", # naming conventions
   "NPY",
   "PD",
   "PERF",

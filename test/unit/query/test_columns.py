@@ -10,14 +10,14 @@ from eleanor.query.columns import (
     validate_column_paths,
 )
 from eleanor.query.errors import (
-    ColumnNameCollision,
-    InvalidFilter,
-    InvalidMetaAccessor,
-    InvalidPath,
+    ColumnNameCollisionError,
+    InvalidFilterError,
+    InvalidMetaAccessorError,
+    InvalidPathError,
     ParseError,
-    SplatUnknownField,
-    UnknownPreset,
-    UnknownScope,
+    SplatUnknownFieldError,
+    UnknownPresetError,
+    UnknownScopeError,
 )
 from eleanor.query.scope import resolve_row_scope
 
@@ -94,11 +94,11 @@ class TestColumns(TestCase):
     def test_desugar_columns_unknown_preset_raises(self) -> None:
         """
         Ensure a preset directive whose name isn't in the bundle in effect
-        raises ``UnknownPreset``. Default bundle for ``desugar_columns`` is
+        raises ``UnknownPresetError``. Default bundle for ``desugar_columns`` is
         empty, so any preset name resolves as unknown.
         """
         table = self._point_scope()
-        with self.assertRaises(UnknownPreset):
+        with self.assertRaises(UnknownPresetError):
             desugar_columns([{"preset": "missing"}], table)
 
     def test_nested_preset_preserves_inner_source_attribution(self) -> None:
@@ -138,7 +138,7 @@ class TestColumns(TestCase):
         Ensure splat include/exclude lists reject unknown fields.
         """
         table = self._point_scope()
-        with self.assertRaises(SplatUnknownField):
+        with self.assertRaises(SplatUnknownFieldError):
             desugar_columns([{"splat": "point", "include": ["missing"]}], table)
 
     def test_assign_column_names_disambiguates_implicit_duplicates(self) -> None:
@@ -152,7 +152,7 @@ class TestColumns(TestCase):
 
     def test_assign_column_names_rejects_explicit_name_collisions(self) -> None:
         """
-        Ensure explicit duplicate names across columns raise ColumnNameCollision.
+        Ensure explicit duplicate names across columns raise ColumnNameCollisionError.
         """
         table = self._point_scope()
         specs = desugar_columns(
@@ -162,7 +162,7 @@ class TestColumns(TestCase):
             ],
             table,
         )
-        with self.assertRaises(ColumnNameCollision):
+        with self.assertRaises(ColumnNameCollisionError):
             assign_column_names(specs)
 
     def test_validate_column_paths_checks_alias_filters_and_terminal_kind(self) -> None:
@@ -170,19 +170,19 @@ class TestColumns(TestCase):
         Ensure validation rejects unknown aliases, alias filters, and container terminals by default.
         """
         table = self._point_scope()
-        with self.assertRaises(UnknownScope):
+        with self.assertRaises(UnknownScopeError):
             validate_column_paths(
                 desugar_columns(["ghost.index"], table),
                 table,
                 allow_container_terminals=False,
             )
-        with self.assertRaises(InvalidFilter):
+        with self.assertRaises(InvalidFilterError):
             validate_column_paths(
                 desugar_columns(["point[index=1].index"], table),
                 table,
                 allow_container_terminals=False,
             )
-        with self.assertRaises(InvalidPath):
+        with self.assertRaises(InvalidPathError):
             validate_column_paths(
                 desugar_columns(["point.minerals"], table),
                 table,
@@ -202,13 +202,13 @@ class TestColumns(TestCase):
         Ensure iter filters [*] are rejected anywhere in column paths (spec §8).
         """
         table = self._point_scope()
-        with self.assertRaises(InvalidFilter):
+        with self.assertRaises(InvalidFilterError):
             validate_column_paths(
                 desugar_columns(["point.minerals[*]"], table),
                 table,
                 allow_container_terminals=True,
             )
-        with self.assertRaises(InvalidFilter):
+        with self.assertRaises(InvalidFilterError):
             validate_column_paths(
                 desugar_columns(["point.minerals[*].name"], table),
                 table,
@@ -236,10 +236,10 @@ class TestColumns(TestCase):
     def test_validate_column_paths_rejects_meta_on_non_iter_alias(self) -> None:
         """
         Ensure meta-accessors anchored on a non-iter-bound alias (here
-        ``order`` from a list-iter row_scope) raise ``InvalidMetaAccessor``.
+        ``order`` from a list-iter row_scope) raise ``InvalidMetaAccessorError``.
         """
         table = self._point_scope()
-        with self.assertRaises(InvalidMetaAccessor) as cm:
+        with self.assertRaises(InvalidMetaAccessorError) as cm:
             validate_column_paths(
                 desugar_columns(["order.@index"], table),
                 table,
@@ -250,10 +250,10 @@ class TestColumns(TestCase):
 
     def test_validate_column_paths_rejects_unknown_meta_name(self) -> None:
         """
-        Ensure unknown ``@<name>`` accessors raise ``InvalidMetaAccessor``.
+        Ensure unknown ``@<name>`` accessors raise ``InvalidMetaAccessorError``.
         """
         table = self._point_scope()
-        with self.assertRaises(InvalidMetaAccessor) as cm:
+        with self.assertRaises(InvalidMetaAccessorError) as cm:
             validate_column_paths(
                 desugar_columns(["point.@bogus"], table),
                 table,
@@ -264,10 +264,10 @@ class TestColumns(TestCase):
 
     def test_validate_column_paths_rejects_key_meta_on_list_iter(self) -> None:
         """
-        Ensure ``@key`` on a list-iter alias raises ``InvalidMetaAccessor``.
+        Ensure ``@key`` on a list-iter alias raises ``InvalidMetaAccessorError``.
         """
         table = self._point_scope()
-        with self.assertRaises(InvalidMetaAccessor) as cm:
+        with self.assertRaises(InvalidMetaAccessorError) as cm:
             validate_column_paths(
                 desugar_columns(["point.@key"], table),
                 table,
@@ -279,13 +279,13 @@ class TestColumns(TestCase):
     def test_validate_column_paths_rejects_meta_after_extra_segment(self) -> None:
         """
         Ensure a meta-accessor preceded by more than the alias head (e.g.
-        ``alias.field.@index``) raises ``InvalidMetaAccessor``. Spec §7.1
+        ``alias.field.@index``) raises ``InvalidMetaAccessorError``. Spec §7.1
         only allows ``<alias>.@<name>``; deeper paths are not legal because
         ``@index`` reports the position of the iter-bound alias, not of an
         intermediate value.
         """
         table = self._point_scope()
-        with self.assertRaises(InvalidMetaAccessor) as cm:
+        with self.assertRaises(InvalidMetaAccessorError) as cm:
             validate_column_paths(
                 desugar_columns(["point.chemistry.@index"], table),
                 table,
@@ -298,11 +298,11 @@ class TestColumns(TestCase):
     ) -> None:
         """
         Ensure a meta-accessor whose head alias is not in the scope table
-        raises ``UnknownScope`` (consistent with non-meta paths). Catches
+        raises ``UnknownScopeError`` (consistent with non-meta paths). Catches
         the alias-resolution step inside ``_validate_meta_path``.
         """
         table = self._point_scope()
-        with self.assertRaises(UnknownScope):
+        with self.assertRaises(UnknownScopeError):
             validate_column_paths(
                 desugar_columns(["ghost.@index"], table),
                 table,

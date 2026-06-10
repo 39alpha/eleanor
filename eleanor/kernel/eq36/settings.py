@@ -56,7 +56,7 @@ class JTEMP(IntEnum):
     FLUID_MIXING = 3
 
 
-class IOPT_1(IntEnum):
+class IOPT_1(IntEnum):  # noqa: N801
     """
     Physical System Model Selection:
     """
@@ -66,7 +66,7 @@ class IOPT_1(IntEnum):
     FLOW_THROUGH_SYS = 2  # Fluid-centered flow-through open system
 
 
-class IOPT_2(IntEnum):
+class IOPT_2(IntEnum):  # noqa: N801
     """
     Kinetic Mode Selection:
     """
@@ -75,7 +75,7 @@ class IOPT_2(IntEnum):
     TRUE_KINETICS = 1  # Reaction progress/time mode (true kinetics)
 
 
-class IOPT_3(IntEnum):
+class IOPT_3(IntEnum):  # noqa: N801
     """
     Phase Boundary Searches:
     """
@@ -85,7 +85,7 @@ class IOPT_3(IntEnum):
     DONT_SEARCH_PHASE_BOUNDARIES = 2  # Don't search for phase boundaries
 
 
-class IOPT_4(IntEnum):
+class IOPT_4(IntEnum):  # noqa: N801
     """
     Solid Solutions
     """
@@ -94,7 +94,7 @@ class IOPT_4(IntEnum):
     PERMIT_SOLID_SOLUTIONS = 1
 
 
-class IOPT_5(IntEnum):
+class IOPT_5(IntEnum):  # noqa: N801
     """
     Clear the ES Solids Read from the INPUT File:
     """
@@ -103,7 +103,7 @@ class IOPT_5(IntEnum):
     CLEAR_SOLIDS = 1
 
 
-class IOPT_6(IntEnum):
+class IOPT_6(IntEnum):  # noqa: N801
     """
     Clear the ES Solids at the Initial Value of Reaction Progress:
     """
@@ -112,7 +112,7 @@ class IOPT_6(IntEnum):
     CLEAR_SOLIDS_AT_INITIAL = 1
 
 
-class IOPT_7(IntEnum):
+class IOPT_7(IntEnum):  # noqa: N801
     """
     Clear the ES Solids at the End of the Run:
     """
@@ -121,7 +121,7 @@ class IOPT_7(IntEnum):
     CLEAR_SOLIDS_AT_END = 1
 
 
-class IOPT_9(IntEnum):
+class IOPT_9(IntEnum):  # noqa: N801
     """
     Clear the PRS Solids Read from the INPUT file:
     """
@@ -130,7 +130,7 @@ class IOPT_9(IntEnum):
     CLEAR_PRS_SOLIDS_FROM_INPUT = 1
 
 
-class IOPT_10(IntEnum):
+class IOPT_10(IntEnum):  # noqa: N801
     """
     Clear the PRS Solids at the End of the Run:
     """
@@ -139,7 +139,7 @@ class IOPT_10(IntEnum):
     CLEAR_PRS_SOLIDS_AT_END = 1  # Do it, unless numerical problems cause early termination
 
 
-class IOPT_11(IntEnum):
+class IOPT_11(IntEnum):  # noqa: N801
     """
     Auto Basis Switching in pre-N-R Optimization
     """
@@ -148,7 +148,7 @@ class IOPT_11(IntEnum):
     PRE_NR_BASIS_SWITCH = 1
 
 
-class IOPT_12(IntEnum):
+class IOPT_12(IntEnum):  # noqa: N801
     """
     Auto Basis Switching after Newton-Raphson Iteration
     """
@@ -157,7 +157,7 @@ class IOPT_12(IntEnum):
     POST_NR_BASIS_SWITCH = 1
 
 
-class IOPT_13(IntEnum):
+class IOPT_13(IntEnum):  # noqa: N801
     """
     Calculational Mode Selection
     """
@@ -167,7 +167,7 @@ class IOPT_13(IntEnum):
     SUPER_ECONOMY = 2  # Super economy mode (if permissible)
 
 
-class IOPT_14(IntEnum):
+class IOPT_14(IntEnum):  # noqa: N801
     """
     ODE Integrator Corrector Mode Selection
     """
@@ -178,7 +178,7 @@ class IOPT_14(IntEnum):
     NO_CORRECTORS = 3  # Allow No Correctors
 
 
-class IOPT_15(IntEnum):
+class IOPT_15(IntEnum):  # noqa: N801
     """
     Force the Suppression of All Redox Reactions (NOT IN USE)
     """
@@ -187,7 +187,7 @@ class IOPT_15(IntEnum):
     SUPPRESS_REDOX = 1
 
 
-class IOPT_16(IntEnum):
+class IOPT_16(IntEnum):  # noqa: N801
     """
     BACKUP File Options
     """
@@ -197,7 +197,7 @@ class IOPT_16(IntEnum):
     WRITE_SEQUENTIAL_BACKUP_FILE = 1
 
 
-class IOPT_17(IntEnum):
+class IOPT_17(IntEnum):  # noqa: N801
     """
     PICKUP File Options
     """
@@ -206,7 +206,7 @@ class IOPT_17(IntEnum):
     WRITE_PICKUP = 0
 
 
-class IOPT_18(IntEnum):
+class IOPT_18(IntEnum):  # noqa: N801
     """
     TAB File Options
     """
@@ -216,7 +216,7 @@ class IOPT_18(IntEnum):
     PREPEND_TAB = 1  # Write a TAB file, prepending TABX file data from a previous run
 
 
-class IOPT_19(IntEnum):
+class IOPT_19(IntEnum):  # noqa: N801
     """
     Advanced EQ3NR PICKUP File Options
     """
@@ -227,7 +227,7 @@ class IOPT_19(IntEnum):
     SIXI_FLUID_1_AS_FLUID_MIX = 3  # default for eleanor
 
 
-class IOPT_20(IntEnum):
+class IOPT_20(IntEnum):  # noqa: N801
     """
     Advanced EQ6 PICKUP File Options:
     """
@@ -236,7 +236,7 @@ class IOPT_20(IntEnum):
     FLUID_MIXING_PICKUP = 1  # Write an EQ6 INPUT file with Fluid 1 set up for fluid mixing
 
 
-class IOPG_1(IntEnum):
+class IOPG_1(IntEnum):  # noqa: N801
     """
     Aqueous Species Activity Coefficient Model
     """
@@ -247,7 +247,7 @@ class IOPG_1(IntEnum):
     HC_DH = 2
 
 
-class IOPG_2(IntEnum):
+class IOPG_2(IntEnum):  # noqa: N801
     """
     Choice of pH Scale (Rescales Activity Coefficients)
     """
@@ -257,7 +257,7 @@ class IOPG_2(IntEnum):
     MESMER_PH = 1  # numerically, pH = -log m(H+)
 
 
-class IOPR_1(IntEnum):
+class IOPR_1(IntEnum):  # noqa: N801
     """
     Print All Species Read from the Data File
     """
@@ -266,7 +266,7 @@ class IOPR_1(IntEnum):
     PRINT_DATA_FILE_SP = 1
 
 
-class IOPR_2(IntEnum):
+class IOPR_2(IntEnum):  # noqa: N801
     """
     Print All Reactions:
     """
@@ -277,7 +277,7 @@ class IOPR_2(IntEnum):
     PRINT_RXNS_LOGK_DATA = 3  # Print the reactions, log K values, and associated data
 
 
-class IOPR_3(IntEnum):
+class IOPR_3(IntEnum):  # noqa: N801
     """
     Print the Aqueous Species Hard Core Diameters
     """
@@ -286,7 +286,7 @@ class IOPR_3(IntEnum):
     PRINT_HARD_DIAMETERS = 1
 
 
-class IOPR_4(IntEnum):
+class IOPR_4(IntEnum):  # noqa: N801
     """
     Print a Table of Aqueous Species Concentrations, Activities, etc.
     """
@@ -298,7 +298,7 @@ class IOPR_4(IntEnum):
     INCLUDE_ALL_AQ = 1
 
 
-class IOPR_5(IntEnum):
+class IOPR_5(IntEnum):  # noqa: N801
     """
     Print a Table of Aqueous Species/H+ Activity Ratios
     """
@@ -309,7 +309,7 @@ class IOPR_5(IntEnum):
     PRINT_CAT_AN_NU_RATIOS = 3  # Print ion/H+ activity ratios and neutral species activities
 
 
-class IOPR_6(IntEnum):
+class IOPR_6(IntEnum):  # noqa: N801
     """
     Print a Table of Aqueous Mass Balance Percentages
     """
@@ -319,7 +319,7 @@ class IOPR_6(IntEnum):
     PRINT_ALL_SP_MASS_BAL = 1
 
 
-class IOPR_7(IntEnum):
+class IOPR_7(IntEnum):  # noqa: N801
     """
     Print Tables of Saturation Indices and Affinities
     """
@@ -329,7 +329,7 @@ class IOPR_7(IntEnum):
     PRINT_ALL_AFFINITIES = 1
 
 
-class IOPR_8(IntEnum):
+class IOPR_8(IntEnum):  # noqa: N801
     """
     Print a Table of Fugacities:
     """
@@ -338,7 +338,7 @@ class IOPR_8(IntEnum):
     PRINT_FUGACITIES = 0
 
 
-class IOPR_9(IntEnum):
+class IOPR_9(IntEnum):  # noqa: N801
     """
     Print a Table of Mean Molal Activity Coefficients
     """
@@ -347,7 +347,7 @@ class IOPR_9(IntEnum):
     PRINT_MEAN_ACTIVITY_COE = 1
 
 
-class IOPR_10(IntEnum):
+class IOPR_10(IntEnum):  # noqa: N801
     """
     Print a Tabulation of the Pitzer Interaction Coefficients
     """
@@ -357,7 +357,7 @@ class IOPR_10(IntEnum):
     DETAILED_PITZER_INTERACT_COE = 2
 
 
-class IOPR_17(IntEnum):
+class IOPR_17(IntEnum):  # noqa: N801
     """
     PICKUP file format ("W" or "D")
     """
@@ -367,7 +367,7 @@ class IOPR_17(IntEnum):
     D_FORMAT = 2
 
 
-class IODB_1(IntEnum):
+class IODB_1(IntEnum):  # noqa: N801
     """
     Print General Diagnostic Messages:
     """
@@ -377,7 +377,7 @@ class IODB_1(IntEnum):
     PRINT_LEVEL_1_2_DIAG = 2  # Print Level 1 and Level 2 diagnostic messages
 
 
-class IODB_2(IntEnum):
+class IODB_2(IntEnum):  # noqa: N801
     """
     Kinetics Related Diagnostic Messages:
     """
@@ -387,7 +387,7 @@ class IODB_2(IntEnum):
     PRINT_LEVEL_1_2_KINETIC_DIAG = 2  # Print Level 1 and Level 2 kinetics diagnostic messages
 
 
-class IODB_3(IntEnum):
+class IODB_3(IntEnum):  # noqa: N801
     """
     Print Pre-Newton-Raphson Optimization Information:
     """
@@ -399,7 +399,7 @@ class IODB_3(IntEnum):
     MOST_DETAILED_PRE_NR_DIAG = 4  # Print most detailed information (including activity coefficients)
 
 
-class IODB_4(IntEnum):
+class IODB_4(IntEnum):  # noqa: N801
     """
     Print Newton-Raphson Iteration Information:
     """
@@ -411,7 +411,7 @@ class IODB_4(IntEnum):
     MOST_DETAILED_NR_INFO = 4  # Print most detailed information (including activity coefficients)
 
 
-class IODB_5(IntEnum):
+class IODB_5(IntEnum):  # noqa: N801
     """
     Print Step-Size and Order Selection:
     """
@@ -421,7 +421,7 @@ class IODB_5(IntEnum):
     DETAILED_STEP_SELECT_INFO = 2  # Print detailed information
 
 
-class IODB_6(IntEnum):
+class IODB_6(IntEnum):  # noqa: N801
     """
     Print Details of Hypothetical Affinity Calculations:
     """
@@ -431,7 +431,7 @@ class IODB_6(IntEnum):
     DETAILED_AFFINITY_CALC = 2  # Print detailed information
 
 
-class IODB_7(IntEnum):
+class IODB_7(IntEnum):  # noqa: N801
     """
     Print General Search (e.g., for a phase boundary) Information:
     """
@@ -440,7 +440,7 @@ class IODB_7(IntEnum):
     SUMMARY_PHASE_BOUNDRY_INFO = 1  # Print summary information
 
 
-class IODB_8(IntEnum):
+class IODB_8(IntEnum):  # noqa: N801
     """
     Print ODE Corrector Iteration Information:
     """
@@ -643,8 +643,8 @@ class Eq6Settings:
     ph_max: np.float64 = field(default_factory=lambda: np.float64(1e38))
     eh_min: np.float64 = field(default_factory=lambda: np.float64(-1e38))
     eh_max: np.float64 = field(default_factory=lambda: np.float64(1e38))
-    log_fO2_min: np.float64 = field(default_factory=lambda: np.float64(-1e38))
-    log_fO2_max: np.float64 = field(default_factory=lambda: np.float64(1e38))
+    log_fo2_min: np.float64 = field(default_factory=lambda: np.float64(-1e38))
+    log_fo2_max: np.float64 = field(default_factory=lambda: np.float64(1e38))
     aw_min: np.float64 = field(default_factory=lambda: np.float64(-1e38))
     aw_max: np.float64 = field(default_factory=lambda: np.float64(1e38))
     xi_print_interval: np.float64 = field(default_factory=lambda: np.float64(1e38))
@@ -653,7 +653,7 @@ class Eq6Settings:
     log_time_print_interval: np.float64 = field(default_factory=lambda: np.float64(1e38))
     ph_print_interval: np.float64 = field(default_factory=lambda: np.float64(1e38))
     eh_print_interval: np.float64 = field(default_factory=lambda: np.float64(1e38))
-    log_fO2_print_interval: np.float64 = field(default_factory=lambda: np.float64(1e38))
+    log_fo2_print_interval: np.float64 = field(default_factory=lambda: np.float64(1e38))
     aw_print_interval: np.float64 = field(default_factory=lambda: np.float64(1e38))
     steps_print_interval: int = 10000
     iopt_1: IOPT_1 = IOPT_1.CLOSED_SYS
@@ -893,8 +893,8 @@ class Eq36Settings(KernelSettings):
                 ph_max=_get_float(raw_eq6_config, "pH_max", 1e38),
                 eh_min=_get_float(raw_eq6_config, "Eh_min", -1e38),
                 eh_max=_get_float(raw_eq6_config, "Eh_max", 1e38),
-                log_fO2_min=_get_float(raw_eq6_config, "log_fO2_min", -1e38),
-                log_fO2_max=_get_float(raw_eq6_config, "log_fO2_max", 1e38),
+                log_fo2_min=_get_float(raw_eq6_config, "log_fo2_min", -1e38),
+                log_fo2_max=_get_float(raw_eq6_config, "log_fo2_max", 1e38),
                 aw_min=_get_float(raw_eq6_config, "aw_min", -1e38),
                 aw_max=_get_float(raw_eq6_config, "aw_max", 1e38),
                 xi_print_interval=_get_float(raw_eq6_config, "xi_print_interval", 1e0),
@@ -903,7 +903,7 @@ class Eq36Settings(KernelSettings):
                 log_time_print_interval=_get_float(raw_eq6_config, "log_time_print_interval", 1e38),
                 ph_print_interval=_get_float(raw_eq6_config, "pH_print_interval", 1e38),
                 eh_print_interval=_get_float(raw_eq6_config, "Eh_print_interval", 1e38),
-                log_fO2_print_interval=_get_float(raw_eq6_config, "log_fO2_print_interval", 1e38),
+                log_fo2_print_interval=_get_float(raw_eq6_config, "log_fo2_print_interval", 1e38),
                 aw_print_interval=_get_float(raw_eq6_config, "aw_print_interval", 1e38),
                 steps_print_interval=_get_int(raw_eq6_config, "steps_print_interval", 10000),
                 iopt_1=get_setting(raw_eq6_config, IOPT_1, IOPT_1.CLOSED_SYS),

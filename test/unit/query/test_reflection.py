@@ -1,6 +1,6 @@
 from unittest import TestCase
 
-from eleanor.query.errors import InvalidFilter, InvalidFilterValue, InvalidPath
+from eleanor.query.errors import InvalidFilterError, InvalidFilterValueError, InvalidPathError
 from eleanor.query.path import parse_path
 from eleanor.query.reflection import (
     DataclassField,
@@ -48,21 +48,21 @@ class TestReflection(TestCase):
 
     def test_walk_path_rejects_unknown_segment(self) -> None:
         """
-        Ensure unknown segments raise InvalidPath.
+        Ensure unknown segments raise InvalidPathError.
         """
-        with self.assertRaises(InvalidPath):
+        with self.assertRaises(InvalidPathError):
             walk_path(Sample, parse_path("point.chemistry.unknown"))
 
     def test_walk_path_rejects_invalid_filter_target(self) -> None:
         """
-        Ensure wildcard filters on non-container fields raise InvalidFilter.
+        Ensure wildcard filters on non-container fields raise InvalidFilterError.
         """
-        with self.assertRaises(InvalidFilter):
+        with self.assertRaises(InvalidFilterError):
             walk_path(Sample, parse_path("point.chemistry[*]"))
 
     def test_walk_path_rejects_invalid_filter_value_type(self) -> None:
         """
-        Ensure predicate literals that cannot coerce to declared types raise InvalidFilterValue.
+        Ensure predicate literals that cannot coerce to declared types raise InvalidFilterValueError.
         """
-        with self.assertRaises(InvalidFilterValue):
+        with self.assertRaises(InvalidFilterValueError):
             walk_path(Sample, parse_path("points[index=abc]"))

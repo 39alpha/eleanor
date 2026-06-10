@@ -20,8 +20,8 @@ from eleanor.parameters import (
 @dataclass
 class TemperatureRangeConstraint(AbstractConstraint):
     temperature: Parameter
-    min_t: np.float64
-    max_t: np.float64
+    min_temp: np.float64
+    max_temp: np.float64
 
     def __init__(self, temperature: Parameter, data1s: list[Data1]) -> None:
         self.temperature = temperature
@@ -30,13 +30,13 @@ class TemperatureRangeConstraint(AbstractConstraint):
             msg = "at least one data1 file must be provided"
             raise EleanorError(msg)
 
-        self.min_t = np.float64(np.inf)
-        self.max_t = np.float64(-np.inf)
+        self.min_temp = np.float64(np.inf)
+        self.max_temp = np.float64(-np.inf)
 
         for data1 in data1s:
             if data1.tp_curve is not None:
-                self.min_t = min(data1.tp_curve.T["min"], self.min_t)
-                self.max_t = max(data1.tp_curve.T["max"], self.max_t)
+                self.min_temp = min(data1.tp_curve.temperature["min"], self.min_temp)
+                self.max_temp = max(data1.tp_curve.temperature["max"], self.max_temp)
 
     @property
     @override
@@ -55,29 +55,29 @@ class TemperatureRangeConstraint(AbstractConstraint):
         refined = valuation[temperature_id]
         try:
             if isinstance(refined, ValueParameter):
-                if self.min_t > refined.value or refined.value > self.max_t:
+                if self.min_temp > refined.value or refined.value > self.max_temp:
                     msg = "fixed temperature value is outside of the data1 temperature range"
                     raise EleanorError(msg)
                 return {temperature_id: refined}
             if isinstance(refined, RangeParameter):
-                min_t = max(refined.min, self.min_t)
-                max_t = min(refined.max, self.max_t)
+                min_temp = max(refined.min, self.min_temp)
+                max_temp = min(refined.max, self.max_temp)
 
-                return {temperature_id: refined.restrict(RangeParameter, min_t, max_t)}
+                return {temperature_id: refined.restrict(RangeParameter, min_temp, max_temp)}
             if isinstance(refined, ListParameter):
-                values = [t for t in refined.values if self.min_t <= t <= self.max_t]
+                values = [t for t in refined.values if self.min_temp <= t <= self.max_temp]
                 return {temperature_id: refined.restrict(ListParameter, values)}
             if isinstance(refined, NormalParameter):
-                min_t = max(refined.min, self.min_t)
-                max_t = min(refined.max, self.max_t)
+                min_temp = max(refined.min, self.min_temp)
+                max_temp = min(refined.max, self.max_temp)
 
                 return {
                     temperature_id: refined.restrict(
                         NormalParameter,
                         refined.mean,
                         stddev=refined.stddev,
-                        a=min_t,
-                        b=max_t,
+                        a=min_temp,
+                        b=max_temp,
                     ),
                 }
         except EleanorError as e:
@@ -116,17 +116,17 @@ class TPCurveConstraint(AbstractConstraint):
 
         refined = valuation[pressure_id]
 
-        T = input.value
+        temp = input.value
 
         try:
             values: list[np.float64] = []
             for data1 in self.data1s:
-                if data1.tp_curve is not None and data1.tp_curve.temperature_in_domain(T):
-                    P = cast(np.float64 | None, data1.tp_curve(T))
-                    if P is None:
+                if data1.tp_curve is not None and data1.tp_curve.temperature_in_domain(temp):
+                    press = cast(np.float64 | None, data1.tp_curve(temp))
+                    if press is None:
                         continue
-                    if refined.in_domain(refined.fix(P)):
-                        values.append(P)
+                    if refined.in_domain(refined.fix(press)):
+                        values.append(press)
 
             return {
                 pressure_id: Parameter.refine(refined.restrict(ListParameter, values)),

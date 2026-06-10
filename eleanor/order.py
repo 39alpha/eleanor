@@ -45,7 +45,7 @@ class Suppression:
         suppression_type = require_opt_str(raw.get("type"), "suppression.type")
 
         exceptions_raw = raw.get("except", [])
-        if not is_list_of(exceptions_raw, str, allowNone=False):
+        if not is_list_of(exceptions_raw, str):
             msg = "suppression exceptions must be a list of strings"
             raise EleanorError(msg)
 

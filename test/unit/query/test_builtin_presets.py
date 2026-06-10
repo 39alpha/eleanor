@@ -17,9 +17,9 @@ from eleanor.order import Order
 from eleanor.query import (
     BUILTIN_PRESETS,
     ParseError,
-    PresetScopeMissing,
-    SplatUnknownField,
-    UnknownPreset,
+    PresetScopeMissingError,
+    SplatUnknownFieldError,
+    UnknownPresetError,
     compile_query,
 )
 from eleanor.query.columns import Preset
@@ -65,7 +65,7 @@ class TestRunMetadataPreset(TestCase):
         strict=True,
         reason=(
             "order.tags is list[str], which resolves to ListField — a non-leaf terminal. "
-            "compile_query raises InvalidPath until EQL gains list[str] terminal support."
+            "compile_query raises InvalidPathError until EQL gains list[str] terminal support."
         ),
     )
     def test_run_metadata_emits_fixed_columns(self) -> None:
@@ -117,7 +117,7 @@ class TestRunMetadataPreset(TestCase):
         strict=True,
         reason=(
             "order.tags is list[str], which resolves to ListField — a non-leaf terminal. "
-            "compile_query raises InvalidPath until EQL gains list[str] terminal support."
+            "compile_query raises InvalidPathError until EQL gains list[str] terminal support."
         ),
     )
     def test_run_metadata_columns_attributed_to_preset(self) -> None:
@@ -163,7 +163,7 @@ class TestRunMetadataPreset(TestCase):
         Ensure the defensive ``order`` alias check fires when called against
         a malformed scope table that omits the root binding.
         """
-        with self.assertRaises(PresetScopeMissing) as cm:
+        with self.assertRaises(PresetScopeMissingError) as cm:
             presets_module._preset_run_metadata(AmbientScopeTable(), {})
         self.assertEqual(cm.exception.preset, "run_metadata")
         self.assertEqual(cm.exception.missing_alias, "order")
@@ -203,7 +203,7 @@ class TestEsScalarsPreset(TestCase):
         )
         names = {c.spec.name for c in compiled.compiled_columns}
         self.assertNotIn("log_xi", names)
-        self.assertIn("pH", names)
+        self.assertIn("ph", names)
 
     def test_es_scalars_include_restricts_to_named_fields(self) -> None:
         """
@@ -214,13 +214,13 @@ class TestEsScalarsPreset(TestCase):
             {
                 "row_scope": "es",
                 "columns": [
-                    {"preset": "es_scalars", "include": ["pH", "temperature"]},
+                    {"preset": "es_scalars", "include": ["ph", "temperature"]},
                 ],
             },
         )
         self.assertEqual(
             [c.spec.name for c in compiled.compiled_columns],
-            ["temperature", "pH"],
+            ["temperature", "ph"],
         )
 
     def test_es_scalars_include_and_exclude_are_mutually_exclusive(self) -> None:
@@ -235,7 +235,7 @@ class TestEsScalarsPreset(TestCase):
                     "columns": [
                         {
                             "preset": "es_scalars",
-                            "include": ["pH"],
+                            "include": ["ph"],
                             "exclude": ["sigma"],
                         },
                     ],
@@ -258,9 +258,9 @@ class TestEsScalarsPreset(TestCase):
     def test_es_scalars_unknown_field_raises_splat_unknown_field(self) -> None:
         """
         Ensure naming a non-existent ESPoint scalar in ``include`` or
-        ``exclude`` raises ``SplatUnknownField`` against the ``es`` alias.
+        ``exclude`` raises ``SplatUnknownFieldError`` against the ``es`` alias.
         """
-        with self.assertRaises(SplatUnknownField) as include_cm:
+        with self.assertRaises(SplatUnknownFieldError) as include_cm:
             compile_query(
                 Order,
                 {
@@ -271,7 +271,7 @@ class TestEsScalarsPreset(TestCase):
         self.assertEqual(include_cm.exception.alias, "es")
         self.assertEqual(include_cm.exception.field, "not_a_field")
 
-        with self.assertRaises(SplatUnknownField):
+        with self.assertRaises(SplatUnknownFieldError):
             compile_query(
                 Order,
                 {
@@ -289,7 +289,7 @@ class TestEsScalarsPreset(TestCase):
                 Order,
                 {
                     "row_scope": "es",
-                    "columns": [{"preset": "es_scalars", "include": "pH"}],
+                    "columns": [{"preset": "es_scalars", "include": "ph"}],
                 },
             )
         with self.assertRaises(ParseError):
@@ -297,7 +297,7 @@ class TestEsScalarsPreset(TestCase):
                 Order,
                 {
                     "row_scope": "es",
-                    "columns": [{"preset": "es_scalars", "exclude": ["pH", 7]}],
+                    "columns": [{"preset": "es_scalars", "exclude": ["ph", 7]}],
                 },
             )
 
@@ -305,7 +305,7 @@ class TestEsScalarsPreset(TestCase):
         """
         Ensure the preset rejects a scope table that lacks ``es``.
         """
-        with self.assertRaises(PresetScopeMissing) as cm:
+        with self.assertRaises(PresetScopeMissingError) as cm:
             presets_module._preset_es_scalars(AmbientScopeTable(), {})
         self.assertEqual(cm.exception.preset, "es_scalars")
         self.assertEqual(cm.exception.missing_alias, "es")
@@ -544,7 +544,7 @@ class TestAqueousSpeciesTablePreset(TestCase):
         """
         Ensure the preset rejects a scope table that lacks ``es``.
         """
-        with self.assertRaises(PresetScopeMissing) as cm:
+        with self.assertRaises(PresetScopeMissingError) as cm:
             presets_module._preset_aqueous_species_table(AmbientScopeTable(), {})
         self.assertEqual(cm.exception.preset, "aqueous_species_table")
         self.assertEqual(cm.exception.missing_alias, "es")
@@ -559,7 +559,7 @@ class TestCompileQueryPresetsParameter(TestCase):
         strict=True,
         reason=(
             "order.tags is list[str], which resolves to ListField — a non-leaf terminal. "
-            "compile_query raises InvalidPath until EQL gains list[str] terminal support."
+            "compile_query raises InvalidPathError until EQL gains list[str] terminal support."
         ),
     )
     def test_default_uses_canonical_bundle(self) -> None:
@@ -587,7 +587,7 @@ class TestCompileQueryPresetsParameter(TestCase):
         strict=True,
         reason=(
             "order.tags is list[str], which resolves to ListField — a non-leaf terminal. "
-            "compile_query raises InvalidPath until EQL gains list[str] terminal support."
+            "compile_query raises InvalidPathError until EQL gains list[str] terminal support."
         ),
     )
     def test_explicit_canonical_bundle_works(self) -> None:
@@ -618,9 +618,9 @@ class TestCompileQueryPresetsParameter(TestCase):
     def test_empty_bundle_disables_canonical_presets(self) -> None:
         """
         Ensure ``presets={}`` disables presets entirely so canonical names
-        raise ``UnknownPreset``.
+        raise ``UnknownPresetError``.
         """
-        with self.assertRaises(UnknownPreset) as cm:
+        with self.assertRaises(UnknownPresetError) as cm:
             compile_query(
                 Order,
                 {"row_scope": "order", "columns": [{"preset": "run_metadata"}]},
@@ -650,7 +650,7 @@ class TestCompileQueryPresetsParameter(TestCase):
         )
 
         # Canonical preset name is unavailable under the custom bundle.
-        with self.assertRaises(UnknownPreset):
+        with self.assertRaises(UnknownPresetError):
             compile_query(
                 Order,
                 {"row_scope": "order", "columns": [{"preset": "run_metadata"}]},

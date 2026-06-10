@@ -3,7 +3,7 @@ from unittest import TestCase
 
 import numpy as np
 from eleanor.query.coercion import coerce_filter_value, parse_missing_policy
-from eleanor.query.errors import InvalidFilterValue, ParseError
+from eleanor.query.errors import InvalidFilterValueError, ParseError
 
 
 class _Kind(enum.Enum):
@@ -70,11 +70,11 @@ class TestCoercion(TestCase):
 
     def test_coerce_filter_value_rejects_invalid_values(self) -> None:
         """
-        Ensure invalid literals raise InvalidFilterValue for target type.
+        Ensure invalid literals raise InvalidFilterValueError for target type.
         """
-        with self.assertRaises(InvalidFilterValue):
+        with self.assertRaises(InvalidFilterValueError):
             coerce_filter_value(int, "not_int", path="p", predicate="i=not_int")
-        with self.assertRaises(InvalidFilterValue):
+        with self.assertRaises(InvalidFilterValueError):
             coerce_filter_value(bool, "yes", path="p", predicate="b=yes")
-        with self.assertRaises(InvalidFilterValue):
+        with self.assertRaises(InvalidFilterValueError):
             coerce_filter_value(_Kind, "MEDIUM", path="p", predicate="k=MEDIUM")

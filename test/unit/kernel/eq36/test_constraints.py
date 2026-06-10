@@ -22,15 +22,15 @@ from eleanor.parameters import (
 
 @dataclass
 class _DummyCurve:
-    T: dict[str, np.float64]
-    p: np.float64 | None = np.float64(10.0)
+    temperature: dict[str, np.float64]
+    pressure: np.float64 | None = np.float64(10.0)
     in_domain: bool = True
 
-    def temperature_in_domain(self, _t):
+    def temperature_in_domain(self, _temperature: np.float64):
         return self.in_domain
 
-    def __call__(self, _t):
-        return self.p
+    def __call__(self, _temperature: np.float64):
+        return self.pressure
 
 
 class _WeirdParameter(Parameter):
@@ -94,8 +94,8 @@ class TestEq36Constraints(TestCase):
                 ),
             ],
         )
-        self.assertEqual(c.min_t, np.float64(5.0))
-        self.assertEqual(c.max_t, np.float64(50.0))
+        self.assertEqual(c.min_temp, np.float64(5.0))
+        self.assertEqual(c.max_temp, np.float64(50.0))
         self.assertEqual(c.independent_parameters, [])
         self.assertEqual(c.dependent_parameters, [temp])
 
@@ -211,28 +211,28 @@ class TestEq36Constraints(TestCase):
             _data1_with_curve(
                 _DummyCurve(
                     {"min": np.float64(0.0), "max": np.float64(100.0)},
-                    p=None,
+                    pressure=None,
                     in_domain=True,
                 )
             ),
             _data1_with_curve(
                 _DummyCurve(
                     {"min": np.float64(0.0), "max": np.float64(100.0)},
-                    p=np.float64(30.0),
+                    pressure=np.float64(30.0),
                     in_domain=True,
                 )
             ),
             _data1_with_curve(
                 _DummyCurve(
                     {"min": np.float64(0.0), "max": np.float64(100.0)},
-                    p=np.float64(10.0),
+                    pressure=np.float64(10.0),
                     in_domain=False,
                 )
             ),
             _data1_with_curve(
                 _DummyCurve(
                     {"min": np.float64(0.0), "max": np.float64(100.0)},
-                    p=np.float64(12.0),
+                    pressure=np.float64(12.0),
                     in_domain=True,
                 )
             ),

@@ -159,9 +159,9 @@ def _make_es_point(
         stage="eq3",
         temperature=np.float64(25.0),
         pressure=np.float64(1.0),
-        pH=np.float64(7.0),
-        log_fO2=-np.float64(60.0),
-        Eh=np.float64(0.1),
+        ph=np.float64(7.0),
+        log_fo2=-np.float64(60.0),
+        eh=np.float64(0.1),
         log_activity_water=-np.float64(0.01),
         log_ionic_strength=-np.float64(2.0),
         solute_mass=np.float64(0.1),
@@ -460,10 +460,10 @@ class TestRepositoriesIntegration(_RealPostgresTestCase):
                 redox_reactions=[
                     core_es.RedoxReaction(
                         couple="O2/H2O",
-                        Eh=np.float64(0.8),
+                        eh=np.float64(0.8),
                         pe=np.float64(13.5),
-                        log_fO2=-np.float64(60.0),
-                        Ah=np.float64(1.0),
+                        log_fo2=-np.float64(60.0),
+                        ah=np.float64(1.0),
                     ),
                 ],
                 solid_solutions=[

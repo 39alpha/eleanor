@@ -16,7 +16,7 @@ from types import MappingProxyType
 from typing import cast
 
 from eleanor.equilibrium_space import AqueousSpecies
-from eleanor.query.errors import ParseError, PresetScopeMissing, SplatUnknownField
+from eleanor.query.errors import ParseError, PresetScopeMissingError, SplatUnknownFieldError
 from eleanor.query.path import quote_predicate_value
 from eleanor.query.reflection import DataclassField, leaf_fields
 from eleanor.query.scope import AmbientScopeTable
@@ -42,10 +42,10 @@ def _preset_run_metadata(scope_table: AmbientScopeTable, args: Mapping[str, obje
         raise ParseError(msg, position=None)
     if "order" not in scope_table:
         # The spec guarantees ``order`` is always bound (§7); guard defensively
-        # so a malformed scope table surfaces as ``PresetScopeMissing`` rather
-        # than as an opaque ``UnknownScope`` later in column validation.
+        # so a malformed scope table surfaces as ``PresetScopeMissingError`` rather
+        # than as an opaque ``UnknownScopeError`` later in column validation.
         msg = "run_metadata"
-        raise PresetScopeMissing(msg, "order")
+        raise PresetScopeMissingError(msg, "order")
     return [
         "order.id",
         "order.tags",
@@ -61,7 +61,7 @@ def _preset_es_scalars(scope_table: AmbientScopeTable, args: Mapping[str, object
     """Canonical preset: emit one column per scalar leaf of the ``es`` scope."""
     if "es" not in scope_table:
         msg = "es_scalars"
-        raise PresetScopeMissing(msg, "es")
+        raise PresetScopeMissingError(msg, "es")
 
     extra = sorted(set(args) - {"include", "exclude"})
     if extra:
@@ -90,14 +90,14 @@ def _preset_es_scalars(scope_table: AmbientScopeTable, args: Mapping[str, object
         for name in include:
             if name not in available:
                 msg = "es"
-                raise SplatUnknownField(msg, name, available)
+                raise SplatUnknownFieldError(msg, name, available)
         allowed = set(include)
         leaves = [leaf for leaf in leaves if leaf.name in allowed]
     elif exclude is not None:
         for name in exclude:
             if name not in available:
                 msg = "es"
-                raise SplatUnknownField(msg, name, available)
+                raise SplatUnknownFieldError(msg, name, available)
         denied = set(exclude)
         leaves = [leaf for leaf in leaves if leaf.name not in denied]
 
@@ -108,7 +108,7 @@ def _preset_aqueous_species_table(scope_table: AmbientScopeTable, args: Mapping[
     """Canonical preset: cross-product columns over ``names`` x ``fields``."""
     if "es" not in scope_table:
         msg = "aqueous_species_table"
-        raise PresetScopeMissing(msg, "es")
+        raise PresetScopeMissingError(msg, "es")
 
     extra = sorted(set(args) - {"names", "fields"})
     if extra:

@@ -310,7 +310,7 @@ class TestEq36Parsers(TestCase):
             mock.patch.object(parser, "read_elemental_composition"),
             mock.patch.object(parser, "read_numerical_composition"),
             mock.patch.object(parser, "read_sensible_composition"),
-            mock.patch.object(parser, "read_pH_like"),
+            mock.patch.object(parser, "read_ph_like"),
             mock.patch.object(parser, "read_bulk_properties"),
             mock.patch.object(parser, "read_charge_balance"),
             mock.patch.object(parser, "read_aqueous_solute"),
@@ -379,7 +379,7 @@ class TestEq36Parsers(TestCase):
             mock.patch.object(parser, "read_numerical_composition"),
             mock.patch.object(parser, "read_sensible_composition"),
             mock.patch.object(parser, "read_bulk_properties"),
-            mock.patch.object(parser, "read_pH_like"),
+            mock.patch.object(parser, "read_ph_like"),
             mock.patch.object(parser, "read_alkalinity"),
             mock.patch.object(parser, "read_charge_balance"),
             mock.patch.object(parser, "read_aqueous_solute"),
@@ -692,8 +692,8 @@ class TestEq36ParsersRealOutputs(TestCase):
                     float(point.temperature), expected["temperature"]
                 )
                 self.assertAlmostEqual(float(point.pressure), expected["pressure"])
-                self.assertAlmostEqual(float(point.log_fO2), -3.0)
-                self.assertAlmostEqual(float(point.pH), expected["nbs_pH"])
+                self.assertAlmostEqual(float(point.log_fo2), -3.0)
+                self.assertAlmostEqual(float(point.ph), expected["nbs_pH"])
                 assert point.custom_properties.get("pcH") is not None
                 assert point.custom_properties.get("pHCl") is not None
                 self.assertAlmostEqual(
@@ -728,7 +728,7 @@ class TestEq36ParsersRealOutputs(TestCase):
                 "temperature": 200.0,
                 "nbs_pH_first": 2.5459,
                 "nbs_pH_last": 6.7168,
-                "log_fO2_last": -51.259,
+                "log_fo2_last": -51.259,
                 "aqueous_first_count": 123,
                 "aqueous_last_count": 127,
                 "overall_affinity_first": 65.594,
@@ -741,7 +741,7 @@ class TestEq36ParsersRealOutputs(TestCase):
                 "temperature": 250.0,
                 "nbs_pH_first": 2.5549,
                 "nbs_pH_last": 6.3215,
-                "log_fO2_last": -44.962,
+                "log_fo2_last": -44.962,
                 "aqueous_first_count": 124,
                 "aqueous_last_count": 128,
                 "overall_affinity_first": 66.648,
@@ -772,10 +772,10 @@ class TestEq36ParsersRealOutputs(TestCase):
                 self.assertAlmostEqual(float(first.pressure), 300.0)
                 self.assertAlmostEqual(float(last.temperature), expected["temperature"])
                 self.assertAlmostEqual(float(last.pressure), 300.0)
-                self.assertAlmostEqual(float(first.log_fO2), -3.0)
-                self.assertAlmostEqual(float(last.log_fO2), expected["log_fO2_last"])
-                self.assertAlmostEqual(float(first.pH), expected["nbs_pH_first"])
-                self.assertAlmostEqual(float(last.pH), expected["nbs_pH_last"])
+                self.assertAlmostEqual(float(first.log_fo2), -3.0)
+                self.assertAlmostEqual(float(last.log_fo2), expected["log_fo2_last"])
+                self.assertAlmostEqual(float(first.ph), expected["nbs_pH_first"])
+                self.assertAlmostEqual(float(last.ph), expected["nbs_pH_last"])
 
                 self.assertEqual(len(first.elements), 16)
                 self.assertEqual(len(last.elements), 16)
@@ -843,8 +843,8 @@ class TestEq36ParsersRealOutputs(TestCase):
                     float(eq3.temperature), float(eq6_first.temperature)
                 )
                 self.assertAlmostEqual(float(eq3.pressure), float(eq6_first.pressure))
-                self.assertAlmostEqual(float(eq3.log_fO2), float(eq6_first.log_fO2))
-                self.assertAlmostEqual(float(eq3.pH), float(eq6_first.pH))
+                self.assertAlmostEqual(float(eq3.log_fo2), float(eq6_first.log_fo2))
+                self.assertAlmostEqual(float(eq3.ph), float(eq6_first.ph))
                 assert eq3.custom_properties.get("pHCl") is not None
                 assert eq6_first.custom_properties.get("pHCl") is not None
                 self.assertAlmostEqual(

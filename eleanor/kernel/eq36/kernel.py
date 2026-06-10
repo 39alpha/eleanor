@@ -124,14 +124,14 @@ class Eq36Kernel(AbstractKernel):
         self._setup = False
         self._data1s = []
 
-        Trange = order.temperature.range()
-        Prange = order.pressure.range()
+        temp_range = order.temperature.range()
+        press_range = order.pressure.range()
 
         with tool_room.WorkingDirectory(data1_dir):
             _, data1_files, *_ = tool_room.find_files(".d1")
             for file in data1_files:
                 data1 = Data1.from_file(file.resolve())
-                if data1.tp_curve is not None and data1.tp_curve.set_domain(Trange, Prange):
+                if data1.tp_curve is not None and data1.tp_curve.set_domain(temp_range, press_range):
                     self._data1s.append(data1)
 
         self._setup = True
@@ -194,22 +194,22 @@ class Eq36Kernel(AbstractKernel):
         return point_builder
 
     def find_data1(self, vs_point: vs.Point, verbose: bool = False) -> Data1:
-        T: np.float64 = vs_point.temperature
-        P: np.float64 = vs_point.pressure
+        temp: np.float64 = vs_point.temperature
+        press: np.float64 = vs_point.pressure
 
         d1s: list[Data1] = []
         for data1 in self._data1s:
             curve = data1.tp_curve
-            if curve is not None and curve.temperature_in_domain(T) and curve(T) == P:
+            if curve is not None and curve.temperature_in_domain(temp) and curve(temp) == press:
                 d1s.append(data1)
 
         if len(d1s) == 0:
-            msg = f"failed to find a data1 file with temperature {T} and pressure {P}"
+            msg = f"failed to find a data1 file with temperature {temp} and pressure {press}"
             raise EleanorKernelError(msg)
         if len(d1s) > 1 and verbose:
             # DGM: For now we just take the first data1, but we could randomly choose. Ideally, all of the thermodynamic
             #      parameters in the files should be identical.
-            print(f"warning: multiple data1 files pass through temperature {T} and pressure {P}; choosing first")
+            print(f"warning: multiple data1 files pass through temperature {temp} and pressure {press}; choosing first")
 
         return d1s[0]
 
@@ -293,18 +293,18 @@ class Eq36Kernel(AbstractKernel):
             print(f"  switch with= {new}", file=file)
 
         # Write general settings
-        T = NumberFormat.SCIENTIFIC.fmt(vs_point.temperature, precision=5)
-        P = NumberFormat.SCIENTIFIC.fmt(vs_point.pressure, precision=5)
+        temp = NumberFormat.SCIENTIFIC.fmt(vs_point.temperature, precision=5)
+        press = NumberFormat.SCIENTIFIC.fmt(vs_point.pressure, precision=5)
         charge_balance = settings.charge_balance
 
         if settings.redox_species in {"fO2", "O2(g)"}:
             use_other_species = 0
-            fO2 = vs_point.get_species("O2(g)")
-            if fO2 is None:
+            fo2 = vs_point.get_species("O2(g)")
+            if fo2 is None:
                 msg = f"cannot find redox species {settings.redox_species!r}"
                 raise EleanorKernelError(msg)
 
-            value = NumberFormat.SCIENTIFIC.fmt(fO2.value, precision=5)
+            value = NumberFormat.SCIENTIFIC.fmt(fo2.value, precision=5)
             redox_species = "None"
         else:
             use_other_species = 1
@@ -312,9 +312,9 @@ class Eq36Kernel(AbstractKernel):
             redox_species = settings.redox_species
 
         print("* General", file=file)
-        print(f"     tempc=  {T}", file=file)
+        print(f"     tempc=  {temp}", file=file)
         print("    jpres3=   0", file=file)
-        print(f"     press=  {P}", file=file)
+        print(f"     press=  {press}", file=file)
         print("       rho=  1.00000E+00", file=file)
         print("    itdsf3=   0", file=file)
         print("    tdspkg=  0.00000E+00     tdspl=  0.00000E+00", file=file)
@@ -326,14 +326,14 @@ class Eq36Kernel(AbstractKernel):
 
         # Write species
         print("* Aqueous basis species", file=file)
-        H = vs_point.get_species("H+")
-        if H is not None:
-            print(f"species= {H.name}", file=file)
-            if H.value < 0:
+        h_plus = vs_point.get_species("H+")
+        if h_plus is not None:
+            print(f"species= {h_plus.name}", file=file)
+            if h_plus.value < 0:
                 # This branch should always be taken, but you never know...
-                print(f"   jflgi= 16    covali= {NumberFormat.SCIENTIFIC.fmt(H.value, precision=5)}", file=file)
+                print(f"   jflgi= 16    covali= {NumberFormat.SCIENTIFIC.fmt(h_plus.value, precision=5)}", file=file)
             else:
-                print(f"   jflgi= 16    covali=  {NumberFormat.SCIENTIFIC.fmt(H.value, precision=5)}", file=file)
+                print(f"   jflgi= 16    covali=  {NumberFormat.SCIENTIFIC.fmt(h_plus.value, precision=5)}", file=file)
 
         for element in vs_point.elements:
             value = NumberFormat.SCIENTIFIC.fmt(10**element.log_molality, precision=5)
@@ -420,14 +420,14 @@ class Eq36Kernel(AbstractKernel):
         ttk1 = NumberFormat.SCIENTIFIC.fmt(settings.eq6_config.ttk1, precision=5)
         ttk2 = NumberFormat.SCIENTIFIC.fmt(settings.eq6_config.ttk2, precision=5)
 
-        T = NumberFormat.SCIENTIFIC.fmt(vs_point.temperature, precision=5)
+        temp = NumberFormat.SCIENTIFIC.fmt(vs_point.temperature, precision=5)
 
         nrct = vs_point.reactant_count() - len(vs_point.fixed_gas_reactants)
 
         print(f"EQ3NR input file name= {Path(file.name).name}", file=file)
         print("endit.", file=file)
         print(f"     jtemp=  {jtemp}", file=file)
-        print(f"    tempcb=  {T}", file=file)
+        print(f"    tempcb=  {temp}", file=file)
         print(f"      ttk1={ttk1: >13}      ttk2={ttk2: >13}", file=file)
         print("    jpress=  0", file=file)
         print("    pressb=  0.00000E+00", file=file)
@@ -545,14 +545,14 @@ class Eq36Kernel(AbstractKernel):
         time_min = NumberFormat.SCIENTIFIC.fmt(settings.eq6_config.time_min, precision=5)
         ph_min = NumberFormat.SCIENTIFIC.fmt(settings.eq6_config.ph_min, precision=5)
         eh_min = NumberFormat.SCIENTIFIC.fmt(settings.eq6_config.eh_min, precision=5)
-        log_fO2_min = NumberFormat.SCIENTIFIC.fmt(settings.eq6_config.log_fO2_min, precision=5)
+        log_fo2_min = NumberFormat.SCIENTIFIC.fmt(settings.eq6_config.log_fo2_min, precision=5)
         aw_min = NumberFormat.SCIENTIFIC.fmt(settings.eq6_config.aw_min, precision=5)
 
         xi_max = NumberFormat.SCIENTIFIC.fmt(settings.eq6_config.xi_max, precision=5)
         time_max = NumberFormat.SCIENTIFIC.fmt(settings.eq6_config.time_max, precision=5)
         ph_max = NumberFormat.SCIENTIFIC.fmt(settings.eq6_config.ph_max, precision=5)
         eh_max = NumberFormat.SCIENTIFIC.fmt(settings.eq6_config.eh_max, precision=5)
-        log_fO2_max = NumberFormat.SCIENTIFIC.fmt(settings.eq6_config.log_fO2_max, precision=5)
+        log_fo2_max = NumberFormat.SCIENTIFIC.fmt(settings.eq6_config.log_fo2_max, precision=5)
         aw_max = NumberFormat.SCIENTIFIC.fmt(settings.eq6_config.aw_max, precision=5)
 
         xi_print_interval = NumberFormat.SCIENTIFIC.fmt(settings.eq6_config.xi_print_interval, precision=5)
@@ -561,7 +561,7 @@ class Eq36Kernel(AbstractKernel):
         log_time_print_interval = NumberFormat.SCIENTIFIC.fmt(settings.eq6_config.log_time_print_interval, precision=5)
         ph_print_interval = NumberFormat.SCIENTIFIC.fmt(settings.eq6_config.ph_print_interval, precision=5)
         eh_print_interval = NumberFormat.SCIENTIFIC.fmt(settings.eq6_config.eh_print_interval, precision=5)
-        log_fO2_print_interval = NumberFormat.SCIENTIFIC.fmt(settings.eq6_config.log_fO2_print_interval, precision=5)
+        log_fo2_print_interval = NumberFormat.SCIENTIFIC.fmt(settings.eq6_config.log_fo2_print_interval, precision=5)
         aw_print_interval = NumberFormat.SCIENTIFIC.fmt(settings.eq6_config.aw_print_interval, precision=5)
         steps_print_interval = settings.eq6_config.steps_print_interval
 
@@ -570,13 +570,13 @@ class Eq36Kernel(AbstractKernel):
         print(f"    tistti={time_min: >13}    timmxi={time_max: >13}", file=file)
         print(f"    phmini={ph_min: >13}    phmaxi={ph_max: >13}", file=file)
         print(f"    ehmini={eh_min: >13}    ehmaxi={eh_max: >13}", file=file)
-        print(f"    o2mini={log_fO2_min: >13}    o2maxi={log_fO2_max: >13}", file=file)
+        print(f"    o2mini={log_fo2_min: >13}    o2maxi={log_fo2_max: >13}", file=file)
         print(f"    awmini={aw_min: >13}    awmaxi={aw_max: >13}", file=file)
         print("    kstpmx=        10000", file=file)
         print(f"    dlxprn={xi_print_interval: >13}    dlxprl={log_xi_print_interval: >13}", file=file)
         print(f"    dltprn={time_print_interval: >13}    dltprl={log_time_print_interval: >13}", file=file)
         print(f"    dlhprn={ph_print_interval: >13}    dleprn={eh_print_interval: >13}", file=file)
-        print(f"    dloprn={log_fO2_print_interval: >13}    dlaprn={aw_print_interval: >13}", file=file)
+        print(f"    dloprn={log_fo2_print_interval: >13}    dlaprn={aw_print_interval: >13}", file=file)
         print(f"    ksppmx={steps_print_interval: >13}", file=file)
         print("    dlxplo=  1.00000E+38    dlxpll=  1.00000E+38", file=file)
         print("    dltplo=  1.00000E+38    dltpll=  1.00000E+38", file=file)

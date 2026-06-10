@@ -24,7 +24,7 @@ class ParseError(EleanorError):
         return f"{self.message} (position {self.position})"
 
 
-class UnknownRowScope(EleanorError):
+class UnknownRowScopeError(EleanorError):
     shortname: str
     hint: str | None
 
@@ -40,7 +40,7 @@ class UnknownRowScope(EleanorError):
         return f'unknown row_scope "{self.shortname}" ({self.hint})'
 
 
-class AmbiguousRowScope(EleanorError):
+class AmbiguousRowScopeError(EleanorError):
     shortname: str
     candidates: list[str]
 
@@ -55,7 +55,7 @@ class AmbiguousRowScope(EleanorError):
         return f'ambiguous row_scope "{self.shortname}" (candidates: {joined})'
 
 
-class InvalidRowScope(EleanorError):
+class InvalidRowScopeError(EleanorError):
     path: str
     reason: str
 
@@ -69,7 +69,7 @@ class InvalidRowScope(EleanorError):
         return f'invalid row_scope "{self.path}": {self.reason}'
 
 
-class InvalidPath(EleanorError):
+class InvalidPathError(EleanorError):
     path: str
     segment: str
     owner_type: type[object]
@@ -85,7 +85,7 @@ class InvalidPath(EleanorError):
         return f'invalid path "{self.path}": segment "{self.segment}" is not valid on {self.owner_type.__name__}'
 
 
-class InvalidFilter(EleanorError):
+class InvalidFilterError(EleanorError):
     path: str
     segment: str
     predicate: str
@@ -101,7 +101,7 @@ class InvalidFilter(EleanorError):
         return f'invalid filter "{self.predicate}" on segment "{self.segment}" in "{self.path}"'
 
 
-class InvalidFilterValue(EleanorError):
+class InvalidFilterValueError(EleanorError):
     path: str
     predicate: str
     value: str
@@ -122,7 +122,7 @@ class InvalidFilterValue(EleanorError):
         )
 
 
-class UnknownScope(EleanorError):
+class UnknownScopeError(EleanorError):
     alias: str
     available: list[str]
 
@@ -137,7 +137,7 @@ class UnknownScope(EleanorError):
         return f'unknown scope alias "{self.alias}" (available: {joined})'
 
 
-class AliasCollision(EleanorError):
+class AliasCollisionError(EleanorError):
     alias: str
     paths: list[str]
 
@@ -152,7 +152,7 @@ class AliasCollision(EleanorError):
         return f'alias collision for "{self.alias}" at paths: {joined}'
 
 
-class ColumnNameCollision(EleanorError):
+class ColumnNameCollisionError(EleanorError):
     name: str
     paths: list[str]
 
@@ -167,7 +167,7 @@ class ColumnNameCollision(EleanorError):
         return f'column name collision for "{self.name}" at paths: {joined}'
 
 
-class SplatUnknownField(EleanorError):
+class SplatUnknownFieldError(EleanorError):
     alias: str
     field: str
     available: list[str]
@@ -184,7 +184,7 @@ class SplatUnknownField(EleanorError):
         return f'splat on "{self.alias}" requested unknown field "{self.field}" (available: {joined})'
 
 
-class PresetScopeMissing(EleanorError):
+class PresetScopeMissingError(EleanorError):
     preset: str
     missing_alias: str
 
@@ -198,7 +198,7 @@ class PresetScopeMissing(EleanorError):
         return f'preset "{self.preset}" requires missing alias "{self.missing_alias}"'
 
 
-class UnknownPreset(EleanorError):
+class UnknownPresetError(EleanorError):
     name: str
 
     def __init__(self, name: str) -> None:
@@ -210,7 +210,7 @@ class UnknownPreset(EleanorError):
         return f'unknown preset "{self.name}"'
 
 
-class InvalidMetaAccessor(EleanorError):
+class InvalidMetaAccessorError(EleanorError):
     path: str
     accessor: str
     reason: str

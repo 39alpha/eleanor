@@ -211,10 +211,8 @@ class TestUtils(TestCase):
         Ensure that :func:`is_list_of` validates element types and None handling correctly.
         """
         self.assertTrue(util.is_list_of([1, 2, 3], int))
-        self.assertTrue(util.is_list_of([1, None, 3], int, allowNone=True))
         self.assertFalse(util.is_list_of([1, "2", 3], int))
-        self.assertTrue(util.is_list_of(None, int, allowNone=True))
-        self.assertFalse(util.is_list_of(None, int, allowNone=False))
+        self.assertFalse(util.is_list_of(None, int))
 
     def test_parse_date(self) -> None:
         """
@@ -249,9 +247,3 @@ class TestUtils(TestCase):
         value = np.float64(1.25)
         result = util.convert_to_number(value)
         self.assertIsInstance(result, np.float64)
-
-    def test_is_list_of_with_tuple_and_allow_none(self) -> None:
-        """
-        Ensure that :func:`is_list_of` accepts tuple type constraints with optional None values.
-        """
-        self.assertTrue(util.is_list_of([1, None, 2.0], (int, float), allowNone=True))

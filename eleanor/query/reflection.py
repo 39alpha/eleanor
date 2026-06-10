@@ -6,7 +6,7 @@ from typing import TypeGuard, cast, get_args, get_origin, get_type_hints
 
 from eleanor.query.aliases import singularize
 from eleanor.query.coercion import coerce_filter_value
-from eleanor.query.errors import InvalidFilter, InvalidPath
+from eleanor.query.errors import InvalidFilterError, InvalidPathError
 from eleanor.query.path import (
     IterFilter,
     MatchFilter,
@@ -162,29 +162,29 @@ def is_dataclass_type(t: object) -> TypeGuard[type[object]]:
 def resolve_segment_kind(current: FieldKind, segment_name: str, path_text: str) -> FieldKind:
     """Resolve a single path segment against ``current`` to its FieldKind.
 
-    Raises ``InvalidPath`` if ``current`` is not a dataclass or if the
+    Raises ``InvalidPathError`` if ``current`` is not a dataclass or if the
     segment name does not name a field on it.
     """
     if not isinstance(current, DataclassField):
-        raise InvalidPath(path_text, segment_name, owner_type(current))
+        raise InvalidPathError(path_text, segment_name, owner_type(current))
 
     for field in dataclass_fields(current.dataclass_type):
         if field.name == segment_name:
             return field
 
-    raise InvalidPath(path_text, segment_name, current.dataclass_type)
+    raise InvalidPathError(path_text, segment_name, current.dataclass_type)
 
 
 def apply_iter_filter(kind: FieldKind, path_text: str, segment_name: str) -> FieldKind:
     """Apply an iter filter (``[*]``) to ``kind``, returning the element kind.
 
-    Raises ``InvalidFilter`` if ``kind`` is not iterable.
+    Raises ``InvalidFilterError`` if ``kind`` is not iterable.
     """
     if isinstance(kind, ListField):
         return kind.element_kind
     if isinstance(kind, DictField):
         return kind.value_kind
-    raise InvalidFilter(path_text, segment_name, "*")
+    raise InvalidFilterError(path_text, segment_name, "*")
 
 
 def owner_type(kind: FieldKind) -> type[object]:
@@ -192,7 +192,7 @@ def owner_type(kind: FieldKind) -> type[object]:
 
     DataclassField/LeafField pass through their declared type; ListField and
     DictField collapse to the bare ``list``/``dict`` types since the element
-    type alone is not informative for ``InvalidPath`` messages.
+    type alone is not informative for ``InvalidPathError`` messages.
     """
     if isinstance(kind, DataclassField):
         return kind.dataclass_type
@@ -207,7 +207,7 @@ def coercion_target(candidate: object) -> type[object]:
     """Narrow ``candidate`` to a ``type`` for ``coerce_filter_value``.
 
     Generic parameters or other non-type annotations fall back to ``object``,
-    which ``coerce_filter_value`` handles by raising ``InvalidFilterValue``.
+    which ``coerce_filter_value`` handles by raising ``InvalidFilterValueError``.
     """
     if isinstance(candidate, type):
         return candidate
@@ -257,9 +257,9 @@ def resolve_match_filter(
     ``FieldKind`` (the element/value kind) along with a list of
     ``(predicate, coerced_value)`` tuples in input order.
 
-    Raises ``InvalidFilter`` if ``kind`` is neither list nor dict, or if any
+    Raises ``InvalidFilterError`` if ``kind`` is neither list nor dict, or if any
     predicate references an unknown or non-leaf field.
-    Raises ``InvalidFilterValue`` (propagated from ``coerce_filter_value``)
+    Raises ``InvalidFilterValueError`` (propagated from ``coerce_filter_value``)
     if a predicate value can't be coerced to the target type.
 
     This helper is the single source of truth for match-filter validation;
@@ -272,7 +272,7 @@ def resolve_match_filter(
     if isinstance(kind, DictField):
         resolved = _resolve_dict_match(kind, filter_expr, path_text, segment_name)
         return kind.value_kind, resolved
-    raise InvalidFilter(path_text, segment_name, match_filter_text(filter_expr))
+    raise InvalidFilterError(path_text, segment_name, match_filter_text(filter_expr))
 
 
 def _resolve_list_match(
@@ -282,14 +282,14 @@ def _resolve_list_match(
     segment_name: str,
 ) -> list[tuple[Predicate, object]]:
     if not isinstance(kind.element_kind, DataclassField):
-        raise InvalidFilter(path_text, segment_name, match_filter_text(filter_expr))
+        raise InvalidFilterError(path_text, segment_name, match_filter_text(filter_expr))
 
     available = {field.name: field for field in dataclass_fields(kind.element_kind.dataclass_type)}
     resolved: list[tuple[Predicate, object]] = []
     for predicate in filter_expr.predicates:
         target = available.get(predicate.field)
         if target is None or not isinstance(target, LeafField):
-            raise InvalidFilter(path_text, segment_name, predicate_text(predicate))
+            raise InvalidFilterError(path_text, segment_name, predicate_text(predicate))
         coerced = coerce_filter_value(
             coercion_target(target.declared_type),
             predicate.value,
@@ -324,7 +324,7 @@ def _resolve_dict_match(
 
         target = available.get(predicate.field)
         if target is None or not isinstance(target, LeafField):
-            raise InvalidFilter(path_text, segment_name, predicate_text(predicate))
+            raise InvalidFilterError(path_text, segment_name, predicate_text(predicate))
         coerced = coerce_filter_value(
             coercion_target(target.declared_type),
             predicate.value,

@@ -120,11 +120,11 @@ class TestCompilerEvaluator(TestCase):
         Ensure spec §8.5 collision detection fires when a meta-accessor and a
         same-name leaf field on the same alias both rely on default naming:
         both default to ``index``, both alias-prefix to ``point_index``, and
-        the second pass raises ``ColumnNameCollision``.
+        the second pass raises ``ColumnNameCollisionError``.
         """
-        from eleanor.query.errors import ColumnNameCollision
+        from eleanor.query.errors import ColumnNameCollisionError
 
-        with self.assertRaises(ColumnNameCollision):
+        with self.assertRaises(ColumnNameCollisionError):
             compile_query(
                 Sample,
                 {

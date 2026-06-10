@@ -337,7 +337,7 @@ def quote_predicate_value(value: str) -> str:
 def match_filter_text(filter_expr: MatchFilter) -> str:
     """Render a match filter's predicates as comma-joined text without brackets.
 
-    Used by ``InvalidFilter`` error messages in ``reflection`` and ``compiler``.
+    Used by ``InvalidFilterError`` error messages in ``reflection`` and ``compiler``.
     Note that this is intentionally bracketless; ``_filter_to_string`` is the
     canonical bracketed form used by ``path_to_string``.
     """

@@ -18,22 +18,22 @@ from eleanor.query.compiler import (
     CompiledPredicate,
 )
 from eleanor.query.errors import (
-    AliasCollision,
-    AmbiguousRowScope,
-    ColumnNameCollision,
-    InvalidFilter,
-    InvalidFilterValue,
-    InvalidMetaAccessor,
-    InvalidPath,
-    InvalidRowScope,
+    AliasCollisionError,
+    AmbiguousRowScopeError,
+    ColumnNameCollisionError,
+    InvalidFilterError,
+    InvalidFilterValueError,
+    InvalidMetaAccessorError,
+    InvalidPathError,
+    InvalidRowScopeError,
     MultipleMatchError,
     ParseError,
     PathMissError,
-    PresetScopeMissing,
-    SplatUnknownField,
-    UnknownPreset,
-    UnknownRowScope,
-    UnknownScope,
+    PresetScopeMissingError,
+    SplatUnknownFieldError,
+    UnknownPresetError,
+    UnknownRowScopeError,
+    UnknownScopeError,
 )
 from eleanor.query.path import (
     MatchFilter,
@@ -97,7 +97,7 @@ class _CollidingShortFormRoot:
 class _RecursiveRoot:
     """Self-referential root used to force the BFS in
     ``enumerate_shortname_paths`` to hit ``_DEFAULT_SHORTNAME_MAX_DEPTH`` and
-    surface the depth-limit hint via ``UnknownRowScope``.
+    surface the depth-limit hint via ``UnknownRowScopeError``.
     """
 
     next: "_RecursiveRoot | None"
@@ -127,13 +127,13 @@ class TestCoercionCoverage(TestCase):
         self,
     ) -> None:
         """
-        Ensure float parse failures and non-supported target types raise InvalidFilterValue.
+        Ensure float parse failures and non-supported target types raise InvalidFilterValueError.
         """
         from eleanor.query.coercion import coerce_filter_value
 
-        with self.assertRaises(InvalidFilterValue):
+        with self.assertRaises(InvalidFilterValueError):
             coerce_filter_value(float, "bad", path="p", predicate="f=bad")
-        with self.assertRaises(InvalidFilterValue):
+        with self.assertRaises(InvalidFilterValueError):
             coerce_filter_value(bytes, "xyz", path="p", predicate="b=xyz")
 
 
@@ -187,26 +187,26 @@ class TestErrorsCoverage(TestCase):
         """
         self.assertIn("position 4", str(ParseError("bad", position=4)))
         self.assertEqual(str(ParseError("bad")), "bad")
-        self.assertIn("unknown row_scope", str(UnknownRowScope("x")))
-        self.assertIn("ambiguous row_scope", str(AmbiguousRowScope("x", ["a", "b"])))
-        self.assertIn("invalid row_scope", str(InvalidRowScope("x", "why")))
-        self.assertIn("invalid path", str(InvalidPath("x", "y", dict)))
-        self.assertIn("invalid filter", str(InvalidFilter("x", "y", "z")))
+        self.assertIn("unknown row_scope", str(UnknownRowScopeError("x")))
+        self.assertIn("ambiguous row_scope", str(AmbiguousRowScopeError("x", ["a", "b"])))
+        self.assertIn("invalid row_scope", str(InvalidRowScopeError("x", "why")))
+        self.assertIn("invalid path", str(InvalidPathError("x", "y", dict)))
+        self.assertIn("invalid filter", str(InvalidFilterError("x", "y", "z")))
         self.assertIn(
-            "invalid filter value", str(InvalidFilterValue("x", "p", "v", int))
+            "invalid filter value", str(InvalidFilterValueError("x", "p", "v", int))
         )
-        self.assertIn("unknown scope alias", str(UnknownScope("a", ["b"])))
-        self.assertIn("alias collision", str(AliasCollision("a", ["x", "y"])))
+        self.assertIn("unknown scope alias", str(UnknownScopeError("a", ["b"])))
+        self.assertIn("alias collision", str(AliasCollisionError("a", ["x", "y"])))
         self.assertIn(
-            "column name collision", str(ColumnNameCollision("c", ["x", "y"]))
+            "column name collision", str(ColumnNameCollisionError("c", ["x", "y"]))
         )
-        self.assertIn("splat on", str(SplatUnknownField("a", "f", ["g"])))
-        self.assertIn("requires missing alias", str(PresetScopeMissing("p", "x")))
-        self.assertIn("unknown preset", str(UnknownPreset("p")))
+        self.assertIn("splat on", str(SplatUnknownFieldError("a", "f", ["g"])))
+        self.assertIn("requires missing alias", str(PresetScopeMissingError("p", "x")))
+        self.assertIn("unknown preset", str(UnknownPresetError("p")))
         self.assertIn(
-            "invalid meta-accessor", str(InvalidMetaAccessor("a.@b", "b", "because"))
+            "invalid meta-accessor", str(InvalidMetaAccessorError("a.@b", "b", "because"))
         )
-        self.assertIn("@b", str(InvalidMetaAccessor("a.@b", "b", "because")))
+        self.assertIn("@b", str(InvalidMetaAccessorError("a.@b", "b", "because")))
         self.assertIn("path miss", str(PathMissError(1, "c", "s")))
         self.assertIn("multiple matches", str(MultipleMatchError("p", "k=1", 2)))
 
@@ -255,37 +255,37 @@ class TestReflectionCoverage(TestCase):
         """
         Ensure list/dict filter validation rejects unknown, non-leaf, and key coercion failures.
         """
-        with self.assertRaises(InvalidFilter):
+        with self.assertRaises(InvalidFilterError):
             reflection_module.walk_path(NumberRoot, parse_path("numbers[index=1]"))
-        with self.assertRaises(InvalidFilter):
+        with self.assertRaises(InvalidFilterError):
             reflection_module.walk_path(LeafMapRoot, parse_path("point_map[value=1]"))
-        with self.assertRaises(InvalidFilterValue):
+        with self.assertRaises(InvalidFilterValueError):
             reflection_module.walk_path(BucketRoot, parse_path("buckets[key=abc]"))
-        with self.assertRaises(InvalidFilter):
+        with self.assertRaises(InvalidFilterError):
             reflection_module.walk_path(Sample, parse_path("point_map[chemistry=1]"))
-        with self.assertRaises(InvalidFilterValue):
+        with self.assertRaises(InvalidFilterValueError):
             reflection_module.walk_path(Sample, parse_path("point_map[index=abc]"))
-        with self.assertRaises(InvalidFilter):
+        with self.assertRaises(InvalidFilterError):
             reflection_module.walk_path(Sample, parse_path("point.index[id=1]"))
 
     def test_walk_path_invalid_path_reports_container_owner_type(self) -> None:
         """
-        Ensure unresolved segments on list/dict/leaf kinds raise InvalidPath
+        Ensure unresolved segments on list/dict/leaf kinds raise InvalidPathError
         whose owner_type is rendered in the error message. This exercises the
         list/dict/leaf branches of ``reflection.owner_type`` end-to-end.
         """
-        with self.assertRaises(InvalidPath) as list_cm:
+        with self.assertRaises(InvalidPathError) as list_cm:
             reflection_module.walk_path(Sample, parse_path("points.chemistry"))
         self.assertIs(list_cm.exception.owner_type, list)
         self.assertIn("list", str(list_cm.exception))
 
-        with self.assertRaises(InvalidPath) as dict_cm:
+        with self.assertRaises(InvalidPathError) as dict_cm:
             reflection_module.walk_path(Sample, parse_path("point_map.index"))
         self.assertIs(dict_cm.exception.owner_type, dict)
         self.assertIn("dict", str(dict_cm.exception))
 
         # Descending past a leaf field reports the leaf's declared type.
-        with self.assertRaises(InvalidPath) as leaf_cm:
+        with self.assertRaises(InvalidPathError) as leaf_cm:
             reflection_module.walk_path(Sample, parse_path("point.index.something"))
         self.assertIs(leaf_cm.exception.owner_type, int)
         self.assertIn("int", str(leaf_cm.exception))
@@ -307,7 +307,7 @@ class TestScopeCoverage(TestCase):
         self.assertEqual(table.available_aliases(), ["order"])
         self.assertEqual(len(table.items()), 1)
         self.assertIs(table.require("preset", "order").type_kind, kind)
-        with self.assertRaises(PresetScopeMissing):
+        with self.assertRaises(PresetScopeMissingError):
             table.require("preset", "missing")
 
     def test_enumerate_shortname_paths_depth_and_state_branches(self) -> None:
@@ -351,11 +351,11 @@ class TestScopeCoverage(TestCase):
     ) -> None:
         """
         Ensure a field whose default alias singularizes to a registered short-form
-        value (e.g., ``vses``→``vs``) raises ``AliasCollision`` with the offending
+        value (e.g., ``vses``→``vs``) raises ``AliasCollisionError`` with the offending
         path. Exercises ``scope.validate_short_forms_for_root``'s collision and
         raise branches end-to-end via reflection.
         """
-        with self.assertRaises(AliasCollision) as cm:
+        with self.assertRaises(AliasCollisionError) as cm:
             scope_module.validate_short_forms_for_root(_CollidingShortFormRoot)
         self.assertEqual(cm.exception.alias, "vs")
         self.assertIn("vses", cm.exception.paths[0])
@@ -381,12 +381,12 @@ class TestScopeCoverage(TestCase):
 
     def test_unknown_row_scope_includes_depth_hint_when_cap_hit(self) -> None:
         """
-        Ensure ``UnknownRowScope`` carries a depth-limit hint when the BFS hit
+        Ensure ``UnknownRowScopeError`` carries a depth-limit hint when the BFS hit
         the depth cap before finding (or failing to find) the shortname.
         Uses a self-referential dataclass whose tree is unbounded so the BFS
         always hits the default cap.
         """
-        with self.assertRaises(UnknownRowScope) as cm:
+        with self.assertRaises(UnknownRowScopeError) as cm:
             scope_module.resolve_row_scope(_RecursiveRoot, "missing")
         self.assertIsNotNone(cm.exception.hint)
         self.assertIn("depth limit", str(cm.exception))
@@ -396,7 +396,7 @@ class TestScopeCoverage(TestCase):
         Ensure shortname-resolved paths are run through the row_scope terminal
         validator. The current shortname enumerator only emits valid terminals,
         so we patch the diagnostic helper to return a leaf-terminal path and
-        verify ``resolve_row_scope`` rejects it with ``InvalidRowScope``.
+        verify ``resolve_row_scope`` rejects it with ``InvalidRowScopeError``.
         """
         leaf_path = parse_path("point.index")
         with (
@@ -405,7 +405,7 @@ class TestScopeCoverage(TestCase):
                 "_enumerate_with_diagnostic",
                 return_value=([leaf_path], False),
             ),
-            self.assertRaises(InvalidRowScope),
+            self.assertRaises(InvalidRowScopeError),
         ):
             scope_module.resolve_row_scope(Sample, "index")
 
@@ -423,19 +423,19 @@ class TestColumnsCoverage(TestCase):
         Ensure path/filter/value errors in tail walking are re-raised with full path context.
         """
         table = self._point_scope()
-        with self.assertRaises(InvalidPath):
+        with self.assertRaises(InvalidPathError):
             columns_module.validate_column_paths(
                 columns_module.desugar_columns(["point.nope"], table),
                 table,
                 allow_container_terminals=False,
             )
-        with self.assertRaises(InvalidFilter):
+        with self.assertRaises(InvalidFilterError):
             columns_module.validate_column_paths(
                 columns_module.desugar_columns(["point.chemistry[*]"], table),
                 table,
                 allow_container_terminals=False,
             )
-        with self.assertRaises(InvalidFilterValue):
+        with self.assertRaises(InvalidFilterValueError):
             columns_module.validate_column_paths(
                 columns_module.desugar_columns(
                     ["point.minerals[amount=abc].amount"], table
@@ -450,7 +450,7 @@ class TestColumnsCoverage(TestCase):
         """
         number_table = scope_module.resolve_row_scope(NumberRoot, "numbers[*]")[1]
         specs = columns_module.desugar_columns(["number.value"], number_table)
-        with self.assertRaises(InvalidPath):
+        with self.assertRaises(InvalidPathError):
             columns_module.validate_column_paths(
                 specs, number_table, allow_container_terminals=False
             )
@@ -463,7 +463,7 @@ class TestColumnsCoverage(TestCase):
             has_default=False,
             source=BarePath(),
         )
-        with self.assertRaises(InvalidPath):
+        with self.assertRaises(InvalidPathError):
             columns_module.validate_column_paths(
                 [empty_spec], self._point_scope(), allow_container_terminals=False
             )
@@ -487,7 +487,7 @@ class TestColumnsCoverage(TestCase):
         table = self._point_scope()
         with self.assertRaises(ParseError):
             columns_module.desugar_columns([{"splat": 7}], table)
-        with self.assertRaises(UnknownScope):
+        with self.assertRaises(UnknownScopeError):
             columns_module.desugar_columns([{"splat": "ghost"}], table)
         with self.assertRaises(ParseError):
             columns_module.desugar_columns(
@@ -527,13 +527,13 @@ class TestColumnsCoverage(TestCase):
     def test_validate_column_paths_dataclass_terminal_reports_class_name(self) -> None:
         """
         Ensure a column path that ends at a non-leaf dataclass field raises
-        ``InvalidPath`` whose ``owner_type`` is the dataclass type. This
+        ``InvalidPathError`` whose ``owner_type`` is the dataclass type. This
         exercises the ``DataclassField`` branch of ``reflection.owner_type``
         via ``validate_column_paths`` (the existing ``point.minerals`` test
         in ``test_columns`` covers the ``ListField`` branch).
         """
         table = self._point_scope()
-        with self.assertRaises(InvalidPath) as cm:
+        with self.assertRaises(InvalidPathError) as cm:
             columns_module.validate_column_paths(
                 columns_module.desugar_columns(["point.chemistry"], table),
                 table,
@@ -625,29 +625,29 @@ class TestCompilerCoverage(TestCase):
         )
         self.assertEqual(len(compiled.compiled_columns), 1)
 
-        with self.assertRaises(InvalidFilter):
+        with self.assertRaises(InvalidFilterError):
             compile_query(Sample, {"row_scope": "order", "columns": ["order.point[*]"]})
-        with self.assertRaises(InvalidFilter):
+        with self.assertRaises(InvalidFilterError):
             compile_query(
                 NumberRoot,
                 {"row_scope": "order", "columns": ["order.numbers[index=1]"]},
             )
-        with self.assertRaises(InvalidFilter):
+        with self.assertRaises(InvalidFilterError):
             compile_query(
                 Sample,
                 {"row_scope": "order", "columns": ["order.points[missing=1].index"]},
             )
-        with self.assertRaises(InvalidFilter):
+        with self.assertRaises(InvalidFilterError):
             compile_query(
                 Sample,
                 {"row_scope": "order", "columns": ["order.points[chemistry=1].index"]},
             )
-        with self.assertRaises(InvalidFilter):
+        with self.assertRaises(InvalidFilterError):
             compile_query(
                 Sample,
                 {"row_scope": "order", "columns": ["order.point_map[missing=1].index"]},
             )
-        with self.assertRaises(InvalidFilter):
+        with self.assertRaises(InvalidFilterError):
             compile_query(
                 Sample,
                 {
@@ -658,7 +658,7 @@ class TestCompilerCoverage(TestCase):
 
     def test_resolve_match_filter_dispatch_and_validation(self) -> None:
         """
-        Ensure ``reflection.resolve_match_filter`` raises ``InvalidFilter``
+        Ensure ``reflection.resolve_match_filter`` raises ``InvalidFilterError``
         for the leaf, list-without-dataclass-element, missing-list-field,
         and missing-dict-field branches. The compiler delegates to this
         helper so its match-filter validation is exercised here directly;
@@ -670,13 +670,13 @@ class TestCompilerCoverage(TestCase):
             (Predicate(field="x", value="1", value_quoted=False),)
         )
         leaf = LeafField(name="v", declared_type=int, optional=False)
-        with self.assertRaises(InvalidFilter):
+        with self.assertRaises(InvalidFilterError):
             reflection_module.resolve_match_filter(leaf, match_filter, "p", "x")
 
         bad_list = ListField(
             name="n", element_type=int, element_kind=leaf, optional=False
         )
-        with self.assertRaises(InvalidFilter):
+        with self.assertRaises(InvalidFilterError):
             reflection_module.resolve_match_filter(bad_list, match_filter, "p", "n")
 
         good_list = ListField(
@@ -690,7 +690,7 @@ class TestCompilerCoverage(TestCase):
         missing_filter = MatchFilter(
             (Predicate(field="missing", value="1", value_quoted=False),)
         )
-        with self.assertRaises(InvalidFilter):
+        with self.assertRaises(InvalidFilterError):
             reflection_module.resolve_match_filter(
                 good_list, missing_filter, "p", "points"
             )
@@ -704,7 +704,7 @@ class TestCompilerCoverage(TestCase):
             ),
             optional=False,
         )
-        with self.assertRaises(InvalidFilter):
+        with self.assertRaises(InvalidFilterError):
             reflection_module.resolve_match_filter(
                 good_dict, missing_filter, "p", "points"
             )

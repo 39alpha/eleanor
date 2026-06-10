@@ -51,7 +51,7 @@ class AbstractReactant(ABC):
         # method-override-compatibility error from the type checker.
         _ = cls
 
-        FACTORIES = {
+        factories = {
             ReactantType.MINERAL: MineralReactant.from_dict,
             ReactantType.AQUEOUS: AqueousReactant.from_dict,
             ReactantType.GAS: GasReactant.from_dict,
@@ -64,7 +64,7 @@ class AbstractReactant(ABC):
 
         reactant_type = ReactantType(require_str(raw.get("type"), "reactant.type"))
 
-        reactant = FACTORIES.get(reactant_type)
+        reactant = factories.get(reactant_type)
         if reactant is None:
             msg = f"unexpected reactant type {str(reactant_type)!r}"
             raise EleanorError(msg)

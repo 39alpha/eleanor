@@ -83,7 +83,7 @@ def compile_query(
     ``presets`` selects the preset bundle in effect for this compile (spec
     §10.2). ``None`` means "use the canonical bundle" (``BUILTIN_PRESETS``);
     an empty mapping disables presets entirely so any ``{preset: name}``
-    directive raises ``UnknownPreset``; any other ``Mapping[str, PresetFn]``
+    directive raises ``UnknownPresetError``; any other ``Mapping[str, PresetFn]``
     is used as-is. Distinguishing ``None`` from ``{}`` lets callers
     explicitly opt out of the canonical bundle without re-registering.
     """

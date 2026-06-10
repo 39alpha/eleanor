@@ -3,12 +3,12 @@ from dataclasses import dataclass
 
 from eleanor.query.aliases import SHORT_FORM_INVERSE, aliases_for, singularize
 from eleanor.query.errors import (
-    AliasCollision,
-    AmbiguousRowScope,
-    InvalidRowScope,
+    AliasCollisionError,
+    AmbiguousRowScopeError,
+    InvalidRowScopeError,
     ParseError,
-    PresetScopeMissing,
-    UnknownRowScope,
+    PresetScopeMissingError,
+    UnknownRowScopeError,
 )
 from eleanor.query.path import IterFilter, Path, Segment, parse_row_scope, path_to_string
 from eleanor.query.reflection import (
@@ -77,7 +77,7 @@ class AmbientScopeTable:
             return
 
         if existing.path != path:
-            raise AliasCollision(alias, [path_to_string(existing.path), path_to_string(path)])
+            raise AliasCollisionError(alias, [path_to_string(existing.path), path_to_string(path)])
 
         # Re-add at the same path: ``terminal=True`` upgrades, and an
         # ``iter_source_kind`` argument fills in a previously-None binding.
@@ -106,7 +106,7 @@ class AmbientScopeTable:
     def require(self, preset: str, alias: str) -> AmbientScope:
         scope = self._scopes.get(alias)
         if scope is None:
-            raise PresetScopeMissing(preset, alias)
+            raise PresetScopeMissingError(preset, alias)
         return scope
 
 
@@ -188,7 +188,7 @@ def validate_short_forms_for_root(root_type: type[object]) -> None:
     Walks every reachable dataclass field under ``root_type`` and computes its
     default alias via ``singularize``. If any default alias matches a value in
     ``aliases.SHORT_FORM_INVERSE`` (e.g., ``vs``, ``es``), raises
-    ``AliasCollision`` listing the offending paths. The walk uses a
+    ``AliasCollisionError`` listing the offending paths. The walk uses a
     ``visited`` set keyed on ``type`` so recursive type graphs terminate.
 
     This is the runtime/live-reflection counterpart to
@@ -222,7 +222,7 @@ def validate_short_forms_for_root(root_type: type[object]) -> None:
     if collisions:
         # Report the first collision deterministically (sorted by alias).
         alias = sorted(collisions)[0]
-        raise AliasCollision(alias, collisions[alias])
+        raise AliasCollisionError(alias, collisions[alias])
 
 
 def _short_form_walk_step(field: FieldKind) -> tuple[Segment, type[object] | None]:
@@ -263,7 +263,7 @@ def resolve_row_scope(root_type: type[object], raw: object) -> tuple[Path, Ambie
             # also named ``order`` is intentionally shadowed at row_scope
             # resolution; if such a field is reachable from a non-root scope,
             # ``AmbientScopeTable.add`` will surface the conflict via
-            # ``AliasCollision`` when the scope table is built.
+            # ``AliasCollisionError`` when the scope table is built.
             resolved = Path(segments=())
             walk_steps = []
         else:
@@ -275,9 +275,9 @@ def resolve_row_scope(root_type: type[object], raw: object) -> tuple[Path, Ambie
                         f"shortname enumeration hit the depth limit ({_DEFAULT_SHORTNAME_MAX_DEPTH});"
                         f" deeper matches were skipped"
                     )
-                raise UnknownRowScope(shortname, hint=hint)
+                raise UnknownRowScopeError(shortname, hint=hint)
             if len(matches) > 1:
-                raise AmbiguousRowScope(shortname, [path_to_string(path) for path in matches])
+                raise AmbiguousRowScopeError(shortname, [path_to_string(path) for path in matches])
             resolved = matches[0]
             walk_steps = walk_path(root_type, resolved)
             # The shortname enumerator only emits paths terminating in a
@@ -286,13 +286,13 @@ def resolve_row_scope(root_type: type[object], raw: object) -> tuple[Path, Ambie
             # the invariant defended rather than implicit.
             if not _valid_row_scope_terminal(resolved, walk_steps):
                 reason = "row_scope must end at a dataclass node or an iterative [*] segment"
-                raise InvalidRowScope(path_to_string(resolved), reason)
+                raise InvalidRowScopeError(path_to_string(resolved), reason)
     else:
         resolved = parsed
         walk_steps = walk_path(root_type, resolved)
         if not _valid_row_scope_terminal(resolved, walk_steps):
             reason = "row_scope must end at a dataclass node or an iterative [*] segment"
-            raise InvalidRowScope(path_to_string(resolved), reason)
+            raise InvalidRowScopeError(path_to_string(resolved), reason)
 
     table = AmbientScopeTable()
     root_kind: FieldKind = DataclassField(name="order", dataclass_type=root_type, optional=False)

@@ -2,10 +2,10 @@ from dataclasses import dataclass
 from unittest import TestCase
 
 from eleanor.query.errors import (
-    AliasCollision,
-    AmbiguousRowScope,
-    InvalidRowScope,
-    UnknownRowScope,
+    AliasCollisionError,
+    AmbiguousRowScopeError,
+    InvalidRowScopeError,
+    UnknownRowScopeError,
 )
 from eleanor.query.path import Path, parse_path, path_to_string
 from eleanor.query.reflection import DataclassField
@@ -44,33 +44,33 @@ class TestScope(TestCase):
 
     def test_resolve_row_scope_ambiguous_shortname_raises(self) -> None:
         """
-        Ensure overlapping shortname candidates raise AmbiguousRowScope.
+        Ensure overlapping shortname candidates raise AmbiguousRowScopeError.
         """
-        with self.assertRaises(AmbiguousRowScope):
+        with self.assertRaises(AmbiguousRowScopeError):
             resolve_row_scope(Sample, "point")
 
     def test_resolve_row_scope_unknown_shortname_raises(self) -> None:
         """
-        Ensure unknown shortname inputs raise UnknownRowScope.
+        Ensure unknown shortname inputs raise UnknownRowScopeError.
         """
-        with self.assertRaises(UnknownRowScope):
+        with self.assertRaises(UnknownRowScopeError):
             resolve_row_scope(Sample, "missing")
 
     def test_resolve_row_scope_rejects_leaf_terminal_path(self) -> None:
         """
         Ensure explicit row_scope paths ending in leaf fields are rejected.
         """
-        with self.assertRaises(InvalidRowScope):
+        with self.assertRaises(InvalidRowScopeError):
             resolve_row_scope(Sample, "points[index=1].index")
 
     def test_ambient_scope_table_alias_collision_raises(self) -> None:
         """
-        Ensure adding a reused alias for a different path raises AliasCollision.
+        Ensure adding a reused alias for a different path raises AliasCollisionError.
         """
         table = AmbientScopeTable()
         root_kind = DataclassField(name="order", dataclass_type=Sample, optional=False)
         table.add("order", Path(segments=tuple()), root_kind, terminal=False)
-        with self.assertRaises(AliasCollision):
+        with self.assertRaises(AliasCollisionError):
             table.add(
                 "order",
                 parse_path("point"),

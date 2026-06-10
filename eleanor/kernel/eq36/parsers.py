@@ -123,17 +123,17 @@ class OutputParser(ABC):
     _redox_reactions: list[es.RedoxReaction]
     _pure_solids: dict[str, _PureSolidAccum]
     _solid_solutions: dict[str, _SolidSolutionAccum]
-    _pcH: np.float64 | None
-    _pHCl: np.float64 | None
+    _pch: np.float64 | None
+    _phcl: np.float64 | None
     _extended_alkalinity: np.float64 | None
     _temperature: np.float64
     _pressure: np.float64
-    _pH: np.float64
-    _Eh: np.float64
+    _ph: np.float64
+    _eh: np.float64
     _pe: np.float64
-    _Ah: np.float64
-    _fO2: np.float64
-    _log_fO2: np.float64
+    _ah: np.float64
+    _fo2: np.float64
+    _log_fo2: np.float64
     _activity_water: np.float64
     _log_activity_water: np.float64
     _mole_fraction_water: np.float64
@@ -184,18 +184,18 @@ class OutputParser(ABC):
         self._pure_solids = {}
         self._solid_solutions = {}
 
-        self._pcH = None
-        self._pHCl = None
+        self._pch = None
+        self._phcl = None
         self._extended_alkalinity = None
         self._temperature = np.float64(0.0)
         self._pressure = np.float64(0.0)
-        self._pH = np.float64(0.0)
-        self._Eh = np.float64(0.0)
+        self._ph = np.float64(0.0)
+        self._eh = np.float64(0.0)
         self._pe = np.float64(0.0)
-        self._Ah = np.float64(0.0)
+        self._ah = np.float64(0.0)
 
-        self._fO2 = np.float64(0.0)
-        self._log_fO2 = np.float64(0.0)
+        self._fo2 = np.float64(0.0)
+        self._log_fo2 = np.float64(0.0)
         self._activity_water = np.float64(0.0)
         self._log_activity_water = np.float64(0.0)
         self._mole_fraction_water = np.float64(0.0)
@@ -412,7 +412,7 @@ class OutputParser(ABC):
     def read_charge_balance(self) -> None:
         pass
 
-    def read_pH_like(self) -> None:
+    def read_ph_like(self) -> None:
         self.consume_to_header("The pH, Eh, pe-, and Ah on various pH scales")
         self.advance(n=4)
         while not self.eof() and not self.is_blank():
@@ -422,18 +422,18 @@ class OutputParser(ABC):
                 continue
             scale_name = " ".join(scale)
             if scale_name in ["NBS pH scale", "NBS"]:
-                self._pH = field_as_float(ph)
-                self._Eh = field_as_float(eh)
+                self._ph = field_as_float(ph)
+                self._eh = field_as_float(eh)
                 self._pe = field_as_float(pe)
-                self._Ah = field_as_float(ah)
+                self._ah = field_as_float(ah)
             self.advance()
         self.consume_blank_lines()
 
         with contextlib.suppress(Exception):
-            self._pcH = self.read_basic_property("pcH")
+            self._pch = self.read_basic_property("pcH")
 
         with contextlib.suppress(Exception):
-            self._pHCl = self.read_basic_property("pHCl")
+            self._phcl = self.read_basic_property("pHCl")
 
     def read_alkalinity(self) -> None:
         self._extended_alkalinity = None
@@ -494,17 +494,17 @@ class OutputParser(ABC):
         self.advance(n=2)
         reactions: list[es.RedoxReaction] = []
         while not self.eof() and not self.is_blank():
-            couple, eh, pe, log_fO2, ah = self.line().strip().split()
-            if "*" in eh or "*" in pe or "*" in log_fO2 or "*" in ah:
+            couple, eh, pe, log_fo2, ah = self.line().strip().split()
+            if "*" in eh or "*" in pe or "*" in log_fo2 or "*" in ah:
                 self.advance()
                 continue
             reactions.append(
                 es.RedoxReaction(
                     couple=couple,
-                    Eh=field_as_float(eh),
+                    eh=field_as_float(eh),
                     pe=field_as_float(pe),
-                    log_fO2=field_as_float(log_fO2),
-                    Ah=field_as_float(ah),
+                    log_fo2=field_as_float(log_fo2),
+                    ah=field_as_float(ah),
                 ),
             )
             self.advance()
@@ -917,7 +917,7 @@ class OutputParser3(OutputParser):
 
     @override
     def read_bulk_properties(self) -> None:
-        self._fO2, self._log_fO2 = self.read_log_property("Oxygen fugacity", units=["bars", "bar"])
+        self._fo2, self._log_fo2 = self.read_log_property("Oxygen fugacity", units=["bars", "bar"])
         self._activity_water, self._log_activity_water = self.read_log_property("Activity of water")
         self._mole_fraction_water, self._log_mole_fraction_water = self.read_log_property("Mole fraction of water")
         self._activity_coefficient_water, self._log_activity_coefficient_water = self.read_log_property(
@@ -985,7 +985,7 @@ class OutputParser3(OutputParser):
             "mole_fraction_water": self._mole_fraction_water,
             "log_gamma_water": self._log_activity_coefficient_water,
             "pe": self._pe,
-            "Ah": self._Ah,
+            "Ah": self._ah,
             "log_stoichiometric_ionic_strength": self._log_stoichiometric_ionic_strength,
             "ionic_asymmetry": self._ionic_asymmetry,
             "stoichiometric_ionic_asymmetry": self._stoichiometric_ionic_asymmetry,
@@ -998,10 +998,10 @@ class OutputParser3(OutputParser):
             "solvent_fraction": self._solvent_fraction,
         }
 
-        if self._pcH is not None:
-            custom_properties["pcH"] = self._pcH
-        if self._pHCl is not None:
-            custom_properties["pHCl"] = self._pHCl
+        if self._pch is not None:
+            custom_properties["pcH"] = self._pch
+        if self._phcl is not None:
+            custom_properties["pHCl"] = self._phcl
         if self._anions is not None:
             custom_properties["anions"] = self._anions
         if self._cations is not None:
@@ -1019,10 +1019,10 @@ class OutputParser3(OutputParser):
             stage="eq3",
             temperature=self._temperature,
             pressure=self._pressure,
-            pH=self._pH,
-            log_fO2=self._log_fO2,
+            ph=self._ph,
+            log_fo2=self._log_fo2,
             log_activity_water=self._log_activity_water,
-            Eh=self._Eh,
+            eh=self._eh,
             log_ionic_strength=self._log_ionic_strength,
             solute_mass=self._solute_mass,
             solvent_mass=self._solvent_mass,
@@ -1049,7 +1049,7 @@ class OutputParser3(OutputParser):
             self.read_numerical_composition()
             self.read_sensible_composition()
             self.read_bulk_properties()
-            self.read_pH_like()
+            self.read_ph_like()
             self.read_alkalinity()
             self.read_charge_balance()
             self.read_aqueous_solute()
@@ -1158,7 +1158,7 @@ class OutputParser6(OutputParser):
 
     @override
     def read_bulk_properties(self) -> None:
-        self._fO2, self._log_fO2 = self.read_log_property("Oxygen fugacity", units=["bars", "bar"])
+        self._fo2, self._log_fo2 = self.read_log_property("Oxygen fugacity", units=["bars", "bar"])
         self._activity_water, self._log_activity_water = self.read_log_property("Activity of water")
         self._mole_fraction_water, self._log_mole_fraction_water = self.read_log_property("Mole fraction of water")
         self._activity_coefficient_water, self._log_activity_coefficient_water = self.read_log_property(
@@ -1224,7 +1224,7 @@ class OutputParser6(OutputParser):
     def _build_point(self) -> es.Point:
         custom_properties: dict[str, object] = {
             "pe": self._pe,
-            "Ah": self._Ah,
+            "Ah": self._ah,
             "mole_fraction_water": self._mole_fraction_water,
             "log_gamma_water": self._log_activity_coefficient_water,
             "osmotic_coefficient": self._osmotic_coefficient,
@@ -1245,8 +1245,8 @@ class OutputParser6(OutputParser):
             "solid_volume_change": self._solid_volume_change,
         }
 
-        if self._pHCl is not None:
-            custom_properties["pHCl"] = self._pHCl
+        if self._phcl is not None:
+            custom_properties["pHCl"] = self._phcl
         if self._expected_charge_imbalance is not None:
             custom_properties["expected_charge_imbalance"] = self._expected_charge_imbalance
         if self._charge_discrepancy is not None:
@@ -1263,9 +1263,9 @@ class OutputParser6(OutputParser):
             log_xi=self._log_xi,
             temperature=self._temperature,
             pressure=self._pressure,
-            pH=self._pH,
-            Eh=self._Eh,
-            log_fO2=self._log_fO2,
+            ph=self._ph,
+            eh=self._eh,
+            log_fo2=self._log_fo2,
             log_activity_water=self._log_activity_water,
             log_ionic_strength=self._log_ionic_strength,
             solute_mass=self._solute_mass,
@@ -1300,7 +1300,7 @@ class OutputParser6(OutputParser):
             self.read_elemental_composition()
             self.read_numerical_composition()
             self.read_sensible_composition()
-            self.read_pH_like()
+            self.read_ph_like()
             self.read_bulk_properties()
             self.read_charge_balance()
             self.read_aqueous_solute()

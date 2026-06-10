@@ -79,10 +79,10 @@ class Reactant:
 @dataclass
 class RedoxReaction:
     couple: str
-    Eh: np.float64
+    eh: np.float64
     pe: np.float64
-    log_fO2: np.float64
-    Ah: np.float64
+    log_fo2: np.float64
+    ah: np.float64
 
 
 @final
@@ -91,9 +91,9 @@ class Point:
     stage: str
     temperature: np.float64
     pressure: np.float64
-    pH: np.float64
-    log_fO2: np.float64
-    Eh: np.float64
+    ph: np.float64
+    log_fo2: np.float64
+    eh: np.float64
     log_activity_water: np.float64
     log_ionic_strength: np.float64
     solute_mass: np.float64

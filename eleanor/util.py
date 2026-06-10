@@ -220,13 +220,7 @@ def convert_to_number(value: float | np.floating | str) -> int | np.float64:
     raise EleanorError(msg)
 
 
-def is_list_of(value: object, types: type | tuple[type, ...], allowNone: bool = False) -> bool:
-    if allowNone:
-        types = (*types, type(None)) if isinstance(types, tuple) else (types, type(None))
-
-    if value is None:
-        return allowNone
-
+def is_list_of(value: object, types: type | tuple[type, ...]) -> bool:
     if not isinstance(value, list):
         return False
     items = cast(list[object], value)
@@ -240,16 +234,16 @@ def parse_date(date: str) -> datetime.date | datetime.datetime:
         return datetime.datetime.fromisoformat(date)
 
 
-def chunks[T](indexable: Sequence[T], n: int) -> Generator[Sequence[T]]:
-    N = len(indexable)
-    chunk_size = N // n
-    residual = N - n * chunk_size
+def chunks[T](indexable: Sequence[T], num_chunks: int) -> Generator[Sequence[T]]:
+    num_items = len(indexable)
+    chunk_size = num_items // num_chunks
+    residual = num_items - num_chunks * chunk_size
     start = 0
-    while residual > 0 and start < N:
+    while residual > 0 and start < num_items:
         yield indexable[start : start + chunk_size + 1]
         start += chunk_size + 1
         residual -= 1
-    while start < N:
+    while start < num_items:
         yield indexable[start : start + chunk_size]
         start += chunk_size
 

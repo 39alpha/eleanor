@@ -1,4 +1,3 @@
-# pyright: reportConstantRedefinition=false
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -140,33 +139,33 @@ class SolidSolution:
 
 @dataclass(init=False)
 class TPCurve:
-    T: dict[str, np.float64]
-    P: tuple[Array1D[np.float64], Array1D[np.float64]]
+    temperature: dict[str, np.float64]
+    pressure: tuple[Array1D[np.float64], Array1D[np.float64]]
     domain: list[FloatRange]
 
-    def __init__(self, T: dict[str, np.float64], P: tuple[Array1D[np.float64], Array1D[np.float64]]) -> None:
-        if not ("min" in T and "mid" in T and "max" in T):
+    def __init__(self, temp: dict[str, np.float64], press: tuple[Array1D[np.float64], Array1D[np.float64]]) -> None:
+        if not ("min" in temp and "mid" in temp and "max" in temp):
             msg = "temperature dictionary must have min, mid and max keys"
             raise ValueError(msg)
 
-        if any(len(coeffs) == 0 for coeffs in P):
+        if any(len(coeffs) == 0 for coeffs in press):
             msg = "polynomial has no coefficients"
             raise ValueError(msg)
 
-        self.P = P
-        self.T = T
+        self.pressure = press
+        self.temperature = temp
         self.domain = []
 
         _ = self.reset_domain()
 
-        [coeff_left, coeff_right] = self.P
+        [coeff_left, coeff_right] = self.pressure
 
-        tmp_left = cast(object, np.dot(coeff_left, self.T["mid"] ** np.arange(len(coeff_left))))
+        tmp_left = cast(object, np.dot(coeff_left, self.temperature["mid"] ** np.arange(len(coeff_left))))
         if not isinstance(tmp_left, np.float64):
             raise TypeError(tmp_left)
         left = tmp_left
 
-        tmp_right = cast(object, np.dot(coeff_right, self.T["mid"] ** np.arange(len(coeff_right))))
+        tmp_right = cast(object, np.dot(coeff_right, self.temperature["mid"] ** np.arange(len(coeff_right))))
         if not isinstance(tmp_right, np.float64):
             raise TypeError(tmp_right)
         right = tmp_right
@@ -176,92 +175,92 @@ class TPCurve:
             raise ValueError(msg)
 
     def reset_domain(self) -> Self:
-        self.domain = [(self.T["min"], self.T["max"])]
+        self.domain = [(self.temperature["min"], self.temperature["max"])]
         return self
 
-    def temperature_in_domain(self, T: np.float64) -> bool:
-        return any(subdomain[0] <= T <= subdomain[1] for subdomain in self.domain)
+    def temperature_in_domain(self, temp: np.float64) -> bool:
+        return any(subdomain[0] <= temp <= subdomain[1] for subdomain in self.domain)
 
-    def __call__(self, T: np.float64) -> np.float64:
-        if not self.temperature_in_domain(T):
-            msg = f"the provided temperature ({T}) is not in the restricted domain {self.domain}"
+    def __call__(self, temp: np.float64) -> np.float64:
+        if not self.temperature_in_domain(temp):
+            msg = f"the provided temperature ({temp}) is not in the restricted domain {self.domain}"
             raise ValueError(msg)
 
-        coefficients = self.P[0] if T <= self.T["mid"] else self.P[1]
-        value = cast(object, np.dot(coefficients, T ** np.arange(len(coefficients))))
+        coefficients = self.pressure[0] if temp <= self.temperature["mid"] else self.pressure[1]
+        value = cast(object, np.dot(coefficients, temp ** np.arange(len(coefficients))))
         if not isinstance(value, np.float64):
             raise TypeError(value)
         return value
 
     def set_domain(self, temperature_range: FloatRange, pressure_range: FloatRange) -> bool:
-        Tmin, Tmax = temperature_range
-        Pmin, Pmax = pressure_range
+        temp_min, temp_max = temperature_range
+        press_min, press_max = pressure_range
 
         intersections = self.find_boundary_intersections(temperature_range, pressure_range)
 
         domain: list[FloatRange] = []
-        notEmpty = True
+        not_empty = True
         if len(intersections) == 0:
             endpoints = 0
-            for T in [self.T["min"], self.T["max"]]:
-                P = self(T)
-                if Tmin <= T <= Tmax and Pmin <= P <= Pmax:
+            for temp in [self.temperature["min"], self.temperature["max"]]:
+                press = self(temp)
+                if temp_min <= temp <= temp_max and press_min <= press <= press_max:
                     endpoints += 1
 
             if endpoints == 0:
-                notEmpty = False
+                not_empty = False
             elif endpoints == 1:
                 msg = "expected to find intersections or both points inside/outside region"
                 raise Exception(msg)
             else:
-                domain = [(self.T["min"], self.T["max"])]
+                domain = [(self.temperature["min"], self.temperature["max"])]
         elif len(intersections) == 1:
-            ((Tint, _),) = intersections
+            ((temp_intersect, _),) = intersections
             is_single_point = True
-            for T in [self.T["min"], self.T["mid"], self.T["max"]]:
-                if T == Tint or not (Tmin <= T <= Tmax):
+            for temp in [self.temperature["min"], self.temperature["mid"], self.temperature["max"]]:
+                if temp == temp_intersect or not (temp_min <= temp <= temp_max):
                     continue
 
-                P = self(T)
-                if Pmin <= P <= Pmax:
-                    domain.append((min(T, Tint), max(T, Tint)))
+                press = self(temp)
+                if press_min <= press <= press_max:
+                    domain.append((min(temp, temp_intersect), max(temp, temp_intersect)))
                     is_single_point = False
 
             if is_single_point:
-                domain.append((Tint, Tint))
+                domain.append((temp_intersect, temp_intersect))
         else:
             for i in range(len(intersections) - 1):
-                T1, _ = intersections[i]
-                T2, _ = intersections[i + 1]
-                P = self((T1 + T2) / 2)
-                if Pmin <= P <= Pmax:
-                    domain.append((T1, T2))
+                temp_1, _ = intersections[i]
+                temp_2, _ = intersections[i + 1]
+                press = self((temp_1 + temp_2) / 2)
+                if press_min <= press <= press_max:
+                    domain.append((temp_1, temp_2))
 
         self.domain = domain
 
-        return notEmpty
+        return not_empty
 
     def find_boundary_intersections(
         self,
         temperature_range: FloatRange,
         pressure_range: FloatRange,
     ) -> list[CartesianCoord]:
-        Tmin, Tmax = temperature_range
-        Pmin, Pmax = pressure_range
+        temp_min, temp_max = temperature_range
+        press_min, press_max = pressure_range
 
         intersections: list[CartesianCoord] = []
-        for T in temperature_range:
-            if not self.temperature_in_domain(T):
+        for temp in temperature_range:
+            if not self.temperature_in_domain(temp):
                 continue
 
-            P = self(T)
-            if Pmin <= P <= Pmax:
-                intersections.append((T, P))
+            press = self(temp)
+            if press_min <= press <= press_max:
+                intersections.append((temp, press))
 
-        for P in pressure_range:
-            for i, coefficients in enumerate(self.P):
+        for press in pressure_range:
+            for i, coefficients in enumerate(self.pressure):
                 coeff = np.copy(coefficients)
-                coeff[0] -= P
+                coeff[0] -= press
                 roots = np.roots(coeff[::-1])
                 real_roots: Array1D[np.float64] = np.asarray(np.real(roots[np.isreal(roots)]), dtype=np.float64)
 
@@ -269,10 +268,10 @@ class TPCurve:
                     (T, self(T))
                     for T in real_roots
                     if (
-                        Tmin <= T <= Tmax
+                        temp_min <= T <= temp_max
                         and (
-                            (i == 0 and self.T["min"] <= T <= self.T["mid"])
-                            or (i == 1 and self.T["mid"] <= T <= self.T["max"])
+                            (i == 0 and self.temperature["min"] <= T <= self.temperature["mid"])
+                            or (i == 1 and self.temperature["mid"] <= T <= self.temperature["max"])
                         )
                     )
                 )
@@ -312,27 +311,27 @@ class TPCurve:
         domain_size = sum(s[1] - s[0] for s in domain)
         steps = [domain[i + 1][0] - domain[i][1] for i in range(len(domain) - 1)]
 
-        Ts: Array1D[np.float64] = rng.uniform(0, domain_size, num_samples) + domain[0][0]
-        Ps: list[np.float64] = []
+        temps: Array1D[np.float64] = rng.uniform(0, domain_size, num_samples) + domain[0][0]
+        presses: list[np.float64] = []
         selected_curves: list[TPCurve] = []
-        for i in range(len(Ts)):
-            t = cast(np.float64, Ts[i])
+        for i in range(len(temps)):
+            temp = cast(np.float64, temps[i])
             for j, subdomain in enumerate(domain):
-                if subdomain[1] >= t:
+                if subdomain[1] >= temp:
                     break
-                t += steps[j]
-            Ts[i] = t
+                temp += steps[j]
+            temps[i] = temp
 
-            curves_above = [curve for curve in curves if curve.temperature_in_domain(t)]
+            curves_above = [curve for curve in curves if curve.temperature_in_domain(temp)]
             selected_index = rng.integers(0, len(curves_above))
             selected_curve = curves_above[selected_index]
 
-            P = selected_curve(t)
-            Ps.append(P)
+            press = selected_curve(temp)
+            presses.append(press)
 
             selected_curves.append(selected_curve)
 
-        return Ts, np.asarray(Ps), selected_curves
+        return temps, np.asarray(presses), selected_curves
 
 
 @dataclass
@@ -409,13 +408,13 @@ class Data1:
 
         data = read_data1(filename)
 
-        T: dict[str, np.float64] = {
+        temp: dict[str, np.float64] = {
             "min": data.min_temperature,
             "mid": data.max_temperature_range[0],
             "max": data.max_temperature_range[1],
         }
-        P = (data.pressure_coefficients[:, 0], data.pressure_coefficients[:, 1])
-        tp_curve = TPCurve(T, P)
+        press = (data.pressure_coefficients[:, 0], data.pressure_coefficients[:, 1])
+        tp_curve = TPCurve(temp, press)
 
         element_names: list[str] = []
         elements: dict[str, np.float64] = {}

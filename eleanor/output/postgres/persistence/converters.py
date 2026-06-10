@@ -282,9 +282,9 @@ def es_point_to_row(point: core_es.Point, variable_space_id: int) -> dict[str, o
         "log_xi": point.log_xi,
         "temperature": point.temperature,
         "pressure": point.pressure,
-        "pH": point.pH,
-        "log_fO2": point.log_fO2,
-        "Eh": point.Eh,
+        "pH": point.ph,
+        "log_fO2": point.log_fo2,
+        "Eh": point.eh,
         "log_activity_water": point.log_activity_water,
         "log_ionic_strength": point.log_ionic_strength,
         "solute_mass": point.solute_mass,
@@ -397,10 +397,10 @@ def es_redox_reaction_to_row(
     return {
         "equilibrium_space_id": equilibrium_space_id,
         "couple": reaction.couple,
-        "Eh": reaction.Eh,
+        "Eh": reaction.eh,
         "pe": reaction.pe,
-        "log_fO2": reaction.log_fO2,
-        "Ah": reaction.Ah,
+        "log_fO2": reaction.log_fo2,
+        "Ah": reaction.ah,
     }
 
 

@@ -248,32 +248,35 @@ class TPCurve:
         temp_min, temp_max = temperature_range
         press_min, press_max = pressure_range
 
-        intersections: list[CartesianCoord] = []
-        for temp in temperature_range:
-            if not self.temperature_in_domain(temp):
-                continue
-
-            press = self(temp)
-            if press_min <= press <= press_max:
-                intersections.append((temp, press))
+        intersections = [
+            (temp, press)
+            for temp in temperature_range
+            if self.temperature_in_domain(temp) and press_min <= (press := self(temp)) <= press_max
+        ]
 
         for press in pressure_range:
             for i, coefficients in enumerate(self.pressure):
+                if i == 0:
+                    temp_bounds = self.temperature["min"], self.temperature["mid"]
+                elif i == 1:
+                    temp_bounds = self.temperature["mid"], self.temperature["max"]
+                else:
+                    # This should never raise as __init__ ensures that len(self.pressure) == 2
+                    msg = "temperature-pressure curve has more than two domains"
+                    raise RuntimeError(msg)
+
                 coeff = np.copy(coefficients)
                 coeff[0] -= press
                 roots = np.roots(coeff[::-1])
                 real_roots: Array1D[np.float64] = np.asarray(np.real(roots[np.isreal(roots)]), dtype=np.float64)
 
                 intersections.extend(
-                    (T, self(T))
-                    for T in real_roots
-                    if (
-                        temp_min <= T <= temp_max
-                        and (
-                            (i == 0 and self.temperature["min"] <= T <= self.temperature["mid"])
-                            or (i == 1 and self.temperature["mid"] <= T <= self.temperature["max"])
-                        )
-                    )
+                    (temp, press)
+                    for temp in real_roots
+                    if temp_min <= temp <= temp_max
+                    and temp_bounds[0] <= temp <= temp_bounds[1]
+                    and self.temperature_in_domain(temp)
+                    and press_min <= (press := self(temp)) <= press_max
                 )
 
         return sorted(set(intersections))

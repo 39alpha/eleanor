@@ -300,6 +300,20 @@ class TestEq36Data1(TestCase):
         self.assertEqual(selected[0], c1)
         self.assertEqual(selected[1], c2)
 
+    def test_tpcurve_find_intersections_handles_restricted_domain(self) -> None:
+        c = TPCurve(
+            {"min": np.float64(0.0), "mid": np.float64(5.0), "max": np.float64(10.0)},
+            (np.array([-2.0], dtype=np.float64), np.array([-7.0, 1.0], dtype=np.float64)),
+        )
+
+        c.domain = [(np.float64(0.0), np.float64(3.0))]
+
+        intersections = c.find_boundary_intersections(
+            (np.float64(0.0), np.float64(10.0)),
+            (np.float64(0.0), np.float64(0.0)),
+        )
+        self.assertEqual(intersections, [])
+
     def _read_data1_payload(self, duplicate_end_member: bool = False):
         species = np.array(
             [

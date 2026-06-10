@@ -2,7 +2,7 @@ from dataclasses import dataclass, field
 from typing import Self, cast
 
 from eleanor.config.plugin import PluginConfig
-from eleanor.exceptions import EleanorException
+from eleanor.exceptions import EleanorError
 from eleanor.navigator.registry import registry
 from eleanor.navigator.settings import NavigatorSettings
 from eleanor.plugin import load_plugin_settings
@@ -17,7 +17,7 @@ class NavigatorConfig(PluginConfig[NavigatorSettings]):
     def __post_init__(self) -> None:
         if not isinstance(cast(object, self.settings), NavigatorSettings):
             msg = f"navigator configuration requires NavigatorSettings, got {type(self.settings).__name__}"
-            raise EleanorException(msg)
+            raise EleanorError(msg)
 
         super().__post_init__()
 

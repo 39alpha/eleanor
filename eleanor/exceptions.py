@@ -1,4 +1,4 @@
-class EleanorException(Exception): ...
+class EleanorError(Exception): ...
 
 
 class EleanorShutdown(KeyboardInterrupt):
@@ -13,4 +13,4 @@ class EleanorShutdown(KeyboardInterrupt):
 class EleanorWarning(UserWarning): ...
 
 
-__all__ = ["EleanorException", "EleanorShutdown", "EleanorWarning"]
+__all__ = ["EleanorError", "EleanorShutdown", "EleanorWarning"]

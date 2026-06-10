@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from typing import Self, cast
 
 from eleanor.config.plugin import PluginConfig
-from eleanor.exceptions import EleanorException
+from eleanor.exceptions import EleanorError
 from eleanor.kernel.registry import registry
 from eleanor.kernel.settings import KernelSettings
 from eleanor.plugin import load_plugin_settings
@@ -14,7 +14,7 @@ class KernelConfig(PluginConfig[KernelSettings]):
     def __post_init__(self) -> None:
         if not isinstance(cast(object, self.settings), KernelSettings):
             msg = f"kernel configuration requires {KernelSettings.__name__}, got {type(self.settings).__name__}"
-            raise EleanorException(msg)
+            raise EleanorError(msg)
 
         super().__post_init__()
 

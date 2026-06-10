@@ -1,6 +1,6 @@
 from typing import TYPE_CHECKING
 
-from eleanor.exceptions import EleanorException
+from eleanor.exceptions import EleanorError
 from eleanor.executor.settings import ExecutorSettings
 from eleanor.plugin import ConfigurablePluginSpec
 
@@ -16,7 +16,7 @@ def parse_standard_settings(raw: dict[str, object]) -> ExecutorSettings:
 def build_serial(settings: object) -> SerialExecutor:
     if not isinstance(settings, ExecutorSettings):
         msg = f"serial executor requires {ExecutorSettings.__name__}, got {type(settings).__name__}"
-        raise EleanorException(msg)
+        raise EleanorError(msg)
 
     from eleanor.executor.serial import SerialExecutor
 
@@ -33,7 +33,7 @@ serial_spec = ConfigurablePluginSpec(
 def build_multiprocessing(settings: object) -> MultiprocessingExecutor:
     if not isinstance(settings, ExecutorSettings):
         msg = f"multiprocessing executor requires {ExecutorSettings.__name__}, got {type(settings).__name__}"
-        raise EleanorException(msg)
+        raise EleanorError(msg)
 
     from eleanor.executor.multiprocessing import MultiprocessingExecutor
 

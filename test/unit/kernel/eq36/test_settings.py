@@ -1,6 +1,6 @@
 from unittest import TestCase
 
-from eleanor.exceptions import EleanorException
+from eleanor.exceptions import EleanorError
 from eleanor.kernel.eq36.settings import (
     EQ36_MODEL_EXTENSIONS,
     IODB_6,
@@ -14,7 +14,7 @@ from eleanor.kernel.eq36.settings import (
     Eq36Settings,
     get_setting,
 )
-from eleanor.kernel.exceptions import EleanorKernelException
+from eleanor.kernel.exceptions import EleanorKernelError
 
 
 class TestEq36Settings(TestCase):
@@ -35,10 +35,10 @@ class TestEq36Settings(TestCase):
         """
         Ensure get_setting raises for missing required values and unexpected values.
         """
-        with self.assertRaises(EleanorKernelException):
+        with self.assertRaises(EleanorKernelError):
             _ = get_setting({}, IOPT_2)
 
-        with self.assertRaises(EleanorKernelException):
+        with self.assertRaises(EleanorKernelError):
             _ = get_setting({"iopt_2": "NOT_A_MEMBER"}, IOPT_2)
 
     def test_eq3_config_properties_and_verbose_copy(self) -> None:
@@ -139,39 +139,39 @@ class TestEq36Settings(TestCase):
 
     def test_from_dict_model_validation(self) -> None:
         """
-        Ensure invalid model types and values raise EleanorException.
+        Ensure invalid model types and values raise EleanorError.
         """
-        with self.assertRaises(EleanorException):
+        with self.assertRaises(EleanorError):
             _ = Eq36Settings.from_dict(
                 {"model": "unsupported", "charge_balance": "Cl-"}
             )
 
-        with self.assertRaises(EleanorException):
+        with self.assertRaises(EleanorError):
             _ = Eq36Settings.from_dict({"model": object(), "charge_balance": "Cl-"})
 
     def test_from_dict_field_type_validations(self) -> None:
         """
         Ensure type checks for charge_balance, basis_map, redox_species, timeout, and track_path.
         """
-        with self.assertRaises(EleanorException):
+        with self.assertRaises(EleanorError):
             _ = Eq36Settings.from_dict({"model": "b-dot", "charge_balance": 1})
 
-        with self.assertRaises(EleanorException):
+        with self.assertRaises(EleanorError):
             _ = Eq36Settings.from_dict(
                 {"model": "b-dot", "charge_balance": "Cl-", "basis_map": []}
             )
 
-        with self.assertRaises(EleanorException):
+        with self.assertRaises(EleanorError):
             _ = Eq36Settings.from_dict(
                 {"model": "b-dot", "charge_balance": "Cl-", "redox_species": 7}
             )
 
-        with self.assertRaises(EleanorException):
+        with self.assertRaises(EleanorError):
             _ = Eq36Settings.from_dict(
                 {"model": "b-dot", "charge_balance": "Cl-", "timeout": "10"}
             )
 
-        with self.assertRaises(EleanorException):
+        with self.assertRaises(EleanorError):
             _ = Eq36Settings.from_dict(
                 {"model": "b-dot", "charge_balance": "Cl-", "track_path": "yes"}
             )
@@ -180,7 +180,7 @@ class TestEq36Settings(TestCase):
         """
         Ensure unsupported eq3_config iopt_19 values are rejected.
         """
-        with self.assertRaises(EleanorException):
+        with self.assertRaises(EleanorError):
             _ = Eq36Settings.from_dict(
                 {
                     "model": "b-dot",

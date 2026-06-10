@@ -7,7 +7,7 @@ from types import TracebackType
 from typing import Self, Unpack, cast
 
 from eleanor.config import Config
-from eleanor.exceptions import EleanorException, EleanorShutdown
+from eleanor.exceptions import EleanorError, EleanorShutdown
 from eleanor.executor import AbstractExecutor, AbstractFuture, load_executor
 from eleanor.executor.settings import ExecutorSettings
 from eleanor.kernel import load_kernel
@@ -85,7 +85,7 @@ class Eleanor:
         self._output_sink_override = output_sink
         if self.config.output is None and self._output_sink_override is None:
             msg = "no output sink provided via config or keyword option"
-            raise EleanorException(msg)
+            raise EleanorError(msg)
 
         self._entered = False
         self._executor = None
@@ -257,7 +257,7 @@ class Eleanor:
             if self._output_sink is None:
                 if self.config.output is None:
                     msg = "no output sink provided via config or keyword option"
-                    raise EleanorException(msg)
+                    raise EleanorError(msg)
 
                 settings = replace(self.config.output.settings, verbose=verbose)
                 self._output_sink = load_output_sink(self.config.output.kind, settings)
@@ -270,7 +270,7 @@ class Eleanor:
 
         if self.config.output is None:
             msg = "no output sink provided via config or keyword option"
-            raise EleanorException(msg)
+            raise EleanorError(msg)
 
         settings = replace(self.config.output.settings, verbose=verbose)
         sink = load_output_sink(self.config.output.kind, settings)
@@ -333,13 +333,13 @@ class Eleanor:
                 run_manager = stack.enter_context(self._manager_scope())
             if run_executor.num_workers <= 0:
                 msg = "executor num_workers must be >= 1"
-                raise EleanorException(msg)
+                raise EleanorError(msg)
             if chunks_per_worker <= 0:
                 msg = "chunks_per_worker must be >= 1"
-                raise EleanorException(msg)
+                raise EleanorError(msg)
             if max_nav_attempts <= 0:
                 msg = "max_nav_attempts must be >= 1"
-                raise EleanorException(msg)
+                raise EleanorError(msg)
 
             if kernel is None:
                 kernel = load_kernel(order.kernel.kind, order.kernel.settings)
@@ -353,11 +353,11 @@ class Eleanor:
             expected_total = navigator.num_systems(order, simulation_size)
             if expected_total <= 0:
                 msg = f"navigator.num_systems({simulation_size}) returned {expected_total}; must be >= 1"
-                raise EleanorException(msg)
+                raise EleanorError(msg)
             effective_batch_size = batch_size if batch_size is not None else expected_total
             if batch_size is not None and batch_size <= 0:
                 msg = "batch_size must be >= 1"
-                raise EleanorException(msg)
+                raise EleanorError(msg)
 
             progress: Progress | None = None
             # Local handles use ``ManagedProgressHandle`` rather than the worker-
@@ -370,7 +370,7 @@ class Eleanor:
             if show_progress:
                 if run_manager is None:
                     msg = "show_progress requires an active SyncManager"
-                    raise EleanorException(msg)
+                    raise EleanorError(msg)
                 progress = Progress(run_manager)
                 sim_handle = progress.sim
                 if run_sink.supports_progress():
@@ -449,16 +449,16 @@ class Eleanor:
         """
         if executor is None:
             msg = "no process executor created"
-            raise EleanorException(msg)
+            raise EleanorError(msg)
         if executor.num_workers <= 0:
             msg = "executor num_workers must be >= 1"
-            raise EleanorException(msg)
+            raise EleanorError(msg)
         if chunks_per_worker <= 0:
             msg = "chunks_per_worker must be >= 1"
-            raise EleanorException(msg)
+            raise EleanorError(msg)
         if max_nav_attempts <= 0:
             msg = "max_nav_attempts must be >= 1"
-            raise EleanorException(msg)
+            raise EleanorError(msg)
 
         outcomes: list[WriteOutcome] = []
 
@@ -586,6 +586,6 @@ class Eleanor:
 
         if total_produced != expected_total:
             msg = f"navigator produced {total_produced} points, expected {expected_total}"
-            raise EleanorException(msg)
+            raise EleanorError(msg)
 
         return outcomes

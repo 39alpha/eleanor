@@ -8,7 +8,7 @@ from typing import cast
 from unittest import TestCase, mock
 
 import yaml
-from eleanor.exceptions import EleanorException
+from eleanor.exceptions import EleanorError
 from eleanor.kernel.settings import KernelSettings
 from eleanor.order import Order
 from eleanor.output import ComputeResult
@@ -123,16 +123,16 @@ class TestCsvSink(TestCase):
 
     def test_csv_config_validates_direct_constructor_and_from_dict(self) -> None:
         """Ensure CsvSinkSettings validates both direct construction and from_dict paths."""
-        with self.assertRaisesRegex(EleanorException, "filename must be a Path"):
+        with self.assertRaisesRegex(EleanorError, "filename must be a Path"):
             _ = CsvSinkSettings(filename=1, query={})  # pyright: ignore[reportArgumentType]
 
-        with self.assertRaisesRegex(EleanorException, "query must be a dictionary"):
+        with self.assertRaisesRegex(EleanorError, "query must be a dictionary"):
             _ = CsvSinkSettings(filename=Path("x.csv"), query="bad")  # pyright: ignore[reportArgumentType]
 
-        with self.assertRaisesRegex(EleanorException, "filename must be a str or Path"):
+        with self.assertRaisesRegex(EleanorError, "filename must be a str or Path"):
             _ = CsvSinkSettings.from_dict({"filename": 1})
 
-        with self.assertRaisesRegex(EleanorException, "query must be a dictionary"):
+        with self.assertRaisesRegex(EleanorError, "query must be a dictionary"):
             _ = CsvSinkSettings.from_dict({"filename": "x.csv"})
 
     def test_initialize_fresh_file_creates_header_and_schema_and_order_id(self) -> None:
@@ -229,7 +229,7 @@ class TestCsvSink(TestCase):
             sink = CsvSink(
                 CsvSinkSettings(filename=filename, query=_query_with_order_id())
             )
-            with self.assertRaises(EleanorException):
+            with self.assertRaises(EleanorError):
                 sink.initialize()
 
     def test_initialize_existing_header_mismatch_raises(self) -> None:
@@ -243,7 +243,7 @@ class TestCsvSink(TestCase):
             sink = CsvSink(
                 CsvSinkSettings(filename=filename, query=_query_with_order_id())
             )
-            with self.assertRaises(EleanorException):
+            with self.assertRaises(EleanorError):
                 sink.initialize()
 
     def test_initialize_header_only_csv_with_sidecar_succeeds(self) -> None:
@@ -301,7 +301,7 @@ class TestCsvSink(TestCase):
                     sink = CsvSink(
                         CsvSinkSettings(filename=filename, query=_query_with_order_id())
                     )
-                    with self.assertRaisesRegex(EleanorException, expected):
+                    with self.assertRaisesRegex(EleanorError, expected):
                         sink.initialize()
 
     def test_begin_run_stamps_order_fields_and_is_idempotent(self) -> None:
@@ -348,7 +348,7 @@ class TestCsvSink(TestCase):
             mismatch.id = 7
             mismatch.eleanor_version = "v2"
             with self.assertRaisesRegex(
-                EleanorException, "different version of Eleanor"
+                EleanorError, "different version of Eleanor"
             ):
                 _ = restarted.begin_run(mismatch)
 
@@ -400,7 +400,7 @@ class TestCsvSink(TestCase):
                 schema = yaml.safe_load(handle)
             self.assertEqual(schema["vs_points_seen"], {0: 0})
             result = ComputeResult(point=_point(exit_code=0, order_id=None))
-            with self.assertRaisesRegex(EleanorException, "requires initialize\\(\\)"):
+            with self.assertRaisesRegex(EleanorError, "requires initialize\\(\\)"):
                 _ = sink.write_batch(0, [result])
 
     def test_write_batch_success_appends_rows_converts_none_and_ticks_progress(
@@ -677,7 +677,7 @@ class TestCsvSink(TestCase):
                     sink = CsvSink(
                         CsvSinkSettings(filename=filename, query=_query_with_order_id())
                     )
-                    with self.assertRaisesRegex(EleanorException, "invalid count"):
+                    with self.assertRaisesRegex(EleanorError, "invalid count"):
                         sink.initialize()
 
     def test_initialize_rejects_invalid_order_versions_shapes(self) -> None:
@@ -707,7 +707,7 @@ class TestCsvSink(TestCase):
                     sink = CsvSink(
                         CsvSinkSettings(filename=filename, query=_query_with_order_id())
                     )
-                    with self.assertRaisesRegex(EleanorException, expected):
+                    with self.assertRaisesRegex(EleanorError, expected):
                         sink.initialize()
 
     def test_write_batch_failure_after_empty_rows_keeps_order_count_unchanged(

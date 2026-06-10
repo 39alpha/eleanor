@@ -2,7 +2,7 @@ from types import SimpleNamespace
 from typing import cast
 from unittest import TestCase, mock
 
-from eleanor.exceptions import EleanorException
+from eleanor.exceptions import EleanorError
 from eleanor.order import Order
 from eleanor.output import ComputeResult, WriteOutcome
 from eleanor.output.null import NullSink, NullSinkSettings
@@ -45,7 +45,7 @@ class TestNullSink(TestCase):
     def test_null_config_rejects_non_boolean_worker_write_flag(self) -> None:
         """Ensure NullSinkSettings validates support_worker_writes as a strict boolean."""
         with self.assertRaisesRegex(
-            EleanorException, "support_worker_writes must be a boolean"
+            EleanorError, "support_worker_writes must be a boolean"
         ):
             _ = NullSinkSettings(support_worker_writes="yes")  # pyright: ignore[reportArgumentType]
 
@@ -100,7 +100,7 @@ class TestNullSink(TestCase):
         sink = NullSink(NullSinkSettings(support_worker_writes=False))
         result = ComputeResult(point=_point())
 
-        with self.assertRaisesRegex(EleanorException, "called before begin_run"):
+        with self.assertRaisesRegex(EleanorError, "called before begin_run"):
             _ = sink.write_batch(1, [result])  # type: ignore[arg-type]
 
     def test_write_batch_raises_for_non_active_order_id(self) -> None:
@@ -109,7 +109,7 @@ class TestNullSink(TestCase):
         active_order_id = sink.begin_run(_order())  # type: ignore[arg-type]
         wrong_order_id = active_order_id + 1
 
-        with self.assertRaisesRegex(EleanorException, "called before begin_run"):
+        with self.assertRaisesRegex(EleanorError, "called before begin_run"):
             _ = sink.write_batch(wrong_order_id, [ComputeResult(point=_point())])  # type: ignore[arg-type]
 
     def test_write_batch_returns_committed_outcomes_and_stamps_points(self) -> None:
@@ -187,7 +187,7 @@ class TestNullSink(TestCase):
         order_id = sink.begin_run(order)  # type: ignore[arg-type]
         sink.finalize_run()
 
-        with self.assertRaisesRegex(EleanorException, "called before begin_run"):
+        with self.assertRaisesRegex(EleanorError, "called before begin_run"):
             _ = sink.write_batch(order_id, [ComputeResult(point=_point())])  # type: ignore[arg-type]
 
         self.assertEqual(sink.begin_run(order), order_id)  # type: ignore[arg-type]

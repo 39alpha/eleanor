@@ -2,7 +2,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Self, override
 
-from eleanor.exceptions import EleanorException
+from eleanor.exceptions import EleanorError
 from eleanor.order import Order
 from eleanor.output.interface import AbstractOutputSink, ComputeResult, WriteOutcome
 from eleanor.output.settings import OutputSinkSettings
@@ -64,7 +64,7 @@ class MemorySink(AbstractOutputSink):
     ) -> list[WriteOutcome]:
         if order_id not in self._orders:
             msg = "memory sink write_batch called before begin_run"
-            raise EleanorException(msg)
+            raise EleanorError(msg)
         order = self._orders[order_id]
 
         outcomes: list[WriteOutcome] = []

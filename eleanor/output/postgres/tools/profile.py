@@ -13,7 +13,7 @@ from psycopg.abc import Params, QueryNoTemplate
 from psycopg.copy import Copy, Writer
 from psycopg.rows import TupleRow
 
-from eleanor.exceptions import EleanorException
+from eleanor.exceptions import EleanorError
 from eleanor.output.postgres.persistence import connection as connection_module
 from eleanor.output.postgres.settings import PostgresDatabaseSettings
 
@@ -163,10 +163,10 @@ class StatementProfiler:
         global _active  # noqa: PLW0603
         if self._started:
             msg = "StatementProfiler is not reentrant"
-            raise EleanorException(msg)
+            raise EleanorError(msg)
         if _active is not None:
             msg = "another StatementProfiler is already active"
-            raise EleanorException(msg)
+            raise EleanorError(msg)
         self._started = True
         _active = self
         # Retrofit every already-cached connection so any cursor() call
@@ -262,7 +262,7 @@ class StatementProfiler:
         """Drop-in replacement for :func:`connection.connect` while profiling."""
         if self._real_connect is None:
             msg = "StatementProfiler._real_connect not captured"
-            raise EleanorException(msg)
+            raise EleanorError(msg)
         conn = self._real_connect(config)
         self._patch_factory(conn)
         return conn

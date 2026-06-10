@@ -5,7 +5,7 @@ import pytest
 from eleanor.config import Config
 from eleanor.config.executor import ExecutorConfig
 from eleanor.config.output import OutputSinkConfig
-from eleanor.exceptions import EleanorException
+from eleanor.exceptions import EleanorError
 from eleanor.output.postgres.settings import (
     PostgresDatabaseSettings,
     PostgresSinkSettings,
@@ -194,7 +194,7 @@ def test_config_from_string(helpers: type[Helpers], tmp_path: Path, fmt: str) ->
 
 def test_config_from_string_rejects_bad_str() -> None:
     bad_content = "18sadf8hh1"
-    with pytest.raises(EleanorException, match="failed to parse"):
+    with pytest.raises(EleanorError, match="failed to parse"):
         _ = Config.from_str(bad_content)
 
 
@@ -203,5 +203,5 @@ def test_config_from_file_rejects_bad_extension(tmp_path: Path) -> None:
     with open(path, "w") as f:
         _ = f.write("[output]\n")
 
-    with pytest.raises(EleanorException, match="failed to parse"):
+    with pytest.raises(EleanorError, match="failed to parse"):
         _ = Config.from_file(str(path))

@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, cast, override
 
 import eleanor.variable_space as vs
 from eleanor.constraints.point_builder import PointBuilder
-from eleanor.exceptions import EleanorException
+from eleanor.exceptions import EleanorError
 from eleanor.navigator.interface import AbstractNavigator
 from eleanor.parameters import Parameter, ValueParameter
 
@@ -82,7 +82,7 @@ class LatticeNavigator(AbstractLatticeNavigator):
     def generate(self, parameter: Parameter, scale: int, *_args: object, **_kwargs: object) -> list[ValueParameter]:
         if scale < 1:
             msg = "cannot generate points when scale < 1"
-            raise EleanorException(msg)
+            raise EleanorError(msg)
 
         return parameter.lattice(size=scale)
 

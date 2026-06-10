@@ -2,7 +2,7 @@ from dataclasses import dataclass, field
 from typing import Self, cast
 
 from eleanor.config.plugin import PluginConfig
-from eleanor.exceptions import EleanorException
+from eleanor.exceptions import EleanorError
 from eleanor.output.registry import registry
 from eleanor.output.settings import OutputSinkSettings
 from eleanor.plugin import load_plugin_settings
@@ -17,7 +17,7 @@ class OutputSinkConfig(PluginConfig[OutputSinkSettings]):
     def __post_init__(self) -> None:
         if not isinstance(cast(object, self.settings), OutputSinkSettings):
             msg = f"output configuration requires {OutputSinkSettings.__name__}, got {type(self.settings).__name__}"
-            raise EleanorException(msg)
+            raise EleanorError(msg)
 
         super().__post_init__()
 

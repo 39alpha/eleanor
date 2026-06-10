@@ -8,7 +8,7 @@ from typing import Final, LiteralString, cast
 import psycopg
 
 import eleanor
-from eleanor.exceptions import EleanorException
+from eleanor.exceptions import EleanorError
 from eleanor.output.postgres.persistence import schema
 
 _PKG: Final = files("eleanor.output.postgres.persistence").joinpath("migrations")
@@ -38,12 +38,12 @@ def discover() -> tuple[MigrationFile, ...]:
         if m is None:
             if entry.endswith(".sql"):
                 msg = f"malformed migration filename: {entry!r}"
-                raise EleanorException(msg)
+                raise EleanorError(msg)
             continue
         version = int(m.group(1))
         if version in found:
             msg = f"duplicate migration version {version}"
-            raise EleanorException(msg)
+            raise EleanorError(msg)
         found[version] = MigrationFile(
             version=version,
             slug=m.group(2),
@@ -54,7 +54,7 @@ def discover() -> tuple[MigrationFile, ...]:
     for i, mig in enumerate(ordered, start=1):
         if mig.version != i:
             msg = f"non-contiguous migration numbering: expected {i}, found {mig.version}"
-            raise EleanorException(msg)
+            raise EleanorError(msg)
     return ordered
 
 
@@ -131,7 +131,7 @@ def _bootstrap_and_read_applied(conn: psycopg.Connection) -> set[int]:
             _ = cur.execute("SELECT to_regclass('public.orders') IS NOT NULL")
             row = cur.fetchone()
             if row is not None and cast(bool, row[0]):
-                raise EleanorException(UNTRACKED_MSG)
+                raise EleanorError(UNTRACKED_MSG)
     return applied
 
 

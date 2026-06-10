@@ -40,7 +40,7 @@ import eleanor.variable_space as core_vs
 import numpy as np
 import psycopg
 from eleanor.config.kernel import KernelConfig
-from eleanor.kernel.exceptions import EleanorKernelException
+from eleanor.kernel.exceptions import EleanorKernelError
 from eleanor.kernel.settings import KernelSettings
 from eleanor.order import Order
 from eleanor.output.interface import ComputeResult
@@ -826,7 +826,7 @@ class TestRepositoriesIntegration(_RealPostgresTestCase):
         msg = "something wicked this way comes"
         code = 19
         plain = _make_vs_point()
-        plain.exception = EleanorKernelException(msg, code=code)
+        plain.exception = EleanorKernelError(msg, code=code)
         plain.exit_code = plain.exception.code
         with conn.transaction(savepoint_name="exceptions"):
             plain_id = repositories.insert_point(conn, order_id, plain)

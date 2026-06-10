@@ -2,7 +2,7 @@ from dataclasses import dataclass
 
 import pytest
 from eleanor.config.kernel import KernelConfig
-from eleanor.exceptions import EleanorException
+from eleanor.exceptions import EleanorError
 from eleanor.kernel.registry import registry
 from eleanor.kernel.settings import KernelSettings
 from eleanor.parameters import Parameter
@@ -20,12 +20,12 @@ def test_can_construct_kernel_config() -> None:
 
 
 def test_kernel_config_requires_string_kind() -> None:
-    with pytest.raises(EleanorException, match="must be a string"):
+    with pytest.raises(EleanorError, match="must be a string"):
         _ = KernelConfig(kind=123, settings=KernelSettings())  # pyright: ignore[reportArgumentType]
 
 
 def test_kernel_config_requires_settings_like_settings() -> None:
-    with pytest.raises(EleanorException, match=f"requires {KernelSettings.__name__}"):
+    with pytest.raises(EleanorError, match=f"requires {KernelSettings.__name__}"):
         _ = KernelConfig(kind="plugin", settings=5)  # pyright: ignore[reportArgumentType]
 
 
@@ -42,12 +42,12 @@ def test_kernel_config_propagates_settings_parameters(mocker: MockerFixture) -> 
 
 
 def test_kernel_config_from_dict_raises_for_non_string_kind() -> None:
-    with pytest.raises(EleanorException, match="must be a string"):
+    with pytest.raises(EleanorError, match="must be a string"):
         _ = KernelConfig.from_dict({"kind": 123})
 
 
 def test_kernel_config_from_dict_requires_kind() -> None:
-    with pytest.raises(EleanorException, match="must be a string"):
+    with pytest.raises(EleanorError, match="must be a string"):
         _ = KernelConfig.from_dict({})
 
 

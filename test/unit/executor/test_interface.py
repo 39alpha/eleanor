@@ -1,7 +1,7 @@
 from typing import Callable, override
 
 import pytest
-from eleanor.exceptions import EleanorException
+from eleanor.exceptions import EleanorError
 from eleanor.executor import load_executor
 from eleanor.executor.interface import AbstractExecutor, AbstractFuture
 from eleanor.executor.registry import available_executors
@@ -49,7 +49,7 @@ def test_context_manager_calls_shutdown() -> None:
 
 
 def test_load_executor_rejects_unknown_executor() -> None:
-    with pytest.raises(EleanorException, match="executor is not supported"):
+    with pytest.raises(EleanorError, match="executor is not supported"):
         _ = load_executor(kind="bad-backend", settings=ExecutorSettings())
 
 

@@ -8,7 +8,7 @@ import yaml
 
 from eleanor.config.executor import ExecutorConfig
 from eleanor.config.output import OutputSinkConfig
-from eleanor.exceptions import EleanorException
+from eleanor.exceptions import EleanorError
 from eleanor.typing import StrPath
 from eleanor.util import require_dict, require_opt_dict
 
@@ -29,7 +29,7 @@ class Config:
                 'the top-level "database:" config key is no longer supported; '
                 + 'move your database settings under "output.args.database:" instead'
             )
-            raise EleanorException(msg)
+            raise EleanorError(msg)
 
         output_raw = cast(dict[str, object] | None, require_opt_dict(raw.get("output"), "output"))
         output_config = OutputSinkConfig.from_dict(output_raw) if output_raw is not None else None
@@ -83,7 +83,7 @@ class Config:
 
         eg = ExceptionGroup("failed to parse", exceptions)
         msg = "failed to parse string as yaml, toml or json"
-        raise EleanorException(msg) from eg
+        raise EleanorError(msg) from eg
 
     @classmethod
     def from_file(cls, fname: StrPath) -> Self:
@@ -101,7 +101,7 @@ class Config:
                     raise RuntimeError(msg)
         except Exception as e:
             msg = f"failed to parse {str(fname)!r} as yaml, toml or json"
-            raise EleanorException(msg) from e
+            raise EleanorError(msg) from e
 
 
 def load_config(config: StrPath | Config | None) -> Config:

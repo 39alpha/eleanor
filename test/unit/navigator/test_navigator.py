@@ -4,7 +4,7 @@ from unittest import TestCase, mock
 
 import eleanor.variable_space as vs
 import numpy as np
-from eleanor.exceptions import EleanorException
+from eleanor.exceptions import EleanorError
 from eleanor.kernel import AbstractKernel
 from eleanor.navigator import AbstractNavigator
 from eleanor.navigator.lattice import (
@@ -159,7 +159,7 @@ class TestNavigator(TestCase):
             "eleanor.navigator.random.PointBuilder",
             side_effect=RuntimeError("boom"),
         ) as boat_class_mock:
-            with self.assertRaises(EleanorException):
+            with self.assertRaises(EleanorError):
                 _ = nav.generate(mock.Mock(), mock.Mock())
         self.assertEqual(boat_class_mock.call_count, 1)
 
@@ -211,7 +211,7 @@ class TestNavigator(TestCase):
     def test_random_generate_retry_exhaustion_chains_last_cause(self) -> None:
         """
         Ensure that when every attempt fails, :meth:`RandomNavigator.generate` raises
-        :class:`EleanorException` whose ``__cause__`` is the *last* underlying
+        :class:`EleanorError` whose ``__cause__`` is the *last* underlying
         failure. The retry loop exhausts ``max_attempts`` and then propagates
         the most recent exception as the cause.
         """
@@ -223,7 +223,7 @@ class TestNavigator(TestCase):
             "eleanor.navigator.random.PointBuilder",
             side_effect=[first, second, last],
         ) as boat_class_mock:
-            with self.assertRaises(EleanorException) as cm:
+            with self.assertRaises(EleanorError) as cm:
                 _ = nav.generate(mock.Mock(), mock.Mock(), max_attempts=3)
 
         self.assertIn("failed to select VS point", str(cm.exception))
@@ -233,13 +233,13 @@ class TestNavigator(TestCase):
     def test_random_generate_rejects_non_int_max_attempts(self) -> None:
         """
         Ensure that :meth:`RandomNavigator.generate` rejects a non-integer
-        ``max_attempts`` with :class:`EleanorException` before any work is
+        ``max_attempts`` with :class:`EleanorError` before any work is
         done.
         """
         nav = RandomNavigator()
         with mock.patch("eleanor.navigator.random.PointBuilder") as boat_class_mock:
             with self.assertRaisesRegex(
-                EleanorException, "max_attempts must be an integer"
+                EleanorError, "max_attempts must be an integer"
             ):
                 _ = nav.generate(mock.Mock(), mock.Mock(), max_attempts="3")
         boat_class_mock.assert_not_called()
@@ -253,20 +253,20 @@ class TestNavigator(TestCase):
         """
         nav = RandomNavigator()
         with self.assertRaisesRegex(
-            EleanorException, "max_attempts must be an integer"
+            EleanorError, "max_attempts must be an integer"
         ):
             _ = nav.generate(mock.Mock(), mock.Mock(), max_attempts=True)
 
     def test_random_generate_rejects_zero_max_attempts(self) -> None:
         """
         Ensure that :meth:`RandomNavigator.generate` rejects ``max_attempts=0`` with
-        :class:`EleanorException` rather than silently raising the generic
+        :class:`EleanorError` rather than silently raising the generic
         "failed to select VS point" wrapper without ever attempting a point.
         """
         nav = RandomNavigator()
         with mock.patch("eleanor.navigator.random.PointBuilder") as boat_class_mock:
             with self.assertRaisesRegex(
-                EleanorException, "max_attempts must be at least one"
+                EleanorError, "max_attempts must be at least one"
             ):
                 _ = nav.generate(mock.Mock(), mock.Mock(), max_attempts=0)
         boat_class_mock.assert_not_called()
@@ -277,7 +277,7 @@ class TestNavigator(TestCase):
         """
         nav = RandomNavigator()
         with self.assertRaisesRegex(
-            EleanorException, "max_attempts must be at least one"
+            EleanorError, "max_attempts must be at least one"
         ):
             _ = nav.generate(mock.Mock(), mock.Mock(), max_attempts=-1)
 
@@ -407,5 +407,5 @@ class TestNavigator(TestCase):
         self.assertEqual(lattice.generate(param, 2), ["l1", "l2"])
         param.lattice.assert_called_once_with(size=2)
 
-        with self.assertRaises(EleanorException):
+        with self.assertRaises(EleanorError):
             _ = lattice.generate(param, 0)

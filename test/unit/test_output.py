@@ -7,7 +7,7 @@ from typing import cast, override
 from unittest import TestCase, mock
 
 import eleanor.variable_space as vs
-from eleanor.exceptions import EleanorException
+from eleanor.exceptions import EleanorError
 from eleanor.order import Order
 from eleanor.output import (
     AbstractOutputSink,
@@ -461,7 +461,7 @@ class TestOutput(TestCase):
                 "eleanor.output.postgres.sink.repositories.get_order",
                 return_value=existing,
             ),
-            self.assertRaisesRegex(EleanorException, "different version of Eleanor"),
+            self.assertRaisesRegex(EleanorError, "different version of Eleanor"),
         ):
             _ = sink.begin_run(_as_order(order))
 

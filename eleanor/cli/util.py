@@ -18,7 +18,7 @@ import click
 from xdg_base_dirs import xdg_config_home
 
 from eleanor.config import Config, load_config
-from eleanor.exceptions import EleanorException
+from eleanor.exceptions import EleanorError
 from eleanor.output.postgres.settings import PostgresSinkSettings
 from eleanor.typing import StrPath
 
@@ -74,10 +74,10 @@ def config_from_args(
     if database is not None:
         if config.output is None:
             msg = "no output sink configuration provided"
-            raise EleanorException(msg)
+            raise EleanorError(msg)
         if not isinstance(config.output.settings, PostgresSinkSettings):
             msg = f"--database is only supported by the postgres output sink, got {config.output.kind!r}"
-            raise EleanorException(msg)
+            raise EleanorError(msg)
 
         config.output.settings = replace(
             config.output.settings,

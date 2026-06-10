@@ -7,7 +7,7 @@ import click
 
 from eleanor import Eleanor
 from eleanor.cli.util import config_from_args, config_options
-from eleanor.exceptions import EleanorException
+from eleanor.exceptions import EleanorError
 from eleanor.executor import load_executor
 from eleanor.executor.registry import available_executors
 from eleanor.executor.settings import ExecutorSettings
@@ -91,7 +91,7 @@ def run(
                     f"got {config_obj.output.kind!r}" if config_obj.output is not None else "no output sink provided"
                 )
                 msg = f"--bulk-load is only supported when output.kind == 'postgres' ({cause})"
-                raise EleanorException(msg)
+                raise EleanorError(msg)
 
         if executor is None:
             executor = config_obj.executor.kind
@@ -100,7 +100,7 @@ def run(
             if executor not in executors:
                 choices = ", ".join(sorted(executors))
                 msg = f"unsupported executor {executor!r}; choose from {choices}"
-                raise EleanorException(msg)
+                raise EleanorError(msg)
 
         if chunks_per_worker is None:
             chunks_per_worker = config_obj.executor.settings.chunks_per_worker

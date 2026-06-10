@@ -7,7 +7,7 @@ from typing import Self, cast, override
 import numpy as np
 import numpy.typing as npt
 
-from eleanor.exceptions import EleanorException
+from eleanor.exceptions import EleanorError
 from eleanor.util import convert_to_number
 
 type ParameterScalar = int | float | np.float64 | str | bool
@@ -94,7 +94,7 @@ class Parameter(ABC):
             parameter = RangeParameter(_as_float(raw["min"]), _as_float(raw["max"]))
         else:
             msg = "parameter must have value, values or min and max"
-            raise EleanorException(msg)
+            raise EleanorError(msg)
 
         return cls.refine(parameter)
 
@@ -193,7 +193,7 @@ class ListParameter(Parameter):
     def __init__(self, values: list[np.float64]) -> None:
         if not values:
             msg = "cannot create the empty ListParameter"
-            raise EleanorException(msg)
+            raise EleanorError(msg)
         super().__init__()
         self.values = sorted(values)
 
@@ -324,7 +324,7 @@ class ParameterRegistry:
     def add_parameter(self, parameter: Parameter) -> None:
         if any(parameter is p for p in self.parameters):
             msg = "parameter already in registry"
-            raise EleanorException(msg)
+            raise EleanorError(msg)
         self.parameters.append(parameter)
 
     def add_parameters(self, parameters: list[Parameter]) -> None:

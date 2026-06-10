@@ -9,7 +9,7 @@ import eleanor.variable_space as vs
 import numpy as np
 from eleanor.config.kernel import KernelConfig
 from eleanor.constraints.point_builder import PointBuilder
-from eleanor.exceptions import EleanorException
+from eleanor.exceptions import EleanorError
 from eleanor.kernel.eq36.codes import RunCode
 from eleanor.kernel.eq36.data1 import BasisSpecies, Data1
 from eleanor.kernel.eq36.kernel import Eq36Kernel
@@ -21,7 +21,7 @@ from eleanor.kernel.eq36.settings import (
     Eq6Settings,
     Eq36Settings,
 )
-from eleanor.kernel.exceptions import EleanorKernelException
+from eleanor.kernel.exceptions import EleanorKernelError
 from eleanor.kernel.settings import KernelSettings
 from eleanor.order import Order
 from eleanor.parameters import Parameter
@@ -132,7 +132,7 @@ class TestEq36Kernel(TestCase):
         Ensure get_atomic_weight fails before setup and then reads from the first loaded data1 element map.
         """
         kernel = self._kernel()
-        with self.assertRaises(EleanorException):
+        with self.assertRaises(EleanorError):
             kernel.get_atomic_weight("Na")
 
         kernel._setup = True
@@ -148,7 +148,7 @@ class TestEq36Kernel(TestCase):
         and returns None when the species is not found.
         """
         kernel = self._kernel()
-        with self.assertRaises(EleanorException):
+        with self.assertRaises(EleanorError):
             kernel.get_molar_mass("H2O")
 
         sentinel = object()
@@ -325,7 +325,7 @@ class TestEq36Kernel(TestCase):
         )
         point = _make_point(self._settings(), temperature=25.0, pressure=10.0)
 
-        with self.assertRaises(EleanorKernelException):
+        with self.assertRaises(EleanorKernelError):
             kernel.find_data1(point)
 
     def test_find_data1_multiple_matches_verbose_warns_and_returns_first(self) -> None:
@@ -468,14 +468,14 @@ class TestEq36Kernel(TestCase):
 
     def test_run_reraises_eleanor_exception_without_wrapping(self) -> None:
         """
-        Ensure run re-raises EleanorException subclasses directly.
+        Ensure run re-raises EleanorError subclasses directly.
         """
         kernel = self._kernel()
         point = _make_point(self._settings())
-        error = EleanorKernelException("known kernel failure", code=RunCode.EQ3_ERROR)
+        error = EleanorKernelError("known kernel failure", code=RunCode.EQ3_ERROR)
 
         with mock.patch.object(kernel, "resolve_kernel_settings", side_effect=error):
-            with self.assertRaises(EleanorKernelException) as context:
+            with self.assertRaises(EleanorKernelError) as context:
                 kernel.run(point)
 
         self.assertIs(context.exception, error)
@@ -484,14 +484,14 @@ class TestEq36Kernel(TestCase):
         self,
     ) -> None:
         """
-        Ensure run wraps unexpected exceptions with a generic EleanorException while preserving the original cause.
+        Ensure run wraps unexpected exceptions with a generic EleanorError while preserving the original cause.
         """
         kernel = self._kernel()
         point = _make_point(self._settings())
         cause = RuntimeError("unexpected failure")
 
         with mock.patch.object(kernel, "resolve_kernel_settings", side_effect=cause):
-            with self.assertRaises(EleanorException) as context:
+            with self.assertRaises(EleanorError) as context:
                 kernel.run(point)
 
         self.assertIn("an unexpected error occurred", str(context.exception))
@@ -633,12 +633,12 @@ class TestEq36Kernel(TestCase):
 
     def test_setup_raises_when_order_is_none(self) -> None:
         """
-        Ensure setup raises EleanorException when called with an invalid order.
+        Ensure setup raises EleanorError when called with an invalid order.
         """
         kernel = self._kernel()
 
         with self.assertRaisesRegex(
-            EleanorException, "order provided to Eq36Kernel.setup"
+            EleanorError, "order provided to Eq36Kernel.setup"
         ):
             kernel.setup(cast(Order, cast(object, None)), data1_dir=".")
 
@@ -672,7 +672,7 @@ class TestEq36Kernel(TestCase):
                 "eleanor.kernel.eq36.kernel.Data1.from_file", return_value=rejected
             ),
         ):
-            with self.assertRaises(EleanorException):
+            with self.assertRaises(EleanorError):
                 kernel.validate_order(order)
 
         self.assertFalse(kernel._setup)
@@ -707,7 +707,7 @@ class TestEq36Kernel(TestCase):
             ),
         ):
             kernel.setup(order, data1_dir=".")
-            with self.assertRaises(EleanorException):
+            with self.assertRaises(EleanorError):
                 kernel.validate_order(order)
 
         self.assertTrue(kernel._setup)
@@ -755,7 +755,7 @@ class TestEq36Kernel(TestCase):
         kernel = self._kernel()
         point = _make_point(self._settings())
 
-        with self.assertRaises(EleanorKernelException):
+        with self.assertRaises(EleanorKernelError):
             kernel.write_eq3_input(point, data1=self._data1())
 
     def test_write_eq3_input_rejects_unconstrained_non_fO2_redox_species(self) -> None:
@@ -770,7 +770,7 @@ class TestEq36Kernel(TestCase):
             settings, species=[Species(name="H+", value=np.float64(-7.0))]
         )
 
-        with self.assertRaises(EleanorKernelException):
+        with self.assertRaises(EleanorKernelError):
             kernel.write_eq3_input(point, data1=self._data1())
 
     def test_write_eq3_input_fO2_redox_requires_O2_species_lookup(self) -> None:
@@ -789,7 +789,7 @@ class TestEq36Kernel(TestCase):
         data1 = mock.create_autospec(Data1, instance=True)
         data1.get_basis_species.return_value = None
 
-        with self.assertRaises(EleanorKernelException):
+        with self.assertRaises(EleanorKernelError):
             kernel.write_eq3_input(point, data1=data1, file=handle)
 
     def test_write_eq3_input_uses_fO2_fallback_via_O2_species_and_writes_expected_general_fields(
@@ -887,7 +887,7 @@ class TestEq36Kernel(TestCase):
             settings, species=[Species(name="H+", value=np.float64(-7.0))]
         )
 
-        with self.assertRaises(EleanorKernelException):
+        with self.assertRaises(EleanorKernelError):
             kernel.write_eq6_input(point)
 
     def test_write_eq6_input_rejects_invalid_mineral_reactant_type(self) -> None:
@@ -919,7 +919,7 @@ class TestEq36Kernel(TestCase):
         )
         handle = _NamedStringIO("problem.6i")
 
-        with self.assertRaises(EleanorKernelException):
+        with self.assertRaises(EleanorKernelError):
             kernel.write_eq6_input(point, file=handle)
 
     def test_write_eq6_input_rejects_invalid_fixed_gas_reactant_type(self) -> None:
@@ -1247,7 +1247,7 @@ class TestEq36Kernel(TestCase):
         )
         handle = _NamedStringIO("problem.6i")
 
-        with self.assertRaises(EleanorKernelException):
+        with self.assertRaises(EleanorKernelError):
             kernel.write_eq6_input(point, file=handle)
 
     def test_write_eq6_input_rejects_all_named_suppressions_with_exceptions(
@@ -1284,7 +1284,7 @@ class TestEq36Kernel(TestCase):
                     suppressions=[suppression],
                 )
                 handle = _NamedStringIO("problem.6i")
-                with self.assertRaises(EleanorKernelException):
+                with self.assertRaises(EleanorKernelError):
                     kernel.write_eq6_input(point, file=handle)
 
     def test_write_eq6_input_named_mineral_without_exceptions_does_not_enable_all_mineral_suppression(

@@ -11,7 +11,7 @@ from typing import cast, override
 from unittest import TestCase, mock
 
 import eleanor.output.postgres.tools.profile as profile_module
-from eleanor.exceptions import EleanorException
+from eleanor.exceptions import EleanorError
 from eleanor.output.postgres.settings import PostgresDatabaseSettings
 from eleanor.output.postgres.tools.profile import (
     StatementProfiler,
@@ -39,7 +39,7 @@ class TestStatementProfilerLifecycle(TestCase):
         """
         prof = StatementProfiler()
         with prof:
-            with self.assertRaises(EleanorException):
+            with self.assertRaises(EleanorError):
                 with prof:
                     pass
 
@@ -51,7 +51,7 @@ class TestStatementProfilerLifecycle(TestCase):
         outer = StatementProfiler()
         inner = StatementProfiler()
         with outer:
-            with self.assertRaises(EleanorException):
+            with self.assertRaises(EleanorError):
                 with inner:
                     pass
 
@@ -271,7 +271,7 @@ class TestStatementProfilerWiringEdges(TestCase):
         prof = StatementProfiler()
         cfg = PostgresDatabaseSettings(database="db", username="u", password="p")
         with self.assertRaisesRegex(
-            EleanorException,
+            EleanorError,
             "_real_connect not captured",
         ):
             _ = prof._wrapped_connect(cfg)

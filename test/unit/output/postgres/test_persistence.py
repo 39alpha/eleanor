@@ -23,7 +23,7 @@ from unittest import TestCase, mock
 
 import numpy as np
 from eleanor.config.kernel import KernelConfig
-from eleanor.exceptions import EleanorException
+from eleanor.exceptions import EleanorError
 from eleanor.kernel.eq36.settings import IOPG_1, Eq3Settings, Eq6Settings, Eq36Settings
 from eleanor.order import Order
 from eleanor.output.postgres.persistence import (
@@ -610,7 +610,7 @@ class TestRepositoryErrorPaths(TestCase):
 
     def test_insert_order_raises_when_returning_clause_yields_no_row(self) -> None:
         """
-        Ensure ``insert_order`` raises a clear ``EleanorException`` when
+        Ensure ``insert_order`` raises a clear ``EleanorError`` when
         the ``RETURNING id`` clause comes back empty -- the only way the
         sink is allowed to surface that situation. We can't induce this
         from real PG (a successful INSERT always RETURNS a row), so the
@@ -629,7 +629,7 @@ class TestRepositoryErrorPaths(TestCase):
             return_value=fake_conn,
         ):
             with self.assertRaisesRegex(
-                EleanorException, "order INSERT did not return an id"
+                EleanorError, "order INSERT did not return an id"
             ):
                 _ = repositories.insert_order(cfg, order)
 
@@ -654,7 +654,7 @@ class TestRepositoryErrorPaths(TestCase):
     def test_insert_variable_space_raises_when_returning_yields_nothing(self) -> None:
         """
         Ensure :func:`_insert_variable_space_and_pair` raises an
-        ``EleanorException`` when the ``variable_space`` INSERT's
+        ``EleanorError`` when the ``variable_space`` INSERT's
         ``RETURNING`` clause comes back empty. Same defensive pattern
         as ``insert_order``; same unit-only coverage rationale.
         """
@@ -670,7 +670,7 @@ class TestRepositoryErrorPaths(TestCase):
             complete_date=datetime(2026, 1, 1),
         )
         with self.assertRaisesRegex(
-            EleanorException,
+            EleanorError,
             "variable_space INSERT did not return an id",
         ):
             _ = repositories._insert_variable_space_and_pair(
@@ -686,11 +686,11 @@ class TestConverterErrorAndReactantPaths(TestCase):
     def test_normalize_dict_rejects_non_mapping_payloads(self) -> None:
         """
         Ensure :func:`normalize_dict` raises a clear
-        :class:`EleanorException` (instead of letting psycopg's JSONB
+        :class:`EleanorError` (instead of letting psycopg's JSONB
         adapter fail later) when handed a non-dict value that's not a
         dataclass either.
         """
-        with self.assertRaisesRegex(EleanorException, "must serialize to a dict"):
+        with self.assertRaisesRegex(EleanorError, "must serialize to a dict"):
             _ = converters.normalize_dict(42, "order")
 
     def test_order_to_row_allows_missing_name(self) -> None:

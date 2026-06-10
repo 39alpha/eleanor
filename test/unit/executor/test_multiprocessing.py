@@ -2,7 +2,7 @@ from concurrent.futures import FIRST_COMPLETED, Future
 from typing import cast
 from unittest import TestCase, mock
 
-from eleanor.exceptions import EleanorException
+from eleanor.exceptions import EleanorError
 from eleanor.executor.interface import AbstractFuture
 from eleanor.executor.multiprocessing import (
     MultiprocessingExecutor,
@@ -123,7 +123,7 @@ class TestMultiprocessingExecutor(TestCase):
             executor = MultiprocessingExecutor(ExecutorSettings(num_workers=2))
             _ = executor.__enter__()
         executor.shutdown(wait=True)
-        with self.assertRaises(EleanorException):
+        with self.assertRaises(EleanorError):
             _ = executor.submit(work, 1)
 
     def test_pop_completed_future_uses_event_driven_wait(self) -> None:

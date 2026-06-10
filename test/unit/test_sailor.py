@@ -2,8 +2,8 @@ from types import SimpleNamespace
 from typing import cast
 from unittest import TestCase, mock
 
-from eleanor.exceptions import EleanorException
-from eleanor.kernel.exceptions import EleanorKernelException
+from eleanor.exceptions import EleanorError
+from eleanor.kernel.exceptions import EleanorKernelError
 from eleanor.output import ComputeResult, WriteOutcome
 from eleanor.runner import Runner
 from eleanor.variable_space import Point
@@ -143,7 +143,7 @@ class TestRunner(TestCase):
         with mock.patch.object(
             Runner, "work", return_value=SimpleNamespace(exit_code=0)
         ):
-            with self.assertRaises(EleanorException):
+            with self.assertRaises(EleanorError):
                 runner.dispatch([_vs_point()], sink=sink)
         sink.write_batch.assert_not_called()
 
@@ -198,12 +198,12 @@ class TestRunner(TestCase):
         kernel = mock.Mock()
         runner = Runner(kernel=kernel)
 
-        kernel.run.side_effect = EleanorKernelException("boom", code=9)
+        kernel.run.side_effect = EleanorKernelError("boom", code=9)
         vs_point = _vs_point()
         out = runner.work(vs_point, verbose=False)
         self.assertIs(out, vs_point)
         self.assertEqual(vs_point.exit_code, 9)
-        self.assertIsInstance(vs_point.exception, EleanorException)
+        self.assertIsInstance(vs_point.exception, EleanorError)
         kernel.copy_data.assert_called_with(vs_point)
 
         kernel.reset_mock()

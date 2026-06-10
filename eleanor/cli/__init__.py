@@ -5,7 +5,7 @@ from eleanor.cli.doctor import doctor
 from eleanor.cli.gen import gen
 from eleanor.cli.registry import available_cli_commands, get_factory
 from eleanor.cli.run import run
-from eleanor.exceptions import EleanorException
+from eleanor.exceptions import EleanorError
 from eleanor.plugin import SimplePluginSpec
 
 
@@ -24,12 +24,12 @@ for _name in sorted(available_cli_commands()):
 
     if not isinstance(_spec, SimplePluginSpec):
         msg = f"cli command plugin {_name!r} must be a {SimplePluginSpec.__name__}, got {type(_spec).__name__}"
-        raise EleanorException(msg)
+        raise EleanorError(msg)
 
     _cmd_or_group = _spec.build()
     if not isinstance(_cmd_or_group, (click.Group, click.Command)):
         msg = f"cli command plugin {_name!r} build a click.Group or click.Command, got {type(_cmd_or_group).__name__}"
-        raise EleanorException(msg)
+        raise EleanorError(msg)
 
     main.add_command(_cmd_or_group)
 

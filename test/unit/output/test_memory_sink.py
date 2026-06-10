@@ -2,7 +2,7 @@ from types import SimpleNamespace
 from typing import cast
 from unittest import TestCase, mock
 
-from eleanor.exceptions import EleanorException
+from eleanor.exceptions import EleanorError
 from eleanor.order import Order
 from eleanor.output import ComputeResult, ErrorInfo, WriteOutcome
 from eleanor.output.memory import MemorySink, MemorySinkSettings
@@ -47,7 +47,7 @@ class TestMemorySink(TestCase):
     def test_memory_config_rejects_non_bool(self) -> None:
         """Ensure MemorySinkSettings raises on non-boolean support_worker_writes."""
         with self.assertRaisesRegex(
-            EleanorException, "support_worker_writes must be a boolean"
+            EleanorError, "support_worker_writes must be a boolean"
         ):
             _ = MemorySinkSettings(support_worker_writes="yes")  # pyright: ignore[reportArgumentType]
 
@@ -195,7 +195,7 @@ class TestMemorySink(TestCase):
         sink = MemorySink()
         point = _point(exit_code=0)
 
-        with self.assertRaisesRegex(EleanorException, "called before begin_run"):
+        with self.assertRaisesRegex(EleanorError, "called before begin_run"):
             _ = sink.write_batch(1, [ComputeResult(point=point)])
 
     def test_write_batch_empty_results_is_noop(self) -> None:

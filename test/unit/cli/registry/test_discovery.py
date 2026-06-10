@@ -4,7 +4,7 @@ from typing import Never
 
 import pytest
 from eleanor.cli.registry import available_cli_commands, get_factory
-from eleanor.exceptions import EleanorException
+from eleanor.exceptions import EleanorError
 from eleanor.plugin import SimplePluginSpec
 from pytest_mock import MockerFixture
 
@@ -35,7 +35,7 @@ def test_discovery_raises_on_load_failure(
 
     _ = mocker.patch("eleanor.plugin.entry_points", return_value=[failing_ep])
     with pytest.raises(
-        EleanorException, match="failed to load cli entry point 'broken'"
+        EleanorError, match="failed to load cli entry point 'broken'"
     ):
         _ = available_cli_commands()
 
@@ -47,7 +47,7 @@ def test_discovery_raises_on_non_spec_entry_point(
     bad_ep = makeEntryPoint("bad", "pkg.bad:NOT_A_SPEC", lambda: 42)
 
     _ = mocker.patch("eleanor.plugin.entry_points", return_value=[bad_ep])
-    with pytest.raises(EleanorException, match="must be a SimplePluginSpec"):
+    with pytest.raises(EleanorError, match="must be a SimplePluginSpec"):
         _ = available_cli_commands()
 
 
@@ -64,5 +64,5 @@ def test_discovery_raises_on_unsupported_version(
     ep = makeEntryPoint("too_new", "pkg:spec", lambda: spec)
 
     _ = mocker.patch("eleanor.plugin.entry_points", return_value=[ep])
-    with pytest.raises(EleanorException, match="targets cli API"):
+    with pytest.raises(EleanorError, match="targets cli API"):
         _ = available_cli_commands()

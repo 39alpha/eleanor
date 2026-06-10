@@ -1,14 +1,14 @@
 # Each subclass below overrides ``__str__`` to drop the ``(code: None) `` prefix
-# that ``EleanorException.__str__`` would otherwise add. EQL errors are
+# that ``EleanorError.__str__`` would otherwise add. EQL errors are
 # user-facing diagnostics for query authors and don't carry an integer ``code``;
 # the cleaner messages are intentional, even though they render differently
-# from the rest of the ``EleanorException`` hierarchy.
+# from the rest of the ``EleanorError`` hierarchy.
 from typing import override
 
-from eleanor.exceptions import EleanorException
+from eleanor.exceptions import EleanorError
 
 
-class ParseError(EleanorException):
+class ParseError(EleanorError):
     message: str
     position: int | None
 
@@ -24,7 +24,7 @@ class ParseError(EleanorException):
         return f"{self.message} (position {self.position})"
 
 
-class UnknownRowScope(EleanorException):
+class UnknownRowScope(EleanorError):
     shortname: str
     hint: str | None
 
@@ -40,7 +40,7 @@ class UnknownRowScope(EleanorException):
         return f'unknown row_scope "{self.shortname}" ({self.hint})'
 
 
-class AmbiguousRowScope(EleanorException):
+class AmbiguousRowScope(EleanorError):
     shortname: str
     candidates: list[str]
 
@@ -55,7 +55,7 @@ class AmbiguousRowScope(EleanorException):
         return f'ambiguous row_scope "{self.shortname}" (candidates: {joined})'
 
 
-class InvalidRowScope(EleanorException):
+class InvalidRowScope(EleanorError):
     path: str
     reason: str
 
@@ -69,7 +69,7 @@ class InvalidRowScope(EleanorException):
         return f'invalid row_scope "{self.path}": {self.reason}'
 
 
-class InvalidPath(EleanorException):
+class InvalidPath(EleanorError):
     path: str
     segment: str
     owner_type: type[object]
@@ -85,7 +85,7 @@ class InvalidPath(EleanorException):
         return f'invalid path "{self.path}": segment "{self.segment}" is not valid on {self.owner_type.__name__}'
 
 
-class InvalidFilter(EleanorException):
+class InvalidFilter(EleanorError):
     path: str
     segment: str
     predicate: str
@@ -101,7 +101,7 @@ class InvalidFilter(EleanorException):
         return f'invalid filter "{self.predicate}" on segment "{self.segment}" in "{self.path}"'
 
 
-class InvalidFilterValue(EleanorException):
+class InvalidFilterValue(EleanorError):
     path: str
     predicate: str
     value: str
@@ -122,7 +122,7 @@ class InvalidFilterValue(EleanorException):
         )
 
 
-class UnknownScope(EleanorException):
+class UnknownScope(EleanorError):
     alias: str
     available: list[str]
 
@@ -137,7 +137,7 @@ class UnknownScope(EleanorException):
         return f'unknown scope alias "{self.alias}" (available: {joined})'
 
 
-class AliasCollision(EleanorException):
+class AliasCollision(EleanorError):
     alias: str
     paths: list[str]
 
@@ -152,7 +152,7 @@ class AliasCollision(EleanorException):
         return f'alias collision for "{self.alias}" at paths: {joined}'
 
 
-class ColumnNameCollision(EleanorException):
+class ColumnNameCollision(EleanorError):
     name: str
     paths: list[str]
 
@@ -167,7 +167,7 @@ class ColumnNameCollision(EleanorException):
         return f'column name collision for "{self.name}" at paths: {joined}'
 
 
-class SplatUnknownField(EleanorException):
+class SplatUnknownField(EleanorError):
     alias: str
     field: str
     available: list[str]
@@ -184,7 +184,7 @@ class SplatUnknownField(EleanorException):
         return f'splat on "{self.alias}" requested unknown field "{self.field}" (available: {joined})'
 
 
-class PresetScopeMissing(EleanorException):
+class PresetScopeMissing(EleanorError):
     preset: str
     missing_alias: str
 
@@ -198,7 +198,7 @@ class PresetScopeMissing(EleanorException):
         return f'preset "{self.preset}" requires missing alias "{self.missing_alias}"'
 
 
-class UnknownPreset(EleanorException):
+class UnknownPreset(EleanorError):
     name: str
 
     def __init__(self, name: str) -> None:
@@ -210,7 +210,7 @@ class UnknownPreset(EleanorException):
         return f'unknown preset "{self.name}"'
 
 
-class InvalidMetaAccessor(EleanorException):
+class InvalidMetaAccessor(EleanorError):
     path: str
     accessor: str
     reason: str
@@ -226,7 +226,7 @@ class InvalidMetaAccessor(EleanorException):
         return f'invalid meta-accessor "@{self.accessor}" in "{self.path}": {self.reason}'
 
 
-class PathMissError(EleanorException):
+class PathMissError(EleanorError):
     row_index: int
     column: str
     segment: str
@@ -242,7 +242,7 @@ class PathMissError(EleanorException):
         return f'path miss at row {self.row_index}, column "{self.column}", segment "{self.segment}"'
 
 
-class MultipleMatchError(EleanorException):
+class MultipleMatchError(EleanorError):
     path: str
     predicate: str
     match_count: int

@@ -8,7 +8,7 @@ import eleanor.equilibrium_space as es
 import numpy as np
 from eleanor.kernel.eq36.codes import RunCode
 from eleanor.kernel.eq36.parsers import OutputParser, OutputParser3, OutputParser6
-from eleanor.kernel.exceptions import EleanorKernelException
+from eleanor.kernel.exceptions import EleanorKernelError
 
 
 class DummyOutputParser(OutputParser):
@@ -83,10 +83,10 @@ class TestEq36Parsers(TestCase):
 
     def test_outputparser3_file_not_found_wrapped(self) -> None:
         """
-        Ensure OutputParser3 wraps missing file errors in EleanorKernelException with code.
+        Ensure OutputParser3 wraps missing file errors in EleanorKernelError with code.
         """
         with mock.patch.object(Path, "open", side_effect=FileNotFoundError("missing")):
-            with self.assertRaises(EleanorKernelException) as cm:
+            with self.assertRaises(EleanorKernelError) as cm:
                 OutputParser3("missing.3o")
         self.assertEqual(cm.exception.code, RunCode.NO_3O_FILE)
 
@@ -104,7 +104,7 @@ class TestEq36Parsers(TestCase):
             io.StringIO("header\n --- The reaction path has terminated early ---\n")
         )
         early.line_num = len(early.lines)
-        with self.assertRaises(EleanorKernelException) as cm:
+        with self.assertRaises(EleanorKernelError) as cm:
             early.check_path_termination()
         self.assertEqual(cm.exception.code, RunCode.EQ6_EARLY_TERMINATION)
 
@@ -114,7 +114,7 @@ class TestEq36Parsers(TestCase):
         """
         parser = OutputParser6(io.StringIO("header\nno status here\n"))
         parser.line_num = len(parser.lines)
-        with self.assertRaises(EleanorKernelException) as cm:
+        with self.assertRaises(EleanorKernelError) as cm:
             parser.check_path_termination()
         self.assertEqual(cm.exception.code, RunCode.EQ6_ERROR)
 
@@ -128,7 +128,7 @@ class TestEq36Parsers(TestCase):
             )
         )
         with self.assertRaisesRegex(
-            EleanorKernelException, "expected path separator after Stepping to Xi"
+            EleanorKernelError, "expected path separator after Stepping to Xi"
         ):
             parser.parse()
 
@@ -145,7 +145,7 @@ class TestEq36Parsers(TestCase):
             "CALCITE -1.0 2.0 INVALID\n"
             "\n"
         )
-        with self.assertRaises(EleanorKernelException):
+        with self.assertRaises(EleanorKernelError):
             parser.read_pure_solid_saturation_states()
 
     def test_read_log_property_rejects_empty_name(self) -> None:
@@ -153,7 +153,7 @@ class TestEq36Parsers(TestCase):
         Ensure read_log_property rejects empty property names.
         """
         parser = self._parser("value=1\n")
-        with self.assertRaises(EleanorKernelException):
+        with self.assertRaises(EleanorKernelError):
             parser.read_log_property("")
 
     def test_read_end_member_saturations_unknown_end_member_raises_parser_error(
@@ -163,7 +163,7 @@ class TestEq36Parsers(TestCase):
         Ensure end-member saturation parsing raises a parser error for unknown end members.
         """
         parser = self._parser("UNKNOWN -2.0 1.0\n\n")
-        with self.assertRaises(EleanorKernelException):
+        with self.assertRaises(EleanorKernelError):
             parser.read_end_member_saturations("Solid Solution Product Phases", {})
 
     def test_outputparser6_read_elemental_composition_mgkg_table(self) -> None:
@@ -264,10 +264,10 @@ class TestEq36Parsers(TestCase):
 
     def test_outputparser6_file_not_found_wrapped(self) -> None:
         """
-        Ensure OutputParser6 wraps missing-file errors in EleanorKernelException with NO_6O_FILE code.
+        Ensure OutputParser6 wraps missing-file errors in EleanorKernelError with NO_6O_FILE code.
         """
         with mock.patch.object(Path, "open", side_effect=FileNotFoundError("missing")):
-            with self.assertRaises(EleanorKernelException) as cm:
+            with self.assertRaises(EleanorKernelError) as cm:
                 OutputParser6("missing.6o")
         self.assertEqual(cm.exception.code, RunCode.NO_6O_FILE)
 
@@ -338,7 +338,7 @@ class TestEq36Parsers(TestCase):
 
     def test_outputparser6_parse_step_wraps_internal_errors(self) -> None:
         """
-        Ensure parse_step wraps internal failures in EleanorKernelException.
+        Ensure parse_step wraps internal failures in EleanorKernelError.
         """
         parser = OutputParser6(io.StringIO(""))
 
@@ -357,7 +357,7 @@ class TestEq36Parsers(TestCase):
             ),
         ):
             with self.assertRaisesRegex(
-                EleanorKernelException, "failed to parse EQ6 output"
+                EleanorKernelError, "failed to parse EQ6 output"
             ):
                 parser.parse_step()
 
@@ -391,7 +391,7 @@ class TestEq36Parsers(TestCase):
             mock.patch.object(parser, "read_product_phases"),
             mock.patch.object(parser, "read_fugacities"),
         ):
-            with self.assertRaises(EleanorKernelException) as cm:
+            with self.assertRaises(EleanorKernelError) as cm:
                 parser.parse()
 
         self.assertEqual(cm.exception.code, RunCode.EQ3_EARLY_TERMINATION)
@@ -587,7 +587,7 @@ class TestEq36Parsers(TestCase):
                 parser = OutputParser6(
                     io.StringIO(f" --- {section_header} ---\nh1\n{bad_header}\nh2\n")
                 )
-                with self.assertRaises(EleanorKernelException):
+                with self.assertRaises(EleanorKernelError):
                     getattr(parser, method_name)()
 
     def test_read_solid_blocks_handles_starred_and_malformed_rows(self) -> None:
@@ -603,7 +603,7 @@ class TestEq36Parsers(TestCase):
 
         with self.subTest("malformed row"):
             parser = self._parser("None\n\n")
-            with self.assertRaises(EleanorKernelException):
+            with self.assertRaises(EleanorKernelError):
                 parser.read_solid_blocks()
 
     def test_read_product_phases_missing_header_raises_and_does_not_mutate_data(
@@ -615,7 +615,7 @@ class TestEq36Parsers(TestCase):
         parser = self._parser(" --- Some Other Section ---\nbody\n")
         snapshot = dict(parser._solid_solutions)
 
-        with self.assertRaises(EleanorKernelException):
+        with self.assertRaises(EleanorKernelError):
             parser.read_product_phases("Solid Solution Product Phases")
 
         self.assertEqual(parser._solid_solutions, snapshot)

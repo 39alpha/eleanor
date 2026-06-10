@@ -8,7 +8,7 @@ import psycopg
 
 import eleanor as _eleanor
 from eleanor.cli.util import config_from_args, config_options
-from eleanor.exceptions import EleanorException
+from eleanor.exceptions import EleanorError
 from eleanor.output.postgres.persistence import connection as _connection
 from eleanor.output.postgres.persistence import migrations as _migrations
 from eleanor.output.postgres.persistence import repositories
@@ -33,12 +33,12 @@ def schema(output: TextIO, config: str, database: str | None) -> None:
     cfg = config_from_args(config, database).output
     if cfg is None:
         msg = "no output sink configured"
-        raise EleanorException(msg)
+        raise EleanorError(msg)
 
     settings = cfg.settings
     if not isinstance(settings, PostgresSinkSettings):
         msg = "cannot dump postgres schema for a non-postgres output sink"
-        raise EleanorException(msg)
+        raise EleanorError(msg)
 
     if settings.database.database is None:
         msg = "no database provided"
@@ -61,13 +61,13 @@ def scratch(vs_id: int, outdir: str, config: str, database: str | None) -> None:
     cfg = config_from_args(config, database).output
     if cfg is None:
         msg = "no output sink configured"
-        raise EleanorException(msg)
+        raise EleanorError(msg)
 
     settings = cfg.settings
 
     if not isinstance(settings, PostgresSinkSettings):
         msg = "cannot dump scratch from a non-postgres output sink"
-        raise EleanorException(msg)
+        raise EleanorError(msg)
 
     if settings.database.database is None:
         msg = "no database provided"
@@ -111,13 +111,13 @@ def bulkload(action: str, yes: bool, config: str, database: str | None) -> None:
     cfg = config_from_args(config, database).output
     if cfg is None:
         msg = "no output sink configured"
-        raise EleanorException(msg)
+        raise EleanorError(msg)
 
     settings = cfg.settings
 
     if not isinstance(settings, PostgresSinkSettings):
         msg = f"cannot {action} secondary indexes and constraints on a non-postgres output sink"
-        raise EleanorException(msg)
+        raise EleanorError(msg)
 
     if settings.database.database is None:
         msg = "no database provided"
@@ -134,7 +134,7 @@ def bulkload(action: str, yes: bool, config: str, database: str | None) -> None:
         recreate_indexes(settings.database)
     else:
         msg = f"unknown bulkload action: {action!r}"
-        raise EleanorException(msg)
+        raise EleanorError(msg)
 
 
 @click.command()
@@ -167,11 +167,11 @@ def migrate(
     cfg = config_from_args(config, database).output
     if cfg is None:
         msg = "no output sink configured"
-        raise EleanorException(msg)
+        raise EleanorError(msg)
     settings = cfg.settings
     if not isinstance(settings, PostgresSinkSettings):
         msg = "cannot migrate a non-postgres output sink"
-        raise EleanorException(msg)
+        raise EleanorError(msg)
     if settings.database.database is None:
         msg = "no database provided"
         raise click.ClickException(msg)
@@ -248,7 +248,7 @@ def _cmd_stamp(settings: PostgresSinkSettings, target: int, yes: bool) -> None:
 def _cmd_apply(settings: PostgresSinkSettings) -> None:
     try:
         repositories.apply_pending_migrations(settings.database)
-    except EleanorException as exc:
+    except EleanorError as exc:
         raise click.ClickException(str(exc)) from exc
 
 

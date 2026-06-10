@@ -6,7 +6,7 @@ from typing import cast, override
 import numpy as np
 
 from eleanor.config.constraint import ConstraintConfig
-from eleanor.exceptions import EleanorException
+from eleanor.exceptions import EleanorError
 from eleanor.order import Order
 from eleanor.parameters import Parameter, ParameterRegistry, Valuation, ValueParameter
 from eleanor.query.path import MatchFilter, Segment, parse_path
@@ -38,7 +38,7 @@ class AbstractConstraint(ABC):
     def resolve(self, registry: ParameterRegistry, valuation: Valuation) -> None:
         if not self.is_resolvable(registry, valuation):
             msg = "cannot resolve an unresolvable constraint"
-            raise EleanorException(msg)
+            raise EleanorError(msg)
 
         valuation.update(self.apply(registry, valuation))
 
@@ -66,7 +66,7 @@ def resolve_parameter(order: Order, path_str: str) -> Parameter:
     path = parse_path(path_str)
     if path.meta is not None:
         msg = f"meta-accessors are not valid in constraint variable paths: {path_str}"
-        raise EleanorException(msg)
+        raise EleanorError(msg)
 
     segments: tuple[Segment, ...] = path.segments
     missing = object()
@@ -75,16 +75,16 @@ def resolve_parameter(order: Order, path_str: str) -> Parameter:
         next_value = getattr(current, segment.name, missing)
         if next_value is missing:
             msg = f"cannot resolve {segment.name!r} on {type(current).__name__} in path {path_str!r}"
-            raise EleanorException(msg)
+            raise EleanorError(msg)
         current = cast(object, next_value)
 
         for filt in segment.filters:
             if not isinstance(filt, MatchFilter):
                 msg = f"only match filters are supported in constraint paths: {path_str}"
-                raise EleanorException(msg)
+                raise EleanorError(msg)
             if len(filt.predicates) != 1:
                 msg = f"constraint path filters must have exactly one predicate: {path_str}"
-                raise EleanorException(msg)
+                raise EleanorError(msg)
             pred = filt.predicates[0]
             value = pred.value
 
@@ -92,10 +92,10 @@ def resolve_parameter(order: Order, path_str: str) -> Parameter:
                 current_dict = cast(dict[object, object], current)
                 if pred.field != "key":
                     msg = f"dict filters must use key=<value>: {path_str}"
-                    raise EleanorException(msg)
+                    raise EleanorError(msg)
                 if value not in current_dict:
                     msg = f"key {value!r} not found in dict for path {path_str!r}"
-                    raise EleanorException(msg)
+                    raise EleanorError(msg)
                 current = current_dict[value]
             elif isinstance(current, list):
                 found: object | None = None
@@ -106,15 +106,15 @@ def resolve_parameter(order: Order, path_str: str) -> Parameter:
                         break
                 if found is None:
                     msg = f"{pred.field}={value} not found in list for path {path_str!r}"
-                    raise EleanorException(msg)
+                    raise EleanorError(msg)
                 current = found
             else:
                 msg = f"cannot apply filter to {type(current).__name__} in path {path_str!r}"
-                raise EleanorException(msg)
+                raise EleanorError(msg)
 
     if not isinstance(current, Parameter):
         msg = f"path {path_str!r} does not resolve to a Parameter (got {type(current).__name__})"
-        raise EleanorException(msg)
+        raise EleanorError(msg)
     return current
 
 
@@ -138,7 +138,7 @@ class Transform(Enum):
                         raise AssertionError(msg)  # pyright: ignore[reportUnreachable]
             except FloatingPointError as exc:
                 msg = f"{self.value} transform forward failed for input {x}"
-                raise EleanorException(msg) from exc
+                raise EleanorError(msg) from exc
 
     def inverse(self, y: np.float64) -> np.float64:
         with np.errstate(divide="raise", invalid="raise", over="raise"):
@@ -155,7 +155,7 @@ class Transform(Enum):
                         raise AssertionError(msg)  # pyright: ignore[reportUnreachable]
             except FloatingPointError as exc:
                 msg = f"{self.value} transform inverse failed for input {y}"
-                raise EleanorException(msg) from exc
+                raise EleanorError(msg) from exc
 
 
 @dataclass
@@ -184,7 +184,7 @@ class LinearConstraint(AbstractConstraint):
     ) -> None:
         if not terms:
             msg = "LinearConstraint requires at least one term"
-            raise EleanorException(msg)
+            raise EleanorError(msg)
 
         self.constant = constant if constant is not None else ValueParameter(np.float64(0.0))
         self.tolerance = tolerance if tolerance is not None else np.float64(1e-6)
@@ -228,7 +228,7 @@ class LinearConstraint(AbstractConstraint):
         constant_param = valuation[registry.id(self.constant)]
         if not isinstance(constant_param, ValueParameter):
             msg = "constant parameter is not resolved"
-            raise EleanorException(msg)
+            raise EleanorError(msg)
         c = constant_param.value
 
         if self._dependent_term is None:
@@ -237,11 +237,11 @@ class LinearConstraint(AbstractConstraint):
                 term_param = valuation[registry.id(term.parameter)]
                 if not isinstance(term_param, ValueParameter):
                     msg = f"parameter {term.label()!r} is not resolved"
-                    raise EleanorException(msg)
+                    raise EleanorError(msg)
                 lhs = np.float64(lhs + term.coefficient * term.transform.forward(term_param.value))
             if np.abs(lhs - c) > self.tolerance:
                 msg = f"LinearConstraint violated: |{lhs} - {c}| = {np.abs(lhs - c)} > tolerance {self.tolerance}"
-                raise EleanorException(msg)
+                raise EleanorError(msg)
             return {}
 
         rhs = c
@@ -249,19 +249,19 @@ class LinearConstraint(AbstractConstraint):
             term_param = valuation[registry.id(term.parameter)]
             if not isinstance(term_param, ValueParameter):
                 msg = f"independent parameter {term.label()!r} is not resolved"
-                raise EleanorException(msg)
+                raise EleanorError(msg)
             rhs = np.float64(rhs - term.coefficient * term.transform.forward(term_param.value))
 
         dep = self._dependent_term
         if dep.coefficient == 0.0:
             msg = "dependent term has zero coefficient; equation is unsolvable"
-            raise EleanorException(msg)
+            raise EleanorError(msg)
         dep_transformed = np.float64(rhs / dep.coefficient)
         dep_value = dep.transform.inverse(dep_transformed)
         fixed = dep.parameter.fix(dep_value)
         if not dep.parameter.in_domain(fixed):
             msg = f"linear constraint solved {dep.label()!r} to {dep_value}, which is outside its admissible domain"
-            raise EleanorException(msg)
+            raise EleanorError(msg)
         return {registry.id(dep.parameter): fixed}
 
     @classmethod
@@ -271,41 +271,41 @@ class LinearConstraint(AbstractConstraint):
         terms_args = raw.get("terms")
         if not isinstance(terms_args, list):
             msg = "linear constraint must have a 'terms' list"
-            raise EleanorException(msg)
+            raise EleanorError(msg)
 
         terms: list[LinearConstraintTerm] = []
         for i, term_obj in enumerate(cast(list[object], terms_args)):
             if not isinstance(term_obj, dict):
                 msg = f"constraint term {i} must be a dict"
-                raise EleanorException(msg)
+                raise EleanorError(msg)
             term_args = cast(dict[str, object], term_obj)
 
             variable_str = term_args.get("variable")
             if not isinstance(variable_str, str):
                 msg = f"constraint term {i} must have a string 'variable'"
-                raise EleanorException(msg)
+                raise EleanorError(msg)
 
             coeff_args = term_args.get("coefficient", 1.0)
             if isinstance(coeff_args, bool) or not isinstance(coeff_args, int | float | str):
                 msg = f"constraint term {i} coefficient must be numeric"
-                raise EleanorException(msg)
+                raise EleanorError(msg)
             try:
                 coefficient = np.float64(float(coeff_args))
             except (TypeError, ValueError) as exc:
                 msg = f"constraint term {i} coefficient must be numeric"
-                raise EleanorException(msg) from exc
+                raise EleanorError(msg) from exc
 
             transform_str = term_args.get("transform", "identity")
             if not isinstance(transform_str, str):
                 msg = f"constraint term {i} 'transform' must be a string"
-                raise EleanorException(msg)
+                raise EleanorError(msg)
             try:
                 transform = Transform(transform_str)
             except ValueError as exc:
                 msg = (
                     f"constraint term {i}: unknown transform {transform_str!r}; must be one of: identity, log10, pow10"
                 )
-                raise EleanorException(msg) from exc
+                raise EleanorError(msg) from exc
 
             parameter = resolve_parameter(order, variable_str)
             terms.append(
@@ -326,11 +326,11 @@ class LinearConstraint(AbstractConstraint):
             tolerance_args = raw["tolerance"]
             if isinstance(tolerance_args, bool) or not isinstance(tolerance_args, int | float | str):
                 msg = "constraint tolerance must be numeric"
-                raise EleanorException(msg)
+                raise EleanorError(msg)
             try:
                 tolerance = np.float64(float(tolerance_args))
             except (TypeError, ValueError) as exc:
                 msg = "constraint tolerance must be numeric"
-                raise EleanorException(msg) from exc
+                raise EleanorError(msg) from exc
 
         return cls(terms=terms, constant=constant, tolerance=tolerance)

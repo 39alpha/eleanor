@@ -1,5 +1,8 @@
-from eleanor.kernel.exceptions import EleanorKernelException
+from eleanor.kernel.exceptions import EleanorKernelError
 
 
-class Eq36Exception(EleanorKernelException):
+class Eq36Error(EleanorKernelError):
     pass
+
+
+__all__ = ["Eq36Error"]

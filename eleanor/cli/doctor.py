@@ -6,7 +6,7 @@ import click
 import eleanor
 from eleanor.cli.registry import available_cli_commands
 from eleanor.cli.util import config_from_args, config_options
-from eleanor.exceptions import EleanorException
+from eleanor.exceptions import EleanorError
 from eleanor.executor.registry import available_executors
 from eleanor.kernel.registry import available_kernels
 from eleanor.navigator.registry import available_navigators
@@ -52,7 +52,7 @@ def doctor(config: str | None, database: str | None) -> None:
     cfg_obj = None
     try:
         cfg_obj = config_from_args(config, database, require_database=False) if config else None
-    except EleanorException:
+    except EleanorError:
         cfg_obj = None
 
     if cfg_obj is not None and cfg_obj.output is not None:

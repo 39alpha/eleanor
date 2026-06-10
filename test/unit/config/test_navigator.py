@@ -2,7 +2,7 @@ from dataclasses import dataclass
 
 import pytest
 from eleanor.config.navigator import NavigatorConfig
-from eleanor.exceptions import EleanorException
+from eleanor.exceptions import EleanorError
 from eleanor.navigator.registry import registry
 from eleanor.navigator.settings import NavigatorSettings
 from eleanor.parameters import Parameter
@@ -20,13 +20,13 @@ def test_can_construct_navigator_config() -> None:
 
 
 def test_navigator_config_requires_string_kind() -> None:
-    with pytest.raises(EleanorException, match="must be a string"):
+    with pytest.raises(EleanorError, match="must be a string"):
         _ = NavigatorConfig(kind=123, settings=NavigatorSettings())  # pyright: ignore[reportArgumentType]
 
 
 def test_navigator_config_requires_settings_like_settings() -> None:
     with pytest.raises(
-        EleanorException, match=f"requires {NavigatorSettings.__name__}"
+        EleanorError, match=f"requires {NavigatorSettings.__name__}"
     ):
         _ = NavigatorConfig(kind="plugin", settings=5)  # pyright: ignore[reportArgumentType]
 
@@ -44,7 +44,7 @@ def test_navigator_config_propagates_settings_parameters(mocker: MockerFixture) 
 
 
 def test_navigator_config_from_dict_raises_for_non_string_kind() -> None:
-    with pytest.raises(EleanorException, match="must be a string"):
+    with pytest.raises(EleanorError, match="must be a string"):
         _ = NavigatorConfig.from_dict({"kind": 123})
 
 

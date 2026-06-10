@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import Self
 
-from eleanor.exceptions import EleanorException
+from eleanor.exceptions import EleanorError
 from eleanor.settings import Settings
 from eleanor.util import guard_is_int, guard_is_int_or_none, require_opt_int
 
@@ -15,12 +15,12 @@ class ExecutorSettings(Settings):
         guard_is_int_or_none(self.num_workers, "num_workers")
         if self.num_workers is not None and self.num_workers <= 0:
             msg = f"num_workers must be greater than zero; got {self.num_workers}"
-            raise EleanorException(msg)
+            raise EleanorError(msg)
 
         guard_is_int(self.chunks_per_worker, "chunks_per_worker")
         if self.chunks_per_worker <= 0:
             msg = f"chunks_per_worker must be greater than zero; got {self.chunks_per_worker}"
-            raise EleanorException(msg)
+            raise EleanorError(msg)
 
     @classmethod
     def from_dict(cls, raw: dict[str, object]) -> Self:

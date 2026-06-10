@@ -12,7 +12,7 @@ from eleanor.constraints.interface import (
     resolve_parameter,
 )
 from eleanor.constraints.point_builder import PointBuilder
-from eleanor.exceptions import EleanorException
+from eleanor.exceptions import EleanorError
 from eleanor.kernel.settings import KernelSettings
 from eleanor.order import Order, Suppression
 from eleanor.parameters import (
@@ -309,7 +309,7 @@ class TestConstraints(TestCase):
         registry_bad = ParameterRegistry()
         registry_bad.add_parameters([p1, p2, constant_bad])
         valuation_bad = registry_bad.valuation()
-        with self.assertRaises(EleanorException):
+        with self.assertRaises(EleanorError):
             _ = linear_constraint_bad.apply(registry_bad, valuation_bad)
 
     def test_linear_constraint_is_resolvable(self) -> None:
@@ -368,9 +368,9 @@ class TestConstraints(TestCase):
         self.assertIs(
             resolve_parameter(order, "reactants[name=calcite].amount"), amount
         )
-        with self.assertRaises(EleanorException):
+        with self.assertRaises(EleanorError):
             _ = resolve_parameter(order, "nonexistent")
-        with self.assertRaises(EleanorException):
+        with self.assertRaises(EleanorError):
             _ = resolve_parameter(order, "elements[key=missing]")
 
     def test_linear_constraint_from_order_round_trip(self) -> None:
@@ -419,7 +419,7 @@ class TestConstraints(TestCase):
         """
         order = self._make_simple_order()
         config = ConstraintConfig(kind="linear", args={"type": "linear"})
-        with self.assertRaises(EleanorException):
+        with self.assertRaises(EleanorError):
             _ = LinearConstraint.from_order(_as_order(order), config)
 
     def test_from_order_non_dict_term_raises(self) -> None:
@@ -429,7 +429,7 @@ class TestConstraints(TestCase):
         order = self._make_simple_order()
         raw: dict[str, object] = {"type": "linear", "terms": ["not_a_dict"]}
         config = ConstraintConfig(kind="linear", args=raw)
-        with self.assertRaises(EleanorException):
+        with self.assertRaises(EleanorError):
             _ = LinearConstraint.from_order(_as_order(order), config)
 
     def test_from_order_missing_variable_raises(self) -> None:
@@ -439,7 +439,7 @@ class TestConstraints(TestCase):
         order = self._make_simple_order()
         raw: dict[str, object] = {"type": "linear", "terms": [{"coefficient": 1.0}]}
         config = ConstraintConfig(kind="linear", args=raw)
-        with self.assertRaises(EleanorException):
+        with self.assertRaises(EleanorError):
             _ = LinearConstraint.from_order(_as_order(order), config)
 
     def test_from_order_non_numeric_coefficient_raises(self) -> None:
@@ -451,7 +451,7 @@ class TestConstraints(TestCase):
             "type": "linear",
             "terms": [{"variable": "temperature", "coefficient": True}],
         }
-        with self.assertRaises(EleanorException):
+        with self.assertRaises(EleanorError):
             _ = LinearConstraint.from_order(
                 _as_order(order), ConstraintConfig(kind="linear", args=raw_bool)
             )
@@ -460,7 +460,7 @@ class TestConstraints(TestCase):
             "type": "linear",
             "terms": [{"variable": "temperature", "coefficient": [1, 2]}],
         }
-        with self.assertRaises(EleanorException):
+        with self.assertRaises(EleanorError):
             _ = LinearConstraint.from_order(
                 _as_order(order), ConstraintConfig(kind="linear", args=raw_list)
             )
@@ -475,7 +475,7 @@ class TestConstraints(TestCase):
             "terms": [{"variable": "temperature", "transform": "ln"}],
         }
         config = ConstraintConfig(kind="linear", args=raw)
-        with self.assertRaises(EleanorException):
+        with self.assertRaises(EleanorError):
             _ = LinearConstraint.from_order(_as_order(order), config)
 
     def test_from_order_non_numeric_tolerance_raises(self) -> None:
@@ -489,7 +489,7 @@ class TestConstraints(TestCase):
             "tolerance": True,
         }
         config = ConstraintConfig(kind="linear", args=raw)
-        with self.assertRaises(EleanorException):
+        with self.assertRaises(EleanorError):
             _ = LinearConstraint.from_order(_as_order(order), config)
 
     def _make_simple_order(self) -> DummyOrder:
@@ -507,27 +507,27 @@ class TestConstraints(TestCase):
 
     def test_transform_forward_raises_on_non_positive_log10(self) -> None:
         """
-        Verify log10 forward raises EleanorException for zero and negative inputs.
+        Verify log10 forward raises EleanorError for zero and negative inputs.
         """
-        with self.assertRaises(EleanorException):
+        with self.assertRaises(EleanorError):
             _ = Transform.LOG10.forward(np.float64(0.0))
-        with self.assertRaises(EleanorException):
+        with self.assertRaises(EleanorError):
             _ = Transform.LOG10.forward(np.float64(-1.0))
 
     def test_transform_inverse_raises_on_non_positive_pow10(self) -> None:
         """
-        Verify pow10 inverse (log10) raises EleanorException for zero and negative inputs.
+        Verify pow10 inverse (log10) raises EleanorError for zero and negative inputs.
         """
-        with self.assertRaises(EleanorException):
+        with self.assertRaises(EleanorError):
             _ = Transform.POW10.inverse(np.float64(0.0))
-        with self.assertRaises(EleanorException):
+        with self.assertRaises(EleanorError):
             _ = Transform.POW10.inverse(np.float64(-1.0))
 
     def test_transform_forward_raises_on_overflow(self) -> None:
         """
-        Verify pow10 forward raises EleanorException on overflow.
+        Verify pow10 forward raises EleanorError on overflow.
         """
-        with self.assertRaises(EleanorException):
+        with self.assertRaises(EleanorError):
             _ = Transform.POW10.forward(np.float64(1e308))
 
     def test_linear_constraint_apply_zero_coefficient_raises(self) -> None:
@@ -545,7 +545,7 @@ class TestConstraints(TestCase):
         registry = ParameterRegistry()
         registry.add_parameters([p_dep, p_ind, constant])
         valuation = registry.valuation()
-        with self.assertRaises(EleanorException):
+        with self.assertRaises(EleanorError):
             _ = linear_constraint.apply(registry, valuation)
 
     def test_linear_constraint_apply_out_of_domain_raises(self) -> None:
@@ -564,14 +564,14 @@ class TestConstraints(TestCase):
         registry = ParameterRegistry()
         registry.add_parameters([p_dep, p_ind, constant])
         valuation = registry.valuation()
-        with self.assertRaises(EleanorException):
+        with self.assertRaises(EleanorError):
             _ = linear_constraint.apply(registry, valuation)
 
     def test_linear_constraint_empty_terms_raises(self) -> None:
         """
         Verify constructing a LinearConstraint with no terms raises.
         """
-        with self.assertRaises(EleanorException):
+        with self.assertRaises(EleanorError):
             _ = LinearConstraint([])
 
     def test_linear_constraint_volume_delegates_to_constant(self) -> None:
@@ -1184,7 +1184,7 @@ class TestConstraints(TestCase):
         registry.add_parameters([p, range_constant])
         valuation = registry.valuation()
         with self.assertRaisesRegex(
-            EleanorException, "constant parameter is not resolved"
+            EleanorError, "constant parameter is not resolved"
         ):
             _ = lc.apply(registry, valuation)
 
@@ -1204,7 +1204,7 @@ class TestConstraints(TestCase):
         valuation = registry.valuation()
         valuation[registry.id(p)] = RangeParameter(np.float64(0.0), np.float64(2.0))
         with self.assertRaisesRegex(
-            EleanorException, "parameter 'pressure' is not resolved"
+            EleanorError, "parameter 'pressure' is not resolved"
         ):
             _ = lc.apply(registry, valuation)
 
@@ -1227,7 +1227,7 @@ class TestConstraints(TestCase):
         registry.add_parameters([p_dep, p_ind, constant])
         valuation = registry.valuation()
         with self.assertRaisesRegex(
-            EleanorException,
+            EleanorError,
             r"independent parameter '<unnamed term @[0-9a-f]+>' is not resolved",
         ):
             _ = lc.apply(registry, valuation)
@@ -1264,5 +1264,5 @@ class TestConstraints(TestCase):
         registry = ParameterRegistry()
         registry.add_parameters([temp, na, lc.constant])
         valuation = registry.valuation()
-        with self.assertRaisesRegex(EleanorException, r"elements\[key=Na\]"):
+        with self.assertRaisesRegex(EleanorError, r"elements\[key=Na\]"):
             _ = lc.apply(registry, valuation)

@@ -1,11 +1,11 @@
-from eleanor.exceptions import EleanorException
+from eleanor.exceptions import EleanorError
 
 
 def test_eleanor_exception_str() -> None:
-    e = EleanorException("boom")
+    e = EleanorError("boom")
     assert str(e) == "boom"
 
 
 def test_eleanor_exception_has_no_code() -> None:
-    e = EleanorException()
+    e = EleanorError()
     assert not hasattr(e, "code")

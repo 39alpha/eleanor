@@ -1,6 +1,6 @@
 import pytest
 from eleanor.config.plugin import PluginConfig
-from eleanor.exceptions import EleanorException
+from eleanor.exceptions import EleanorError
 from eleanor.parameters import Parameter
 from eleanor.settings import Settings, SettingsLike
 from pytest_mock import MockerFixture
@@ -17,12 +17,12 @@ def test_can_construct_plugin_config() -> None:
 
 
 def test_plugin_config_requires_string_kind() -> None:
-    with pytest.raises(EleanorException, match="must be a string"):
+    with pytest.raises(EleanorError, match="must be a string"):
         _ = PluginConfig(kind=123, settings=Settings())  # pyright: ignore[reportArgumentType]
 
 
 def test_plugin_config_requires_settings_like_settings() -> None:
-    with pytest.raises(EleanorException, match="must implement SettingsLike"):
+    with pytest.raises(EleanorError, match="must implement SettingsLike"):
         _ = PluginConfig(kind="plugin", settings=5)  # pyright: ignore[reportArgumentType]
 
 

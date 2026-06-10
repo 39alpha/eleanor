@@ -1,6 +1,6 @@
 from typing import TYPE_CHECKING
 
-from eleanor.exceptions import EleanorException
+from eleanor.exceptions import EleanorError
 from eleanor.plugin import ConfigurablePluginSpec
 
 if TYPE_CHECKING:
@@ -21,7 +21,7 @@ def build_csv_sink(settings: object) -> CsvSink:
 
     if not isinstance(settings, CsvSinkSettings):
         msg = f"csv output sink requires {CsvSinkSettings.__name__}, got {type(settings).__name__}"
-        raise EleanorException(msg)
+        raise EleanorError(msg)
 
     return CsvSink(settings)
 
@@ -44,7 +44,7 @@ def build_memory_sink(settings: object) -> MemorySink:
 
     if not isinstance(settings, MemorySinkSettings):
         msg = f"memory output sink requires {MemorySinkSettings.__name__}, got {type(settings).__name__}"
-        raise EleanorException(msg)
+        raise EleanorError(msg)
 
     return MemorySink(settings)
 
@@ -67,7 +67,7 @@ def build_null_sink(settings: object) -> NullSink:
 
     if not isinstance(settings, NullSinkSettings):
         msg = f"null output sink requires {NullSinkSettings.__name__}, got {type(settings).__name__}"
-        raise EleanorException(msg)
+        raise EleanorError(msg)
 
     return NullSink(settings)
 
@@ -91,7 +91,7 @@ def build_postgres_sink(settings: object) -> PostgresSink:
 
     if not isinstance(settings, PostgresSinkSettings):
         msg = f"postgres output sink requires {PostgresSinkSettings.__name__}, got {type(settings).__name__}"
-        raise EleanorException(msg)
+        raise EleanorError(msg)
 
     return PostgresSink(settings)
 

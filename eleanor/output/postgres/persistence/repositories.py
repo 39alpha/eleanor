@@ -8,7 +8,7 @@ from psycopg import sql
 
 import eleanor.equilibrium_space as core_es
 import eleanor.variable_space as core_vs
-from eleanor.exceptions import EleanorException
+from eleanor.exceptions import EleanorError
 from eleanor.order import Order
 from eleanor.output.postgres.persistence import connection, converters, migrations, queries, schema
 from eleanor.output.postgres.persistence.converters import OrderRecord, ScratchEntry
@@ -229,7 +229,7 @@ def insert_order(config: PostgresDatabaseSettings, order: Order) -> OrderRecord:
         result = cur.fetchone()
         if result is None:
             msg = "order INSERT did not return an id"
-            raise EleanorException(msg)
+            raise EleanorError(msg)
         new_id = cast(int, result[0])
 
     return OrderRecord(
@@ -299,7 +299,7 @@ def _insert_variable_space_and_pair(
     result = cur.fetchone()
     if result is None:
         msg = "variable_space INSERT did not return an id"
-        raise EleanorException(msg)
+        raise EleanorError(msg)
     vs_id = cast(int, result[0])
 
     _ = cur.execute(queries.INSERTS["kernel"], converters.kernel_to_row(point.kernel, vs_id))

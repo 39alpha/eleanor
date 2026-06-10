@@ -6,8 +6,8 @@ from typing import Self, cast
 
 import numpy as np
 
-from eleanor.exceptions import EleanorException
-from eleanor.kernel.exceptions import EleanorKernelException
+from eleanor.exceptions import EleanorError
+from eleanor.kernel.exceptions import EleanorKernelError
 from eleanor.kernel.settings import KernelSettings
 
 
@@ -26,7 +26,7 @@ def get_setting[T: IntEnum](cfg: dict[str, object], setting: type[T], default: T
     value: object | None = cfg.get(key, default)
     if value is None:
         msg = f"config option {key} is required"
-        raise EleanorKernelException(msg)
+        raise EleanorKernelError(msg)
 
     try:
         if isinstance(value, setting):
@@ -37,9 +37,9 @@ def get_setting[T: IntEnum](cfg: dict[str, object], setting: type[T], default: T
             return setting(value)
     except Exception as e:
         msg = f"unexpected value for option {key}"
-        raise EleanorKernelException(msg) from e
+        raise EleanorKernelError(msg) from e
     msg = f"unexpected value for option {key}"
-    raise EleanorKernelException(msg)
+    raise EleanorKernelError(msg)
 
 
 class JTEMP(IntEnum):
@@ -794,14 +794,14 @@ class Eq36Settings(KernelSettings):
         model: IOPG_1
         if model_raw is None:
             msg = "kernel.model is required"
-            raise EleanorException(msg)
+            raise EleanorError(msg)
         if isinstance(model_raw, int):
             model = IOPG_1(model_raw)
         elif isinstance(model_raw, str):
             model_name = EQ36_MODEL_EXTENSIONS.get(model_raw, model_raw)
             if model_name not in ["pitzer", "davies", "b-dot", "hc_dh"]:
                 msg = 'kernel.model must be "pitzer", "davies", "b-dot", "hc_dh" or a standard EQ3/6 file extension'
-                raise EleanorException(msg)
+                raise EleanorError(msg)
             match model_name:
                 case "davies":
                     model = IOPG_1.DAVIES
@@ -813,37 +813,37 @@ class Eq36Settings(KernelSettings):
                     model = IOPG_1.PITZER
                 case _:
                     msg = "kernel.model has an unsupported value"
-                    raise EleanorException(msg)
+                    raise EleanorError(msg)
         else:
             msg = "kernel.model must be a string or integer"
-            raise EleanorException(msg)
+            raise EleanorError(msg)
 
         charge_balance = raw["charge_balance"]
         if not isinstance(charge_balance, str):
             msg = "kernel.charge_balance must be a string"
-            raise EleanorException(msg)
+            raise EleanorError(msg)
 
         basis_map = raw.get("basis_map", {})
         if not isinstance(basis_map, dict):
             msg = "kernel.basis_map must be a dict"
-            raise EleanorException(msg)
+            raise EleanorError(msg)
 
         redox_species = raw.get("redox_species", "fO2")
         if not isinstance(redox_species, str):
             msg = "kernel.redox_species must be a str"
-            raise EleanorException(msg)
+            raise EleanorError(msg)
 
         timeout = raw.get("timeout", 0)
         if timeout is not None and not isinstance(timeout, int):
             msg = "kernel.timeout must be an integer or None"
-            raise EleanorException(msg)
+            raise EleanorError(msg)
         if timeout == 0:
             timeout = None
 
         track_path = raw.get("track_path", False)
         if not isinstance(track_path, bool):
             msg = "kernel.track_path must be a boolean"
-            raise EleanorException(msg)
+            raise EleanorError(msg)
 
         raw_eq3_config: dict[str, object] = cast(dict[str, object], raw.get("eq3_config", {}))
 
@@ -875,7 +875,7 @@ class Eq36Settings(KernelSettings):
 
         if eq3_config.iopt_19 != IOPT_19.SIXI_FLUID_1_AS_FLUID_MIX:
             msg = f"kernel.eq3_config.iopt_19 value ({eq3_config.iopt_19}) is unsupported"
-            raise EleanorException(msg)
+            raise EleanorError(msg)
 
         if not raw.get("eq6_config", True):
             eq6_config = None

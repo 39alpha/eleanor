@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, cast
 
-from eleanor.exceptions import EleanorException
+from eleanor.exceptions import EleanorError
 from eleanor.settings import SettingsLike
 from eleanor.util import guard_is_str
 
@@ -20,7 +20,7 @@ class PluginConfig[T: SettingsLike]:
         if not isinstance(cast(object, self.settings), SettingsLike):
             got = type(self.settings).__name__
             msg = f"plugin settings must implement SettingsLike, got {got}"
-            raise EleanorException(msg)
+            raise EleanorError(msg)
 
     def parameters(self) -> list[Parameter]:
         return self.settings.parameters()

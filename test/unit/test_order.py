@@ -7,7 +7,7 @@ from unittest import TestCase, mock
 
 import numpy as np
 import pytest
-from eleanor.exceptions import EleanorException
+from eleanor.exceptions import EleanorError
 from eleanor.kernel.settings import KernelSettings
 from eleanor.order import Order, Suppression, load_order
 from eleanor.parameters import ValueParameter
@@ -65,7 +65,7 @@ class TestOrder(TestCase):
         """
         Ensure suppression construction and parsing validate name/type/exception constraints.
         """
-        with self.assertRaises(EleanorException):
+        with self.assertRaises(EleanorError):
             _ = Suppression(None, None, [])
 
         s = Suppression.from_dict({"name": "Quartz", "except": ["H2O"]})
@@ -77,15 +77,15 @@ class TestOrder(TestCase):
         self.assertEqual(s2.name, "Calcite")
         self.assertEqual(s2.type, "mineral")
 
-        with self.assertRaises(EleanorException):
+        with self.assertRaises(EleanorError):
             _ = Suppression.from_dict(
                 cast(dict[str, object], cast(object, {"name": 1}))
             )
-        with self.assertRaises(EleanorException):
+        with self.assertRaises(EleanorError):
             _ = Suppression.from_dict(
                 cast(dict[str, object], cast(object, {"name": "x", "type": 2}))
             )
-        with self.assertRaises(EleanorException):
+        with self.assertRaises(EleanorError):
             _ = Suppression.from_dict(
                 cast(dict[str, object], cast(object, {"name": "x", "except": [1]}))
             )
@@ -118,22 +118,22 @@ class TestOrder(TestCase):
         order_without_id = _make_order()
         self.assertIsNone(order_without_id.id)
 
-        with self.assertRaisesRegex(EleanorException, "id must be an integer"):
+        with self.assertRaisesRegex(EleanorError, "id must be an integer"):
             _ = _make_order(id="not-an-int")
 
     def test_order_validation_and_kernel_branches(self) -> None:
         """
         Ensure order validation and kernel/navigator parsing branches behave correctly.
         """
-        with self.assertRaises(EleanorException):
+        with self.assertRaises(EleanorError):
             _ = Order.from_dict(
                 cast(dict[str, object], cast(object, _minimal_raw(name=1)))
             )
-        with self.assertRaises(EleanorException):
+        with self.assertRaises(EleanorError):
             _ = Order.from_dict(
                 cast(dict[str, object], cast(object, _minimal_raw(notes=1)))
             )
-        with self.assertRaises(EleanorException):
+        with self.assertRaises(EleanorError):
             _ = Order.from_dict(
                 cast(dict[str, object], cast(object, _minimal_raw(creator=1)))
             )
@@ -168,7 +168,7 @@ class TestOrder(TestCase):
         Ensure duplicate concrete names across standalone reactants and combined components are rejected.
         """
         with self.assertRaisesRegex(
-            EleanorException,
+            EleanorError,
             "appears more than once across reactants and combined-reactant components",
         ):
             _ = _make_order(
@@ -259,7 +259,7 @@ class TestOrder(TestCase):
                 self.assertIsInstance(Order.from_file(yml2), Order)
                 self.assertIsInstance(Order.from_file(toml), Order)
                 self.assertIsInstance(Order.from_file(js), Order)
-                with self.assertRaises(EleanorException):
+                with self.assertRaises(EleanorError):
                     _ = Order.from_file(bad)
 
                 self.assertIsInstance(load_order(yml), Order)
@@ -269,17 +269,17 @@ class TestOrder(TestCase):
 
     def test_order_from_file_re_raises_eleanor_exception(self) -> None:
         """
-        Ensure Order.from_file re-raises EleanorException from parser branches without wrapping.
+        Ensure Order.from_file re-raises EleanorError from parser branches without wrapping.
         """
         with mock.patch(
-            "eleanor.order.Order.from_yaml", side_effect=EleanorException("boom")
+            "eleanor.order.Order.from_yaml", side_effect=EleanorError("boom")
         ):
-            with self.assertRaisesRegex(EleanorException, "boom"):
+            with self.assertRaisesRegex(EleanorError, "boom"):
                 _ = Order.from_file("test.yaml")
 
     def test_order_requires_kernel(self) -> None:
         """Ensure Order raises when kernel is absent."""
-        with self.assertRaisesRegex(EleanorException, "kernel is required"):
+        with self.assertRaisesRegex(EleanorError, "kernel is required"):
             _ = Order.from_dict(
                 {
                     "name": "o",
@@ -295,7 +295,7 @@ class TestOrder(TestCase):
         with mock.patch(
             "eleanor.kernel.registry.get_factory", return_value=_FAKE_KERNEL_SPEC
         ):
-            with self.assertRaisesRegex(EleanorException, "temperature is required"):
+            with self.assertRaisesRegex(EleanorError, "temperature is required"):
                 _ = Order.from_dict(
                     {
                         "name": "o",
@@ -315,7 +315,7 @@ class TestOrder(TestCase):
         with mock.patch(
             "eleanor.kernel.registry.get_factory", return_value=_FAKE_KERNEL_SPEC
         ):
-            with self.assertRaisesRegex(EleanorException, "pressure is required"):
+            with self.assertRaisesRegex(EleanorError, "pressure is required"):
                 _ = Order.from_dict(
                     {
                         "name": "o",
@@ -335,7 +335,7 @@ class TestOrder(TestCase):
         with mock.patch(
             "eleanor.kernel.registry.get_factory", return_value=_FAKE_KERNEL_SPEC
         ):
-            with self.assertRaisesRegex(EleanorException, "elements must not be empty"):
+            with self.assertRaisesRegex(EleanorError, "elements must not be empty"):
                 _ = Order.from_dict(
                     {
                         "name": "o",
@@ -349,7 +349,7 @@ class TestOrder(TestCase):
                         "pressure": 1.0,
                     }
                 )
-            with self.assertRaisesRegex(EleanorException, "elements must not be empty"):
+            with self.assertRaisesRegex(EleanorError, "elements must not be empty"):
                 _ = Order.from_dict(
                     {
                         "name": "o",
@@ -433,14 +433,14 @@ def test_order_tags_deduplicates_preserving_order() -> None:
 
 def test_order_tags_rejects_non_string_raw_value() -> None:
     with pytest.raises(
-        EleanorException, match="tags must be a string or list of strings"
+        EleanorError, match="tags must be a string or list of strings"
     ):
         _ = _make_order(raw=_minimal_raw(tags=123))
 
 
 def test_order_tags_rejects_list_with_non_string_element() -> None:
     with pytest.raises(
-        EleanorException, match="tags must be a string or list of strings"
+        EleanorError, match="tags must be a string or list of strings"
     ):
         _ = _make_order(raw=_minimal_raw(tags=["valid", 42]))
 

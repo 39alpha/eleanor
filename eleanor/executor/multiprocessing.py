@@ -5,7 +5,7 @@ from concurrent.futures import FIRST_COMPLETED, Future, ProcessPoolExecutor
 from concurrent.futures import wait as futures_wait
 from typing import Self, TypeVar, override
 
-from eleanor.exceptions import EleanorException
+from eleanor.exceptions import EleanorError
 from eleanor.executor.interface import AbstractExecutor, AbstractFuture
 from eleanor.executor.settings import ExecutorSettings
 
@@ -57,7 +57,7 @@ class MultiprocessingExecutor(AbstractExecutor):
     def submit(self, fn: Callable[..., T], *args: object, **kwargs: object) -> AbstractFuture[T]:
         if self._pool is None:
             msg = "executor is not active — enter the executor context before submitting work, or it has already been shut down"
-            raise EleanorException(msg)
+            raise EleanorError(msg)
         return MultiprocessingFuture(self._pool.submit(fn, *args, **kwargs))
 
     @override
@@ -71,7 +71,7 @@ class MultiprocessingExecutor(AbstractExecutor):
             if isinstance(candidate, MultiprocessingFuture) and candidate.inner in done:
                 return futures.pop(idx)
         msg = "failed to identify a completed future"
-        raise EleanorException(msg)
+        raise EleanorError(msg)
 
     @override
     def shutdown(self, wait: bool = True) -> None:

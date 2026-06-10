@@ -4,7 +4,7 @@ from pathlib import Path
 
 import numpy as np
 
-from eleanor.kernel.exceptions import EleanorKernelException
+from eleanor.kernel.exceptions import EleanorKernelError
 from eleanor.typing import Array1D, Array2D, StrPath
 
 
@@ -232,12 +232,12 @@ def read_data1(filename: StrPath) -> Data:
         open_data1(fname, byref(data1), byref(errno), len(fname))
     except Exception as e:
         msg = "failed to open data1 file"
-        raise EleanorKernelException(msg) from e
+        raise EleanorKernelError(msg) from e
 
     try:
         if errno.value != 0:
             msg = "failed to open data1 file"
-            raise EleanorKernelException(msg)
+            raise EleanorKernelError(msg)
 
         ikta_asv = c_int(-1)
         ipbt_asv = c_int(-1)

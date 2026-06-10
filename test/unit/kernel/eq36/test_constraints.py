@@ -4,7 +4,7 @@ from typing import cast, override
 from unittest import TestCase
 
 import numpy as np
-from eleanor.exceptions import EleanorException
+from eleanor.exceptions import EleanorError
 from eleanor.kernel.eq36.constraints import (
     TemperatureRangeConstraint,
     TPCurveConstraint,
@@ -74,7 +74,7 @@ class TestEq36Constraints(TestCase):
         """
         Ensure at least one data1 object is required.
         """
-        with self.assertRaises(EleanorException):
+        with self.assertRaises(EleanorError):
             _ = TemperatureRangeConstraint(ValueParameter(np.float64(25.0)), [])
 
     def test_temperature_range_init_uses_tp_curves_only(self) -> None:
@@ -172,18 +172,18 @@ class TestEq36Constraints(TestCase):
         out_of_range = ValueParameter(np.float64(90.0))
         c = TemperatureRangeConstraint(out_of_range, data1s)
         registry, valuation = self._registry_with(out_of_range)
-        with self.assertRaises(EleanorException):
+        with self.assertRaises(EleanorError):
             _ = c.apply(registry, valuation)
         empty_after_filter = ListParameter([np.float64(1.0), np.float64(2.0)])
         c2 = TemperatureRangeConstraint(empty_after_filter, data1s)
         registry, valuation = self._registry_with(empty_after_filter)
-        with self.assertRaises(EleanorException):
+        with self.assertRaises(EleanorError):
             _ = c2.apply(registry, valuation)
 
         weird = _WeirdParameter()
         c3 = TemperatureRangeConstraint(weird, data1s)
         registry, valuation = self._registry_with(weird)
-        with self.assertRaises(EleanorException):
+        with self.assertRaises(EleanorError):
             _ = c3.apply(registry, valuation)
 
     def test_tp_curve_constraint_properties_and_non_value_temperature(self) -> None:
@@ -197,7 +197,7 @@ class TestEq36Constraints(TestCase):
         self.assertEqual(c.dependent_parameters, [pressure])
 
         registry, valuation = self._registry_with(temp, pressure)
-        with self.assertRaises(EleanorException):
+        with self.assertRaises(EleanorError):
             _ = c.apply(registry, valuation)
 
     def test_tp_curve_constraint_apply_success_and_empty_candidates_error(self) -> None:
@@ -249,5 +249,5 @@ class TestEq36Constraints(TestCase):
         pressure_strict = RangeParameter(np.float64(50.0), np.float64(60.0))
         c_strict = TPCurveConstraint(temp, pressure_strict, data1s)
         registry, valuation = self._registry_with(temp, pressure_strict)
-        with self.assertRaises(EleanorException):
+        with self.assertRaises(EleanorError):
             _ = c_strict.apply(registry, valuation)

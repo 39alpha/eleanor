@@ -6,7 +6,7 @@ from unittest import TestCase, mock
 from eleanor.config import Config
 from eleanor.config.output import OutputSinkConfig
 from eleanor.eleanor import Eleanor
-from eleanor.exceptions import EleanorException, EleanorShutdown
+from eleanor.exceptions import EleanorError, EleanorShutdown
 from eleanor.executor import AbstractExecutor
 from eleanor.executor.settings import ExecutorSettings
 from eleanor.kernel import AbstractKernel
@@ -120,7 +120,7 @@ class TestEleanorConstruction(TestCase):
     def test_init_raises_when_no_output_sink_configured(self) -> None:
         """Ensure constructor rejects a config with no output type and no sink override."""
         config = Config()
-        with self.assertRaises(EleanorException):
+        with self.assertRaises(EleanorError):
             _ = Eleanor(config=config)
 
     def test_init_does_not_raise_when_output_sink_override_suppresses_guard(
@@ -330,7 +330,7 @@ class TestEleanorRun(TestCase):
         with (
             mock.patch("eleanor.eleanor.load_executor", return_value=_FakeExecutor()),
             mock.patch("eleanor.eleanor.load_output_sink", return_value=sink),
-            self.assertRaisesRegex(EleanorException, "num_systems.*must be >= 1"),
+            self.assertRaisesRegex(EleanorError, "num_systems.*must be >= 1"),
         ):
             _ = eleanor.run(_make_order(), 10, kernel=kernel, navigator=navigator)
 
@@ -345,7 +345,7 @@ class TestEleanorRun(TestCase):
         with (
             mock.patch("eleanor.eleanor.load_executor", return_value=_FakeExecutor()),
             mock.patch("eleanor.eleanor.load_output_sink", return_value=sink),
-            self.assertRaisesRegex(EleanorException, "batch_size must be >= 1"),
+            self.assertRaisesRegex(EleanorError, "batch_size must be >= 1"),
         ):
             _ = eleanor.run(
                 _make_order(), 10, kernel=kernel, navigator=_navigator(5), batch_size=0
@@ -515,7 +515,7 @@ class TestEleanorRun(TestCase):
         with (
             mock.patch("eleanor.eleanor.load_executor", return_value=_FakeExecutor()),
             mock.patch("eleanor.eleanor.load_output_sink", return_value=sink),
-            self.assertRaisesRegex(EleanorException, "max_nav_attempts must be >= 1"),
+            self.assertRaisesRegex(EleanorError, "max_nav_attempts must be >= 1"),
         ):
             _ = eleanor.run(
                 _make_order(),
@@ -582,7 +582,7 @@ class TestEleanorProcess(TestCase):
         eleanor = _make_eleanor()
         order = _make_order()
         sink = mock.Mock()
-        with self.assertRaises(EleanorException):
+        with self.assertRaises(EleanorError):
             _ = eleanor.process(
                 order,
                 mock.Mock(),
@@ -780,7 +780,7 @@ class TestEleanorProcess(TestCase):
         sink = mock.Mock()
         sink.supports_worker_writes.return_value = False
 
-        with self.assertRaisesRegex(EleanorException, "expected 10"):
+        with self.assertRaisesRegex(EleanorError, "expected 10"):
             _ = eleanor.process(
                 order,
                 mock.Mock(),
@@ -803,7 +803,7 @@ class TestEleanorProcess(TestCase):
         sink.supports_worker_writes.return_value = False
         executor = _FakeExecutor(num_workers=1, submit_side_effect=[_Future([])])
 
-        with self.assertRaisesRegex(EleanorException, "expected 5"):
+        with self.assertRaisesRegex(EleanorError, "expected 5"):
             _ = eleanor.process(
                 order,
                 mock.Mock(),

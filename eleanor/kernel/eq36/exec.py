@@ -8,19 +8,19 @@ import re
 from subprocess import PIPE, Popen, TimeoutExpired
 
 from eleanor.kernel.eq36.codes import RunCode
-from eleanor.kernel.eq36.exceptions import Eq36Exception
+from eleanor.kernel.eq36.exceptions import Eq36Error
 from eleanor.typing import StrPath
 
 
 def error_guard(output: bytes | str, cmd: str, code: int, fname: str | None = None) -> None:
     """
     Parse EQ3/6 standard output content for error messages and raise an
-    :class:`Eq36Exception` if any are found.
+    :class:`Eq36Error` if any are found.
 
     :param output: the content of the EQ3/6 output file
     :param cmd: the command that was run
     :param fname: an optional filename to add to the error message
-    :raises Eq36Exception: if an error message is found
+    :raises Eq36Error: if an error message is found
     """
     matches = re.search("Error - (.|\n)*", str(output))
     if matches is not None:
@@ -32,9 +32,9 @@ def error_guard(output: bytes | str, cmd: str, code: int, fname: str | None = No
             message = re.sub("\\s+", " ", no_newline)
             if re.match("^\\s*$", message) is None:
                 if fname is None:
-                    raise Eq36Exception(message, code=code)
+                    raise Eq36Error(message, code=code)
                 msg = f"{message} in file {fname!r}"
-                raise Eq36Exception(msg, code=code)
+                raise Eq36Error(msg, code=code)
 
 
 def run(
@@ -62,15 +62,15 @@ def run(
         stdout, stderr = process.communicate()
         try:
             error_guard(stdout, cmd, code=code, fname=fname)
-        except Eq36Exception as e:
+        except Eq36Error as e:
             msg = f"{cmd} timed out with errors"
-            raise Eq36Exception(msg, code=RunCode.EQ36_TIMEOUT) from e
+            raise Eq36Error(msg, code=RunCode.EQ36_TIMEOUT) from e
         msg = f"{cmd} timed out without errors"
-        raise Eq36Exception(msg, code=RunCode.EQ36_TIMEOUT) from terr
+        raise Eq36Error(msg, code=RunCode.EQ36_TIMEOUT) from terr
 
     if process.returncode != 0:
         msg = f"{cmd} exited with an unexpected error"
-        raise Eq36Exception(msg, code=process.returncode)
+        raise Eq36Error(msg, code=process.returncode)
 
     return stdout, stderr
 

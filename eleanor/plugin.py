@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from importlib.metadata import entry_points
 from typing import Protocol, cast, final
 
-from eleanor.exceptions import EleanorException, EleanorWarning
+from eleanor.exceptions import EleanorError, EleanorWarning
 from eleanor.util import guard_is_int
 
 PLUGIN_API_VERSIONS: dict[str, tuple[int, int]] = {}
@@ -74,11 +74,11 @@ class PluginRegistry:
         self._kind = _normalize_kind(kind)
         if self._kind == "":
             msg = f"plugin kind {kind!r}: must be a non-empty string after stripping whitespace"
-            raise EleanorException(msg)
+            raise EleanorError(msg)
 
         if min_api_version > api_version:
             msg = f"{kind!r}: min_api_version v{min_api_version} cannot exceed api_version v{api_version}"
-            raise EleanorException(msg)
+            raise EleanorError(msg)
 
         self._entry_point_group = entry_point_group if entry_point_group is not None else f"eleanor.{self._kind}s"
         self._override_env_var = (
@@ -131,7 +131,7 @@ class PluginRegistry:
         except KeyError as e:
             choices = ", ".join(sorted(self._registry))
             msg = f"the {name!r} {self._kind} is not supported; choose one of {choices}"
-            raise EleanorException(msg) from e
+            raise EleanorError(msg) from e
 
     def __contains__(self, name: object) -> bool:
         self._discover_entry_points()
@@ -140,11 +140,11 @@ class PluginRegistry:
     def register(self, name: str, factory: object) -> None:
         if not name:
             msg = f"{self._kind} plugin name must be a non-empty string"
-            raise EleanorException(msg)
+            raise EleanorError(msg)
 
         if name in self._builtins:
             msg = f"{name!r} is a built-in {self._kind} and cannot be overridden"
-            raise EleanorException(msg)
+            raise EleanorError(msg)
 
         validated = self._validate(name, factory)
 
@@ -154,14 +154,14 @@ class PluginRegistry:
 
         if existing is not None:
             msg = f"{self._kind} {name!r} is already registered"
-            raise EleanorException(msg)
+            raise EleanorError(msg)
 
         self._registry[name] = validated
 
     def _validate(self, name: str, factory: object) -> PluginSpec:
         if not isinstance(factory, (SimplePluginSpec, ConfigurablePluginSpec)):
             msg = f"{self._kind} factory for {name!r} must be a {SimplePluginSpec.__name__} or {ConfigurablePluginSpec.__name__}"
-            raise EleanorException(msg)
+            raise EleanorError(msg)
 
         declared = factory.plugin_api_version
         guard_is_int(declared, "plugin_api_version")
@@ -186,7 +186,7 @@ class PluginRegistry:
             )
             return factory
 
-        raise EleanorException(msg)
+        raise EleanorError(msg)
 
     def _discover_entry_points(self) -> None:
         if self._discovered:
@@ -201,10 +201,10 @@ class PluginRegistry:
                 first = seen[ep.name]
                 if ep.name in self._builtins:
                     msg = f"multiple entry points claim built-in {self._kind} name {ep.name!r}: {first!r} and {ep.value!r}"
-                    raise EleanorException(msg)
+                    raise EleanorError(msg)
 
                 msg = f"multiple entry points claim {self._kind} name {ep.name!r}: {first!r} and {ep.value!r}"
-                raise EleanorException(msg)
+                raise EleanorError(msg)
             seen[ep.name] = ep.value
 
         for ep in eps:
@@ -212,7 +212,7 @@ class PluginRegistry:
                 loaded = cast(object, ep.load())
             except Exception as e:
                 msg = f"failed to load {self._kind} entry point {ep.name!r} from {ep.value!r}: {e}"
-                raise EleanorException(msg) from e
+                raise EleanorError(msg) from e
             if ep.name in self._builtins:
                 self._registry[ep.name] = self._validate(ep.name, loaded)
             else:
@@ -221,7 +221,7 @@ class PluginRegistry:
         unregistered_builtins = self._builtins - set(self._registry.keys())
         if unregistered_builtins:
             msg = f"{self._kind}(s) have no registered entry point: {sorted(unregistered_builtins)}"
-            raise EleanorException(msg)
+            raise EleanorError(msg)
 
 
 def is_abstract_instantiation_error(exc: TypeError) -> bool:
@@ -242,13 +242,13 @@ def load_plugin_settings[S](
             got = type(settings).__name__
             expected = settings_type.__name__
             msg = f"{registry.kind!r} plugin {name!r} returned settings type {got}, expected {expected}"
-            raise EleanorException(msg)
+            raise EleanorError(msg)
 
         return settings
 
     if raw:
         msg = f"{registry.kind!r} plugin {name!r} does not support settings"
-        raise EleanorException(msg)
+        raise EleanorError(msg)
 
     return None
 
@@ -266,12 +266,12 @@ def load_plugin[T](
         if not is_abstract_instantiation_error(e):
             raise
         msg = f"{registry.kind!r} plugin {name!r} failed to instantiate (API v{spec.plugin_api_version}): {e}"
-        raise EleanorException(msg) from e
+        raise EleanorError(msg) from e
 
     if not isinstance(plugin, plugin_type):
         got = type(plugin).__name__
         expected = plugin_type.__name__
         msg = f"{registry.kind!r} plugin {name!r} returned {got}, expected {expected}"
-        raise EleanorException(msg)
+        raise EleanorError(msg)
 
     return plugin

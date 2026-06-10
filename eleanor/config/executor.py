@@ -2,7 +2,7 @@ from dataclasses import dataclass, field
 from typing import Self, cast
 
 from eleanor.config.plugin import PluginConfig
-from eleanor.exceptions import EleanorException
+from eleanor.exceptions import EleanorError
 from eleanor.executor.registry import registry
 from eleanor.executor.settings import ExecutorSettings
 from eleanor.plugin import load_plugin_settings
@@ -17,7 +17,7 @@ class ExecutorConfig(PluginConfig[ExecutorSettings]):
     def __post_init__(self) -> None:
         if not isinstance(cast(object, self.settings), ExecutorSettings):
             msg = f"executor configuration requires {ExecutorSettings.__name__}, got {type(self.settings).__name__}"
-            raise EleanorException(msg)
+            raise EleanorError(msg)
 
         super().__post_init__()
 

@@ -4,7 +4,7 @@ from collections.abc import Callable
 from types import TracebackType
 from typing import Self, TypeVar
 
-from eleanor.exceptions import EleanorException
+from eleanor.exceptions import EleanorError
 
 T = TypeVar("T")
 
@@ -35,7 +35,7 @@ class AbstractExecutor(ABC):
         """
         if len(futures) == 0:
             msg = "cannot pop a completed future from an empty list"
-            raise EleanorException(msg)
+            raise EleanorError(msg)
 
         delay = 0.001
         while True:

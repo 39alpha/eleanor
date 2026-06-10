@@ -8,7 +8,7 @@ from unittest import TestCase
 
 import eleanor.util as util
 import numpy as np
-from eleanor.exceptions import EleanorException
+from eleanor.exceptions import EleanorError
 
 
 class TestUtils(TestCase):
@@ -109,7 +109,7 @@ class TestUtils(TestCase):
         self.assertEqual(
             util.NumberFormat.SCIENTIFIC.fmt(np.float64(123.0), 2), "1.23E+02"
         )
-        with self.assertRaises(EleanorException):
+        with self.assertRaises(EleanorError):
             _ = util.NumberFormat.FLOATING.fmt(np.float64(1.23), -1)
 
     def test_log_rng_and_norm_list(self) -> None:
@@ -203,7 +203,7 @@ class TestUtils(TestCase):
         """
         self.assertEqual(util.convert_to_number("2"), 2)
         self.assertAlmostEqual(util.convert_to_number("2.5"), np.float64(2.5))
-        with self.assertRaises(EleanorException):
+        with self.assertRaises(EleanorError):
             util.convert_to_number("not-a-number")
 
     def test_is_list_of(self) -> None:

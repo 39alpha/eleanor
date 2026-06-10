@@ -2,7 +2,7 @@ from typing import cast
 from unittest import TestCase, mock
 
 import numpy as np
-from eleanor.exceptions import EleanorException
+from eleanor.exceptions import EleanorError
 from eleanor.parameters import (
     ListParameter,
     NormalParameter,
@@ -121,7 +121,7 @@ class TestParameters(TestCase):
         """
         Ensure :class:`ListParameter` validation, domain checks, and generation helpers work.
         """
-        with self.assertRaises(EleanorException):
+        with self.assertRaises(EleanorError):
             _ = ListParameter([])
 
         p = ListParameter([np.float64(3.0), np.float64(1.0), np.float64(2.0)])
@@ -198,7 +198,7 @@ class TestParameters(TestCase):
         self.assertEqual(reg.id(p0), 0)
         self.assertIs(reg.parameter(1), p1)
 
-        with self.assertRaises(EleanorException):
+        with self.assertRaises(EleanorError):
             reg.add_parameter(p0)
         with self.assertRaises(IndexError):
             _ = reg.id(ValueParameter(np.float64(3.0)))

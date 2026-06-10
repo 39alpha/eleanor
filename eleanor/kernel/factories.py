@@ -1,6 +1,6 @@
 from typing import TYPE_CHECKING
 
-from eleanor.exceptions import EleanorException
+from eleanor.exceptions import EleanorError
 from eleanor.plugin import ConfigurablePluginSpec
 
 if TYPE_CHECKING:
@@ -22,7 +22,7 @@ def build_eq36(settings: object) -> Eq36Kernel:
 
     if not isinstance(settings, Eq36Settings):
         msg = f"eq36 kernel requires eq36 Settings, got {type(settings).__name__}"
-        raise EleanorException(msg)
+        raise EleanorError(msg)
 
     return Eq36Kernel()
 

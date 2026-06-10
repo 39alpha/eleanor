@@ -9,8 +9,8 @@ from typing import Unpack
 
 import eleanor.equilibrium_space as es
 import eleanor.variable_space as vs
-from eleanor.exceptions import EleanorException
-from eleanor.kernel.exceptions import EleanorKernelException
+from eleanor.exceptions import EleanorError
+from eleanor.kernel.exceptions import EleanorKernelError
 from eleanor.kernel.interface import AbstractKernel
 from eleanor.output.interface import AbstractOutputSink, ComputeResult, ErrorInfo, WriteOutcome
 from eleanor.progress import ProgressHandle
@@ -74,7 +74,7 @@ class Runner:
         if sink is not None:
             if order_id is None:
                 msg = "Runner.dispatch requires order_id when sink is provided"
-                raise EleanorException(msg)
+                raise EleanorError(msg)
             return sink.write_batch(order_id, compute_results, progress=out_progress)
         return compute_results
 
@@ -104,7 +104,7 @@ class Runner:
                     print_exception(e, file=sys.stderr)
                 vs_point.scratch = Runner.collect_scratch(tempdir)
                 vs_point.exception = e
-                if isinstance(e, EleanorKernelException):
+                if isinstance(e, EleanorKernelError):
                     code = getattr(e, "code", None)
                     vs_point.exit_code = code if isinstance(code, int) else -1
                 else:

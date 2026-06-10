@@ -11,7 +11,7 @@ import eleanor.equilibrium_space as core_es
 import eleanor.order as core_order
 import eleanor.variable_space as core_vs
 from eleanor.config.kernel import KernelConfig
-from eleanor.exceptions import EleanorException
+from eleanor.exceptions import EleanorError
 
 
 def _or_neg_inf(value: np.float64 | None) -> np.float64:
@@ -45,7 +45,7 @@ def _coerce_property_types(value: object) -> object:
         result = value.value
     elif isinstance(value, Enum):
         msg = f"cannot serialize {type(value).__name__}: only IntEnum/StrEnum are supported"
-        raise EleanorException(msg)
+        raise EleanorError(msg)
     return result
 
 
@@ -54,7 +54,7 @@ def normalize_dict(value: object, field_name: str) -> dict[str, object]:
 
     Callers pass payloads like ``order`` (a dataclass) or the output of
     :meth:`KernelConfig.resolved_settings` (a dataclass that needs to be
-    flattened). Anything that is neither raises :class:`EleanorException` so the
+    flattened). Anything that is neither raises :class:`EleanorError` so the
     failure surfaces at the converter boundary rather than as a JSON encoding
     error inside psycopg.
 
@@ -69,7 +69,7 @@ def normalize_dict(value: object, field_name: str) -> dict[str, object]:
         value = asdict(value)
     if not isinstance(value, dict):
         msg = f"{field_name} must serialize to a dict"
-        raise EleanorException(msg)
+        raise EleanorError(msg)
 
     if is_order:
         value["vs_points"] = []

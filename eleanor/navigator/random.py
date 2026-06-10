@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, Protocol, cast, override
 
 import eleanor.variable_space as vs
 from eleanor.constraints.point_builder import PointBuilder
-from eleanor.exceptions import EleanorException
+from eleanor.exceptions import EleanorError
 from eleanor.navigator.interface import AbstractNavigator
 
 if TYPE_CHECKING:
@@ -54,10 +54,10 @@ class RandomNavigator(AbstractNavigator):
         max_attempts: object = kwargs.get("max_attempts", 1)
         if not isinstance(max_attempts, int) or isinstance(max_attempts, bool):
             msg = f"max_attempts must be an integer, got {type(max_attempts).__name__}"
-            raise EleanorException(msg)
+            raise EleanorError(msg)
         if max_attempts < 1:
             msg = f"max_attempts must be at least one, got {max_attempts}"
-            raise EleanorException(msg)
+            raise EleanorError(msg)
 
         last_exception: Exception | None = None
         while max_attempts > 0:
@@ -77,7 +77,7 @@ class RandomNavigator(AbstractNavigator):
                 max_attempts -= 1
 
         msg = "failed to select VS point"
-        raise EleanorException(msg) from last_exception
+        raise EleanorError(msg) from last_exception
 
 
 _ = AbstractNavigator.register(RandomNavigator)

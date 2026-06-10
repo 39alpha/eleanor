@@ -3,7 +3,7 @@ from types import SimpleNamespace
 from unittest import TestCase, mock
 
 from eleanor.kernel.eq36.codes import RunCode
-from eleanor.kernel.eq36.exceptions import Eq36Exception
+from eleanor.kernel.eq36.exceptions import Eq36Error
 from eleanor.kernel.eq36.exec import eq3, eq6, eqpt, error_guard, run
 
 
@@ -20,14 +20,14 @@ class TestEq36Exec(TestCase):
 
     def test_error_guard_raises_with_and_without_fname(self) -> None:
         """
-        Ensure error_guard raises Eq36Exception with expected message formatting.
+        Ensure error_guard raises Eq36Error with expected message formatting.
         """
-        with self.assertRaises(Eq36Exception) as cm:
+        with self.assertRaises(Eq36Error) as cm:
             error_guard(b"Error - bad thing happened", "eq3nr", RunCode.EQ3_ERROR)
         self.assertEqual(cm.exception.code, RunCode.EQ3_ERROR)
         self.assertIn("eq3nr", str(cm.exception))
 
-        with self.assertRaises(Eq36Exception) as cm2:
+        with self.assertRaises(Eq36Error) as cm2:
             error_guard(
                 b"Error - bad file thing", "eq6", RunCode.EQ6_ERROR, fname="sample.6i"
             )
@@ -50,7 +50,7 @@ class TestEq36Exec(TestCase):
 
     def test_run_nonzero_returncode_raises(self) -> None:
         """
-        Ensure run raises Eq36Exception when subprocess exits nonzero.
+        Ensure run raises Eq36Error when subprocess exits nonzero.
         """
         process = SimpleNamespace(
             communicate=mock.Mock(return_value=(b"ok", b"")),
@@ -58,14 +58,14 @@ class TestEq36Exec(TestCase):
             kill=mock.Mock(),
         )
         with mock.patch("eleanor.kernel.eq36.exec.Popen", return_value=process):
-            with self.assertRaises(Eq36Exception) as cm:
+            with self.assertRaises(Eq36Error) as cm:
                 run("eq6", "data1", "input.6i", code=RunCode.EQ6_ERROR)
         self.assertEqual(cm.exception.code, 9)
         self.assertIn("unexpected error", str(cm.exception))
 
     def test_run_timeout_without_errors(self) -> None:
         """
-        Ensure timeout without parsed errors raises timeout-specific Eq36Exception.
+        Ensure timeout without parsed errors raises timeout-specific Eq36Error.
         """
         process = SimpleNamespace(
             communicate=mock.Mock(
@@ -78,7 +78,7 @@ class TestEq36Exec(TestCase):
             mock.patch("eleanor.kernel.eq36.exec.Popen", return_value=process),
             mock.patch("eleanor.kernel.eq36.exec.error_guard", return_value=None),
         ):
-            with self.assertRaises(Eq36Exception) as cm:
+            with self.assertRaises(Eq36Error) as cm:
                 run("eq6", "data1", "input.6i", timeout=1, code=RunCode.EQ6_ERROR)
         process.kill.assert_called_once()
         self.assertEqual(cm.exception.code, RunCode.EQ36_TIMEOUT)
@@ -102,10 +102,10 @@ class TestEq36Exec(TestCase):
             mock.patch("eleanor.kernel.eq36.exec.Popen", return_value=process),
             mock.patch(
                 "eleanor.kernel.eq36.exec.error_guard",
-                side_effect=Eq36Exception("eq6 failed", code=RunCode.EQ6_ERROR),
+                side_effect=Eq36Error("eq6 failed", code=RunCode.EQ6_ERROR),
             ),
         ):
-            with self.assertRaises(Eq36Exception) as cm:
+            with self.assertRaises(Eq36Error) as cm:
                 run("eq6", "data1", "input.6i", timeout=1, code=RunCode.EQ6_ERROR)
         self.assertEqual(cm.exception.code, RunCode.EQ36_TIMEOUT)
         self.assertIn("timed out with errors", str(cm.exception))

@@ -153,7 +153,8 @@ class PluginRegistry:
             return
 
         if existing is not None:
-            raise EleanorException(f"{self._kind} {name!r} is already registered")
+            msg = f"{self._kind} {name!r} is already registered"
+            raise EleanorException(msg)
 
         self._registry[name] = validated
 

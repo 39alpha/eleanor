@@ -27,7 +27,8 @@ class TemperatureRangeConstraint(AbstractConstraint):
         self.temperature = temperature
 
         if len(data1s) == 0:
-            raise EleanorException("at least one data1 file must be provided")
+            msg = "at least one data1 file must be provided"
+            raise EleanorException(msg)
 
         self.min_t = np.float64(np.inf)
         self.max_t = np.float64(-np.inf)
@@ -55,7 +56,8 @@ class TemperatureRangeConstraint(AbstractConstraint):
         try:
             if isinstance(refined, ValueParameter):
                 if self.min_t > refined.value or refined.value > self.max_t:
-                    raise EleanorException("fixed temperature value is outside of the data1 temperature range")
+                    msg = "fixed temperature value is outside of the data1 temperature range"
+                    raise EleanorException(msg)
                 return {temperature_id: refined}
             if isinstance(refined, RangeParameter):
                 min_t = max(refined.min, self.min_t)
@@ -79,9 +81,11 @@ class TemperatureRangeConstraint(AbstractConstraint):
                     ),
                 }
         except EleanorException as e:
-            raise EleanorException("temperature is incompatible with the data1 temperature range") from e
+            msg = "temperature is incompatible with the data1 temperature range"
+            raise EleanorException(msg) from e
 
-        raise EleanorException("unexpected parameter type")
+        msg = "unexpected parameter type"
+        raise EleanorException(msg)
 
 
 @dataclass
@@ -107,7 +111,8 @@ class TPCurveConstraint(AbstractConstraint):
 
         input = valuation[temperature_id]
         if not isinstance(input, ValueParameter):
-            raise EleanorException("temperature has not been fixed to a single value")
+            msg = "temperature has not been fixed to a single value"
+            raise EleanorException(msg)
 
         refined = valuation[pressure_id]
 
@@ -127,7 +132,8 @@ class TPCurveConstraint(AbstractConstraint):
                 pressure_id: Parameter.refine(refined.restrict(ListParameter, values)),
             }
         except EleanorException as e:
-            raise EleanorException("cannot select a pressure consistent with the data1 files") from e
+            msg = "cannot select a pressure consistent with the data1 files"
+            raise EleanorException(msg) from e
 
 
 _ = AbstractConstraint.register(TPCurveConstraint)

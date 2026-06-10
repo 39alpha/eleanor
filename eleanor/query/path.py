@@ -75,7 +75,8 @@ class _Parser:
     def parse(self) -> Path:
         self._skip_ws()
         if self._at_end():
-            raise ParseError("expected identifier", position=self.position)
+            msg = "expected identifier"
+            raise ParseError(msg, position=self.position)
 
         segments: list[Segment] = [self._parse_segment()]
         meta: MetaSegment | None = None
@@ -87,7 +88,8 @@ class _Parser:
             self.position += 1
             self._skip_ws()
             if self._at_end():
-                raise ParseError("trailing '.'", position=dot_pos)
+                msg = "trailing '.'"
+                raise ParseError(msg, position=dot_pos)
             if self._peek() == "@":
                 # ``@<ident>`` is a terminal-only meta-accessor (spec §4).
                 # Parse it and break; any further input is rejected as a
@@ -100,7 +102,8 @@ class _Parser:
         if not self._at_end():
             current = self._peek()
             assert current is not None
-            raise ParseError(f"unexpected character {current!r}", position=self.position)
+            msg = f"unexpected character {current!r}"
+            raise ParseError(msg, position=self.position)
 
         return Path(tuple(segments), meta=meta)
 
@@ -133,9 +136,11 @@ class _Parser:
 
         current = self._peek()
         if current is None:
-            raise ParseError("unterminated filter", position=open_pos)
+            msg = "unterminated filter"
+            raise ParseError(msg, position=open_pos)
         if current == "]":
-            raise ParseError("empty filter is not allowed", position=self.position)
+            msg = "empty filter is not allowed"
+            raise ParseError(msg, position=self.position)
         if current == "*":
             self.position += 1
             self._skip_ws()
@@ -154,8 +159,10 @@ class _Parser:
                 self.position += 1
                 break
             if current is None:
-                raise ParseError("unterminated filter", position=open_pos)
-            raise ParseError(f"unexpected character {current!r} in filter", position=self.position)
+                msg = "unterminated filter"
+                raise ParseError(msg, position=open_pos)
+            msg = f"unexpected character {current!r} in filter"
+            raise ParseError(msg, position=self.position)
 
         return MatchFilter(predicates=tuple(predicates))
 
@@ -170,7 +177,8 @@ class _Parser:
         self._skip_ws()
         current = self._peek()
         if current is None:
-            raise ParseError("expected value", position=self.position)
+            msg = "expected value"
+            raise ParseError(msg, position=self.position)
         if current == '"':
             return self._parse_quoted_string()
 
@@ -185,7 +193,8 @@ class _Parser:
             self.position += 1
 
         if start == self.position:
-            raise ParseError("expected value", position=self.position)
+            msg = "expected value"
+            raise ParseError(msg, position=self.position)
 
         return self.text[start : self.position], False
 
@@ -204,24 +213,29 @@ class _Parser:
                 self.position += 1
                 escaped = self._peek()
                 if escaped is None:
-                    raise ParseError("unterminated escape sequence", position=escape_pos)
+                    msg = "unterminated escape sequence"
+                    raise ParseError(msg, position=escape_pos)
                 if escaped in ('"', "\\"):
                     parts.append(escaped)
                     self.position += 1
                     continue
-                raise ParseError(f"invalid escape sequence '\\{escaped}'", position=escape_pos)
+                msg = f"invalid escape sequence '\\{escaped}'"
+                raise ParseError(msg, position=escape_pos)
             parts.append(current)
             self.position += 1
 
-        raise ParseError("unterminated quoted string", position=start)
+        msg = "unterminated quoted string"
+        raise ParseError(msg, position=start)
 
     def _parse_identifier(self) -> str:
         self._skip_ws()
         current = self._peek()
         if current is None:
-            raise ParseError("expected identifier", position=self.position)
+            msg = "expected identifier"
+            raise ParseError(msg, position=self.position)
         if not (current.isalpha() or current == "_"):
-            raise ParseError("expected identifier", position=self.position)
+            msg = "expected identifier"
+            raise ParseError(msg, position=self.position)
 
         start = self.position
         self.position += 1
@@ -239,8 +253,10 @@ class _Parser:
         current = self._peek()
         if current != expected:
             if current is None:
-                raise ParseError(f"expected {expected!r}", position=self.position)
-            raise ParseError(f"expected {expected!r}, found {current!r}", position=self.position)
+                msg = f"expected {expected!r}"
+                raise ParseError(msg, position=self.position)
+            msg = f"expected {expected!r}, found {current!r}"
+            raise ParseError(msg, position=self.position)
         self.position += 1
 
     def _skip_ws(self) -> None:
@@ -267,8 +283,9 @@ def parse_path(text: str) -> Path:
 def parse_row_scope(text: str) -> Identifier | Path:
     parsed = parse_path(text)
     if parsed.meta is not None:
+        msg = "meta-accessors (@index, @key) are not valid in row_scope position"
         raise ParseError(
-            "meta-accessors (@index, @key) are not valid in row_scope position",
+            msg,
             position=None,
         )
     if len(parsed.segments) == 1 and len(parsed.segments[0].filters) == 0:

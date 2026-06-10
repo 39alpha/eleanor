@@ -21,7 +21,8 @@ def get_libpath() -> Path:
         case "Darwin":
             library = "libeq36.dylib"
         case _:
-            raise RuntimeError(f"{platform_name} is not supported")
+            msg = f"{platform_name} is not supported"
+            raise RuntimeError(msg)
 
     return (Path(__file__).parent / "lib" / library).resolve()
 
@@ -230,11 +231,13 @@ def read_data1(filename: StrPath) -> Data:
     try:
         open_data1(fname, byref(data1), byref(errno), len(fname))
     except Exception as e:
-        raise EleanorKernelException("failed to open data1 file") from e
+        msg = "failed to open data1 file"
+        raise EleanorKernelException(msg) from e
 
     try:
         if errno.value != 0:
-            raise EleanorKernelException("failed to open data1 file")
+            msg = "failed to open data1 file"
+            raise EleanorKernelException(msg)
 
         ikta_asv = c_int(-1)
         ipbt_asv = c_int(-1)
@@ -322,10 +325,12 @@ def read_data1(filename: StrPath) -> Data:
                 byref(errno),
             )
         except Exception as e:
-            raise Exception("failed to read data1 header") from e
+            msg = "failed to read data1 header"
+            raise Exception(msg) from e
 
         if errno.value != 0:
-            raise Exception("failed to read data1 header")
+            msg = "failed to read data1 header"
+            raise Exception(msg)
 
         iapxa_asv = c_int(30)
         ibpxa_asv = c_int(10)
@@ -540,10 +545,12 @@ def read_data1(filename: StrPath) -> Data:
                 byref(errno),
             )
         except Exception as e:
-            raise Exception("failed to read data1 body") from e
+            msg = "failed to read data1 body"
+            raise Exception(msg) from e
 
         if errno.value != 0:
-            raise Exception("failed to read data1 body")
+            msg = "failed to read data1 body"
+            raise Exception(msg)
     finally:
         close_data1(data1)
 

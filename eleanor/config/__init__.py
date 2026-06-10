@@ -82,7 +82,8 @@ class Config:
                 exceptions.append(e)
 
         eg = ExceptionGroup("failed to parse", exceptions)
-        raise EleanorException("failed to parse string as yaml, toml or json") from eg
+        msg = "failed to parse string as yaml, toml or json"
+        raise EleanorException(msg) from eg
 
     @classmethod
     def from_file(cls, fname: StrPath) -> Self:
@@ -96,9 +97,11 @@ class Config:
                 case ".json":
                     return cls.from_json(fname)
                 case _:
-                    raise RuntimeError(f'unsupported file extension "{fname.suffix}"')
+                    msg = f'unsupported file extension "{fname.suffix}"'
+                    raise RuntimeError(msg)
         except Exception as e:
-            raise EleanorException(f'failed to parse "{fname}" as yaml, toml or json') from e
+            msg = f'failed to parse "{fname}" as yaml, toml or json'
+            raise EleanorException(msg) from e
 
 
 def load_config(config: StrPath | Config | None) -> Config:

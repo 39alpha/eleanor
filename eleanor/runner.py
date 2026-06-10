@@ -73,7 +73,8 @@ class Runner:
 
         if sink is not None:
             if order_id is None:
-                raise EleanorException("Runner.dispatch requires order_id when sink is provided")
+                msg = "Runner.dispatch requires order_id when sink is provided"
+                raise EleanorException(msg)
             return sink.write_batch(order_id, compute_results, progress=out_progress)
         return compute_results
 

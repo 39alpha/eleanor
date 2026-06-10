@@ -34,7 +34,8 @@ def __getattr__(name: str) -> object:
 
             return Eq36Kernel
         case _:
-            raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+            msg = f"module {__name__!r} has no attribute {name!r}"
+            raise AttributeError(msg)
 
 
 __all__ = ["Eq36Kernel", "Eq36Settings"]

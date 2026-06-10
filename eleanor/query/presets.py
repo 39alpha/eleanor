@@ -38,15 +38,17 @@ def _preset_run_metadata(scope_table: AmbientScopeTable, args: Mapping[str, obje
     in the same change.
     """
     if args:
+        msg = f"preset 'run_metadata' takes no arguments (got: {sorted(args)})"
         raise ParseError(
-            f"preset 'run_metadata' takes no arguments (got: {sorted(args)})",
+            msg,
             position=None,
         )
     if "order" not in scope_table:
         # The spec guarantees ``order`` is always bound (§7); guard defensively
         # so a malformed scope table surfaces as ``PresetScopeMissing`` rather
         # than as an opaque ``UnknownScope`` later in column validation.
-        raise PresetScopeMissing("run_metadata", "order")
+        msg = "run_metadata"
+        raise PresetScopeMissing(msg, "order")
     return [
         "order.id",
         "order.tags",
@@ -61,14 +63,17 @@ def _preset_run_metadata(scope_table: AmbientScopeTable, args: Mapping[str, obje
 def _preset_es_scalars(scope_table: AmbientScopeTable, args: Mapping[str, object]) -> Sequence[object]:
     """Canonical preset: emit one column per scalar leaf of the ``es`` scope."""
     if "es" not in scope_table:
-        raise PresetScopeMissing("es_scalars", "es")
+        msg = "es_scalars"
+        raise PresetScopeMissing(msg, "es")
 
     extra = sorted(set(args) - {"include", "exclude"})
     if extra:
-        raise ParseError(f"preset 'es_scalars' unknown args: {extra}", position=None)
+        msg = f"preset 'es_scalars' unknown args: {extra}"
+        raise ParseError(msg, position=None)
     if "include" in args and "exclude" in args:
+        msg = "preset 'es_scalars' include/exclude are mutually exclusive"
         raise ParseError(
-            "preset 'es_scalars' include/exclude are mutually exclusive",
+            msg,
             position=None,
         )
 
@@ -81,8 +86,9 @@ def _preset_es_scalars(scope_table: AmbientScopeTable, args: Mapping[str, object
         # row_scope resolution only binds when it points at an ``ESPoint``
         # dataclass node. Surface a clean error if a caller has wired up a
         # non-canonical scope table that breaks this assumption.
+        msg = "preset 'es_scalars' requires 'es' to refer to a dataclass scope"
         raise ParseError(
-            "preset 'es_scalars' requires 'es' to refer to a dataclass scope",
+            msg,
             position=None,
         )
 
@@ -92,13 +98,15 @@ def _preset_es_scalars(scope_table: AmbientScopeTable, args: Mapping[str, object
     if include is not None:
         for name in include:
             if name not in available:
-                raise SplatUnknownField("es", name, available)
+                msg = "es"
+                raise SplatUnknownField(msg, name, available)
         allowed = set(include)
         leaves = [leaf for leaf in leaves if leaf.name in allowed]
     elif exclude is not None:
         for name in exclude:
             if name not in available:
-                raise SplatUnknownField("es", name, available)
+                msg = "es"
+                raise SplatUnknownField(msg, name, available)
         denied = set(exclude)
         leaves = [leaf for leaf in leaves if leaf.name not in denied]
 
@@ -108,26 +116,32 @@ def _preset_es_scalars(scope_table: AmbientScopeTable, args: Mapping[str, object
 def _preset_aqueous_species_table(scope_table: AmbientScopeTable, args: Mapping[str, object]) -> Sequence[object]:
     """Canonical preset: cross-product columns over ``names`` x ``fields``."""
     if "es" not in scope_table:
-        raise PresetScopeMissing("aqueous_species_table", "es")
+        msg = "aqueous_species_table"
+        raise PresetScopeMissing(msg, "es")
 
     extra = sorted(set(args) - {"names", "fields"})
     if extra:
-        raise ParseError(f"preset 'aqueous_species_table' unknown args: {extra}", position=None)
+        msg = f"preset 'aqueous_species_table' unknown args: {extra}"
+        raise ParseError(msg, position=None)
     if "names" not in args:
-        raise ParseError("preset 'aqueous_species_table' requires 'names'", position=None)
+        msg = "preset 'aqueous_species_table' requires 'names'"
+        raise ParseError(msg, position=None)
     if "fields" not in args:
-        raise ParseError("preset 'aqueous_species_table' requires 'fields'", position=None)
+        msg = "preset 'aqueous_species_table' requires 'fields'"
+        raise ParseError(msg, position=None)
 
     names = _coerce_name_list(args["names"], "aqueous_species_table", "names")
     fields = _coerce_name_list(args["fields"], "aqueous_species_table", "fields")
     if not names:
+        msg = "preset 'aqueous_species_table' 'names' must be a non-empty list"
         raise ParseError(
-            "preset 'aqueous_species_table' 'names' must be a non-empty list",
+            msg,
             position=None,
         )
     if not fields:
+        msg = "preset 'aqueous_species_table' 'fields' must be a non-empty list"
         raise ParseError(
-            "preset 'aqueous_species_table' 'fields' must be a non-empty list",
+            msg,
             position=None,
         )
 
@@ -163,10 +177,12 @@ def _preset_aqueous_species_table(scope_table: AmbientScopeTable, args: Mapping[
 def _coerce_name_list(value: object, preset: str, key: str) -> list[str]:
     """Validate ``value`` as ``list[str]`` for preset arguments."""
     if not isinstance(value, list):
-        raise ParseError(f"preset '{preset}' '{key}' must be a list of strings", position=None)
+        msg = f"preset '{preset}' '{key}' must be a list of strings"
+        raise ParseError(msg, position=None)
     items = cast(list[object], value)
     if not all(isinstance(item, str) for item in items):
-        raise ParseError(f"preset '{preset}' '{key}' must be a list of strings", position=None)
+        msg = f"preset '{preset}' '{key}' must be a list of strings"
+        raise ParseError(msg, position=None)
     # Runtime ``all(isinstance(...))`` narrows every element to ``str``; the
     # cast communicates that to the type checker without an unreachable
     # per-element re-filter.

@@ -31,7 +31,8 @@ def validate_template(target: str, fmt: str) -> Config | Order:
     template is at least superficially valid.
     """
     if target not in TARGETS or fmt not in FORMATS:
-        raise ValueError(f"unknown template: {target}/{fmt}")
+        msg = f"unknown template: {target}/{fmt}"
+        raise ValueError(msg)
     with as_file(_TEMPLATES_PKG.joinpath(f"{target}.{fmt}")) as path:
         if target == "config":
             return load_config(str(path))
@@ -41,7 +42,8 @@ def validate_template(target: str, fmt: str) -> Config | Order:
 def _emit_template(target: str, fmt: str) -> None:
     template = _load_template(target, fmt)
     if template is None:
-        raise click.ClickException(f"unknown target/format: {target}/{fmt}")
+        msg = f"unknown target/format: {target}/{fmt}"
+        raise click.ClickException(msg)
     click.echo(template, nl=False)
 
 

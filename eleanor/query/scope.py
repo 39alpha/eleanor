@@ -247,7 +247,8 @@ def _short_form_walk_step(field: FieldKind) -> tuple[Segment, type[object] | Non
 
 def resolve_row_scope(root_type: type[object], raw: object) -> tuple[Path, AmbientScopeTable]:
     if raw is None:
-        raise ParseError("row_scope is required", position=None)
+        msg = "row_scope is required"
+        raise ParseError(msg, position=None)
 
     text = raw if isinstance(raw, str) else str(raw)
     parsed = parse_row_scope(text)

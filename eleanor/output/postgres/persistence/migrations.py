@@ -37,11 +37,13 @@ def discover() -> tuple[MigrationFile, ...]:
         m = _FILENAME_RE.match(entry)
         if m is None:
             if entry.endswith(".sql"):
-                raise EleanorException(f"malformed migration filename: {entry!r}")
+                msg = f"malformed migration filename: {entry!r}"
+                raise EleanorException(msg)
             continue
         version = int(m.group(1))
         if version in found:
-            raise EleanorException(f"duplicate migration version {version}")
+            msg = f"duplicate migration version {version}"
+            raise EleanorException(msg)
         found[version] = MigrationFile(
             version=version,
             slug=m.group(2),
@@ -51,7 +53,8 @@ def discover() -> tuple[MigrationFile, ...]:
     ordered = tuple(found[v] for v in sorted(found))
     for i, mig in enumerate(ordered, start=1):
         if mig.version != i:
-            raise EleanorException(f"non-contiguous migration numbering: expected {i}, found {mig.version}")
+            msg = f"non-contiguous migration numbering: expected {i}, found {mig.version}"
+            raise EleanorException(msg)
     return ordered
 
 

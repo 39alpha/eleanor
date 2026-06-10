@@ -43,5 +43,6 @@ class RunCode(IntEnum):
             RunCode.PARSER_ERROR: "failed to parse an eq36 output file",
         }.get(self)
         if message is None:
-            raise TypeError(f"missing string mapping for {self.__class__.__name__}.{self.name}")
+            msg = f"missing string mapping for {self.__class__.__name__}.{self.name}"
+            raise TypeError(msg)
         return message

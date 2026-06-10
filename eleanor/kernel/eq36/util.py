@@ -38,7 +38,8 @@ def field_as_float(field: str) -> np.float64:
         except ValueError:
             pass
 
-    raise EleanorKernelException(f'failed to read "{field}" as float', code=RunCode.PARSER_ERROR)
+    msg = f'failed to read "{field}" as float'
+    raise EleanorKernelException(msg, code=RunCode.PARSER_ERROR)
 
 
 def read_pickup_lines(file: StrPath | io.TextIOWrapper | None = None) -> list[str]:
@@ -50,13 +51,16 @@ def read_pickup_lines(file: StrPath | io.TextIOWrapper | None = None) -> list[st
             with Path(file).open("r") as handle:
                 return read_pickup_lines(handle)
         except FileNotFoundError as e:
-            raise EleanorKernelException("failed to open pickup file", code=RunCode.FILE_ERROR_3P) from e
+            msg = "failed to open pickup file"
+            raise EleanorKernelException(msg, code=RunCode.FILE_ERROR_3P) from e
 
     try:
         lines = file.readlines()
         for i, line in reversed(list(enumerate(lines))):
             if line.startswith("*---"):
                 return lines[i + 1 :]
-        raise EleanorKernelException("failed to find separator in pickup file", code=RunCode.FILE_ERROR_3P)
+        msg = "failed to find separator in pickup file"
+        raise EleanorKernelException(msg, code=RunCode.FILE_ERROR_3P)
     except FileNotFoundError as e:
-        raise EleanorKernelException("failed to open pickup file", code=RunCode.FILE_ERROR_3P) from e
+        msg = "failed to open pickup file"
+        raise EleanorKernelException(msg, code=RunCode.FILE_ERROR_3P) from e

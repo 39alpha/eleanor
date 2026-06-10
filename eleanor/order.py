@@ -30,7 +30,8 @@ class Suppression:
 
     def __init__(self, name: str | None, type: str | None, exceptions: list[str]) -> None:
         if name is None and type is None:
-            raise EleanorException("suppression must have a name or a type")
+            msg = "suppression must have a name or a type"
+            raise EleanorException(msg)
 
         self.name = name
         self.type = type
@@ -45,7 +46,8 @@ class Suppression:
 
         exceptions_raw = raw.get("except", [])
         if not is_list_of(exceptions_raw, str, allowNone=False):
-            raise EleanorException("suppression exceptions must be a list of strings")
+            msg = "suppression exceptions must be a list of strings"
+            raise EleanorException(msg)
 
         return Suppression(name, suppression_type, cast(list[str], exceptions_raw))
 
@@ -115,13 +117,15 @@ class Order:
         self.tags = list(dict.fromkeys(tags)) if tags is not None else []
         self.name = name
         if self.name == "":
-            raise EleanorException("name must not be empty")
+            msg = "name must not be empty"
+            raise EleanorException(msg)
 
         self.notes = notes
 
         self.creator = creator
         if self.creator == "":
-            raise EleanorException("creator must not be empty")
+            msg = "creator must not be empty"
+            raise EleanorException(msg)
 
         self.kernel = kernel
         self.water_mass = load_parameter(water_mass if water_mass is not None else 1.0)
@@ -131,7 +135,8 @@ class Order:
 
         self.elements = {k: load_parameter(v) for k, v in elements.items()}
         if not self.elements:
-            raise EleanorException("elements must not be empty")
+            msg = "elements must not be empty"
+            raise EleanorException(msg)
 
         self.species = {k: load_parameter(v) for k, v in species.items()} if species is not None else {}
         self.suppressions = suppressions if suppressions is not None else []
@@ -141,10 +146,11 @@ class Order:
 
         def _add_unique(candidate: str) -> None:
             if candidate in seen_names:
-                raise EleanorException(
-                    f'reactant name "{candidate}" appears more than once '
-                    + "across reactants and combined-reactant components",
+                msg = (
+                    f"reactant name {candidate!r} appears more than once across"
+                    + " reactants and combined-reactant components"
                 )
+                raise EleanorException(msg)
             seen_names.add(candidate)
 
         for reactant in self.reactants:
@@ -182,7 +188,8 @@ class Order:
         create_date = create_date if create_date is not None else datetime.now()
 
         if "kernel" not in raw:
-            raise EleanorException("kernel is required")
+            msg = "kernel is required"
+            raise EleanorException(msg)
 
         kernel_config = KernelConfig.from_dict(require_dict(raw["kernel"], "kernel"))
 
@@ -193,7 +200,8 @@ class Order:
             try:
                 navigator = NavigatorConfig.from_dict(require_dict(navigator_raw, "navigator"))
             except TypeError as e:
-                raise EleanorException("invalid navigator config") from e
+                msg = "invalid navigator config"
+                raise EleanorException(msg) from e
 
         water_mass = cast(ParameterOrSource | None, raw.get("water_mass"))
         temperature = cast(ParameterOrSource, require(raw.get("temperature"), "temperature"))
@@ -212,12 +220,14 @@ class Order:
 
         constraints_obj = cast(object, raw.get("constraints") or [])
         if not isinstance(constraints_obj, list):
-            raise EleanorException("constraints must be a list")
+            msg = "constraints must be a list"
+            raise EleanorException(msg)
         constraints_list = cast(list[object], constraints_obj)
         constraints: list[ConstraintConfig] = []
         for constraint in constraints_list:
             if not isinstance(constraint, dict):
-                raise EleanorException("each constraint must be a dict")
+                msg = "each constraint must be a dict"
+                raise EleanorException(msg)
             constraint_raw = cast(dict[str, object], constraint)
             constraint_type = require_str(constraint_raw.get("kind"), "constraint.kind")
             constraints.append(ConstraintConfig(kind=constraint_type, args=constraint_raw))
@@ -307,11 +317,13 @@ class Order:
                 case ".json":
                     return cls.from_json(fname)
                 case _:
-                    raise RuntimeError(f'unsupported file extension "{fname.suffix}"')
+                    msg = f'unsupported file extension "{fname.suffix}"'
+                    raise RuntimeError(msg)
         except EleanorException:
             raise
         except Exception as e:
-            raise EleanorException(f'failed to parse "{fname}" as yaml, toml or json') from e
+            msg = f'failed to parse "{fname}" as yaml, toml or json'
+            raise EleanorException(msg) from e
 
 
 def load_order(order: StrPath | Order) -> Order:

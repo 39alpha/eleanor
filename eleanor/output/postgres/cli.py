@@ -41,7 +41,8 @@ def schema(output: TextIO, config: str, database: str | None) -> None:
         raise EleanorException(msg)
 
     if settings.database.database is None:
-        raise click.ClickException("no database provided")
+        msg = "no database provided"
+        raise click.ClickException(msg)
 
     dump_schema(settings.database, output)
 
@@ -69,24 +70,28 @@ def scratch(vs_id: int, outdir: str, config: str, database: str | None) -> None:
         raise EleanorException(msg)
 
     if settings.database.database is None:
-        raise click.ClickException("no database provided")
+        msg = "no database provided"
+        raise click.ClickException(msg)
 
     try:
         try:
             result = load_scratch_entry(settings.database, variable_space_id)
         except LookupError as missing:
             if str(missing) == "scratch":
-                raise click.ClickException("no scratch found for variable space point") from missing
+                msg = "no scratch found for variable space point"
+                raise click.ClickException(msg) from missing
             raise
         if result is None:
-            raise click.ClickException(f"no variable space point found with id {variable_space_id}")
+            msg = f"no variable space point found with id {variable_space_id}"
+            raise click.ClickException(msg)
 
         print("Database:           ", settings.database.database)
         print("Variable Space ID:  ", result.variable_space_id)
         print("Exit Code:          ", result.exit_code)
 
         if len(result.zip) == 0:
-            raise click.ClickException("no data in scratch zip")
+            msg = "no data in scratch zip"
+            raise click.ClickException(msg)
 
         directory.mkdir(parents=True, exist_ok=True)
         ZipFile(io.BytesIO(result.zip)).extractall(path=directory)
@@ -115,7 +120,8 @@ def bulkload(action: str, yes: bool, config: str, database: str | None) -> None:
         raise EleanorException(msg)
 
     if settings.database.database is None:
-        raise click.ClickException("no database provided")
+        msg = "no database provided"
+        raise click.ClickException(msg)
 
     if action == "drop":
         if not yes:
@@ -160,16 +166,20 @@ def migrate(
     """Apply pending postgres migrations."""
     cfg = config_from_args(config, database).output
     if cfg is None:
-        raise EleanorException("no output sink configured")
+        msg = "no output sink configured"
+        raise EleanorException(msg)
     settings = cfg.settings
     if not isinstance(settings, PostgresSinkSettings):
-        raise EleanorException("cannot migrate a non-postgres output sink")
+        msg = "cannot migrate a non-postgres output sink"
+        raise EleanorException(msg)
     if settings.database.database is None:
-        raise click.ClickException("no database provided")
+        msg = "no database provided"
+        raise click.ClickException(msg)
 
     exclusive_count = sum(bool(x) for x in (verify, dry_run, list_all, stamp is not None))
     if exclusive_count > 1:
-        raise click.UsageError("--verify, --dry-run, --list, and --stamp are mutually exclusive")
+        msg = "--verify, --dry-run, --list, and --stamp are mutually exclusive"
+        raise click.UsageError(msg)
 
     if verify:
         _cmd_verify(settings)

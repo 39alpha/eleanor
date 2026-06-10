@@ -41,11 +41,13 @@ class Eq36Kernel(AbstractKernel):
     @override
     def validate_order(self, order: Order) -> None:
         if not self._setup:
-            raise EleanorKernelException("eleanor.kernel.eq36.Kernel must be setup before validating order")
+            msg = "eleanor.kernel.eq36.Kernel must be setup before validating order"
+            raise EleanorKernelException(msg)
 
         if len(self._data1s) == 0:
-            raise EleanorException("""The temperature and pressure ranges provided in the problem specification do not
-                overlap with any of the temperature-pressure curves specified in the provided data1 files.""")
+            msg = """The temperature and pressure ranges provided in the problem specification do not
+                overlap with any of the temperature-pressure curves specified in the provided data1 files."""
+            raise EleanorException(msg)
 
     @override
     def copy_data(
@@ -66,7 +68,8 @@ class Eq36Kernel(AbstractKernel):
     @override
     def get_atomic_weight(self, element: str) -> np.float64 | None:
         if not self._setup or len(self._data1s) == 0:
-            raise EleanorException("cannot get atomic masses until the kernel is setup")
+            msg = "cannot get atomic masses until the kernel is setup"
+            raise EleanorException(msg)
         return self._data1s[0].elements.get(element)
 
     @override
@@ -76,7 +79,8 @@ class Eq36Kernel(AbstractKernel):
         mole_fractions: dict[str, np.float64] | None = None,
     ) -> np.float64 | None:
         if not self._setup or len(self._data1s) == 0:
-            raise EleanorException("cannot get molar masses until the kernel is setup")
+            msg = "cannot get molar masses until the kernel is setup"
+            raise EleanorException(msg)
         try:
             return self._data1s[0].molar_mass(species_name, mole_fractions)
         except KeyError:
@@ -85,7 +89,8 @@ class Eq36Kernel(AbstractKernel):
     @override
     def prepare_setup_args(self, *args: object) -> dict[str, object]:
         if not args:
-            raise EleanorException("data1_dir argument is required")
+            msg = "data1_dir argument is required"
+            raise EleanorException(msg)
 
         data1_dir, *_ = args
         guard_is_path(data1_dir, "data1_dir argument")
@@ -133,8 +138,9 @@ class Eq36Kernel(AbstractKernel):
 
     def resolve_kernel_settings(self, vs_point: vs.Point) -> Eq36Settings:
         if not isinstance(vs_point.kernel.settings, Eq36Settings):
+            msg = f"the provided problem.kernel has type {type(vs_point.kernel.settings)} expected {Eq36Settings}"
             raise TypeError(
-                f"the provided problem.kernel has type {type(vs_point.kernel.settings)} expected {Eq36Settings}",
+                msg,
             )
 
         settings = vs_point.kernel.settings
@@ -144,7 +150,8 @@ class Eq36Kernel(AbstractKernel):
         for suppression in vs_point.suppressions:
             if suppression.type in ["solid solution", "solid solutions"]:
                 if len(suppression.exceptions) != 0:
-                    raise NotImplementedError("solid solution exemptions are not yet supported")
+                    msg = "solid solution exemptions are not yet supported"
+                    raise NotImplementedError(msg)
                 if suppression.name is None:
                     suppress_all_solid_solutions = True
                 elif suppress_all_solid_solutions:
@@ -168,7 +175,8 @@ class Eq36Kernel(AbstractKernel):
     @override
     def constrain(self, point_builder: PointBuilder) -> PointBuilder:
         if not self._setup:
-            raise EleanorKernelException("kernel is not setup; cannot constraint orders")
+            msg = "kernel is not setup; cannot constraint orders"
+            raise EleanorKernelException(msg)
 
         point_builder.constraints.append(
             TemperatureRangeConstraint(
@@ -198,7 +206,8 @@ class Eq36Kernel(AbstractKernel):
                 d1s.append(data1)
 
         if len(d1s) == 0:
-            raise EleanorKernelException(f"failed to find a data1 file with temperature {T} and pressure {P}")
+            msg = f"failed to find a data1 file with temperature {T} and pressure {P}"
+            raise EleanorKernelException(msg)
         if len(d1s) > 1 and verbose:
             # DGM: For now we just take the first data1, but we could randomly choose. Ideally, all of the thermodynamic
             #      parameters in the files should be identical.
@@ -245,7 +254,8 @@ class Eq36Kernel(AbstractKernel):
         except EleanorException:
             raise
         except Exception as e:
-            raise EleanorException("an unexpected error occurred") from e
+            msg = "an unexpected error occurred"
+            raise EleanorException(msg) from e
 
     def write_eq3_input(
         self,
@@ -255,14 +265,16 @@ class Eq36Kernel(AbstractKernel):
         verbose: bool = False,
     ) -> str:
         if not self._setup:
-            raise EleanorKernelException("kernel is not setup; cannot write eq3 input file")
+            msg = "kernel is not setup; cannot write eq3 input file"
+            raise EleanorKernelException(msg)
 
         settings = cast(Eq36Settings, vs_point.kernel.settings)
         if not vs_point.has_species_constraint(settings.redox_species):
             if settings.redox_species == "fO2" and vs_point.has_species_constraint("O2(g)"):
                 pass
             else:
-                raise EleanorKernelException(f"eq3/6 redox species ({settings.redox_species}) is unconstrained")
+                msg = f"eq3/6 redox species ({settings.redox_species}) is unconstrained"
+                raise EleanorKernelException(msg)
 
         if file is None:
             file = Path("problem.3i")
@@ -291,7 +303,8 @@ class Eq36Kernel(AbstractKernel):
             use_other_species = 0
             fO2 = vs_point.get_species("O2(g)")
             if fO2 is None:
-                raise EleanorKernelException(f'cannot find redox species "{settings.redox_species}"')
+                msg = f'cannot find redox species "{settings.redox_species}"'
+                raise EleanorKernelException(msg)
 
             value = NumberFormat.SCIENTIFIC.fmt(fO2.value, precision=5)
             redox_species = "None"
@@ -329,7 +342,8 @@ class Eq36Kernel(AbstractKernel):
 
             basis_species = data1.get_basis_species(element.name)
             if basis_species is None:
-                raise Exception(f"no basis species found for {element.name}")
+                msg = f"no basis species found for {element.name}"
+                raise Exception(msg)
 
             print(f"species= {basis_species.name}", file=file)
             print(f"   jflgi=  0    covali=  {value}", file=file)
@@ -386,13 +400,15 @@ class Eq36Kernel(AbstractKernel):
     ) -> str:
         settings = cast(Eq36Settings, vs_point.kernel.settings)
         if settings.eq6_config is None:
-            raise ValueError("no eq6_config provided")
+            msg = "no eq6_config provided"
+            raise ValueError(msg)
 
         if not vs_point.has_species_constraint(settings.redox_species):
             if settings.redox_species == "fO2" and vs_point.has_species_constraint("O2(g)"):
                 pass
             else:
-                raise EleanorKernelException(f"eq3/6 redox species ({settings.redox_species}) is unconstrained")
+                msg = f"eq3/6 redox species ({settings.redox_species}) is unconstrained"
+                raise EleanorKernelException(msg)
 
         if file is None:
             file = Path("problem.6i")
@@ -578,10 +594,12 @@ class Eq36Kernel(AbstractKernel):
         suppress_all_minerals = False
         for suppression in vs_point.suppressions:
             if suppression.type is None and suppression.name is None:
-                raise EleanorKernelException("suppressions must have a type, a name or both")
+                msg = "suppressions must have a type, a name or both"
+                raise EleanorKernelException(msg)
 
             if suppression.name is not None and suppression.exceptions:
-                raise EleanorKernelException("cannot add suppression exceptions for a named suppression")
+                msg = "cannot add suppression exceptions for a named suppression"
+                raise EleanorKernelException(msg)
 
             if suppression.type is None:
                 pass
@@ -592,7 +610,8 @@ class Eq36Kernel(AbstractKernel):
             elif suppression.type in ["solid solution", "solid solutions"]:
                 pass
             else:
-                raise EleanorKernelException(f"unsupported suppression type {suppression.type}")
+                msg = f"unsupported suppression type {suppression.type}"
+                raise EleanorKernelException(msg)
 
         if suppress_all_minerals:
             print("     nxopt=  1", file=file)

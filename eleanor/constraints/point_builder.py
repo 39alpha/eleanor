@@ -51,15 +51,18 @@ class PointBuilder:
 
     def __setitem__(self, parameter: Parameter, value: Parameter) -> None:
         if self.registry.id(parameter) not in self.valuations:
-            raise Exception(f"{parameter} ({self.registry.id(parameter)}) is not in the registry")
+            msg = f"{parameter} ({self.registry.id(parameter)}) is not in the registry"
+            raise Exception(msg)
         if not parameter.in_domain(value):
-            raise Exception(f"{value} is not a refinement of {parameter}")
+            msg = f"{value} is not a refinement of {parameter}"
+            raise Exception(msg)
 
         parameter_id = self.registry.id(parameter)
 
         refined = self.valuations[parameter_id]
         if not refined.in_domain(value):
-            raise Exception(f"{value} is not a refinement of {refined}")
+            msg = f"{value} is not a refinement of {refined}"
+            raise Exception(msg)
 
         self.valuations[parameter_id] = value
 
@@ -101,7 +104,8 @@ class PointBuilder:
             for parameter_id, refined in self.valuations.items():
                 original = self.registry.parameter(parameter_id)
                 if not isinstance(refined, ValueParameter):
-                    raise Exception(f"parameter {original} is not fully refined: {refined}")
+                    msg = f"parameter {original} is not fully refined: {refined}"
+                    raise Exception(msg)
                 valuation[parameter_id] = refined
 
             elements = [
@@ -289,9 +293,11 @@ class PointBuilder:
                                         ),
                                     )
                                 case _:
-                                    raise Exception(f"unexpected combined component type {component.type}")
+                                    msg = f"unexpected combined component type {component.type}"
+                                    raise Exception(msg)
                     case _:
-                        raise Exception(f"Unexpected reactant type {reactant}")
+                        msg = f"Unexpected reactant type {reactant}"
+                        raise Exception(msg)
 
             return vs.Point(
                 order_id=order_id,
@@ -311,4 +317,5 @@ class PointBuilder:
                 solid_solution_reactants=solid_solution_reactants,
             )
         except Exception as e:
-            raise Exception("cannot generate Point from config") from e
+            msg = "cannot generate Point from config"
+            raise Exception(msg) from e

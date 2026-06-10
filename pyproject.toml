@@ -84,7 +84,7 @@ extend-select = [
   # "DOC", pydoclint (TBD, requires preview)
   # "DTZ", datatimez (TBD, not sure what to do about timezones yet)
   "E",
-  # "EM", errmsg (TBD, lots to update manually)
+  "EM",
   "ERA",
   "F",
   "FA",

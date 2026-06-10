@@ -465,7 +465,8 @@ def get_scratch_entry(
     if row is None:
         return None
     if row[2] is None:
-        raise LookupError("scratch")
+        msg = "scratch"
+        raise LookupError(msg)
     return ScratchEntry(
         variable_space_id=cast(int, row[0]),
         exit_code=cast(int, row[1]),

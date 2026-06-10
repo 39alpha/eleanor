@@ -90,12 +90,15 @@ def compile_query(
     allowed_keys = {"row_scope", "columns", "on_missing", "version"}
     unknown_keys = sorted(key for key in query if key not in allowed_keys)
     if unknown_keys:
-        raise ParseError(f"unknown query keys: {', '.join(unknown_keys)}", position=None)
+        msg = f"unknown query keys: {', '.join(unknown_keys)}"
+        raise ParseError(msg, position=None)
 
     if "row_scope" not in query:
-        raise ParseError("missing required key: row_scope", position=None)
+        msg = "missing required key: row_scope"
+        raise ParseError(msg, position=None)
     if "columns" not in query:
-        raise ParseError("missing required key: columns", position=None)
+        msg = "missing required key: columns"
+        raise ParseError(msg, position=None)
 
     version = _parse_version(query.get("version", CURRENT_VERSION))
     file_default_policy = (
@@ -108,7 +111,8 @@ def compile_query(
 
     raw_columns = query["columns"]
     if not isinstance(raw_columns, Sequence) or isinstance(raw_columns, (str, bytes)):
-        raise ParseError("columns must be a sequence", position=None)
+        msg = "columns must be a sequence"
+        raise ParseError(msg, position=None)
 
     bundle = BUILTIN_PRESETS if presets is None else presets
     desugared = desugar_columns(raw_columns, scope_table, presets=bundle)
@@ -149,7 +153,8 @@ def _parse_version(raw: object) -> int:
     # would otherwise sneak past the equality check.
     if isinstance(raw, int) and not isinstance(raw, bool) and raw == CURRENT_VERSION:
         return CURRENT_VERSION
-    raise ParseError("unsupported query version", position=None)
+    msg = "unsupported query version"
+    raise ParseError(msg, position=None)
 
 
 def _compile_row_scope(root_type: type[object], path: Path) -> CompiledPath:

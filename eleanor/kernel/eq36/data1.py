@@ -23,10 +23,12 @@ class Species:
         self.molar_mass = molar_mass
 
         if self.name == "":
-            raise ValueError("cannot construct Species with empty name")
+            msg = "cannot construct Species with empty name"
+            raise ValueError(msg)
 
         if self.molar_mass < 0:
-            raise ValueError("cannot construct Species with negative molar mass")
+            msg = "cannot construct Species with negative molar mass"
+            raise ValueError(msg)
 
 
 @dataclass(init=False)
@@ -50,14 +52,17 @@ class BasisSpecies(Species):
         self.volume = volume
 
         if not self.composition:
-            raise ValueError("cannot construct BasisSpecies with an empty composition")
+            msg = "cannot construct BasisSpecies with an empty composition"
+            raise ValueError(msg)
 
         for count in self.composition.values():
             if count < 0:
-                raise ValueError("cannot construct a BasisSpecies with a component with negative count")
+                msg = "cannot construct a BasisSpecies with a component with negative count"
+                raise ValueError(msg)
 
         if self.volume is not None and self.volume < 0:
-            raise ValueError("cannot construct a BasisSpecies with negative volume")
+            msg = "cannot construct a BasisSpecies with negative volume"
+            raise ValueError(msg)
 
 
 @dataclass(init=False)
@@ -90,38 +95,46 @@ class SolidSolution:
         self.end_members = end_members
 
         if self.name == "":
-            raise ValueError("cannot construct SolidSolution with empty name")
+            msg = "cannot construct SolidSolution with empty name"
+            raise ValueError(msg)
 
         if not self.end_members:
-            raise ValueError("cannot construct SolidSolution without end members")
+            msg = "cannot construct SolidSolution without end members"
+            raise ValueError(msg)
 
         for molar_mass in self.end_members.values():
             if molar_mass < 0:
-                raise ValueError("cannot construct SolidSolution with negative end member molar mass")
+                msg = "cannot construct SolidSolution with negative end member molar mass"
+                raise ValueError(msg)
 
     def molar_mass(self, mole_fractions: dict[str, np.float64]) -> np.float64:
         if not mole_fractions:
-            raise ValueError("no mole_fractions provided")
+            msg = "no mole_fractions provided"
+            raise ValueError(msg)
 
         missing = set(mole_fractions) - set(self.end_members)
         if missing:
-            raise KeyError(f"unknown end member(s) for solid solution {self.name!r}: {sorted(missing)}")
+            msg = f"unknown end member(s) for solid solution {self.name!r}: {sorted(missing)}"
+            raise KeyError(msg)
 
         missing = set(self.end_members) - set(mole_fractions)
         if missing:
+            msg = f"missing mole fractions for end member(s) for solid solution {self.name!r}: {sorted(missing)}"
             raise KeyError(
-                f"missing mole fractions for end member(s) for solid solution {self.name!r}: {sorted(missing)}",
+                msg,
             )
 
         for end_member, fraction in mole_fractions.items():
             if fraction < 0.0:
+                msg = f"mole fraction for solid solution {self.name!r} end member {end_member!r} is negative"
                 raise ValueError(
-                    f"mole fraction for solid solution {self.name!r} end member {end_member!r} is negative",
+                    msg,
                 )
 
         total = sum(mole_fractions.values())
         if total <= 0:
-            raise ValueError(f"mole fractions for solid solution {self.name!r} must sum to a positive value")
+            msg = f"mole fractions for solid solution {self.name!r} must sum to a positive value"
+            raise ValueError(msg)
 
         weighted = np.float64(0.0)
         for name, fraction in mole_fractions.items():
@@ -137,10 +150,12 @@ class TPCurve:
 
     def __init__(self, T: dict[str, np.float64], P: tuple[Array1D[np.float64], Array1D[np.float64]]) -> None:
         if not ("min" in T and "mid" in T and "max" in T):
-            raise ValueError("temperature dictionary must have min, mid and max keys")
+            msg = "temperature dictionary must have min, mid and max keys"
+            raise ValueError(msg)
 
         if any(len(coeffs) == 0 for coeffs in P):
-            raise ValueError("polynomial has no coefficients")
+            msg = "polynomial has no coefficients"
+            raise ValueError(msg)
 
         self.P = P
         self.T = T
@@ -161,7 +176,8 @@ class TPCurve:
         right = tmp_right
 
         if not np.isclose(left, right):
-            raise ValueError("provided polynomials differ at the common temperature")
+            msg = "provided polynomials differ at the common temperature"
+            raise ValueError(msg)
 
     def reset_domain(self) -> Self:
         self.domain = [(self.T["min"], self.T["max"])]
@@ -339,7 +355,8 @@ class Data1:
         basis_species = [species for species in self.basis_species.values() if element in species.composition]
 
         if len(basis_species) > 1:
-            raise Exception(f"data1 file contains multiple basis species with element {element}")
+            msg = f"data1 file contains multiple basis species with element {element}"
+            raise Exception(msg)
 
         return None if not basis_species else basis_species[0]
 
@@ -356,7 +373,8 @@ class Data1:
         """
         if name in self.solid_solutions:
             if mole_fractions is None:
-                raise ValueError("mole_fractions is required to get the molar_mass of a solid solution")
+                msg = "mole_fractions is required to get the molar_mass of a solid solution"
+                raise ValueError(msg)
             return self.solid_solutions[name].molar_mass(mole_fractions)
         for category in (self.aqueous_species, self.minerals, self.liquids, self.gases):
             if name in category:
@@ -364,7 +382,8 @@ class Data1:
         for solid_solution in self.solid_solutions.values():
             if name in solid_solution.end_members:
                 return solid_solution.end_members[name]
-        raise KeyError(f"no species named {name!r} in {self.filename}")
+        msg = f"no species named {name!r} in {self.filename}"
+        raise KeyError(msg)
 
     def compute_molar_mass(self, composition: dict[str, int]) -> np.float64:
         """Compute a molar mass from an element-count composition.
@@ -374,14 +393,17 @@ class Data1:
         ``molar_mass`` lookups.
         """
         if not composition:
-            raise ValueError("composition must contain at least one element")
+            msg = "composition must contain at least one element"
+            raise ValueError(msg)
 
         total = np.float64(0.0)
         for element, count in composition.items():
             if element not in self.elements:
-                raise KeyError(f"unknown element {element!r}")
+                msg = f"unknown element {element!r}"
+                raise KeyError(msg)
             if count < 0:
-                raise ValueError(f"{element!r} has negative count")
+                msg = f"{element!r} has negative count"
+                raise ValueError(msg)
             total += np.float64(count) * self.elements[element]
         return total
 
@@ -492,8 +514,9 @@ class Data1:
             end_member_mass = end_member_mass_obj
             if solid_solution in solid_solutions:
                 if end_member in solid_solutions[solid_solution].end_members:
+                    msg = f"solid solution ({solid_solution}) end member ({end_member}) occurs multiple times"
                     raise RuntimeError(
-                        f"solid solution ({solid_solution}) end member ({end_member}) occurs multiple times",
+                        msg,
                     )
                 solid_solutions[solid_solution].end_members[end_member] = end_member_mass
             else:

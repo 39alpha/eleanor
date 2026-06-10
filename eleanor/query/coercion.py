@@ -15,7 +15,8 @@ def parse_missing_policy(value: object) -> MissingPolicy:
         return "null"
     if value == "error":
         return "error"
-    raise ParseError(f"invalid missing policy: {value!r}", position=None)
+    msg = f"invalid missing policy: {value!r}"
+    raise ParseError(msg, position=None)
 
 
 def coerce_filter_value(target: type[object], raw: str, *, path: str, predicate: str) -> object:

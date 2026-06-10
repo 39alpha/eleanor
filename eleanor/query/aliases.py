@@ -84,12 +84,14 @@ def _validate_short_forms_static(
     """
     default_aliases = {singularize(name) for name in known_names}
     if len(short_forms) != len(short_form_inverse):
-        raise AssertionError("short-form aliases must be unique")
+        msg = "short-form aliases must be unique"
+        raise AssertionError(msg)
 
     collisions = sorted(short for short in short_form_inverse if short in default_aliases)
     if collisions:
         joined = ", ".join(collisions)
-        raise AssertionError(f"short-form aliases collide with default aliases: {joined}")
+        msg = f"short-form aliases collide with default aliases: {joined}"
+        raise AssertionError(msg)
 
 
 def validate_short_forms() -> None:

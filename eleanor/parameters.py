@@ -93,7 +93,8 @@ class Parameter(ABC):
         elif "min" in raw and "max" in raw:
             parameter = RangeParameter(_as_float(raw["min"]), _as_float(raw["max"]))
         else:
-            raise EleanorException("parameter must have value, values or min and max")
+            msg = "parameter must have value, values or min and max"
+            raise EleanorException(msg)
 
         return cls.refine(parameter)
 
@@ -191,7 +192,8 @@ class ListParameter(Parameter):
 
     def __init__(self, values: list[np.float64]) -> None:
         if not values:
-            raise EleanorException("cannot create the empty ListParameter")
+            msg = "cannot create the empty ListParameter"
+            raise EleanorException(msg)
         super().__init__()
         self.values = sorted(values)
 
@@ -321,7 +323,8 @@ class ParameterRegistry:
 
     def add_parameter(self, parameter: Parameter) -> None:
         if any(parameter is p for p in self.parameters):
-            raise EleanorException()
+            msg = "parameter already in registry"
+            raise EleanorException(msg)
         self.parameters.append(parameter)
 
     def add_parameters(self, parameters: list[Parameter]) -> None:
@@ -335,9 +338,11 @@ class ParameterRegistry:
         for i, p in enumerate(self.parameters):
             if p is parameter:
                 return i
-        raise IndexError("parameter not in registry")
+        msg = "parameter not in registry"
+        raise IndexError(msg)
 
     def parameter(self, id: int) -> Parameter:
         if id < 0 or id >= len(self.parameters):
-            raise IndexError("parameter id not in registry")
+            msg = "parameter id not in registry"
+            raise IndexError(msg)
         return self.parameters[id]

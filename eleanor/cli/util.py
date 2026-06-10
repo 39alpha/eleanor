@@ -92,6 +92,7 @@ def config_from_args(
         and isinstance(config.output.settings, PostgresSinkSettings)
         and config.output.settings.database.database is None
     ):
-        raise click.ClickException("no database provided")
+        msg = "no database provided"
+        raise click.ClickException(msg)
 
     return config

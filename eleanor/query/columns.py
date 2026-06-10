@@ -235,13 +235,15 @@ def _desugar_entry(
         ]
 
     if not isinstance(entry, Mapping):
-        raise ParseError("column entry must be a string or mapping", position=None)
+        msg = "column entry must be a string or mapping"
+        raise ParseError(msg, position=None)
     typed_entry = cast(Mapping[object, object], entry)
     mapping_entry: dict[object, object] = dict(typed_entry)
 
     shape_keys = [key for key in ("path", "splat", "preset") if key in mapping_entry]
     if len(shape_keys) != 1:
-        raise ParseError("column mapping must contain exactly one of path/splat/preset", position=None)
+        msg = "column mapping must contain exactly one of path/splat/preset"
+        raise ParseError(msg, position=None)
     if "path" in mapping_entry:
         return [_structured_column(mapping_entry)]
     if "splat" in mapping_entry:
@@ -252,13 +254,15 @@ def _desugar_entry(
 def _structured_column(entry: Mapping[object, object]) -> ColumnSpec:
     raw_path = entry.get("path")
     if not isinstance(raw_path, str):
-        raise ParseError("structured column requires string path", position=None)
+        msg = "structured column requires string path"
+        raise ParseError(msg, position=None)
 
     name = ""
     if "name" in entry:
         raw_name = entry.get("name")
         if not isinstance(raw_name, str):
-            raise ParseError("structured column name must be a string", position=None)
+            msg = "structured column name must be a string"
+            raise ParseError(msg, position=None)
         name = raw_name
 
     on_missing: MissingPolicy | None = None
@@ -281,16 +285,19 @@ def _structured_column(entry: Mapping[object, object]) -> ColumnSpec:
 def _expand_splat(entry: Mapping[object, object], scope_table: AmbientScopeTable) -> list[ColumnSpec]:
     alias = entry.get("splat")
     if not isinstance(alias, str):
-        raise ParseError("splat alias must be a string", position=None)
+        msg = "splat alias must be a string"
+        raise ParseError(msg, position=None)
     if alias not in scope_table:
         raise UnknownScope(alias, scope_table.available_aliases())
 
     scope = scope_table[alias]
     if not isinstance(scope.type_kind, DataclassField):
-        raise ParseError(f'splat alias "{alias}" must refer to a dataclass scope', position=None)
+        msg = f'splat alias "{alias}" must refer to a dataclass scope'
+        raise ParseError(msg, position=None)
 
     if "include" in entry and "exclude" in entry:
-        raise ParseError("splat include/exclude are mutually exclusive", position=None)
+        msg = "splat include/exclude are mutually exclusive"
+        raise ParseError(msg, position=None)
 
     include = _read_name_list(entry, "include")
     exclude = _read_name_list(entry, "exclude")
@@ -332,7 +339,8 @@ def _expand_preset(
 ) -> list[ColumnSpec]:
     name = entry.get("preset")
     if not isinstance(name, str):
-        raise ParseError("preset name must be a string", position=None)
+        msg = "preset name must be a string"
+        raise ParseError(msg, position=None)
 
     fn = presets.get(name)
     if fn is None:
@@ -359,10 +367,12 @@ def _read_name_list(entry: Mapping[object, object], key: str) -> list[str] | Non
         return None
     value = entry.get(key)
     if not isinstance(value, list):
-        raise ParseError(f"splat {key} must be a list of strings", position=None)
+        msg = f"splat {key} must be a list of strings"
+        raise ParseError(msg, position=None)
     items = cast(list[object], value)
     if not all(isinstance(item, str) for item in items):
-        raise ParseError(f"splat {key} must be a list of strings", position=None)
+        msg = f"splat {key} must be a list of strings"
+        raise ParseError(msg, position=None)
     # The ``all(isinstance(...))`` check above narrows every element to ``str``
     # at runtime; the cast here just communicates that to the type checker
     # without an unreachable per-element re-filter.
@@ -372,7 +382,8 @@ def _read_name_list(entry: Mapping[object, object], key: str) -> list[str] | Non
 def _read_prefix(entry: Mapping[object, object]) -> str:
     value = entry.get("prefix", "")
     if not isinstance(value, str):
-        raise ParseError("splat prefix must be a string", position=None)
+        msg = "splat prefix must be a string"
+        raise ParseError(msg, position=None)
     return value
 
 

@@ -33,7 +33,8 @@ def error_guard(output: bytes | str, cmd: str, code: int, fname: str | None = No
             if re.match("^\\s*$", message) is None:
                 if fname is None:
                     raise Eq36Exception(message, code=code)
-                raise Eq36Exception(f'{message} in file "{fname}"', code=code)
+                msg = f'{message} in file "{fname}"'
+                raise Eq36Exception(msg, code=code)
 
 
 def run(
@@ -62,11 +63,14 @@ def run(
         try:
             error_guard(stdout, cmd, code=code, fname=fname)
         except Eq36Exception as e:
-            raise Eq36Exception(f"{cmd} timed out with errors", code=RunCode.EQ36_TIMEOUT) from e
-        raise Eq36Exception(f"{cmd} timed out without errors", code=RunCode.EQ36_TIMEOUT) from terr
+            msg = f"{cmd} timed out with errors"
+            raise Eq36Exception(msg, code=RunCode.EQ36_TIMEOUT) from e
+        msg = f"{cmd} timed out without errors"
+        raise Eq36Exception(msg, code=RunCode.EQ36_TIMEOUT) from terr
 
     if process.returncode != 0:
-        raise Eq36Exception(f"{cmd} exited with an unexpected error", code=process.returncode)
+        msg = f"{cmd} exited with an unexpected error"
+        raise Eq36Exception(msg, code=process.returncode)
 
     return stdout, stderr
 

@@ -366,6 +366,16 @@ def guard_is_bool(value: object, field_name: str) -> None:
         raise EleanorError(msg)
 
 
+def guard_is_float(value: object, field_name: str) -> None:
+    if not (
+        isinstance(value, float)
+        or (isinstance(value, int) and not isinstance(value, bool))
+        or isinstance(value, np.floating)
+    ):
+        msg = f"{field_name} must be a floating-point number; got {type(value).__name__}"
+        raise EleanorError(msg)
+
+
 def guard_is_int(value: object, field_name: str) -> None:
     if isinstance(value, bool) or not isinstance(value, int):
         msg = f"{field_name} must be an int; got {type(value).__name__}"

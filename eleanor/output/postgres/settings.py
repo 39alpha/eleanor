@@ -4,11 +4,13 @@ from typing import Self, override
 from eleanor.output.settings import OutputSinkSettings
 from eleanor.util import (
     guard_is_bool,
+    guard_is_float,
     guard_is_instance,
     guard_is_int_or_none,
     guard_is_str_or_none,
     require_bool,
     require_dict,
+    require_float,
     require_opt_int,
     require_opt_str,
 )
@@ -53,12 +55,20 @@ class PostgresDatabaseSettings:
 class PostgresSinkSettings(OutputSinkSettings):
     database: PostgresDatabaseSettings
     bulk_load_optimization: bool = False
+    write_unformed: bool = True
+    min_log_moles: float = float("-inf")
+    min_log_molality: float = float("-inf")
+    min_log_fugacity: float = float("-inf")
 
     def __post_init__(self) -> None:
         super().__post_init__()
 
         guard_is_instance(self.database, PostgresDatabaseSettings, "database")
         guard_is_bool(self.bulk_load_optimization, "bulk_load_optimization")
+        guard_is_bool(self.write_unformed, "write_unformed")
+        guard_is_float(self.min_log_moles, "min_log_moles")
+        guard_is_float(self.min_log_molality, "min_log_molality")
+        guard_is_float(self.min_log_fugacity, "min_log_fugacity")
 
     @classmethod
     @override
@@ -72,11 +82,37 @@ class PostgresSinkSettings(OutputSinkSettings):
             raw.get("bulk_load_optimization", False),
             "bulk_load_optimization",
         )
+        write_unformed = require_bool(
+            raw.get("write_unformed", True),
+            "write_unformed",
+        )
+        min_log_moles = float(
+            require_float(
+                raw.get("min_log_moles", float("-inf")),
+                "min_log_moles",
+            )
+        )
+        min_log_molality = float(
+            require_float(
+                raw.get("min_log_molality", float("-inf")),
+                "min_log_molality",
+            )
+        )
+        min_log_fugacity = float(
+            require_float(
+                raw.get("min_log_fugacity", float("-inf")),
+                "min_log_fugacity",
+            )
+        )
 
         return cls(
             verbose=base_settings.verbose,
             database=database,
             bulk_load_optimization=optimize,
+            write_unformed=write_unformed,
+            min_log_moles=min_log_moles,
+            min_log_molality=min_log_molality,
+            min_log_fugacity=min_log_fugacity,
         )
 
 

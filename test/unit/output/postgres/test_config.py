@@ -2,7 +2,8 @@ import importlib
 import sys
 from unittest import TestCase
 
-from eleanor.output.postgres.settings import PostgresDatabaseSettings
+from eleanor.exceptions import EleanorError
+from eleanor.output.postgres.settings import PostgresDatabaseSettings, PostgresSinkSettings
 
 
 class TestPostgresConfig(TestCase):
@@ -49,3 +50,58 @@ class TestPostgresConfig(TestCase):
             for name in [k for k in list(sys.modules) if k not in snapshot]:
                 del sys.modules[name]
             sys.modules.update(snapshot)
+
+
+class TestPostgresSinkSettingsFilterFields(TestCase):
+
+    def test_defaults(self) -> None:
+        settings = PostgresSinkSettings(database=PostgresDatabaseSettings())
+        self.assertIs(settings.write_unformed, True)
+        self.assertEqual(settings.min_log_moles, float("-inf"))
+        self.assertEqual(settings.min_log_molality, float("-inf"))
+        self.assertEqual(settings.min_log_fugacity, float("-inf"))
+
+    def test_from_dict_parses_all_filter_fields(self) -> None:
+        settings = PostgresSinkSettings.from_dict({
+            "write_unformed": False,
+            "min_log_moles": -8.0,
+            "min_log_molality": -6.0,
+            "min_log_fugacity": -4.0,
+        })
+        self.assertIs(settings.write_unformed, False)
+        self.assertEqual(settings.min_log_moles, -8.0)
+        self.assertEqual(settings.min_log_molality, -6.0)
+        self.assertEqual(settings.min_log_fugacity, -4.0)
+
+    def test_from_dict_defaults_when_keys_absent(self) -> None:
+        settings = PostgresSinkSettings.from_dict({})
+        self.assertIs(settings.write_unformed, True)
+        self.assertEqual(settings.min_log_moles, float("-inf"))
+        self.assertEqual(settings.min_log_molality, float("-inf"))
+        self.assertEqual(settings.min_log_fugacity, float("-inf"))
+
+    def test_write_unformed_rejects_non_bool(self) -> None:
+        with self.assertRaises(EleanorError):
+            _ = PostgresSinkSettings(database=PostgresDatabaseSettings(), write_unformed="yes")  # pyright: ignore[reportArgumentType]
+
+    def test_min_log_moles_rejects_non_number(self) -> None:
+        with self.assertRaises(EleanorError):
+            _ = PostgresSinkSettings(database=PostgresDatabaseSettings(), min_log_moles="low")  # pyright: ignore[reportArgumentType]
+
+    def test_min_log_molality_rejects_non_number(self) -> None:
+        with self.assertRaises(EleanorError):
+            _ = PostgresSinkSettings(database=PostgresDatabaseSettings(), min_log_molality="low")  # pyright: ignore[reportArgumentType]
+
+    def test_min_log_fugacity_rejects_non_number(self) -> None:
+        with self.assertRaises(EleanorError):
+            _ = PostgresSinkSettings(database=PostgresDatabaseSettings(), min_log_fugacity="low")  # pyright: ignore[reportArgumentType]
+
+    def test_from_dict_accepts_integer_thresholds(self) -> None:
+        settings = PostgresSinkSettings.from_dict({
+            "min_log_moles": -8,
+            "min_log_molality": -6,
+            "min_log_fugacity": -4,
+        })
+        self.assertEqual(settings.min_log_moles, -8.0)
+        self.assertEqual(settings.min_log_molality, -6.0)
+        self.assertEqual(settings.min_log_fugacity, -4.0)

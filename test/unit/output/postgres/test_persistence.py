@@ -22,6 +22,8 @@ from datetime import datetime
 from unittest import TestCase, mock
 
 import numpy as np
+import eleanor.equilibrium_space as core_es
+import eleanor.variable_space as core_vs
 from eleanor.config.kernel import KernelConfig
 from eleanor.exceptions import EleanorError
 from eleanor.kernel.eq36.settings import IOPG_1, Eq3Settings, Eq6Settings, Eq36Settings
@@ -33,7 +35,7 @@ from eleanor.output.postgres.persistence import (
     repositories,
     schema,
 )
-from eleanor.output.postgres.settings import PostgresDatabaseSettings
+from eleanor.output.postgres.settings import PostgresDatabaseSettings, PostgresSinkSettings
 from eleanor.parameters import Parameter
 from eleanor.reactants import ReactantType
 
@@ -1262,3 +1264,271 @@ class TestBulkLoadLifecycle(TestCase):
 
         connect.assert_called_once_with(cfg)
         self.assertEqual(events, ["drop", "body", "recreate"])
+
+
+def _make_aqueous_species(name: str, log_molality: float) -> core_es.AqueousSpecies:
+    return core_es.AqueousSpecies(
+        name=name,
+        log_molality=np.float64(log_molality),
+        log_activity=np.float64(log_molality - 0.1),
+        log_gamma=np.float64(-0.1),
+    )
+
+
+def _make_pure_solid(name: str, log_moles: float | None) -> core_es.PureSolid:
+    return core_es.PureSolid(
+        name=name,
+        log_qk=np.float64(0.5),
+        affinity=np.float64(1.0),
+        log_moles=None if log_moles is None else np.float64(log_moles),
+    )
+
+
+def _make_gas(name: str, log_fugacity: float) -> core_es.Gas:
+    return core_es.Gas(name=name, log_fugacity=np.float64(log_fugacity))
+
+
+def _make_solid_solution(name: str, log_moles: float | None) -> core_es.SolidSolution:
+    return core_es.SolidSolution(
+        name=name,
+        log_qk=np.float64(0.1),
+        affinity=np.float64(0.5),
+        end_members=[
+            core_es.EndMember(
+                name=f"{name}_em",
+                log_qk=np.float64(0.1),
+                affinity=np.float64(0.5),
+            )
+        ],
+        log_moles=None if log_moles is None else np.float64(log_moles),
+    )
+
+
+def _make_es_point(
+    aqueous_species: list[core_es.AqueousSpecies] | None = None,
+    pure_solids: list[core_es.PureSolid] | None = None,
+    gases: list[core_es.Gas] | None = None,
+    solid_solutions: list[core_es.SolidSolution] | None = None,
+) -> core_es.Point:
+    return core_es.Point(
+        stage="eq3",
+        temperature=np.float64(25.0),
+        pressure=np.float64(1.0),
+        ph=np.float64(7.0),
+        log_fo2=np.float64(-60.0),
+        eh=np.float64(0.0),
+        log_activity_water=np.float64(-0.01),
+        log_ionic_strength=np.float64(-2.0),
+        solute_mass=np.float64(0.1),
+        solvent_mass=np.float64(1.0),
+        solution_mass=np.float64(1.1),
+        tds=np.float64(100.0),
+        elements=[],
+        aqueous_species=aqueous_species or [],
+        pure_solids=pure_solids or [],
+        solid_solutions=solid_solutions or [],
+        gases=gases or [],
+        redox_reactions=[],
+    )
+
+
+class TestPassesFilter(TestCase):
+
+    def test_finite_value_above_threshold_passes(self) -> None:
+        self.assertTrue(repositories._passes_filter(np.float64(-3.0), -10.0, True))
+
+    def test_finite_value_below_threshold_fails(self) -> None:
+        self.assertFalse(repositories._passes_filter(np.float64(-15.0), -10.0, True))
+
+    def test_finite_value_at_threshold_passes(self) -> None:
+        self.assertTrue(repositories._passes_filter(np.float64(-10.0), -10.0, True))
+
+    def test_neg_inf_passes_with_write_unformed_true_and_default_threshold(self) -> None:
+        self.assertTrue(repositories._passes_filter(np.float64(-np.inf), float("-inf"), True))
+
+    def test_neg_inf_excluded_with_write_unformed_false_and_default_threshold(self) -> None:
+        self.assertFalse(repositories._passes_filter(np.float64(-np.inf), float("-inf"), False))
+
+    def test_neg_inf_excluded_with_write_unformed_true_and_finite_threshold(self) -> None:
+        self.assertFalse(repositories._passes_filter(np.float64(-np.inf), -10.0, True))
+
+    def test_nan_always_excluded(self) -> None:
+        self.assertFalse(repositories._passes_filter(np.float64(np.nan), float("-inf"), True))
+
+
+class TestEsSubtreeFiltering(TestCase):
+
+    def _run_subtree(
+        self,
+        es_points: list[core_es.Point],
+        settings: PostgresSinkSettings | None,
+    ) -> dict[str, list[dict[str, object]]]:
+        rows_by_table: dict[str, list[dict[str, object]]] = {}
+
+        def capture_bulk_insert(
+            cursor: object,
+            table_name: str,
+            rows: list[dict[str, object]],
+        ) -> None:
+            rows_by_table[table_name] = rows
+
+        def capture_bulk_insert_returning_ids(
+            cursor: object,
+            table_name: str,
+            rows: list[dict[str, object]],
+        ) -> list[int]:
+            rows_by_table[table_name] = rows
+            return list(range(1, len(rows) + 1))
+
+        n = len(es_points)
+        with mock.patch(
+            "eleanor.output.postgres.persistence.repositories._bulk_insert",
+            side_effect=capture_bulk_insert,
+        ):
+            with mock.patch(
+                "eleanor.output.postgres.persistence.repositories._bulk_insert_returning_ids",
+                side_effect=capture_bulk_insert_returning_ids,
+            ):
+                repositories._insert_es_subtree(
+                    mock.MagicMock(), vs_id=1, es_points=es_points, settings=settings
+                )
+        return rows_by_table
+
+    def test_defaults_write_everything(self) -> None:
+        point = _make_es_point(
+            aqueous_species=[_make_aqueous_species("sp1", -3.0)],
+            pure_solids=[_make_pure_solid("ps1", None)],
+            gases=[_make_gas("g1", -5.0)],
+        )
+        rows = self._run_subtree([point], settings=None)
+        self.assertEqual(len(rows.get("equilibrium_aqueous_species", [])), 1)
+        self.assertEqual(len(rows.get("equilibrium_pure_solids", [])), 1)
+        self.assertEqual(len(rows.get("equilibrium_gases", [])), 1)
+
+    def test_min_log_molality_filters_aqueous_excludes_below(self) -> None:
+        settings = PostgresSinkSettings(
+            database=PostgresDatabaseSettings(),
+            write_unformed=True,
+            min_log_molality=-10.0,
+        )
+        point = _make_es_point(
+            aqueous_species=[
+                _make_aqueous_species("sp_pass", -3.0),
+                _make_aqueous_species("sp_fail", -15.0),
+            ],
+            pure_solids=[_make_pure_solid("ps1", None)],
+            gases=[_make_gas("g1", float("-inf"))],
+        )
+        rows = self._run_subtree([point], settings=settings)
+        self.assertEqual(len(rows.get("equilibrium_aqueous_species", [])), 1)
+        self.assertEqual(len(rows.get("equilibrium_pure_solids", [])), 1)
+        self.assertEqual(len(rows.get("equilibrium_gases", [])), 1)
+
+    def test_write_unformed_false_excludes_neg_inf_values(self) -> None:
+        settings = PostgresSinkSettings(
+            database=PostgresDatabaseSettings(),
+            write_unformed=False,
+        )
+        point = _make_es_point(
+            aqueous_species=[_make_aqueous_species("sp1", float("-inf"))],
+            pure_solids=[_make_pure_solid("ps1", None)],
+            gases=[_make_gas("g1", float("-inf"))],
+        )
+        rows = self._run_subtree([point], settings=settings)
+        self.assertEqual(len(rows.get("equilibrium_aqueous_species", [])), 0)
+        self.assertEqual(len(rows.get("equilibrium_pure_solids", [])), 0)
+        self.assertEqual(len(rows.get("equilibrium_gases", [])), 0)
+
+    def test_write_unformed_false_with_finite_threshold(self) -> None:
+        settings = PostgresSinkSettings(
+            database=PostgresDatabaseSettings(),
+            write_unformed=False,
+            min_log_molality=-10.0,
+        )
+        point = _make_es_point(
+            aqueous_species=[
+                _make_aqueous_species("sp_inf", float("-inf")),
+                _make_aqueous_species("sp_pass", -3.0),
+            ],
+            pure_solids=[
+                _make_pure_solid("ps_none", None),
+                _make_pure_solid("ps_pass", -2.0),
+            ],
+            gases=[
+                _make_gas("g_inf", float("-inf")),
+                _make_gas("g_pass", -3.0),
+            ],
+        )
+        rows = self._run_subtree([point], settings=settings)
+        self.assertEqual(len(rows.get("equilibrium_pure_solids", [])), 1)
+        self.assertEqual(len(rows.get("equilibrium_gases", [])), 1)
+        self.assertEqual(len(rows.get("equilibrium_aqueous_species", [])), 1)
+
+    def test_aqueous_at_threshold_boundary_included(self) -> None:
+        settings = PostgresSinkSettings(
+            database=PostgresDatabaseSettings(),
+            min_log_molality=-10.0,
+        )
+        point = _make_es_point(
+            aqueous_species=[_make_aqueous_species("sp1", -10.0)],
+        )
+        rows = self._run_subtree([point], settings=settings)
+        self.assertEqual(len(rows.get("equilibrium_aqueous_species", [])), 1)
+
+    def test_solid_explicit_neg_inf_log_moles_excluded(self) -> None:
+        settings = PostgresSinkSettings(
+            database=PostgresDatabaseSettings(),
+            write_unformed=False,
+        )
+        solid = core_es.PureSolid(
+            name="ps_inf",
+            log_qk=np.float64(0.5),
+            affinity=np.float64(1.0),
+            log_moles=np.float64(-np.inf),
+        )
+        point = _make_es_point(pure_solids=[solid])
+        rows = self._run_subtree([point], settings=settings)
+        self.assertEqual(len(rows.get("equilibrium_pure_solids", [])), 0)
+
+    def test_solid_solution_end_members_follow_parent(self) -> None:
+        settings = PostgresSinkSettings(
+            database=PostgresDatabaseSettings(),
+            write_unformed=False,
+        )
+        point = _make_es_point(
+            solid_solutions=[
+                _make_solid_solution("ss_none", None),
+                _make_solid_solution("ss_pass", -1.0),
+            ],
+        )
+        rows = self._run_subtree([point], settings=settings)
+        self.assertEqual(len(rows.get("equilibrium_solid_solutions", [])), 1)
+        self.assertEqual(len(rows.get("equilibrium_end_members", [])), 1)
+
+    def test_all_filters_simultaneously(self) -> None:
+        settings = PostgresSinkSettings(
+            database=PostgresDatabaseSettings(),
+            write_unformed=False,
+            min_log_molality=-10.0,
+            min_log_moles=-5.0,
+            min_log_fugacity=-5.0,
+        )
+        point = _make_es_point(
+            aqueous_species=[
+                _make_aqueous_species("sp_pass", -3.0),
+                _make_aqueous_species("sp_fail", -15.0),
+            ],
+            pure_solids=[
+                _make_pure_solid("ps_none", None),
+                _make_pure_solid("ps_pass", -2.0),
+            ],
+            gases=[
+                _make_gas("g_inf", float("-inf")),
+                _make_gas("g_pass", -3.0),
+            ],
+        )
+        rows = self._run_subtree([point], settings=settings)
+        self.assertEqual(len(rows.get("equilibrium_aqueous_species", [])), 1)
+        self.assertEqual(len(rows.get("equilibrium_pure_solids", [])), 1)
+        self.assertEqual(len(rows.get("equilibrium_gases", [])), 1)
+

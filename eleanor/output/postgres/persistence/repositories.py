@@ -3,6 +3,7 @@ from contextlib import contextmanager
 from datetime import datetime
 from typing import cast
 
+import numpy as np
 import psycopg
 from psycopg import sql
 
@@ -12,7 +13,7 @@ from eleanor.exceptions import EleanorError
 from eleanor.order import Order
 from eleanor.output.postgres.persistence import connection, converters, migrations, queries, schema
 from eleanor.output.postgres.persistence.converters import OrderRecord, ScratchEntry
-from eleanor.output.postgres.settings import PostgresDatabaseSettings
+from eleanor.output.postgres.settings import PostgresDatabaseSettings, PostgresSinkSettings
 
 
 def setup_schema(config: PostgresDatabaseSettings) -> None:
@@ -61,6 +62,25 @@ def bulk_load_window(config: PostgresDatabaseSettings) -> Generator[None]:
     conn = connection.connect(config)
     with schema.bulk_load_window(conn):
         yield
+
+
+def _passes_filter(value: np.float64, threshold: float, write_unformed: bool) -> bool:
+    """Return True when ``value`` should be written to the database.
+
+    The condition ``(write_unformed or value > -inf) and value >= threshold``
+    has two axes:
+
+    * Unformed values (``-inf``): included only when ``write_unformed`` is
+      ``True`` *and* ``threshold`` is ``-inf`` (the default).  A finite
+      ``threshold`` excludes ``-inf`` values unconditionally because
+      ``-inf >= finite_threshold`` is always ``False``.
+    * Finite values: included when ``value >= threshold``, regardless of
+      ``write_unformed``.
+    * NaN values are always excluded: both ``nan > -inf`` and
+      ``nan >= threshold`` return ``False`` under IEEE 754, so no
+      special-casing is needed.
+    """
+    return bool((write_unformed or value > np.float64(-np.inf)) and value >= threshold)
 
 
 # Postgres' wire protocol caps the number of bind parameters per statement.
@@ -264,6 +284,7 @@ def insert_point(
     connection_obj: psycopg.Connection,
     order_id: int,
     point: core_vs.Point,
+    settings: PostgresSinkSettings | None = None,
 ) -> int:
     """Insert ``point`` and every descendant; return the new variable_space id.
 
@@ -283,7 +304,7 @@ def insert_point(
         # 3. equilibrium_space + ES-side leaf collections, pooled across
         #    ES points (the Level 2 win on the dominant tables).
         if point.es_points:
-            _insert_es_subtree(cur, vs_id, point.es_points)
+            _insert_es_subtree(cur, vs_id, point.es_points, settings)
 
         return vs_id
 
@@ -392,6 +413,7 @@ def _insert_es_subtree(
     cur: psycopg.Cursor,
     vs_id: int,
     es_points: list[core_es.Point],
+    settings: PostgresSinkSettings | None = None,
 ) -> None:
     """Insert every ES point + its leaf children, pooled across ES points.
 
@@ -417,16 +439,46 @@ def _insert_es_subtree(
     # returns ids so we can fan them out as the FK on end_members.
     end_member_lists: list[list[core_es.EndMember]] = []
 
+    write_unformed: bool = settings.write_unformed if settings is not None else True
+    min_log_moles: float = settings.min_log_moles if settings is not None else float("-inf")
+    min_log_molality: float = settings.min_log_molality if settings is not None else float("-inf")
+    min_log_fugacity: float = settings.min_log_fugacity if settings is not None else float("-inf")
+
     for es_id, es in zip(es_ids, es_points, strict=True):
         elements_rows.extend(converters.es_element_to_row(el, es_id) for el in es.elements)
-        aqueous_rows.extend(converters.es_aqueous_species_to_row(sp, es_id) for sp in es.aqueous_species)
-        pure_solid_rows.extend(converters.es_pure_solid_to_row(ps, es_id) for ps in es.pure_solids)
-        gas_rows.extend(converters.es_gas_to_row(g, es_id) for g in es.gases)
+        aqueous_rows.extend(
+            converters.es_aqueous_species_to_row(sp, es_id)
+            for sp in es.aqueous_species
+            if _passes_filter(sp.log_molality, min_log_molality, write_unformed)
+        )
+        pure_solid_rows.extend(
+            converters.es_pure_solid_to_row(ps, es_id)
+            for ps in es.pure_solids
+            if _passes_filter(
+                ps.log_moles if ps.log_moles is not None else np.float64(-np.inf),
+                min_log_moles,
+                write_unformed,
+            )
+        )
+        gas_rows.extend(
+            converters.es_gas_to_row(g, es_id)
+            for g in es.gases
+            if _passes_filter(g.log_fugacity, min_log_fugacity, write_unformed)
+        )
         reactant_rows.extend(converters.es_reactant_to_row(r, es_id) for r in es.reactants)
         redox_rows.extend(converters.es_redox_reaction_to_row(rr, es_id) for rr in es.redox_reactions)
 
-        ss_rows.extend(converters.es_solid_solution_to_row(ss, es_id) for ss in es.solid_solutions)
-        end_member_lists.extend(list(ss.end_members) for ss in es.solid_solutions)
+        filtered_ss = [
+            ss
+            for ss in es.solid_solutions
+            if _passes_filter(
+                ss.log_moles if ss.log_moles is not None else np.float64(-np.inf),
+                min_log_moles,
+                write_unformed,
+            )
+        ]
+        ss_rows.extend(converters.es_solid_solution_to_row(ss, es_id) for ss in filtered_ss)
+        end_member_lists.extend(list(ss.end_members) for ss in filtered_ss)
 
     # 3. Single executemany per leaf table.
     _bulk_insert(cur, "equilibrium_elements", elements_rows)

@@ -528,7 +528,7 @@ class TestOutput(TestCase):
         fake_conn = mock.MagicMock()
         fake_conn.transaction.return_value = nullcontext()
 
-        def insert_point(_conn, _order_id, point) -> int:
+        def insert_point(_conn, _order_id, point, _settings=None) -> int:
             if point is bad_point:
                 raise RuntimeError("write failed")
             return 42
@@ -582,7 +582,7 @@ class TestOutput(TestCase):
         fake_conn = mock.MagicMock()
         fake_conn.transaction.return_value = nullcontext()
 
-        def insert_point(_conn, _order_id, point) -> int:
+        def insert_point(_conn, _order_id, point, _settings=None) -> int:
             if point is bad:
                 raise RuntimeError("write failed")
             if point is good_a:
@@ -799,7 +799,7 @@ class TestOutput(TestCase):
         fake_conn = mock.MagicMock()
         fake_conn.transaction.return_value = nullcontext()
 
-        def insert_point(_conn, _order_id, point) -> int:
+        def insert_point(_conn, _order_id, point, _settings=None) -> int:
             if point is bad:
                 raise ValueError("inner write failed")
             return 9
@@ -891,7 +891,7 @@ class TestOutput(TestCase):
             nullcontext(),
         ]
 
-        def insert_point(_conn, _order_id, point) -> int:
+        def insert_point(_conn, _order_id, point, _settings=None) -> int:
             if point is bad:
                 raise ValueError("per-point oops")
             return 11 if point is good_a else 22

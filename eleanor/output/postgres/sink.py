@@ -126,7 +126,7 @@ class PostgresSink(AbstractOutputSink):
                     point.order_id = order_id
                     try:
                         with conn.transaction(savepoint_name=f"vs_point_{index}"):
-                            _ = repositories.insert_point(conn, order_id, point)
+                            _ = repositories.insert_point(conn, order_id, point, self.settings)
                         pending_slots.append(len(outcomes))
                         pending_results.append(point.exit_code)
                         outcomes.append(

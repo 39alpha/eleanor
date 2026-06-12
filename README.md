@@ -21,12 +21,13 @@ in a Postgres. Eleanor’s modular design allows the user to swap the EQ3/6-base
 > **NOTE**: We support both Linux and MacOS systems. You might have some luck using the Linux Subsystem for Windows, but
 > we don't pretend to support it.
 
-Eleanor requires `python>=3.14` an two external runtime dependencies:
+Eleanor requires `python>=3.14` and two external runtime dependencies:
 
 1. A slightly modified version of EQ3/6 found at [39alpha/eq3_6](https://github.com/39alpha/eq3_6). Future versions will
 likely add other kernels based on other speciation tools, but EQ3/6 is what we have now.
-2. A [PostgreSQL](https://www.postgresql.org/) server. This is honestly the most odious dependency to install, but the
-PostgreSQL docs are pretty good.
+
+A [PostgreSQL](https://www.postgresql.org/) server is required only if you use the `postgres` output sink (recommended
+for large-scale runs).
 
 There are two dev dependencies required for installation:
 
@@ -53,7 +54,7 @@ Top-level commands:
 - `eleanor run` — run a simulation workload from an order file.
 - `eleanor doctor` — print install and plugin diagnostics.
 - `eleanor gen config|order` — emit starter config/order templates.
-- `eleanor postgres schema|scratch|bulkload` — postgres-specific helper commands.
+- `eleanor postgres schema|scratch|bulkload|migrate` — postgres-specific helper commands.
 
 ### `eleanor run`
 
@@ -64,9 +65,9 @@ eleanor run [OPTIONS] ORDER SIMULATION_SIZE
 Common options:
 
 - `-c, --config` / `-d, --database`: select config and optionally override the postgres database name.
-- `-n, --num-procs`: worker count for the selected executor backend.
-- `--parallel BACKEND`: override `parallel.backend` from config (built-ins: `serial`, `multiprocessing`; plugins may add more, e.g. `mpi`).
-- `--chunks-per-worker`: override `parallel.chunks_per_worker`.
+- `-n, --num-workers`: worker count for the selected executor backend.
+- `--executor KIND`: override the executor kind from config (built-ins: `serial`, `multiprocessing`; plugins may add more, e.g. `mpi`).
+- `--chunks-per-worker`: override `executor.chunks_per_worker` from config.
 - `--batch-size`: navigator batch size passed into `navigate(...)`.
 - `--max-nav-attempts`: maximum attempts per navigation point before giving up.
 - `--order-id`: resume/extend an existing order id.
@@ -86,7 +87,7 @@ Built-in output sink types are:
 - `memory`
 - `null`
 
-Select a sink in your config under `output.type`, with sink-specific settings in `output.args`.
+Select a sink in your config under `output.kind`, with sink-specific settings as flat keys alongside `kind`.
 For one-off dry runs, `--null-sink` on `eleanor run` overrides config output without editing files.
 
 ### Resume / extend orders with `--order-id`

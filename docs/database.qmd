@@ -100,17 +100,23 @@ representing "absent" or "missing", e.g. `-inf`. Columns that are nullable
 |:-: |:-: |:-:|---------------------------                                      |---------   |------------------------------------------------------------                                                                                                  |---------      |
 | ✔  |    |   | `id`                                                            | `INTEGER`  | The order identifier                                                                                                                                         |               |
 |    |    |   | `name`                                                          | `VARCHAR`  | The name of the order                                                                                                                                        |               |
-|    |    |   | `tag`                                                           | `VARCHAR`  | An optional tag for organizing orders (default: `""`)                                                                                                        |               |
+|    |    |   | `tags`                                                          | `TEXT[]`   | Tags for organizing orders (default: `'{}'`)                                                                                                                 |               |
 |    |    |   | `eleanor_version`                                               | `VARCHAR`  | The version of eleanor used to run the order                                                                                                                 |               |
-|    |    |   | `raw`                                                           | `JSON`     | The raw, JSON-encoded contents of the order                                                                                                                  |               |
+|    |    |   | `raw`                                                           | `JSONB`    | The raw, JSON-encoded contents of the order                                                                                                                  |               |
 |    |    |   | `create_date`                                                   | `DATETIME` | The datetime at which the order was created                                                                                                                  |               |
 
 : {.striped .bordered}
 
 When the user runs an order, **Eleanor** stores an entry in the `orders` table
 which includes the autoincremented `id`, the name of the order (extracted from
-the YAML/TOML/JSON file), an optional `tag` for organization and the version of
+the YAML/TOML/JSON file), optional `tags` for organization, and the version of
 **Eleanor** used to execute the order.
+
+**Indexes:**
+
+- INDEX `orders_name_idx` on (`name`)
+- INDEX `orders_tags_idx` on (`tags`) USING GIN
+- INDEX `orders_eleanor_version_idx` on (`eleanor_version`)
 
 The `raw` column stores the original content of the order file in JSON format.
 
@@ -119,13 +125,13 @@ The `create_date` value is the datetime at which the order was initially created
 **Example**:
 
 ```sql
-SELECT id, name, tag, eleanor_version, create_date FROM orders;
+SELECT id, name, tags, eleanor_version, create_date FROM orders;
 
-+----+----------------------+------+-----------------+------------------------+
-| id | name                 | tag  | eleanor_version | create_date            |
-|----+----------------------+------+-----------------+------------------------|
-| 1  | A Wild Example Order | test | 0.19.0          | 2026-01-09 10:59:01.98 |
-+----+----------------------+------+-----------------+------------------------+
++----+----------------------+--------+-----------------+------------------------+
+| id | name                 | tags   | eleanor_version | create_date            |
+|----+----------------------+--------+-----------------+------------------------|
+| 1  | A Wild Example Order | {test} | 0.19.0          | 2026-01-09 10:59:01.98 |
++----+----------------------+--------+-----------------+------------------------+
 ```
 
 {{< pagebreak >}}
@@ -206,7 +212,7 @@ SELECT * FROM variable_space ORDER BY id LIMIT 1;
 | PK | FK | N | Column Name                                                     | Type       | Description                                                                                                                                                  | Unit          |
 |:-: |:-: |:-:|---------------------------                                      |---------   |------------------------------------------------------------                                                                                                  |---------      |
 | ✔  | ✔  |   | [`id`](#variable_space)                                         | `INTEGER`  |  The scratch entry identifier corresponds to the variable space id                                                                                           |               |
-|    |    |   | `zip`                                                           | `BLOB`     | A zip archive of the input files used and output files generated when equilibrating the variable space point. This includes a traceback when an error occurs |               |
+|    |    |   | `zip`                                                           | `BYTEA`    | A zip archive of the input files used and output files generated when equilibrating the variable space point. This includes a traceback when an error occurs |               |
 
 : {.striped .bordered}
 
@@ -225,7 +231,7 @@ file is included in the `zip` archive.
 **Example**:
 
 ```sql
-SELECT * FROM scratch WHERE variable_space_id = 1;
+SELECT * FROM scratch WHERE id = 1;
 
 +----+----------+
 | id | zip      |
@@ -240,7 +246,7 @@ SELECT * FROM scratch WHERE variable_space_id = 1;
 |:-: |:-: |:-:|---------------------------                                      |---------   |------------------------------------------------------------                                                                                                  |---------      |
 | ✔  | ✔  |   | [`id`](#variable_space)                                         | `INTEGER`  | The kernel entry identifier corresponds to the variable space point                                                                                          |               |
 |    |    |   | `type`                                                          | `VARCHAR`  | The type of the kernel used, e.g. `eq36`                                                                                                                     |               |
-|    |    |   | `settings`                                                      | `JSON`     | A JSON-encoded object of the settings passed to the kernel                                                                                                   |               |
+|    |    |   | `settings`                                                      | `JSONB`    | A JSON-encoded object of the settings passed to the kernel                                                                                                   |               |
 
 : {.striped .bordered}
 
@@ -995,7 +1001,7 @@ SELECT
 | PK | FK | N | Column Name                                                     | Type       | Description                                                                                                                                                  | Unit          |
 |:-: |:-: |:-:|---------------------------                                      |---------   |------------------------------------------------------------                                                                                                  |---------      |
 | ✔  |    |   | `id`                                                            | `INTEGER`  | The equilibrium element identifier                                                                                                                           |               |
-|    | ✔  |   | [`equilibrium_space_id`](#equilibrium_elements)                 | `INTEGER`  | The id of the equilibrium space point                                                                                                                        |               |
+|    | ✔  |   | [`equilibrium_space_id`](#equilibrium_space)                 | `INTEGER`  | The id of the equilibrium space point                                                                                                                           |               |
 |    |    |   | `name`                                                          | `VARCHAR`  | The name of the element (atomic symbol)                                                                                                                      |               |
 |    |    |   | `log_molality`                                                  | `DOUBLE`   | The molality of the element in solution                                                                                                                      | $\log{molal}$ |
 |    |    |   | `mass_fraction`                                                 | `DOUBLE`   | The fraction of solution mass accounted for by the element                                                                                                   | unitless      |
@@ -1287,8 +1293,8 @@ SELECT *
 - INDEX `equilibrium_end_members_log_qk_idx` on (`log_qk`)
 
 Every [`equilibrium_solid_solutions`](#equilibrium_solid_solutions) entry will
-be associated with some number of rows in the `equilibrium_pure_solids` table,
-one for each solid solution. These rows record the `name`, saturation index
+be associated with some number of rows in the `equilibrium_end_members` table,
+one for each end member. These rows record the `name`, saturation index
 (`log_qk`), `affinity`, `log_moles`, `log_mass` and `log_volume` of the solid
 phase.
 
@@ -1376,7 +1382,7 @@ date: 2026-01-09
 notes: This is a nonsensical order intended to demonstrate a wide
 
 kernel:
-  type: eq36
+  kind: eq36
   model: b-dot
   charge_balance: H+
   track_paths: true

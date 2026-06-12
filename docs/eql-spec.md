@@ -1,6 +1,7 @@
 # Eleanor Query Language (EQL) — Specification
 
 **Status:** Draft v0.1
+
 **Scope:** normative specification of the query language; non-normative examples are marked as such.
 
 ## 1. Purpose
@@ -35,6 +36,8 @@ EQL treats union types other than `T | None` as opaque leaves. If a field is dec
 Leaf values are returned to consumers as their native Python objects. EQL assigns no special meaning to `datetime`, `bytes`, `Exception`, `None`, enums, or any other leaf type. All rendering is the consumer's concern.
 
 `None` is a legal leaf value and **MUST NOT** be conflated with a missing path (§11).
+
+Note: fields that were formerly top-level scalars on `ESPoint` but were moved to `custom_properties` (e.g. `solution_volume`, `charge_discrepancy`) are not accessible as direct path segments; they reside inside the `custom_properties` dict.
 
 ## 4. Grammar
 
@@ -189,7 +192,7 @@ A column path **MAY** terminate in a meta-accessor (§7.1); the column's value i
 A bare string is a path whose column name is derived per §8.5.
 
 ```yaml
-- es.pH
+- es.ph
 - es.aqueous_species[name=Ca+2].log_molality
 ```
 
@@ -307,7 +310,7 @@ Per-column policy, or the file-level default in its absence (priority: column > 
 
 ### 11.3 Explicit `None` vs. miss
 
-An attribute whose value is legitimately `None` (e.g. `ESPoint.solution_volume` when the kernel did not compute it) is **not** a miss when it is the terminal of a path; the column's value is `None`. It **is** a miss when the path continues through it.
+An attribute whose value is legitimately `None` (e.g. `es.Point.log_xi` when the equilibrium space point represents the `eq3` stage, where $\xi$ is undefined) is **not** a miss when it is the terminal of a path; the column's value is `None`. It **is** a miss when the path continues through it.
 
 ## 12. Filter and value coercion
 
@@ -431,7 +434,7 @@ columns:
   - order.name
   - order.id
   - {splat: vs, exclude: [scratch]}
-  - {splat: es, exclude: [charge_discrepancy, sigma]}
+  - {splat: es, exclude: [custom_properties]}
   - es.aqueous_species[name=Ca+2].log_molality
   - es.aqueous_species[name=Cl-].log_molality
   - es.pure_solids[name=Calcite].affinity
@@ -454,7 +457,7 @@ row_scope: es.solid_solutions[*].end_members[*]
 columns:
   - order.id
   - vs.temperature
-  - es.pH
+  - es.ph
   - solid_solution.name
   - {splat: self}
 ```
@@ -495,10 +498,10 @@ row_scope: vs_points[*]
 columns:
   - vs.@index
   - vs.temperature
-  - es.pH
+  - vs.ph
 ```
 
-Yields one row per variable-space point, with the `index` column carrying the 0-based position of the row's `vs_point` within `vs_points`.
+Yields one row per variable-space point, with the `index` column carrying the 0-based position of the row's `vs_point` within `vs_points`. Note: `es.ph` is not in scope here because `row_scope` iterates `vs_points`, not `es_points`; accessing equilibrium data requires a deeper scope such as `vs_points[*].es_points[*]`.
 
 ```yaml
 row_scope: order.species[*]

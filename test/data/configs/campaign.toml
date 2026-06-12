@@ -3,8 +3,7 @@ notes = "For use to test for Eleanor regressions"
 creator = "39 Alpha Research, Team 0"
 
 [kernel]
-type = "eq36"
-[kernel.args]
+kind = "eq36"
 model = "b-dot"
 charge_balance = "H+"
 

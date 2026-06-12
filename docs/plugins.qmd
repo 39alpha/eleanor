@@ -6,19 +6,20 @@ Eleanor exposes four extension points that share a single plugin model: a
 generic in-process registry, lazy entry-point discovery, and a common
 collision/override policy. The registry primitive lives at
 `eleanor.plugin.PluginRegistry`; each extension point instantiates it with its
-own factory shape and built-in name set.
+own spec shape and built-in name set.
 
 ## Extension points
 
-| Kind          | Entry-point group        | Factory signature                                           |
-|---------------|--------------------------|-------------------------------------------------------------|
-| Executor      | `eleanor.executors`      | `Callable[[int | None], AbstractExecutor]`                  |
-| Kernel        | `eleanor.kernels`        | `KernelSpec` (or a zero-arg callable returning one)         |
-| Navigator     | `eleanor.navigators`     | `Callable[[Order, Kernel, **args], AbstractNavigator]`      |
-| Output sink   | `eleanor.outputs`        | `Callable[[Config, **args], OutputSink]`                    |
+| Kind          | Entry-point group        | Spec type                   |
+|---------------|--------------------------|-----------------------------|
+| Executor      | `eleanor.executors`      | `ConfigurablePluginSpec`    |
+| Kernel        | `eleanor.kernels`        | `ConfigurablePluginSpec`    |
+| Navigator     | `eleanor.navigators`     | `SimplePluginSpec`          |
+| Output sink   | `eleanor.outputs`        | `ConfigurablePluginSpec`    |
 
-Output sink registries also forward `verbose` as an optional keyword argument
-when calling the factory.
+Every entry point must resolve to a `SimplePluginSpec` or
+`ConfigurablePluginSpec` instance (from `eleanor.plugin`). Bare callables are
+not accepted.
 
 Names are short strings (e.g. `random`, `eq36`, `dask`). Built-in names are
 reserved and cannot be overridden through the registry; see
@@ -26,41 +27,42 @@ reserved and cannot be overridden through the registry; see
 
 ## Configuration shape
 
-Kernel, navigator, and output sink selection all use the same
-`{type, args}` shape (with kernel
-deferring settings parsing to the plugin's `KernelSpec.settings_from_dict`):
+Kernel, navigator, and output sink selection all use the same flat `kind`-keyed
+shape. The `kind` key selects the plugin; all remaining keys are forwarded to
+the plugin's `parse_settings` as a flat dict:
 
 ```yaml
 kernel:
-  type: eq36
-  args:
-    model: b-dot
-    charge_balance: H+
+  kind: eq36
+  model: b-dot
+  charge_balance: H+
 
 navigator:
-  type: random
-  args: {seed: 42}
+  kind: random
 
 output:
-  type: postgres
-  args: {}
+  kind: postgres
+  database:
+    host: localhost
+    port: 5432
+    database: eleanor
 ```
 
 The short-string form `navigator: random` is accepted as sugar for
-`{type: random, args: {}}`.
+`{kind: random}`.
 ### Navigator contract
 Navigator plugins must expose:
 
-- `num_systems(scale: int) -> int`: total number of VS points the navigator
-  will produce for the given scale.
-- `navigate(scale: int, batch_size: int, *args, **kwargs) -> Iterator[list[vs.Point]]`:
+- `num_systems(order: Order, scale: int) -> int`: total number of VS points the
+  navigator will produce for the given scale.
+- `navigate(order: Order, kernel: AbstractKernel, scale: int, batch_size: int, *args, order_id=None, **kwargs) -> Iterator[list[vs.Point]]`:
   a batch iterator that yields lists of up to `batch_size` points.
 
 Eleanor passes `order_id` and `max_attempts` as keyword arguments to
 `navigate`; plugins should accept `**kwargs` to tolerate future additions.
 
 Across a complete `navigate(...)` iteration, the total number of yielded
-points must match `num_systems(scale)`. Eleanor raises an error if the
+points must match `num_systems(order, scale)`. Eleanor raises an error if the
 counts diverge.
 
 ## Distributing a third-party plugin
@@ -70,13 +72,13 @@ in the distribution's `pyproject.toml`:
 
 ```toml
 [project.entry-points."eleanor.navigators"]
-my_nav = "my_project.navigators:MyNavigator"
+my_nav = "my_project.navigators:my_nav_spec"
 
 [project.entry-points."eleanor.kernels"]
-my_kernel = "my_project.kernels:kernel_spec"
+my_kernel = "my_project.kernels:my_kernel_spec"
 
 [project.entry-points."eleanor.outputs"]
-my_sink = "my_project.outputs:build_sink"
+my_sink = "my_project.outputs:my_sink_spec"
 ```
 
 Discovery runs lazily on the first call to `available_*()` or `get_*()` for
@@ -103,16 +105,18 @@ version = "0.1.0"
 dependencies = ["eleanor>=0.0.0"]
 
 [project.entry-points."eleanor.outputs"]
-my_sink = "my_sink_plugin.output:build_sink"
+my_sink = "my_sink_plugin.output:my_sink_spec"
 ```
 
 `src/my_sink_plugin/output.py`:
 
 ```python
-from eleanor.output.interface import ComputeResult, OutputSink, WriteOutcome
+from eleanor.output.interface import ComputeResult, AbstractOutputSink, WriteOutcome
+from eleanor.output.settings import OutputSinkSettings
+from eleanor.plugin import ConfigurablePluginSpec
 
 
-class MySink(OutputSink):
+class MySink(AbstractOutputSink):
     def begin_run(self, order):
         return order.id or 0
 
@@ -126,20 +130,26 @@ class MySink(OutputSink):
         return None
 
 
-def build_sink(config, *, verbose: bool = False, **args):
-    _ = (config, verbose, args)
+def _parse_settings(raw: dict) -> OutputSinkSettings:
+    return OutputSinkSettings.from_dict(raw)
+
+
+def _build_sink(settings: object) -> MySink:
     return MySink()
 
 
-build_sink.__eleanor_api_version__ = 1
+my_sink_spec = ConfigurablePluginSpec(
+    parse_settings=_parse_settings,
+    build=_build_sink,
+    plugin_api_version=1,
+)
 ```
 
 Install the package, then reference it in Eleanor config:
 
 ```yaml
 output:
-  type: my_sink
-  args: {}
+  kind: my_sink
 ```
 
 You can verify discovery with:
@@ -152,14 +162,15 @@ eleanor doctor
 
 Every extension point supports two non-packaged registration paths:
 
-1. **Programmatic name registration.** Call `register_<kind>(name, factory)`
+1. **Programmatic name registration.** Call `register_<kind>(name, spec)`
    from the host script, then reference the name in the order file or CLI:
 
    ```python
-   from eleanor.navigator import register_navigator
+   from eleanor.navigator.registry import register_navigator
+   from eleanor.plugin import SimplePluginSpec
    from my_script import MyNavigator
 
-   register_navigator("my_nav", lambda order, kernel, **args: MyNavigator(order, kernel, **args))
+   register_navigator("my_nav", SimplePluginSpec(build=MyNavigator))
    ```
 
 2. **Direct instance override.** `Eleanor.run` accepts already-constructed
@@ -168,10 +179,9 @@ Every extension point supports two non-packaged registration paths:
    ```python
    from eleanor import Eleanor
 
-   Eleanor(config, []).run(
+   Eleanor(config=config).run(
        order,
        simulation_size,
-       executor=MyExecutor(num_workers=4),
        navigator=my_navigator_instance,
        kernel=my_kernel_instance,
        output_sink=my_output_sink_instance,
@@ -179,27 +189,26 @@ Every extension point supports two non-packaged registration paths:
    ```
 
    The override, when supplied, short-circuits the registry lookup for that
-   extension point only.
+   extension point only. The `executor` override must be supplied at
+   construction time (`Eleanor(executor=my_executor)`), not per-run.
 
-## Kernel `KernelSpec`
+## Writing a kernel plugin
 
-Kernel plugins register a small `KernelSpec` bundle rather than a single
-callable, because a kernel has two entry points: parsing order-file settings
-and constructing the kernel at run time.
+Kernel plugins register a `ConfigurablePluginSpec` that bundles two entry
+points: parsing order-file settings and constructing the kernel at run time.
 
 ```python
-from eleanor.kernel.registry import KernelSpec, register_kernel
+from eleanor.kernel.registry import register_kernel
+from eleanor.plugin import ConfigurablePluginSpec
 from my_project.kernel import MyKernel, MySettings
 
-spec = KernelSpec(
-    settings_from_dict=MySettings.from_dict,
-    build=lambda settings, *args: MyKernel(settings, *args),
+my_kernel_spec = ConfigurablePluginSpec(
+    parse_settings=MySettings.from_dict,
+    build=lambda settings: MyKernel(settings),
+    plugin_api_version=1,
 )
-register_kernel("my_kernel", spec)
+register_kernel("my_kernel", my_kernel_spec)
 ```
-
-Entry points may resolve to either a `KernelSpec` directly or a zero-argument
-callable returning one; the registry validator normalises both forms.
 
 ## Commercial plugins
 
@@ -221,7 +230,8 @@ No shadowing is allowed:
   already-registered name are a hard error.
 
 To replace a built-in at run time without touching the registry, use the
-direct-instance-override path on `Eleanor.run(executor=..., kernel=..., ...)`.
+direct-instance-override path on `Eleanor.run(kernel=..., ...)` or pass an
+executor at construction time via `Eleanor(executor=...)`.
 
 The `ELEANOR_<KIND>_OVERRIDES` environment variable only affects API-version
 checks (downgrading version mismatches to warnings); it has no effect on name
@@ -230,20 +240,17 @@ collision handling.
 ## Writing a new extension point
 
 If you add a new pluggable concept to Eleanor, instantiate another
-`PluginRegistry` with the appropriate factory shape and entry-point group.
+`PluginRegistry` with the appropriate spec shape and entry-point group.
 The generic primitive handles discovery, validation, collision resolution, and
 override semantics, so the new registry module stays small:
 
 ```python
 from eleanor.plugin import PluginRegistry
 
-MyFactory = Callable[..., 'MyAbstractThing']
-
 registry = PluginRegistry(
     kind='thing',
     entry_point_group='eleanor.things',
     override_env_var='ELEANOR_THING_OVERRIDES',
-    builtins={},
     builtin_names=frozenset({'default'}),
 )
 
@@ -252,13 +259,12 @@ available_things = registry.available
 get_factory = registry.get
 ```
 
-`builtins` seeds factories directly at construction time (useful for tests);
-`builtin_names` reserves names whose factories will arrive via entry-point
-discovery. In production registries the two are usually disjoint: `builtins`
-is empty and `builtin_names` lists the names declared in `pyproject.toml`.
+`builtin_names` reserves names whose specs will arrive via entry-point
+discovery. In production registries `builtin_names` lists the names declared
+in `pyproject.toml`.
 
 Then declare the built-in in `pyproject.toml` so discovery can load it:
 ```toml
 [project.entry-points."eleanor.things"]
-default = "eleanor.thing.factories:build_default"
+default = "eleanor.thing.factories:default_spec"
 ```

@@ -4,11 +4,10 @@ date: 2025-12-08
 notes: Show the effects of suppressions
 
 kernel:
-  type: eq36
-  args:
-    model: b-dot
-    track_path: false
-    charge_balance: H+
+  kind: eq36
+  model: b-dot
+  track_path: false
+  charge_balance: H+
 
 temperature:
   max: 40
@@ -44,9 +43,7 @@ reactants:
       mean: -1
       stddev: 0.05
 
-suborders:
-  - suppressions: null
-  - suppressions:
-      - METHANE
-      - graphite
-      - antigorite
+suppressions:
+  - METHANE
+  - graphite
+  - antigorite

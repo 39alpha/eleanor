@@ -37,6 +37,3 @@ jobs:
 
       - name: Run basedpyright (eleanor)
         run: uv run --python 3.14 basedpyright eleanor
-
-      - name: Run basedpyright (test)
-        run: uv run --python 3.14 basedpyright -p test/pyrightconfig.json

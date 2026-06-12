@@ -42,7 +42,7 @@ jobs:
       - name: Run pytest
         run: uv run --python ${{ matrix.python-version }} pytest -q
 
-  integration:
+  integration-postgres-17:
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -84,3 +84,47 @@ jobs:
         env:
           ELEANOR_TEST_DATABASE_URL: postgresql://eleanor:eleanor@localhost:5432/eleanor_test
         run: uv run --python 3.14 pytest test/integration -q
+
+  integration-postgres-18:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: eleanor
+          POSTGRES_PASSWORD: eleanor
+          POSTGRES_DB: eleanor_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U eleanor"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Fortran and Meson build tooling
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gfortran meson ninja-build
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Set up Python 3.14
+        run: uv python install 3.14
+
+      - name: Sync dependencies (incl. dev group)
+        run: uv sync --python 3.14 --group dev
+
+      - name: Run integration tests
+        env:
+          ELEANOR_TEST_DATABASE_URL: postgresql://eleanor:eleanor@localhost:5432/eleanor_test
+        run: uv run --python 3.14 pytest test/integration -q
+

@@ -627,7 +627,7 @@ contains
                     ! Calling sequence substitutions:
                     !   adbdhh for arr
                     !   ipch_asv for ipcx_asv
- 
+
                     call indatd(nad1,adbdhh,ipc,ipch_asv,narxt,narx_asv,ntprt, &
                                 ntpr_asv,ux24)
                 end do
@@ -965,7 +965,7 @@ contains
                        palpaa, uspeca, zchara)
         end if
 
-        ! The following is a bit of nonsense so compiler warnings will not be 
+        ! The following is a bit of nonsense so compiler warnings will not be
         ! generated saying that ux80, ustr, ustr2, and ustr3 are not used (they are
         ! all used to read unused data).
         ux80(1:56) = ux56
@@ -1164,12 +1164,12 @@ contains
         logical qarray(nmax),qvalue
 
         integer i,ileft
- 
+
         logical qv
 
         qv = qvalue
         ileft = (nmax/8)*8
- 
+
         do i = 1,ileft,8
             qarray(i) = qv
             qarray(i + 1) = qv
@@ -2020,7 +2020,7 @@ contains
         end if
 
         if (usblkf(1:24) .eq. uaqsln(1:24)) nata = nata + 1
- 
+
         if (usblkf(1:24) .eq. uptsld(1:24)) then
             nmta = nmta + 1
             np = np + 1

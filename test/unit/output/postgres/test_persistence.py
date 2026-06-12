@@ -1531,4 +1531,3 @@ class TestEsSubtreeFiltering(TestCase):
         self.assertEqual(len(rows.get("equilibrium_aqueous_species", [])), 1)
         self.assertEqual(len(rows.get("equilibrium_pure_solids", [])), 1)
         self.assertEqual(len(rows.get("equilibrium_gases", [])), 1)
-

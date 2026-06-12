@@ -2,23 +2,34 @@ default_language_version:
   python: python3.14
 
 repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: check-merge-conflict
+      - id: check-yaml
+      - id: check-toml
+      - id: end-of-file-fixer
+        exclude: "^test/data"
+      - id: trailing-whitespace
+        exclude: "^test/data"
+      - id: check-added-large-files
+
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.21.2
+    hooks:
+      - id: gitleaks
+
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.15.12
     hooks:
-      # Lint (pycodestyle E/W + Pyflakes F + isort I), with autofix.
       - id: ruff-check
         args: [--fix]
         files: ^eleanor/.*\.py$
-      # Format (replaces yapf). Same scope as ruff-check.
       - id: ruff-format
         files: ^eleanor/.*\.py$
 
   - repo: local
     hooks:
-      # Type-check eleanor/ with basedpyright (strict defaults).
-      # Runs as a single invocation over the whole package
-      # (pass_filenames: false) because pyright/basedpyright works best
-      # at project granularity.
       - id: basedpyright
         name: basedpyright (eleanor)
         entry: uv run basedpyright eleanor

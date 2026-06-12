@@ -319,4 +319,3 @@ CREATE INDEX IF NOT EXISTS "orders_name_idx" ON "orders" ("name");
 CREATE INDEX IF NOT EXISTS "orders_tag_idx" ON "orders" ("tag");
 
 CREATE INDEX IF NOT EXISTS "orders_eleanor_version_idx" ON "orders" ("eleanor_version");
-

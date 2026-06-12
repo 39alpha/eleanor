@@ -127,4 +127,3 @@ jobs:
         env:
           ELEANOR_TEST_DATABASE_URL: postgresql://eleanor:eleanor@localhost:5432/eleanor_test
         run: uv run --python 3.14 pytest test/integration -q
-

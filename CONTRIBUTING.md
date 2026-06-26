@@ -153,7 +153,7 @@ Please follow these steps to have your contribution considered by the maintainer
 * Use the imperative mood ("Fix navigator batch size..." not "Fixes navigator batch size...")
 * Limit the first line to 72 characters or less
 * Reference issues and pull requests liberally after the first line
-* When only changing documentation, include `[skip-ci]` in the commit title
+* When only changing documentation, include `[skip ci]` in the commit title
 * Consider starting the commit message with an applicable emoji:
     - :art: `:art:` when improving the format/structure of the code
     - :racehorse: `:racehorse:` when improving performance

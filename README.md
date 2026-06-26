@@ -152,13 +152,3 @@ eval "$(_ELEANOR_COMPLETE=zsh_source eleanor)"
 ```bash
 _ELEANOR_COMPLETE=fish_source eleanor | source
 ```
-
-## MPI backend (optional)
-
-MPI support is provided by the separately-distributed `eleanor_mpi` plugin package. Installing it registers the `mpi` backend with Eleanor's executor registry; no configuration changes are required.
-
-```bash
-pip install eleanor_mpi
-```
-
-See the `eleanor_mpi` README for launcher details, worker-count semantics, and progress-reporting caveats.

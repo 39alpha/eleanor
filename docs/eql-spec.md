@@ -198,18 +198,23 @@ A bare string is a path whose column name is derived per §8.5.
 
 ### 8.2 Structured column record
 
-A mapping with these fields:
+A mapping whose keys are drawn from the following closed set:
 
 - `path` (required, string) — the path to evaluate.
 - `name` (optional, string) — explicit column name; overrides §8.5.
 - `on_missing` (optional, `MissingPolicy`) — per-column override of the file-level policy.
 - `default` (optional, any leaf value) — substitute used when `on_missing == null`.
+- `meta` (optional, mapping) — consumer-facing annotations (§14). Keys **MUST** be strings; values are opaque. EQL **MUST NOT** interpret `meta`; it is carried through compilation unchanged and exposed on the compiled column for the consumer.
+
+Any other top-level key on a structured column record is rejected at load time with `ParseError`. This keeps field typos (e.g. `on_mising`) from being silently accepted; consumer-defined keys **MUST** be nested under `meta` rather than placed at the top level.
 
 ```yaml
 - path: es.aqueous_species[name=Ca+2].log_molality
   name: log_m_Ca
   on_missing: null
   default: null
+  meta:
+    greater_than: -6
 ```
 
 ### 8.3 Splat directive
@@ -386,6 +391,7 @@ Evaluation **MUST** be streaming: at any point in time, only the current row's c
 - Consumers receive the compiled column list and a row iterator.
 - Consumers are responsible for rendering leaf values (formatting, null representation, byte handling, type mapping, etc.).
 - Consumers **MAY** carry per-column render metadata out-of-band of EQL (e.g. a CSV sink's `format` overlay, a Postgres sink's type-cast hints). Such metadata **MUST NOT** alter the values produced by evaluation; only how they are serialized.
+- A structured column **MAY** carry inline consumer annotations in its `meta` mapping (§8.2). EQL treats `meta` as opaque: it neither validates nor acts on the contents, and passes the mapping through to the consumer on the compiled column unchanged. A consumer **MAY** interpret its own `meta` keys to drive behaviour beyond serialization — including post-extraction row filtering or aggregation (e.g. a `greater_than` annotation used to drop rows). Such consumer behaviour **MUST NOT** change the row stream produced by `evaluate` (§13.2); it applies only downstream of evaluation, in the consumer. Annotation semantics are entirely consumer-defined and are therefore not portable across consumers unless they share a convention.
 - Consumers **MUST NOT** mutate rows or the source tree.
 - Two consumers evaluating the same compiled query against the same `Order` **MUST** observe identical row streams.
 

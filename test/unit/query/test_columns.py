@@ -66,6 +66,48 @@ class TestColumns(TestCase):
         with self.assertRaises(ParseError):
             desugar_columns([{"path": "point.index", "splat": "point"}], table)
 
+    def test_structured_column_carries_meta_annotations(self) -> None:
+        """
+        Ensure a structured column's ``meta`` mapping is exposed, unchanged, on
+        the resulting spec (spec §8.2). EQL does not interpret its contents.
+        """
+        table = self._point_scope()
+        specs = desugar_columns(
+            [{"path": "point.chemistry.ph", "meta": {"greater_than": -6}}],
+            table,
+        )
+        self.assertEqual(dict(specs[0].meta), {"greater_than": -6})
+
+    def test_non_structured_columns_default_to_empty_meta(self) -> None:
+        """
+        Ensure bare-path columns (which cannot carry ``meta``) default to an
+        empty annotation map rather than ``None``.
+        """
+        table = self._point_scope()
+        specs = desugar_columns(["point.index"], table)
+        self.assertEqual(dict(specs[0].meta), {})
+
+    def test_structured_column_rejects_unknown_top_level_key(self) -> None:
+        """
+        Ensure unknown top-level keys (e.g. a field typo, or an annotation
+        placed outside ``meta``) are rejected rather than silently dropped.
+        """
+        table = self._point_scope()
+        with self.assertRaises(ParseError):
+            desugar_columns([{"path": "point.chemistry.ph", "on_mising": "blank"}], table)
+        with self.assertRaises(ParseError):
+            desugar_columns([{"path": "point.chemistry.ph", "greater_than": -6}], table)
+
+    def test_structured_column_rejects_malformed_meta(self) -> None:
+        """
+        Ensure ``meta`` must be a mapping with string keys.
+        """
+        table = self._point_scope()
+        with self.assertRaises(ParseError):
+            desugar_columns([{"path": "point.chemistry.ph", "meta": [1, 2]}], table)
+        with self.assertRaises(ParseError):
+            desugar_columns([{"path": "point.chemistry.ph", "meta": {1: "x"}}], table)
+
     def test_desugar_columns_splat_and_preset_expansions(self) -> None:
         """
         Ensure splat and preset entries expand into generated column specs with source metadata.

@@ -1,6 +1,7 @@
 import io
 import os
 import sys
+from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
 from shutil import copyfile
@@ -17,13 +18,93 @@ from eleanor.kernel.eq36.constraints import TemperatureRangeConstraint, TPCurveC
 from eleanor.kernel.eq36.data1 import Data1
 from eleanor.kernel.eq36.exec import eq3, eq6
 from eleanor.kernel.eq36.parsers import OutputParser3, OutputParser6
-from eleanor.kernel.eq36.settings import IOPT_1, IOPT_4, Eq3Settings, Eq6Settings, Eq36Settings
+from eleanor.kernel.eq36.settings import FILTER_OPERATIONS, IOPT_1, IOPT_4, Eq3Settings, Eq6Settings, Eq36Settings
 from eleanor.kernel.eq36.util import read_pickup_lines
 from eleanor.kernel.exceptions import EleanorKernelError
 from eleanor.kernel.interface import AbstractKernel
 from eleanor.order import Order
+from eleanor.query import CompiledQuery, compile_query, evaluate
 from eleanor.typing import EleanorKwargs, StrPath
-from eleanor.util import NumberFormat, guard_is_instance
+from eleanor.util import NumberFormat, guard_is_instance, require_float
+
+
+def _require_float(value: object, field_name: str) -> np.float64:
+    if isinstance(value, str):
+        value = value.strip().lower()
+        if value in ["-inf", "inf", "+inf", "-infinity", "infinity", "+infinity"]:
+            return np.float64(value)
+        msg = f"{field_name} must be a floating-point number"
+        raise EleanorError(msg)
+    return require_float(value, field_name)
+
+
+def _lt(value: object, condition: object, value_name: str, condition_name: str) -> bool:
+    return bool(_require_float(value, value_name) < _require_float(condition, condition_name))
+
+
+def _le(value: object, condition: object, value_name: str, condition_name: str) -> bool:
+    return bool(_require_float(value, value_name) <= _require_float(condition, condition_name))
+
+
+def _eq(value: object, condition: object, value_name: str, condition_name: str) -> bool:
+    if isinstance(value, type(condition)) and isinstance(condition, type(value)):
+        return value == condition
+
+    return float(_require_float(value, value_name)) == float(_require_float(condition, condition_name))
+
+
+def _ne(value: object, condition: object, value_name: str, condition_name: str) -> bool:
+    if isinstance(value, type(condition)) and isinstance(condition, type(value)):
+        return value != condition
+
+    return float(_require_float(value, value_name)) != float(_require_float(condition, condition_name))
+
+
+def _ge(value: object, condition: object, value_name: str, condition_name: str) -> bool:
+    return bool(_require_float(value, value_name) >= _require_float(condition, condition_name))
+
+
+def _gt(value: object, condition: object, value_name: str, condition_name: str) -> bool:
+    return bool(_require_float(value, value_name) > _require_float(condition, condition_name))
+
+
+FILTER_CONDITIONS = {
+    "lt": _lt,
+    "le": _le,
+    "eq": _eq,
+    "ne": _ne,
+    "ge": _ge,
+    "gt": _gt,
+}
+
+
+def _matches_query(query: CompiledQuery) -> Callable[[es.Point], bool]:
+
+    def condition(point: es.Point) -> bool:
+        rows = list(evaluate(query, point))
+        if len(rows) != 1:
+            msg = f"kernel.filter query should return exactly one row, got {len(rows)}"
+            raise EleanorKernelError(msg)
+        mapping = rows[0]
+
+        for column in query.compiled_columns:
+            name, meta = column.spec.name, column.spec.meta
+            ops = FILTER_OPERATIONS.intersection(meta.keys())
+            if len(ops) != 1:
+                accepted_ops = ", ".join(f"{op!r}" for op in dict.fromkeys(FILTER_CONDITIONS))
+                msg = f"kernel.filter.column {name!r} meta must include exactly one of: {accepted_ops}"
+                raise EleanorKernelError(msg)
+
+            op, *_ = ops
+            condition = FILTER_CONDITIONS[op]
+            value_name = f"kernel.filter value for column {name!r}"
+            condition_name = f"kernel.filter {op!r} threshold for column {name!r}"
+            if not condition(mapping[name], meta[op], value_name, condition_name):
+                return False
+
+        return True
+
+    return condition
 
 
 class Eq36Kernel(AbstractKernel):
@@ -250,7 +331,14 @@ class Eq36Kernel(AbstractKernel):
                 for point in eq6_results:
                     point.start_date, point.complete_date = start_date, complete_date
 
-            return [eq3_results, *eq6_results]
+            points = [eq3_results, *eq6_results]
+
+            if settings.filter:
+                query = compile_query(es.Point, settings.filter)
+                points = list(filter(_matches_query(query), points))
+
+            return points
+
         except EleanorError:
             raise
         except Exception as e:

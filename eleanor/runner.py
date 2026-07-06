@@ -56,7 +56,7 @@ class Runner:
 
         for point in point_list:
             vs_point = self.work(point, *args, **kwargs)
-            exception: Exception | None = getattr(vs_point, "exception", None)
+            exception: Exception | None = vs_point.exception
             error = None if exception is None else ErrorInfo.from_exception(exception)
             if exception is not None:
                 vs_point.exception = None
@@ -105,8 +105,7 @@ class Runner:
                 vs_point.scratch = Runner.collect_scratch(tempdir)
                 vs_point.exception = e
                 if isinstance(e, EleanorKernelError):
-                    code = getattr(e, "code", None)
-                    vs_point.exit_code = code if isinstance(code, int) else -1
+                    vs_point.exit_code = e.code
                 else:
                     vs_point.exit_code = -1
 

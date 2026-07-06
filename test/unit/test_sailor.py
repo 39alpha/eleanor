@@ -1,5 +1,5 @@
-from types import SimpleNamespace
 from typing import cast
+from types import SimpleNamespace
 from unittest import TestCase, mock
 
 from eleanor.exceptions import EleanorError
@@ -10,7 +10,7 @@ from eleanor.variable_space import Point
 
 
 def _vs_point(**kwargs: object) -> Point:
-    return cast(Point, cast(object, SimpleNamespace(**kwargs)))
+    return cast(Point, cast(object, SimpleNamespace({'exception': None, **kwargs})))
 
 
 class TestRunner(TestCase):
@@ -23,7 +23,7 @@ class TestRunner(TestCase):
         Ensure that list dispatch returns one ComputeResult per input point.
         """
         runner = Runner(kernel=mock.Mock())
-        points = [SimpleNamespace(exit_code=0), SimpleNamespace(exit_code=0)]
+        points = [_vs_point(exit_code=0), _vs_point(exit_code=0)]
 
         with mock.patch.object(Runner, "work", side_effect=points) as work_mock:
             results = runner.dispatch([_vs_point(), _vs_point()])
@@ -40,7 +40,7 @@ class TestRunner(TestCase):
         """
         runner = Runner(kernel=mock.Mock())
 
-        point = SimpleNamespace(exit_code=0)
+        point = _vs_point(exit_code=0)
         with mock.patch.object(Runner, "work", return_value=point):
             results = runner.dispatch(_vs_point())
 
@@ -54,7 +54,7 @@ class TestRunner(TestCase):
         sink and order_id are supplied, and returns the WriteOutcome list.
         """
         runner = Runner(kernel=mock.Mock())
-        points = [SimpleNamespace(exit_code=0), SimpleNamespace(exit_code=0)]
+        points = [_vs_point(exit_code=0), _vs_point(exit_code=0)]
         outcomes = [
             WriteOutcome(exit_code=0, committed=True),
             WriteOutcome(exit_code=0, committed=True),
@@ -90,9 +90,9 @@ class TestRunner(TestCase):
             Runner,
             "work",
             side_effect=[
-                SimpleNamespace(exit_code=0),
-                SimpleNamespace(exit_code=0),
-                SimpleNamespace(exit_code=0),
+                _vs_point(exit_code=0),
+                _vs_point(exit_code=0),
+                _vs_point(exit_code=0),
             ],
         ):
             _ = runner.dispatch(
@@ -111,7 +111,7 @@ class TestRunner(TestCase):
         out_progress = mock.Mock()
 
         with mock.patch.object(
-            Runner, "work", return_value=SimpleNamespace(exit_code=0)
+            Runner, "work", return_value=_vs_point(exit_code=0)
         ):
             _ = runner.dispatch(
                 [_vs_point()], sink=sink, order_id=1, out_progress=out_progress
@@ -127,7 +127,7 @@ class TestRunner(TestCase):
         runner = Runner(kernel=mock.Mock())
 
         with mock.patch.object(
-            Runner, "work", return_value=SimpleNamespace(exit_code=0)
+            Runner, "work", return_value=_vs_point(exit_code=0)
         ):
             results = runner.dispatch([_vs_point(), _vs_point()])
 
@@ -141,10 +141,10 @@ class TestRunner(TestCase):
         runner = Runner(kernel=mock.Mock())
         sink = mock.Mock()
         with mock.patch.object(
-            Runner, "work", return_value=SimpleNamespace(exit_code=0)
+            Runner, "work", return_value=_vs_point(exit_code=0)
         ):
             with self.assertRaises(EleanorError):
-                runner.dispatch([_vs_point()], sink=sink)
+                _ = runner.dispatch([_vs_point()], sink=sink)
         sink.write_batch.assert_not_called()
 
     def test_dispatch_serializes_error_metadata_and_clears_exception(self) -> None:
@@ -153,7 +153,7 @@ class TestRunner(TestCase):
         """
         runner = Runner(kernel=mock.Mock())
 
-        point = SimpleNamespace(exit_code=1, exception=RuntimeError("boom"))
+        point = _vs_point(exit_code=1, exception=RuntimeError("boom"))
         with mock.patch.object(Runner, "work", return_value=point):
             results = runner.dispatch([_vs_point()])
 
@@ -224,7 +224,7 @@ class TestRunner(TestCase):
         vs_point = _vs_point(exit_code=0)
 
         with mock.patch("eleanor.runner.print_exception") as print_mock:
-            runner.work(vs_point, verbose=True)
+            _ = runner.work(vs_point, verbose=True)
 
         self.assertGreaterEqual(print_mock.call_count, 2)
 
@@ -237,7 +237,7 @@ class TestRunner(TestCase):
 
         with TemporaryDirectory() as tmp:
             with open(join(tmp, "a.txt"), "w") as f:
-                f.write("abc")
+                _ = f.write("abc")
             scratch = Runner.collect_scratch(tmp)
             self.assertIsNotNone(scratch)
             assert scratch is not None

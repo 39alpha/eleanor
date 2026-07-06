@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Write error messages** from the `Runner` to the `PostgresSink` output. The `Runner` was
+  overwriting the `Point.exception` property as `None` and the `PostgresSink` was drawing
+  the error message from there. Instead the error message now comes from the `ComputeResult.error`
+  property.
+
 ## [v0.19.0] - 2026-06-12
 
 ### Added

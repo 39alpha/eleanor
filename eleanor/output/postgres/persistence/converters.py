@@ -12,6 +12,7 @@ import eleanor.order as core_order
 import eleanor.variable_space as core_vs
 from eleanor.config.kernel import KernelConfig
 from eleanor.exceptions import EleanorError
+from eleanor.output import ErrorInfo
 
 
 def _or_neg_inf(value: np.float64 | None) -> np.float64:
@@ -120,14 +121,17 @@ def row_to_order_record(row: dict[str, object]) -> OrderRecord:
     )
 
 
-def vs_point_to_row(point: core_vs.Point, order_id: int) -> dict[str, object]:
+def vs_point_to_row(point: core_vs.Point, error: ErrorInfo | None, order_id: int) -> dict[str, object]:
+    if point.exception is not None:
+        error = ErrorInfo.from_exception(point.exception)
+
     return {
         "order_id": order_id,
         "water_mass": point.water_mass,
         "temperature": point.temperature,
         "pressure": point.pressure,
         "exit_code": point.exit_code,
-        "error": str(point.exception) if point.exception is not None else None,
+        "error": error.message if error is not None else None,
         "create_date": point.create_date,
         "start_date": point.start_date,
         "complete_date": point.complete_date,

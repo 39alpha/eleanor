@@ -36,6 +36,8 @@ from datetime import datetime
 from typing import cast, override
 
 import eleanor.equilibrium_space as core_es
+from eleanor.exceptions import EleanorError
+from eleanor.output import ErrorInfo
 import eleanor.variable_space as core_vs
 import numpy as np
 import psycopg
@@ -293,15 +295,15 @@ class TestPostgresSinkIntegration(_RealPostgresTestCase):
         conn = connection.connect(self.config)
         with conn.transaction(), conn.cursor() as cur:
             _ = cur.execute(
-                "CREATE TABLE IF NOT EXISTS schema_migrations "
-                "(version INTEGER PRIMARY KEY, name TEXT NOT NULL, "
+                "CREATE TABLE IF NOT EXISTS schema_migrations " +
+                "(version INTEGER PRIMARY KEY, name TEXT NOT NULL, " +
                 "applied_at TIMESTAMPTZ NOT NULL, eleanor_version TEXT NOT NULL)"
             )
             _ = cur.execute(
-                "INSERT INTO schema_migrations (version, name, applied_at, eleanor_version) "
-                "VALUES (1, 'initial_schema', NOW(), 'test'),"
-                "       (2, 'rename_tag_to_tags', NOW(), 'test'),"
-                "       (3, 'indexes', NOW(), 'test'),"
+                "INSERT INTO schema_migrations (version, name, applied_at, eleanor_version) " +
+                "VALUES (1, 'initial_schema', NOW(), 'test')," +
+                "       (2, 'rename_tag_to_tags', NOW(), 'test')," +
+                "       (3, 'indexes', NOW(), 'test')," +
                 "       (4, 'add_exception_to_variable_space', NOW(), 'test') ON CONFLICT DO NOTHING"
             )
         # Now apply_pending_migrations should find no pending work and succeed.
@@ -742,9 +744,9 @@ class TestRepositoriesIntegration(_RealPostgresTestCase):
             """)
             rows = cur.fetchall()
             self.assertEqual(len(rows), n_ss * 2)
-            for em_name, ss_name in rows:
+            for em_name, ss_name in rows:  # pyright: ignore[reportAny]
                 self.assertTrue(
-                    em_name.startswith(f"{ss_name}_em"),
+                    em_name.startswith(f"{ss_name}_em"),  # pyright: ignore[reportAny]
                     f"end_member {em_name!r} bound to wrong solid_solution {ss_name!r}",
                 )
 
@@ -778,7 +780,7 @@ class TestRepositoriesIntegration(_RealPostgresTestCase):
         with mock.patch.object(
             repositories,
             "_bulk_copy",
-            wraps=repositories._bulk_copy,
+            wraps=repositories._bulk_copy,  # pyright: ignore[reportPrivateUsage]
         ) as bulk_copy_spy:
             with conn.transaction(savepoint_name="vs_copy"):
                 _ = repositories.insert_point(conn, order_id, point)
@@ -808,6 +810,9 @@ class TestRepositoriesIntegration(_RealPostgresTestCase):
     def test_writes_exception_message(self) -> None:
         order_id, conn = self._make_order_and_vs("exceptions")
 
+        msg = "something wicked this way comes"
+        code = 19
+
         # Case 1: No exception
         plain = _make_vs_point()
         with conn.transaction(savepoint_name="exceptions"):
@@ -819,17 +824,50 @@ class TestRepositoriesIntegration(_RealPostgresTestCase):
             )
             row = cur.fetchone()
             assert row is not None
-            self.assertIsNone(row[0])
+            self.assertIsNone(row[0])  # pyright: ignore[reportAny]
             self.assertEqual(row[1], 0)
 
-        # Case 2: Exception
-        msg = "something wicked this way comes"
-        code = 19
+        # Case 2: Exception on Point only
         plain = _make_vs_point()
         plain.exception = EleanorKernelError(msg, code=code)
         plain.exit_code = plain.exception.code
         with conn.transaction(savepoint_name="exceptions"):
             plain_id = repositories.insert_point(conn, order_id, plain)
+
+        with conn.cursor() as cur:
+            _ = cur.execute(
+                "SELECT error, exit_code FROM variable_space WHERE id = %s", (plain_id,)
+            )
+            row = cur.fetchone()
+            assert row is not None
+            self.assertEqual(row[0], msg)
+            self.assertEqual(row[1], code)
+
+        # Case 3: Exception on ErrorInfo only
+        plain = _make_vs_point()
+        plain.exception = EleanorKernelError(msg, code=code)
+        plain.exit_code = plain.exception.code
+        error = ErrorInfo.from_exception(plain.exception)
+        plain.exception = None
+        with conn.transaction(savepoint_name="exceptions"):
+            plain_id = repositories.insert_point(conn, order_id, plain, error)
+
+        with conn.cursor() as cur:
+            _ = cur.execute(
+                "SELECT error, exit_code FROM variable_space WHERE id = %s", (plain_id,)
+            )
+            row = cur.fetchone()
+            assert row is not None
+            self.assertEqual(row[0], msg)
+            self.assertEqual(row[1], code)
+
+        # Case 4: Exception on Point wins
+        plain = _make_vs_point()
+        plain.exception = EleanorKernelError(msg, code=code)
+        plain.exit_code = plain.exception.code
+        error = ErrorInfo.from_exception(EleanorError("shouldn't match"))
+        with conn.transaction(savepoint_name="exceptions"):
+            plain_id = repositories.insert_point(conn, order_id, plain, error)
 
         with conn.cursor() as cur:
             _ = cur.execute(

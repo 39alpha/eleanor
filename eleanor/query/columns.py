@@ -29,6 +29,16 @@ _CANONICAL_META_ACCESSORS: frozenset[str] = frozenset({"index", "key"})
 # keeps the default safely immutable.
 _EMPTY_PRESETS: Mapping[str, PresetFn] = MappingProxyType({})
 
+# Shared immutable default for the per-column ``meta`` annotation map (spec
+# §8.2). Consumers read these annotations; EQL never interprets them.
+_EMPTY_META: Mapping[str, object] = MappingProxyType({})
+
+# Closed set of top-level keys permitted on a structured column record
+# (spec §8.2). Any other top-level key is rejected so that field typos
+# (e.g. ``on_mising``) surface as ``ParseError`` instead of being silently
+# swallowed as an annotation; consumer-defined keys belong under ``meta``.
+_STRUCTURED_KEYS: frozenset[str] = frozenset({"path", "name", "on_missing", "default", "meta"})
+
 
 @dataclass(frozen=True, slots=True)
 class BarePath:
@@ -62,6 +72,10 @@ class ColumnSpec:
     default: object | None
     has_default: bool
     source: ColumnSource
+    # Opaque, consumer-facing annotations (spec §8.2, §14). EQL passes these
+    # through unchanged and never interprets them; only structured columns can
+    # carry them, so all other sources default to the empty map.
+    meta: Mapping[str, object] = _EMPTY_META
 
 
 def desugar_columns(
@@ -252,6 +266,13 @@ def _desugar_entry(
 
 
 def _structured_column(entry: Mapping[object, object]) -> ColumnSpec:
+    unknown = sorted(str(key) for key in entry if key not in _STRUCTURED_KEYS)
+    if unknown:
+        msg = (
+            f"unknown structured column key(s): {', '.join(unknown)}; consumer-defined annotations belong under 'meta'"
+        )
+        raise ParseError(msg, position=None)
+
     raw_path = entry.get("path")
     if not isinstance(raw_path, str):
         msg = "structured column requires string path"
@@ -279,7 +300,24 @@ def _structured_column(entry: Mapping[object, object]) -> ColumnSpec:
         default=default,
         has_default=has_default,
         source=Structured(),
+        meta=_read_meta(entry),
     )
+
+
+def _read_meta(entry: Mapping[object, object]) -> Mapping[str, object]:
+    if "meta" not in entry:
+        return _EMPTY_META
+    raw_meta = entry.get("meta")
+    if not isinstance(raw_meta, Mapping):
+        msg = "structured column meta must be a mapping"
+        raise ParseError(msg, position=None)
+    typed_meta = cast(Mapping[object, object], raw_meta)
+    if not all(isinstance(key, str) for key in typed_meta):
+        msg = "structured column meta keys must be strings"
+        raise ParseError(msg, position=None)
+    # Copy into an immutable proxy so the compiled spec cannot be mutated
+    # through the caller's original mapping. Values are opaque to EQL.
+    return MappingProxyType(dict(cast(Mapping[str, object], typed_meta)))
 
 
 def _expand_splat(entry: Mapping[object, object], scope_table: AmbientScopeTable) -> list[ColumnSpec]:

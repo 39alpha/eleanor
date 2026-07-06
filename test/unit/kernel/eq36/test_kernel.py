@@ -5,6 +5,7 @@ from types import SimpleNamespace
 from typing import cast
 from unittest import TestCase, mock
 
+import eleanor.equilibrium_space as es
 import eleanor.variable_space as vs
 import numpy as np
 from eleanor.config.kernel import KernelConfig
@@ -12,7 +13,12 @@ from eleanor.constraints.point_builder import PointBuilder
 from eleanor.exceptions import EleanorError
 from eleanor.kernel.eq36.codes import RunCode
 from eleanor.kernel.eq36.data1 import BasisSpecies, Data1
-from eleanor.kernel.eq36.kernel import Eq36Kernel
+from eleanor.kernel.eq36.kernel import (
+    Eq36Kernel,
+    FILTER_CONDITIONS,
+    _matches_query,
+    _require_float,
+)
 from eleanor.kernel.eq36.settings import (
     IOPG_1,
     IOPT_1,
@@ -20,11 +26,13 @@ from eleanor.kernel.eq36.settings import (
     Eq3Settings,
     Eq6Settings,
     Eq36Settings,
+    FILTER_OPERATIONS,
 )
 from eleanor.kernel.exceptions import EleanorKernelError
 from eleanor.kernel.settings import KernelSettings
 from eleanor.order import Order
 from eleanor.parameters import Parameter
+from eleanor.query import compile_query
 from eleanor.variable_space import (
     AqueousReactant,
     Element,
@@ -1409,3 +1417,188 @@ class TestEq36Kernel(TestCase):
             points = Eq36Kernel.read_eq6_output(track_path=False)
 
         self.assertEqual(points, [])
+
+    def test_filter_operations_and_conditions_match(self) -> None:
+        """
+        Ensure that the FILTER_OPERATIONS and FILTER_CONDITIONS are in sync.
+        """
+        intersect = FILTER_OPERATIONS.intersection(FILTER_CONDITIONS)
+        self.assertCountEqual(intersect, FILTER_OPERATIONS)
+        self.assertCountEqual(intersect, FILTER_CONDITIONS)
+
+    @staticmethod
+    def _es_species(name: str, log_molality: float) -> mock.MagicMock:
+        # ``name`` cannot be passed to the MagicMock constructor (it is reserved
+        # for the mock's own repr), so it is assigned as an attribute afterwards.
+        species = mock.MagicMock(log_molality=np.float64(log_molality))
+        species.name = name
+        return species
+
+    @classmethod
+    def _es_point(cls, species: list[mock.MagicMock]) -> mock.MagicMock:
+        return mock.MagicMock(aqueous_species=species)
+
+    def test_require_float_accepts_infinite_sentinels_and_numbers(self) -> None:
+        """
+        Ensure _require_float parses the infinite-string sentinels (any sign/spelling),
+        passes numbers through, and rejects everything else with the field name in the message.
+        """
+        self.assertEqual(float(_require_float("-inf", "x")), float("-inf"))
+        self.assertEqual(float(_require_float("  INF ", "x")), float("inf"))
+        self.assertEqual(float(_require_float("+infinity", "x")), float("inf"))
+        self.assertEqual(float(_require_float(3, "x")), 3.0)
+        self.assertEqual(float(_require_float(-2.5, "x")), -2.5)
+
+        for bad in ("nan", "abc", None):
+            with self.assertRaisesRegex(EleanorError, "field_label must be a floating-point number"):
+                _ = _require_float(bad, "field_label")
+
+    def test_comparators_cover_numeric_and_typed_equality(self) -> None:
+        """
+        Ensure the ordering comparators compare numerically and the equality comparators
+        short-circuit on same-typed operands while coercing mixed numeric types.
+        """
+        lt, le, ge, gt = (FILTER_CONDITIONS[key] for key in ("lt", "le", "ge", "gt"))
+        eq, ne = FILTER_CONDITIONS["eq"], FILTER_CONDITIONS["ne"]
+
+        self.assertTrue(lt(np.float64(-8.0), -6, "v", "c"))
+        self.assertFalse(lt(np.float64(-6.0), -6, "v", "c"))
+        self.assertTrue(le(np.float64(-6.0), -6, "v", "c"))
+        self.assertTrue(ge(np.float64(-6.0), -6, "v", "c"))
+        self.assertTrue(gt(np.float64(-5.0), -6, "v", "c"))
+
+        # Same-typed operands (e.g. the ``stage`` string) compare directly.
+        self.assertTrue(eq("eq3", "eq3", "v", "c"))
+        self.assertFalse(eq("eq3", "eq6", "v", "c"))
+        self.assertTrue(ne("eq3", "eq6", "v", "c"))
+        # Mixed numeric types fall through to float coercion.
+        self.assertTrue(eq(np.float64(3.0), 3, "v", "c"))
+
+    def test_comparators_report_offending_operand_by_name(self) -> None:
+        """
+        Ensure a non-numeric value vs. threshold surfaces the correct field name,
+        so an operator can tell which operand was malformed.
+        """
+        with self.assertRaisesRegex(EleanorError, "value_label"):
+            _ = FILTER_CONDITIONS["lt"]("not-a-number", -6, "value_label", "threshold_label")
+        with self.assertRaisesRegex(EleanorError, "threshold_label"):
+            _ = FILTER_CONDITIONS["lt"](np.float64(-6.0), "not-a-number", "value_label", "threshold_label")
+
+    def test_matches_query_keeps_and_rejects_points_by_threshold(self) -> None:
+        """
+        Ensure the predicate keeps points satisfying the meta operator and rejects the rest.
+        """
+        query = compile_query(
+            es.Point,
+            {
+                "row_scope": "order",
+                "columns": [
+                    {"path": "self.aqueous_species[name=H2].log_molality", "meta": {"lt": -6}},
+                ],
+            },
+        )
+        predicate = _matches_query(query)
+
+        self.assertTrue(predicate(self._es_point([self._es_species("H2", -8.0)])))
+        self.assertFalse(predicate(self._es_point([self._es_species("H2", -3.5)])))
+
+    def test_matches_query_uses_on_missing_default_sentinel(self) -> None:
+        """
+        Ensure a missing filter target resolves to the column's default sentinel
+        (``-inf``) and is compared rather than raising.
+        """
+        query = compile_query(
+            es.Point,
+            {
+                "row_scope": "order",
+                "columns": [
+                    {
+                        "path": "self.aqueous_species[name=H2].log_molality",
+                        "on_missing": "null",
+                        "default": "-inf",
+                        "meta": {"lt": -6},
+                    },
+                ],
+            },
+        )
+        predicate = _matches_query(query)
+
+        # No H2 present -> column yields the '-inf' default, which is < -6 -> kept.
+        self.assertTrue(predicate(self._es_point([self._es_species("Cl-", -1.0)])))
+
+    def test_matches_query_requires_exactly_one_row(self) -> None:
+        """
+        Ensure the predicate rejects queries that yield anything other than a single row.
+        """
+        query = compile_query(
+            es.Point,
+            {
+                "row_scope": "aqueous_species[*]",
+                "columns": [{"path": "aqueous_species.log_molality", "meta": {"lt": -6}}],
+            },
+        )
+        predicate = _matches_query(query)
+
+        two_rows = self._es_point([self._es_species("a", -1.0), self._es_species("b", -2.0)])
+        zero_rows = self._es_point([])
+        for point in (two_rows, zero_rows):
+            with self.assertRaisesRegex(EleanorKernelError, "exactly one row"):
+                _ = predicate(point)
+
+    def test_matches_query_requires_exactly_one_operator_per_column(self) -> None:
+        """
+        Ensure a column whose meta carries no filter operator is rejected at match time.
+        """
+        query = compile_query(es.Point, {"row_scope": "order", "columns": ["self.ph"]})
+        point = mock.MagicMock(ph=np.float64(7.0))
+
+        with self.assertRaisesRegex(EleanorKernelError, "exactly one of"):
+            _ = _matches_query(query)(point)
+
+    def test_run_applies_filter_to_combined_results(self) -> None:
+        """
+        Ensure run applies the compiled filter to the combined eq3/eq6 points and
+        returns only those satisfying it (including missing values via the sentinel).
+        """
+        kernel = self._kernel()
+        settings = self._settings(with_eq6=True)
+        settings.data1_file = Path("/tmp").joinpath("configured", "run.d1")
+        settings.filter = {
+            "row_scope": "order",
+            "columns": [
+                {
+                    "path": "self.aqueous_species[name=H2].log_molality",
+                    "on_missing": "null",
+                    "default": "-inf",
+                    "meta": {"lt": -6},
+                },
+            ],
+        }
+        point = _make_point(settings)
+
+        kept_eq3 = self._es_point([self._es_species("H2", -8.0)])
+        rejected_eq6 = self._es_point([self._es_species("H2", -3.0)])
+        kept_absent_eq6 = self._es_point([self._es_species("Cl-", -1.0)])
+
+        with (
+            mock.patch.object(kernel, "resolve_kernel_settings", return_value=settings),
+            mock.patch("eleanor.kernel.eq36.kernel.Data1.from_file"),
+            mock.patch.object(kernel, "write_eq3_input", return_value="problem.3i"),
+            mock.patch("eleanor.kernel.eq36.kernel.eq3"),
+            mock.patch(
+                "eleanor.kernel.eq36.kernel.Eq36Kernel.read_eq3_output",
+                return_value=kept_eq3,
+            ),
+            mock.patch("eleanor.kernel.eq36.kernel.read_pickup_lines", return_value=[]),
+            mock.patch.object(kernel, "write_eq6_input", return_value="problem.6i"),
+            mock.patch("eleanor.kernel.eq36.kernel.eq6"),
+            mock.patch(
+                "eleanor.kernel.eq36.kernel.Eq36Kernel.read_eq6_output",
+                return_value=[rejected_eq6, kept_absent_eq6],
+            ),
+        ):
+            output = kernel.run(point)
+
+        self.assertEqual(len(output), 2)
+        self.assertIs(output[0], kept_eq3)
+        self.assertIs(output[1], kept_absent_eq6)

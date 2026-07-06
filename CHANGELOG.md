@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **eleanor.kernel.eq36.Eq36Settings.filter** allows the user to provide an EQL query with a limited
+  set of conditions for filtering out generated `equilibrium_space.Point`s, e.g. with some specific
+  aqueous species present below some limit.
+
 ### Fixed
 
 - **Write error messages** from the `Runner` to the `PostgresSink` output. The `Runner` was

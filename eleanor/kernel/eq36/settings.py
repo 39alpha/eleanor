@@ -6,9 +6,13 @@ from typing import Self, cast
 
 import numpy as np
 
+from eleanor.equilibrium_space import Point
 from eleanor.exceptions import EleanorError
 from eleanor.kernel.exceptions import EleanorKernelError
 from eleanor.kernel.settings import KernelSettings
+from eleanor.query import compile_query
+
+FILTER_OPERATIONS = frozenset(["lt", "le", "eq", "ne", "ge", "gt"])
 
 
 def _get_float(cfg: dict[str, object], key: str, default: np.float64 | float) -> np.float64:
@@ -787,6 +791,7 @@ class Eq36Settings(KernelSettings):
     track_path: bool = False
     basis_map: dict[str, str] = field(default_factory=dict)
     redox_species: str = "fO2"
+    filter: dict[str, object] = field(default_factory=dict)
 
     @classmethod
     def from_dict(cls, raw: dict[str, object]) -> Self:
@@ -844,6 +849,21 @@ class Eq36Settings(KernelSettings):
         if not isinstance(track_path, bool):
             msg = "kernel.track_path must be a boolean"
             raise EleanorError(msg)
+
+        raw_filter = raw.get("filter", {})
+        if not isinstance(raw_filter, dict):
+            msg = "kernel.filter must be dict"
+            raise EleanorError(msg)
+        raw_filter = cast(dict[str, object], raw_filter)
+
+        if len(raw_filter) != 0:
+            query = compile_query(Point, raw_filter)
+            for column in query.compiled_columns:
+                name, meta = column.spec.name, column.spec.meta
+                if len(FILTER_OPERATIONS.intersection(meta.keys())) != 1:
+                    ops = ", ".join(f"{op!r}" for op in sorted(FILTER_OPERATIONS))
+                    msg = f"kernel.filter.column {name!r} meta must include exactly one of: {ops}"
+                    raise EleanorError(msg)
 
         raw_eq3_config: dict[str, object] = cast(dict[str, object], raw.get("eq3_config", {}))
 
@@ -954,4 +974,5 @@ class Eq36Settings(KernelSettings):
             basis_map=cast(dict[str, str], basis_map),
             redox_species=redox_species,
             track_path=track_path,
+            filter=raw_filter,
         )

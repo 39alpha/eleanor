@@ -11,6 +11,7 @@ import eleanor.equilibrium_space as core_es
 import eleanor.variable_space as core_vs
 from eleanor.exceptions import EleanorError
 from eleanor.order import Order
+from eleanor.output import ErrorInfo
 from eleanor.output.postgres.persistence import connection, converters, migrations, queries, schema
 from eleanor.output.postgres.persistence.converters import OrderRecord, ScratchEntry
 from eleanor.output.postgres.settings import PostgresDatabaseSettings, PostgresSinkSettings
@@ -284,6 +285,7 @@ def insert_point(
     connection_obj: psycopg.Connection,
     order_id: int,
     point: core_vs.Point,
+    error: ErrorInfo | None = None,
     settings: PostgresSinkSettings | None = None,
 ) -> int:
     """Insert ``point`` and every descendant; return the new variable_space id.
@@ -296,7 +298,7 @@ def insert_point(
     """
     with connection_obj.cursor() as cur:
         # 1. variable_space + paired single-row tables (kernel, scratch).
-        vs_id = _insert_variable_space_and_pair(cur, point, order_id)
+        vs_id = _insert_variable_space_and_pair(cur, point, order_id, error)
 
         # 2. VS-side leaf collections + their nested children.
         _insert_vs_side_leaves(cur, vs_id, point)
@@ -313,9 +315,10 @@ def _insert_variable_space_and_pair(
     cur: psycopg.Cursor,
     point: core_vs.Point,
     order_id: int,
+    error: ErrorInfo | None = None,
 ) -> int:
     """Insert variable_space row + its paired kernel + (optional) scratch."""
-    vs_row = converters.vs_point_to_row(point, order_id)
+    vs_row = converters.vs_point_to_row(point, error, order_id)
     _ = cur.execute(queries.INSERTS_RETURNING_ID["variable_space"], vs_row)
     result = cur.fetchone()
     if result is None:

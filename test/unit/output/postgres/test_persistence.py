@@ -23,7 +23,6 @@ from unittest import TestCase, mock
 
 import numpy as np
 import eleanor.equilibrium_space as core_es
-import eleanor.variable_space as core_vs
 from eleanor.config.kernel import KernelConfig
 from eleanor.exceptions import EleanorError
 from eleanor.kernel.eq36.settings import IOPG_1, Eq3Settings, Eq6Settings, Eq36Settings
@@ -667,6 +666,7 @@ class TestRepositoryErrorPaths(TestCase):
             temperature=25.0,
             pressure=1.0,
             exit_code=0,
+            exception=None,
             create_date=datetime(2026, 1, 1),
             start_date=datetime(2026, 1, 1),
             complete_date=datetime(2026, 1, 1),

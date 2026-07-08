@@ -23,6 +23,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   performance we hoped for out of the box and ultimately just bloated the on-disc storage footprint.
   We spent some time profiling known, real-world queries and tried to balance the performance
   against storage size. These will probably be further refined in the future.
+- **Renamed the bulk-load helpers** `drop_indexes` / `recreate_indexes` to `drop_bulk_load_objects` /
+  `recreate_bulk_load_objects` (in `eleanor.output.postgres.persistence.schema` and its
+  `repositories` wrappers). The new names reflect that they act on secondary indexes *and* FK / CHECK
+  constraints. Update any code importing the old names.
 
 ### Fixed
 

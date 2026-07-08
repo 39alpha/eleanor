@@ -26,32 +26,32 @@ def setup_schema(config: PostgresDatabaseSettings) -> None:
 def apply_pending_migrations(config: PostgresDatabaseSettings) -> None:
     """:class:`PostgresDatabaseSettings`-keyed wrapper around :func:`migrations.apply_pending_migrations`.
 
-    Matches the shape of :func:`setup_schema`, :func:`drop_indexes`, etc.
+    Matches the shape of :func:`setup_schema`, :func:`drop_bulk_load_objects`, etc.
     """
     conn = connection.connect(config)
     migrations.apply_pending_migrations(conn)
 
 
-def drop_indexes(config: PostgresDatabaseSettings, targets: schema.BulkLoadTargets | None = None) -> None:
-    """:class:`PostgresDatabaseSettings`-keyed wrapper around :func:`schema.drop_indexes`.
+def drop_bulk_load_objects(config: PostgresDatabaseSettings, targets: schema.BulkLoadTargets | None = None) -> None:
+    """:class:`PostgresDatabaseSettings`-keyed wrapper around :func:`schema.drop_bulk_load_objects`.
 
     Acquires the process-local connection for ``config`` and delegates;
     no transactional shape of its own (the schema helper opens its own
     transaction internally). ``targets`` selects which object classes to drop.
     """
     conn = connection.connect(config)
-    schema.drop_indexes(conn, targets)
+    schema.drop_bulk_load_objects(conn, targets)
 
 
-def recreate_indexes(config: PostgresDatabaseSettings, targets: schema.BulkLoadTargets | None = None) -> None:
-    """:class:`PostgresDatabaseSettings`-keyed wrapper around :func:`schema.recreate_indexes`.
+def recreate_bulk_load_objects(config: PostgresDatabaseSettings, targets: schema.BulkLoadTargets | None = None) -> None:
+    """:class:`PostgresDatabaseSettings`-keyed wrapper around :func:`schema.recreate_bulk_load_objects`.
 
     Acquires the process-local connection for ``config`` and delegates;
     transactional shape is handled by the schema helper. ``targets`` selects
     which object classes to recreate.
     """
     conn = connection.connect(config)
-    schema.recreate_indexes(conn, targets)
+    schema.recreate_bulk_load_objects(conn, targets)
 
 
 @contextmanager
@@ -535,11 +535,11 @@ def get_scratch_entry(
 
 __all__ = [
     "bulk_load_window",
-    "drop_indexes",
+    "drop_bulk_load_objects",
     "get_order",
     "get_scratch_entry",
     "insert_order",
     "insert_point",
-    "recreate_indexes",
+    "recreate_bulk_load_objects",
     "setup_schema",
 ]

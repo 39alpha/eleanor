@@ -20,14 +20,14 @@ class PostgresSink(AbstractOutputSink):
 
     ``bulk_load_optimization`` (default ``False``) opts the sink in to
     a lifecycle-bracketed bulk-load window: :meth:`initialize` calls
-    :func:`repositories.drop_indexes` after the schema is in place, and
-    :meth:`finalize` calls :func:`repositories.recreate_indexes` just
+    :func:`repositories.drop_bulk_load_objects` after the schema is in place, and
+    :meth:`finalize` calls :func:`repositories.recreate_bulk_load_objects` just
     before the connection is closed. The constraints / indexes declared
     on the schema are therefore absent for the lifetime of the sink,
     which makes the per-row INSERT / COPY hot path substantially faster
     on large workloads. If the sink crashes between ``initialize`` and
     ``finalize`` -- e.g. the process is killed -- the constraints stay
-    missing; ``eleanor postgres bulkload recreate`` (or :func:`recreate_indexes`
+    missing; ``eleanor postgres bulkload recreate`` (or :func:`recreate_bulk_load_objects`
     directly) will reattach them.
     """
 
@@ -74,7 +74,7 @@ class PostgresSink(AbstractOutputSink):
             # :meth:`finalize`. Run *after* ``setup_schema`` so the
             # tables are guaranteed to exist before we try to alter them
             # on a fresh database.
-            repositories.drop_indexes(self.settings.database)
+            repositories.drop_bulk_load_objects(self.settings.database)
 
     @override
     def begin_run(self, order: Order) -> int:
@@ -201,7 +201,7 @@ class PostgresSink(AbstractOutputSink):
         """
         try:
             if self.settings.bulk_load_optimization:
-                repositories.recreate_indexes(self.settings.database)
+                repositories.recreate_bulk_load_objects(self.settings.database)
         finally:
             connection_module.close_connection(self.settings.database)
             if self._prev_psycopg_log_level is not None:

@@ -180,7 +180,7 @@ class TestOutput(TestCase):
         """
         Ensure PostgresSink.initialize calls repositories.apply_pending_migrations
         once with the active config, and -- with bulk_load_optimization off --
-        does NOT call drop_indexes.
+        does NOT call drop_bulk_load_objects.
         """
         settings = PostgresSinkSettings(
             database=PostgresDatabaseSettings(
@@ -193,19 +193,19 @@ class TestOutput(TestCase):
                 "eleanor.output.postgres.sink.repositories.apply_pending_migrations"
             ) as apply_mig,
             mock.patch(
-                "eleanor.output.postgres.sink.repositories.drop_indexes"
-            ) as drop_indexes,
+                "eleanor.output.postgres.sink.repositories.drop_bulk_load_objects"
+            ) as drop_bulk_load_objects,
         ):
             sink.initialize()
         apply_mig.assert_called_once_with(settings.database)
-        drop_indexes.assert_not_called()
+        drop_bulk_load_objects.assert_not_called()
 
     def test_postgres_initialize_drops_indexes_when_bulk_load_optimization_is_on(
         self,
     ) -> None:
         """
         Ensure PostgresSink.initialize calls
-        :func:`repositories.drop_indexes` *after* ``apply_pending_migrations``
+        :func:`repositories.drop_bulk_load_objects` *after* ``apply_pending_migrations``
         when the sink was constructed with ``bulk_load_optimization=True``.
         The order matters: tables must exist before we try to alter
         them on a fresh database.
@@ -224,25 +224,25 @@ class TestOutput(TestCase):
                 manager.apply_pending_migrations,
             ),
             mock.patch(
-                "eleanor.output.postgres.sink.repositories.drop_indexes",
-                manager.drop_indexes,
+                "eleanor.output.postgres.sink.repositories.drop_bulk_load_objects",
+                manager.drop_bulk_load_objects,
             ),
         ):
             sink.initialize()
         manager.apply_pending_migrations.assert_called_once_with(settings.database)
-        manager.drop_indexes.assert_called_once_with(settings.database)
+        manager.drop_bulk_load_objects.assert_called_once_with(settings.database)
         # mock.Mock records every child-attr call on the parent in order;
         # we use that ordering to pin the migrate-then-drop sequence.
         self.assertEqual(
             [c[0] for c in manager.method_calls],
-            ["apply_pending_migrations", "drop_indexes"],
+            ["apply_pending_migrations", "drop_bulk_load_objects"],
         )
 
     def test_postgres_finalize_closes_connection(self) -> None:
         """
         Ensure PostgresSink.finalize closes the persistent connection
         through ``connection_module.close_connection``, and -- with
-        bulk_load_optimization off -- does NOT call recreate_indexes.
+        bulk_load_optimization off -- does NOT call recreate_bulk_load_objects.
         """
         settings = PostgresSinkSettings(
             database=PostgresDatabaseSettings(
@@ -255,7 +255,7 @@ class TestOutput(TestCase):
                 "eleanor.output.postgres.sink.connection_module.close_connection"
             ) as close,
             mock.patch(
-                "eleanor.output.postgres.sink.repositories.recreate_indexes"
+                "eleanor.output.postgres.sink.repositories.recreate_bulk_load_objects"
             ) as recreate,
         ):
             sink.finalize()
@@ -267,7 +267,7 @@ class TestOutput(TestCase):
     ) -> None:
         """
         Ensure PostgresSink.finalize calls
-        :func:`repositories.recreate_indexes` *before* the connection
+        :func:`repositories.recreate_bulk_load_objects` *before* the connection
         is closed when the sink was constructed with
         ``bulk_load_optimization=True``. Order matters: the recreate
         uses the same connection cache, so it must run before
@@ -283,8 +283,8 @@ class TestOutput(TestCase):
         manager = mock.MagicMock()
         with (
             mock.patch(
-                "eleanor.output.postgres.sink.repositories.recreate_indexes",
-                manager.recreate_indexes,
+                "eleanor.output.postgres.sink.repositories.recreate_bulk_load_objects",
+                manager.recreate_bulk_load_objects,
             ),
             mock.patch(
                 "eleanor.output.postgres.sink.connection_module.close_connection",
@@ -292,11 +292,11 @@ class TestOutput(TestCase):
             ),
         ):
             sink.finalize()
-        manager.recreate_indexes.assert_called_once_with(settings.database)
+        manager.recreate_bulk_load_objects.assert_called_once_with(settings.database)
         manager.close_connection.assert_called_once_with(settings.database)
         self.assertEqual(
             [c[0] for c in manager.method_calls],
-            ["recreate_indexes", "close_connection"],
+            ["recreate_bulk_load_objects", "close_connection"],
         )
 
     def test_postgres_finalize_still_closes_connection_when_recreate_raises(
@@ -304,7 +304,7 @@ class TestOutput(TestCase):
     ) -> None:
         """
         Ensure PostgresSink.finalize closes the persistent connection
-        even when :func:`recreate_indexes` raises -- typically because
+        even when :func:`recreate_bulk_load_objects` raises -- typically because
         the bulk-loaded data violates a constraint. The recreate
         exception must propagate to the caller (so the failure isn't
         silently swallowed) but the libpq socket must not leak.
@@ -318,7 +318,7 @@ class TestOutput(TestCase):
         sink = PostgresSink(settings)
         with (
             mock.patch(
-                "eleanor.output.postgres.sink.repositories.recreate_indexes",
+                "eleanor.output.postgres.sink.repositories.recreate_bulk_load_objects",
                 side_effect=RuntimeError("check constraint violated"),
             ),
             mock.patch(

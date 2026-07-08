@@ -31,9 +31,9 @@ class TestBulkLoadCli(TestCase):
             }
         )
 
-    def test_drop_action_dispatches_to_repository_drop_indexes(self) -> None:
+    def test_drop_action_dispatches_to_repository_drop_bulk_load_objects(self) -> None:
         """
-        Ensure 'eleanor postgres bulkload drop' calls repositories.drop_indexes
+        Ensure 'eleanor postgres bulkload drop' calls repositories.drop_bulk_load_objects
         with the resolved PostgresDatabaseSettings.
         """
         cfg = self._config()
@@ -41,10 +41,10 @@ class TestBulkLoadCli(TestCase):
             mock.patch(
                 "eleanor.output.postgres.cli.config_from_args", return_value=cfg
             ) as config_from_args,
-            mock.patch("eleanor.output.postgres.cli.drop_indexes") as drop_indexes,
+            mock.patch("eleanor.output.postgres.cli.drop_bulk_load_objects") as drop_bulk_load_objects,
             mock.patch(
-                "eleanor.output.postgres.cli.recreate_indexes"
-            ) as recreate_indexes,
+                "eleanor.output.postgres.cli.recreate_bulk_load_objects"
+            ) as recreate_bulk_load_objects,
         ):
             result = self.runner.invoke(
                 main,
@@ -62,23 +62,23 @@ class TestBulkLoadCli(TestCase):
 
         self.assertEqual(result.exit_code, 0)
         config_from_args.assert_called_once_with("/fake.yaml", "demo_db")
-        drop_indexes.assert_called_once()
-        recreate_indexes.assert_not_called()
-        passed = drop_indexes.call_args.args[0]
+        drop_bulk_load_objects.assert_called_once()
+        recreate_bulk_load_objects.assert_not_called()
+        passed = drop_bulk_load_objects.call_args.args[0]
         self.assertIsInstance(passed, PostgresDatabaseSettings)
         self.assertEqual(passed.database, "demo_db")
 
-    def test_recreate_action_dispatches_to_repository_recreate_indexes(self) -> None:
+    def test_recreate_action_dispatches_to_repository_recreate_bulk_load_objects(self) -> None:
         """Ensure 'eleanor postgres bulkload recreate' calls the recreate repository helper."""
         cfg = self._config()
         with (
             mock.patch(
                 "eleanor.output.postgres.cli.config_from_args", return_value=cfg
             ),
-            mock.patch("eleanor.output.postgres.cli.drop_indexes") as drop_indexes,
+            mock.patch("eleanor.output.postgres.cli.drop_bulk_load_objects") as drop_bulk_load_objects,
             mock.patch(
-                "eleanor.output.postgres.cli.recreate_indexes"
-            ) as recreate_indexes,
+                "eleanor.output.postgres.cli.recreate_bulk_load_objects"
+            ) as recreate_bulk_load_objects,
         ):
             result = self.runner.invoke(
                 main,
@@ -94,16 +94,16 @@ class TestBulkLoadCli(TestCase):
             )
 
         self.assertEqual(result.exit_code, 0)
-        recreate_indexes.assert_called_once()
-        drop_indexes.assert_not_called()
+        recreate_bulk_load_objects.assert_called_once()
+        drop_bulk_load_objects.assert_not_called()
 
     def test_drop_forwards_selected_targets(self) -> None:
-        """Ensure --no-fks reaches drop_indexes as a restricted BulkLoadTargets."""
+        """Ensure --no-fks reaches drop_bulk_load_objects as a restricted BulkLoadTargets."""
         cfg = self._config()
         with (
             mock.patch("eleanor.output.postgres.cli.config_from_args", return_value=cfg),
-            mock.patch("eleanor.output.postgres.cli.drop_indexes") as drop_indexes,
-            mock.patch("eleanor.output.postgres.cli.recreate_indexes"),
+            mock.patch("eleanor.output.postgres.cli.drop_bulk_load_objects") as drop_bulk_load_objects,
+            mock.patch("eleanor.output.postgres.cli.recreate_bulk_load_objects"),
         ):
             result = self.runner.invoke(
                 main,
@@ -111,7 +111,7 @@ class TestBulkLoadCli(TestCase):
             )
 
         self.assertEqual(result.exit_code, 0)
-        targets = drop_indexes.call_args.args[1]
+        targets = drop_bulk_load_objects.call_args.args[1]
         self.assertEqual(targets, BulkLoadTargets(indexes=True, checks=True, foreign_keys=False))
 
     def test_nothing_selected_is_usage_error(self) -> None:
@@ -119,8 +119,8 @@ class TestBulkLoadCli(TestCase):
         cfg = self._config()
         with (
             mock.patch("eleanor.output.postgres.cli.config_from_args", return_value=cfg),
-            mock.patch("eleanor.output.postgres.cli.drop_indexes") as drop_indexes,
-            mock.patch("eleanor.output.postgres.cli.recreate_indexes") as recreate_indexes,
+            mock.patch("eleanor.output.postgres.cli.drop_bulk_load_objects") as drop_bulk_load_objects,
+            mock.patch("eleanor.output.postgres.cli.recreate_bulk_load_objects") as recreate_bulk_load_objects,
         ):
             result = self.runner.invoke(
                 main,
@@ -133,16 +133,16 @@ class TestBulkLoadCli(TestCase):
 
         self.assertNotEqual(result.exit_code, 0)
         self.assertIn("nothing selected", result.output)
-        drop_indexes.assert_not_called()
-        recreate_indexes.assert_not_called()
+        drop_bulk_load_objects.assert_not_called()
+        recreate_bulk_load_objects.assert_not_called()
 
     def test_confirmation_lists_selected_classes(self) -> None:
         """Ensure the drop confirmation prompt names exactly the selected classes."""
         cfg = self._config()
         with (
             mock.patch("eleanor.output.postgres.cli.config_from_args", return_value=cfg),
-            mock.patch("eleanor.output.postgres.cli.drop_indexes") as drop_indexes,
-            mock.patch("eleanor.output.postgres.cli.recreate_indexes"),
+            mock.patch("eleanor.output.postgres.cli.drop_bulk_load_objects") as drop_bulk_load_objects,
+            mock.patch("eleanor.output.postgres.cli.recreate_bulk_load_objects"),
         ):
             result = self.runner.invoke(
                 main,
@@ -152,7 +152,7 @@ class TestBulkLoadCli(TestCase):
 
         self.assertIn("indexes, foreign keys", result.output)
         self.assertNotIn("CHECK constraints", result.output)
-        drop_indexes.assert_not_called()
+        drop_bulk_load_objects.assert_not_called()
 
     def test_missing_database_exits_before_dispatch(self) -> None:
         """
@@ -166,10 +166,10 @@ class TestBulkLoadCli(TestCase):
             mock.patch(
                 "eleanor.output.postgres.cli.config_from_args", return_value=bare
             ),
-            mock.patch("eleanor.output.postgres.cli.drop_indexes") as drop_indexes,
+            mock.patch("eleanor.output.postgres.cli.drop_bulk_load_objects") as drop_bulk_load_objects,
             mock.patch(
-                "eleanor.output.postgres.cli.recreate_indexes"
-            ) as recreate_indexes,
+                "eleanor.output.postgres.cli.recreate_bulk_load_objects"
+            ) as recreate_bulk_load_objects,
         ):
             result = self.runner.invoke(
                 main, ["postgres", "bulkload", "drop", "-y", "-c", "/fake.yaml"]
@@ -177,5 +177,5 @@ class TestBulkLoadCli(TestCase):
 
         self.assertEqual(result.exit_code, 1)
         self.assertIn("no database provided", result.output)
-        drop_indexes.assert_not_called()
-        recreate_indexes.assert_not_called()
+        drop_bulk_load_objects.assert_not_called()
+        recreate_bulk_load_objects.assert_not_called()

@@ -13,7 +13,7 @@ from eleanor.output.postgres.persistence import connection as _connection
 from eleanor.output.postgres.persistence import migrations as _migrations
 from eleanor.output.postgres.persistence import repositories
 from eleanor.output.postgres.persistence import schema as _schema
-from eleanor.output.postgres.persistence.repositories import drop_indexes, recreate_indexes
+from eleanor.output.postgres.persistence.repositories import drop_bulk_load_objects, recreate_bulk_load_objects
 from eleanor.output.postgres.settings import PostgresSinkSettings
 from eleanor.output.postgres.tools import dump_schema, load_scratch_entry
 
@@ -156,9 +156,9 @@ def bulkload(
                 f"This will drop the following on {settings.database.database!r}: {selected}. Continue?",
                 abort=True,
             )
-        drop_indexes(settings.database, targets)
+        drop_bulk_load_objects(settings.database, targets)
     elif action == "recreate":
-        recreate_indexes(settings.database, targets)
+        recreate_bulk_load_objects(settings.database, targets)
     else:
         msg = f"unknown bulkload action: {action!r}"
         raise EleanorError(msg)

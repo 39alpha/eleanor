@@ -1099,6 +1099,7 @@ class TestBulkLoadLifecycle(TestCase):
         CHECKs then FKs.
         """
         cursor = mock.MagicMock()
+        cursor.fetchall.return_value = []  # no constraints present yet
         conn, _ = self._fake_conn_with_cursor(cursor)
 
         schema.recreate_indexes(conn)
@@ -1135,10 +1136,82 @@ class TestBulkLoadLifecycle(TestCase):
     def test_recreate_indexes_runs_inside_a_transaction(self) -> None:
         """Ensure the recreate also runs inside a single transaction."""
         cursor = mock.MagicMock()
+        cursor.fetchall.return_value = []  # no constraints present yet
         conn, _ = self._fake_conn_with_cursor(cursor)
 
         schema.recreate_indexes(conn)
         conn.transaction.assert_called_once_with()
+
+    def test_drop_indexes_targets_restrict_to_selected_classes(self) -> None:
+        """
+        Ensure a restricted :class:`schema.BulkLoadTargets` drops only the
+        selected classes: with ``indexes`` only, there is no FK introspection
+        and no ``DROP CONSTRAINT``, but indexes are still dropped.
+        """
+        cursor = mock.MagicMock()
+        cursor.fetchall.return_value = []
+        conn, _ = self._fake_conn_with_cursor(cursor)
+
+        schema.drop_indexes(
+            conn,
+            schema.BulkLoadTargets(indexes=True, checks=False, foreign_keys=False),
+        )
+
+        statements = self._executed_statements(cursor)
+        for s in statements:
+            self.assertNotIn("information_schema.table_constraints", s)
+            self.assertNotIn("DROP CONSTRAINT", s)
+        self.assertTrue(
+            any("DROP INDEX IF EXISTS" in s for s in statements),
+            "expected indexes to still be dropped",
+        )
+
+    def test_recreate_indexes_skips_constraints_that_already_exist(self) -> None:
+        """
+        Ensure :func:`schema.recreate_indexes` is idempotent for CHECK / FK
+        constraints: when introspection reports them already present, no
+        ``ADD CONSTRAINT`` is emitted, but indexes are still (re)created via
+        ``CREATE INDEX IF NOT EXISTS``.
+        """
+        cursor = mock.MagicMock()
+        last: dict[str, tuple[str, ...]] = {}
+
+        def fake_execute(stmt: object, params: object = None) -> object:
+            text = stmt if isinstance(stmt, str) else str(stmt)
+            if "information_schema.table_constraints" in text and isinstance(params, tuple):
+                last["params"] = params
+            return cursor
+
+        def fake_fetchall() -> list[tuple[str]]:
+            params = last.get("params")
+            if not params:
+                return []
+            _schema_name, table_name, ctype = params
+            table = next(t for t in schema.TABLES if t.name == table_name)
+            if ctype == "CHECK":
+                return [(c.name,) for c in table.checks]
+            if ctype == "FOREIGN KEY":
+                return [
+                    (schema._fk_constraint_name(table_name, fk.column),)
+                    for fk in table.foreign_keys
+                ]
+            return []
+
+        cursor.execute.side_effect = fake_execute
+        cursor.fetchall.side_effect = fake_fetchall
+        conn, _ = self._fake_conn_with_cursor(cursor)
+
+        schema.recreate_indexes(conn)
+
+        statements = self._executed_statements(cursor)
+        for s in statements:
+            self.assertNotIn("ADD CONSTRAINT", s)
+        for table in schema.TABLES:
+            for idx in table.indexes:
+                self.assertTrue(
+                    any(f'CREATE INDEX IF NOT EXISTS "{idx.name}"' in s for s in statements),
+                    f"missing CREATE INDEX for {idx.name!r}",
+                )
 
     def test_bulk_load_window_drops_on_enter_and_recreates_on_exit(self) -> None:
         """
@@ -1152,12 +1225,12 @@ class TestBulkLoadLifecycle(TestCase):
             mock.patch.object(
                 schema,
                 "drop_indexes",
-                side_effect=lambda _conn: events.append("drop"),
+                side_effect=lambda _conn, _targets=None: events.append("drop"),
             ),
             mock.patch.object(
                 schema,
                 "recreate_indexes",
-                side_effect=lambda _conn: events.append("recreate"),
+                side_effect=lambda _conn, _targets=None: events.append("recreate"),
             ),
         ):
             with schema.bulk_load_window(mock.MagicMock()):
@@ -1176,12 +1249,12 @@ class TestBulkLoadLifecycle(TestCase):
             mock.patch.object(
                 schema,
                 "drop_indexes",
-                side_effect=lambda _conn: events.append("drop"),
+                side_effect=lambda _conn, _targets=None: events.append("drop"),
             ),
             mock.patch.object(
                 schema,
                 "recreate_indexes",
-                side_effect=lambda _conn: events.append("recreate"),
+                side_effect=lambda _conn, _targets=None: events.append("recreate"),
             ),
         ):
             with self.assertRaisesRegex(RuntimeError, "mid-flight"):
@@ -1209,7 +1282,7 @@ class TestBulkLoadLifecycle(TestCase):
         ):
             repositories.drop_indexes(cfg)
         connect.assert_called_once_with(cfg)
-        drop_indexes.assert_called_once_with(fake_conn)
+        drop_indexes.assert_called_once_with(fake_conn, None)
 
     def test_repositories_recreate_indexes_wires_connect_to_schema(self) -> None:
         """Ensure the recreate wrapper is the same shape as the drop wrapper."""
@@ -1225,7 +1298,7 @@ class TestBulkLoadLifecycle(TestCase):
         ):
             repositories.recreate_indexes(cfg)
         connect.assert_called_once_with(cfg)
-        recreate_indexes.assert_called_once_with(fake_conn)
+        recreate_indexes.assert_called_once_with(fake_conn, None)
 
     def test_repositories_bulk_load_window_delegates_to_schema_window(self) -> None:
         """
@@ -1238,7 +1311,7 @@ class TestBulkLoadLifecycle(TestCase):
         fake_conn = mock.MagicMock()
         events: list[str] = []
 
-        def fake_window(_conn):
+        def fake_window(_conn, _targets=None):
             events.append("drop")
             try:
                 yield
@@ -1254,7 +1327,7 @@ class TestBulkLoadLifecycle(TestCase):
             mock.patch.object(
                 schema,
                 "bulk_load_window",
-                side_effect=lambda c: __import__("contextlib").contextmanager(
+                side_effect=lambda c, _targets=None: __import__("contextlib").contextmanager(
                     fake_window
                 )(c),
             ),

@@ -105,9 +105,25 @@ def scratch(vs_id: int, outdir: str, config: str, database: str | None) -> None:
 @click.command()
 @click.argument("action", type=click.Choice(["drop", "recreate"]))
 @click.option("-y", "--yes", is_flag=True, help="Skip confirmation prompt for destructive actions.")
+@click.option("--indexes/--no-indexes", default=True, help="Include secondary indexes (default: on).")
+@click.option("--fks/--no-fks", "foreign_keys", default=True, help="Include foreign-key constraints (default: on).")
+@click.option("--checks/--no-checks", default=True, help="Include CHECK constraints (default: on).")
 @config_options()
-def bulkload(action: str, yes: bool, config: str, database: str | None) -> None:
-    """Drop or recreate secondary indexes + constraints around a bulk-load window."""
+def bulkload(
+    action: str,
+    yes: bool,
+    indexes: bool,
+    foreign_keys: bool,
+    checks: bool,
+    config: str,
+    database: str | None,
+) -> None:
+    """Drop or recreate secondary indexes / FK / CHECK constraints around a bulk-load window.
+
+    By default all three object classes are affected. Restrict the operation with
+    --no-indexes / --no-fks / --no-checks; give ``drop`` and ``recreate`` the same
+    selection so the round-trip is symmetric.
+    """
     cfg = config_from_args(config, database).output
     if cfg is None:
         msg = "no output sink configured"
@@ -123,15 +139,26 @@ def bulkload(action: str, yes: bool, config: str, database: str | None) -> None:
         msg = "no database provided"
         raise click.ClickException(msg)
 
+    targets = _schema.BulkLoadTargets(indexes=indexes, checks=checks, foreign_keys=foreign_keys)
+    if not targets:
+        msg = "nothing selected: pass at least one of --indexes / --fks / --checks"
+        raise click.UsageError(msg)
+
+    selected = ", ".join(
+        label
+        for label, on in (("indexes", indexes), ("foreign keys", foreign_keys), ("CHECK constraints", checks))
+        if on
+    )
+
     if action == "drop":
         if not yes:
             _ = click.confirm(
-                f"This will drop all secondary indexes and constraints on {settings.database.database!r}. Continue?",
+                f"This will drop the following on {settings.database.database!r}: {selected}. Continue?",
                 abort=True,
             )
-        drop_indexes(settings.database)
+        drop_indexes(settings.database, targets)
     elif action == "recreate":
-        recreate_indexes(settings.database)
+        recreate_indexes(settings.database, targets)
     else:
         msg = f"unknown bulkload action: {action!r}"
         raise EleanorError(msg)

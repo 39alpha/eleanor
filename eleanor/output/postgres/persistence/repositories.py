@@ -32,36 +32,40 @@ def apply_pending_migrations(config: PostgresDatabaseSettings) -> None:
     migrations.apply_pending_migrations(conn)
 
 
-def drop_indexes(config: PostgresDatabaseSettings) -> None:
+def drop_indexes(config: PostgresDatabaseSettings, targets: schema.BulkLoadTargets | None = None) -> None:
     """:class:`PostgresDatabaseSettings`-keyed wrapper around :func:`schema.drop_indexes`.
 
     Acquires the process-local connection for ``config`` and delegates;
     no transactional shape of its own (the schema helper opens its own
-    transaction internally).
+    transaction internally). ``targets`` selects which object classes to drop.
     """
     conn = connection.connect(config)
-    schema.drop_indexes(conn)
+    schema.drop_indexes(conn, targets)
 
 
-def recreate_indexes(config: PostgresDatabaseSettings) -> None:
+def recreate_indexes(config: PostgresDatabaseSettings, targets: schema.BulkLoadTargets | None = None) -> None:
     """:class:`PostgresDatabaseSettings`-keyed wrapper around :func:`schema.recreate_indexes`.
 
     Acquires the process-local connection for ``config`` and delegates;
-    transactional shape is handled by the schema helper.
+    transactional shape is handled by the schema helper. ``targets`` selects
+    which object classes to recreate.
     """
     conn = connection.connect(config)
-    schema.recreate_indexes(conn)
+    schema.recreate_indexes(conn, targets)
 
 
 @contextmanager
-def bulk_load_window(config: PostgresDatabaseSettings) -> Generator[None]:
+def bulk_load_window(
+    config: PostgresDatabaseSettings, targets: schema.BulkLoadTargets | None = None
+) -> Generator[None]:
     """:class:`PostgresDatabaseSettings`-keyed wrapper around :func:`schema.bulk_load_window`.
 
     Yields once after the drop has committed; recreates the constraints
     when the body returns (or in :keyword:`finally` if the body raises).
+    ``targets`` selects which object classes the window drops and recreates.
     """
     conn = connection.connect(config)
-    with schema.bulk_load_window(conn):
+    with schema.bulk_load_window(conn, targets):
         yield
 
 

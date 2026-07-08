@@ -88,6 +88,25 @@ class TestSchemaDdlEmission(TestCase):
             self.assertIn("CREATE INDEX IF NOT EXISTS", idx_sql)
             self.assertIn(f'"{idx.name}"', idx_sql)
 
+    def test_to_create_index_sql_omits_fillfactor_by_default(self) -> None:
+        """Ensure the emitter adds no storage parameter unless asked."""
+        idx = schema.IndexDef(name="demo_idx", columns=("name",))
+        self.assertNotIn("fillfactor", schema.to_create_index_sql(schema.ORDERS, idx))
+
+    def test_to_create_index_sql_emits_fillfactor_before_where(self) -> None:
+        """Ensure fillfactor is emitted as a WITH clause, positioned before any WHERE."""
+        idx = schema.IndexDef(name="demo_idx", columns=("name",), where="name IS NOT NULL")
+        sql = schema.to_create_index_sql(schema.ORDERS, idx, fillfactor=100)
+        self.assertIn("WITH (fillfactor = 100)", sql)
+        self.assertLess(sql.index("WITH (fillfactor = 100)"), sql.index("WHERE"))
+
+    def test_to_create_index_sql_skips_fillfactor_for_gin(self) -> None:
+        """Ensure GIN indexes never get a fillfactor (they reject the parameter)."""
+        idx = schema.IndexDef(name="demo_gin", columns=("tags",), using="GIN")
+        sql = schema.to_create_index_sql(schema.ORDERS, idx, fillfactor=100)
+        self.assertIn("USING GIN", sql)
+        self.assertNotIn("fillfactor", sql)
+
     def test_variable_space_ddl_emits_foreign_key(self) -> None:
         """
         Ensure FK clauses (with ON DELETE CASCADE) land in the DDL for tables
@@ -1212,6 +1231,37 @@ class TestBulkLoadLifecycle(TestCase):
                     any(f'CREATE INDEX IF NOT EXISTS "{idx.name}"' in s for s in statements),
                     f"missing CREATE INDEX for {idx.name!r}",
                 )
+
+    def test_recreate_applies_fillfactor_100_to_btree_indexes_by_default(self) -> None:
+        """
+        Ensure the default recreate packs rebuilt B-tree indexes at
+        ``fillfactor = 100`` (write-once bulk build), while GIN indexes -- which
+        reject the parameter -- are left without it.
+        """
+        cursor = mock.MagicMock()
+        cursor.fetchall.return_value = []
+        conn, _ = self._fake_conn_with_cursor(cursor)
+
+        schema.recreate_bulk_load_objects(conn)
+
+        creates = [s for s in self._executed_statements(cursor) if "CREATE INDEX IF NOT EXISTS" in s]
+        self.assertTrue(creates, "expected at least one CREATE INDEX")
+        for s in creates:
+            if "USING GIN" in s:
+                self.assertNotIn("fillfactor", s)
+            else:
+                self.assertIn("WITH (fillfactor = 100)", s)
+
+    def test_recreate_with_fillfactor_none_omits_it(self) -> None:
+        """Ensure ``fillfactor=None`` falls back to PG defaults (no WITH clause)."""
+        cursor = mock.MagicMock()
+        cursor.fetchall.return_value = []
+        conn, _ = self._fake_conn_with_cursor(cursor)
+
+        schema.recreate_bulk_load_objects(conn, fillfactor=None)
+
+        for s in self._executed_statements(cursor):
+            self.assertNotIn("fillfactor", s)
 
     def test_bulk_load_window_drops_on_enter_and_recreates_on_exit(self) -> None:
         """

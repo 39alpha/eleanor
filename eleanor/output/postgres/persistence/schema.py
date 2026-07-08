@@ -135,14 +135,28 @@ def to_create_table_sql(table: TableDef) -> str:
     return f"CREATE TABLE IF NOT EXISTS {_quote_ident(table.name)} (\n  {body}\n)"
 
 
-def to_create_index_sql(table: TableDef, idx: IndexDef) -> str:
-    """Render ``CREATE INDEX IF NOT EXISTS`` for ``idx`` on ``table``."""
+# Access methods that reject a ``fillfactor`` storage parameter (they use
+# their own knobs -- GIN has fastupdate, BRIN has pages_per_range). Passing
+# fillfactor to these raises "unrecognized parameter", so we skip it for them.
+_NO_FILLFACTOR_METHODS: frozenset[str] = frozenset({"GIN", "BRIN"})
+
+
+def to_create_index_sql(table: TableDef, idx: IndexDef, fillfactor: int | None = None) -> str:
+    """Render ``CREATE INDEX IF NOT EXISTS`` for ``idx`` on ``table``.
+
+    When ``fillfactor`` is given it is emitted as a ``WITH (fillfactor = N)``
+    storage parameter, but only for access methods that accept it (B-tree and
+    friends -- not GIN/BRIN). ``fillfactor`` belongs between the column list and
+    any partial ``WHERE`` clause.
+    """
     unique = "UNIQUE " if idx.unique else ""
     using = f" USING {idx.using}" if idx.using else ""
     idx_name = _quote_ident(idx.name)
     table_name = _quote_ident(table.name)
     cols = _quote_idents(idx.columns)
     stmt = f"CREATE {unique}INDEX IF NOT EXISTS {idx_name} ON {table_name}{using} ({cols})"
+    if fillfactor is not None and (idx.using or "btree").upper() not in _NO_FILLFACTOR_METHODS:
+        stmt += f" WITH (fillfactor = {fillfactor})"
     if idx.where is not None:
         stmt += f" WHERE {idx.where}"
     return stmt
@@ -460,7 +474,11 @@ def drop_bulk_load_objects(connection: psycopg.Connection, targets: BulkLoadTarg
                     _run_ddl(cur, to_drop_index_sql(idx))
 
 
-def recreate_bulk_load_objects(connection: psycopg.Connection, targets: BulkLoadTargets | None = None) -> None:
+def recreate_bulk_load_objects(
+    connection: psycopg.Connection,
+    targets: BulkLoadTargets | None = None,
+    fillfactor: int | None = 100,
+) -> None:
     """Recreate the ``targets`` secondary indexes / FK / CHECK constraints declared on :data:`TABLES`.
 
     ``targets`` selects which classes to recreate (all three by default).
@@ -472,6 +490,13 @@ def recreate_bulk_load_objects(connection: psycopg.Connection, targets: BulkLoad
     than an error. FK presence is keyed on the synthesised
     ``<table>_<column>_fkey`` name, which matches both PG's inline default and
     the name :func:`to_add_foreign_key_sql` emits.
+
+    ``fillfactor`` (default 100) packs the rebuilt B-tree indexes fully. A
+    recreate is definitionally a one-shot bulk build over static, write-once
+    data, so the default B-tree fillfactor of 90 -- which reserves space for
+    future in-page inserts that never come -- just wastes ~10% of disk. Pass
+    ``None`` to fall back to PG's per-method default. GIN/BRIN indexes ignore it
+    (see :func:`to_create_index_sql`).
 
     Order matches :data:`TABLES` (parents before children); within each
     table indexes are added first (cheapest, no scan), then CHECK
@@ -489,7 +514,7 @@ def recreate_bulk_load_objects(connection: psycopg.Connection, targets: BulkLoad
         for table in TABLES:
             if targets.indexes:
                 for idx in table.indexes:
-                    _run_ddl(cur, to_create_index_sql(table, idx))
+                    _run_ddl(cur, to_create_index_sql(table, idx, fillfactor))
             if targets.checks:
                 existing_checks = _existing_constraint_names(cur, table.name, "CHECK")
                 for check in table.checks:

@@ -13,6 +13,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   set of conditions for filtering out generated `equilibrium_space.Point`s, e.g. with some specific
   aqueous species present below some limit.
 
+### Changed
+
+- **Curated the PostgreSQL indexes.** The existing set of indexes didn't achieve the query
+  performance we hoped for out of the box and ultimately just bloated the on-disc storage footprint.
+  We spent some time profiling known, real-world queries and tried to balance the performance
+  against storage size. These will probably be further refined in the future.
+
 ### Fixed
 
 - **Write error messages** from the `Runner` to the `PostgresSink` output. The `Runner` was

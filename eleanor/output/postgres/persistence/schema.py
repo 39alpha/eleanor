@@ -559,7 +559,6 @@ ORDERS = TableDef(
     indexes=(
         IndexDef("orders_name_idx", ("name",)),
         IndexDef("orders_tags_idx", ("tags",), using="GIN"),
-        IndexDef("orders_eleanor_version_idx", ("eleanor_version",)),
     ),
 )
 
@@ -581,8 +580,8 @@ VARIABLE_SPACE = TableDef(
     primary_key=("id",),
     foreign_keys=(ForeignKeyDef("order_id", "orders"),),
     indexes=(
-        IndexDef("variable_space_order_id_idx", ("order_id",)),
-        IndexDef("variable_space_exit_code_idx", ("exit_code",)),
+        IndexDef("variable_space_order_id_exit_code_idx", ("order_id", "exit_code")),
+        IndexDef("variable_space_exit_code_failed_idx", ("exit_code",), where="exit_code <> 0"),
         IndexDef("variable_space_temperature_idx", ("temperature",)),
         IndexDef("variable_space_pressure_idx", ("pressure",)),
     ),
@@ -739,17 +738,9 @@ EQUILIBRIUM_SPACE = TableDef(
     name="equilibrium_space",
     indexes=(
         IndexDef("equilibrium_space_variable_space_id_stage_idx", ("variable_space_id", "stage")),
-        IndexDef("equilibrium_space_ph_idx", ("pH",)),
-        IndexDef("equilibrium_space_eh_idx", ("Eh",)),
+        IndexDef("equilibrium_space_stage_variable_space_id_idx", ("stage", "variable_space_id")),
         IndexDef("equilibrium_space_temperature_idx", ("temperature",)),
         IndexDef("equilibrium_space_pressure_idx", ("pressure",)),
-        IndexDef("equilibrium_space_log_fo2_idx", ("log_fO2",)),
-        IndexDef("equilibrium_space_log_ionic_strength_idx", ("log_ionic_strength",)),
-        IndexDef("equilibrium_space_tds_idx", ("tds",)),
-        IndexDef("equilibrium_space_solvent_mass_idx", ("solvent_mass",)),
-        IndexDef("equilibrium_space_solute_mass_idx", ("solute_mass",)),
-        IndexDef("equilibrium_space_reactant_mass_reacted_idx", ("reactant_mass_reacted",)),
-        IndexDef("equilibrium_space_reactant_mass_remaining_idx", ("reactant_mass_remaining",)),
     ),
     columns=(
         _identity_pk(),
@@ -789,10 +780,7 @@ EQUILIBRIUM_ELEMENTS = TableDef(
     ),
     primary_key=("id",),
     foreign_keys=(ForeignKeyDef("equilibrium_space_id", "equilibrium_space"),),
-    indexes=(
-        IndexDef("equilibrium_elements_equilibrium_space_id_name_idx", ("equilibrium_space_id", "name")),
-        IndexDef("equilibrium_elements_log_molality_idx", ("log_molality",)),
-    ),
+    indexes=(),
 )
 
 
@@ -810,11 +798,13 @@ EQUILIBRIUM_AQUEOUS_SPECIES = TableDef(
     foreign_keys=(ForeignKeyDef("equilibrium_space_id", "equilibrium_space"),),
     indexes=(
         IndexDef(
+            "equilibrium_aqueous_species_name_log_molality_idx",
+            ("name", "log_molality"),
+        ),
+        IndexDef(
             "equilibrium_aqueous_species_equilibrium_space_id_name_idx",
             ("equilibrium_space_id", "name"),
         ),
-        IndexDef("equilibrium_aqueous_species_log_molality_idx", ("log_molality",)),
-        IndexDef("equilibrium_aqueous_species_log_activity_idx", ("log_activity",)),
     ),
 )
 
@@ -825,14 +815,16 @@ EQUILIBRIUM_PURE_SOLIDS = TableDef(
     primary_key=("id",),
     foreign_keys=(ForeignKeyDef("equilibrium_space_id", "equilibrium_space"),),
     indexes=(
-        IndexDef("equilibrium_pure_solids_equilibrium_space_id_name_idx", ("equilibrium_space_id", "name")),
         IndexDef(
-            "equilibrium_pure_solids_log_moles_present_idx",
-            ("equilibrium_space_id",),
+            "equilibrium_pure_solids_name_present_idx",
+            ("name", "equilibrium_space_id"),
             where=f"log_moles > {_double_neg_inf()}",
         ),
-        IndexDef("equilibrium_pure_solids_affinity_idx", ("affinity",)),
-        IndexDef("equilibrium_pure_solids_log_qk_idx", ("log_qk",)),
+        IndexDef(
+            "equilibrium_pure_solids_equilibrium_space_id_name_idx",
+            ("equilibrium_space_id", "name"),
+            where=f"log_moles > {_double_neg_inf()}",
+        ),
     ),
 )
 
@@ -844,16 +836,15 @@ EQUILIBRIUM_SOLID_SOLUTIONS = TableDef(
     foreign_keys=(ForeignKeyDef("equilibrium_space_id", "equilibrium_space"),),
     indexes=(
         IndexDef(
-            "equilibrium_solid_solutions_equilibrium_space_id_name_idx",
-            ("equilibrium_space_id", "name"),
-        ),
-        IndexDef(
-            "equilibrium_solid_solutions_log_moles_present_idx",
-            ("equilibrium_space_id",),
+            "equilibrium_solid_solutions_name_present_idx",
+            ("name", "equilibrium_space_id"),
             where=f"log_moles > {_double_neg_inf()}",
         ),
-        IndexDef("equilibrium_solid_solutions_affinity_idx", ("affinity",)),
-        IndexDef("equilibrium_solid_solutions_log_qk_idx", ("log_qk",)),
+        IndexDef(
+            "equilibrium_solid_solutions_equilibrium_space_id_name_idx",
+            ("equilibrium_space_id", "name"),
+            where=f"log_moles > {_double_neg_inf()}",
+        ),
     ),
 )
 
@@ -869,16 +860,15 @@ EQUILIBRIUM_END_MEMBERS = TableDef(
     foreign_keys=(ForeignKeyDef("equilibrium_solid_solution_id", "equilibrium_solid_solutions"),),
     indexes=(
         IndexDef(
-            "equilibrium_end_members_equilibrium_solid_solution_id_name_idx",
-            ("equilibrium_solid_solution_id", "name"),
-        ),
-        IndexDef(
-            "equilibrium_end_members_log_moles_present_idx",
-            ("equilibrium_solid_solution_id",),
+            "equilibrium_end_members_name_present_idx",
+            ("name", "equilibrium_solid_solution_id"),
             where=f"log_moles > {_double_neg_inf()}",
         ),
-        IndexDef("equilibrium_end_members_affinity_idx", ("affinity",)),
-        IndexDef("equilibrium_end_members_log_qk_idx", ("log_qk",)),
+        IndexDef(
+            "equilibrium_end_members_equilibrium_solid_solution_id_name_idx",
+            ("equilibrium_solid_solution_id", "name"),
+            where=f"log_moles > {_double_neg_inf()}",
+        ),
     ),
 )
 
@@ -893,10 +883,7 @@ EQUILIBRIUM_GASES = TableDef(
     ),
     primary_key=("id",),
     foreign_keys=(ForeignKeyDef("equilibrium_space_id", "equilibrium_space"),),
-    indexes=(
-        IndexDef("equilibrium_gases_equilibrium_space_id_name_idx", ("equilibrium_space_id", "name")),
-        IndexDef("equilibrium_gases_log_fugacity_idx", ("log_fugacity",)),
-    ),
+    indexes=(),
 )
 
 
@@ -915,14 +902,7 @@ EQUILIBRIUM_REACTANTS = TableDef(
     ),
     primary_key=("id",),
     foreign_keys=(ForeignKeyDef("equilibrium_space_id", "equilibrium_space"),),
-    indexes=(
-        IndexDef("equilibrium_reactants_equilibrium_space_id_name_idx", ("equilibrium_space_id", "name")),
-        IndexDef("equilibrium_reactants_affinity_idx", ("affinity",)),
-        IndexDef("equilibrium_reactants_log_moles_reacted_idx", ("log_moles_reacted",)),
-        IndexDef("equilibrium_reactants_log_moles_remaining_idx", ("log_moles_remaining",)),
-        IndexDef("equilibrium_reactants_log_mass_reacted_idx", ("log_mass_reacted",)),
-        IndexDef("equilibrium_reactants_log_mass_remaining_idx", ("log_mass_remaining",)),
-    ),
+    indexes=(),
 )
 
 
@@ -939,14 +919,7 @@ EQUILIBRIUM_REDOX_REACTIONS = TableDef(
     ),
     primary_key=("id",),
     foreign_keys=(ForeignKeyDef("equilibrium_space_id", "equilibrium_space"),),
-    indexes=(
-        IndexDef(
-            "equilibrium_redox_reactions_equilibrium_space_id_couple_idx",
-            ("equilibrium_space_id", "couple"),
-        ),
-        IndexDef("equilibrium_redox_reactions_eh_idx", ("Eh",)),
-        IndexDef("equilibrium_redox_reactions_log_fo2_idx", ("log_fO2",)),
-    ),
+    indexes=(),
 )
 
 

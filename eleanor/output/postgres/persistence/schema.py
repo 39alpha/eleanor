@@ -168,7 +168,7 @@ def _fk_constraint_name(table_name: str, fk_column: str) -> str:
     Postgres auto-generates exactly this shape when an inline
     ``FOREIGN KEY (...)`` clause is declared without a ``CONSTRAINT``
     name (which is what :func:`to_create_table_sql` does). Reusing the
-    same convention here means :func:`recreate_indexes` produces names
+    same convention here means :func:`recreate_bulk_load_objects` produces names
     that are byte-for-byte identical to the ones the server picked when
     the table was first created, so the recreated FK is
     indistinguishable from the inline-declared one.
@@ -420,7 +420,7 @@ def _existing_constraint_names(cur: psycopg.Cursor, table_name: str, constraint_
     return {cast(str, row[0]) for row in cur.fetchall()}
 
 
-def drop_indexes(connection: psycopg.Connection, targets: BulkLoadTargets | None = None) -> None:
+def drop_bulk_load_objects(connection: psycopg.Connection, targets: BulkLoadTargets | None = None) -> None:
     """Drop the ``targets`` secondary indexes / FK / CHECK constraints declared on :data:`TABLES`.
 
     ``targets`` selects which classes to drop (all three by default).
@@ -438,7 +438,7 @@ def drop_indexes(connection: psycopg.Connection, targets: BulkLoadTargets | None
 
     All DDL runs inside a single transaction so a partial drop never
     lands. Run this once before a bulk-load workload starts; pair with
-    :func:`recreate_indexes` (or the :func:`bulk_load_window` context
+    :func:`recreate_bulk_load_objects` (or the :func:`bulk_load_window` context
     manager) to put everything back when the workload completes.
     """
     if targets is None:
@@ -460,7 +460,7 @@ def drop_indexes(connection: psycopg.Connection, targets: BulkLoadTargets | None
                     _run_ddl(cur, to_drop_index_sql(idx))
 
 
-def recreate_indexes(connection: psycopg.Connection, targets: BulkLoadTargets | None = None) -> None:
+def recreate_bulk_load_objects(connection: psycopg.Connection, targets: BulkLoadTargets | None = None) -> None:
     """Recreate the ``targets`` secondary indexes / FK / CHECK constraints declared on :data:`TABLES`.
 
     ``targets`` selects which classes to recreate (all three by default).
@@ -522,20 +522,20 @@ def bulk_load_window(connection: psycopg.Connection, targets: BulkLoadTargets | 
     itself fails -- typically because the bulk-loaded data violates a
     constraint -- the exception propagates and the database is left
     with constraints missing; the caller can fix the data and re-run
-    :func:`recreate_indexes` to finish the job.
+    :func:`recreate_bulk_load_objects` to finish the job.
 
-    :func:`drop_indexes` and :func:`recreate_indexes` each open their
+    :func:`drop_bulk_load_objects` and :func:`recreate_bulk_load_objects` each open their
     own transaction, so the drop commits before the body runs and the
     recreate commits after the body returns. The body is free to manage
     its own transactions however the workload demands.
     """
     if targets is None:
         targets = BulkLoadTargets()
-    drop_indexes(connection, targets)
+    drop_bulk_load_objects(connection, targets)
     try:
         yield
     finally:
-        recreate_indexes(connection, targets)
+        recreate_bulk_load_objects(connection, targets)
 
 
 def _identity_pk() -> ColumnDef:
@@ -1050,12 +1050,12 @@ __all__ = [
     "bulk_load_window",
     "declared_constraint_names",
     "declared_index_names",
-    "drop_indexes",
+    "drop_bulk_load_objects",
     "ensure_schema",
     "inspect_schema",
     "live_constraint_names",
     "live_index_names",
-    "recreate_indexes",
+    "recreate_bulk_load_objects",
     "to_add_check_sql",
     "to_add_foreign_key_sql",
     "to_create_index_sql",

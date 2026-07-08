@@ -974,7 +974,7 @@ class TestConnectionCacheBehaviour(TestCase):
 
 
 class TestBulkLoadLifecycle(TestCase):
-    """Coverage of :func:`schema.drop_indexes` / :func:`schema.recreate_indexes` / :func:`schema.bulk_load_window`.
+    """Coverage of :func:`schema.drop_bulk_load_objects` / :func:`schema.recreate_bulk_load_objects` / :func:`schema.bulk_load_window`.
 
     These helpers issue DDL against a real Postgres in production; the
     unit suite mocks the cursor so we can pin down the
@@ -1008,11 +1008,11 @@ class TestBulkLoadLifecycle(TestCase):
             out.append(stmt if isinstance(stmt, str) else str(stmt))
         return out
 
-    def test_drop_indexes_introspects_fks_and_drops_named_checks_and_indexes(
+    def test_drop_bulk_load_objects_introspects_fks_and_drops_named_checks_and_indexes(
         self,
     ) -> None:
         """
-        Ensure :func:`schema.drop_indexes` issues, for every declared
+        Ensure :func:`schema.drop_bulk_load_objects` issues, for every declared
         table, an introspection query against ``information_schema``
         followed by ``ALTER TABLE ... DROP CONSTRAINT IF EXISTS`` for
         each FK name returned, ``ALTER TABLE ... DROP CONSTRAINT IF
@@ -1041,7 +1041,7 @@ class TestBulkLoadLifecycle(TestCase):
         )
         conn, _ = self._fake_conn_with_cursor(cursor)
 
-        schema.drop_indexes(conn)
+        schema.drop_bulk_load_objects(conn)
 
         # Every declared table got an introspection query.
         self.assertEqual(
@@ -1075,9 +1075,9 @@ class TestBulkLoadLifecycle(TestCase):
                     f"expected index drop for {idx.name!r}",
                 )
 
-    def test_drop_indexes_runs_inside_a_transaction(self) -> None:
+    def test_drop_bulk_load_objects_runs_inside_a_transaction(self) -> None:
         """
-        Ensure :func:`schema.drop_indexes` opens a transaction so a
+        Ensure :func:`schema.drop_bulk_load_objects` opens a transaction so a
         partial drop never lands. Without the bracket, a mid-loop error
         would leave the database in a half-stripped state.
         """
@@ -1085,12 +1085,12 @@ class TestBulkLoadLifecycle(TestCase):
         cursor.fetchall.return_value = []
         conn, _ = self._fake_conn_with_cursor(cursor)
 
-        schema.drop_indexes(conn)
+        schema.drop_bulk_load_objects(conn)
         conn.transaction.assert_called_once_with()
 
-    def test_recreate_indexes_emits_create_then_check_then_fk(self) -> None:
+    def test_recreate_bulk_load_objects_emits_create_then_check_then_fk(self) -> None:
         """
-        Ensure :func:`schema.recreate_indexes` emits, for every
+        Ensure :func:`schema.recreate_bulk_load_objects` emits, for every
         declared table, ``CREATE INDEX IF NOT EXISTS`` for each
         :class:`IndexDef`, ``ALTER TABLE ... ADD CONSTRAINT ... CHECK``
         for each :class:`CheckDef`, and ``ALTER TABLE ... ADD
@@ -1102,7 +1102,7 @@ class TestBulkLoadLifecycle(TestCase):
         cursor.fetchall.return_value = []  # no constraints present yet
         conn, _ = self._fake_conn_with_cursor(cursor)
 
-        schema.recreate_indexes(conn)
+        schema.recreate_bulk_load_objects(conn)
 
         statements = self._executed_statements(cursor)
         # Exactly one statement for every declared object.
@@ -1133,16 +1133,16 @@ class TestBulkLoadLifecycle(TestCase):
                     f"missing ADD FK for {fk_name!r}",
                 )
 
-    def test_recreate_indexes_runs_inside_a_transaction(self) -> None:
+    def test_recreate_bulk_load_objects_runs_inside_a_transaction(self) -> None:
         """Ensure the recreate also runs inside a single transaction."""
         cursor = mock.MagicMock()
         cursor.fetchall.return_value = []  # no constraints present yet
         conn, _ = self._fake_conn_with_cursor(cursor)
 
-        schema.recreate_indexes(conn)
+        schema.recreate_bulk_load_objects(conn)
         conn.transaction.assert_called_once_with()
 
-    def test_drop_indexes_targets_restrict_to_selected_classes(self) -> None:
+    def test_drop_bulk_load_objects_targets_restrict_to_selected_classes(self) -> None:
         """
         Ensure a restricted :class:`schema.BulkLoadTargets` drops only the
         selected classes: with ``indexes`` only, there is no FK introspection
@@ -1152,7 +1152,7 @@ class TestBulkLoadLifecycle(TestCase):
         cursor.fetchall.return_value = []
         conn, _ = self._fake_conn_with_cursor(cursor)
 
-        schema.drop_indexes(
+        schema.drop_bulk_load_objects(
             conn,
             schema.BulkLoadTargets(indexes=True, checks=False, foreign_keys=False),
         )
@@ -1166,9 +1166,9 @@ class TestBulkLoadLifecycle(TestCase):
             "expected indexes to still be dropped",
         )
 
-    def test_recreate_indexes_skips_constraints_that_already_exist(self) -> None:
+    def test_recreate_bulk_load_objects_skips_constraints_that_already_exist(self) -> None:
         """
-        Ensure :func:`schema.recreate_indexes` is idempotent for CHECK / FK
+        Ensure :func:`schema.recreate_bulk_load_objects` is idempotent for CHECK / FK
         constraints: when introspection reports them already present, no
         ``ADD CONSTRAINT`` is emitted, but indexes are still (re)created via
         ``CREATE INDEX IF NOT EXISTS``.
@@ -1201,7 +1201,7 @@ class TestBulkLoadLifecycle(TestCase):
         cursor.fetchall.side_effect = fake_fetchall
         conn, _ = self._fake_conn_with_cursor(cursor)
 
-        schema.recreate_indexes(conn)
+        schema.recreate_bulk_load_objects(conn)
 
         statements = self._executed_statements(cursor)
         for s in statements:
@@ -1216,20 +1216,20 @@ class TestBulkLoadLifecycle(TestCase):
     def test_bulk_load_window_drops_on_enter_and_recreates_on_exit(self) -> None:
         """
         Ensure :func:`schema.bulk_load_window` calls
-        :func:`drop_indexes` before yielding and
-        :func:`recreate_indexes` after the body returns -- the
+        :func:`drop_bulk_load_objects` before yielding and
+        :func:`recreate_bulk_load_objects` after the body returns -- the
         symmetric guard the docstring promises.
         """
         events: list[str] = []
         with (
             mock.patch.object(
                 schema,
-                "drop_indexes",
+                "drop_bulk_load_objects",
                 side_effect=lambda _conn, _targets=None: events.append("drop"),
             ),
             mock.patch.object(
                 schema,
-                "recreate_indexes",
+                "recreate_bulk_load_objects",
                 side_effect=lambda _conn, _targets=None: events.append("recreate"),
             ),
         ):
@@ -1248,12 +1248,12 @@ class TestBulkLoadLifecycle(TestCase):
         with (
             mock.patch.object(
                 schema,
-                "drop_indexes",
+                "drop_bulk_load_objects",
                 side_effect=lambda _conn, _targets=None: events.append("drop"),
             ),
             mock.patch.object(
                 schema,
-                "recreate_indexes",
+                "recreate_bulk_load_objects",
                 side_effect=lambda _conn, _targets=None: events.append("recreate"),
             ),
         ):
@@ -1264,10 +1264,10 @@ class TestBulkLoadLifecycle(TestCase):
 
         self.assertEqual(events, ["drop", "body", "recreate"])
 
-    def test_repositories_drop_indexes_wires_connect_to_schema(self) -> None:
+    def test_repositories_drop_bulk_load_objects_wires_connect_to_schema(self) -> None:
         """
-        Ensure :func:`repositories.drop_indexes` is just
-        ``schema.drop_indexes(connection.connect(config))`` -- the
+        Ensure :func:`repositories.drop_bulk_load_objects` is just
+        ``schema.drop_bulk_load_objects(connection.connect(config))`` -- the
         :class:`PostgresDatabaseSettings`-keyed convenience the CLI uses.
         """
         cfg = PostgresDatabaseSettings(database="db", username="u", password="p")
@@ -1278,13 +1278,13 @@ class TestBulkLoadLifecycle(TestCase):
                 "connect",
                 return_value=fake_conn,
             ) as connect,
-            mock.patch.object(schema, "drop_indexes") as drop_indexes,
+            mock.patch.object(schema, "drop_bulk_load_objects") as drop_bulk_load_objects,
         ):
-            repositories.drop_indexes(cfg)
+            repositories.drop_bulk_load_objects(cfg)
         connect.assert_called_once_with(cfg)
-        drop_indexes.assert_called_once_with(fake_conn, None)
+        drop_bulk_load_objects.assert_called_once_with(fake_conn, None)
 
-    def test_repositories_recreate_indexes_wires_connect_to_schema(self) -> None:
+    def test_repositories_recreate_bulk_load_objects_wires_connect_to_schema(self) -> None:
         """Ensure the recreate wrapper is the same shape as the drop wrapper."""
         cfg = PostgresDatabaseSettings(database="db", username="u", password="p")
         fake_conn = mock.MagicMock()
@@ -1294,11 +1294,11 @@ class TestBulkLoadLifecycle(TestCase):
                 "connect",
                 return_value=fake_conn,
             ) as connect,
-            mock.patch.object(schema, "recreate_indexes") as recreate_indexes,
+            mock.patch.object(schema, "recreate_bulk_load_objects") as recreate_bulk_load_objects,
         ):
-            repositories.recreate_indexes(cfg)
+            repositories.recreate_bulk_load_objects(cfg)
         connect.assert_called_once_with(cfg)
-        recreate_indexes.assert_called_once_with(fake_conn, None)
+        recreate_bulk_load_objects.assert_called_once_with(fake_conn, None)
 
     def test_repositories_bulk_load_window_delegates_to_schema_window(self) -> None:
         """

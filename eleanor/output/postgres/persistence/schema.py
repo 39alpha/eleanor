@@ -397,9 +397,33 @@ def verify_against_tables(
     return problems
 
 
-def drop_indexes(connection: psycopg.Connection) -> None:
-    """Drop every secondary index + FK / CHECK constraint declared on :data:`TABLES`.
+@dataclass(frozen=True, slots=True)
+class BulkLoadTargets:
+    """Which classes of bulk-load objects a drop/recreate pass acts on.
 
+    All three default to ``True`` so callers that don't care get the historical
+    "everything" behaviour. ``bool(targets)`` is ``False`` only when nothing is
+    selected, which callers can use to reject a no-op request.
+    """
+
+    indexes: bool = True
+    checks: bool = True
+    foreign_keys: bool = True
+
+    def __bool__(self) -> bool:
+        return self.indexes or self.checks or self.foreign_keys
+
+
+def _existing_constraint_names(cur: psycopg.Cursor, table_name: str, constraint_type: str) -> set[str]:
+    """Return the names of ``constraint_type`` constraints currently on ``table_name``."""
+    _ = cur.execute(_LIST_CONSTRAINTS_QUERY, ("public", table_name, constraint_type))
+    return {cast(str, row[0]) for row in cur.fetchall()}
+
+
+def drop_indexes(connection: psycopg.Connection, targets: BulkLoadTargets | None = None) -> None:
+    """Drop the ``targets`` secondary indexes / FK / CHECK constraints declared on :data:`TABLES`.
+
+    ``targets`` selects which classes to drop (all three by default).
     Idempotent: every individual statement is ``IF EXISTS``-shaped, so
     calling this on a database that has already had its constraints
     stripped is a no-op.
@@ -417,35 +441,37 @@ def drop_indexes(connection: psycopg.Connection) -> None:
     :func:`recreate_indexes` (or the :func:`bulk_load_window` context
     manager) to put everything back when the workload completes.
     """
+    if targets is None:
+        targets = BulkLoadTargets()
     with connection.transaction(), connection.cursor() as cur:
         for table in TABLES:
-            # FKs: introspect the live database so we drop whatever
-            # is actually there, named or not.
-            _ = cur.execute(
-                _LIST_CONSTRAINTS_QUERY,
-                ("public", table.name, "FOREIGN KEY"),
-            )
-            fk_names = [cast(str, row[0]) for row in cur.fetchall()]
-            for fk_name in fk_names:
-                _run_ddl(cur, to_drop_constraint_sql(table.name, fk_name))
-            # CHECK constraints: drop by declared name. ``IF EXISTS``
-            # makes this idempotent for fresh databases that have
-            # not yet had the constraint added.
-            for check in table.checks:
-                _run_ddl(cur, to_drop_constraint_sql(table.name, check.name))
-            # Indexes: drop by declared name.
-            for idx in table.indexes:
-                _run_ddl(cur, to_drop_index_sql(idx))
+            if targets.foreign_keys:
+                # Introspect the live database so we drop whatever is
+                # actually there, named or not.
+                for fk_name in _existing_constraint_names(cur, table.name, "FOREIGN KEY"):
+                    _run_ddl(cur, to_drop_constraint_sql(table.name, fk_name))
+            if targets.checks:
+                # Drop by declared name. ``IF EXISTS`` makes this idempotent
+                # for fresh databases that have not yet had the constraint added.
+                for check in table.checks:
+                    _run_ddl(cur, to_drop_constraint_sql(table.name, check.name))
+            if targets.indexes:
+                for idx in table.indexes:
+                    _run_ddl(cur, to_drop_index_sql(idx))
 
 
-def recreate_indexes(connection: psycopg.Connection) -> None:
-    """Recreate every secondary index + FK / CHECK constraint declared on :data:`TABLES`.
+def recreate_indexes(connection: psycopg.Connection, targets: BulkLoadTargets | None = None) -> None:
+    """Recreate the ``targets`` secondary indexes / FK / CHECK constraints declared on :data:`TABLES`.
 
-    Indexes are added with ``CREATE INDEX IF NOT EXISTS`` (idempotent);
-    ``ALTER TABLE ... ADD CONSTRAINT`` is *not* idempotent on its own,
-    so the caller is expected to have run :func:`drop_indexes` first
-    (or this function is being called as the recreate phase of a
-    :func:`bulk_load_window`).
+    ``targets`` selects which classes to recreate (all three by default).
+    Each class is applied idempotently: indexes via ``CREATE INDEX IF NOT
+    EXISTS``, and CHECK / FK constraints by first introspecting which are
+    already present and skipping those (``ALTER TABLE ... ADD CONSTRAINT`` is
+    not itself idempotent). That makes an asymmetric drop/recreate -- e.g.
+    ``drop`` with ``--no-fks`` followed by a full ``recreate`` -- safe rather
+    than an error. FK presence is keyed on the synthesised
+    ``<table>_<column>_fkey`` name, which matches both PG's inline default and
+    the name :func:`to_add_foreign_key_sql` emits.
 
     Order matches :data:`TABLES` (parents before children); within each
     table indexes are added first (cheapest, no scan), then CHECK
@@ -457,19 +483,32 @@ def recreate_indexes(connection: psycopg.Connection) -> None:
     bulk-loaded data violates the constraint), the whole transaction
     rolls back and the caller can fix the data and re-run.
     """
+    if targets is None:
+        targets = BulkLoadTargets()
     with connection.transaction(), connection.cursor() as cur:
         for table in TABLES:
-            for idx in table.indexes:
-                _run_ddl(cur, to_create_index_sql(table, idx))
-            for check in table.checks:
-                _run_ddl(cur, to_add_check_sql(table, check))
-            for fk in table.foreign_keys:
-                _run_ddl(cur, to_add_foreign_key_sql(table, fk))
+            if targets.indexes:
+                for idx in table.indexes:
+                    _run_ddl(cur, to_create_index_sql(table, idx))
+            if targets.checks:
+                existing_checks = _existing_constraint_names(cur, table.name, "CHECK")
+                for check in table.checks:
+                    if check.name not in existing_checks:
+                        _run_ddl(cur, to_add_check_sql(table, check))
+            if targets.foreign_keys:
+                existing_fks = _existing_constraint_names(cur, table.name, "FOREIGN KEY")
+                for fk in table.foreign_keys:
+                    if _fk_constraint_name(table.name, fk.column) not in existing_fks:
+                        _run_ddl(cur, to_add_foreign_key_sql(table, fk))
 
 
 @contextmanager
-def bulk_load_window(connection: psycopg.Connection) -> Generator[None]:
+def bulk_load_window(connection: psycopg.Connection, targets: BulkLoadTargets | None = None) -> Generator[None]:
     """Drop secondary constraints / indexes on enter; recreate them on exit.
+
+    ``targets`` selects which classes are dropped and recreated (all by
+    default); the same selection is used for both phases so the window is
+    symmetric.
 
     Symmetric guard around a bulk-load workload::
 
@@ -490,11 +529,13 @@ def bulk_load_window(connection: psycopg.Connection) -> Generator[None]:
     recreate commits after the body returns. The body is free to manage
     its own transactions however the workload demands.
     """
-    drop_indexes(connection)
+    if targets is None:
+        targets = BulkLoadTargets()
+    drop_indexes(connection, targets)
     try:
         yield
     finally:
-        recreate_indexes(connection)
+        recreate_indexes(connection, targets)
 
 
 def _identity_pk() -> ColumnDef:

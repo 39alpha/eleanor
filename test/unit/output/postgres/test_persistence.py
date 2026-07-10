@@ -554,11 +554,15 @@ class TestBulkInsertHelpers(TestCase):
                 (7, "Cl", -1.2, 0.4),
             ],
         )
-        # Pinning column types is what keeps psycopg from inferring an
-        # ``INTEGER`` column as ``int8`` at binary-copy time.
+        # ``equilibrium_space_id`` is a BIGINT (int8) foreign key since
+        # migration 0007 widened the equilibrium_* identity family, so the
+        # pinned type matches what psycopg would infer for a Python ``int``
+        # here. Pinning still guards the schema's remaining ``INTEGER``
+        # (int4) columns -- e.g. ``variable_space_id`` -- from being widened
+        # to int8 and blowing up the binary-copy stream.
         self.assertEqual(
             fake_copy.types,
-            ["int4", "text", "float8", "float8"],
+            ["int8", "text", "float8", "float8"],
         )
 
     def test_bulk_insert_returning_ids_is_noop_for_empty_rows(self) -> None:

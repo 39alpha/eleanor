@@ -19,6 +19,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Widened the `equilibrium_*` identity primary keys from `INTEGER` to `BIGINT`.** The
+  per-equilibrium-point tables accumulate one row per species/solid/gas/reactant per point, so
+  their `int4` identity range was the first thing to overflow on large runs. The foreign-key columns
+  that store these ids (`equilibrium_space_id`, `equilibrium_solid_solution_id`) are widened to match.
 - **Curated the PostgreSQL indexes.** The existing set of indexes didn't achieve the query
   performance we hoped for out of the box and ultimately just bloated the on-disc storage footprint.
   We spent some time profiling known, real-world queries and tried to balance the performance

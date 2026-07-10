@@ -113,6 +113,7 @@ _COPY_ROW_THRESHOLD: int = 1_000
 # also makes Jsonb / TIMESTAMP / BYTEA encodings explicit.
 _COPY_PG_TYPE_BY_SQL_TYPE: dict[str, str] = {
     "INTEGER": "int4",
+    "BIGINT": "int8",
     "TEXT": "text",
     "DOUBLE PRECISION": "float8",
     "TIMESTAMP": "timestamp",

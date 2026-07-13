@@ -1060,10 +1060,8 @@ class OutputParser3(OutputParser):
             self.read_solid_solution_saturation_states()
 
             header = "Saturation States of Hypothetical Solid Solutions"
-            resume = self.line_num
             self.consume_to_header(header)
             has_hypothetical = not self.eof()
-            self.line_num = resume
             if has_hypothetical:
                 self.read_product_phases(header)
                 self.read_fugacities()

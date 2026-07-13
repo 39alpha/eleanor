@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **`OutputParser3` now tolerates EQ3 output files that omit the hypothetical solid solutions and
+  fugacities sections.** These two sections are optional but always appear together, with the
+  hypothetical solid solutions preceding the fugacities. The parser now probes for the leading
+  section and skips both when it is absent, rather than raising a `PARSER_ERROR`.
+
 ## [v0.20.0] - 2026-07-13
 
 ### Added

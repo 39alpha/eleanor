@@ -1,0 +1,487 @@
+
+ EQ3/6, Version 8.0a (EQ3/6-V8-REL-V8.0a-PC)
+ EQ3NR Speciation-Solubility Code (EQ3/6-V8-EQ3NR-EXE-R43a-PC)
+ Supported by the following EQ3/6 libraries:
+   EQLIB (EQ3/6-V8-EQLIB-LIB-R43a-PC)
+   EQLIBG (EQ3/6-V8-EQLIBG-LIB-R43a-PC)
+   EQLIBU (EQ3/6-V8-EQLIBU-LIB-R43a-PC)
+
+ Copyright (c) 1987, 1990-1993, 1995, 1997, 2002 The Regents of the
+ University of California, Lawrence Livermore National Laboratory.
+ All rights reserved.
+
+ This work is subject to additional statements and
+ disclaimers which may be found in the README.txt file
+ included in the EQ3/6 software transmittal package.
+
+
+ Run  20:55:20  10Jul2026
+
+
+ Reading the data1 file header section ...
+
+ Reading the rest of the DATA1 file ...
+
+   The data file title is:
+
+     data0.tde
+     Water model: SUPCRT92
+     TP points: 8
+
+   Continuing to read the DATA1 file ...
+
+   Done reading the DATA1 file.
+
+ The redox basis species is O2(g).
+
+
+ Reading problem   1 from the input file ...
+
+ EQ3NR input file name= problem.3i                                               
+ endit.
+ * Special basis switches
+     nsbswt=   0
+ * General
+      tempc=  1.00000E+02
+     jpres3=   0
+      press=  3.00000E+02
+        rho=  1.00000E+00
+     itdsf3=   0
+     tdspkg=  0.00000E+00     tdspl=  0.00000E+00
+     iebal3=   1
+      uebal= H+
+     irdxc3=   0
+     fo2lgi= -1.00000E+00       ehi=  0.00000E+00
+        pei=  0.00000E+00    uredox= None
+ * Aqueous basis species
+ species= H+
+    jflgi= 16    covali= -7.00000E+00
+ species= Na+
+    jflgi=  0    covali=  1.00000E-06
+ species= Cl-
+    jflgi=  0    covali=  1.00000E-06
+ endit.
+ * Ion exchangers
+     qgexsh= 
+        net=   0
+ * Ion exchanger compositions
+       neti=   0
+ * Solid solution compositions
+       nxti=   0
+ * Alter/suppress options
+      nxmod=   0
+ * Iopt, iopg, iopr, and iodb options
+ *               1    2    3    4    5    6    7    8    9   10
+   iopt1-10=     0    0    0    1    0    0    0    0    0    0
+  iopt11-20=     0    0    0    0    0   -1    0   -1    3    0
+   iopg1-10=     0    0    0    0    0    0    0    0    0    0
+  iopg11-20=     0    0    0    0    0    0    0    0    0    0
+   iopr1-10=     0    0    0    1    0   -1    1   -1    0    0
+  iopr11-20=     0    0    0    0    0    0    0    0    0    0
+   iodb1-10=     0    0    0    0    0    0    0    0    0    0
+  iodb11-20=     0    0    0    0    0    0    0    0    0    0
+ * Numerical parameters
+      tolbt=  0.00000E+00     toldl=  0.00000E+00
+     itermx=   0
+ * Ordinary basis switches
+     nobswt=   0
+ * Saturation flag tolerance
+     tolspf=  0.00000E+00
+ * Aqueous phase scale factor
+     scamas=  1.00000E+00
+
+   Done reading problem   1.
+
+
+ The redox basis species is O2(g).
+
+ The activity coefficients of aqueous species will be
+ calculated using the B-dot equation.
+
+
+ Temperature= 100.00 C
+
+
+ jpres3=    0 (Pressure option switch)
+
+   Pressure=   300.00     bars (data file reference curve value)
+
+
+       --- Numbers of Phases, Species, and Groups Thereof---
+
+       Entity               Date Base    Dimension   Current Problem
+
+   Chemical Elements             83          83           4
+   Basis Species                183         193          13
+   Phases                       240         263           5
+   Species                     1074        1565          25
+   Aqueous Species              777         777          19
+   Pure Minerals                209         209           2
+   Pure Liquids                   1           2           1
+   Gas Species                   17          17           3
+   Solid Soutions                28          28           0
+
+
+ iopt(1)=   0 (Used only by EQ6)
+ iopt(2)=   0 (Used only by EQ6)
+ iopt(3)=   0 (Used only by EQ6)
+ iopt(4)=   1 (Solid solutions)
+ iopt(5)=   0 (Used only by EQ6)
+ iopt(6)=   0 (Used only by EQ6)
+ iopt(7)=   0 (Not used)
+ iopt(8)=   0 (Not used)
+ iopt(9)=   0 (Not used)
+ iopt(10)=  0 (Not used)
+ iopt(11)=  0 (Auto basis switching, in pre-Newton-Raphson optimization)
+ iopt(12)=  0 (Used only by EQ6)
+ iopt(13)=  0 (Not used)
+ iopt(14)=  0 (Not used)
+ iopt(15)=  0 (Used only by EQ6)
+ iopt(16)= -1 (Not used)
+ iopt(17)=  0 (pickup file options)
+ iopt(18)= -1 (Used only by EQ6)
+ iopt(19)= 
+
+   iopg(1)=   0 (Aqueous species activity coefficient model)
+   iopg(2)=   0 (pH scale)
+
+
+ iopr(1)=   0 (List all species)
+ iopr(2)=   0 (List all reactions)
+ iopr(3)=   0 (List HC diameters)
+ iopr(4)=   1 (Aqueous species concentration print cut-off)
+ iopr(5)=   0 (Ion/H+ activity ratios)
+ iopr(6)=  -1 (Mass balance percentages)
+ iopr(7)=   1 (Affinity print cut-off)
+ iopr(8)=  -1 (Fugacities)
+ iopr(9)=   0 (Mean molal activity coefficients)
+ iopr(10)=  0 (Pitzer coefficients tabulation)
+ iopr(11)=  0 (Not used)
+ iopr(12)=  0 (Not used)
+ iopr(13)=  0 (Not used)
+ iopr(14)=  0 (Not used)
+ iopr(15)=  0 (Not used)
+ iopr(16)=  0 (Not used)
+ iopr(17)=  0 (pickup file format)
+
+
+   iodb(1)=   0 (General diagnostics)
+   iodb(2)=   0 (Used only by EQ6)
+   iodb(3)=   0 (pre-Newton-Raphson optimization iterations)
+   iodb(4)=   0 (Newton-Raphson iterations)
+   iodb(5)=   0 (Used only by EQ6)
+   iodb(6)=   0 (Hypothetical affinity iterations)
+   iodb(7)=   0 (Used only by EQ6)
+
+
+ irdxc3=    0 (Default redox constraint switch)
+
+   The default redox state is constrained by Log fO2 =  -1.0000     (log bars).
+
+
+ iebal3=    1 (Electrical balancing option switch)
+
+   The species H+ will be adjusted to
+   achieve electrical balance.
+
+
+ Solution density =  1.00000 g/ml
+
+
+ itdsf3=    0 (Total dissolved solutes option switch)
+
+   Total dissolved salts =       0.00 mg/kg.sol
+
+
+ tolbt  =  1.00000E-06 (convergence tolerance on residual functions)
+ toldl  =  1.00000E-06 (convergence tolerance on correction terms)
+ tolspf =  5.00000E-05 (saturation print flag tolerance, does not affect
+                         convergence)
+
+
+ itermx = 200 (maximum number of iterations)
+
+
+ scamas =  1.00000E+00 (scale factor for aqueous solution
+                         mass written on the pickup file)
+
+
+                     --- Original Input Constraints ---
+
+     Species                    coval   jflag   Type of Input
+
+  H+                        -7.00000E+00  16  Log activity
+  Na+                        1.00000E-06   0  Total molality
+  Cl-                        1.00000E-06   0  Total molality
+
+
+ - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+
+
+                     --- Modified Input Constraints ---
+
+     Species                    coval   jflag   Type of Input
+
+  H2O                        0.00000E+00   0  Total molality
+  H+                        -7.00000E+00  16  Log activity
+  Na+                        1.00000E-06   0  Total molality
+  Cl-                        1.00000E-06   0  Total molality
+  O2(g)                      0.00000E+00   0  Log fO2
+  O2                                      30  Make non-basis
+  OH-                                     30  Make non-basis
+  ClO3-                                   30  Make non-basis
+  H2                                      30  Make non-basis
+  ClO4-                                   30  Make non-basis
+  H2O2                                    30  Make non-basis
+  ClO-                                    30  Make non-basis
+  ClO2-                                   30  Make non-basis
+
+
+ Electrical balance will be achieved by adjusting
+   the concentration of H+.
+
+
+                     --- Inactive Species ---
+
+    None
+
+
+ - - BEGIN ITERATIVE CALCULATIONS  - - - - - - - - - - - - - - - - - - - - - -
+
+
+ Starting Pre-Newton-Raphson Optimization.
+
+             Completed pass   1 in   5 cycles.
+             Completed pass   2 in   5 cycles.
+             Completed pass   3 in   5 cycles.
+
+   Done. Optimization ended outside requested limits.
+
+
+ Starting hybrid Newton-Raphson iteration.
+
+   Done. Hybrid Newton-Raphson iteration converged in   6 iterations.
+
+
+ * Warning - (EQ3NR/eq3nr) The calculated TDS of 1.8837 mg/kg.sol
+       differs from the input file/default value of 0.0000 mg/kg.sol.
+       The calculated value will be used in subsequent calculations.
+
+ - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+
+           --- Elemental Composition of the Aqueous Solution ---
+
+   Element        mg/L       mg/kg.sol    Molarity     Molality
+
+     O         8.88102E+05  8.88102E+05  5.55084E-02  5.55085E+01
+     H         1.11898E+05  1.11898E+05  1.11017E-01  1.11017E+02
+     Na        2.29897E-02  2.29897E-02  9.99998E-10  1.00000E-06
+     Cl        3.54529E-02  3.54529E-02  9.99998E-10  1.00000E-06
+
+
+           --- Numerical Composition of the Aqueous Solution ---
+
+   Species                    mg/L       mg/kg.sol    Molarity     Molality
+
+ H2O                       9.99998E+05  9.99998E+05  5.55083E-02  5.55084E+01
+ H+                        3.27483E-14  3.27483E-14  3.24903E-20  3.24904E-17
+ Na+                       2.29897E-02  2.29897E-02  9.99998E-10  1.00000E-06
+ Cl-                       3.54529E-02  3.54529E-02  9.99998E-10  1.00000E-06
+ O2(g)                     1.81023E+00  1.81023E+00  5.65717E-08  5.65718E-05
+
+   Some of the above data may not be physically significant.
+
+
+           --- Sensible Composition of the Aqueous Solution ---
+
+   Species                    mg/L       mg/kg.sol    Molarity     Molality
+
+ H+                        3.27483E-14  3.27483E-14  3.24903E-20  3.24904E-17
+ Na+                       2.29897E-02  2.29897E-02  9.99998E-10  1.00000E-06
+ Cl-                       3.54529E-02  3.54529E-02  9.99998E-10  1.00000E-06
+
+   The above data have physical significance, but some may be
+   inconsistent with certain analytical methods or reporting schemes.
+
+
+
+                    Oxygen fugacity= 0.10000 bars
+                Log oxygen fugacity= -1.0000
+
+                  Activity of water= 1.0000
+              Log activity of water= -4.71326E-07
+
+             Mole fraction of water= 1.0000
+         Log mole fraction of water= -4.71343E-07
+
+      Activity coefficient of water= 1.0000
+  Log activity coefficient of water= 1.72517E-11
+
+                Osmotic coefficient= 0.99996
+ Stoichiometric osmotic coefficient= 30.121
+
+                  Sum of molalities= 6.02437E-05
+   Sum of stoichiometric molalities= 2.00000E-06
+
+                 Ionic strength (I)= 1.83598E-06 molal
+      Stoichiometric ionic strength= 1.00000E-06 molal
+
+                Ionic asymmetry (J)= 0.0000 molal
+     Stoichiometric ionic asymmetry= 5.41506E-18 molal
+
+                       Solvent mass= 1000.0 g
+                 Solutes (TDS) mass= 1.88373E-03 g
+              Aqueous solution mass= 1000.0 g
+
+            Aqueous solution volume= 0.0000 L
+
+                   Solvent fraction= 1.0000 kg.H2O/kg.sol
+                    Solute fraction= 1.88373E-06 kg.tds/kg.sol
+
+      Total dissolved solutes (TDS)= 1.8837 mg/kg.sol
+                                TDS= 0.0000 mg/L
+                                TDS= 0.0000 g/L
+
+                   Solution density= 0.0000 g/mL
+                   Solution density= 0.0000 g/L
+
+                  Molarity/molality= 9.99998E-04 kg.H2O/L
+                  Molality/molarity= 1000.0 L/kg.H2O
+
+
+           --- The pH, Eh, pe-, and Ah on various pH scales ---
+
+                               pH     Eh, volts        pe-       Ah, kcal
+
+ NBS pH scale                6.0786     0.6969     9.4124E+00     16.0713
+ Mesmer pH (pmH) scale       6.0778     0.6969     9.4131E+00     16.0727
+
+
+      pcH=      9.0778
+     pHCl=     12.0794
+
+
+   The single ion activities and activity coefficients listed below
+   are consistent with the NBS pH scale.
+
+
+
+      Alkalinity is not defined at 100.000 C.
+      It is only defined in the temperature range 0-50 C.
+
+
+           --- Electrical Balance Totals ---
+
+                                  eq/kg.H2O
+
+        Sigma(mz) cations=     1.8359751055E-06
+         Sigma(mz) anions=    -1.8359751054E-06
+             Total charge=     3.6719502109E-06
+              Mean charge=     1.8359751055E-06
+         Charge imbalance=     3.2490278033E-17
+
+
+         The electrical imbalance is:
+
+              0.0000 per cent of the total charge
+              0.0000 per cent of the mean charge
+
+
+      --- Electrical Balancing on H+ ---
+
+           Log Activity
+
+     Input       -7.0000
+     Final       -6.0786
+     Adj          0.9214
+
+
+
+                --- Distribution of Aqueous Solute Species ---
+
+    Species                  Molality    Log Molality   Log Gamma  Log Activity
+
+ O2                         5.6572E-05      -4.2474       0.0000      -4.2474
+ Cl-                        1.0000E-06      -6.0000      -0.0008      -6.0008
+ Na+                        1.0000E-06      -6.0000      -0.0008      -6.0008
+ H+                         8.3598E-07      -6.0778      -0.0008      -6.0786
+ OH-                        8.3598E-07      -6.0778      -0.0008      -6.0786
+ NaOH                       5.7690E-13     -12.2389       0.0000     -12.2389
+ NaCl                       3.0733E-13     -12.5124       0.0000     -12.5124
+ HCl                        1.7306E-13     -12.7618       0.0000     -12.7618
+ H2O2                       4.3063E-16     -15.3659       0.0000     -15.3659
+ HClO                       1.4227E-20     -19.8469       0.0000     -19.8469
+ HO2-                       1.1186E-20     -19.9513      -0.0008     -19.9521
+ ClO-                       1.3068E-21     -20.8838      -0.0008     -20.8846
+ ClO3-                      1.1466E-27     -26.9406      -0.0008     -26.9414
+ ClO4-                      5.5937E-29     -28.2523      -0.0008     -28.2531
+ ClO2-                      3.4151E-30     -29.4666      -0.0008     -29.4674
+ HClO2                      1.1233E-33     -32.9495       0.0000     -32.9495
+ H2                         6.9135E-35     -34.1603       0.0000     -34.1603
+ O2(g)                      0.0000E+00  -99999.0000       0.0000      -1.0000
+
+
+
+                --- Aqueous Redox Reactions ---
+
+   Couple                           Eh, volts      pe-      log fO2   Ah, kcal
+
+ DEFAULT                              0.697    9.4124E+00    -1.000    16.071
+
+    Couples required to satisfy the default redox constraint are not listed.
+
+
+
+      --- Saturation States of Aqueous Reactions Not Fixed at Equilibrium ---
+
+   Reaction                           Log Q/K    Affinity, kcal
+
+ None
+
+
+
+           --- Saturation States of Pure Solids ---
+
+       Phase                      Log Q/K    Affinity, kcal
+
+     sodium-oxide                -55.03019    -93.96257
+     halite                      -13.62109    -23.25764
+
+
+
+           --- Saturation States of Pure Liquids ---
+
+       Phase                      Log Q/K    Affinity, kcal
+
+     H2O                          -0.00000     -0.00000     SATD
+
+
+
+           --- Saturation States of Solid Solutions ---
+
+       Phase                      Log Q/K    Affinity, kcal
+
+     None
+
+
+           --- Summary of Saturated and Supersaturated Phases ---
+
+                There is 1 saturated phase.
+                There are no supersaturated phases.
+
+
+ - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+
+ The pickup file has been written.
+
+ No further input found.
+
+
+          Start time = 20:55:20  10Jul2026
+            End time = 20:55:20  10Jul2026
+
+           Run time =  0.156E-01 seconds
+
+ Normal exit

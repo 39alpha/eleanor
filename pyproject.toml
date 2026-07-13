@@ -57,7 +57,7 @@ postgres = "eleanor.output.factories:postgres_spec"
 postgres = "eleanor.cli.factories:postgres_commands_spec"
 
 [build-system]
-requires = ["hatchling", "hatch-vcs", "hatch-build-scripts"]
+requires = ["hatchling", "hatch-vcs", "hatch-build-scripts", "meson", "ninja"]
 build-backend = "hatchling.build"
 
 [tool.hatch.version]

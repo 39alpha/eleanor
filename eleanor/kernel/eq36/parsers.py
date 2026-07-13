@@ -1058,8 +1058,15 @@ class OutputParser3(OutputParser):
             self.read_pure_solid_saturation_states()
             self.read_liquid_saturation_states()
             self.read_solid_solution_saturation_states()
-            self.read_product_phases("Saturation States of Hypothetical Solid Solutions")
-            self.read_fugacities()
+
+            header = "Saturation States of Hypothetical Solid Solutions"
+            resume = self.line_num
+            self.consume_to_header(header)
+            has_hypothetical = not self.eof()
+            self.line_num = resume
+            if has_hypothetical:
+                self.read_product_phases(header)
+                self.read_fugacities()
         except Exception as e:
             msg = f"failed to parse EQ3 output at line {self.line_num}"
             raise EleanorKernelError(msg, code=RunCode.PARSER_ERROR) from e

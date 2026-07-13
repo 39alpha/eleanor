@@ -37,10 +37,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Special basis switches are now reflected in the aqueous basis species block of the EQ3 input.**
+  A `kernel.basis_map` entry was written into the `* Special basis switches` section, but the
+  `* Aqueous basis species` section still named the element's original strict basis species.
 - **The PostgreSQL connection cache is now keyed per thread**, not just per process. Since
   `Connection.transaction()` is connection-scoped, two threads sharing one connection could
-  interleave transactions -- one thread's savepoint rollback discarding the other's work, or its
-  `COMMIT` committing the other's in-flight rows.
+  interleave transactions.
 - **`OutputParser3` now tolerates EQ3 output files that omit the hypothetical solid solutions and
   fugacities sections.** These two sections are optional but always appear together, with the
   hypothetical solid solutions preceding the fugacities. The parser now probes for the leading

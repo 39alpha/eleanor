@@ -433,6 +433,18 @@ class Eq36Kernel(AbstractKernel):
                 msg = f"no basis species found for {element.name}"
                 raise Exception(msg)
 
+            if basis_species.name in settings.basis_map:
+                basis_species_name = basis_species.name
+                switched_basis_species_name = settings.basis_map[basis_species_name]
+                basis_species = data1.aqueous_species.get(switched_basis_species_name)
+                if basis_species is None:
+                    msg = (
+                        f"cannot find aqueous species {switched_basis_species_name!r} "
+                        + f"for basis switch on {basis_species_name!r} "
+                        + f"for element {element.name}"
+                    )
+                    raise Exception(msg)
+
             print(f"species= {basis_species.name}", file=file)
             print(f"   jflgi=  0    covali=  {value}", file=file)
         print("endit.", file=file)

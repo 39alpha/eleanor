@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.20.0] - 2026-07-13
+
 ### Added
 
 - **eleanor.kernel.eq36.Eq36Settings.filter** allows the user to provide an EQL query with a limited

@@ -854,3 +854,15 @@ class TestEq36ParsersRealOutputs(TestCase):
                 self.assertAlmostEqual(
                     eq3_hydrogen.log_activity, eq6_hydrogen.log_activity
                 )
+
+    def test_can_parse_3o_without_hypothetical_solid_solutions(self) -> None:
+        """
+        Ensure that we can parse EQ3 outputs that do not have a hypothetical solid solutions section
+        """
+        parser = OutputParser3(self.fixture_root / "no-hypothetical-solid-solutions.3o").parse()
+
+        self.assertIsNotNone(parser.point)
+        assert parser.point is not None
+
+        self.assertEqual(len(parser.point.solid_solutions), 0)
+        self.assertEqual(len(parser.point.gases), 0)

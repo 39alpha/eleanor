@@ -7,7 +7,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 
-<title>Eleanor Documentation – Eleanor</title>
+<title>Plugins – Eleanor</title>
 <style>
 /* Default styles provided by pandoc.
 ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
@@ -23,6 +23,41 @@ ul.task-list li input[type="checkbox"] {
   margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
   vertical-align: middle;
 }
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
 </style>
 
 
@@ -33,7 +68,7 @@ ul.task-list li input[type="checkbox"] {
 <script src="site_libs/quarto-search/fuse.min.js"></script>
 <script src="site_libs/quarto-search/quarto-search.js"></script>
 <meta name="quarto:offset" content="./">
-<link href="./database.html" rel="next">
+<link href="./database.html" rel="prev">
 <script src="site_libs/quarto-html/quarto.js" type="module"></script>
 <script src="site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
 <script src="site_libs/quarto-html/popper.min.js"></script>
@@ -292,7 +327,7 @@ ul.task-list li input[type="checkbox"] {
       <button type="button" class="quarto-btn-toggle btn" data-bs-toggle="collapse" role="button" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
         <i class="bi bi-layout-text-sidebar-reverse"></i>
       </button>
-        <nav class="quarto-page-breadcrumbs" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./docs.html">Docs</a></li></ol></nav>
+        <nav class="quarto-page-breadcrumbs" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./plugins.html">Plugins</a></li></ol></nav>
         <a class="flex-grow-1" role="navigation" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">      
         </a>
     </div>
@@ -309,7 +344,7 @@ ul.task-list li input[type="checkbox"] {
     <ul class="list-unstyled mt-1">
         <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="./docs.html" class="sidebar-item-text sidebar-link active">
+  <a href="./docs.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">Docs</span></a>
   </div>
 </li>
@@ -321,7 +356,7 @@ ul.task-list li input[type="checkbox"] {
 </li>
         <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="./plugins.html" class="sidebar-item-text sidebar-link">
+  <a href="./plugins.html" class="sidebar-item-text sidebar-link active">
  <span class="menu-text">Plugins</span></a>
   </div>
 </li>
@@ -335,11 +370,19 @@ ul.task-list li input[type="checkbox"] {
     <h2 id="toc-title">On this page</h2>
    
   <ul>
-  <li><a href="#a-warning" id="toc-a-warning" class="nav-link active" data-scroll-target="#a-warning">A warning</a></li>
-  <li><a href="#setting-up-a-problem" id="toc-setting-up-a-problem" class="nav-link" data-scroll-target="#setting-up-a-problem">Setting up a problem</a></li>
-  <li><a href="#command-line-tools" id="toc-command-line-tools" class="nav-link" data-scroll-target="#command-line-tools">Command line tools</a></li>
+  <li><a href="#extension-points" id="toc-extension-points" class="nav-link active" data-scroll-target="#extension-points">Extension points</a></li>
+  <li><a href="#configuration-shape" id="toc-configuration-shape" class="nav-link" data-scroll-target="#configuration-shape">Configuration shape</a></li>
+  <li><a href="#distributing-a-third-party-plugin" id="toc-distributing-a-third-party-plugin" class="nav-link" data-scroll-target="#distributing-a-third-party-plugin">Distributing a third-party plugin</a>
+  <ul>
+  <li><a href="#end-to-end-example-third-party-output-sink-package" id="toc-end-to-end-example-third-party-output-sink-package" class="nav-link" data-scroll-target="#end-to-end-example-third-party-output-sink-package">End-to-end example: third-party output sink package</a></li>
+  </ul></li>
+  <li><a href="#inline-plugins" id="toc-inline-plugins" class="nav-link" data-scroll-target="#inline-plugins">Inline plugins</a></li>
+  <li><a href="#writing-a-kernel-plugin" id="toc-writing-a-kernel-plugin" class="nav-link" data-scroll-target="#writing-a-kernel-plugin">Writing a kernel plugin</a></li>
+  <li><a href="#commercial-plugins" id="toc-commercial-plugins" class="nav-link" data-scroll-target="#commercial-plugins">Commercial plugins</a></li>
+  <li><a href="#collision-policy" id="toc-collision-policy" class="nav-link" data-scroll-target="#collision-policy">Collision policy</a></li>
+  <li><a href="#writing-a-new-extension-point" id="toc-writing-a-new-extension-point" class="nav-link" data-scroll-target="#writing-a-new-extension-point">Writing a new extension point</a></li>
   </ul>
-<div class="toc-actions"><ul><li><a href="https://github.com/39alpha/eleanor/edit/main/docs.qmd" class="toc-action"><i class="bi bi-github"></i>Edit this page</a></li><li><a href="https://github.com/39alpha/eleanor/blob/main/docs.qmd" class="toc-action"><i class="bi empty"></i>View source</a></li><li><a href="https://github.com/39alpha/eleanor/issues/new" class="toc-action"><i class="bi empty"></i>Report an issue</a></li></ul></div><div class="quarto-alternate-formats"><h2>Other Formats</h2><ul><li><a href="docs.pdf"><i class="bi bi-file-pdf"></i>Typst</a></li></ul></div></nav>
+<div class="toc-actions"><ul><li><a href="https://github.com/39alpha/eleanor/edit/main/plugins.qmd" class="toc-action"><i class="bi bi-github"></i>Edit this page</a></li><li><a href="https://github.com/39alpha/eleanor/blob/main/plugins.qmd" class="toc-action"><i class="bi empty"></i>View source</a></li><li><a href="https://github.com/39alpha/eleanor/issues/new" class="toc-action"><i class="bi empty"></i>Report an issue</a></li></ul></div><div class="quarto-alternate-formats"><h2>Other Formats</h2><ul><li><a href="plugins.pdf"><i class="bi bi-file-pdf"></i>Typst</a></li></ul></div></nav>
     </div>
 <!-- main -->
 <main class="content" id="quarto-document-content">
@@ -347,7 +390,7 @@ ul.task-list li input[type="checkbox"] {
 
 <header id="title-block-header" class="quarto-title-block default">
 <div class="quarto-title">
-<h1 class="title">Eleanor Documentation</h1>
+<h1 class="title">Plugins</h1>
 </div>
 
 
@@ -364,16 +407,210 @@ ul.task-list li input[type="checkbox"] {
 </header>
 
 
-<section id="a-warning" class="level2">
-<h2 class="anchored" data-anchor-id="a-warning">A warning</h2>
-<p>The goal of this code is to make running geochemical models at scale easier. Running those models and getting an answer without an error does not mean you’ve set up a physically meaningful model. This software is not a substitute for a principled understanding of the underlying chemistry. While we hope other scientists can use this software to help answer questions about their system of interest, we also recognize that there are likely more ways to use this software incorrectly than correctly. We aim to protect against these cases but that attempt will always be incomplete.</p>
-<p>All of this is to say - we hope this project helps you do science faster. But faster doesn’t mean correct.</p>
+<p>Eleanor exposes four extension points that share a single plugin model: a generic in-process registry, lazy entry-point discovery, and a common collision/override policy. The registry primitive lives at <code>eleanor.plugin.PluginRegistry</code>; each extension point instantiates it with its own spec shape and built-in name set.</p>
+<section id="extension-points" class="level2">
+<h2 class="anchored" data-anchor-id="extension-points">Extension points</h2>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 21%">
+<col style="width: 37%">
+<col style="width: 41%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Kind</th>
+<th>Entry-point group</th>
+<th>Spec type</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Executor</td>
+<td><code>eleanor.executors</code></td>
+<td><code>ConfigurablePluginSpec</code></td>
+</tr>
+<tr class="even">
+<td>Kernel</td>
+<td><code>eleanor.kernels</code></td>
+<td><code>ConfigurablePluginSpec</code></td>
+</tr>
+<tr class="odd">
+<td>Navigator</td>
+<td><code>eleanor.navigators</code></td>
+<td><code>SimplePluginSpec</code></td>
+</tr>
+<tr class="even">
+<td>Output sink</td>
+<td><code>eleanor.outputs</code></td>
+<td><code>ConfigurablePluginSpec</code></td>
+</tr>
+</tbody>
+</table>
+<p>Every entry point must resolve to a <code>SimplePluginSpec</code> or <code>ConfigurablePluginSpec</code> instance (from <code>eleanor.plugin</code>). Bare callables are not accepted.</p>
+<p>Names are short strings (e.g.&nbsp;<code>random</code>, <code>eq36</code>, <code>dask</code>). Built-in names are reserved and cannot be overridden through the registry; see <a href="#collision-policy">Collision policy</a> below.</p>
 </section>
-<section id="setting-up-a-problem" class="level2">
-<h2 class="anchored" data-anchor-id="setting-up-a-problem">Setting up a problem</h2>
+<section id="configuration-shape" class="level2">
+<h2 class="anchored" data-anchor-id="configuration-shape">Configuration shape</h2>
+<p>Kernel, navigator, and output sink selection all use the same flat <code>kind</code>-keyed shape. The <code>kind</code> key selects the plugin; all remaining keys are forwarded to the plugin’s <code>parse_settings</code> as a flat dict:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode yaml code-with-copy"><code class="sourceCode yaml"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">kernel</span><span class="kw">:</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">kind</span><span class="kw">:</span><span class="at"> eq36</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">model</span><span class="kw">:</span><span class="at"> b-dot</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">charge_balance</span><span class="kw">:</span><span class="at"> H+</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="fu">navigator</span><span class="kw">:</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">kind</span><span class="kw">:</span><span class="at"> random</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="fu">output</span><span class="kw">:</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">kind</span><span class="kw">:</span><span class="at"> postgres</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">database</span><span class="kw">:</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">host</span><span class="kw">:</span><span class="at"> localhost</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">port</span><span class="kw">:</span><span class="at"> </span><span class="dv">5432</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">database</span><span class="kw">:</span><span class="at"> eleanor</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>The short-string form <code>navigator: random</code> is accepted as sugar for <code>{kind: random}</code>. ### Navigator contract Navigator plugins must expose:</p>
+<ul>
+<li><code>num_systems(order: Order, scale: int) -&gt; int</code>: total number of VS points the navigator will produce for the given scale.</li>
+<li><code>navigate(order: Order, kernel: AbstractKernel, scale: int, batch_size: int, *args, order_id=None, **kwargs) -&gt; Iterator[list[vs.Point]]</code>: a batch iterator that yields lists of up to <code>batch_size</code> points.</li>
+</ul>
+<p>Eleanor passes <code>order_id</code> and <code>max_attempts</code> as keyword arguments to <code>navigate</code>; plugins should accept <code>**kwargs</code> to tolerate future additions.</p>
+<p>Across a complete <code>navigate(...)</code> iteration, the total number of yielded points must match <code>num_systems(order, scale)</code>. Eleanor raises an error if the counts diverge.</p>
 </section>
-<section id="command-line-tools" class="level2">
-<h2 class="anchored" data-anchor-id="command-line-tools">Command line tools</h2>
+<section id="distributing-a-third-party-plugin" class="level2">
+<h2 class="anchored" data-anchor-id="distributing-a-third-party-plugin">Distributing a third-party plugin</h2>
+<p>Third-party plugins register themselves through Python entry points declared in the distribution’s <code>pyproject.toml</code>:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb2"><pre class="sourceCode toml code-with-copy"><code class="sourceCode toml"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">[project.entry-points."</span><span class="dt">eleanor.navigators"</span><span class="kw">]</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="dt">my_nav</span> <span class="op">=</span> <span class="st">"my_project.navigators:my_nav_spec"</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="kw">[project.entry-points."</span><span class="dt">eleanor.kernels"</span><span class="kw">]</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="dt">my_kernel</span> <span class="op">=</span> <span class="st">"my_project.kernels:my_kernel_spec"</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="kw">[project.entry-points."</span><span class="dt">eleanor.outputs"</span><span class="kw">]</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="dt">my_sink</span> <span class="op">=</span> <span class="st">"my_project.outputs:my_sink_spec"</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>Discovery runs lazily on the first call to <code>available_*()</code> or <code>get_*()</code> for the relevant extension point. Any entry-point load or validation failure is a hard error — a broken plugin fails fast rather than silently disappearing from the available set.</p>
+<section id="end-to-end-example-third-party-output-sink-package" class="level3">
+<h3 class="anchored" data-anchor-id="end-to-end-example-third-party-output-sink-package">End-to-end example: third-party output sink package</h3>
+<p>Minimal package layout:</p>
+<pre class="text"><code>my_sink_plugin/
+  pyproject.toml
+  src/my_sink_plugin/output.py</code></pre>
+<p><code>pyproject.toml</code>:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb4"><pre class="sourceCode toml code-with-copy"><code class="sourceCode toml"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">[project]</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="dt">name</span> <span class="op">=</span> <span class="st">"my-sink-plugin"</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="dt">version</span> <span class="op">=</span> <span class="st">"0.1.0"</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="dt">dependencies</span> <span class="op">=</span> <span class="op">[</span><span class="st">"eleanor&gt;=0.0.0"</span><span class="op">]</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a><span class="kw">[project.entry-points."</span><span class="dt">eleanor.outputs"</span><span class="kw">]</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a><span class="dt">my_sink</span> <span class="op">=</span> <span class="st">"my_sink_plugin.output:my_sink_spec"</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><code>src/my_sink_plugin/output.py</code>:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb5"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> eleanor.output.interface <span class="im">import</span> ComputeResult, AbstractOutputSink, WriteOutcome</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> eleanor.output.settings <span class="im">import</span> OutputSinkSettings</span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> eleanor.plugin <span class="im">import</span> ConfigurablePluginSpec</span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> MySink(AbstractOutputSink):</span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> begin_run(<span class="va">self</span>, order):</span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> order.<span class="bu">id</span> <span class="kw">or</span> <span class="dv">0</span></span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> write_batch(<span class="va">self</span>, order_id, results: <span class="bu">list</span>[ComputeResult], progress<span class="op">=</span><span class="va">None</span>) <span class="op">-&gt;</span> <span class="bu">list</span>[WriteOutcome]:</span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> [WriteOutcome(exit_code<span class="op">=</span>r.point.exit_code, committed<span class="op">=</span><span class="va">True</span>) <span class="cf">for</span> r <span class="kw">in</span> results]</span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> finalize_run(<span class="va">self</span>) <span class="op">-&gt;</span> <span class="va">None</span>:</span>
+<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="va">None</span></span>
+<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> finalize(<span class="va">self</span>) <span class="op">-&gt;</span> <span class="va">None</span>:</span>
+<span id="cb5-17"><a href="#cb5-17" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="va">None</span></span>
+<span id="cb5-18"><a href="#cb5-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-19"><a href="#cb5-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-20"><a href="#cb5-20" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> _parse_settings(raw: <span class="bu">dict</span>) <span class="op">-&gt;</span> OutputSinkSettings:</span>
+<span id="cb5-21"><a href="#cb5-21" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> OutputSinkSettings.from_dict(raw)</span>
+<span id="cb5-22"><a href="#cb5-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-23"><a href="#cb5-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-24"><a href="#cb5-24" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> _build_sink(settings: <span class="bu">object</span>) <span class="op">-&gt;</span> MySink:</span>
+<span id="cb5-25"><a href="#cb5-25" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> MySink()</span>
+<span id="cb5-26"><a href="#cb5-26" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-27"><a href="#cb5-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-28"><a href="#cb5-28" aria-hidden="true" tabindex="-1"></a>my_sink_spec <span class="op">=</span> ConfigurablePluginSpec(</span>
+<span id="cb5-29"><a href="#cb5-29" aria-hidden="true" tabindex="-1"></a>    parse_settings<span class="op">=</span>_parse_settings,</span>
+<span id="cb5-30"><a href="#cb5-30" aria-hidden="true" tabindex="-1"></a>    build<span class="op">=</span>_build_sink,</span>
+<span id="cb5-31"><a href="#cb5-31" aria-hidden="true" tabindex="-1"></a>    plugin_api_version<span class="op">=</span><span class="dv">1</span>,</span>
+<span id="cb5-32"><a href="#cb5-32" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>Install the package, then reference it in Eleanor config:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb6"><pre class="sourceCode yaml code-with-copy"><code class="sourceCode yaml"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="fu">output</span><span class="kw">:</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">kind</span><span class="kw">:</span><span class="at"> my_sink</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>You can verify discovery with:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb7"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="ex">eleanor</span> doctor</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</section>
+</section>
+<section id="inline-plugins" class="level2">
+<h2 class="anchored" data-anchor-id="inline-plugins">Inline plugins</h2>
+<p>Every extension point supports two non-packaged registration paths:</p>
+<ol type="1">
+<li><p><strong>Programmatic name registration.</strong> Call <code>register_&lt;kind&gt;(name, spec)</code> from the host script, then reference the name in the order file or CLI:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb8"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> eleanor.navigator.registry <span class="im">import</span> register_navigator</span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> eleanor.plugin <span class="im">import</span> SimplePluginSpec</span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> my_script <span class="im">import</span> MyNavigator</span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a>register_navigator(<span class="st">"my_nav"</span>, SimplePluginSpec(build<span class="op">=</span>MyNavigator))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div></li>
+<li><p><strong>Direct instance override.</strong> <code>Eleanor.run</code> accepts already-constructed objects that bypass the registry entirely:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb9"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> eleanor <span class="im">import</span> Eleanor</span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>Eleanor(config<span class="op">=</span>config).run(</span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a>    order,</span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a>    simulation_size,</span>
+<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a>    navigator<span class="op">=</span>my_navigator_instance,</span>
+<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a>    kernel<span class="op">=</span>my_kernel_instance,</span>
+<span id="cb9-8"><a href="#cb9-8" aria-hidden="true" tabindex="-1"></a>    output_sink<span class="op">=</span>my_output_sink_instance,</span>
+<span id="cb9-9"><a href="#cb9-9" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>The override, when supplied, short-circuits the registry lookup for that extension point only. The <code>executor</code> override must be supplied at construction time (<code>Eleanor(executor=my_executor)</code>), not per-run.</p></li>
+</ol>
+</section>
+<section id="writing-a-kernel-plugin" class="level2">
+<h2 class="anchored" data-anchor-id="writing-a-kernel-plugin">Writing a kernel plugin</h2>
+<p>Kernel plugins register a <code>ConfigurablePluginSpec</code> that bundles two entry points: parsing order-file settings and constructing the kernel at run time.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb10"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> eleanor.kernel.registry <span class="im">import</span> register_kernel</span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> eleanor.plugin <span class="im">import</span> ConfigurablePluginSpec</span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> my_project.kernel <span class="im">import</span> MyKernel, MySettings</span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a>my_kernel_spec <span class="op">=</span> ConfigurablePluginSpec(</span>
+<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a>    parse_settings<span class="op">=</span>MySettings.from_dict,</span>
+<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a>    build<span class="op">=</span><span class="kw">lambda</span> settings: MyKernel(settings),</span>
+<span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a>    plugin_api_version<span class="op">=</span><span class="dv">1</span>,</span>
+<span id="cb10-9"><a href="#cb10-9" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb10-10"><a href="#cb10-10" aria-hidden="true" tabindex="-1"></a>register_kernel(<span class="st">"my_kernel"</span>, my_kernel_spec)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</section>
+<section id="commercial-plugins" class="level2">
+<h2 class="anchored" data-anchor-id="commercial-plugins">Commercial plugins</h2>
+<p>Entry points are pure metadata, so proprietary plugin wheels shipped through a private index (and optionally Cython-compiled) participate in discovery identically to open-source plugins. The registered factory can live inside a compiled <code>.so</code> and perform license verification on first use; Eleanor will surface any failure through the registry’s standard warning/error path.</p>
+</section>
+<section id="collision-policy" class="level2">
+<h2 class="anchored" data-anchor-id="collision-policy">Collision policy</h2>
+<p>No shadowing is allowed:</p>
+<ul>
+<li>Registering under a built-in name (via <code>register_&lt;kind&gt;()</code> or an entry point) is always a hard error.</li>
+<li>Two entry points claiming the same name — whether built-in or not — is a hard error listing both offending entry-point values.</li>
+<li>Programmatic <code>register_&lt;kind&gt;()</code> calls that collide with an already-registered name are a hard error.</li>
+</ul>
+<p>To replace a built-in at run time without touching the registry, use the direct-instance-override path on <code>Eleanor.run(kernel=..., ...)</code> or pass an executor at construction time via <code>Eleanor(executor=...)</code>.</p>
+<p>The <code>ELEANOR_&lt;KIND&gt;_OVERRIDES</code> environment variable only affects API-version checks (downgrading version mismatches to warnings); it has no effect on name collision handling.</p>
+</section>
+<section id="writing-a-new-extension-point" class="level2">
+<h2 class="anchored" data-anchor-id="writing-a-new-extension-point">Writing a new extension point</h2>
+<p>If you add a new pluggable concept to Eleanor, instantiate another <code>PluginRegistry</code> with the appropriate spec shape and entry-point group. The generic primitive handles discovery, validation, collision resolution, and override semantics, so the new registry module stays small:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb11"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> eleanor.plugin <span class="im">import</span> PluginRegistry</span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a>registry <span class="op">=</span> PluginRegistry(</span>
+<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a>    kind<span class="op">=</span><span class="st">'thing'</span>,</span>
+<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a>    entry_point_group<span class="op">=</span><span class="st">'eleanor.things'</span>,</span>
+<span id="cb11-6"><a href="#cb11-6" aria-hidden="true" tabindex="-1"></a>    override_env_var<span class="op">=</span><span class="st">'ELEANOR_THING_OVERRIDES'</span>,</span>
+<span id="cb11-7"><a href="#cb11-7" aria-hidden="true" tabindex="-1"></a>    builtin_names<span class="op">=</span><span class="bu">frozenset</span>({<span class="st">'default'</span>}),</span>
+<span id="cb11-8"><a href="#cb11-8" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb11-9"><a href="#cb11-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-10"><a href="#cb11-10" aria-hidden="true" tabindex="-1"></a>register_thing <span class="op">=</span> registry.register</span>
+<span id="cb11-11"><a href="#cb11-11" aria-hidden="true" tabindex="-1"></a>available_things <span class="op">=</span> registry.available</span>
+<span id="cb11-12"><a href="#cb11-12" aria-hidden="true" tabindex="-1"></a>get_factory <span class="op">=</span> registry.get</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><code>builtin_names</code> reserves names whose specs will arrive via entry-point discovery. In production registries <code>builtin_names</code> lists the names declared in <code>pyproject.toml</code>.</p>
+<p>Then declare the built-in in <code>pyproject.toml</code> so discovery can load it:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb12"><pre class="sourceCode toml code-with-copy"><code class="sourceCode toml"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="kw">[project.entry-points."</span><span class="dt">eleanor.things"</span><span class="kw">]</span></span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a><span class="dt">default</span> <span class="op">=</span> <span class="st">"eleanor.thing.factories:default_spec"</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 
 
 </section>
@@ -794,11 +1031,11 @@ ul.task-list li input[type="checkbox"] {
   </script>
 <nav class="page-navigation">
   <div class="nav-page nav-page-previous">
+      <a href="./database.html" class="pagination-link" aria-label="Database">
+        <i class="bi bi-arrow-left-short"></i> <span class="nav-page-text">Database</span>
+      </a>          
   </div>
   <div class="nav-page nav-page-next">
-      <a href="./database.html" class="pagination-link" aria-label="Database">
-        <span class="nav-page-text">Database</span> <i class="bi bi-arrow-right-short"></i>
-      </a>
   </div>
 </nav>
 </div> <!-- /content -->
@@ -806,4 +1043,4 @@ ul.task-list li input[type="checkbox"] {
 
 
 
-<footer class="footer"><div class="nav-footer"><div class="nav-footer-center"><div class="toc-actions d-sm-block d-md-none"><ul><li><a href="https://github.com/39alpha/eleanor/edit/main/docs.qmd" class="toc-action"><i class="bi bi-github"></i>Edit this page</a></li><li><a href="https://github.com/39alpha/eleanor/blob/main/docs.qmd" class="toc-action"><i class="bi empty"></i>View source</a></li><li><a href="https://github.com/39alpha/eleanor/issues/new" class="toc-action"><i class="bi empty"></i>Report an issue</a></li></ul></div></div></div></footer></body></html>
+<footer class="footer"><div class="nav-footer"><div class="nav-footer-center"><div class="toc-actions d-sm-block d-md-none"><ul><li><a href="https://github.com/39alpha/eleanor/edit/main/plugins.qmd" class="toc-action"><i class="bi bi-github"></i>Edit this page</a></li><li><a href="https://github.com/39alpha/eleanor/blob/main/plugins.qmd" class="toc-action"><i class="bi empty"></i>View source</a></li><li><a href="https://github.com/39alpha/eleanor/issues/new" class="toc-action"><i class="bi empty"></i>Report an issue</a></li></ul></div></div></div></footer></body></html>

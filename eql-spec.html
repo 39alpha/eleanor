@@ -1,0 +1,1464 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.9.36">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+
+<title>eql-spec – Eleanor</title>
+<style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="site_libs/quarto-nav/headroom.min.js"></script>
+<script src="site_libs/clipboard/clipboard.min.js"></script>
+<script src="site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="site_libs/quarto-search/fuse.min.js"></script>
+<script src="site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="./">
+<script src="site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="site_libs/quarto-html/popper.min.js"></script>
+<script src="site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="site_libs/quarto-html/anchor.min.js"></script>
+<link href="site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="site_libs/quarto-html/quarto-syntax-highlighting-845c23b38eaddc0f92fda52bfe77a8c8.css" rel="stylesheet" class="quarto-color-scheme" id="quarto-text-highlighting-styles">
+<link href="site_libs/quarto-html/quarto-syntax-highlighting-dark-f418161beb48e0141c760e455f12af2c.css" rel="stylesheet" class="quarto-color-scheme quarto-color-alternate" id="quarto-text-highlighting-styles">
+<link href="site_libs/quarto-html/quarto-syntax-highlighting-845c23b38eaddc0f92fda52bfe77a8c8.css" rel="stylesheet" class="quarto-color-scheme-extra" id="quarto-text-highlighting-styles">
+<script src="site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="site_libs/bootstrap/bootstrap-ee198a9d2c8fbc8e67efddd2bb8a02ae.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme" id="quarto-bootstrap" data-mode="light">
+<link href="site_libs/bootstrap/bootstrap-dark-6ed89e32805696851dc309a8c46055ae.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme quarto-color-alternate" id="quarto-bootstrap" data-mode="dark">
+<link href="site_libs/bootstrap/bootstrap-ee198a9d2c8fbc8e67efddd2bb8a02ae.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme-extra" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "navbar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "end",
+  "type": "overlay",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script>
+
+  <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
+  <script defer="" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN" && texText && texText.data) {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
+
+<link rel="stylesheet" href="styles.css">
+</head>
+
+<body class="nav-fixed quarto-light"><script id="quarto-html-before-body" type="application/javascript">
+    const toggleBodyColorMode = (bsSheetEl) => {
+      const mode = bsSheetEl.getAttribute("data-mode");
+      const bodyEl = window.document.querySelector("body");
+      if (mode === "dark") {
+        bodyEl.classList.add("quarto-dark");
+        bodyEl.classList.remove("quarto-light");
+      } else {
+        bodyEl.classList.add("quarto-light");
+        bodyEl.classList.remove("quarto-dark");
+      }
+    }
+    const toggleBodyColorPrimary = () => {
+      const bsSheetEl = window.document.querySelector("link#quarto-bootstrap:not([rel=disabled-stylesheet])");
+      if (bsSheetEl) {
+        toggleBodyColorMode(bsSheetEl);
+      }
+    }
+    const setColorSchemeToggle = (alternate) => {
+      const toggles = window.document.querySelectorAll('.quarto-color-scheme-toggle');
+      for (let i=0; i < toggles.length; i++) {
+        const toggle = toggles[i];
+        if (toggle) {
+          if (alternate) {
+            toggle.classList.add("alternate");
+          } else {
+            toggle.classList.remove("alternate");
+          }
+        }
+      }
+    };
+    const toggleColorMode = (alternate) => {
+      // Switch the stylesheets
+      const primaryStylesheets = window.document.querySelectorAll('link.quarto-color-scheme:not(.quarto-color-alternate)');
+      const alternateStylesheets = window.document.querySelectorAll('link.quarto-color-scheme.quarto-color-alternate');
+      manageTransitions('#quarto-margin-sidebar .nav-link', false);
+      if (alternate) {
+        // note: dark is layered on light, we don't disable primary!
+        enableStylesheet(alternateStylesheets);
+        for (const sheetNode of alternateStylesheets) {
+          if (sheetNode.id === "quarto-bootstrap") {
+            toggleBodyColorMode(sheetNode);
+          }
+        }
+      } else {
+        disableStylesheet(alternateStylesheets);
+        enableStylesheet(primaryStylesheets)
+        toggleBodyColorPrimary();
+      }
+      manageTransitions('#quarto-margin-sidebar .nav-link', true);
+      // Switch the toggles
+      setColorSchemeToggle(alternate)
+      // Hack to workaround the fact that safari doesn't
+      // properly recolor the scrollbar when toggling (#1455)
+      if (navigator.userAgent.indexOf('Safari') > 0 && navigator.userAgent.indexOf('Chrome') == -1) {
+        manageTransitions("body", false);
+        window.scrollTo(0, 1);
+        setTimeout(() => {
+          window.scrollTo(0, 0);
+          manageTransitions("body", true);
+        }, 40);
+      }
+    }
+    const disableStylesheet = (stylesheets) => {
+      for (let i=0; i < stylesheets.length; i++) {
+        const stylesheet = stylesheets[i];
+        stylesheet.rel = 'disabled-stylesheet';
+      }
+    }
+    const enableStylesheet = (stylesheets) => {
+      for (let i=0; i < stylesheets.length; i++) {
+        const stylesheet = stylesheets[i];
+        if(stylesheet.rel !== 'stylesheet') { // for Chrome, which will still FOUC without this check
+          stylesheet.rel = 'stylesheet';
+        }
+      }
+    }
+    const manageTransitions = (selector, allowTransitions) => {
+      const els = window.document.querySelectorAll(selector);
+      for (let i=0; i < els.length; i++) {
+        const el = els[i];
+        if (allowTransitions) {
+          el.classList.remove('notransition');
+        } else {
+          el.classList.add('notransition');
+        }
+      }
+    }
+    const isFileUrl = () => {
+      return window.location.protocol === 'file:';
+    }
+    const hasAlternateSentinel = () => {
+      let styleSentinel = getColorSchemeSentinel();
+      if (styleSentinel !== null) {
+        return styleSentinel === "alternate";
+      } else {
+        return false;
+      }
+    }
+    const setStyleSentinel = (alternate) => {
+      const value = alternate ? "alternate" : "default";
+      if (!isFileUrl()) {
+        window.localStorage.setItem("quarto-color-scheme", value);
+      } else {
+        localAlternateSentinel = value;
+      }
+    }
+    const getColorSchemeSentinel = () => {
+      if (!isFileUrl()) {
+        const storageValue = window.localStorage.getItem("quarto-color-scheme");
+        return storageValue != null ? storageValue : localAlternateSentinel;
+      } else {
+        return localAlternateSentinel;
+      }
+    }
+    const toggleGiscusIfUsed = (isAlternate, darkModeDefault) => {
+      const baseTheme = document.querySelector('#giscus-base-theme')?.value ?? 'light';
+      const alternateTheme = document.querySelector('#giscus-alt-theme')?.value ?? 'dark';
+      let newTheme = '';
+      if(authorPrefersDark) {
+        newTheme = isAlternate ? baseTheme : alternateTheme;
+      } else {
+        newTheme = isAlternate ? alternateTheme : baseTheme;
+      }
+      const changeGiscusTheme = () => {
+        // From: https://github.com/giscus/giscus/issues/336
+        const sendMessage = (message) => {
+          const iframe = document.querySelector('iframe.giscus-frame');
+          if (!iframe) return;
+          iframe.contentWindow.postMessage({ giscus: message }, 'https://giscus.app');
+        }
+        sendMessage({
+          setConfig: {
+            theme: newTheme
+          }
+        });
+      }
+      const isGiscussLoaded = window.document.querySelector('iframe.giscus-frame') !== null;
+      if (isGiscussLoaded) {
+        changeGiscusTheme();
+      }
+    };
+    const authorPrefersDark = false;
+    const queryPrefersDark = window.matchMedia('(prefers-color-scheme: dark)');
+    const darkModeDefault = queryPrefersDark.matches;
+      document.querySelector('link#quarto-text-highlighting-styles.quarto-color-scheme-extra').rel = 'disabled-stylesheet';
+      document.querySelector('link#quarto-bootstrap.quarto-color-scheme-extra').rel = 'disabled-stylesheet';
+    let localAlternateSentinel = darkModeDefault ? 'alternate' : 'default';
+    // Dark / light mode switch
+    window.quartoToggleColorScheme = () => {
+      // Read the current dark / light value
+      let toAlternate = !hasAlternateSentinel();
+      toggleColorMode(toAlternate);
+      setStyleSentinel(toAlternate);
+      toggleGiscusIfUsed(toAlternate, darkModeDefault);
+      window.dispatchEvent(new Event('resize'));
+    };
+    queryPrefersDark.addEventListener("change", e => {
+      if(window.localStorage.getItem("quarto-color-scheme") !== null)
+        return;
+      const alternate = e.matches
+      toggleColorMode(alternate);
+      localAlternateSentinel = e.matches ? 'alternate' : 'default'; // this is used alongside local storage!
+      toggleGiscusIfUsed(alternate, darkModeDefault);
+    });
+    // Switch to dark mode if need be
+    if (hasAlternateSentinel()) {
+      toggleColorMode(true);
+    } else {
+      toggleColorMode(false);
+    }
+  </script>
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+    <nav class="navbar navbar-expand-lg " data-bs-theme="dark">
+      <div class="navbar-container container-fluid">
+      <div class="navbar-brand-container mx-auto">
+    <a class="navbar-brand" href="./index.html">
+    <span class="navbar-title">Eleanor</span>
+    </a>
+  </div>
+            <div id="quarto-search" class="" title="Search"></div>
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" role="menu" aria-expanded="false" aria-label="Toggle navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+  <span class="navbar-toggler-icon"></span>
+</button>
+          <div class="collapse navbar-collapse" id="navbarCollapse">
+            <ul class="navbar-nav navbar-nav-scroll me-auto">
+  <li class="nav-item">
+    <a class="nav-link" href="./getting-started.html"> 
+<span class="menu-text">Getting Started</span></a>
+  </li>  
+  <li class="nav-item">
+    <a class="nav-link" href="./docs.html"> 
+<span class="menu-text">Docs</span></a>
+  </li>  
+  <li class="nav-item">
+    <a class="nav-link" href="./examples.html"> 
+<span class="menu-text">Examples</span></a>
+  </li>  
+</ul>
+          </div> <!-- /navcollapse -->
+            <div class="quarto-navbar-tools">
+  <a href="" class="quarto-color-scheme-toggle quarto-navigation-tool  px-1" onclick="window.quartoToggleColorScheme(); return false;" title="Toggle dark mode"><i class="bi"></i></a>
+</div>
+      </div> <!-- /container-fluid -->
+    </nav>
+  <div id="quarto-announcement" data-announcement-id="7c78fb18095716c4467f7b22a5c3eeb4" class="alert alert-danger hidden"><i class="bi bi-exclamation-triangle quarto-announcement-icon"></i><div class="quarto-announcement-content">
+<p><strong>User discretion is advised.</strong> This site is under active development. The content may change rapidly, and its validity may be questionable.</p>
+</div></div>
+</header>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
+<!-- sidebar -->
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">On this page</h2>
+   
+  <ul>
+  <li><a href="#eleanor-query-language-eql-specification" id="toc-eleanor-query-language-eql-specification" class="nav-link active" data-scroll-target="#eleanor-query-language-eql-specification">Eleanor Query Language (EQL) — Specification</a>
+  <ul>
+  <li><a href="#purpose" id="toc-purpose" class="nav-link" data-scroll-target="#purpose">1. Purpose</a></li>
+  <li><a href="#conformance-terms" id="toc-conformance-terms" class="nav-link" data-scroll-target="#conformance-terms">2. Conformance terms</a></li>
+  <li><a href="#object-model" id="toc-object-model" class="nav-link" data-scroll-target="#object-model">3. Object model</a>
+  <ul>
+  <li><a href="#reflection-requirements" id="toc-reflection-requirements" class="nav-link" data-scroll-target="#reflection-requirements">3.1 Reflection requirements</a></li>
+  <li><a href="#field-classification" id="toc-field-classification" class="nav-link" data-scroll-target="#field-classification">3.2 Field classification</a></li>
+  <li><a href="#leaf-value-handling" id="toc-leaf-value-handling" class="nav-link" data-scroll-target="#leaf-value-handling">3.3 Leaf value handling</a></li>
+  </ul></li>
+  <li><a href="#grammar" id="toc-grammar" class="nav-link" data-scroll-target="#grammar">4. Grammar</a></li>
+  <li><a href="#aliases" id="toc-aliases" class="nav-link" data-scroll-target="#aliases">5. Aliases</a>
+  <ul>
+  <li><a href="#positional-not-nominal" id="toc-positional-not-nominal" class="nav-link" data-scroll-target="#positional-not-nominal">5.1 Positional, not nominal</a></li>
+  <li><a href="#default-aliases" id="toc-default-aliases" class="nav-link" data-scroll-target="#default-aliases">5.2 Default aliases</a></li>
+  <li><a href="#alias-short-forms" id="toc-alias-short-forms" class="nav-link" data-scroll-target="#alias-short-forms">5.3 Alias short-forms</a></li>
+  <li><a href="#singularization-rules" id="toc-singularization-rules" class="nav-link" data-scroll-target="#singularization-rules">5.4 Singularization rules</a></li>
+  <li><a href="#alias-uniqueness" id="toc-alias-uniqueness" class="nav-link" data-scroll-target="#alias-uniqueness">5.5 Alias uniqueness</a></li>
+  </ul></li>
+  <li><a href="#row_scope-resolution" id="toc-row_scope-resolution" class="nav-link" data-scroll-target="#row_scope-resolution">6. <code>row_scope</code> resolution</a>
+  <ul>
+  <li><a href="#shortname" id="toc-shortname" class="nav-link" data-scroll-target="#shortname">6.1 Shortname</a></li>
+  <li><a href="#full-path" id="toc-full-path" class="nav-link" data-scroll-target="#full-path">6.2 Full path</a></li>
+  <li><a href="#terminal-requirement" id="toc-terminal-requirement" class="nav-link" data-scroll-target="#terminal-requirement">6.3 Terminal requirement</a></li>
+  </ul></li>
+  <li><a href="#ambient-scope-table" id="toc-ambient-scope-table" class="nav-link" data-scroll-target="#ambient-scope-table">7. Ambient scope table</a>
+  <ul>
+  <li><a href="#iter-bound-aliases-and-meta-accessors" id="toc-iter-bound-aliases-and-meta-accessors" class="nav-link" data-scroll-target="#iter-bound-aliases-and-meta-accessors">7.1 Iter-bound aliases and meta-accessors</a></li>
+  </ul></li>
+  <li><a href="#column-specification" id="toc-column-specification" class="nav-link" data-scroll-target="#column-specification">8. Column specification</a>
+  <ul>
+  <li><a href="#path-string" id="toc-path-string" class="nav-link" data-scroll-target="#path-string">8.1 Path string</a></li>
+  <li><a href="#structured-column-record" id="toc-structured-column-record" class="nav-link" data-scroll-target="#structured-column-record">8.2 Structured column record</a></li>
+  <li><a href="#splat-directive" id="toc-splat-directive" class="nav-link" data-scroll-target="#splat-directive">8.3 Splat directive</a></li>
+  <li><a href="#preset-directive" id="toc-preset-directive" class="nav-link" data-scroll-target="#preset-directive">8.4 Preset directive</a></li>
+  <li><a href="#implicit-column-naming" id="toc-implicit-column-naming" class="nav-link" data-scroll-target="#implicit-column-naming">8.5 Implicit column naming</a></li>
+  </ul></li>
+  <li><a href="#splat-directive-1" id="toc-splat-directive-1" class="nav-link" data-scroll-target="#splat-directive-1">9. Splat directive</a></li>
+  <li><a href="#preset-directive-1" id="toc-preset-directive-1" class="nav-link" data-scroll-target="#preset-directive-1">10. Preset directive</a>
+  <ul>
+  <li><a href="#canonical-bundle" id="toc-canonical-bundle" class="nav-link" data-scroll-target="#canonical-bundle">10.1 Canonical bundle</a></li>
+  <li><a href="#per-compile-bundles" id="toc-per-compile-bundles" class="nav-link" data-scroll-target="#per-compile-bundles">10.2 Per-compile bundles</a></li>
+  <li><a href="#canonical-presets" id="toc-canonical-presets" class="nav-link" data-scroll-target="#canonical-presets">10.3 Canonical presets</a></li>
+  </ul></li>
+  <li><a href="#missing-value-semantics" id="toc-missing-value-semantics" class="nav-link" data-scroll-target="#missing-value-semantics">11. Missing-value semantics</a>
+  <ul>
+  <li><a href="#definition-of-miss" id="toc-definition-of-miss" class="nav-link" data-scroll-target="#definition-of-miss">11.1 Definition of “miss”</a></li>
+  <li><a href="#policy" id="toc-policy" class="nav-link" data-scroll-target="#policy">11.2 Policy</a></li>
+  <li><a href="#explicit-none-vs.-miss" id="toc-explicit-none-vs.-miss" class="nav-link" data-scroll-target="#explicit-none-vs.-miss">11.3 Explicit <code>None</code> vs.&nbsp;miss</a></li>
+  </ul></li>
+  <li><a href="#filter-and-value-coercion" id="toc-filter-and-value-coercion" class="nav-link" data-scroll-target="#filter-and-value-coercion">12. Filter and value coercion</a>
+  <ul>
+  <li><a href="#list-filters" id="toc-list-filters" class="nav-link" data-scroll-target="#list-filters">12.1 List filters</a></li>
+  <li><a href="#dict-filters" id="toc-dict-filters" class="nav-link" data-scroll-target="#dict-filters">12.2 Dict filters</a></li>
+  <li><a href="#value-coercion" id="toc-value-coercion" class="nav-link" data-scroll-target="#value-coercion">12.3 Value coercion</a></li>
+  </ul></li>
+  <li><a href="#compilation-and-evaluation" id="toc-compilation-and-evaluation" class="nav-link" data-scroll-target="#compilation-and-evaluation">13. Compilation and evaluation</a>
+  <ul>
+  <li><a href="#compilation-load-time" id="toc-compilation-load-time" class="nav-link" data-scroll-target="#compilation-load-time">13.1 Compilation (load time)</a></li>
+  <li><a href="#evaluation" id="toc-evaluation" class="nav-link" data-scroll-target="#evaluation">13.2 Evaluation</a></li>
+  <li><a href="#iteration-order" id="toc-iteration-order" class="nav-link" data-scroll-target="#iteration-order">13.3 Iteration order</a></li>
+  <li><a href="#memory-model" id="toc-memory-model" class="nav-link" data-scroll-target="#memory-model">13.4 Memory model</a></li>
+  </ul></li>
+  <li><a href="#consumer-contract" id="toc-consumer-contract" class="nav-link" data-scroll-target="#consumer-contract">14. Consumer contract</a></li>
+  <li><a href="#error-catalog" id="toc-error-catalog" class="nav-link" data-scroll-target="#error-catalog">15. Error catalog</a>
+  <ul>
+  <li><a href="#load-time-errors" id="toc-load-time-errors" class="nav-link" data-scroll-target="#load-time-errors">15.1 Load-time errors</a></li>
+  <li><a href="#runtime-errors" id="toc-runtime-errors" class="nav-link" data-scroll-target="#runtime-errors">15.2 Runtime errors</a></li>
+  </ul></li>
+  <li><a href="#versioning" id="toc-versioning" class="nav-link" data-scroll-target="#versioning">16. Versioning</a></li>
+  <li><a href="#examples-non-normative" id="toc-examples-non-normative" class="nav-link" data-scroll-target="#examples-non-normative">17. Examples (non-normative)</a>
+  <ul>
+  <li><a href="#flat-es-point-csv" id="toc-flat-es-point-csv" class="nav-link" data-scroll-target="#flat-es-point-csv">17.1 Flat ES-point CSV</a></li>
+  <li><a href="#order-only-summary-single-row-per-order" id="toc-order-only-summary-single-row-per-order" class="nav-link" data-scroll-target="#order-only-summary-single-row-per-order">17.2 Order-only summary (single-row per Order)</a></li>
+  <li><a href="#deep-nesting-one-row-per-equilibrium-end-member" id="toc-deep-nesting-one-row-per-equilibrium-end-member" class="nav-link" data-scroll-target="#deep-nesting-one-row-per-equilibrium-end-member">17.3 Deep-nesting: one row per equilibrium end-member</a></li>
+  <li><a href="#dict-access" id="toc-dict-access" class="nav-link" data-scroll-target="#dict-access">17.4 Dict access</a></li>
+  <li><a href="#preset-use" id="toc-preset-use" class="nav-link" data-scroll-target="#preset-use">17.5 Preset use</a></li>
+  <li><a href="#iter-position-via-meta-accessor" id="toc-iter-position-via-meta-accessor" class="nav-link" data-scroll-target="#iter-position-via-meta-accessor">17.6 Iter-position via meta-accessor</a></li>
+  </ul></li>
+  <li><a href="#open-questions" id="toc-open-questions" class="nav-link" data-scroll-target="#open-questions">18. Open questions</a></li>
+  </ul></li>
+  </ul>
+<div class="toc-actions"><ul><li><a href="https://github.com/39alpha/eleanor/edit/main/eql-spec.md" class="toc-action"><i class="bi bi-github"></i>Edit this page</a></li><li><a href="https://github.com/39alpha/eleanor/blob/main/eql-spec.md" class="toc-action"><i class="bi empty"></i>View source</a></li><li><a href="https://github.com/39alpha/eleanor/issues/new" class="toc-action"><i class="bi empty"></i>Report an issue</a></li></ul></div><div class="quarto-alternate-formats"><h2>Other Formats</h2><ul><li><a href="eql-spec.pdf"><i class="bi bi-file-pdf"></i>Typst</a></li></ul></div></nav>
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content"><header id="title-block-header" class="quarto-title-block"></header>
+
+
+
+
+
+<section id="eleanor-query-language-eql-specification" class="level1">
+<h1>Eleanor Query Language (EQL) — Specification</h1>
+<p><strong>Status:</strong> Draft v0.1</p>
+<p><strong>Scope:</strong> normative specification of the query language; non-normative examples are marked as such.</p>
+<section id="purpose" class="level2">
+<h2 class="anchored" data-anchor-id="purpose">1. Purpose</h2>
+<p>EQL is a declarative query language over a tree of Python dataclasses rooted at <code>Order</code>. It describes, without transforming, a stream of records to be extracted from that tree. EQL is consumer-agnostic: CSV writing, Postgres projection, navigator feedback, and assessor logic are all valid consumers of the same query.</p>
+<p>EQL is strictly descriptive. It has no arithmetic, no comparisons, no function calls, no side effects. All transformation of extracted values is the consumer’s responsibility.</p>
+</section>
+<section id="conformance-terms" class="level2">
+<h2 class="anchored" data-anchor-id="conformance-terms">2. Conformance terms</h2>
+<p>The key words <strong>MUST</strong>, <strong>MUST NOT</strong>, <strong>SHOULD</strong>, <strong>SHOULD NOT</strong>, <strong>MAY</strong> have the meanings given in RFC 2119. “Leaf” and “container” are defined in §3. “Alias” and “ambient scope” are defined in §5 and §7.</p>
+</section>
+<section id="object-model" class="level2">
+<h2 class="anchored" data-anchor-id="object-model">3. Object model</h2>
+<section id="reflection-requirements" class="level3">
+<h3 class="anchored" data-anchor-id="reflection-requirements">3.1 Reflection requirements</h3>
+<p>The object tree operated on by EQL <strong>MUST</strong> consist of Python dataclasses (<code>@dataclass</code>) with PEP 526 annotations. All annotations <strong>MUST</strong> be resolvable via <code>typing.get_type_hints()</code> — forward references <strong>MUST</strong> resolve in the module’s globals.</p>
+<p>Types not declared as dataclasses are permitted only as leaf values (§3.2) or as elements of non-traversed containers.</p>
+</section>
+<section id="field-classification" class="level3">
+<h3 class="anchored" data-anchor-id="field-classification">3.2 Field classification</h3>
+<p>Each annotated field of a dataclass is classified using its declared type after unwrapping <code>Optional[X]</code> / <code>X | None</code>:</p>
+<ul>
+<li><strong>Container field</strong>: the unwrapped type is (a) a dataclass, (b) <code>list[X]</code>, or (c) <code>dict[K, V]</code>. The element type of a container is classified recursively.</li>
+<li><strong>Leaf field</strong>: any annotated field that is not a container field.</li>
+</ul>
+<p>EQL treats union types other than <code>T | None</code> as opaque leaves. If a field is declared <code>A | B</code> where both <code>A</code> and <code>B</code> are dataclasses, EQL <strong>MUST NOT</strong> navigate into it; it is reported as a leaf.</p>
+</section>
+<section id="leaf-value-handling" class="level3">
+<h3 class="anchored" data-anchor-id="leaf-value-handling">3.3 Leaf value handling</h3>
+<p>Leaf values are returned to consumers as their native Python objects. EQL assigns no special meaning to <code>datetime</code>, <code>bytes</code>, <code>Exception</code>, <code>None</code>, enums, or any other leaf type. All rendering is the consumer’s concern.</p>
+<p><code>None</code> is a legal leaf value and <strong>MUST NOT</strong> be conflated with a missing path (§11).</p>
+<p>Note: fields that were formerly top-level scalars on <code>ESPoint</code> but were moved to <code>custom_properties</code> (e.g.&nbsp;<code>solution_volume</code>, <code>charge_discrepancy</code>) are not accessible as direct path segments; they reside inside the <code>custom_properties</code> dict.</p>
+</section>
+</section>
+<section id="grammar" class="level2">
+<h2 class="anchored" data-anchor-id="grammar">4. Grammar</h2>
+<pre><code>Query         ::= "row_scope"   ":" RowScope
+                  "columns"     ":" ColumnList
+                  [ "on_missing" ":" MissingPolicy ]
+                  [ "version"    ":" Integer ]
+
+RowScope      ::= Identifier | Path                  ; §6
+
+Path          ::= Segment ( "." Segment )* [ "." Meta ]
+Segment       ::= Identifier Filter*
+Meta          ::= "@" Identifier
+Filter        ::= "[" FilterBody "]"
+FilterBody    ::= "*" | Predicate ( "," Predicate )*
+Predicate     ::= Identifier "=" Value
+Value         ::= Unquoted | QuotedString
+Unquoted      ::= UnquotedChar+
+UnquotedChar  ::= any Unicode character except WS, "=", ",", "]", "\""
+QuotedString  ::= "\"" ( NonQuote | EscapeSeq )* "\""
+EscapeSeq     ::= "\\\"" | "\\\\"
+Identifier    ::= [A-Za-z_] [A-Za-z0-9_]*
+
+ColumnList    ::= list of ColumnEntry
+ColumnEntry   ::= Path                               ; §8.1
+                | StructuredColumn                   ; §8.2
+                | SplatDirective                     ; §9
+                | PresetDirective                    ; §10
+
+MissingPolicy ::= "blank" | "null" | "error"</code></pre>
+<p>Filters on a single segment apply left-to-right. Multi-predicate filters <strong>MAY</strong> be spelled either way: <code>foo[a=1, b=2]</code> is equivalent to <code>foo[a=1][b=2]</code>.</p>
+<p><code>[*]</code> denotes iteration over a container. <code>[attr=value]</code> denotes a lookup filter; at runtime it <strong>MUST</strong> match zero or one element (see §11, §15).</p>
+<p><code>@&lt;name&gt;</code> is a <em>meta-accessor</em>: a closed-set, EQL-provided pseudo-segment that produces metadata about the path’s iter-bound prefix rather than reading a real attribute. Meta-accessors are restricted to the terminal position of a column path; their semantics and the canonical names are defined in §7.1.</p>
+</section>
+<section id="aliases" class="level2">
+<h2 class="anchored" data-anchor-id="aliases">5. Aliases</h2>
+<section id="positional-not-nominal" class="level3">
+<h3 class="anchored" data-anchor-id="positional-not-nominal">5.1 Positional, not nominal</h3>
+<p>Every scope in a query carries an <strong>alias</strong> derived from the attribute path that reached it, never from the type name. Two distinct types may share a class name (e.g.&nbsp;<code>variable_space.Point</code> and <code>equilibrium_space.Point</code>); EQL distinguishes them by the attribute path through which they are reached.</p>
+</section>
+<section id="default-aliases" class="level3">
+<h3 class="anchored" data-anchor-id="default-aliases">5.2 Default aliases</h3>
+<ul>
+<li>The root of every query has the alias <code>order</code>.</li>
+<li>For a segment <code>foo</code> whose declared type (after <code>Optional</code> unwrapping) is <code>list[T]</code> or <code>dict[K, T]</code>, each iterated element’s alias is the <strong>English singular</strong> of <code>foo</code> (<code>vs_points → vs_point</code>, <code>elements → element</code>, <code>end_members → end_member</code>). If <code>foo</code> has no standard singularization under the rules given in §5.4, the alias is <code>foo</code> unchanged.</li>
+<li>For a segment <code>foo</code> whose declared type is a dataclass (not a collection), the alias is <code>foo</code>.</li>
+<li>The innermost scope of a query is additionally addressable as <code>self</code>.</li>
+</ul>
+</section>
+<section id="alias-short-forms" class="level3">
+<h3 class="anchored" data-anchor-id="alias-short-forms">5.3 Alias short-forms</h3>
+<p>A closed, code-defined table maps default aliases to shorter synonyms. Both the default and the short form are accepted wherever an alias is used.</p>
+<p>Current entries:</p>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>default alias</th>
+<th>short form</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>vs_point</code></td>
+<td><code>vs</code></td>
+</tr>
+<tr class="even">
+<td><code>es_point</code></td>
+<td><code>es</code></td>
+</tr>
+</tbody>
+</table>
+<p>A short-form <strong>MUST NOT</strong> collide with any default alias. This table is not user-extensible; it is modified only alongside changes to this specification.</p>
+</section>
+<section id="singularization-rules" class="level3">
+<h3 class="anchored" data-anchor-id="singularization-rules">5.4 Singularization rules</h3>
+<p>EQL maintains a closed, code-defined table of irregular plural suffixes whose singular form is not produced by the algorithmic rules below. If an attribute name’s lowercase form ends with one of the plural suffixes in this table, the matched suffix is replaced with the corresponding singular suffix and the algorithmic rules are not consulted. Suffix matching is case-insensitive; the surrounding prefix retains its original case.</p>
+<p>Current entries:</p>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>plural suffix</th>
+<th>singular suffix</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>species</code></td>
+<td><code>species</code></td>
+</tr>
+<tr class="even">
+<td><code>axes</code></td>
+<td><code>axis</code></td>
+</tr>
+</tbody>
+</table>
+<p>This table is not user-extensible; it is modified only alongside changes to this specification.</p>
+<p>Examples: <code>species → species</code>, <code>aqueous_species → aqueous_species</code>, <code>axes → axis</code>, <code>coordinate_axes → coordinate_axis</code>.</p>
+<p>If no irregular suffix matches, EQL applies the following rules in order to derive the singular of an attribute name:</p>
+<ol type="1">
+<li><code>…ies</code> → <code>…y</code> (e.g.&nbsp;<code>entries → entry</code>).</li>
+<li><code>…ses</code>, <code>…xes</code>, <code>…zes</code>, <code>…ches</code>, <code>…shes</code> → strip <code>es</code> (e.g.&nbsp;<code>suffixes → suffix</code>).</li>
+<li><code>…men</code> → <code>…man</code> (e.g.&nbsp;<code>end_members</code> — rule does not apply; falls through to rule 4).</li>
+<li>Trailing <code>s</code> (not <code>ss</code>) → strip <code>s</code> (e.g.&nbsp;<code>vs_points → vs_point</code>).</li>
+<li>Otherwise, the alias is the attribute name unchanged.</li>
+</ol>
+<p>When the identity fallback in rule 5 (or an irregular form that resolves to itself) would create a collision with another ambient alias, the user <strong>MUST</strong> disambiguate via an explicit path and/or rely on the short-form table.</p>
+</section>
+<section id="alias-uniqueness" class="level3">
+<h3 class="anchored" data-anchor-id="alias-uniqueness">5.5 Alias uniqueness</h3>
+<p>Within a single compiled query, every ambient scope <strong>MUST</strong> have a unique alias. If reflection produces a collision within a single <code>row_scope</code>, the query is rejected at load time with <code>AliasCollision</code>, naming both paths.</p>
+</section>
+</section>
+<section id="row_scope-resolution" class="level2">
+<h2 class="anchored" data-anchor-id="row_scope-resolution">6. <code>row_scope</code> resolution</h2>
+<p><code>row_scope</code> is either a shortname or a full path.</p>
+<section id="shortname" class="level3">
+<h3 class="anchored" data-anchor-id="shortname">6.1 Shortname</h3>
+<p>A single identifier. EQL enumerates every attribute path from <code>Order</code> that reaches a scope whose alias (default or short-form) equals the identifier:</p>
+<ul>
+<li>Exactly one candidate → <code>row_scope</code> expands to that path.</li>
+<li>Zero candidates → <code>UnknownRowScope</code>.</li>
+<li>Two or more candidates → <code>AmbiguousRowScope</code>, with candidate paths listed in the error.</li>
+</ul>
+</section>
+<section id="full-path" class="level3">
+<h3 class="anchored" data-anchor-id="full-path">6.2 Full path</h3>
+<p>Taken literally. Every segment <strong>MUST</strong> correspond to a real attribute of its parent type; every filter predicate <strong>MUST</strong> name a real field of the element type.</p>
+</section>
+<section id="terminal-requirement" class="level3">
+<h3 class="anchored" data-anchor-id="terminal-requirement">6.3 Terminal requirement</h3>
+<p>The terminal segment of a valid <code>row_scope</code> <strong>MUST</strong> evaluate to one of:</p>
+<ul>
+<li>A single dataclass node (no trailing <code>[*]</code>) → the query emits exactly one row per source tree.</li>
+<li>An iterative container segment (trailing <code>[*]</code>) → the query emits zero or more rows per iteration of the container.</li>
+</ul>
+<p>A <code>row_scope</code> terminating at a leaf attribute, or at a bare <code>list[T]</code> / <code>dict[K, V]</code> without <code>[*]</code>, is rejected with <code>InvalidRowScope</code>.</p>
+</section>
+</section>
+<section id="ambient-scope-table" class="level2">
+<h2 class="anchored" data-anchor-id="ambient-scope-table">7. Ambient scope table</h2>
+<p>Given a validated <code>row_scope</code>, the ambient scope table maps aliases to nodes in the current row:</p>
+<ul>
+<li><code>order</code> → the root <code>Order</code>.</li>
+<li>For every non-filtering segment on the path, the segment’s alias → the node at that position.</li>
+<li>Iterative <code>[*]</code> segments bind the currently iterated element to the corresponding singularized alias.</li>
+<li>The innermost alias is also bound to <code>self</code>.</li>
+</ul>
+<p>Filtering <code>[attr=value]</code> segments do not introduce a new alias; they constrain the element reached via the surrounding attribute.</p>
+<p>Columns <strong>MUST</strong> reference only aliases present in this table; references to unknown aliases are rejected at load time with <code>UnknownScope</code>.</p>
+<section id="iter-bound-aliases-and-meta-accessors" class="level3">
+<h3 class="anchored" data-anchor-id="iter-bound-aliases-and-meta-accessors">7.1 Iter-bound aliases and meta-accessors</h3>
+<p>An alias bound by an iterative <code>[*]</code> segment is an <em>iter-bound alias</em>. For each iter-bound alias <code>&lt;alias&gt;</code>, EQL exposes a closed set of meta-accessors as terminal-only path extensions:</p>
+<ul>
+<li><code>&lt;alias&gt;.@index</code> — the 0-based position of the currently iterated element within its parent container, typed <code>int</code>. Defined whenever <code>&lt;alias&gt;</code> is bound.</li>
+<li><code>&lt;alias&gt;.@key</code> — for <code>dict[K, V]</code> iter scopes only, the dict key at the current iteration, typed <code>K</code>. Defined whenever <code>&lt;alias&gt;</code> is bound to a dict iteration; rejected at load time on list-iter aliases.</li>
+</ul>
+<p>Meta-accessors are produced by EQL rather than read from the data tree; they never miss (§11.1) and carry no <code>on_missing</code> policy. Match-bound aliases — those reached only through an <code>[attr=value]</code>-only segment, with no enclosing <code>[*]</code> — do not expose meta-accessors. The set of canonical meta-accessor names is closed: unknown <code>@&lt;name&gt;</code> references and meta-accessors anchored on a non-iter-bound alias are rejected at load time with <code>InvalidMetaAccessor</code> (§15.1). New canonical meta-accessors are added only by modifying this specification.</p>
+</section>
+</section>
+<section id="column-specification" class="level2">
+<h2 class="anchored" data-anchor-id="column-specification">8. Column specification</h2>
+<p>A column path <strong>MUST NOT</strong> contain an iter filter (<code>[*]</code>). Iteration over a container, and the resulting fan-out of rows, is the exclusive responsibility of <code>row_scope</code> (§6, §11.1). Match filters (<code>[attr=value]</code>) are permitted in column paths; per §15.2 they match exactly zero or one element at runtime, so a column always produces exactly one value per row (a leaf, or a container terminal under the consumer opt-in described in §13.1 step 6).</p>
+<p>A column path containing an iter filter is rejected at load time with <code>InvalidFilter</code>.</p>
+<p>A column path <strong>MAY</strong> terminate in a meta-accessor (§7.1); the column’s value is then produced by EQL from the iter binding rather than read from the data tree. Meta-accessors are leaves and are unaffected by the consumer container-terminal opt-in.</p>
+<section id="path-string" class="level3">
+<h3 class="anchored" data-anchor-id="path-string">8.1 Path string</h3>
+<p>A bare string is a path whose column name is derived per §8.5.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb2"><pre class="sourceCode yaml code-with-copy"><code class="sourceCode yaml"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">-</span><span class="at"> es.ph</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">-</span><span class="at"> es.aqueous_species[name=Ca+2].log_molality</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</section>
+<section id="structured-column-record" class="level3">
+<h3 class="anchored" data-anchor-id="structured-column-record">8.2 Structured column record</h3>
+<p>A mapping whose keys are drawn from the following closed set:</p>
+<ul>
+<li><code>path</code> (required, string) — the path to evaluate.</li>
+<li><code>name</code> (optional, string) — explicit column name; overrides §8.5.</li>
+<li><code>on_missing</code> (optional, <code>MissingPolicy</code>) — per-column override of the file-level policy.</li>
+<li><code>default</code> (optional, any leaf value) — substitute used when <code>on_missing == null</code>.</li>
+<li><code>meta</code> (optional, mapping) — consumer-facing annotations (§14). Keys <strong>MUST</strong> be strings; values are opaque. EQL <strong>MUST NOT</strong> interpret <code>meta</code>; it is carried through compilation unchanged and exposed on the compiled column for the consumer.</li>
+</ul>
+<p>Any other top-level key on a structured column record is rejected at load time with <code>ParseError</code>. This keeps field typos (e.g.&nbsp;<code>on_mising</code>) from being silently accepted; consumer-defined keys <strong>MUST</strong> be nested under <code>meta</code> rather than placed at the top level.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb3"><pre class="sourceCode yaml code-with-copy"><code class="sourceCode yaml"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">-</span><span class="at"> </span><span class="fu">path</span><span class="kw">:</span><span class="at"> es.aqueous_species[name=Ca+2].log_molality</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">name</span><span class="kw">:</span><span class="at"> log_m_Ca</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">on_missing</span><span class="kw">:</span><span class="at"> </span><span class="ch">null</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">default</span><span class="kw">:</span><span class="at"> </span><span class="ch">null</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">meta</span><span class="kw">:</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">greater_than</span><span class="kw">:</span><span class="at"> </span><span class="dv">-6</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</section>
+<section id="splat-directive" class="level3">
+<h3 class="anchored" data-anchor-id="splat-directive">8.3 Splat directive</h3>
+<p>See §9.</p>
+</section>
+<section id="preset-directive" class="level3">
+<h3 class="anchored" data-anchor-id="preset-directive">8.4 Preset directive</h3>
+<p>See §10.</p>
+</section>
+<section id="implicit-column-naming" class="level3">
+<h3 class="anchored" data-anchor-id="implicit-column-naming">8.5 Implicit column naming</h3>
+<p>For a path whose terminal segment is <code>foo</code> (after any filters), the default column name is <code>foo</code>. For a path whose terminal segment is a meta-accessor <code>@&lt;name&gt;</code>, the default column name is <code>&lt;name&gt;</code> (without the leading <code>@</code>).</p>
+<p>If two or more columns in the compiled query would share the same default name, each colliding column is renamed to <code>&lt;alias&gt;_&lt;name&gt;</code>, where <code>&lt;alias&gt;</code> is the alias of the outermost scope on that column’s path. Prefixing applies only to the colliding columns; other columns retain their bare names.</p>
+<p>If prefixing does not resolve the collision (two paths agree after alias prefixing), the query is rejected with <code>ColumnNameCollision</code>; the user <strong>MUST</strong> supply explicit <code>name</code> values.</p>
+<p>Numeric <code>_N</code> suffixes are never introduced by EQL.</p>
+</section>
+</section>
+<section id="splat-directive-1" class="level2">
+<h2 class="anchored" data-anchor-id="splat-directive-1">9. Splat directive</h2>
+<pre><code>- splat: &lt;alias&gt;
+  [ exclude: [&lt;field&gt;, ...] ]
+  [ include: [&lt;field&gt;, ...] ]     ; mutually exclusive with exclude
+  [ prefix:  &lt;string&gt; ]
+  [ on_missing: &lt;MissingPolicy&gt; ]</code></pre>
+<p>Resolution at compile time:</p>
+<ol type="1">
+<li>Look up <code>&lt;alias&gt;</code> in the ambient scope table to obtain its type <code>T</code>.</li>
+<li>Enumerate the leaf fields of <code>T</code> (§3.2).</li>
+<li>Filter by <code>include</code> or <code>exclude</code> if present. Unknown field names are a load-time error (<code>SplatUnknownField</code>).</li>
+<li>Emit one column per remaining field: <code>path = &lt;alias&gt;.&lt;field&gt;</code>, <code>name = &lt;prefix&gt;&lt;field&gt;</code>.</li>
+</ol>
+<p>Splat <strong>MUST NOT</strong> recurse into containers. To project a nested container scope, write an additional splat directive or explicit columns.</p>
+<p>Splat-produced columns inherit the directive’s <code>on_missing</code>, if any, or the file-level default.</p>
+</section>
+<section id="preset-directive-1" class="level2">
+<h2 class="anchored" data-anchor-id="preset-directive-1">10. Preset directive</h2>
+<pre><code>- preset: &lt;name&gt;
+  [ &lt;arg&gt;: &lt;value&gt;, ... ]</code></pre>
+<p>A preset is a named function that desugars a single directive into a list of column entries (as if written by the user), spliced into the compiled column list at the directive’s position. A preset function receives:</p>
+<ul>
+<li>the ambient scope table of the current query,</li>
+<li>the directive’s arguments,</li>
+</ul>
+<p>and returns the column entries it expands to. Preset expansion is recursive: a preset’s output may itself contain bare-path, structured, splat, or preset entries, which are desugared in turn under the same bundle (§10.2).</p>
+<p>A preset whose expansion requires an alias absent from the ambient scope table fails at load time with <code>PresetScopeMissing</code>, naming the missing alias.</p>
+<section id="canonical-bundle" class="level3">
+<h3 class="anchored" data-anchor-id="canonical-bundle">10.1 Canonical bundle</h3>
+<p>The reference implementation ships a canonical bundle of presets (§10.3); a compile defaults to that bundle when none is supplied. The canonical bundle is closed: new canonical presets are added only by modifying this specification and the reference implementation together.</p>
+</section>
+<section id="per-compile-bundles" class="level3">
+<h3 class="anchored" data-anchor-id="per-compile-bundles">10.2 Per-compile bundles</h3>
+<p>A consumer of the reference implementation <strong>MAY</strong> supply a different bundle of presets at compile time, including the empty bundle. When a non-default bundle is in effect, that bundle (and not the canonical one) determines which preset names resolve and which raise <code>UnknownPreset</code>.</p>
+<p>Queries that rely on the canonical bundle are portable across consumers; queries that rely on a custom bundle are portable only across consumers configured with that bundle. This trade-off is explicit: it lets consumers ship deployment-specific column projections without forking the spec, while keeping the canonical set portable.</p>
+</section>
+<section id="canonical-presets" class="level3">
+<h3 class="anchored" data-anchor-id="canonical-presets">10.3 Canonical presets</h3>
+<p>The canonical bundle defines:</p>
+<ul>
+<li><strong><code>run_metadata</code></strong> — emits leaf columns describing the source <code>Order</code>. Requires the ambient <code>order</code> alias (always present per §7). Takes no arguments. Emitted columns: <code>order.id</code>, <code>order.tags</code>, <code>order.name</code>, <code>order.creator</code>, <code>order.notes</code>, <code>order.eleanor_version</code>, <code>order.create_date</code>.</li>
+<li><strong><code>es_scalars</code></strong> — emits one column per scalar leaf of the equilibrium-space row’s <code>ESPoint</code>. Requires the ambient <code>es</code> alias. Optional <code>exclude: [&lt;field&gt;, ...]</code> removes named fields from the output; optional <code>include: [&lt;field&gt;, ...]</code> restricts the output to the named fields. <code>include</code> and <code>exclude</code> are mutually exclusive. Unknown field names raise <code>SplatUnknownField</code> against the <code>es</code> alias.</li>
+<li><strong><code>aqueous_species_table</code></strong> — emits one column per <code>(name, field)</code> pair against <code>es.aqueous_species</code>. Requires the ambient <code>es</code> alias. Required <code>names: [&lt;species_name&gt;, ...]</code> and <code>fields: [&lt;aqueous_species_field&gt;, ...]</code>; both must be non-empty lists of strings. For each pair, emits a column with path <code>es.aqueous_species[name=&lt;name&gt;].&lt;field&gt;</code> and column name <code>&lt;field&gt;_&lt;name&gt;</code>. Unknown <code>fields</code> entries raise <code>ParseError</code>; the <code>names</code> list is not validated against any data-model table.</li>
+</ul>
+<p>Malformed preset arguments (wrong types, missing required arguments, unknown extra arguments) raise <code>ParseError</code> at compile time.</p>
+</section>
+</section>
+<section id="missing-value-semantics" class="level2">
+<h2 class="anchored" data-anchor-id="missing-value-semantics">11. Missing-value semantics</h2>
+<section id="definition-of-miss" class="level3">
+<h3 class="anchored" data-anchor-id="definition-of-miss">11.1 Definition of “miss”</h3>
+<p>A path evaluation <strong>misses</strong> when, during runtime walk:</p>
+<ul>
+<li>an intermediate value is <code>None</code> and the next segment would be applied to it, or</li>
+<li>a <code>[attr=value]</code> filter matches no element of its container.</li>
+</ul>
+<p>A <code>[*]</code> filter that finds an empty container is not a miss; it yields zero rows at the <code>row_scope</code> level or zero elements at inner levels.</p>
+<p>Meta-accessors (§7.1) never miss: their value is fully determined by the iter binding that scopes them, so the missing-value policy of §11.2 does not apply to a column whose terminal is a meta-accessor.</p>
+</section>
+<section id="policy" class="level3">
+<h3 class="anchored" data-anchor-id="policy">11.2 Policy</h3>
+<p>Per-column policy, or the file-level default in its absence (priority: column &gt; directive &gt; file-level &gt; implicit default <code>blank</code>):</p>
+<ul>
+<li><code>blank</code>: the column’s value is <code>None</code>.</li>
+<li><code>null</code>: the column’s value is the column’s <code>default</code> if set, else <code>None</code>.</li>
+<li><code>error</code>: evaluation raises <code>PathMissError</code>, identifying row index, column name, and the first missing segment.</li>
+</ul>
+</section>
+<section id="explicit-none-vs.-miss" class="level3">
+<h3 class="anchored" data-anchor-id="explicit-none-vs.-miss">11.3 Explicit <code>None</code> vs.&nbsp;miss</h3>
+<p>An attribute whose value is legitimately <code>None</code> (e.g.&nbsp;<code>es.Point.log_xi</code> when the equilibrium space point represents the <code>eq3</code> stage, where <span class="math inline">\(\xi\)</span> is undefined) is <strong>not</strong> a miss when it is the terminal of a path; the column’s value is <code>None</code>. It <strong>is</strong> a miss when the path continues through it.</p>
+</section>
+</section>
+<section id="filter-and-value-coercion" class="level2">
+<h2 class="anchored" data-anchor-id="filter-and-value-coercion">12. Filter and value coercion</h2>
+<section id="list-filters" class="level3">
+<h3 class="anchored" data-anchor-id="list-filters">12.1 List filters</h3>
+<p>For a segment whose unwrapped type is <code>list[T]</code>, a filter <code>[attr=value]</code>:</p>
+<ul>
+<li>requires that <code>T</code> declare an attribute <code>attr</code>;</li>
+<li>coerces the literal <code>value</code> to <code>attr</code>’s declared type per §12.3;</li>
+<li>selects the element(s) whose <code>attr</code> compares <code>==</code> to the coerced value.</li>
+</ul>
+</section>
+<section id="dict-filters" class="level3">
+<h3 class="anchored" data-anchor-id="dict-filters">12.2 Dict filters</h3>
+<p>For a segment whose unwrapped type is <code>dict[K, V]</code>, a filter:</p>
+<ul>
+<li><code>[key=value]</code> selects the entry whose key compares <code>==</code> to the coerced value. The literal is coerced to <code>K</code> per §12.3. <code>key</code> is reserved and does not shadow any value-type attribute of the same name.</li>
+<li><code>[&lt;attr&gt;=value]</code> where <code>attr</code> is a field of <code>V</code> selects entries whose value’s <code>attr</code> matches, coerced to that field’s type.</li>
+<li><code>[*]</code> iterates the dict’s values (not its keys) in insertion order.</li>
+</ul>
+</section>
+<section id="value-coercion" class="level3">
+<h3 class="anchored" data-anchor-id="value-coercion">12.3 Value coercion</h3>
+<p>Given a declared target type <code>T</code> and a parsed literal string <code>s</code>:</p>
+<ul>
+<li><code>T</code> is <code>str</code> → the value is <code>s</code> unchanged.</li>
+<li><code>T</code> is <code>int</code> → <code>int(s, base=10)</code>; failure is <code>InvalidFilterValue</code>.</li>
+<li><code>T</code> is <code>float</code> → <code>float(s)</code>; failure is <code>InvalidFilterValue</code>.</li>
+<li><code>T</code> is <code>bool</code> → <code>"true"</code> / <code>"false"</code> (case-insensitive) are accepted; anything else is <code>InvalidFilterValue</code>.</li>
+<li><code>T</code> is an <code>enum.Enum</code> subclass → lookup by name, then by value; failure is <code>InvalidFilterValue</code>.</li>
+<li>Any other <code>T</code> → <code>InvalidFilterValue</code>. Expansion of coercion targets is a specification-level change.</li>
+</ul>
+<p>Coercion is performed once at query compile time. Compile-time coercion failures are reported as <code>InvalidFilterValue</code> with the offending segment.</p>
+</section>
+</section>
+<section id="compilation-and-evaluation" class="level2">
+<h2 class="anchored" data-anchor-id="compilation-and-evaluation">13. Compilation and evaluation</h2>
+<section id="compilation-load-time" class="level3">
+<h3 class="anchored" data-anchor-id="compilation-load-time">13.1 Compilation (load time)</h3>
+<ol type="1">
+<li>Parse the query text.</li>
+<li>Parse and resolve <code>row_scope</code> (§6).</li>
+<li>Reflectively validate the <code>row_scope</code> path against the <code>Order</code> tree.</li>
+<li>Build the ambient scope table (§7).</li>
+<li>Desugar all column entries (paths, splat, presets) into a flat list of structured column specifications.</li>
+<li>Validate every column: the path begins with an ambient alias; no segment contains an iter filter <code>[*]</code> (§8); every attribute segment exists; every filter predicate names a real field of the preceding type; every filter value coerces successfully; the terminal produces a leaf value (consumers that can accept containers <strong>MAY</strong> relax this check via a consumer flag); any meta-accessor terminal names a defined accessor (<code>@index</code>, or <code>@key</code> for dict-iter aliases) anchored on an iter-bound alias (§7.1).</li>
+<li>Resolve column names (§8.5) and check for irreducible collisions.</li>
+</ol>
+<p>A valid query compiles to an opaque <code>CompiledQuery</code>. All errors detected after this point are runtime errors (§15.2).</p>
+</section>
+<section id="evaluation" class="level3">
+<h3 class="anchored" data-anchor-id="evaluation">13.2 Evaluation</h3>
+<pre><code>evaluate(CompiledQuery, Order) -&gt; Iterator[Row]</code></pre>
+<p>where <code>Row</code> is a mapping from column name to native Python value. Evaluation is:</p>
+<ul>
+<li><strong>Pure</strong>: no I/O, no mutation of the input tree, no global state.</li>
+<li><strong>Deterministic</strong>: identical inputs produce identical row streams.</li>
+<li><strong>Total</strong> (with <code>on_missing != error</code>): every row is produced regardless of missing intermediates.</li>
+</ul>
+</section>
+<section id="iteration-order" class="level3">
+<h3 class="anchored" data-anchor-id="iteration-order">13.3 Iteration order</h3>
+<ul>
+<li><code>list[T]</code> iterates in storage order.</li>
+<li><code>dict[K, V]</code> iterates in insertion order.</li>
+<li>Nested iterations compose left-to-right: the outer segment is the slowest index.</li>
+</ul>
+<p>Consumers <strong>MUST NOT</strong> assume any other ordering, and producers <strong>MUST NOT</strong> depend on iteration order for semantic correctness.</p>
+</section>
+<section id="memory-model" class="level3">
+<h3 class="anchored" data-anchor-id="memory-model">13.4 Memory model</h3>
+<p>Evaluation <strong>MUST</strong> be streaming: at any point in time, only the current row’s computed values and the ancestor-node pointers along the active <code>row_scope</code> walk are materialized. Consumers that buffer rows do so at their own cost.</p>
+</section>
+</section>
+<section id="consumer-contract" class="level2">
+<h2 class="anchored" data-anchor-id="consumer-contract">14. Consumer contract</h2>
+<ul>
+<li>Consumers receive the compiled column list and a row iterator.</li>
+<li>Consumers are responsible for rendering leaf values (formatting, null representation, byte handling, type mapping, etc.).</li>
+<li>Consumers <strong>MAY</strong> carry per-column render metadata out-of-band of EQL (e.g.&nbsp;a CSV sink’s <code>format</code> overlay, a Postgres sink’s type-cast hints). Such metadata <strong>MUST NOT</strong> alter the values produced by evaluation; only how they are serialized.</li>
+<li>A structured column <strong>MAY</strong> carry inline consumer annotations in its <code>meta</code> mapping (§8.2). EQL treats <code>meta</code> as opaque: it neither validates nor acts on the contents, and passes the mapping through to the consumer on the compiled column unchanged. A consumer <strong>MAY</strong> interpret its own <code>meta</code> keys to drive behaviour beyond serialization — including post-extraction row filtering or aggregation (e.g.&nbsp;a <code>greater_than</code> annotation used to drop rows). Such consumer behaviour <strong>MUST NOT</strong> change the row stream produced by <code>evaluate</code> (§13.2); it applies only downstream of evaluation, in the consumer. Annotation semantics are entirely consumer-defined and are therefore not portable across consumers unless they share a convention.</li>
+<li>Consumers <strong>MUST NOT</strong> mutate rows or the source tree.</li>
+<li>Two consumers evaluating the same compiled query against the same <code>Order</code> <strong>MUST</strong> observe identical row streams.</li>
+</ul>
+</section>
+<section id="error-catalog" class="level2">
+<h2 class="anchored" data-anchor-id="error-catalog">15. Error catalog</h2>
+<section id="load-time-errors" class="level3">
+<h3 class="anchored" data-anchor-id="load-time-errors">15.1 Load-time errors</h3>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 22%">
+<col style="width: 77%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Error</th>
+<th>Raised when</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>ParseError</code></td>
+<td>The query text does not conform to the grammar (§4).</td>
+</tr>
+<tr class="even">
+<td><code>UnknownRowScope</code></td>
+<td>The <code>row_scope</code> shortname resolves to zero candidate paths.</td>
+</tr>
+<tr class="odd">
+<td><code>AmbiguousRowScope</code></td>
+<td>The <code>row_scope</code> shortname resolves to more than one candidate path.</td>
+</tr>
+<tr class="even">
+<td><code>InvalidRowScope</code></td>
+<td>The <code>row_scope</code> terminates at a leaf or a non-iterated container.</td>
+</tr>
+<tr class="odd">
+<td><code>InvalidPath</code></td>
+<td>A segment names an attribute that does not exist on its parent type.</td>
+</tr>
+<tr class="even">
+<td><code>InvalidFilter</code></td>
+<td>A filter is not permitted in its context (e.g.&nbsp;<code>[*]</code> in a column path, predicate naming a non-existent field, filter on a non-iterable, filter on an alias head).</td>
+</tr>
+<tr class="odd">
+<td><code>InvalidFilterValue</code></td>
+<td>A filter literal cannot be coerced to the target attribute’s declared type.</td>
+</tr>
+<tr class="even">
+<td><code>UnknownScope</code></td>
+<td>A column references an alias not in the ambient scope table.</td>
+</tr>
+<tr class="odd">
+<td><code>AliasCollision</code></td>
+<td>Two ambient scopes in one query would share an alias.</td>
+</tr>
+<tr class="even">
+<td><code>ColumnNameCollision</code></td>
+<td>Two columns would share a name even after alias prefixing (§8.5).</td>
+</tr>
+<tr class="odd">
+<td><code>SplatUnknownField</code></td>
+<td>A splat’s <code>include</code> or <code>exclude</code> names a field not on the splatted type.</td>
+</tr>
+<tr class="even">
+<td><code>PresetScopeMissing</code></td>
+<td>A preset requires an alias absent from the ambient scope table.</td>
+</tr>
+<tr class="odd">
+<td><code>UnknownPreset</code></td>
+<td>A preset directive names a preset that is not defined in the bundle in effect for the compile (§10).</td>
+</tr>
+<tr class="even">
+<td><code>InvalidMetaAccessor</code></td>
+<td>A meta-accessor (§7.1) names an undefined accessor, is anchored on a non-iter-bound alias, or applies <code>@key</code> to a non-dict iter scope.</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="runtime-errors" class="level3">
+<h3 class="anchored" data-anchor-id="runtime-errors">15.2 Runtime errors</h3>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 22%">
+<col style="width: 77%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Error</th>
+<th>Raised when</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>PathMissError</code></td>
+<td><code>on_missing == error</code> and a path misses (§11.1) during evaluation.</td>
+</tr>
+<tr class="even">
+<td><code>MultipleMatchError</code></td>
+<td>A <code>[attr=value]</code> filter matches more than one element (§4).</td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+<section id="versioning" class="level2">
+<h2 class="anchored" data-anchor-id="versioning">16. Versioning</h2>
+<p>A query <strong>MAY</strong> declare <code>version: &lt;int&gt;</code>. The absence of <code>version</code> is treated as the current major version.</p>
+<p>Breaking changes — to the grammar, alias rules, column desugaring, missing-value semantics, or evaluation model — increment the major version. Additions that do not change the meaning of existing valid queries (new canonical presets, new coercion target types, new short-form aliases) are minor and do not require a version bump on the query side. Per §10.2, queries that rely on a non-default preset bundle are portable only across consumers configured with that bundle.</p>
+</section>
+<section id="examples-non-normative" class="level2">
+<h2 class="anchored" data-anchor-id="examples-non-normative">17. Examples (non-normative)</h2>
+<section id="flat-es-point-csv" class="level3">
+<h3 class="anchored" data-anchor-id="flat-es-point-csv">17.1 Flat ES-point CSV</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb7"><pre class="sourceCode yaml code-with-copy"><code class="sourceCode yaml"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="fu">row_scope</span><span class="kw">:</span><span class="at"> es</span></span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a><span class="fu">on_missing</span><span class="kw">:</span><span class="at"> blank</span></span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a><span class="fu">columns</span><span class="kw">:</span></span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> order.name</span></span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> order.id</span></span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="kw">{</span><span class="fu">splat</span><span class="kw">:</span><span class="at"> vs</span><span class="kw">,</span><span class="at"> </span><span class="fu">exclude</span><span class="kw">:</span><span class="at"> </span><span class="kw">[</span><span class="at">scratch</span><span class="kw">]}</span></span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="kw">{</span><span class="fu">splat</span><span class="kw">:</span><span class="at"> es</span><span class="kw">,</span><span class="at"> </span><span class="fu">exclude</span><span class="kw">:</span><span class="at"> </span><span class="kw">[</span><span class="at">custom_properties</span><span class="kw">]}</span></span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> es.aqueous_species[name=Ca+2].log_molality</span></span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> es.aqueous_species[name=Cl-].log_molality</span></span>
+<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> es.pure_solids[name=Calcite].affinity</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</section>
+<section id="order-only-summary-single-row-per-order" class="level3">
+<h3 class="anchored" data-anchor-id="order-only-summary-single-row-per-order">17.2 Order-only summary (single-row per Order)</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb8"><pre class="sourceCode yaml code-with-copy"><code class="sourceCode yaml"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="fu">row_scope</span><span class="kw">:</span><span class="at"> order</span></span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a><span class="fu">columns</span><span class="kw">:</span></span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="kw">{</span><span class="fu">splat</span><span class="kw">:</span><span class="at"> order</span><span class="kw">}</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>Evaluates to exactly one row per input <code>Order</code>.</p>
+</section>
+<section id="deep-nesting-one-row-per-equilibrium-end-member" class="level3">
+<h3 class="anchored" data-anchor-id="deep-nesting-one-row-per-equilibrium-end-member">17.3 Deep-nesting: one row per equilibrium end-member</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb9"><pre class="sourceCode yaml code-with-copy"><code class="sourceCode yaml"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="fu">row_scope</span><span class="kw">:</span><span class="at"> es.solid_solutions[*].end_members[*]</span></span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a><span class="fu">columns</span><span class="kw">:</span></span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> order.id</span></span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> vs.temperature</span></span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> es.ph</span></span>
+<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> solid_solution.name</span></span>
+<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="kw">{</span><span class="fu">splat</span><span class="kw">:</span><span class="at"> self</span><span class="kw">}</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><code>self</code> aliases the <code>EndMember</code>; <code>solid_solution</code> is the enclosing <code>SolidSolution</code>.</p>
+</section>
+<section id="dict-access" class="level3">
+<h3 class="anchored" data-anchor-id="dict-access">17.4 Dict access</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb10"><pre class="sourceCode yaml code-with-copy"><code class="sourceCode yaml"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="fu">row_scope</span><span class="kw">:</span><span class="at"> vs</span></span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a><span class="fu">columns</span><span class="kw">:</span></span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> order.name</span></span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> vs.temperature</span></span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">path</span><span class="kw">:</span><span class="at"> order.species[key=Ca+2].value</span></span>
+<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">name</span><span class="kw">:</span><span class="at"> Ca_target</span></span>
+<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">on_missing</span><span class="kw">:</span><span class="at"> </span><span class="ch">null</span></span>
+<span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">default</span><span class="kw">:</span><span class="at"> </span><span class="ch">null</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</section>
+<section id="preset-use" class="level3">
+<h3 class="anchored" data-anchor-id="preset-use">17.5 Preset use</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb11"><pre class="sourceCode yaml code-with-copy"><code class="sourceCode yaml"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="fu">row_scope</span><span class="kw">:</span><span class="at"> es</span></span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a><span class="fu">columns</span><span class="kw">:</span></span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="kw">{</span><span class="fu">preset</span><span class="kw">:</span><span class="at"> run_metadata</span><span class="kw">}</span></span>
+<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="kw">{</span><span class="fu">preset</span><span class="kw">:</span><span class="at"> es_scalars</span><span class="kw">,</span><span class="at"> </span><span class="fu">exclude</span><span class="kw">:</span><span class="at"> </span><span class="kw">[</span><span class="at">charge_discrepancy</span><span class="kw">]}</span></span>
+<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="kw">{</span><span class="fu">preset</span><span class="kw">:</span><span class="at"> aqueous_species_table</span><span class="kw">,</span></span>
+<span id="cb11-6"><a href="#cb11-6" aria-hidden="true" tabindex="-1"></a><span class="at">     </span><span class="fu">names</span><span class="kw">:</span><span class="at"> </span><span class="kw">[</span><span class="at">Ca</span><span class="dv">+2</span><span class="kw">,</span><span class="at"> Na+</span><span class="kw">,</span><span class="at"> Cl-</span><span class="kw">,</span><span class="at"> HCO3-</span><span class="kw">],</span></span>
+<span id="cb11-7"><a href="#cb11-7" aria-hidden="true" tabindex="-1"></a><span class="at">     </span><span class="fu">fields</span><span class="kw">:</span><span class="at"> </span><span class="kw">[</span><span class="at">log_molality</span><span class="kw">,</span><span class="at"> log_activity</span><span class="kw">]}</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>A preset’s arguments are defined by the preset; EQL itself only validates that the named preset exists and expands successfully.</p>
+</section>
+<section id="iter-position-via-meta-accessor" class="level3">
+<h3 class="anchored" data-anchor-id="iter-position-via-meta-accessor">17.6 Iter-position via meta-accessor</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb12"><pre class="sourceCode yaml code-with-copy"><code class="sourceCode yaml"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="fu">row_scope</span><span class="kw">:</span><span class="at"> vs_points[*]</span></span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a><span class="fu">columns</span><span class="kw">:</span></span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> vs.@index</span></span>
+<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> vs.temperature</span></span>
+<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> vs.ph</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>Yields one row per variable-space point, with the <code>index</code> column carrying the 0-based position of the row’s <code>vs_point</code> within <code>vs_points</code>. Note: <code>es.ph</code> is not in scope here because <code>row_scope</code> iterates <code>vs_points</code>, not <code>es_points</code>; accessing equilibrium data requires a deeper scope such as <code>vs_points[*].es_points[*]</code>.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb13"><pre class="sourceCode yaml code-with-copy"><code class="sourceCode yaml"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="fu">row_scope</span><span class="kw">:</span><span class="at"> order.species[*]</span></span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a><span class="fu">columns</span><span class="kw">:</span></span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> species.@key</span></span>
+<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> species.@index</span></span>
+<span id="cb13-5"><a href="#cb13-5" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> species.amount</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>For a <code>dict[K, V]</code> iter scope, <code>@key</code> exposes the dict key at the current iteration and <code>@index</code> exposes its 0-based insertion-order position. The iteration itself is performed by <code>row_scope</code>, not in column paths. (Hypothetical dict scope shown here for illustration; real Eleanor types may not have one.)</p>
+</section>
+</section>
+<section id="open-questions" class="level2">
+<h2 class="anchored" data-anchor-id="open-questions">18. Open questions</h2>
+<p>The following are explicitly <strong>unresolved</strong> in this draft and <strong>MUST</strong> be settled before v1.0:</p>
+<ul>
+<li>The behaviour of <code>[attr=value]</code> against an attribute whose declared type is itself a container (e.g.&nbsp;<code>list[str]</code>). The current draft rejects this at load time via §12.</li>
+<li>Whether consumers that can accept container-typed columns (e.g.&nbsp;a JSON sink) need a formalized opt-in beyond the §13.1 step-6 relaxation.</li>
+<li>Exact spelling of <code>Unicode</code> whitespace in the <code>Unquoted</code> rule. The reference implementation is expected to use <code>str.isspace()</code>.</li>
+<li>Whether match-bound aliases (those reached only through <code>[attr=value]</code>) should also expose <code>@index</code> (and <code>@key</code> for dict matches), reflecting the position of the matched element. The current draft restricts meta-accessors to iter-bound aliases only.</li>
+</ul>
+
+
+</section>
+</section>
+
+<a onclick="window.scrollTo(0, 0); return false;" role="button" id="quarto-back-to-top"><i class="bi bi-arrow-up"></i> Back to top</a></main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    // Ensure there is a toggle, if there isn't float one in the top right
+    if (window.document.querySelector('.quarto-color-scheme-toggle') === null) {
+      const a = window.document.createElement('a');
+      a.classList.add('top-right');
+      a.classList.add('quarto-color-scheme-toggle');
+      a.href = "";
+      a.onclick = function() { try { window.quartoToggleColorScheme(); } catch {} return false; };
+      const i = window.document.createElement("i");
+      i.classList.add('bi');
+      a.appendChild(i);
+      window.document.body.appendChild(a);
+    }
+    setColorSchemeToggle(hasAlternateSentinel())
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp("https:\/\/39alpha\.github\.io\/eleanor\/");
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+</div> <!-- /content -->
+
+
+
+
+<footer class="footer"><div class="nav-footer"><div class="nav-footer-center"><div class="toc-actions d-sm-block d-md-none"><ul><li><a href="https://github.com/39alpha/eleanor/edit/main/eql-spec.md" class="toc-action"><i class="bi bi-github"></i>Edit this page</a></li><li><a href="https://github.com/39alpha/eleanor/blob/main/eql-spec.md" class="toc-action"><i class="bi empty"></i>View source</a></li><li><a href="https://github.com/39alpha/eleanor/issues/new" class="toc-action"><i class="bi empty"></i>Report an issue</a></li></ul></div></div></div></footer></body></html>

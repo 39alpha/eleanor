@@ -1,12 +1,14 @@
 import sys
-from collections.abc import Generator
+from collections.abc import Callable, Generator, Iterator
 from contextlib import ExitStack, contextmanager
 from dataclasses import replace
+from itertools import batched, chain
 from multiprocessing import Manager
 from multiprocessing.managers import SyncManager
 from types import TracebackType
 from typing import Self, Unpack, cast
 
+import eleanor.variable_space as vs
 from eleanor.config import Config
 from eleanor.exceptions import EleanorError, EleanorShutdown
 from eleanor.executor import AbstractExecutor, AbstractFuture, load_executor
@@ -22,7 +24,6 @@ from eleanor.runner import Runner
 from eleanor.signals import shutdown_on_signal
 from eleanor.timing import DispatchTimings
 from eleanor.typing import EleanorKwargs
-from eleanor.util import chunks
 
 
 class Eleanor:
@@ -434,6 +435,70 @@ class Eleanor:
 
             return order.id
 
+    @staticmethod
+    def _dispatch_window[T](
+        chunk_stream: Iterator[tuple[vs.Point, ...]],
+        *,
+        submit_chunk: Callable[[list[vs.Point]], AbstractFuture[T]],
+        consume: Callable[[AbstractFuture[T], int], None],
+        executor: AbstractExecutor,
+        max_in_flight: int,
+        timings: DispatchTimings,
+    ) -> int:
+        """Feed ``chunk_stream`` through a bounded window of in-flight chunks.
+
+        Keeps up to ``max_in_flight`` chunks outstanding, topping the window
+        back up as each one completes rather than draining it to empty between
+        navigator batches. Point generation, worker compute and consumption
+        therefore overlap continuously, and parent memory stays bounded by the
+        window rather than by the batch.
+
+        Generic over the future's payload so that one loop serves both the
+        worker-write and serial-sink modes. ``AbstractFuture`` is invariant
+        over its type parameter, so without the type variable the in-flight
+        list could not be typed without a cast on every access.
+
+        :param chunk_stream: Lazy stream of point chunks. Pulled from only as
+            window space becomes available, which is what supplies
+            backpressure to the navigator.
+        :param submit_chunk: Hands one chunk to the executor and returns its
+            future. Owns its own ``timings.submitting()`` accounting.
+        :param consume: Called with a completed future and the number of
+            chunks still outstanding. Owns any write-side accounting.
+        :return: The number of points submitted.
+        """
+        in_flight: list[AbstractFuture[T]] = []
+        submitted = 0
+        exhausted = False
+
+        while True:
+            while not exhausted and len(in_flight) < max_in_flight:
+                # Timed here rather than around ``navigator.navigate`` itself:
+                # the stream is lazy, so pulling a chunk is what actually
+                # drives generation.
+                with timings.generating():
+                    chunk = next(chunk_stream, None)
+                if chunk is None:
+                    exhausted = True
+                    break
+
+                # ``batched`` yields tuples, but ``Runner.dispatch`` treats any
+                # non-``list`` as a single point, so the chunk has to be
+                # materialised as a list before it crosses that boundary.
+                points = list(chunk)
+                submitted += len(points)
+                in_flight.append(submit_chunk(points))
+                timings.count_chunk(len(points))
+
+            if not in_flight:
+                return submitted
+
+            with timings.waiting(in_flight=len(in_flight), num_workers=executor.num_workers):
+                future = executor.pop_completed_future(in_flight)
+            # The post-pop count is what ``consume`` needs: it is how much work
+            # the pool still has while the parent is busy consuming this one.
+            consume(future, len(in_flight))
+
     def process(
         self,
         order: Order,
@@ -490,150 +555,155 @@ class Eleanor:
 
         # When the executor cannot forward a ``Manager``-backed queue into
         # its workers, we must not hand the handles to ``Runner.dispatch``;
-        # the parent will emit coarser batch-granularity ticks instead.
+        # the parent will emit coarser chunk-granularity ticks instead.
         worker_sim_progress = sim_progress if executor.supports_worker_progress else None
         worker_out_progress = out_progress if executor.supports_worker_progress else None
+        runner_kwargs: EleanorKwargs = {**kwargs}
+
+        # ``chunks_per_worker`` keeps its meaning as the in-flight window depth
+        # per worker. ``chunk_size`` is derived from ``batch_size`` so existing
+        # configurations produce the same chunk sizes they did when each
+        # navigator batch was split into exactly ``num_workers *
+        # chunks_per_worker`` pieces -- only the barrier between batches goes
+        # away, not the granularity of the work.
+        max_in_flight = executor.num_workers * chunks_per_worker
+        chunk_size = max(1, -(-batch_size // max_in_flight))
+
+        def submit_worker_write(points: list[vs.Point]) -> AbstractFuture[list[WriteOutcome]]:
+            """Dispatch a chunk whose sink writes inside the worker.
+
+            Sinks that opt in to worker writes receive the sink and
+            ``order_id`` through to ``Runner.dispatch``, which invokes
+            ``sink.write_batch`` inside the worker. The future therefore
+            resolves to a small ``list[WriteOutcome]`` payload, avoiding the
+            IPC cost of shipping full ``ComputeResult``s (and their mapped
+            ``vs.Point`` graph) back to the parent.
+
+            ``Runner.dispatch`` has a ``list[ComputeResult] |
+            list[WriteOutcome]`` union return type, but with a sink and
+            ``order_id`` supplied it always returns ``list[WriteOutcome]``;
+            ``AbstractFuture`` is invariant, so narrow the future here.
+            """
+            with timings.submitting():
+                return cast(
+                    AbstractFuture[list[WriteOutcome]],
+                    executor.submit(
+                        Runner(kernel).dispatch,
+                        points,
+                        *args,
+                        sink=sink,
+                        order_id=order_id,
+                        sim_progress=worker_sim_progress,
+                        out_progress=worker_out_progress,
+                        **runner_kwargs,
+                    ),
+                )
+
+        def consume_worker_write(
+            future: AbstractFuture[list[WriteOutcome]],
+            _in_flight: int,
+        ) -> None:
+            result = future.result()
+            outcomes.extend(result)
+            # Fallback chunk-level ticks for executors that cannot forward the
+            # ProgressHandle into workers. Empty futures are skipped so the bar
+            # never gets a spurious tick(0).
+            if worker_sim_progress is None and sim_progress is not None and result:
+                sim_progress.tick(len(result))
+            if worker_out_progress is None and out_progress is not None:
+                committed = sum(1 for o in result if o.committed and o.exit_code == 0)
+                if committed:
+                    out_progress.tick(committed)
+
+        def submit_compute(points: list[vs.Point]) -> AbstractFuture[list[ComputeResult]]:
+            """Dispatch a chunk whose sink is driven by the main process.
+
+            See ``submit_worker_write``: without a sink, ``Runner.dispatch``
+            always resolves to ``list[ComputeResult]``, so narrow the invariant
+            future the same way.
+            """
+            with timings.submitting():
+                return cast(
+                    AbstractFuture[list[ComputeResult]],
+                    executor.submit(
+                        Runner(kernel).dispatch,
+                        points,
+                        *args,
+                        sim_progress=worker_sim_progress,
+                        **runner_kwargs,
+                    ),
+                )
+
+        def consume_compute(future: AbstractFuture[list[ComputeResult]], in_flight: int) -> None:
+            result = future.result()
+            if worker_sim_progress is None and sim_progress is not None and result:
+                sim_progress.tick(len(result))
+            # Stream each resolved worker chunk straight into the sink instead
+            # of accumulating all compute payloads in-memory. This reduces
+            # parent memory pressure and cuts time-to-first-write.
+            if len(result) == 0:
+                return
+            # The sink owns the output bar's cadence: per-row, per-chunk, or
+            # anything in between. Eleanor only hands over the handle.
+            #
+            # The outstanding count is handed to the timer so a write that
+            # stalls the dispatch thread while the pool runs dry is charged as
+            # starvation, not just as write time.
+            with timings.writing(in_flight=in_flight, num_workers=executor.num_workers):
+                outcomes.extend(
+                    sink.write_batch(
+                        order_id,
+                        result,
+                        progress=out_progress,
+                    ),
+                )
+
         total_produced = 0
         # Signal handlers are intentionally installed *after* the executor pool
         # is constructed so worker processes inherit only the default SIGTERM
         # disposition.
         with shutdown_on_signal() as shutdown:
             try:
-                nav_batches = navigator.navigate(
-                    order,
-                    kernel,
-                    simulation_size,
-                    batch_size,
-                    order_id=order_id,
-                    max_attempts=max_nav_attempts,
+                # One flat, lazy stream of chunks. Flattening across navigator
+                # batches is what removes the drain-all barrier: the window can
+                # be topped up from the next batch while the previous one is
+                # still in flight. ``batch_size`` survives as the navigator's
+                # own generation granularity.
+                chunk_stream = batched(
+                    chain.from_iterable(
+                        navigator.navigate(
+                            order,
+                            kernel,
+                            simulation_size,
+                            batch_size,
+                            order_id=order_id,
+                            max_attempts=max_nav_attempts,
+                        ),
+                    ),
+                    chunk_size,
+                    # A short final chunk is the normal case: the point count
+                    # is rarely a multiple of ``chunk_size``.
+                    strict=False,
                 )
-                while True:
-                    # Driving the navigator by hand rather than with a ``for``
-                    # keeps generation time attributable. Navigators yield
-                    # ``list[vs.Point]``, so ``None`` is an unambiguous
-                    # exhaustion sentinel (an empty batch is falsy, not None).
-                    with timings.generating():
-                        vs_points = next(nav_batches, None)
-                    if vs_points is None:
-                        break
 
-                    total_produced += len(vs_points)
-                    if len(vs_points) == 0:
-                        continue
-
-                    # Cap chunk count at the number of points so we never produce
-                    # empty batches when num_workers * chunks_per_worker exceeds
-                    # len(vs_points).
-                    chunk_count = min(len(vs_points), executor.num_workers * chunks_per_worker)
-
-                    runner_kwargs: EleanorKwargs = {**kwargs}
-                    batch_outcomes: list[WriteOutcome] = []
-
-                    if worker_writes:
-                        # Sinks that opt in to worker writes receive the sink and
-                        # ``order_id`` through to ``Runner.dispatch``, which invokes
-                        # ``sink.write_batch`` inside the worker. The future therefore
-                        # resolves directly to a small ``list[WriteOutcome]`` payload,
-                        # avoiding the IPC cost of shipping full ``ComputeResult``s
-                        # (and their mapped ``vs.Point`` graph) back to the parent.
-                        outcome_futures: list[AbstractFuture[list[WriteOutcome]]] = []
-                        for batch in chunks(vs_points, chunk_count):
-                            # ``Runner.dispatch`` has a ``list[ComputeResult] |
-                            # list[WriteOutcome]`` union return type, but with a sink
-                            # and ``order_id`` supplied it always returns
-                            # ``list[WriteOutcome]``. ``AbstractFuture`` is invariant
-                            # over its type parameter, so narrow the future here.
-                            with timings.submitting():
-                                outcome_future = cast(
-                                    AbstractFuture[list[WriteOutcome]],
-                                    executor.submit(
-                                        Runner(kernel).dispatch,
-                                        batch,
-                                        *args,
-                                        sink=sink,
-                                        order_id=order_id,
-                                        sim_progress=worker_sim_progress,
-                                        out_progress=worker_out_progress,
-                                        **runner_kwargs,
-                                    ),
-                                )
-                            outcome_futures.append(outcome_future)
-                            timings.count_chunk(len(batch))
-
-                        while outcome_futures:
-                            with timings.waiting(
-                                in_flight=len(outcome_futures),
-                                num_workers=executor.num_workers,
-                            ):
-                                outcome_future = executor.pop_completed_future(outcome_futures)
-                            result = outcome_future.result()
-                            batch_outcomes.extend(result)
-                            # Fallback batch-level ticks for executors that cannot
-                            # forward the ProgressHandle into workers. Empty futures
-                            # are skipped so the bar never gets a spurious tick(0).
-                            if worker_sim_progress is None and sim_progress is not None and result:
-                                sim_progress.tick(len(result))
-                            if worker_out_progress is None and out_progress is not None:
-                                committed = sum(1 for o in result if o.committed and o.exit_code == 0)
-                                if committed:
-                                    out_progress.tick(committed)
-                    else:
-                        # Serial sinks are driven by the main process: workers return
-                        # full ``ComputeResult`` payloads, which are then written here.
-                        compute_futures: list[AbstractFuture[list[ComputeResult]]] = []
-                        for batch in chunks(vs_points, chunk_count):
-                            # See the ``worker_writes`` branch above: without a sink,
-                            # ``Runner.dispatch`` always resolves to
-                            # ``list[ComputeResult]``, so narrow the invariant future.
-                            with timings.submitting():
-                                compute_future = cast(
-                                    AbstractFuture[list[ComputeResult]],
-                                    executor.submit(
-                                        Runner(kernel).dispatch,
-                                        batch,
-                                        *args,
-                                        sim_progress=worker_sim_progress,
-                                        **runner_kwargs,
-                                    ),
-                                )
-                            compute_futures.append(compute_future)
-                            timings.count_chunk(len(batch))
-
-                        while compute_futures:
-                            with timings.waiting(
-                                in_flight=len(compute_futures),
-                                num_workers=executor.num_workers,
-                            ):
-                                compute_future = executor.pop_completed_future(compute_futures)
-                            result = compute_future.result()
-                            if worker_sim_progress is None and sim_progress is not None and result:
-                                sim_progress.tick(len(result))
-                            # Stream each resolved worker batch straight into the sink
-                            # instead of accumulating all compute payloads in-memory.
-                            # This reduces parent memory pressure and cuts time-to-
-                            # first-write for large runs.
-                            if len(result) == 0:
-                                continue
-                            # The sink owns the output bar's cadence: per-row,
-                            # per-batch, or anything in between. Eleanor only hands
-                            # over the handle.
-                            # The outstanding count is handed to the timer so a
-                            # write that stalls the dispatch thread while the pool
-                            # runs dry is charged as starvation, not just as write
-                            # time.
-                            with timings.writing(
-                                in_flight=len(compute_futures),
-                                num_workers=executor.num_workers,
-                            ):
-                                batch_outcomes.extend(
-                                    sink.write_batch(
-                                        order_id,
-                                        result,
-                                        progress=out_progress,
-                                    ),
-                                )
-
-                    outcomes.extend(batch_outcomes)
+                if worker_writes:
+                    total_produced = self._dispatch_window(
+                        chunk_stream,
+                        submit_chunk=submit_worker_write,
+                        consume=consume_worker_write,
+                        executor=executor,
+                        max_in_flight=max_in_flight,
+                        timings=timings,
+                    )
+                else:
+                    total_produced = self._dispatch_window(
+                        chunk_stream,
+                        submit_chunk=submit_compute,
+                        consume=consume_compute,
+                        executor=executor,
+                        max_in_flight=max_in_flight,
+                        timings=timings,
+                    )
             except KeyboardInterrupt:
                 executor.shutdown(wait=False)
                 raise EleanorShutdown(shutdown.signal_name) from None

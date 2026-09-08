@@ -11,16 +11,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **`--timing` flag on `eleanor run`** reports a wall-clock attribution of the dispatch loop to
   stderr when a run finishes: time spent pulling points from the navigator, submitting chunks,
-  blocked waiting for a chunk to complete, and writing through a serial output sink. The
-  `under-subscribed` figure is the portion of the blocking wait during which fewer chunks were
-  outstanding than there are workers -- a direct measure of dispatch-induced worker starvation.
-  The `starved` figure re-classifies part of that time: it is how long fewer chunks were
-  outstanding than there are workers, so at least one worker provably had nothing to do. It is a
-  strict lower bound on worker idleness -- see `eleanor.timing` for why the parent cannot measure
-  the rest, and for how to measure it by differencing against a compute-only baseline.
+  blocked waiting for a chunk to complete, and writing through a serial output sink. The `starved`
+  figure re-classifies part of that time: it is how long fewer chunks were outstanding than there
+  are workers, so at least one worker provably had nothing to do. It is a strict lower bound on
+  worker idleness -- see `eleanor.timing` for why the parent cannot measure the rest, and for how
+  to measure it by differencing against a compute-only baseline.
   Also available programmatically as `Eleanor.run(..., timing=True)`, and via the new
   `eleanor.timing.DispatchTimings` accumulator, which both `Eleanor.run` and `Eleanor.process`
   accept as `timings=` so a caller can read the measurements instead of only seeing them printed.
+
+### Changed
+
+- **The dispatch loop now keeps a bounded window of chunks in flight instead of draining every
+  navigator batch to empty before generating the next one.** Point generation, worker compute and
+  output writing overlap continuously, so a small `--batch-size` no longer leaves the worker pool
+  idle. Chunk size is derived from `batch_size` so existing configurations get the same chunk sizes
+  they had before -- `chunks_per_worker` keeps its meaning as the in-flight depth per worker, and
+  no new settings are introduced.
 
 ### Fixed
 

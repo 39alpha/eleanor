@@ -1382,3 +1382,226 @@ class TestEleanorRunTimingReport(TestCase):
             )
 
         self.assertIn("dispatch timings", captured.getvalue())
+
+
+class _RecordingExecutor:
+    """Executor stand-in that logs the order of ``submit`` / ``pop`` calls.
+
+    The log is what distinguishes a sliding window from a drain-all barrier:
+    a barrier empties the in-flight set at every navigator batch boundary,
+    whereas a window only lets it empty once the point stream is exhausted.
+    """
+
+    supports_worker_progress: bool = True
+
+    def __init__(self, num_workers: int = 2, payload: object = None) -> None:
+        self._num_workers = num_workers
+        self._payload = payload if payload is not None else []
+        self.log: list[str] = []
+        self.chunks: list[object] = []
+
+    @property
+    def num_workers(self) -> int:
+        return self._num_workers
+
+    def submit(self, _fn, *args, **_kwargs):
+        self.log.append("submit")
+        self.chunks.append(args[0])
+        return _Future(self._payload)
+
+    def pop_completed_future(self, futures):
+        self.log.append("pop")
+        return futures.pop(0)
+
+    def shutdown(self, wait: bool = True) -> None:
+        _ = wait
+
+    def outstanding_history(self) -> list[tuple[str, int]]:
+        """Replay the log into ``(event, futures outstanding after it)`` pairs."""
+        outstanding = 0
+        history: list[tuple[str, int]] = []
+        for event in self.log:
+            outstanding += 1 if event == "submit" else -1
+            history.append((event, outstanding))
+        return history
+
+
+def _batched_navigator(batches: list[list[str]]):
+    """Navigator stand-in yielding ``batches`` and reporting their total size."""
+    navigator = mock.Mock()
+    navigator.num_systems.return_value = sum(len(batch) for batch in batches)
+    navigator.navigate.return_value = iter(batches)
+    return navigator
+
+
+class TestEleanorDispatchWindow(TestCase):
+    """Tests covering the sliding in-flight window in ``Eleanor.process``."""
+
+    @staticmethod
+    def _serial_sink() -> mock.Mock:
+        sink = mock.Mock()
+        sink.supports_worker_writes.return_value = False
+        sink.write_batch.side_effect = lambda _order_id, results, **_kwargs: [
+            WriteOutcome(exit_code=0, committed=True) for _ in results
+        ]
+        return sink
+
+    def _process(
+        self,
+        executor: _RecordingExecutor,
+        batches: list[list[str]],
+        *,
+        batch_size: int,
+        chunks_per_worker: int = 1,
+        sink: mock.Mock | None = None,
+    ) -> None:
+        eleanor = _make_eleanor()
+        total = sum(len(batch) for batch in batches)
+        _ = eleanor.process(
+            _make_order(),
+            mock.MagicMock(AbstractKernel),
+            _batched_navigator(batches),
+            total,
+            9,
+            batch_size=batch_size,
+            expected_total=total,
+            executor=_as_executor(executor),
+            chunks_per_worker=chunks_per_worker,
+            sink=sink if sink is not None else self._serial_sink(),
+        )
+
+    def test_window_is_never_drained_to_empty_before_the_stream_ends(self) -> None:
+        """Ensure work is topped up as it completes, not refilled from empty.
+
+        This is the barrier regression test. Two navigator batches of four
+        points each, a window of two chunks: under a drain-all barrier the
+        outstanding count returns to zero at the batch boundary, before the
+        remaining chunks are submitted.
+        """
+        executor = _RecordingExecutor(num_workers=2)
+
+        self._process(
+            executor,
+            [["a", "b", "c", "d"], ["e", "f", "g", "h"]],
+            batch_size=4,
+        )
+
+        history = executor.outstanding_history()
+        last_submit = max(i for i, (event, _) in enumerate(history) if event == "submit")
+        self.assertTrue(
+            all(outstanding > 0 for _event, outstanding in history[:last_submit]),
+            f"window emptied before the stream was exhausted: {history}",
+        )
+
+    def test_window_never_exceeds_num_workers_times_chunks_per_worker(self) -> None:
+        """Ensure the window bound is respected, so memory stays bounded."""
+        executor = _RecordingExecutor(num_workers=3)
+
+        self._process(
+            executor,
+            [[chr(ord("a") + i) for i in range(12)]],
+            batch_size=12,
+            chunks_per_worker=2,
+        )
+
+        peak = max(outstanding for _event, outstanding in executor.outstanding_history())
+        self.assertLessEqual(peak, 3 * 2)
+
+    def test_chunks_cross_the_worker_boundary_as_lists(self) -> None:
+        """Ensure chunks are materialised as lists, not left as tuples.
+
+        ``itertools.batched`` yields tuples and ``Runner.dispatch`` treats any
+        non-``list`` as a single point, so a tuple here would silently be
+        dispatched as one point instead of several.
+        """
+        executor = _RecordingExecutor(num_workers=2)
+
+        self._process(executor, [["a", "b", "c", "d"]], batch_size=4)
+
+        self.assertTrue(executor.chunks)
+        for chunk in executor.chunks:
+            self.assertIsInstance(chunk, list)
+
+    def test_chunk_sizing_matches_the_pre_window_derivation(self) -> None:
+        """Ensure existing configurations keep the chunk sizes they had.
+
+        Before the window, each navigator batch was split into exactly
+        ``num_workers * chunks_per_worker`` pieces. ``chunk_size`` is derived
+        to reproduce that, so tuning does not silently change meaning.
+        """
+        executor = _RecordingExecutor(num_workers=4)
+
+        self._process(
+            executor,
+            [[chr(ord("a") + i) for i in range(16)]],
+            batch_size=16,
+            chunks_per_worker=2,
+        )
+
+        # 16 points / (4 workers * 2 chunks) = 2 points per chunk, 8 chunks.
+        self.assertEqual([len(chunk) for chunk in executor.chunks], [2] * 8)
+
+    def test_a_short_final_chunk_is_allowed(self) -> None:
+        """Ensure a point count that is not a multiple of chunk_size is fine."""
+        executor = _RecordingExecutor(num_workers=2)
+
+        self._process(executor, [["a", "b", "c", "d", "e"]], batch_size=5)
+
+        # ceil(5 / 2) = 3 points per chunk -> chunks of 3 and 2.
+        self.assertEqual([len(chunk) for chunk in executor.chunks], [3, 2])
+
+    def test_window_spans_navigator_batches(self) -> None:
+        """Ensure chunks are cut from a flattened stream, not per batch.
+
+        A batch smaller than one chunk used to produce an undersized chunk of
+        its own; flattening lets a chunk draw points from two batches.
+        """
+        executor = _RecordingExecutor(num_workers=1)
+
+        self._process(executor, [["a", "b"], ["c", "d"]], batch_size=4)
+
+        # ceil(4 / 1) = 4 points per chunk, so all four points -- drawn from
+        # both navigator batches -- land in a single chunk.
+        self.assertEqual([len(chunk) for chunk in executor.chunks], [4])
+
+    def test_worker_write_sinks_use_the_same_window(self) -> None:
+        """Ensure the window serves the worker-write mode too."""
+        sink = mock.Mock()
+        sink.supports_worker_writes.return_value = True
+        executor = _RecordingExecutor(
+            num_workers=2,
+            payload=[WriteOutcome(exit_code=0, committed=True)],
+        )
+
+        self._process(
+            executor,
+            [["a", "b", "c", "d"], ["e", "f", "g", "h"]],
+            batch_size=4,
+            sink=sink,
+        )
+
+        sink.write_batch.assert_not_called()
+        history = executor.outstanding_history()
+        last_submit = max(i for i, (event, _) in enumerate(history) if event == "submit")
+        self.assertTrue(
+            all(outstanding > 0 for _event, outstanding in history[:last_submit]),
+            f"window emptied before the stream was exhausted: {history}",
+        )
+
+    def test_navigator_shortfall_is_still_detected(self) -> None:
+        """Ensure the expected_total guard survives the per-chunk accounting."""
+        eleanor = _make_eleanor()
+        executor = _RecordingExecutor(num_workers=2)
+
+        with self.assertRaisesRegex(EleanorError, "produced 2 points, expected 4"):
+            _ = eleanor.process(
+                _make_order(),
+                mock.MagicMock(AbstractKernel),
+                _batched_navigator([["a", "b"]]),
+                4,
+                9,
+                batch_size=4,
+                expected_total=4,
+                executor=_as_executor(executor),
+                sink=self._serial_sink(),
+            )

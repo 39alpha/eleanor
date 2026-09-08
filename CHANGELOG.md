@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`--timing` flag on `eleanor run`** reports a wall-clock attribution of the dispatch loop to
+  stderr when a run finishes: time spent pulling points from the navigator, submitting chunks,
+  blocked waiting for a chunk to complete, and writing through a serial output sink. The
+  `under-subscribed` figure is the portion of the blocking wait during which fewer chunks were
+  outstanding than there are workers -- a direct measure of dispatch-induced worker starvation.
+  The `starved` figure re-classifies part of that time: it is how long fewer chunks were
+  outstanding than there are workers, so at least one worker provably had nothing to do. It is a
+  strict lower bound on worker idleness -- see `eleanor.timing` for why the parent cannot measure
+  the rest, and for how to measure it by differencing against a compute-only baseline.
+  Also available programmatically as `Eleanor.run(..., timing=True)`, and via the new
+  `eleanor.timing.DispatchTimings` accumulator, which both `Eleanor.run` and `Eleanor.process`
+  accept as `timings=` so a caller can read the measurements instead of only seeing them printed.
+
 ### Fixed
 
 - **`OutputParser3` now tolerates EQ3 output files that omit the hypothetical solid solutions and

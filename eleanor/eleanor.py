@@ -1,3 +1,4 @@
+import sys
 from collections.abc import Generator
 from contextlib import ExitStack, contextmanager
 from dataclasses import replace
@@ -19,6 +20,7 @@ from eleanor.output.interface import AbstractOutputSink, ComputeResult, RunStats
 from eleanor.progress import ManagedProgressHandle, Progress, ProgressHandle
 from eleanor.runner import Runner
 from eleanor.signals import shutdown_on_signal
+from eleanor.timing import DispatchTimings
 from eleanor.typing import EleanorKwargs
 from eleanor.util import chunks
 
@@ -296,6 +298,7 @@ class Eleanor:
         kernel_args: list[object] | None = None,
         navigator: AbstractNavigator | None = None,
         output_sink: AbstractOutputSink | None = None,
+        timings: DispatchTimings | None = None,
         **kwargs: Unpack[EleanorKwargs],
     ) -> int:
         """Dispatch ``order`` against ``simulation_size`` VS points.
@@ -305,6 +308,12 @@ class Eleanor:
         caller-owned: the caller is responsible for
         :meth:`~AbstractOutputSink.initialize` / :meth:`~AbstractOutputSink.finalize`.
         Eleanor only calls :meth:`~AbstractOutputSink.finalize_run` on scope exit.
+
+        Supplying ``timings`` lets a caller read the dispatch loop's
+        wall-clock attribution after the run instead of only seeing it
+        printed.  The two controls are independent: ``timings`` decides
+        what collects the measurements, while the ``timing`` keyword
+        decides whether Eleanor prints a summary.
         """
         # Check for arguments that have been retired. The double cast lets
         # basedpyright accept a membership test for a key outside EleanorKwargs.
@@ -315,6 +324,9 @@ class Eleanor:
 
         verbose = kwargs.get("verbose", False)
         show_progress = kwargs.get("show_progress", False)
+        timing = kwargs.get("timing", False)
+        if timings is None:
+            timings = DispatchTimings(enabled=timing)
 
         if chunks_per_worker is None:
             chunks_per_worker = self.config.executor.settings.chunks_per_worker
@@ -384,23 +396,25 @@ class Eleanor:
             stats = RunStats()
 
             try:
-                outcomes = self.process(
-                    order,
-                    kernel,
-                    navigator,
-                    simulation_size,
-                    order.id,
-                    *args,
-                    batch_size=effective_batch_size,
-                    max_nav_attempts=max_nav_attempts,
-                    expected_total=expected_total,
-                    executor=run_executor,
-                    chunks_per_worker=chunks_per_worker,
-                    sink=run_sink,
-                    sim_progress=sim_handle,
-                    out_progress=out_handle,
-                    **kwargs,
-                )
+                with timings.measure():
+                    outcomes = self.process(
+                        order,
+                        kernel,
+                        navigator,
+                        simulation_size,
+                        order.id,
+                        *args,
+                        batch_size=effective_batch_size,
+                        max_nav_attempts=max_nav_attempts,
+                        expected_total=expected_total,
+                        executor=run_executor,
+                        chunks_per_worker=chunks_per_worker,
+                        sink=run_sink,
+                        sim_progress=sim_handle,
+                        out_progress=out_handle,
+                        timings=timings,
+                        **kwargs,
+                    )
                 stats.update(outcomes)
             finally:
                 if progress is not None:
@@ -415,6 +429,8 @@ class Eleanor:
                     if out_handle is not None:
                         out_handle.done()
                     progress.join()
+                if timing:
+                    print(timings.summary(), file=sys.stderr)
 
             return order.id
 
@@ -434,6 +450,7 @@ class Eleanor:
         sink: AbstractOutputSink,
         sim_progress: ProgressHandle | None = None,
         out_progress: ProgressHandle | None = None,
+        timings: DispatchTimings | None = None,
         **kwargs: Unpack[EleanorKwargs],
     ) -> list[WriteOutcome]:
         """Drive the navigator/executor/sink loop for a single leaf order.
@@ -446,7 +463,14 @@ class Eleanor:
             cadence. For worker-write sinks on executors without
             worker-progress support, a single batch-level tick per future is
             emitted in the parent as a fallback.
+        :param timings: Accumulator for the dispatch loop's wall-clock
+            attribution. When omitted one is built from the ``timing``
+            keyword so direct callers of :meth:`process` still get a
+            working (if unreported) accumulator.
         """
+        if timings is None:
+            timings = DispatchTimings(enabled=kwargs.get("timing", False))
+
         if executor is None:
             msg = "no process executor created"
             raise EleanorError(msg)
@@ -475,14 +499,24 @@ class Eleanor:
         # disposition.
         with shutdown_on_signal() as shutdown:
             try:
-                for vs_points in navigator.navigate(
+                nav_batches = navigator.navigate(
                     order,
                     kernel,
                     simulation_size,
                     batch_size,
                     order_id=order_id,
                     max_attempts=max_nav_attempts,
-                ):
+                )
+                while True:
+                    # Driving the navigator by hand rather than with a ``for``
+                    # keeps generation time attributable. Navigators yield
+                    # ``list[vs.Point]``, so ``None`` is an unambiguous
+                    # exhaustion sentinel (an empty batch is falsy, not None).
+                    with timings.generating():
+                        vs_points = next(nav_batches, None)
+                    if vs_points is None:
+                        break
+
                     total_produced += len(vs_points)
                     if len(vs_points) == 0:
                         continue
@@ -509,23 +543,29 @@ class Eleanor:
                             # and ``order_id`` supplied it always returns
                             # ``list[WriteOutcome]``. ``AbstractFuture`` is invariant
                             # over its type parameter, so narrow the future here.
-                            outcome_future = cast(
-                                AbstractFuture[list[WriteOutcome]],
-                                executor.submit(
-                                    Runner(kernel).dispatch,
-                                    batch,
-                                    *args,
-                                    sink=sink,
-                                    order_id=order_id,
-                                    sim_progress=worker_sim_progress,
-                                    out_progress=worker_out_progress,
-                                    **runner_kwargs,
-                                ),
-                            )
+                            with timings.submitting():
+                                outcome_future = cast(
+                                    AbstractFuture[list[WriteOutcome]],
+                                    executor.submit(
+                                        Runner(kernel).dispatch,
+                                        batch,
+                                        *args,
+                                        sink=sink,
+                                        order_id=order_id,
+                                        sim_progress=worker_sim_progress,
+                                        out_progress=worker_out_progress,
+                                        **runner_kwargs,
+                                    ),
+                                )
                             outcome_futures.append(outcome_future)
+                            timings.count_chunk(len(batch))
 
                         while outcome_futures:
-                            outcome_future = executor.pop_completed_future(outcome_futures)
+                            with timings.waiting(
+                                in_flight=len(outcome_futures),
+                                num_workers=executor.num_workers,
+                            ):
+                                outcome_future = executor.pop_completed_future(outcome_futures)
                             result = outcome_future.result()
                             batch_outcomes.extend(result)
                             # Fallback batch-level ticks for executors that cannot
@@ -545,20 +585,26 @@ class Eleanor:
                             # See the ``worker_writes`` branch above: without a sink,
                             # ``Runner.dispatch`` always resolves to
                             # ``list[ComputeResult]``, so narrow the invariant future.
-                            compute_future = cast(
-                                AbstractFuture[list[ComputeResult]],
-                                executor.submit(
-                                    Runner(kernel).dispatch,
-                                    batch,
-                                    *args,
-                                    sim_progress=worker_sim_progress,
-                                    **runner_kwargs,
-                                ),
-                            )
+                            with timings.submitting():
+                                compute_future = cast(
+                                    AbstractFuture[list[ComputeResult]],
+                                    executor.submit(
+                                        Runner(kernel).dispatch,
+                                        batch,
+                                        *args,
+                                        sim_progress=worker_sim_progress,
+                                        **runner_kwargs,
+                                    ),
+                                )
                             compute_futures.append(compute_future)
+                            timings.count_chunk(len(batch))
 
                         while compute_futures:
-                            compute_future = executor.pop_completed_future(compute_futures)
+                            with timings.waiting(
+                                in_flight=len(compute_futures),
+                                num_workers=executor.num_workers,
+                            ):
+                                compute_future = executor.pop_completed_future(compute_futures)
                             result = compute_future.result()
                             if worker_sim_progress is None and sim_progress is not None and result:
                                 sim_progress.tick(len(result))
@@ -571,13 +617,21 @@ class Eleanor:
                             # The sink owns the output bar's cadence: per-row,
                             # per-batch, or anything in between. Eleanor only hands
                             # over the handle.
-                            batch_outcomes.extend(
-                                sink.write_batch(
-                                    order_id,
-                                    result,
-                                    progress=out_progress,
-                                ),
-                            )
+                            # The outstanding count is handed to the timer so a
+                            # write that stalls the dispatch thread while the pool
+                            # runs dry is charged as starvation, not just as write
+                            # time.
+                            with timings.writing(
+                                in_flight=len(compute_futures),
+                                num_workers=executor.num_workers,
+                            ):
+                                batch_outcomes.extend(
+                                    sink.write_batch(
+                                        order_id,
+                                        result,
+                                        progress=out_progress,
+                                    ),
+                                )
 
                     outcomes.extend(batch_outcomes)
             except KeyboardInterrupt:

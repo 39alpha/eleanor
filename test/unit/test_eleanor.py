@@ -1,3 +1,4 @@
+import io
 from contextlib import contextmanager
 from types import SimpleNamespace
 from typing import cast
@@ -13,6 +14,8 @@ from eleanor.kernel import AbstractKernel
 from eleanor.order import Order
 from eleanor.output import AbstractOutputSink, ComputeResult, WriteOutcome
 from eleanor.output.null import NullSinkSettings
+import eleanor.timing as timing_mod
+from eleanor.timing import DispatchTimings
 from eleanor.variable_space import Point
 
 
@@ -25,6 +28,23 @@ class _Future:
 
     def get(self):
         return self.result()
+
+    def ready(self) -> bool:
+        # Already-resolved, matching ``SerialFuture``.
+        return True
+
+
+class _StepClock:
+    """Monotonic stand-in for ``time.perf_counter`` advanced by the test."""
+
+    def __init__(self) -> None:
+        self.now = 0.0
+
+    def __call__(self) -> float:
+        return self.now
+
+    def advance(self, seconds: float) -> None:
+        self.now += seconds
 
 
 class _FakeExecutor:
@@ -1080,3 +1100,285 @@ class TestEleanorConstructorOverrides(TestCase):
         per_run_sink.finalize.assert_not_called()
         per_run_sink.finalize_run.assert_called_once()
         ctor_sink.finalize.assert_not_called()
+
+
+class TestEleanorProcessTimings(TestCase):
+    """Tests covering the ``DispatchTimings`` wiring in ``Eleanor.process``."""
+
+    @staticmethod
+    def _serial_sink() -> mock.Mock:
+        sink = mock.Mock()
+        sink.supports_worker_writes.return_value = False
+        sink.write_batch.side_effect = lambda _order_id, results, **_kwargs: [
+            WriteOutcome(exit_code=0, committed=True) for _ in results
+        ]
+        return sink
+
+    def test_process_counts_chunks_and_points_for_serial_sinks(self) -> None:
+        """Ensure every submitted chunk and point is counted."""
+        eleanor = _make_eleanor()
+        navigator = mock.Mock()
+        navigator.navigate.return_value = iter([["a", "b", "c", "d"]])
+        results = [ComputeResult(point=_point(exit_code=0))]
+        executor = _FakeExecutor(
+            submit_side_effect=[_Future(results) for _ in range(4)],
+        )
+        timings = DispatchTimings(enabled=True)
+
+        _ = eleanor.process(
+            _make_order(),
+            mock.MagicMock(AbstractKernel),
+            navigator,
+            4,
+            9,
+            batch_size=4,
+            expected_total=4,
+            executor=_as_executor(executor),
+            chunks_per_worker=2,
+            sink=self._serial_sink(),
+            timings=timings,
+        )
+
+        # 4 points split across num_workers(2) * chunks_per_worker(2) chunks.
+        self.assertEqual(timings.chunks, 4)
+        self.assertEqual(timings.points, 4)
+
+    def test_process_counts_chunks_and_points_for_worker_write_sinks(self) -> None:
+        """Ensure the worker-writes branch is instrumented too."""
+        eleanor = _make_eleanor()
+        navigator = mock.Mock()
+        navigator.navigate.return_value = iter([["a", "b"]])
+        outcomes = [WriteOutcome(exit_code=0, committed=True)]
+        executor = _FakeExecutor(
+            submit_side_effect=[_Future(outcomes), _Future(outcomes)],
+        )
+        sink = mock.Mock()
+        sink.supports_worker_writes.return_value = True
+        timings = DispatchTimings(enabled=True)
+
+        _ = eleanor.process(
+            _make_order(),
+            mock.MagicMock(AbstractKernel),
+            navigator,
+            2,
+            9,
+            batch_size=2,
+            expected_total=2,
+            executor=_as_executor(executor),
+            sink=sink,
+            timings=timings,
+        )
+
+        self.assertEqual(timings.chunks, 2)
+        self.assertEqual(timings.points, 2)
+
+    def test_process_attributes_navigator_generation_time(self) -> None:
+        """Ensure time spent pulling navigator batches lands in generate_s."""
+        eleanor = _make_eleanor()
+        clock = _StepClock()
+
+        def _navigate(*_args: object, **_kwargs: object):
+            clock.advance(5.0)
+            yield ["a"]
+
+        navigator = mock.Mock()
+        navigator.navigate.side_effect = _navigate
+        executor = _FakeExecutor(
+            submit_side_effect=[_Future([ComputeResult(point=_point(exit_code=0))])],
+        )
+        timings = DispatchTimings(enabled=True)
+
+        with mock.patch.object(timing_mod.time, "perf_counter", clock):
+            _ = eleanor.process(
+                _make_order(),
+                mock.MagicMock(AbstractKernel),
+                navigator,
+                1,
+                9,
+                batch_size=1,
+                expected_total=1,
+                executor=_as_executor(executor),
+                sink=self._serial_sink(),
+                timings=timings,
+            )
+
+        self.assertEqual(timings.generate_s, 5.0)
+
+    def test_process_attributes_sink_write_time(self) -> None:
+        """Ensure serial-sink write time lands in write_s, not wait_s."""
+        eleanor = _make_eleanor()
+        clock = _StepClock()
+        navigator = mock.Mock()
+        navigator.navigate.return_value = iter([["a"]])
+        executor = _FakeExecutor(
+            submit_side_effect=[_Future([ComputeResult(point=_point(exit_code=0))])],
+        )
+        sink = self._serial_sink()
+
+        def _slow_write(_order_id: object, results: list[object], **_kwargs: object):
+            clock.advance(7.0)
+            return [WriteOutcome(exit_code=0, committed=True) for _ in results]
+
+        sink.write_batch.side_effect = _slow_write
+        timings = DispatchTimings(enabled=True)
+
+        with mock.patch.object(timing_mod.time, "perf_counter", clock):
+            _ = eleanor.process(
+                _make_order(),
+                mock.MagicMock(AbstractKernel),
+                navigator,
+                1,
+                9,
+                batch_size=1,
+                expected_total=1,
+                executor=_as_executor(executor),
+                sink=sink,
+                timings=timings,
+            )
+
+        self.assertEqual(timings.write_s, 7.0)
+        self.assertEqual(timings.wait_s, 0.0)
+        # One chunk, two workers: the pool is provably short of work for the
+        # whole write, so the stall is charged as starvation.
+        self.assertEqual(timings.starved_s, 7.0)
+
+    def test_process_charges_tail_of_drain_as_starved(self) -> None:
+        """Ensure a drain with fewer chunks outstanding than workers is charged.
+
+        With two workers and two chunks, the first ``pop`` is fully
+        subscribed and the second is not, so only the second wait is charged.
+        """
+        eleanor = _make_eleanor()
+        clock = _StepClock()
+        navigator = mock.Mock()
+        navigator.navigate.return_value = iter([["a", "b"]])
+        results = [ComputeResult(point=_point(exit_code=0))]
+        executor = _FakeExecutor(
+            submit_side_effect=[_Future(results), _Future(results)],
+        )
+
+        def _slow_pop(futures: list[object]) -> object:
+            clock.advance(1.0)
+            return futures.pop(0)
+
+        executor.pop_completed_future = mock.Mock(side_effect=_slow_pop)
+        timings = DispatchTimings(enabled=True)
+
+        with mock.patch.object(timing_mod.time, "perf_counter", clock):
+            _ = eleanor.process(
+                _make_order(),
+                mock.MagicMock(AbstractKernel),
+                navigator,
+                2,
+                9,
+                batch_size=2,
+                expected_total=2,
+                executor=_as_executor(executor),
+                chunks_per_worker=1,
+                sink=self._serial_sink(),
+                timings=timings,
+            )
+
+        self.assertEqual(executor.num_workers, 2)
+        self.assertEqual(timings.wait_s, 2.0)
+        self.assertEqual(timings.starved_s, 1.0)
+
+    def test_process_builds_its_own_timings_when_none_supplied(self) -> None:
+        """Ensure direct callers of process() do not have to pass timings."""
+        eleanor = _make_eleanor()
+        navigator = mock.Mock()
+        navigator.navigate.return_value = iter([["a"]])
+        executor = _FakeExecutor(
+            submit_side_effect=[_Future([ComputeResult(point=_point(exit_code=0))])],
+        )
+
+        outcomes = eleanor.process(
+            _make_order(),
+            mock.MagicMock(AbstractKernel),
+            navigator,
+            1,
+            9,
+            batch_size=1,
+            expected_total=1,
+            executor=_as_executor(executor),
+            sink=self._serial_sink(),
+            timing=True,
+        )
+
+        self.assertEqual(len(outcomes), 1)
+
+
+class TestEleanorRunTimingReport(TestCase):
+    """Tests covering the ``--timing`` report emitted by ``Eleanor.run``."""
+
+    def test_run_prints_the_summary_to_stderr_when_timing_is_enabled(self) -> None:
+        """Ensure the report goes to stderr so stdout stays clean."""
+        eleanor = _make_eleanor()
+        sink = mock.Mock()
+        sink.begin_run.return_value = 3
+        sink.supports_progress.return_value = False
+        eleanor.process = mock.Mock(return_value=[])
+        captured = io.StringIO()
+
+        with (
+            mock.patch("eleanor.eleanor.load_executor", return_value=_FakeExecutor()),
+            mock.patch("eleanor.eleanor.load_output_sink", return_value=sink),
+            mock.patch("eleanor.eleanor.sys.stderr", captured),
+        ):
+            _ = eleanor.run(
+                _make_order(),
+                1,
+                kernel=mock.MagicMock(AbstractKernel),
+                navigator=_navigator(1),
+                timing=True,
+            )
+
+        self.assertIn("dispatch timings", captured.getvalue())
+
+    def test_run_stays_quiet_when_timing_is_disabled(self) -> None:
+        """Ensure the report is opt-in."""
+        eleanor = _make_eleanor()
+        sink = mock.Mock()
+        sink.begin_run.return_value = 3
+        sink.supports_progress.return_value = False
+        eleanor.process = mock.Mock(return_value=[])
+        captured = io.StringIO()
+
+        with (
+            mock.patch("eleanor.eleanor.load_executor", return_value=_FakeExecutor()),
+            mock.patch("eleanor.eleanor.load_output_sink", return_value=sink),
+            mock.patch("eleanor.eleanor.sys.stderr", captured),
+        ):
+            _ = eleanor.run(
+                _make_order(),
+                1,
+                kernel=mock.MagicMock(AbstractKernel),
+                navigator=_navigator(1),
+            )
+
+        self.assertEqual(captured.getvalue(), "")
+
+    def test_run_reports_timings_even_when_process_raises(self) -> None:
+        """Ensure a failed run still reports where its time went."""
+        eleanor = _make_eleanor()
+        sink = mock.Mock()
+        sink.begin_run.return_value = 3
+        sink.supports_progress.return_value = False
+        eleanor.process = mock.Mock(side_effect=EleanorShutdown("SIGTERM"))
+        captured = io.StringIO()
+
+        with (
+            mock.patch("eleanor.eleanor.load_executor", return_value=_FakeExecutor()),
+            mock.patch("eleanor.eleanor.load_output_sink", return_value=sink),
+            mock.patch("eleanor.eleanor.sys.stderr", captured),
+            self.assertRaises(EleanorShutdown),
+        ):
+            _ = eleanor.run(
+                _make_order(),
+                1,
+                kernel=mock.MagicMock(AbstractKernel),
+                navigator=_navigator(1),
+                timing=True,
+            )
+
+        self.assertIn("dispatch timings", captured.getvalue())

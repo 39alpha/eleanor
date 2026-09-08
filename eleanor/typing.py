@@ -19,6 +19,7 @@ class EleanorKwargs(TypedDict, total=False):
     scratch: bool
     num_procs: int | None
     show_progress: bool
+    timing: bool
 
 
 type Array1D[ScalarT: np.generic] = np.ndarray[tuple[int], np.dtype[ScalarT]]

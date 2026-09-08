@@ -53,6 +53,11 @@ def _complete_executor(_ctx: click.Context, _param: click.Parameter, incomplete:
 @click.option("--chunks-per-worker", type=int, default=None, help="Chunks per worker (overrides configuration).")
 @click.option("--batch-size", type=int, default=None, help="Navigator batch size.")
 @click.option("--max-nav-attempts", type=click.IntRange(min=1), default=1, help="Max attempts per navigation point.")
+@click.option(
+    "--timing",
+    is_flag=True,
+    help="Report a wall-clock attribution of the dispatch loop to stderr when the run finishes.",
+)
 @config_options()
 def run(
     order: str,
@@ -70,6 +75,7 @@ def run(
     chunks_per_worker: int | None,
     batch_size: int | None,
     max_nav_attempts: int,
+    timing: bool,
     config: str,
     database: str | None,
 ) -> None:
@@ -138,6 +144,7 @@ def run(
                     chunks_per_worker=chunks_per_worker,
                     batch_size=batch_size,
                     max_nav_attempts=max_nav_attempts,
+                    timing=timing,
                     output_sink=output_sink,
                 )
 

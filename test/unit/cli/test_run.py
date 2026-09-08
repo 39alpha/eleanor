@@ -86,6 +86,7 @@ def test_run_uses_config_executor_defaults(
         chunks_per_worker=6,
         batch_size=None,
         max_nav_attempts=1,
+        timing=False,
         output_sink=None,
     )
     assert result.exit_code == 0

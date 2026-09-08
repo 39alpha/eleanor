@@ -1,7 +1,7 @@
 import datetime
 import hashlib
 import os
-from collections.abc import Callable, Generator, Iterable, Sequence
+from collections.abc import Callable, Iterable
 from enum import StrEnum
 from functools import reduce
 from pathlib import Path
@@ -232,20 +232,6 @@ def parse_date(date: str) -> datetime.date | datetime.datetime:
         return datetime.date.fromisoformat(date)
     except ValueError:
         return datetime.datetime.fromisoformat(date)
-
-
-def chunks[T](indexable: Sequence[T], num_chunks: int) -> Generator[Sequence[T]]:
-    num_items = len(indexable)
-    chunk_size = num_items // num_chunks
-    residual = num_items - num_chunks * chunk_size
-    start = 0
-    while residual > 0 and start < num_items:
-        yield indexable[start : start + chunk_size + 1]
-        start += chunk_size + 1
-        residual -= 1
-    while start < num_items:
-        yield indexable[start : start + chunk_size]
-        start += chunk_size
 
 
 def mapreduce[S, T](mapper: Callable[[S], T], reducer: Callable[[T, T], T], values: Iterable[S], initial: T) -> T:

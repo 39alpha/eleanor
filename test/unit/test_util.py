@@ -89,7 +89,7 @@ class TestUtils(TestCase):
         """
         cwd0 = Path.cwd()
         with TemporaryDirectory() as root:
-            root = Path(root)
+            root = Path(root).resolve()
             self.assertNotEqual(root, cwd0)
             (root / "abc").mkdir()
             with util.WorkingDirectory(root) as cwd1:

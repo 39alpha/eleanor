@@ -13,6 +13,19 @@ def _vs_point(**kwargs: object) -> Point:
     return cast(Point, cast(object, SimpleNamespace({'exception': None, **kwargs})))
 
 
+def _identity_sink(outcomes: object = None) -> mock.Mock:
+    """Sink stand-in whose prepared payload is the ``ComputeResult`` list itself.
+
+    ``dispatch`` now always routes through a sink, because ``prepare_batch``
+    always runs in the worker. An identity prepare lets the compute-path tests
+    keep asserting on ``ComputeResult``s directly.
+    """
+    sink = mock.Mock()
+    sink.prepare_batch.side_effect = lambda _order_id, results: results
+    sink.commit_batch.return_value = [] if outcomes is None else outcomes
+    return sink
+
+
 class TestRunner(TestCase):
     """
     Tests of the eleanor.runner module.
@@ -26,7 +39,9 @@ class TestRunner(TestCase):
         points = [_vs_point(exit_code=0), _vs_point(exit_code=0)]
 
         with mock.patch.object(Runner, "work", side_effect=points) as work_mock:
-            results = runner.dispatch([_vs_point(), _vs_point()])
+            results = runner.dispatch(
+                [_vs_point(), _vs_point()], sink=_identity_sink(), order_id=1
+            )
 
         self.assertEqual(len(results), 2)
         self.assertTrue(all(isinstance(result, ComputeResult) for result in results))
@@ -42,13 +57,13 @@ class TestRunner(TestCase):
 
         point = _vs_point(exit_code=0)
         with mock.patch.object(Runner, "work", return_value=point):
-            results = runner.dispatch(_vs_point())
+            results = runner.dispatch(_vs_point(), sink=_identity_sink(), order_id=1)
 
         self.assertEqual(len(results), 1)
         self.assertIsInstance(results[0], ComputeResult)
         self.assertIs(cast(ComputeResult, results[0]).point, point)
 
-    def test_dispatch_routes_through_sink_when_provided(self) -> None:
+    def test_dispatch_commits_through_the_sink_when_commit_is_set(self) -> None:
         """
         Ensure dispatch forwards compute results to sink.write_batch when a
         sink and order_id are supplied, and returns the WriteOutcome list.
@@ -59,25 +74,32 @@ class TestRunner(TestCase):
             WriteOutcome(exit_code=0, committed=True),
             WriteOutcome(exit_code=0, committed=True),
         ]
-        sink = mock.Mock()
-        sink.write_batch.return_value = outcomes
+        sink = _identity_sink(outcomes)
 
         with mock.patch.object(Runner, "work", side_effect=points):
             results = runner.dispatch(
-                [_vs_point(), _vs_point()], sink=sink, order_id=42
+                [_vs_point(), _vs_point()], sink=sink, order_id=42, commit=True
             )
 
         self.assertEqual(results, outcomes)
-        sink.write_batch.assert_called_once()
-        called_order_id, called_compute_results = sink.write_batch.call_args.args
-        self.assertEqual(called_order_id, 42)
-        self.assertIsNone(sink.write_batch.call_args.kwargs["progress"])
+
+        # prepare always runs, and sees the ComputeResults for this chunk.
+        sink.prepare_batch.assert_called_once()
+        prepare_order_id, called_compute_results = sink.prepare_batch.call_args.args
+        self.assertEqual(prepare_order_id, 42)
         self.assertEqual(len(called_compute_results), 2)
         self.assertTrue(
             all(isinstance(r, ComputeResult) for r in called_compute_results)
         )
         self.assertIs(called_compute_results[0].point, points[0])
         self.assertIs(called_compute_results[1].point, points[1])
+
+        # commit runs here only because commit=True was passed.
+        sink.commit_batch.assert_called_once()
+        commit_order_id, committed = sink.commit_batch.call_args.args
+        self.assertEqual(commit_order_id, 42)
+        self.assertIs(committed, called_compute_results)
+        self.assertIsNone(sink.commit_batch.call_args.kwargs["progress"])
 
     def test_dispatch_emits_sim_progress_tick_per_point(self) -> None:
         """
@@ -96,29 +118,35 @@ class TestRunner(TestCase):
             ],
         ):
             _ = runner.dispatch(
-                [_vs_point(), _vs_point(), _vs_point()], sim_progress=sim_progress
+                [_vs_point(), _vs_point(), _vs_point()],
+                sink=_identity_sink(),
+                order_id=1,
+                sim_progress=sim_progress,
             )
 
         self.assertEqual(sim_progress.tick.call_count, 3)
 
     def test_dispatch_forwards_out_progress_to_sink(self) -> None:
         """
-        Ensure dispatch forwards the out_progress handle into sink.write_batch.
+        Ensure dispatch forwards the out_progress handle into sink.commit_batch.
         """
         runner = Runner(kernel=mock.Mock())
-        sink = mock.Mock()
-        sink.write_batch.return_value = []
+        sink = _identity_sink()
         out_progress = mock.Mock()
 
         with mock.patch.object(
             Runner, "work", return_value=_vs_point(exit_code=0)
         ):
             _ = runner.dispatch(
-                [_vs_point()], sink=sink, order_id=1, out_progress=out_progress
+                [_vs_point()],
+                sink=sink,
+                order_id=1,
+                commit=True,
+                out_progress=out_progress,
             )
 
-        sink.write_batch.assert_called_once()
-        self.assertIs(sink.write_batch.call_args.kwargs["progress"], out_progress)
+        sink.commit_batch.assert_called_once()
+        self.assertIs(sink.commit_batch.call_args.kwargs["progress"], out_progress)
 
     def test_dispatch_without_progress_handles_never_ticks(self) -> None:
         """
@@ -129,23 +157,32 @@ class TestRunner(TestCase):
         with mock.patch.object(
             Runner, "work", return_value=_vs_point(exit_code=0)
         ):
-            results = runner.dispatch([_vs_point(), _vs_point()])
+            results = runner.dispatch(
+                [_vs_point(), _vs_point()], sink=_identity_sink(), order_id=1
+            )
 
         # No exception, no interaction with a progress handle; just the compute path.
         self.assertEqual(len(results), 2)
 
-    def test_dispatch_with_sink_requires_order_id(self) -> None:
+    def test_dispatch_requires_a_sink_and_an_order_id(self) -> None:
         """
-        Ensure dispatch raises if a sink is provided without order_id.
+        Ensure both are mandatory now that prepare_batch always runs.
+
+        They used to be optional, with a runtime guard for the
+        sink-without-order_id case. Since every dispatch prepares through a
+        sink, the signature enforces it instead.
         """
         runner = Runner(kernel=mock.Mock())
-        sink = mock.Mock()
+        sink = _identity_sink()
         with mock.patch.object(
             Runner, "work", return_value=_vs_point(exit_code=0)
         ):
-            with self.assertRaises(EleanorError):
-                _ = runner.dispatch([_vs_point()], sink=sink)
-        sink.write_batch.assert_not_called()
+            with self.assertRaises(TypeError):
+                _ = runner.dispatch([_vs_point()], sink=sink)  # type: ignore[call-arg]
+            with self.assertRaises(TypeError):
+                _ = runner.dispatch([_vs_point()], order_id=1)  # type: ignore[call-arg]
+        sink.prepare_batch.assert_not_called()
+        sink.commit_batch.assert_not_called()
 
     def test_dispatch_serializes_error_metadata_and_clears_exception(self) -> None:
         """
@@ -155,7 +192,9 @@ class TestRunner(TestCase):
 
         point = _vs_point(exit_code=1, exception=RuntimeError("boom"))
         with mock.patch.object(Runner, "work", return_value=point):
-            results = runner.dispatch([_vs_point()])
+            results = runner.dispatch(
+                [_vs_point()], sink=_identity_sink(), order_id=1
+            )
 
         self.assertEqual(len(results), 1)
         result = cast(ComputeResult, results[0])

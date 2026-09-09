@@ -2,17 +2,41 @@ import logging
 import sys
 import traceback
 from collections.abc import Sequence
-from typing import override
+from dataclasses import dataclass
+from typing import cast, override
 
+import eleanor.variable_space as vs
 from eleanor.exceptions import EleanorError
 from eleanor.order import Order
-from eleanor.output.interface import AbstractOutputSink, ComputeResult, WriteOutcome
+from eleanor.output.interface import AbstractOutputSink, ComputeResult, ErrorInfo, WriteOutcome
 from eleanor.output.postgres.persistence import connection as connection_module
 from eleanor.output.postgres.persistence import repositories
 from eleanor.output.postgres.settings import PostgresSinkSettings
 from eleanor.progress import ProgressHandle
 
 _PSYCOPG_LOGGER_NAME = "psycopg"
+
+
+@dataclass(slots=True, frozen=True)
+class PostgresPrepared:
+    """One VS point's worth of work, as handed from prepare to commit.
+
+    Currently the identity: the point graph itself, alongside the compute
+    error that :meth:`PostgresSink.commit_batch` records against it. That
+    costs nothing in the default configuration, where
+    :meth:`PostgresSink.supports_worker_commit` is ``True`` and so both halves
+    run in the same worker and the payload never crosses a process boundary.
+
+    It *does* matter when a caller forces this sink down the serial path, where
+    the graph is pickled back to the parent. Reducing it to a columnar payload
+    -- one array per column per table, with the FK columns left for commit to
+    stamp -- is a follow-on change confined to this module and
+    :mod:`eleanor.output.postgres.persistence.repositories`. See
+    :class:`AbstractOutputSink` for why columnar and not row-oriented.
+    """
+
+    point: vs.Point
+    error: ErrorInfo | None
 
 
 class PostgresSink(AbstractOutputSink):
@@ -95,13 +119,27 @@ class PostgresSink(AbstractOutputSink):
         return order.id
 
     @override
-    def write_batch(
+    def prepare_batch(self, order_id: int, results: Sequence[ComputeResult]) -> Sequence[PostgresPrepared]:
+        """Stamp ``order_id`` onto each point and pair it with its error.
+
+        ``order_id`` mutation is a documented side effect of writing a batch.
+        Doing it here rather than in :meth:`commit_batch` keeps it on the
+        worker side of the boundary, where the point graph already lives.
+        """
+        prepared: list[PostgresPrepared] = []
+        for result in results:
+            result.point.order_id = order_id
+            prepared.append(PostgresPrepared(point=result.point, error=result.error))
+        return prepared
+
+    @override
+    def commit_batch(
         self,
         order_id: int,
-        results: Sequence[ComputeResult],
+        prepared: Sequence[object],
         progress: ProgressHandle | None = None,
     ) -> list[WriteOutcome]:
-        """Persist a batch of compute results.
+        """Persist a prepared batch.
 
         One outer transaction over the whole batch (so all surviving rows
         commit with a single fsync); each VS point lives inside its own
@@ -119,14 +157,11 @@ class PostgresSink(AbstractOutputSink):
         conn = connection_module.connect(self.settings.database)
         try:
             with conn.transaction():
-                for index, result in enumerate(results):
-                    point = result.point
-                    # ``order_id`` mutation is a documented side effect of
-                    # writing a batch.
-                    point.order_id = order_id
+                for index, item in enumerate(cast("Sequence[PostgresPrepared]", prepared)):
+                    point = item.point
                     try:
                         with conn.transaction(savepoint_name=f"vs_point_{index}"):
-                            _ = repositories.insert_point(conn, order_id, point, result.error, self.settings)
+                            _ = repositories.insert_point(conn, order_id, point, item.error, self.settings)
                         pending_slots.append(len(outcomes))
                         pending_results.append(point.exit_code)
                         outcomes.append(
@@ -144,7 +179,7 @@ class PostgresSink(AbstractOutputSink):
                         # ``str(e)`` on a psycopg ``DatabaseError`` typically
                         # loses the originating call site.
                         message = (
-                            f"PostgresSink.write_batch: VS point index {index} "
+                            f"PostgresSink.commit_batch: VS point index {index} "
                             f"failed and was rolled back: {type(e).__name__}: {e}"
                         )
                         print(message, file=sys.stderr)
@@ -171,7 +206,7 @@ class PostgresSink(AbstractOutputSink):
         # The outer commit landed. Promote the pending placeholders to
         # ``committed=True`` and tick the output bar -- once per durably
         # written row, matching the per-row cadence the docstring on
-        # :meth:`OutputSink.write_batch` documents.
+        # :meth:`OutputSink.commit_batch` documents.
         for slot, exit_code in zip(pending_slots, pending_results, strict=True):
             outcomes[slot] = WriteOutcome(
                 exit_code=exit_code,
@@ -211,7 +246,7 @@ class PostgresSink(AbstractOutputSink):
                 self._prev_psycopg_log_level = None
 
     @override
-    def supports_worker_writes(self) -> bool:
+    def supports_worker_commit(self) -> bool:
         return True
 
     @override
@@ -219,4 +254,4 @@ class PostgresSink(AbstractOutputSink):
         return True
 
 
-__all__ = ["PostgresSink"]
+__all__ = ["PostgresPrepared", "PostgresSink"]

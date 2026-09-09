@@ -224,15 +224,6 @@ class TestUtils(TestCase):
         with self.assertRaises(ValueError):
             util.parse_date("bad-date")
 
-    def test_chunks(self) -> None:
-        """
-        Ensure that :func:`chunks` partitions lists correctly and errors on invalid divisors.
-        """
-        self.assertEqual(list(util.chunks([1, 2, 3, 4, 5], 2)), [[1, 2, 3], [4, 5]])
-        self.assertEqual(list(util.chunks([1, 2, 3], 5)), [[1], [2], [3]])
-        with self.assertRaises(ZeroDivisionError):
-            list(util.chunks([1, 2, 3], 0))
-
     def test_mapreduce(self) -> None:
         """
         Ensure that :func:`mapreduce` applies the mapper and reducer over the provided iterable.

@@ -225,11 +225,23 @@ def _extract_binary_assets(
     return extracted_rows
 
 
-def _append_rows(filename: Path, columns: list[str], rows: Sequence[Mapping[str, object]]) -> None:
-    with filename.open("a", newline="") as handle:
-        writer = csv.DictWriter(handle, fieldnames=columns)
-        for row in rows:
-            writer.writerow(row)
+@dataclass(slots=True, frozen=True)
+class CsvPrepared:
+    """One VS point's evaluated rows, or the error that stopped them.
+
+    Query evaluation is by far the expensive half of writing a CSV row set
+    (a wide query costs on the order of a second per VS point), and it is
+    pure: it reads the compiled query and the order, and touches neither the
+    point counter, the file, nor the sidecar. So it runs in the worker and
+    only the resulting rows cross the process boundary.
+
+    ``error`` carries a per-point evaluation failure instead of raising, so
+    one bad point no longer discards the whole chunk's rows.
+    """
+
+    rows: list[Mapping[str, object]]
+    exit_code: int
+    error: str | None = None
 
 
 class CsvSink(AbstractOutputSink):
@@ -256,6 +268,24 @@ class CsvSink(AbstractOutputSink):
         self._vs_index_columns, self._binary_columns = _classify_columns(self._compiled)
         self._vs_points_seen = {}
         self._order_versions = {}
+
+    @override
+    def __getstate__(self) -> dict[str, object]:
+        """Drop the compiled query when crossing into a worker.
+
+        ``prepare_batch`` runs in a worker, so the sink is pickled once per
+        chunk. :class:`CompiledQuery` holds reflection state that is bulky to
+        pickle and cheap to rebuild -- ``compile_query`` is memoised -- so it
+        is re-derived on first use in the worker instead.
+        """
+        state: dict[str, object] = dict(self.__dict__)
+        del state["_compiled"]
+        return state
+
+    def __setstate__(self, state: dict[str, object]) -> None:
+        for key, value in state.items():
+            setattr(self, key, value)
+        self._compiled = compile_query(Order, self.settings.query)
 
     @override
     def initialize(self) -> None:
@@ -330,87 +360,115 @@ class CsvSink(AbstractOutputSink):
         return order_id
 
     @override
-    def write_batch(
-        self,
-        order_id: int,
-        results: Sequence[ComputeResult],
-        progress: ProgressHandle | None = None,
-    ) -> list[WriteOutcome]:
-        _ = order_id
-        filename = self.settings.filename
-        schema_file = self._schema_file
+    def prepare_batch(self, order_id: int, results: Sequence[ComputeResult]) -> Sequence[CsvPrepared]:
+        """Evaluate the query for each point; return its rows.
 
+        Runs in a worker. Pure with respect to sink state: the shallow
+        ``Order`` copy is discarded, and the point counter, the CSV file and
+        the sidecar are all left to :meth:`commit_batch`.
+
+        ``order_id`` is honoured as given rather than read from ``self``: the
+        worker's copy of the sink may have no active order, and a sink must not
+        assume there is only one.
+        """
         if self._order is None:
-            msg = "csv sink write_batch called before begin_run"
+            msg = "csv sink prepare_batch called before begin_run"
             raise EleanorError(msg)
 
-        if not filename.exists():
-            msg = "csv sink write_batch requires initialize() to create the CSV header"
-            raise EleanorError(msg)
-
-        assert self._order_id is not None
-        assert self._order_id in self._vs_points_seen
-
-        outcomes: list[WriteOutcome] = []
+        prepared: list[CsvPrepared] = []
         for index, result in enumerate(results):
             if result.error is not None:
-                outcomes.append(
-                    WriteOutcome(
-                        exit_code=-1,
-                        committed=False,
-                        error_message=result.error.message,
-                    ),
+                prepared.append(
+                    CsvPrepared(rows=[], exit_code=-1, error=result.error.message),
                 )
                 continue
 
             order = copy.copy(self._order)
-            assert order is not None
+            order.id = order_id
             order.vs_points = [result.point]
 
             try:
                 rows = list(evaluate(self._compiled, order))
             except Exception as error:
+                # Report and record rather than raise: a query that fails on
+                # one point should not discard the rest of the chunk's rows.
                 print(
-                    f"CsvSink.write_batch failed for VS point index {index}: {type(error).__name__}: {error}",
+                    f"CsvSink.prepare_batch failed for VS point index {index}: {type(error).__name__}: {error}",
                     file=sys.stderr,
                 )
                 traceback.print_exc(file=sys.stderr)
-                if not self._rows_written:
-                    _write_schema(
-                        schema_file,
-                        self.settings.query,
-                        vs_points_seen=self._vs_points_seen,
-                        order_versions=self._order_versions,
+                prepared.append(CsvPrepared(rows=[], exit_code=-1, error=str(error)))
+                continue
+
+            prepared.append(CsvPrepared(rows=rows, exit_code=result.point.exit_code))
+
+        return prepared
+
+    @override
+    def commit_batch(
+        self,
+        order_id: int,
+        prepared: Sequence[object],
+        progress: ProgressHandle | None = None,
+    ) -> list[WriteOutcome]:
+        """Stamp the per-order point index onto each row set and append it.
+
+        Runs in the parent, which is what lets ``_vs_points_seen`` stay a
+        single authoritative counter: it feeds both the ``@index`` column and
+        the binary-asset filenames, so it cannot be handed to concurrent
+        workers.
+        """
+        filename = self.settings.filename
+
+        if self._order is None:
+            msg = "csv sink commit_batch called before begin_run"
+            raise EleanorError(msg)
+
+        if not filename.exists():
+            msg = "csv sink commit_batch requires initialize() to create the CSV header"
+            raise EleanorError(msg)
+
+        if order_id not in self._vs_points_seen:
+            msg = f"csv sink commit_batch called for unknown order id {order_id}"
+            raise EleanorError(msg)
+
+        outcomes: list[WriteOutcome] = []
+        # One handle for the whole batch rather than one per row set. The
+        # ``with`` block still flushes on the way out of an exception, so
+        # partial-write semantics are unchanged.
+        with filename.open("a", newline="") as handle:
+            writer = csv.DictWriter(handle, fieldnames=self._columns)
+            for item in cast("Sequence[CsvPrepared]", prepared):
+                if item.error is not None:
+                    outcomes.append(
+                        WriteOutcome(exit_code=item.exit_code, committed=False, error_message=item.error),
                     )
-                    self._order = None
-                    self._order_id = None
-                raise
-            current_point_id = self._vs_points_seen[self._order_id]
-            rows = _extract_binary_assets(
-                filename,
-                self._binary_columns,
-                self._order_id,
-                current_point_id,
-                rows,
-            )
-            rows = _prepare_rows(self._columns, self._vs_index_columns, current_point_id, rows)
-            _append_rows(filename, self._columns, rows)
-            committed = False
-            if rows:
-                self._rows_written = True
-                committed = True
-                self._vs_points_seen[self._order_id] += 1
-            outcomes.append(
-                WriteOutcome(
-                    exit_code=result.point.exit_code,
-                    committed=committed,
-                ),
-            )
-            if progress is not None:
-                progress.tick()
+                    continue
+
+                current_point_id = self._vs_points_seen[order_id]
+                rows = _extract_binary_assets(
+                    filename,
+                    self._binary_columns,
+                    order_id,
+                    current_point_id,
+                    item.rows,
+                )
+                rows = _prepare_rows(self._columns, self._vs_index_columns, current_point_id, rows)
+                for row in rows:
+                    writer.writerow(row)
+                handle.flush()
+
+                committed = False
+                if rows:
+                    self._rows_written = True
+                    committed = True
+                    self._vs_points_seen[order_id] += 1
+                outcomes.append(WriteOutcome(exit_code=item.exit_code, committed=committed))
+                if progress is not None:
+                    progress.tick()
 
         _write_schema(
-            schema_file,
+            self._schema_file,
             self.settings.query,
             vs_points_seen=self._vs_points_seen,
             order_versions=self._order_versions,
@@ -422,7 +480,7 @@ class CsvSink(AbstractOutputSink):
         return None
 
     @override
-    def supports_worker_writes(self) -> bool:
+    def supports_worker_commit(self) -> bool:
         return False
 
     @override
@@ -431,6 +489,7 @@ class CsvSink(AbstractOutputSink):
 
 
 __all__ = [
+    "CsvPrepared",
     "CsvSink",
     "CsvSinkSettings",
 ]

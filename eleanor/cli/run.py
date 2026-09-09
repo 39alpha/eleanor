@@ -128,7 +128,7 @@ def run(
         with ExitStack() as stack:
             output_sink: AbstractOutputSink | None = None
             if null_sink:
-                sink_settings = NullSinkSettings(support_worker_writes=executor != "serial")
+                sink_settings = NullSinkSettings(support_worker_commit=executor != "serial")
                 output_sink = stack.enter_context(NullSink(sink_settings))
 
             executor_obj = stack.enter_context(load_executor(kind=executor, settings=executor_settings))

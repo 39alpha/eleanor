@@ -1,6 +1,7 @@
 import io
 import sys
 import zipfile
+from collections.abc import Sequence
 from datetime import datetime
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -9,7 +10,6 @@ from typing import Unpack
 
 import eleanor.equilibrium_space as es
 import eleanor.variable_space as vs
-from eleanor.exceptions import EleanorError
 from eleanor.kernel.exceptions import EleanorKernelError
 from eleanor.kernel.interface import AbstractKernel
 from eleanor.output.interface import AbstractOutputSink, ComputeResult, ErrorInfo, WriteOutcome
@@ -28,27 +28,31 @@ class Runner:
         self,
         points: vs.Point | list[vs.Point],
         *args: object,
-        sink: AbstractOutputSink | None = None,
-        order_id: int | None = None,
+        sink: AbstractOutputSink,
+        order_id: int,
+        commit: bool = False,
         sim_progress: ProgressHandle | None = None,
         out_progress: ProgressHandle | None = None,
         **kwargs: Unpack[EleanorKwargs],
-    ) -> list[ComputeResult] | list[WriteOutcome]:
-        """Run the kernel over ``points`` and, if ``sink`` is provided, write the
-        resulting :class:`ComputeResult` payloads through it in-process.
+    ) -> Sequence[object] | list[WriteOutcome]:
+        """Run the kernel over ``points``, then reduce the results via ``sink``.
 
-        When a ``sink`` is passed, :meth:`OutputSink.write_batch` runs inside
-        the worker and the return value is the resulting
-        :class:`WriteOutcome` list. Callers should only supply a ``sink`` that
-        returns ``True`` from :meth:`OutputSink.supports_worker_writes`.
+        :meth:`AbstractOutputSink.prepare_batch` always runs here, in the
+        worker, so the compute graph never has to cross the process boundary --
+        only whatever compact payload the sink reduces it to.
+
+        When ``commit`` is set, :meth:`AbstractOutputSink.commit_batch` also
+        runs here and the return value is the resulting :class:`WriteOutcome`
+        list; otherwise the prepared payload is returned for the parent to
+        commit. Callers should only pass ``commit=True`` for a sink that
+        returns ``True`` from
+        :meth:`AbstractOutputSink.supports_worker_commit`.
 
         When ``sim_progress`` is supplied, ``tick()`` is called once per point
         as soon as its kernel compute step returns, giving single-point
-        precision on the simulation bar. When ``out_progress`` is supplied and
-        a ``sink`` is active, the handle is forwarded to
-        :meth:`OutputSink.write_batch` so the sink can report per-row (or
-        per-batch) write progress at whatever cadence suits its storage
-        model.
+        precision on the simulation bar. ``out_progress`` is forwarded to
+        ``commit_batch`` when committing here, so the sink can report write
+        progress at whatever cadence suits its storage model.
         """
         compute_results: list[ComputeResult] = []
 
@@ -71,12 +75,10 @@ class Runner:
             if sim_progress is not None:
                 sim_progress.tick()
 
-        if sink is not None:
-            if order_id is None:
-                msg = "Runner.dispatch requires order_id when sink is provided"
-                raise EleanorError(msg)
-            return sink.write_batch(order_id, compute_results, progress=out_progress)
-        return compute_results
+        prepared = sink.prepare_batch(order_id, compute_results)
+        if commit:
+            return sink.commit_batch(order_id, prepared, progress=out_progress)
+        return prepared
 
     def work(
         self,

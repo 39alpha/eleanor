@@ -1,3 +1,9 @@
+from pathlib import Path
+import pickle
+import tempfile
+from eleanor.output.csv import CsvSink, CsvSinkSettings
+from eleanor.output.memory import MemorySink, MemorySinkSettings
+from eleanor.output.null import NullSink, NullSinkSettings
 import io
 import logging
 from collections.abc import Sequence
@@ -23,6 +29,12 @@ from eleanor.output.postgres.settings import (
 from eleanor.output.postgres.sink import PostgresSink
 from eleanor.progress import ProgressHandle
 
+
+
+def _write_batch(sink, order_id, results, progress=None):
+    """Drive both halves of the split write protocol, as Eleanor does."""
+    prepared = sink.prepare_batch(order_id, results)
+    return sink.commit_batch(order_id, prepared, progress=progress)
 
 def _as_order(order: SimpleNamespace) -> Order:
     return cast(Order, cast(object, order))
@@ -61,7 +73,7 @@ class TestOutput(TestCase):
 
     def test_output_sink_defaults_to_no_worker_writes(self) -> None:
         """
-        Ensure AbstractOutputSink subclasses that do not override supports_worker_writes
+        Ensure AbstractOutputSink subclasses that do not override supports_worker_commit
         opt out of worker-side writes by default.
         """
 
@@ -72,8 +84,14 @@ class TestOutput(TestCase):
                 return 0
 
             @override
-            def write_batch(
-                self, order_id: int, results: Sequence[ComputeResult], progress=None
+            def prepare_batch(
+                self, order_id: int, results: Sequence[ComputeResult]
+            ) -> Sequence[object]:
+                return list(results)
+
+            @override
+            def commit_batch(
+                self, order_id: int, prepared: Sequence[object], progress=None
             ) -> list[WriteOutcome]:
                 _ = progress
                 return []
@@ -82,7 +100,7 @@ class TestOutput(TestCase):
             def finalize_run(self) -> None:
                 pass
 
-        self.assertFalse(MinimalSink().supports_worker_writes())
+        self.assertFalse(MinimalSink().supports_worker_commit())
 
     def test_output_sink_defaults_to_no_progress(self) -> None:
         """
@@ -98,8 +116,14 @@ class TestOutput(TestCase):
                 return 0
 
             @override
-            def write_batch(
-                self, order_id: int, results: Sequence[ComputeResult], progress=None
+            def prepare_batch(
+                self, order_id: int, results: Sequence[ComputeResult]
+            ) -> Sequence[object]:
+                return list(results)
+
+            @override
+            def commit_batch(
+                self, order_id: int, prepared: Sequence[object], progress=None
             ) -> list[WriteOutcome]:
                 _ = progress
                 return []
@@ -129,10 +153,16 @@ class TestOutput(TestCase):
                 return 0
 
             @override
-            def write_batch(
+            def prepare_batch(
+                self, order_id: int, results: Sequence[ComputeResult]
+            ) -> Sequence[object]:
+                return list(results)
+
+            @override
+            def commit_batch(
                 self,
                 order_id: int,
-                results: Sequence[ComputeResult],
+                prepared: Sequence[object],
                 progress: ProgressHandle | None = None,
             ) -> list[WriteOutcome]:
                 _ = progress
@@ -152,7 +182,7 @@ class TestOutput(TestCase):
             self.assertEqual(calls, ["initialize"])
         self.assertEqual(calls, ["initialize", "finalize"])
 
-    def test_postgres_sink_supports_worker_writes(self) -> None:
+    def test_postgres_sink_supports_worker_commit(self) -> None:
         """
         Ensure PostgresSink opts in to worker-side writes.
         """
@@ -162,7 +192,7 @@ class TestOutput(TestCase):
             ),
         )
         sink = PostgresSink(settings)
-        self.assertTrue(sink.supports_worker_writes())
+        self.assertTrue(sink.supports_worker_commit())
 
     def test_postgres_sink_supports_progress(self) -> None:
         """
@@ -543,7 +573,7 @@ class TestOutput(TestCase):
                 side_effect=insert_point,
             ),
         ):
-            outcomes = sink.write_batch(order_id=7, results=results)
+            outcomes = _write_batch(sink, 7, results)
 
         # One outer transaction + one savepoint per VS point = three calls.
         self.assertEqual(fake_conn.transaction.call_count, 3)
@@ -600,7 +630,7 @@ class TestOutput(TestCase):
                 side_effect=insert_point,
             ),
         ):
-            outcomes = sink.write_batch(order_id=7, results=results, progress=progress)
+            outcomes = _write_batch(sink, 7, results, progress=progress)
 
         self.assertEqual(len(outcomes), 3)
         # Two successful writes => two ticks.
@@ -636,7 +666,7 @@ class TestOutput(TestCase):
                 return_value=5,
             ),
         ):
-            outcomes = sink.write_batch(order_id=7, results=results)
+            outcomes = _write_batch(sink, 7, results)
 
         # Smoke test: if the call didn't raise, the default-None path is fine.
         self.assertEqual(len(outcomes), 1)
@@ -728,7 +758,7 @@ class TestOutput(TestCase):
                 "eleanor.output.postgres.sink.repositories.insert_point",
             ) as insert_point,
         ):
-            outcomes = sink.write_batch(order_id=7, results=[])
+            outcomes = _write_batch(sink, 7, [])
 
         self.assertEqual(outcomes, [])
         insert_point.assert_not_called()
@@ -767,7 +797,7 @@ class TestOutput(TestCase):
                 return_value=1,
             ),
         ):
-            _ = sink.write_batch(order_id=42, results=results)
+            _ = _write_batch(sink, 42, results)
 
         self.assertEqual(point_a.order_id, 42)
         # Pre-existing ``order_id`` is overwritten -- the contract is
@@ -816,7 +846,7 @@ class TestOutput(TestCase):
             ),
             mock.patch("eleanor.output.postgres.sink.sys.stderr", captured),
         ):
-            outcomes = sink.write_batch(order_id=7, results=results)
+            outcomes = _write_batch(sink, 7, results)
 
         self.assertEqual(len(outcomes), 2)
         self.assertTrue(outcomes[0].committed)
@@ -907,11 +937,7 @@ class TestOutput(TestCase):
                 side_effect=insert_point,
             ),
         ):
-            outcomes = sink.write_batch(
-                order_id=7,
-                results=results,
-                progress=progress,
-            )
+            outcomes = _write_batch(sink, 7, results, progress=progress)
 
         self.assertEqual(len(outcomes), 3)
         for outcome in outcomes:
@@ -927,3 +953,97 @@ class TestOutput(TestCase):
         self.assertIn("per-point oops", commit_error)
         # No row durably committed, so progress was never ticked.
         progress.tick.assert_not_called()
+
+
+def _order_for_begin_run() -> Order:
+    """Minimal order accepted by every in-tree sink's ``begin_run``."""
+    return _as_order(SimpleNamespace(id=0, eleanor_version="v1", vs_points=[]))
+
+
+class TestSinkPicklability(TestCase):
+    """Every sink must survive the trip into a worker process.
+
+    ``prepare_batch`` always runs in a worker, so Eleanor pickles the sink
+    once per chunk. That is a stronger requirement than it looks: pickle
+    stores a class *by name*, so the class must also be importable, and any
+    custom ``__getstate__`` must actually work on an instance. Both of those
+    broke real code during the prepare/commit split, and neither showed up in
+    a test that only ever used a sink in-process.
+    """
+
+    @staticmethod
+    def _round_trip(sink: AbstractOutputSink) -> AbstractOutputSink:
+        return cast(AbstractOutputSink, pickle.loads(pickle.dumps(sink)))
+
+    def _assert_prepares_after_round_trip(self, sink: AbstractOutputSink, order: Order) -> None:
+        """A pickled sink must still be able to prepare a batch."""
+        order_id = sink.begin_run(order)
+        clone = self._round_trip(sink)
+        results = [ComputeResult(point=_as_point(SimpleNamespace(exit_code=0, order_id=None)))]
+
+        prepared = clone.prepare_batch(order_id, results)
+
+        self.assertEqual(len(prepared), 1, "prepare_batch must yield one item per result")
+
+    def test_null_sink_round_trips(self) -> None:
+        sink = NullSink(NullSinkSettings(support_worker_commit=False))
+        self._assert_prepares_after_round_trip(sink, _order_for_begin_run())
+
+    def test_memory_sink_round_trips(self) -> None:
+        sink = MemorySink(MemorySinkSettings(support_worker_commit=False))
+        self._assert_prepares_after_round_trip(sink, _order_for_begin_run())
+
+    def test_csv_sink_round_trips_and_rebuilds_its_compiled_query(self) -> None:
+        """``CsvSink`` drops the compiled query on pickling and re-derives it.
+
+        The query is bulky to pickle and memoised to rebuild, so it is
+        deliberately excluded from the sink's state.
+        """
+        with tempfile.TemporaryDirectory() as tmpdir:
+            filename = Path(tmpdir) / "rows.csv"
+            sink = CsvSink(
+                CsvSinkSettings(
+                    filename=filename,
+                    query={
+                        "row_scope": "vs_points[*]",
+                        "columns": [{"path": "vs_point.exit_code", "name": "exit_code"}],
+                    },
+                ),
+            )
+            sink.initialize()
+
+            self.assertNotIn("_compiled", pickle.dumps(sink).decode("latin-1"))
+            clone = self._round_trip(sink)
+            self.assertIsNotNone(clone._compiled)
+
+            self._assert_prepares_after_round_trip(sink, _order_for_begin_run())
+
+    def test_postgres_sink_round_trips(self) -> None:
+        sink = PostgresSink(
+            PostgresSinkSettings(database=PostgresDatabaseSettings(database="unused")),
+        )
+        clone = self._round_trip(sink)
+
+        # No begin_run here: that would touch a database. Preparing needs only
+        # the settings, which is the point -- prepare must not depend on
+        # parent-side connection state.
+        prepared = clone.prepare_batch(7, [ComputeResult(point=_as_point(SimpleNamespace(exit_code=0, order_id=None)))])
+        self.assertEqual(len(prepared), 1)
+
+    def test_a_sink_class_defined_at_runtime_cannot_reach_a_worker(self) -> None:
+        """Document the by-name constraint that pickling a sink imposes.
+
+        A subclass synthesised with ``type(...)`` has no importable name, so
+        it cannot be sent to a worker even though its *state* is trivially
+        picklable. Anything that adjusts a sink's behaviour by building a
+        class on the fly has to be a real, module-level class instead.
+        """
+        runtime_subclass = type(
+            "RuntimeNullSink",
+            (NullSink,),
+            {"supports_worker_commit": lambda _self: False},
+        )
+        sink = runtime_subclass(NullSinkSettings(support_worker_commit=False))
+
+        with self.assertRaises((pickle.PicklingError, AttributeError)):
+            _ = pickle.dumps(sink)

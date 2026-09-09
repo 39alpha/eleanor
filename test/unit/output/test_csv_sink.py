@@ -23,6 +23,17 @@ _FAKE_KERNEL_SPEC = SimpleNamespace(
 )
 
 
+
+def _write_batch(sink, order_id, results, progress=None):
+    """Drive both halves of the split write protocol, as Eleanor does.
+
+    ``prepare_batch`` (query evaluation) runs in a worker and ``commit_batch``
+    (counter, assets, append, sidecar) in the parent, but for most tests the
+    pair is one logical "write this batch".
+    """
+    prepared = sink.prepare_batch(order_id, results)
+    return sink.commit_batch(order_id, prepared, progress=progress)
+
 def _write_sidecar(
     filename: Path,
     query: dict[str, object],
@@ -118,7 +129,7 @@ class TestCsvSink(TestCase):
             sink = CsvSink(
                 CsvSinkSettings(filename=(filename), query=_query_with_order_id())
             )
-            self.assertFalse(sink.supports_worker_writes())
+            self.assertFalse(sink.supports_worker_commit())
             self.assertTrue(sink.supports_progress())
 
     def test_csv_config_validates_direct_constructor_and_from_dict(self) -> None:
@@ -401,7 +412,7 @@ class TestCsvSink(TestCase):
             self.assertEqual(schema["vs_points_seen"], {0: 0})
             result = ComputeResult(point=_point(exit_code=0, order_id=None))
             with self.assertRaisesRegex(EleanorError, "requires initialize\\(\\)"):
-                _ = sink.write_batch(0, [result])
+                _ = _write_batch(sink, 0, [result])
 
     def test_write_batch_success_appends_rows_converts_none_and_ticks_progress(
         self,
@@ -432,7 +443,7 @@ class TestCsvSink(TestCase):
                     iter([{"order_id": 1, "exit_code": 5}]),
                 ],
             ):
-                outcomes = sink.write_batch(0, [r0, r1], progress=progress)
+                outcomes = _write_batch(sink, 0, [r0, r1], progress=progress)
 
             self.assertEqual(len(outcomes), 2)
             self.assertTrue(all(outcome.committed for outcome in outcomes))
@@ -478,7 +489,7 @@ class TestCsvSink(TestCase):
                 return iter([{"order_id": 1, "exit_code": expected.exit_code}])
 
             with mock.patch("eleanor.output.csv.evaluate", side_effect=_fake_evaluate):
-                outcomes = sink.write_batch(0, [r0, r1])
+                outcomes = _write_batch(sink, 0, [r0, r1])
 
             self.assertEqual(len(outcomes), 2)
             self.assertTrue(all(outcome.committed for outcome in outcomes))
@@ -486,10 +497,16 @@ class TestCsvSink(TestCase):
             self.assertIs(order.vs_points, original_vs_points)
             self.assertEqual(order.vs_points, [])
 
-    def test_write_batch_failure_logs_traceback_reraises_and_keeps_zero_count_state(
+    def test_prepare_batch_failure_is_loud_and_isolated_to_its_point(
         self,
     ) -> None:
-        """Ensure evaluate failures are loud, re-raised, and preserve zero-count state for the active order."""
+        """Ensure an evaluate failure is reported per point rather than aborting.
+
+        Evaluation moved into ``prepare_batch``, which records a failure on
+        that point's prepared item instead of raising, so the rest of the
+        chunk still commits. The error is still loud on stderr, still yields a
+        non-committed outcome, and still consumes no point id.
+        """
         with tempfile.TemporaryDirectory() as tmpdir:
             filename = Path(tmpdir) / "rows.csv"
             sink = CsvSink(
@@ -508,8 +525,7 @@ class TestCsvSink(TestCase):
                 ),
                 mock.patch("eleanor.output.csv.sys.stderr", captured),
             ):
-                with self.assertRaisesRegex(RuntimeError, "boom"):
-                    _ = sink.write_batch(0, [result])
+                outcomes = _write_batch(sink, 0, [result])
 
             text = captured.getvalue()
             self.assertIn("VS point index 0", text)
@@ -517,15 +533,26 @@ class TestCsvSink(TestCase):
             self.assertIn("boom", text)
             self.assertIn("Traceback", text)
             self.assertIs(order.vs_points, original_vs_points)
+
+            self.assertEqual(len(outcomes), 1)
+            self.assertFalse(outcomes[0].committed)
+            self.assertIn("boom", outcomes[0].error_message or "")
+
             with open(_schema_path(filename)) as handle:
                 schema = yaml.safe_load(handle)
             self.assertEqual(schema["vs_points_seen"], {0: 0})
             self.assertEqual(sink.begin_run(_minimal_order()), 1)
 
-    def test_write_batch_failure_after_success_persists_progress_on_next_begin_run(
+    def test_a_failing_point_does_not_discard_its_healthy_neighbours(
         self,
     ) -> None:
-        """Ensure successful in-memory progress survives a later failure and is persisted on the next begin_run."""
+        """Ensure one bad point no longer costs the whole chunk its rows.
+
+        Previously an evaluate failure propagated out of ``write_batch``,
+        skipping the end-of-batch sidecar flush and leaving the healthy point's
+        progress only in memory. Now the failure is confined to its own
+        outcome, so the good point commits and the sidecar is flushed as usual.
+        """
         with tempfile.TemporaryDirectory() as tmpdir:
             filename = Path(tmpdir) / "rows.csv"
             sink = CsvSink(
@@ -543,19 +570,18 @@ class TestCsvSink(TestCase):
                     RuntimeError("explode"),
                 ],
             ):
-                with self.assertRaisesRegex(RuntimeError, "explode"):
-                    _ = sink.write_batch(0, [ok, bad])
+                outcomes = _write_batch(sink, 0, [ok, bad])
+
+            self.assertTrue(outcomes[0].committed)
+            self.assertFalse(outcomes[1].committed)
+            self.assertIn("explode", outcomes[1].error_message or "")
 
             with open(_schema_path(filename)) as handle:
                 schema = yaml.safe_load(handle)
-            # On-disk sidecar still shows {0: 0} because the partial failure
-            # skipped the end-of-batch flush; the in-memory count of 1 is
-            # preserved and durably written on the next begin_run.
-            self.assertEqual(schema["vs_points_seen"], {0: 0})
+            # The healthy point's progress is now durable immediately, rather
+            # than waiting for the next begin_run to flush it.
+            self.assertEqual(schema["vs_points_seen"], {0: 1})
             self.assertEqual(sink.begin_run(_minimal_order()), 1)
-            with open(_schema_path(filename)) as handle:
-                persisted = yaml.safe_load(handle)
-            self.assertEqual(persisted["vs_points_seen"], {0: 1, 1: 0})
 
     def test_csv_sink_is_importable_from_submodule(self) -> None:
         """Ensure CsvSink is accessible directly from eleanor.output.csv."""
@@ -583,7 +609,7 @@ class TestCsvSink(TestCase):
                     iter([{"order_id": 0, "exit_code": 0}]),
                 ],
             ):
-                first_outcomes = sink.write_batch(0, [r0, r1])
+                first_outcomes = _write_batch(sink, 0, [r0, r1])
 
             second_order = _minimal_order()
             _ = sink.begin_run(second_order)
@@ -592,7 +618,7 @@ class TestCsvSink(TestCase):
                 "eleanor.output.csv.evaluate",
                 side_effect=[iter([{"order_id": 1, "exit_code": 0}])],
             ):
-                second_outcomes = sink.write_batch(1, [r2])
+                second_outcomes = _write_batch(sink, 1, [r2])
 
             self.assertTrue(all(outcome.committed for outcome in first_outcomes))
             self.assertTrue(second_outcomes[0].committed)
@@ -619,7 +645,7 @@ class TestCsvSink(TestCase):
                     iter([{"order_id": 1, "exit_code": 0}]),
                 ],
             ):
-                _ = sink.write_batch(0, [r0, r1])
+                _ = _write_batch(sink, 0, [r0, r1])
 
             with open(_schema_path(filename)) as handle:
                 schema = yaml.safe_load(handle)
@@ -646,7 +672,7 @@ class TestCsvSink(TestCase):
                 "eleanor.output.csv.evaluate",
                 side_effect=[iter([{"order_id": 10, "exit_code": 0}])],
             ):
-                outcomes = sink.write_batch(10, [r0])
+                outcomes = _write_batch(sink, 10, [r0])
 
             self.assertTrue(outcomes[0].committed)
             with open(_schema_path(filename)) as handle:
@@ -723,15 +749,17 @@ class TestCsvSink(TestCase):
             _ = sink.begin_run(_minimal_order())
 
             # First result yields zero rows and does not consume the count;
-            # second result raises in evaluate.
+            # second result raises in evaluate. Neither advances the counter.
             empty = ComputeResult(point=_point(exit_code=0, order_id=None))
             bad = ComputeResult(point=_point(exit_code=0, order_id=None))
             with mock.patch(
                 "eleanor.output.csv.evaluate",
                 side_effect=[iter([]), RuntimeError("boom")],
             ):
-                with self.assertRaisesRegex(RuntimeError, "boom"):
-                    _ = sink.write_batch(0, [empty, bad])
+                outcomes = _write_batch(sink, 0, [empty, bad])
+
+            self.assertFalse(outcomes[0].committed)
+            self.assertFalse(outcomes[1].committed)
 
             with open(_schema_path(filename)) as handle:
                 schema = yaml.safe_load(handle)
@@ -755,7 +783,7 @@ class TestCsvSink(TestCase):
             )
             progress = mock.Mock()
             with mock.patch("eleanor.output.csv.evaluate") as mocked_evaluate:
-                outcomes = sink.write_batch(0, [errored], progress=progress)
+                outcomes = _write_batch(sink, 0, [errored], progress=progress)
 
             self.assertEqual(len(outcomes), 1)
             self.assertEqual(outcomes[0].exit_code, -1)
@@ -800,7 +828,7 @@ class TestCsvSink(TestCase):
                     iter([{"order_id": 1, "exit_code": 0}]),
                 ],
             ) as mocked_evaluate:
-                outcomes = sink.write_batch(0, [ok0, errored, ok1], progress=progress)
+                outcomes = _write_batch(sink, 0, [ok0, errored, ok1], progress=progress)
             self.assertEqual([o.exit_code for o in outcomes], [0, -1, 0])
             self.assertEqual([o.committed for o in outcomes], [True, False, True])
             self.assertEqual(outcomes[1].error_message, "transport failed")
@@ -839,7 +867,7 @@ class TestCsvSink(TestCase):
                     iter([{"order_id": 0, "exit_code": 0}]),
                 ],
             ):
-                outcomes = sink.write_batch(0, [empty, one_row], progress=progress)
+                outcomes = _write_batch(sink, 0, [empty, one_row], progress=progress)
             self.assertEqual([o.exit_code for o in outcomes], [0, 0])
             self.assertEqual([o.committed for o in outcomes], [False, True])
             self.assertEqual(progress.tick.call_count, 2)
@@ -866,7 +894,7 @@ class TestCsvSink(TestCase):
                     iter([{"order_id": 0, "vs_index": 42, "exit_code": 0}]),
                 ],
             ):
-                outcomes = sink.write_batch(0, [first, second])
+                outcomes = _write_batch(sink, 0, [first, second])
             self.assertTrue(all(outcome.committed for outcome in outcomes))
             with open(filename, newline="") as handle:
                 rows = list(csv.reader(handle))
@@ -918,7 +946,7 @@ class TestCsvSink(TestCase):
                 "eleanor.output.csv.evaluate",
                 side_effect=[iter([{"exit_code": 0, "scratch_zip": b"zip-bytes"}])],
             ):
-                outcomes = sink.write_batch(0, [result])
+                outcomes = _write_batch(sink, 0, [result])
 
             self.assertTrue(outcomes[0].committed)
             asset_file = Path(tmpdir) / "scratch_zip/0_0.zip"
@@ -945,7 +973,7 @@ class TestCsvSink(TestCase):
                 "eleanor.output.csv.evaluate",
                 side_effect=[iter([{"exit_code": 0, "scratch_zip": None}])],
             ):
-                outcomes = sink.write_batch(0, [result])
+                outcomes = _write_batch(sink, 0, [result])
 
             self.assertTrue(outcomes[0].committed)
             self.assertFalse(os.path.exists(f"{tmpdir}/scratch_zip/0_0.zip"))
@@ -985,7 +1013,7 @@ class TestCsvSink(TestCase):
                     iter([{"exit_code": 0, "scratch_zip": b"two"}]),
                 ],
             ):
-                outcomes = sink.write_batch(0, [first, second])
+                outcomes = _write_batch(sink, 0, [first, second])
 
             self.assertTrue(all(outcome.committed for outcome in outcomes))
             self.assertTrue(os.path.exists(f"{tmpdir}/scratch_zip/0_0.zip"))
@@ -1017,7 +1045,7 @@ class TestCsvSink(TestCase):
                     )
                 ],
             ):
-                outcomes = sink.write_batch(0, [result])
+                outcomes = _write_batch(sink, 0, [result])
 
             self.assertTrue(outcomes[0].committed)
             self.assertTrue(os.path.exists(f"{tmpdir}/scratch_zip/0_0_0.zip"))

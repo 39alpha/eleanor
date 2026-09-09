@@ -9,6 +9,18 @@ from eleanor.output.memory import MemorySink, MemorySinkSettings
 from eleanor.variable_space import Point
 
 
+
+def _write_batch(sink, order_id, results, progress=None):
+    """Drive both halves of the split write protocol, as Eleanor does.
+
+    ``prepare_batch`` runs in a worker and ``commit_batch`` in the parent, but
+    for a test the pair is one logical "write this batch", so most cases are
+    clearer expressed through this helper than by threading the prepared
+    payload by hand.
+    """
+    prepared = sink.prepare_batch(order_id, results)
+    return sink.commit_batch(order_id, prepared, progress=progress)
+
 def _order(*, order_id: int | None = None, eleanor_version: str | None = None) -> Order:
     return cast(
         Order,
@@ -30,31 +42,31 @@ def _point(*, exit_code: int = 0, order_id: int | None = None) -> Point:
 
 
 class TestMemorySink(TestCase):
-    def test_supports_worker_writes_defaults_to_false(self) -> None:
+    def test_supports_worker_commit_defaults_to_false(self) -> None:
         """Ensure MemorySink defaults to no worker-side writes when config is omitted."""
-        self.assertFalse(MemorySink().supports_worker_writes())
+        self.assertFalse(MemorySink().supports_worker_commit())
 
-    def test_supports_worker_writes_respects_config_true(self) -> None:
+    def test_supports_worker_commit_respects_config_true(self) -> None:
         """Ensure MemorySink reports worker-write support when config enables it."""
-        config = MemorySinkSettings(support_worker_writes=True)
-        self.assertTrue(MemorySink(config).supports_worker_writes())
+        config = MemorySinkSettings(support_worker_commit=True)
+        self.assertTrue(MemorySink(config).supports_worker_commit())
 
-    def test_supports_worker_writes_respects_config_false(self) -> None:
+    def test_supports_worker_commit_respects_config_false(self) -> None:
         """Ensure MemorySink denies worker-write support when config disables it."""
-        config = MemorySinkSettings(support_worker_writes=False)
-        self.assertFalse(MemorySink(config).supports_worker_writes())
+        config = MemorySinkSettings(support_worker_commit=False)
+        self.assertFalse(MemorySink(config).supports_worker_commit())
 
     def test_memory_config_rejects_non_bool(self) -> None:
-        """Ensure MemorySinkSettings raises on non-boolean support_worker_writes."""
+        """Ensure MemorySinkSettings raises on non-boolean support_worker_commit."""
         with self.assertRaisesRegex(
-            EleanorError, "support_worker_writes must be a boolean"
+            EleanorError, "support_worker_commit must be a boolean"
         ):
-            _ = MemorySinkSettings(support_worker_writes="yes")  # pyright: ignore[reportArgumentType]
+            _ = MemorySinkSettings(support_worker_commit="yes")  # pyright: ignore[reportArgumentType]
 
     def test_memory_config_from_dict_defaults(self) -> None:
-        """Ensure MemorySinkSettings.from_dict defaults support_worker_writes to False."""
+        """Ensure MemorySinkSettings.from_dict defaults support_worker_commit to False."""
         config = MemorySinkSettings.from_dict({})
-        self.assertFalse(config.support_worker_writes)
+        self.assertFalse(config.support_worker_commit)
 
     def test_supports_progress_returns_true(self) -> None:
         """Ensure MemorySink opts in to sink-side output progress ticks."""
@@ -125,7 +137,7 @@ class TestMemorySink(TestCase):
         first = _point(exit_code=0)
         second = _point(exit_code=1)
 
-        _ = sink.write_batch(
+        _ = _write_batch(sink,
             order_id,
             [ComputeResult(point=first), ComputeResult(point=second)],
         )
@@ -139,7 +151,7 @@ class TestMemorySink(TestCase):
         order_id = sink.begin_run(order)
         point = _point(exit_code=0, order_id=None)
 
-        _ = sink.write_batch(order_id, [ComputeResult(point=point)])
+        _ = _write_batch(sink, order_id, [ComputeResult(point=point)])
 
         self.assertEqual(point.order_id, order_id)
 
@@ -151,7 +163,7 @@ class TestMemorySink(TestCase):
         first = _point(exit_code=0)
         second = _point(exit_code=3)
 
-        outcomes = sink.write_batch(
+        outcomes = _write_batch(sink,
             order_id,
             [ComputeResult(point=first), ComputeResult(point=second)],
         )
@@ -174,7 +186,7 @@ class TestMemorySink(TestCase):
             type_name="RuntimeError", message="boom", traceback_text="trace"
         )
 
-        outcomes = sink.write_batch(
+        outcomes = _write_batch(sink,
             order_id,
             [ComputeResult(point=point, error=error)],
         )
@@ -196,7 +208,7 @@ class TestMemorySink(TestCase):
         point = _point(exit_code=0)
 
         with self.assertRaisesRegex(EleanorError, "called before begin_run"):
-            _ = sink.write_batch(1, [ComputeResult(point=point)])
+            _ = _write_batch(sink, 1, [ComputeResult(point=point)])
 
     def test_write_batch_empty_results_is_noop(self) -> None:
         """Ensure writing an empty batch returns no outcomes and does not mutate order points."""
@@ -204,7 +216,7 @@ class TestMemorySink(TestCase):
         order = _order()
         order_id = sink.begin_run(order)
 
-        outcomes = sink.write_batch(order_id, [])
+        outcomes = _write_batch(sink, order_id, [])
 
         self.assertEqual(outcomes, [])
         self.assertEqual(order.vs_points, [])
@@ -217,10 +229,10 @@ class TestMemorySink(TestCase):
         first_order_id = sink.begin_run(first_order)
         second_order_id = sink.begin_run(second_order)
 
-        first_outcome = sink.write_batch(
+        first_outcome = _write_batch(sink,
             first_order_id, [ComputeResult(point=_point())]
         )
-        second_outcome = sink.write_batch(
+        second_outcome = _write_batch(sink,
             second_order_id, [ComputeResult(point=_point())]
         )
         self.assertTrue(first_outcome[0].committed)
@@ -233,7 +245,7 @@ class TestMemorySink(TestCase):
         order_id = sink.begin_run(order)
         progress = mock.Mock()
 
-        _ = sink.write_batch(
+        _ = _write_batch(sink,
             order_id,
             [
                 ComputeResult(point=_point(exit_code=0)),

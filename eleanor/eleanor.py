@@ -1,5 +1,5 @@
 import sys
-from collections.abc import Callable, Generator, Iterator
+from collections.abc import Callable, Generator, Iterator, Sequence
 from contextlib import ExitStack, contextmanager
 from dataclasses import replace
 from itertools import batched, chain
@@ -18,7 +18,7 @@ from eleanor.kernel.interface import AbstractKernel
 from eleanor.navigator import AbstractNavigator, load_navigator
 from eleanor.order import Order
 from eleanor.output import load_output_sink
-from eleanor.output.interface import AbstractOutputSink, ComputeResult, RunStats, WriteOutcome
+from eleanor.output.interface import AbstractOutputSink, RunStats, WriteOutcome
 from eleanor.progress import ManagedProgressHandle, Progress, ProgressHandle
 from eleanor.runner import Runner
 from eleanor.signals import shutdown_on_signal
@@ -376,7 +376,7 @@ class Eleanor:
             # Local handles use ``ManagedProgressHandle`` rather than the worker-
             # facing ``ProgressHandle`` so the dispatch context can call ``done()``
             # at teardown.  Anywhere these are forwarded to a producer
-            # (``process()`` / ``Runner.dispatch`` / ``AbstractOutputSink.write_batch``)
+            # (``process()`` / ``Runner.dispatch`` / ``AbstractOutputSink.commit_batch``)
             # they implicitly narrow to ``ProgressHandle``, which omits ``done()``.
             sim_handle: ManagedProgressHandle | None = None
             out_handle: ManagedProgressHandle | None = None
@@ -524,9 +524,9 @@ class Eleanor:
             when the executor does not support worker-side progress, ticks
             are emitted in the parent after each future resolves.
         :param out_progress: Handle for the output bar. Passed to
-            :meth:`AbstractOutputSink.write_batch`; the sink decides its own tick
-            cadence. For worker-write sinks on executors without
-            worker-progress support, a single batch-level tick per future is
+            :meth:`AbstractOutputSink.commit_batch`; the sink decides its own
+            tick cadence. For worker-commit sinks on executors without
+            worker-progress support, a single chunk-level tick per future is
             emitted in the parent as a fallback.
         :param timings: Accumulator for the dispatch loop's wall-clock
             attribution. When omitted one is built from the ``timing``
@@ -551,7 +551,7 @@ class Eleanor:
 
         outcomes: list[WriteOutcome] = []
 
-        worker_writes = sink.supports_worker_writes()
+        worker_commit = sink.supports_worker_commit()
 
         # When the executor cannot forward a ``Manager``-backed queue into
         # its workers, we must not hand the handles to ``Runner.dispatch``;
@@ -569,20 +569,18 @@ class Eleanor:
         max_in_flight = executor.num_workers * chunks_per_worker
         chunk_size = max(1, -(-batch_size // max_in_flight))
 
-        def submit_worker_write(points: list[vs.Point]) -> AbstractFuture[list[WriteOutcome]]:
-            """Dispatch a chunk whose sink writes inside the worker.
+        def submit_worker_commit(points: list[vs.Point]) -> AbstractFuture[list[WriteOutcome]]:
+            """Dispatch a chunk whose sink also commits inside the worker.
 
-            Sinks that opt in to worker writes receive the sink and
-            ``order_id`` through to ``Runner.dispatch``, which invokes
-            ``sink.write_batch`` inside the worker. The future therefore
-            resolves to a small ``list[WriteOutcome]`` payload, avoiding the
-            IPC cost of shipping full ``ComputeResult``s (and their mapped
-            ``vs.Point`` graph) back to the parent.
+            Sinks that opt in to worker commits have both halves of the write
+            run in the worker, so the future resolves to a small
+            ``list[WriteOutcome]`` and the prepared payload never crosses the
+            process boundary at all.
 
-            ``Runner.dispatch`` has a ``list[ComputeResult] |
-            list[WriteOutcome]`` union return type, but with a sink and
-            ``order_id`` supplied it always returns ``list[WriteOutcome]``;
-            ``AbstractFuture`` is invariant, so narrow the future here.
+            ``Runner.dispatch`` has a ``Sequence[object] | list[WriteOutcome]``
+            union return type, but with ``commit=True`` it always returns
+            ``list[WriteOutcome]``; ``AbstractFuture`` is invariant, so narrow
+            the future here.
             """
             with timings.submitting():
                 return cast(
@@ -593,13 +591,14 @@ class Eleanor:
                         *args,
                         sink=sink,
                         order_id=order_id,
+                        commit=True,
                         sim_progress=worker_sim_progress,
                         out_progress=worker_out_progress,
                         **runner_kwargs,
                     ),
                 )
 
-        def consume_worker_write(
+        def consume_worker_commit(
             future: AbstractFuture[list[WriteOutcome]],
             _in_flight: int,
         ) -> None:
@@ -615,45 +614,49 @@ class Eleanor:
                 if committed:
                     out_progress.tick(committed)
 
-        def submit_compute(points: list[vs.Point]) -> AbstractFuture[list[ComputeResult]]:
-            """Dispatch a chunk whose sink is driven by the main process.
+        def submit_prepare(points: list[vs.Point]) -> AbstractFuture[Sequence[object]]:
+            """Dispatch a chunk whose sink is committed by the main process.
 
-            See ``submit_worker_write``: without a sink, ``Runner.dispatch``
-            always resolves to ``list[ComputeResult]``, so narrow the invariant
-            future the same way.
+            The worker still reduces the compute graph via
+            ``sink.prepare_batch``; only the durable commit waits for the
+            parent. See ``submit_worker_commit`` on the narrowing cast: without
+            ``commit=True``, ``Runner.dispatch`` always resolves to the
+            prepared sequence.
             """
             with timings.submitting():
                 return cast(
-                    AbstractFuture[list[ComputeResult]],
+                    AbstractFuture[Sequence[object]],
                     executor.submit(
                         Runner(kernel).dispatch,
                         points,
                         *args,
+                        sink=sink,
+                        order_id=order_id,
                         sim_progress=worker_sim_progress,
                         **runner_kwargs,
                     ),
                 )
 
-        def consume_compute(future: AbstractFuture[list[ComputeResult]], in_flight: int) -> None:
-            result = future.result()
-            if worker_sim_progress is None and sim_progress is not None and result:
-                sim_progress.tick(len(result))
-            # Stream each resolved worker chunk straight into the sink instead
-            # of accumulating all compute payloads in-memory. This reduces
-            # parent memory pressure and cuts time-to-first-write.
-            if len(result) == 0:
+        def consume_prepared(future: AbstractFuture[Sequence[object]], in_flight: int) -> None:
+            prepared = future.result()
+            if worker_sim_progress is None and sim_progress is not None and prepared:
+                sim_progress.tick(len(prepared))
+            # Commit each resolved chunk as it arrives instead of accumulating
+            # prepared payloads in-memory. This reduces parent memory pressure
+            # and cuts time-to-first-write.
+            if len(prepared) == 0:
                 return
             # The sink owns the output bar's cadence: per-row, per-chunk, or
             # anything in between. Eleanor only hands over the handle.
             #
-            # The outstanding count is handed to the timer so a write that
+            # The outstanding count is handed to the timer so a commit that
             # stalls the dispatch thread while the pool runs dry is charged as
             # starvation, not just as write time.
             with timings.writing(in_flight=in_flight, num_workers=executor.num_workers):
                 outcomes.extend(
-                    sink.write_batch(
+                    sink.commit_batch(
                         order_id,
-                        result,
+                        prepared,
                         progress=out_progress,
                     ),
                 )
@@ -686,11 +689,11 @@ class Eleanor:
                     strict=False,
                 )
 
-                if worker_writes:
+                if worker_commit:
                     total_produced = self._dispatch_window(
                         chunk_stream,
-                        submit_chunk=submit_worker_write,
-                        consume=consume_worker_write,
+                        submit_chunk=submit_worker_commit,
+                        consume=consume_worker_commit,
                         executor=executor,
                         max_in_flight=max_in_flight,
                         timings=timings,
@@ -698,8 +701,8 @@ class Eleanor:
                 else:
                     total_produced = self._dispatch_window(
                         chunk_stream,
-                        submit_chunk=submit_compute,
-                        consume=consume_compute,
+                        submit_chunk=submit_prepare,
+                        consume=consume_prepared,
                         executor=executor,
                         max_in_flight=max_in_flight,
                         timings=timings,

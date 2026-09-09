@@ -22,6 +22,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **`AbstractOutputSink.write_batch` is replaced by `prepare_batch` + `commit_batch`.**
+  `prepare_batch` always runs in a worker process, with the full compute graph available, and
+  reduces it to whatever compact payload the sink chooses; `commit_batch` durably persists that
+  payload, in the worker when `supports_worker_commit()` is `True` and in the parent otherwise.
+  Every sink must now be picklable *and* importable by name. See `docs/plugins.qmd` for the
+  migration shape.
+- **`supports_worker_writes()` is renamed `supports_worker_commit()`**, and the
+  `support_worker_writes` setting on the null and memory sinks becomes `support_worker_commit`.
+  The old name referred to a method that no longer exists; the capability itself is unchanged --
+  it now answers "may `commit_batch` run in the worker?".
+- **A failing point no longer discards its chunk.** `CsvSink` previously let a query-evaluation
+  error propagate out of `write_batch`, losing the rows of every healthy point in the same batch
+  and skipping the sidecar flush. The failure is now recorded on that point's outcome, so its
+  neighbours still commit and their progress is durable immediately.
 - **The dispatch loop now keeps a bounded window of chunks in flight instead of draining every
   navigator batch to empty before generating the next one.** Point generation, worker compute and
   output writing overlap continuously, so a small `--batch-size` no longer leaves the worker pool

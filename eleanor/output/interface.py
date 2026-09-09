@@ -51,6 +51,37 @@ class RunStats:
 
 
 class AbstractOutputSink(ABC):
+    """A destination for computed :class:`ComputeResult` payloads.
+
+    Persisting a batch is split into two halves so that the expensive,
+    pure part can run in a worker process while the durable part runs
+    wherever the storage model requires:
+
+    :meth:`prepare_batch`
+        Always runs in the worker, with the full :class:`ComputeResult`
+        graph available. Reduces that graph to the sink's own compact
+        representation.
+    :meth:`commit_batch`
+        Runs in the worker or in the parent, per :meth:`supports_worker_commit`.
+        Durably persists what :meth:`prepare_batch` produced.
+
+    A prepared payload's type is private to the sink. Eleanor never inspects
+    one, it only carries it from the worker to whichever process commits it,
+    so the plumbing types it as ``object``. The only requirements are that it
+    pickles and that it is cheaper to unpickle than the graph it came from --
+    the whole point of the split is to keep the ~100k-object compute graph
+    from crossing the process boundary. Columnar payloads (one array per
+    column) do far better here than row-oriented ones, which preserve the
+    object count.
+
+    Because ``commit_batch`` receives its parameter as ``Sequence[object]``,
+    a sink narrows it back to its own payload type there -- Python has no way
+    to express "some type the sink chose and I will hand back faithfully"
+    without resorting to ``Any``, so the narrowing is explicit and local. The
+    pairing of ``prepare_batch``'s output with ``commit_batch``'s input is
+    therefore the sink's own responsibility.
+    """
+
     def initialize(self) -> None:
         """Perform once-per-sink setup before any :meth:`begin_run` is called.
 
@@ -100,13 +131,51 @@ class AbstractOutputSink(ABC):
         ...
 
     @abstractmethod
-    def write_batch(
+    def prepare_batch(self, order_id: int, results: Sequence[ComputeResult]) -> Sequence[object]:
+        """Reduce ``results`` to this sink's compact representation.
+
+        **Always runs in a worker process**, where the full compute graph is
+        available, so this is where any expensive projection, conversion or
+        filtering belongs. Whatever is returned is what crosses the process
+        boundary, so prefer a representation that collapses the graph's object
+        count rather than merely reshaping it.
+
+        Returns exactly one prepared item per element of ``results``, in the
+        same order. That correspondence is what lets :meth:`commit_batch`
+        report ``outcomes[i]`` for ``results[i]``, and what keeps per-point
+        error isolation possible; a sink that needs to pool work across the
+        whole batch should do so in :meth:`commit_batch` instead.
+
+        The sink instance is a per-chunk copy sent into the worker, so this
+        method **must not rely on mutating sink state**: any mutation is
+        discarded when the worker's copy is dropped. Parent-side state that
+        this method needs must either cross the pickle boundary with the sink
+        or be re-derived here.
+
+        A failure that affects a single point should be recorded in that
+        point's prepared item rather than raised, so the remaining points in
+        the chunk can still commit. Raising aborts the whole chunk.
+        """
+        ...
+
+    @abstractmethod
+    def commit_batch(
         self,
         order_id: int,
-        results: Sequence[ComputeResult],
+        prepared: Sequence[object],
         progress: ProgressHandle | None = None,
     ) -> list[WriteOutcome]:
-        """Persist ``results`` for ``order_id`` and return per-point outcomes.
+        """Durably persist ``prepared`` for ``order_id``; one outcome per item.
+
+        Runs in the worker when :meth:`supports_worker_commit` is ``True``, and
+        in the parent process otherwise. Returns one :class:`WriteOutcome` per
+        element of ``prepared``, in the same order, so that ``outcomes[i]``
+        describes ``results[i]`` from the corresponding
+        :meth:`prepare_batch` call.
+
+        Whether to persist per point (isolating failures) or to pool the whole
+        batch into one statement (faster, but a single bad row fails all of
+        them) is the sink's choice; Eleanor has no opinion.
 
         When ``progress`` is supplied the sink is responsible for emitting
         ``tick`` messages whose values sum to the number of rows it durably
@@ -115,11 +184,6 @@ class AbstractOutputSink(ABC):
         call at the end. Sinks that cannot emit meaningful progress must
         return ``False`` from :meth:`supports_progress` so Eleanor never
         supplies a non-``None`` handle in the first place.
-
-        Default implementations of :meth:`OutputSink` (and older third-party
-        sinks that have not yet been updated) may ignore ``progress`` freely;
-        they will never receive a non-``None`` handle because the default
-        :meth:`supports_progress` returns ``False``.
         """
         ...
 
@@ -128,7 +192,7 @@ class AbstractOutputSink(ABC):
         """Perform per-run cleanup after a single :meth:`Eleanor.run` returns.
 
         Called once for every :meth:`Eleanor.run` invocation that uses this
-        sink, after all :meth:`begin_run` / :meth:`write_batch` calls for
+        sink, after all :meth:`begin_run` / :meth:`commit_batch` calls for
         that run have completed. Sinks may use it to flush per-run buffers,
         commit per-run state, or release per-run resources. Sink-lifetime
         resources (persistent connections, indexes dropped under bulk-load
@@ -170,27 +234,33 @@ class AbstractOutputSink(ABC):
         """Exit the sink's lifetime: calls :meth:`finalize`."""
         self.finalize()
 
-    def supports_worker_writes(self) -> bool:
-        """Whether :meth:`write_batch` is safe to invoke from worker processes.
+    def supports_worker_commit(self) -> bool:
+        """Whether :meth:`commit_batch` is safe to invoke from worker processes.
 
-        Sinks that return ``True`` must be picklable and must tolerate being
-        invoked concurrently from multiple workers against the same target.
-        :meth:`initialize`, :meth:`begin_run`, :meth:`finalize_run`, and
-        :meth:`finalize` still run only in the main process; any state they
-        establish must either cross the pickle boundary with the sink or be
-        re-discovered inside :meth:`write_batch`.
+        Sinks that return ``True`` must tolerate being invoked concurrently
+        from multiple workers against the same target, and skip the prepared
+        payload's trip back to the parent entirely -- the future resolves
+        straight to a small :class:`WriteOutcome` list.
 
-        Sinks that return ``False`` (the default) are driven by the main
-        process after workers have returned their :class:`ComputeResult`
-        payloads.
+        Sinks that return ``False`` (the default) have their
+        :meth:`commit_batch` driven by the parent, once the worker's prepared
+        payload arrives. Single-writer stores belong here.
+
+        Note this says nothing about :meth:`prepare_batch`, which always runs
+        in a worker, so **every** sink must be picklable regardless of what
+        this returns. :meth:`initialize`, :meth:`begin_run`,
+        :meth:`finalize_run` and :meth:`finalize` still run only in the main
+        process; any state they establish that :meth:`prepare_batch` needs
+        must either cross the pickle boundary with the sink or be re-derived
+        there.
         """
         return False
 
     def supports_progress(self) -> bool:
-        """Whether :meth:`write_batch` emits per-point output progress.
+        """Whether :meth:`commit_batch` emits per-point output progress.
 
         Sinks that return ``True`` accept a :class:`ProgressHandle` on
-        :meth:`write_batch` and emit ``tick`` messages that sum to the number
+        :meth:`commit_batch` and emit ``tick`` messages that sum to the number
         of rows they durably wrote. Eleanor uses this signal to decide
         whether to render the output progress bar at all: when every active
         sink returns ``False``, the output bar is never created.

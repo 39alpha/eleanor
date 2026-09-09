@@ -82,7 +82,7 @@ def _make_eleanor():
         config=Config(
             output=OutputSinkConfig(
                 kind="null",
-                settings=NullSinkSettings(support_worker_writes=False),
+                settings=NullSinkSettings(support_worker_commit=False),
             ),
         )
     )
@@ -630,8 +630,8 @@ class TestEleanorProcess(TestCase):
         sim_progress = mock.Mock()
         out_progress = mock.Mock()
         sink = mock.Mock()
-        sink.supports_worker_writes.return_value = False
-        sink.write_batch.side_effect = [
+        sink.supports_worker_commit.return_value = False
+        sink.commit_batch.side_effect = [
             [WriteOutcome(exit_code=0, committed=True)],
             [WriteOutcome(exit_code=0, committed=True)],
         ]
@@ -655,7 +655,7 @@ class TestEleanorProcess(TestCase):
         )
         self.assertEqual(executor.submit.call_count, 2)
         self.assertEqual(
-            sink.write_batch.call_args_list,
+            sink.commit_batch.call_args_list,
             [
                 mock.call(9, compute_results_a, progress=out_progress),
                 mock.call(9, compute_results_b, progress=out_progress),
@@ -682,8 +682,8 @@ class TestEleanorProcess(TestCase):
         executor.pop_completed_future = mock.Mock(side_effect=_pop_last)
 
         sink = mock.Mock()
-        sink.supports_worker_writes.return_value = False
-        sink.write_batch.side_effect = [
+        sink.supports_worker_commit.return_value = False
+        sink.commit_batch.side_effect = [
             [WriteOutcome(exit_code=0, committed=True)],
             [WriteOutcome(exit_code=0, committed=True)],
         ]
@@ -703,7 +703,7 @@ class TestEleanorProcess(TestCase):
         )
 
         self.assertEqual(
-            [call.args[1] for call in sink.write_batch.call_args_list],
+            [call.args[1] for call in sink.commit_batch.call_args_list],
             [compute_results_b, compute_results_a],
         )
 
@@ -723,7 +723,7 @@ class TestEleanorProcess(TestCase):
             submit_side_effect=[_Future(worker_outcomes), _Future([])],
         )
         sink = mock.Mock()
-        sink.supports_worker_writes.return_value = True
+        sink.supports_worker_commit.return_value = True
         sim_progress = mock.Mock()
         out_progress = mock.Mock()
 
@@ -767,7 +767,7 @@ class TestEleanorProcess(TestCase):
         executor.supports_worker_progress = False
 
         sink = mock.Mock()
-        sink.supports_worker_writes.return_value = True
+        sink.supports_worker_commit.return_value = True
         sim_progress = mock.Mock()
         out_progress = mock.Mock()
 
@@ -798,7 +798,7 @@ class TestEleanorProcess(TestCase):
         navigator = mock.Mock()
         navigator.navigate.return_value = iter([])
         sink = mock.Mock()
-        sink.supports_worker_writes.return_value = False
+        sink.supports_worker_commit.return_value = False
 
         with self.assertRaisesRegex(EleanorError, "expected 10"):
             _ = eleanor.process(
@@ -820,7 +820,7 @@ class TestEleanorProcess(TestCase):
         navigator = mock.Mock()
         navigator.navigate.return_value = iter([["a"] * 7])
         sink = mock.Mock()
-        sink.supports_worker_writes.return_value = False
+        sink.supports_worker_commit.return_value = False
         executor = _FakeExecutor(num_workers=1, submit_side_effect=[_Future([])])
 
         with self.assertRaisesRegex(EleanorError, "expected 5"):
@@ -847,7 +847,7 @@ class TestEleanorProcess(TestCase):
         executor.pop_completed_future = mock.Mock(side_effect=KeyboardInterrupt)
         shutdown = SimpleNamespace(requested=False, signal_name=None)
         sink = mock.Mock()
-        sink.supports_worker_writes.return_value = False
+        sink.supports_worker_commit.return_value = False
 
         with (
             mock.patch(
@@ -881,7 +881,7 @@ class TestEleanorProcess(TestCase):
         executor.pop_completed_future = mock.Mock(side_effect=KeyboardInterrupt)
         shutdown = SimpleNamespace(requested=True, signal_name="SIGTERM")
         sink = mock.Mock()
-        sink.supports_worker_writes.return_value = False
+        sink.supports_worker_commit.return_value = False
 
         with (
             mock.patch(
@@ -912,7 +912,7 @@ class TestEleanorProcess(TestCase):
         navigator.navigate.side_effect = KeyboardInterrupt
         shutdown = SimpleNamespace(requested=True, signal_name="SIGTERM")
         sink = mock.Mock()
-        sink.supports_worker_writes.return_value = False
+        sink.supports_worker_commit.return_value = False
 
         with (
             mock.patch(
@@ -1108,9 +1108,10 @@ class TestEleanorProcessTimings(TestCase):
     @staticmethod
     def _serial_sink() -> mock.Mock:
         sink = mock.Mock()
-        sink.supports_worker_writes.return_value = False
-        sink.write_batch.side_effect = lambda _order_id, results, **_kwargs: [
-            WriteOutcome(exit_code=0, committed=True) for _ in results
+        sink.supports_worker_commit.return_value = False
+        sink.prepare_batch.side_effect = lambda _order_id, results: results
+        sink.commit_batch.side_effect = lambda _order_id, prepared, **_kwargs: [
+            WriteOutcome(exit_code=0, committed=True) for _ in prepared
         ]
         return sink
 
@@ -1153,7 +1154,7 @@ class TestEleanorProcessTimings(TestCase):
             submit_side_effect=[_Future(outcomes), _Future(outcomes)],
         )
         sink = mock.Mock()
-        sink.supports_worker_writes.return_value = True
+        sink.supports_worker_commit.return_value = True
         timings = DispatchTimings(enabled=True)
 
         _ = eleanor.process(
@@ -1219,7 +1220,7 @@ class TestEleanorProcessTimings(TestCase):
             clock.advance(7.0)
             return [WriteOutcome(exit_code=0, committed=True) for _ in results]
 
-        sink.write_batch.side_effect = _slow_write
+        sink.commit_batch.side_effect = _slow_write
         timings = DispatchTimings(enabled=True)
 
         with mock.patch.object(timing_mod.time, "perf_counter", clock):
@@ -1440,9 +1441,10 @@ class TestEleanorDispatchWindow(TestCase):
     @staticmethod
     def _serial_sink() -> mock.Mock:
         sink = mock.Mock()
-        sink.supports_worker_writes.return_value = False
-        sink.write_batch.side_effect = lambda _order_id, results, **_kwargs: [
-            WriteOutcome(exit_code=0, committed=True) for _ in results
+        sink.supports_worker_commit.return_value = False
+        sink.prepare_batch.side_effect = lambda _order_id, results: results
+        sink.commit_batch.side_effect = lambda _order_id, prepared, **_kwargs: [
+            WriteOutcome(exit_code=0, committed=True) for _ in prepared
         ]
         return sink
 
@@ -1567,7 +1569,7 @@ class TestEleanorDispatchWindow(TestCase):
     def test_worker_write_sinks_use_the_same_window(self) -> None:
         """Ensure the window serves the worker-write mode too."""
         sink = mock.Mock()
-        sink.supports_worker_writes.return_value = True
+        sink.supports_worker_commit.return_value = True
         executor = _RecordingExecutor(
             num_workers=2,
             payload=[WriteOutcome(exit_code=0, committed=True)],
@@ -1580,7 +1582,7 @@ class TestEleanorDispatchWindow(TestCase):
             sink=sink,
         )
 
-        sink.write_batch.assert_not_called()
+        sink.commit_batch.assert_not_called()
         history = executor.outstanding_history()
         last_submit = max(i for i, (event, _) in enumerate(history) if event == "submit")
         self.assertTrue(

@@ -110,18 +110,55 @@ my_sink = "my_sink_plugin.output:my_sink_spec"
 
 `src/my_sink_plugin/output.py`:
 
+Persisting a batch is split into two halves. `prepare_batch` always runs in a
+worker process, with the whole compute graph available, and reduces it to
+whatever compact form the sink wants. `commit_batch` durably persists that
+payload -- in the worker if `supports_worker_commit()` returns `True`, in the
+parent otherwise.
+
+The point of the split is that only the prepared payload crosses the process
+boundary, never the ~100k-object compute graph. What you return from
+`prepare_batch` is private to your sink; Eleanor never inspects it, and types
+it as `object`. The two requirements are that it pickles, and that it is
+*cheaper to unpickle* than the graph. That last part is about object count
+rather than byte count, so a columnar payload (one array per column) does far
+better than a row-oriented one, which keeps the graph's object count intact.
+
+Because the sink itself is pickled into a worker once per chunk, your sink
+class must be importable by name, and `prepare_batch` must not depend on
+mutating sink state -- the worker's copy is discarded.
+
 ```python
+from collections.abc import Sequence
+from dataclasses import dataclass
+from typing import cast
+
 from eleanor.output.interface import ComputeResult, AbstractOutputSink, WriteOutcome
 from eleanor.output.settings import OutputSinkSettings
 from eleanor.plugin import ConfigurablePluginSpec
+
+
+@dataclass(slots=True, frozen=True)
+class MyPrepared:
+    exit_code: int
 
 
 class MySink(AbstractOutputSink):
     def begin_run(self, order):
         return order.id or 0
 
-    def write_batch(self, order_id, results: list[ComputeResult], progress=None) -> list[WriteOutcome]:
-        return [WriteOutcome(exit_code=r.point.exit_code, committed=True) for r in results]
+    def prepare_batch(self, order_id, results: Sequence[ComputeResult]) -> Sequence[MyPrepared]:
+        # Runs in a worker. One item per result, in order -- that pairing is
+        # what lets commit_batch report outcomes[i] for results[i]. Record a
+        # per-point failure here rather than raising, so one bad point does
+        # not cost the whole chunk.
+        return [MyPrepared(exit_code=r.point.exit_code) for r in results]
+
+    def commit_batch(self, order_id, prepared: Sequence[object], progress=None) -> list[WriteOutcome]:
+        # Narrow back to your own payload type: Python cannot express "some
+        # type the sink chose", so the cast is explicit and local.
+        items = cast(Sequence[MyPrepared], prepared)
+        return [WriteOutcome(exit_code=i.exit_code, committed=True) for i in items]
 
     def finalize_run(self) -> None:
         return None

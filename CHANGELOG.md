@@ -9,104 +9,81 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **A run can drive several output sinks at once.** `output` in a configuration file now accepts a
-  list of sink blocks as well as a single one, and every sink in it receives every computed point.
-- **`--timing` flag on `eleanor run`** reports a wall-clock attribution of the dispatch loop to
-  stderr when a run finishes.
+- **A run can drive several output sinks at once.** `output` accepts a list of sink blocks as well
+  as a single one, each with an optional `name` defaulting to its `kind`; every sink receives every
+  computed point.
+- **`--timing` flag on `eleanor run`** prints a wall-clock attribution of the dispatch loop to
+  stderr when the run finishes.
 - **`id_columns` on the `csv` sink** emits the sink's own identity columns -- `order_id` and/or
   `point_id` -- ahead of the query's columns. Identity is not part of the object graph EQL projects,
-  so it is declared in settings rather than as a query path. See the README.
+  so it is declared in settings rather than as a query path.
 
 ### Changed
 
-- **`Eleanor.run` returns `dict[str, object]`** -- each sink's allocated id, keyed by sink name --
-  rather than a single id.
+- **`Eleanor.run` returns `dict[str, object]`** -- each sink's allocated id, keyed by sink name.
 - **`Eleanor(output_sink=...)` and `Eleanor.run(output_sink=...)` accept a mapping of name to
   sink** as well as a single sink.
 - **`Config.output` is a `list[OutputSinkConfig]`**, empty rather than `None` when no sink is
   configured.
-- **`--order-id` is repeatable and takes `SINK=ID`.**
-- **Output sinks now own the run id end to end, and it need not be an integer.**
-  `begin_run` gains a keyword-only `requested_id: str | None`, carrying the raw `--order-id` token
-  for the sink to interpret in its own id space, and `Eleanor.run` gains a matching
-  `resume_id: str | None`. One contract now applies to every sink: no token allocates a fresh id, a
-  token naming a run the sink holds resumes it, and a malformed or unknown token raises
-  `EleanorError`. Previously the four sinks disagreed -- notably the PostgreSQL sink quietly
-  inserted a *new* order under a different, sequence-assigned id when the requested one matched no
-  row, silently discarding the caller's request to extend.
-- **`CsvSink` now issues UUIDs rather than `max(seen) + 1` integers**, so two runs appending to one
-  file can never collide on an id. Its `_schema.yaml` sidecar keys `vs_points_seen` and
-  `order_versions` by the string form of the id, and binary-asset filenames embed the UUID.
-- **`--order-id` is now a string** whose accepted format is the configured sink's: an integer for
-  `postgres`, `memory` and `null`, a UUID for `csv`.
-- **`AbstractOutputSink` is now generic in the type of order id it issues**, as
-  `AbstractOutputSink[IdT]`.
-- **`Eleanor.run` no longer writes the order id back onto the `Order` it was given.** The id
-  returned by `begin_run` is threaded through the dispatch loop as a parameter, which it already
-  was for `prepare_batch` / `commit_batch`. Sinks that populate `Order.id` themselves continue to
-  do so, so `--order-id` is unaffected.
-- **Serial output sinks can now commit on a dedicated writer thread**, so a sink that writes in the
-  parent no longer blocks the dispatch loop while it does.
+- **`--order-id` is repeatable and takes `SINK=ID`** when more than one is given.
+- **Output sinks own the run id, and it need not be an integer.** `begin_run` takes a keyword-only
+  `requested_id: str | None` and `Eleanor.run` a matching `resume_id: str | None`, carrying the raw
+  `--order-id` token for the sink to interpret in its own id space -- an integer for `postgres`,
+  `memory` and `null`, a UUID for `csv`. One contract now applies to every sink: no token allocates
+  a fresh id, a token naming a run the sink holds resumes it, and a malformed or unknown token
+  raises `EleanorError`. Previously the PostgreSQL sink silently inserted a *new* order when the
+  requested id matched no row.
+- **`AbstractOutputSink` is generic in the id type it issues**, as `AbstractOutputSink[IdT]`.
+- **`CsvSink` issues UUIDs rather than `max(seen) + 1` integers**, so two runs appending to one file
+  cannot collide. Its `_schema.yaml` sidecar keys `vs_points_seen` and `order_versions` by the
+  string form of the id, and binary-asset filenames embed the UUID.
 - **`AbstractOutputSink.write_batch` is replaced by `prepare_batch` + `commit_batch`.**
-  `prepare_batch` always runs in a worker process, with the full compute graph available, and
-  reduces it to whatever compact payload the sink chooses; `commit_batch` durably persists that
-  payload, in the worker when `supports_worker_commit()` is `True` and in the parent otherwise.
-  Every sink must now be picklable *and* importable by name. See `docs/plugins.qmd` for the
-  migration shape.
+  `prepare_batch` runs in a worker process, with the full compute graph available, and reduces it
+  to a compact payload; `commit_batch` durably persists that payload, in the worker when
+  `supports_worker_commit()` is `True` and in the parent otherwise. Every sink must now be picklable
+  *and* importable by name. See `docs/plugins.qmd` for the migration shape.
 - **`supports_worker_writes()` is renamed `supports_worker_commit()`**, and the
   `support_worker_writes` setting on the null and memory sinks becomes `support_worker_commit`.
-- **A failing point no longer discards its chunk.** `CsvSink` previously let a query-evaluation
-  error propagate out of `write_batch`, losing the rows of every healthy point in the same batch
-  and skipping the sidecar flush. The failure is now recorded on that point's outcome, so its
-  neighbours still commit and their progress is durable immediately.
-- **The dispatch loop now keeps a bounded window of chunks in flight instead of draining every
-  navigator batch to empty before generating the next one.** Point generation, worker compute and
-  output writing overlap continuously, so a small `--batch-size` no longer leaves the worker pool
-  idle. Chunk size is derived from `batch_size` so existing configurations get the same chunk sizes
-  they had before -- `chunks_per_worker` keeps its meaning as the in-flight depth per worker, and
-  no new settings are introduced.
+- **Sinks that commit in the parent do so on a dedicated writer thread**, so writing no longer
+  blocks the dispatch loop.
+- **The dispatch loop keeps a bounded window of chunks in flight** rather than draining each
+  navigator batch to empty before generating the next. Point generation, compute and output overlap
+  continuously, so a small `--batch-size` no longer idles the worker pool. Chunk size is still
+  derived from `batch_size` and `chunks_per_worker` keeps its meaning, so existing configurations
+  are unaffected.
 
 ### Removed
 
 - **`Order.id`.** An order describes what to compute; the identity of a *run* of it belongs to
-  whichever sink persists that run. The field was also the resume channel, which is now
-  `--order-id` / `resume_id` (above). An `id` key in an order file is **rejected** rather than
-  ignored, since silently dropping it would change an existing file's meaning. Removing the field
-  also takes it out of `Order.__eq__`, where it had made an order compare unequal to its own
-  pre-run self, and out of the `orders.raw` JSONB payload, where it was always `null` because
-  `asdict` ran before the id was assigned. No migration: `orders.id` was always the authority.
-- **`order.id` from the canonical EQL `run_metadata` preset** and from spec §10.3. Paths resolve by
-  dataclass reflection, so `order.id` no longer compiles and `{splat: order}` no longer includes
-  it. This is a breaking preset change. A consumer that wants the id in its output emits it itself
-  -- see `id_columns` above.
-- **`vs_point.@index` support in the `csv` sink**, which is now **rejected** at construction with a
-  pointer to `id_columns: [point_id]`. The sink evaluates one VS point at a time against a
-  one-element `vs_points`, so the path can only ever yield `0`; the sink used to overwrite those
-  columns with its own counter, making the emitted value disagree with the path that asked for it.
-- **`variable_space.Point.order_id`.** The field was written twice -- once at point construction
-  and again by every sink's `prepare_batch` -- and read nowhere: the PostgreSQL sink stamps the
-  `variable_space.order_id` foreign key from the `order_id` argument `commit_batch` receives, not
-  from the point. The database column and its foreign key are unchanged, so no migration is
-  needed. EQL queries selecting `vs_point.order_id`, and `{splat: vs}` projections that included
-  it, must be updated.
+  whichever sink persists that run. Resumption is now `--order-id` / `resume_id` (above). An `id`
+  key in an order file is **rejected** rather than ignored, since silently dropping it would change
+  an existing file's meaning. No migration: `orders.id` was always the authority.
+- **`order.id` from the canonical EQL `run_metadata` preset** and from spec §10.3. `order.id` no
+  longer compiles and `{splat: order}` no longer includes it. This is a breaking preset change; use
+  `id_columns` instead.
+- **`vs_point.@index` support in the `csv` sink**, now **rejected** at construction with a pointer
+  to `id_columns: [point_id]`. The sink evaluates one VS point at a time against a one-element
+  `vs_points`, so the path could only ever yield `0`.
+- **`variable_space.Point.order_id`**, written by every sink and read nowhere. The database column
+  and its foreign key are unchanged, so no migration is needed. EQL queries selecting
+  `vs_point.order_id`, and `{splat: vs}` projections that included it, must be updated.
 - **The `order_id` keyword argument to `AbstractNavigator.navigate`** and the `order_id` parameter
-  of `PointBuilder.generate_vs`. Nothing downstream of point generation needs the id any longer,
-  so a navigator no longer has to know it before it can produce points.
-- **`Eq3Settings.id` and `Eq6Settings.id`.** Both were always `None`, read nowhere, and absent from
-  `Eq36Settings.from_dict`, so no order file could set them.
+  of `PointBuilder.generate_vs`. Nothing downstream of point generation needs the id.
+- **`Eq3Settings.id` and `Eq6Settings.id`.** Both were always `None`, read nowhere, and unreachable
+  from `Eq36Settings.from_dict`.
 
 ### Fixed
 
 - **Special basis switches are now reflected in the aqueous basis species block of the EQ3 input.**
-  A `kernel.basis_map` entry was written into the `* Special basis switches` section, but the
-  `* Aqueous basis species` section still named the element's original strict basis species.
-- **The PostgreSQL connection cache is now keyed per thread**, not just per process. Since
-  `Connection.transaction()` is connection-scoped, two threads sharing one connection could
-  interleave transactions.
-- **`OutputParser3` now tolerates EQ3 output files that omit the hypothetical solid solutions and
-  fugacities sections.** These two sections are optional but always appear together, with the
-  hypothetical solid solutions preceding the fugacities. The parser now probes for the leading
-  section and skips both when it is absent, rather than raising a `PARSER_ERROR`.
+  A `kernel.basis_map` entry reached the `* Special basis switches` section, but
+  `* Aqueous basis species` still named the element's original strict basis species.
+- **A failing point no longer discards its chunk.** A query-evaluation error in `CsvSink` used to
+  propagate out, losing the rows of every healthy point in the batch and skipping the sidecar
+  flush. It is now recorded on that point's outcome.
+- **`OutputParser3` tolerates EQ3 output files that omit the hypothetical solid solutions and
+  fugacities sections.** The two are optional but always appear together, hypothetical solid
+  solutions first, so the parser probes for the leading section and skips both when it is absent
+  rather than raising a `PARSER_ERROR`.
 
 ## [v0.20.0] - 2026-07-13
 

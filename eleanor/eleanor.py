@@ -529,25 +529,26 @@ class Eleanor:
             progress: Progress | None = None
             sim_handle: ManagedProgressHandle | None = None
             out_handles: dict[str, ManagedProgressHandle] = {}
-            if show_progress:
-                run_manager = stack.enter_context(self._manager_scope())
-                bar_names = [name for name, sink in run_sinks.items() if sink.supports_progress()]
-                progress = Progress(run_manager, bar_names)
-                sim_handle = progress.sim
-                out_handles = progress.outs()
-                sim_handle.total(expected_total)
-                for handle in out_handles.values():
-                    handle.total(expected_total)
-
-            bindings = [
-                SinkBinding.bind(name, sink, sink.begin_run(order, requested_id=tokens.get(name)))
-                for name, sink in run_sinks.items()
-            ]
-            order_ids = {binding.name: binding.order_id for binding in bindings}
-
-            stats = {name: RunStats() for name in run_sinks}
 
             try:
+                if show_progress:
+                    run_manager = stack.enter_context(self._manager_scope())
+                    bar_names = [name for name, sink in run_sinks.items() if sink.supports_progress()]
+                    progress = Progress(run_manager, bar_names)
+                    sim_handle = progress.sim
+                    out_handles = progress.outs()
+                    sim_handle.total(expected_total)
+                    for handle in out_handles.values():
+                        handle.total(expected_total)
+
+                bindings = [
+                    SinkBinding.bind(name, sink, sink.begin_run(order, requested_id=tokens.get(name)))
+                    for name, sink in run_sinks.items()
+                ]
+                order_ids = {binding.name: binding.order_id for binding in bindings}
+
+                stats = {name: RunStats() for name in run_sinks}
+
                 with timings.measure():
                     outcomes = self.process(
                         order,

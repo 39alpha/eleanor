@@ -447,6 +447,49 @@ class TestEleanorRun(TestCase):
                 _make_order(), 10, kernel=kernel, navigator=_navigator(5), batch_size=0
             )
 
+    def test_a_failing_begin_run_still_stops_the_progress_listener(self) -> None:
+        """Ensure a sink refusing to start does not strand the listener process.
+
+        ``Progress`` starts a subprocess as soon as it is constructed, and it
+        was constructed before any sink's ``begin_run`` ran but torn down only
+        by a ``finally`` that began after. A sink rejecting a resume token
+        therefore left the listener alive holding a queue whose manager was
+        about to be shut down, and it died printing its own traceback over
+        the real error.
+        """
+        eleanor = _make_eleanor()
+        sim_handle = mock.Mock(name="sim_handle")
+        progress = _progress_factory(sim_handle, {"null": mock.Mock()})
+        sink = mock.Mock()
+        sink.supports_progress.return_value = True
+        sink.begin_run.side_effect = EleanorError("no order 999 to extend")
+
+        built: list[SimpleNamespace] = []
+
+        def build(manager, out_channels=()):
+            pump = progress(manager, out_channels)
+            built.append(pump)
+            return pump
+
+        with (
+            mock.patch("eleanor.eleanor.load_executor", return_value=_FakeExecutor()),
+            mock.patch("eleanor.eleanor.Manager", return_value=mock.Mock()),
+            mock.patch("eleanor.eleanor.load_output_sink", return_value=sink),
+            mock.patch("eleanor.eleanor.Progress", side_effect=build),
+            self.assertRaisesRegex(EleanorError, "no order 999 to extend"),
+        ):
+            _ = eleanor.run(
+                _make_order(),
+                3,
+                kernel=mock.MagicMock(AbstractKernel),
+                navigator=_navigator(3),
+                show_progress=True,
+                resume_id="999",
+            )
+
+        self.assertEqual(len(built), 1, "the pump must have been constructed for this to be a real test")
+        built[0].join.assert_called_once()
+
     def test_run_constructs_out_handle_only_when_sink_supports_progress(self) -> None:
         """Ensure process gets out_progress only for sinks that opt into progress."""
         eleanor = _make_eleanor()

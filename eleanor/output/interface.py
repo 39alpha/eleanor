@@ -217,6 +217,20 @@ class AbstractOutputSink[IdT](ABC):
         this method needs must either cross the pickle boundary with the sink
         or be re-derived here.
 
+        The converse deserves as much attention, because it is the one that
+        costs. *Anything a sink accumulates in* :meth:`commit_batch` *is
+        re-pickled into every chunk submitted after it*, so a sink that
+        retains per-point state makes the run pay for its own output
+        quadratically -- exactly the cost this split exists to avoid. That
+        state is also pickled on the dispatch thread while the writer thread
+        may be midway through mutating it (see
+        :meth:`supports_background_commit`), so the worker's view of it is a
+        snapshot taken at no particular moment. Keep it out of the worker
+        entirely: give the sink a ``__getstate__`` that drops whatever
+        :meth:`prepare_batch` does not read.
+        :class:`~eleanor.output.memory.MemorySink` and
+        :class:`~eleanor.output.csv.CsvSink` both do this.
+
         A failure that affects a single point should be recorded in that
         point's prepared item rather than raised, so the remaining points in
         the chunk can still commit. Raising aborts the whole chunk.

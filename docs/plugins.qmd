@@ -153,6 +153,25 @@ Because the sink itself is pickled into a worker once per chunk, your sink
 class must be importable by name, and `prepare_batch` must not depend on
 mutating sink state -- the worker's copy is discarded.
 
+The converse is the one that costs. Anything your sink accumulates in
+`commit_batch` is re-pickled into *every chunk submitted after it*, so a sink
+that retains per-point state makes the run pay for its own output
+quadratically -- exactly the cost this split exists to avoid. That state is
+also pickled on the dispatch thread while your writer thread may be midway
+through mutating it, so what the worker sees is a snapshot taken at no
+particular moment. Give your sink a `__getstate__` that drops whatever
+`prepare_batch` does not read:
+
+```python
+    def __getstate__(self) -> dict[str, object]:
+        state = dict(self.__dict__)
+        state["_committed"] = {}   # accumulated at commit time; a worker
+        return state               # neither needs it nor can keep it
+```
+
+`MemorySink` sheds its retained orders this way and `CsvSink` sheds both its
+compiled query and the order's point list.
+
 If your sink commits in the parent (`supports_worker_commit()` returns
 `False`), consider also returning `True` from `supports_background_commit()`.
 Eleanor then runs your commits on a dedicated writer thread, so the dispatch

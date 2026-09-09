@@ -1061,6 +1061,53 @@ class TestSinkPicklability(TestCase):
         sink = MemorySink(MemorySinkSettings(support_worker_commit=False))
         self._assert_prepares_after_round_trip(sink, _order_for_begin_run())
 
+    def test_memory_sink_does_not_ship_its_retained_graph_to_workers(self) -> None:
+        """Ensure committed points do not inflate the per-chunk pickle.
+
+        This sink retains the whole compute graph, and the sink is pickled
+        into a worker once per chunk, so leaving the graph in its state makes
+        a run pay for its own output quadratically.
+        """
+        sink = MemorySink(MemorySinkSettings(support_worker_commit=False))
+        order = _order_for_begin_run()
+        order_id = sink.begin_run(order)
+        empty = len(pickle.dumps(sink))
+
+        points = [_as_point(SimpleNamespace(exit_code=0, payload=bytes(f"{i:04d}", "ascii") * 200)) for i in range(200)]
+        _ = sink.commit_batch(order_id, sink.prepare_batch(order_id, [ComputeResult(point=p) for p in points]))
+
+        self.assertEqual(len(order.vs_points), 200, "the points must still be retained in the parent")
+        self.assertLessEqual(len(pickle.dumps(sink)) - empty, 64)
+
+    def test_csv_sink_does_not_ship_the_orders_points_to_workers(self) -> None:
+        """Ensure another sink's appends do not inflate this sink's pickle.
+
+        ``prepare_batch`` replaces ``vs_points`` with the single point it is
+        evaluating, so the list is dead weight -- and a ``MemorySink`` in the
+        same run appends its results to the very same ``Order``.
+        """
+        with tempfile.TemporaryDirectory() as tmpdir:
+            sink = CsvSink(
+                CsvSinkSettings(
+                    filename=Path(tmpdir) / "rows.csv",
+                    query={
+                        "row_scope": "vs_points[*]",
+                        "columns": [{"path": "vs_point.exit_code", "name": "exit_code"}],
+                    },
+                ),
+            )
+            sink.initialize()
+            order = _order_for_begin_run()
+            _ = sink.begin_run(order)
+            empty = len(pickle.dumps(sink))
+
+            order.vs_points.extend(
+                _as_point(SimpleNamespace(exit_code=0, payload=bytes(f"{i:04d}", "ascii") * 200)) for i in range(200)
+            )
+
+            self.assertLessEqual(len(pickle.dumps(sink)) - empty, 64)
+            self.assertEqual(len(order.vs_points), 200, "the live order must not be emptied")
+
     def test_csv_sink_round_trips_and_rebuilds_its_compiled_query(self) -> None:
         """``CsvSink`` drops the compiled query on pickling and re-derives it.
 

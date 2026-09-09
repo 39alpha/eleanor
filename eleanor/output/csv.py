@@ -21,12 +21,6 @@ from eleanor.query.reflection import DataclassField, LeafField
 from eleanor.typing import StrPath
 from eleanor.util import guard_is_dict, guard_is_path, is_list_of, require_dict, require_path
 
-#: Identity columns this sink can emit, and where each one's value comes from.
-#:
-#: ``order_id`` is the run id :meth:`CsvSink.begin_run` allocated; ``point_id``
-#: is the per-run VS-point counter :meth:`CsvSink.commit_batch` maintains.
-#: These are not EQL paths -- identity belongs to the sink, not to the object
-#: graph the query projects -- so they never reach ``compile_query``.
 ID_COLUMNS: frozenset[str] = frozenset({"order_id", "point_id"})
 
 
@@ -325,8 +319,6 @@ class CsvSink(AbstractOutputSink[UUID]):
             msg = f"id_columns collide with query column names: {', '.join(collisions)}"
             raise EleanorError(msg)
 
-        # Ids first: they identify the row, so they read better leftmost, and
-        # the header check in ``initialize`` pins the whole order anyway.
         self._columns = self._id_columns + query_columns
         self._order_id = None
         self._order = None
@@ -338,15 +330,12 @@ class CsvSink(AbstractOutputSink[UUID]):
 
     @override
     def __getstate__(self) -> dict[str, object]:
-        """Drop the compiled query when crossing into a worker.
-
-        ``prepare_batch`` runs in a worker, so the sink is pickled once per
-        chunk. :class:`CompiledQuery` holds reflection state that is bulky to
-        pickle and cheap to rebuild -- ``compile_query`` is memoised -- so it
-        is re-derived on first use in the worker instead.
-        """
         state: dict[str, object] = dict(self.__dict__)
         del state["_compiled"]
+        if self._order is not None:
+            order = copy.copy(self._order)
+            order.vs_points = []
+            state["_order"] = order
         return state
 
     def __setstate__(self, state: dict[str, object]) -> None:

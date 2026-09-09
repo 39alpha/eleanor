@@ -53,6 +53,13 @@ class MemorySink(AbstractOutputSink[int]):
         self._orders = {}
 
     @override
+    def __getstate__(self) -> dict[str, object]:
+        """Drop the retained orders when crossing into a worker."""
+        state: dict[str, object] = dict(self.__dict__)
+        state["_orders"] = {}
+        return state
+
+    @override
     def begin_run(self, order: Order, *, requested_id: str | None = None) -> int:
         """Register ``order`` under a fresh id, or resume one this sink holds.
 

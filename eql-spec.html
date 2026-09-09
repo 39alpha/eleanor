@@ -2,7 +2,7 @@
 <html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
 
 <meta charset="utf-8">
-<meta name="generator" content="quarto-1.9.36">
+<meta name="generator" content="quarto-1.10.18">
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
@@ -12,10 +12,13 @@
 /* Default styles provided by pandoc.
 ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
 */
-code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
-div.columns{display: flex; gap: min(4vw, 1.5em);}
-div.column{flex: auto; overflow-x: auto;}
+div.columns{display: flex; gap: 1.5em;}
+div.column{flex: auto;}
+@media screen {
+div.columns{gap: min(4vw, 1.5em);}
+div.column{overflow-x: auto;}
+}
 div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
 ul.task-list{list-style: none;}
 ul.task-list li input[type="checkbox"] {
@@ -74,14 +77,14 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <script src="site_libs/quarto-html/tippy.umd.min.js"></script>
 <script src="site_libs/quarto-html/anchor.min.js"></script>
 <link href="site_libs/quarto-html/tippy.css" rel="stylesheet">
-<link href="site_libs/quarto-html/quarto-syntax-highlighting-845c23b38eaddc0f92fda52bfe77a8c8.css" rel="stylesheet" class="quarto-color-scheme" id="quarto-text-highlighting-styles">
-<link href="site_libs/quarto-html/quarto-syntax-highlighting-dark-f418161beb48e0141c760e455f12af2c.css" rel="stylesheet" class="quarto-color-scheme quarto-color-alternate" id="quarto-text-highlighting-styles">
-<link href="site_libs/quarto-html/quarto-syntax-highlighting-845c23b38eaddc0f92fda52bfe77a8c8.css" rel="stylesheet" class="quarto-color-scheme-extra" id="quarto-text-highlighting-styles">
+<link href="site_libs/quarto-html/quarto-syntax-highlighting-64a204ab8560d761af7679ceaba22944.css" rel="stylesheet" class="quarto-color-scheme" id="quarto-text-highlighting-styles">
+<link href="site_libs/quarto-html/quarto-syntax-highlighting-dark-b85bc7c33db8c58e0ec93c3465666fed.css" rel="stylesheet" class="quarto-color-scheme quarto-color-alternate" id="quarto-text-highlighting-styles">
+<link href="site_libs/quarto-html/quarto-syntax-highlighting-64a204ab8560d761af7679ceaba22944.css" rel="stylesheet" class="quarto-color-scheme-extra" id="quarto-text-highlighting-styles">
 <script src="site_libs/bootstrap/bootstrap.min.js"></script>
 <link href="site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
-<link href="site_libs/bootstrap/bootstrap-ee198a9d2c8fbc8e67efddd2bb8a02ae.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme" id="quarto-bootstrap" data-mode="light">
-<link href="site_libs/bootstrap/bootstrap-dark-6ed89e32805696851dc309a8c46055ae.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme quarto-color-alternate" id="quarto-bootstrap" data-mode="dark">
-<link href="site_libs/bootstrap/bootstrap-ee198a9d2c8fbc8e67efddd2bb8a02ae.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme-extra" id="quarto-bootstrap" data-mode="light">
+<link href="site_libs/bootstrap/bootstrap-37d248cfadad84a146ad23bb0afae6fc.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme" id="quarto-bootstrap" data-mode="light">
+<link href="site_libs/bootstrap/bootstrap-dark-bf23c7c5c8d2ee989d4a2975cb3ccbf2.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme quarto-color-alternate" id="quarto-bootstrap" data-mode="dark">
+<link href="site_libs/bootstrap/bootstrap-37d248cfadad84a146ad23bb0afae6fc.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme-extra" id="quarto-bootstrap" data-mode="light">
 <script id="quarto-search-options" type="application/json">{
   "location": "navbar",
   "copy-button": false,
@@ -111,7 +114,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 }</script>
 
   <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
-  <script defer="" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
+  <script defer="" src="https://cdn.jsdelivr.net/npm/mathjax@4/tex-chtml.js" type="text/javascript"></script>
 
 <script type="text/javascript">
 const typesetMath = (el) => {
@@ -734,7 +737,7 @@ MissingPolicy ::= "blank" | "null" | "error"</code></pre>
 <h3 class="anchored" data-anchor-id="canonical-presets">10.3 Canonical presets</h3>
 <p>The canonical bundle defines:</p>
 <ul>
-<li><strong><code>run_metadata</code></strong> — emits leaf columns describing the source <code>Order</code>. Requires the ambient <code>order</code> alias (always present per §7). Takes no arguments. Emitted columns: <code>order.id</code>, <code>order.tags</code>, <code>order.name</code>, <code>order.creator</code>, <code>order.notes</code>, <code>order.eleanor_version</code>, <code>order.create_date</code>.</li>
+<li><strong><code>run_metadata</code></strong> — emits leaf columns describing the source <code>Order</code>. Requires the ambient <code>order</code> alias (always present per §7). Takes no arguments. Emitted columns: <code>order.tags</code>, <code>order.name</code>, <code>order.creator</code>, <code>order.notes</code>, <code>order.eleanor_version</code>, <code>order.create_date</code>. The run’s identifier is deliberately absent: it is assigned by the consumer persisting the run, in an id space of that consumer’s choosing, so it is not a field of the object tree and not addressable by a path (§4). A consumer that needs it in its output emits it itself.</li>
 <li><strong><code>es_scalars</code></strong> — emits one column per scalar leaf of the equilibrium-space row’s <code>ESPoint</code>. Requires the ambient <code>es</code> alias. Optional <code>exclude: [&lt;field&gt;, ...]</code> removes named fields from the output; optional <code>include: [&lt;field&gt;, ...]</code> restricts the output to the named fields. <code>include</code> and <code>exclude</code> are mutually exclusive. Unknown field names raise <code>SplatUnknownField</code> against the <code>es</code> alias.</li>
 <li><strong><code>aqueous_species_table</code></strong> — emits one column per <code>(name, field)</code> pair against <code>es.aqueous_species</code>. Requires the ambient <code>es</code> alias. Required <code>names: [&lt;species_name&gt;, ...]</code> and <code>fields: [&lt;aqueous_species_field&gt;, ...]</code>; both must be non-empty lists of strings. For each pair, emits a column with path <code>es.aqueous_species[name=&lt;name&gt;].&lt;field&gt;</code> and column name <code>&lt;field&gt;_&lt;name&gt;</code>. Unknown <code>fields</code> entries raise <code>ParseError</code>; the <code>names</code> list is not validated against any data-model table.</li>
 </ul>
@@ -965,12 +968,11 @@ MissingPolicy ::= "blank" | "null" | "error"</code></pre>
 <span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a><span class="fu">on_missing</span><span class="kw">:</span><span class="at"> blank</span></span>
 <span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a><span class="fu">columns</span><span class="kw">:</span></span>
 <span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> order.name</span></span>
-<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> order.id</span></span>
-<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="kw">{</span><span class="fu">splat</span><span class="kw">:</span><span class="at"> vs</span><span class="kw">,</span><span class="at"> </span><span class="fu">exclude</span><span class="kw">:</span><span class="at"> </span><span class="kw">[</span><span class="at">scratch</span><span class="kw">]}</span></span>
-<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="kw">{</span><span class="fu">splat</span><span class="kw">:</span><span class="at"> es</span><span class="kw">,</span><span class="at"> </span><span class="fu">exclude</span><span class="kw">:</span><span class="at"> </span><span class="kw">[</span><span class="at">custom_properties</span><span class="kw">]}</span></span>
-<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> es.aqueous_species[name=Ca+2].log_molality</span></span>
-<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> es.aqueous_species[name=Cl-].log_molality</span></span>
-<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> es.pure_solids[name=Calcite].affinity</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="kw">{</span><span class="fu">splat</span><span class="kw">:</span><span class="at"> vs</span><span class="kw">,</span><span class="at"> </span><span class="fu">exclude</span><span class="kw">:</span><span class="at"> </span><span class="kw">[</span><span class="at">scratch</span><span class="kw">]}</span></span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="kw">{</span><span class="fu">splat</span><span class="kw">:</span><span class="at"> es</span><span class="kw">,</span><span class="at"> </span><span class="fu">exclude</span><span class="kw">:</span><span class="at"> </span><span class="kw">[</span><span class="at">custom_properties</span><span class="kw">]}</span></span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> es.aqueous_species[name=Ca+2].log_molality</span></span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> es.aqueous_species[name=Cl-].log_molality</span></span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> es.pure_solids[name=Calcite].affinity</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </section>
 <section id="order-only-summary-single-row-per-order" class="level3">
 <h3 class="anchored" data-anchor-id="order-only-summary-single-row-per-order">17.2 Order-only summary (single-row per Order)</h3>
@@ -983,7 +985,7 @@ MissingPolicy ::= "blank" | "null" | "error"</code></pre>
 <h3 class="anchored" data-anchor-id="deep-nesting-one-row-per-equilibrium-end-member">17.3 Deep-nesting: one row per equilibrium end-member</h3>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb9"><pre class="sourceCode yaml code-with-copy"><code class="sourceCode yaml"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="fu">row_scope</span><span class="kw">:</span><span class="at"> es.solid_solutions[*].end_members[*]</span></span>
 <span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a><span class="fu">columns</span><span class="kw">:</span></span>
-<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> order.id</span></span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> order.name</span></span>
 <span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> vs.temperature</span></span>
 <span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> es.ph</span></span>
 <span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> solid_solution.name</span></span>

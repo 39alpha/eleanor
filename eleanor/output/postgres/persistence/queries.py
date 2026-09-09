@@ -58,13 +58,9 @@ SELECT_SCRATCH_ENTRY: sql.SQL = sql.SQL(
 )
 
 
-SELECT_VS_POINT_EXISTS: sql.SQL = sql.SQL("SELECT 1 FROM variable_space WHERE id = %s")
-
-
 __all__ = [
     "INSERTS",
     "INSERTS_RETURNING_ID",
     "SELECT_ORDER",
     "SELECT_SCRATCH_ENTRY",
-    "SELECT_VS_POINT_EXISTS",
 ]

@@ -10,27 +10,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - **`--timing` flag on `eleanor run`** reports a wall-clock attribution of the dispatch loop to
-  stderr when a run finishes: time spent pulling points from the navigator, submitting chunks,
-  blocked waiting for a chunk to complete, and writing through a serial output sink. The `starved`
-  figure re-classifies part of that time: it is how long fewer chunks were outstanding than there
-  are workers, so at least one worker provably had nothing to do. It is a strict lower bound on
-  worker idleness -- see `eleanor.timing` for why the parent cannot measure the rest, and for how
-  to measure it by differencing against a compute-only baseline.
-  Also available programmatically as `Eleanor.run(..., timing=True)`, and via the new
-  `eleanor.timing.DispatchTimings` accumulator, which both `Eleanor.run` and `Eleanor.process`
-  accept as `timings=` so a caller can read the measurements instead of only seeing them printed.
+  stderr when a run finishes.
 
 ### Changed
 
 - **Serial output sinks can now commit on a dedicated writer thread**, so a sink that writes in the
-  parent no longer blocks the dispatch loop while it does. Opt in by returning `True` from the new
-  `AbstractOutputSink.supports_background_commit()`; all four in-tree sinks do. Eleanor guarantees a
-  single writer thread that exclusively owns the sink for the run and is joined before
-  `finalize_run`, so a sink never sees concurrent commits and needs no locking of its own -- only
-  the thread differs from the one that ran `initialize` / `begin_run`. Return `False` for anything
-  thread-affine (a sqlite3 connection opened with `check_same_thread`, thread-local state, a C
-  library with a per-thread context). The queue is bounded at one payload per worker, so a slow
-  sink applies backpressure rather than letting prepared payloads accumulate.
+  parent no longer blocks the dispatch loop while it does.
 - **`AbstractOutputSink.write_batch` is replaced by `prepare_batch` + `commit_batch`.**
   `prepare_batch` always runs in a worker process, with the full compute graph available, and
   reduces it to whatever compact payload the sink chooses; `commit_batch` durably persists that
@@ -39,8 +24,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   migration shape.
 - **`supports_worker_writes()` is renamed `supports_worker_commit()`**, and the
   `support_worker_writes` setting on the null and memory sinks becomes `support_worker_commit`.
-  The old name referred to a method that no longer exists; the capability itself is unchanged --
-  it now answers "may `commit_batch` run in the worker?".
 - **A failing point no longer discards its chunk.** `CsvSink` previously let a query-evaluation
   error propagate out of `write_batch`, losing the rows of every healthy point in the same batch
   and skipping the sidecar flush. The failure is now recorded on that point's outcome, so its
@@ -57,13 +40,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **The PostgreSQL connection cache is now keyed per thread**, not just per process. Since
   `Connection.transaction()` is connection-scoped, two threads sharing one connection could
   interleave transactions -- one thread's savepoint rollback discarding the other's work, or its
-  `COMMIT` committing the other's in-flight rows. psycopg's internal locking makes individual
-  statements safe but provides no isolation between threads, and there is no `check_same_thread`
-  guard to trip, so the failure mode was silent data corruption. This was latent until the writer
-  thread above made a second committing thread possible. `close_connection` now reaps every
-  connection for the current process rather than only the calling thread's, so a writer's
-  connection cannot outlive `finalize`.
-
+  `COMMIT` committing the other's in-flight rows.
 - **`OutputParser3` now tolerates EQ3 output files that omit the hypothetical solid solutions and
   fugacities sections.** These two sections are optional but always appear together, with the
   hypothetical solid solutions preceding the fugacities. The parser now probes for the leading

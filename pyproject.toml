@@ -121,13 +121,17 @@ extend-select = [
   "W",
 ]
 ignore = [
+  "BLE001",  # do not catch blind exceptions
   "COM812",  # trailing commas
+  "DTZ005",  # datetime.now without tz
   "E501",    # line-length
   "PLR0912", # (TBD) too many branches
   "PLR0913", # (TBD) too many arguments
   "PLR0915", # (TBD) too many statements
+  "PLR0917", # (TBD) too many positional arguments
   "PLC0415", # import should be at top-level
   "SIM300",  # yoda conditions (sometimes they read better)
+  "TRY002",  # create your own exception
 ]
 
 [tool.ruff.format]

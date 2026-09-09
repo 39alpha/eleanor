@@ -23,7 +23,6 @@ class AbstractLatticeNavigator(AbstractNavigator, ABC):
         scale: int,
         batch_size: int,
         *args: object,
-        order_id: int | None = None,
         **kwargs: object,
     ) -> Iterator[list[vs.Point]]:
         point_builder = PointBuilder(order)
@@ -31,7 +30,7 @@ class AbstractLatticeNavigator(AbstractNavigator, ABC):
 
         iterate = cast(Callable[..., Generator[vs.Point]], self.iterate)
         for batch in batched(
-            iterate(order, point_builder, [], scale, *args, order_id=order_id, **kwargs),
+            iterate(order, point_builder, [], scale, *args, **kwargs),
             batch_size,
             strict=False,
         ):
@@ -44,7 +43,6 @@ class AbstractLatticeNavigator(AbstractNavigator, ABC):
         parameters: list[Parameter],
         scale: int,
         *args: object,
-        order_id: int | None = None,
         **kwargs: object,
     ) -> Generator[vs.Point]:
         if not parameters:
@@ -54,10 +52,10 @@ class AbstractLatticeNavigator(AbstractNavigator, ABC):
             parameter, *rest = parameters
             for value in self.generate(point_builder[parameter], scale, *args, **kwargs):
                 point_builder[parameter] = value
-                yield from self.iterate(order, point_builder, rest, scale, *args, order_id=order_id, **kwargs)
+                yield from self.iterate(order, point_builder, rest, scale, *args, **kwargs)
                 point_builder.hardset(parameter, parameter)
         else:
-            yield point_builder.generate_vs(order_id if order_id is not None else order.id)
+            yield point_builder.generate_vs()
 
     @abstractmethod
     def generate(self, parameter: Parameter, scale: int, *args: object, **kwargs: object) -> list[ValueParameter]:

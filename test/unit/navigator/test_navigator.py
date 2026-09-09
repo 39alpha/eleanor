@@ -26,7 +26,6 @@ class DummyNavigator(AbstractNavigator):
         scale: int,
         batch_size: int,
         *args: object,
-        order_id: int | None = None,
         **kwargs: object,
     ) -> Iterator[list[vs.Point]]:
         _ = args
@@ -122,18 +121,17 @@ class TestNavigator(TestCase):
             def __setitem__(self, key, value) -> None:
                 self.values[key] = value
 
-            def generate_vs(self, order_id):
-                return {"order_id": order_id, "values": self.values}
+            def generate_vs(self):
+                return {"values": self.values}
 
         with mock.patch("eleanor.navigator.random.PointBuilder", FakePointBuilder):
             nav = RandomNavigator()
             point = cast(
                 dict[str, object],
-                cast(object, nav.generate(mock.Mock(), kernel, order_id=11)),
+                cast(object, nav.generate(mock.Mock(), kernel)),
             )
 
         kernel.constrain.assert_called_once()
-        self.assertEqual(point["order_id"], 11)
         self.assertEqual(point["values"], {"p": "chosen"})
 
     def test_random_generate_wraps_errors(self) -> None:
@@ -323,18 +321,16 @@ class TestNavigator(TestCase):
                 self.hardset_calls.append((key, value))
                 self.values.pop(key, None)
 
-            def generate_vs(self, order_id):
-                return {"value": self.values.get("p"), "order_id": order_id}
+            def generate_vs(self):
+                return {"value": self.values.get("p")}
 
         nav = DummyLatticeNavigator()
         with mock.patch("eleanor.navigator.lattice.PointBuilder", FakePointBuilder):
-            batches = list(nav.navigate(mock.Mock(), kernel, 2, 1, order_id=5))
+            batches = list(nav.navigate(mock.Mock(), kernel, 2, 1))
         points = [point for batch in batches for point in batch]
 
         kernel.constrain.assert_called_once()
-        self.assertEqual(
-            points, [{"value": "v0", "order_id": 5}, {"value": "v1", "order_id": 5}]
-        )
+        self.assertEqual(points, [{"value": "v0"}, {"value": "v1"}])
         self.assertEqual([len(batch) for batch in batches], [1, 1])
 
         order = mock.Mock()

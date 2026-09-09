@@ -8,7 +8,7 @@ from eleanor.output.interface import AbstractOutputSink, ComputeResult, WriteOut
 from eleanor.output.writer import BackgroundWriter
 
 
-class _RecordingSink(AbstractOutputSink):
+class _RecordingSink(AbstractOutputSink[int]):
     """Sink that records the thread and payload of every commit."""
 
     def __init__(self, *, delay: float = 0.0, fail_on: object = None) -> None:

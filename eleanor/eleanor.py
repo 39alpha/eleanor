@@ -65,28 +65,28 @@ class Eleanor:
     # Eleanor never enters/shuts down the executor override and never
     # finalizes the output-sink override.
     _executor_override: AbstractExecutor | None
-    _output_sink_override: AbstractOutputSink | None
+    _output_sink_override: AbstractOutputSink[object] | None
 
     # Resources owned by the engine when used as a context manager.
     # ``_entered`` controls the "session vs. per-run" resource lifetime.
     _entered: bool
     _executor: AbstractExecutor | None
     _manager: SyncManager | None
-    _output_sink: AbstractOutputSink | None
+    _output_sink: AbstractOutputSink[object] | None
 
-    def __init__(
+    def __init__[IdT](
         self,
         *,
         config: Config | None = None,
         num_workers: int | None = None,
         executor: AbstractExecutor | None = None,
-        output_sink: AbstractOutputSink | None = None,
+        output_sink: AbstractOutputSink[IdT] | None = None,
     ) -> None:
         self.config = config if config is not None else Config()
         self.num_workers = num_workers
 
         self._executor_override = executor
-        self._output_sink_override = output_sink
+        self._output_sink_override = None if output_sink is None else cast("AbstractOutputSink[object]", output_sink)
         if self.config.output is None and self._output_sink_override is None:
             msg = "no output sink provided via config or keyword option"
             raise EleanorError(msg)
@@ -221,10 +221,10 @@ class Eleanor:
     @contextmanager
     def _sink_scope(
         self,
-        override: AbstractOutputSink | None,
+        override: AbstractOutputSink[object] | None,
         *,
         verbose: bool,
-    ) -> Generator[AbstractOutputSink]:
+    ) -> Generator[AbstractOutputSink[object]]:
         """Yield an :class:`AbstractOutputSink` for the duration of one :meth:`run` call.
 
         Preference order:
@@ -288,7 +288,7 @@ class Eleanor:
             finally:
                 sink.finalize()
 
-    def run(
+    def run[IdT](
         self,
         order: Order,
         simulation_size: int,
@@ -299,10 +299,10 @@ class Eleanor:
         kernel: AbstractKernel | None = None,
         kernel_args: list[object] | None = None,
         navigator: AbstractNavigator | None = None,
-        output_sink: AbstractOutputSink | None = None,
+        output_sink: AbstractOutputSink[IdT] | None = None,
         timings: DispatchTimings | None = None,
         **kwargs: Unpack[EleanorKwargs],
-    ) -> int:
+    ) -> object:
         """Dispatch ``order`` against ``simulation_size`` VS points.
         See the class docstring for the session-vs-per-run resource model.
 
@@ -340,7 +340,10 @@ class Eleanor:
                 self._executor_scope(kind=self.config.executor.kind, settings=executor_settings),
             )
             run_sink = stack.enter_context(
-                self._sink_scope(output_sink, verbose=verbose),
+                self._sink_scope(
+                    None if output_sink is None else cast("AbstractOutputSink[object]", output_sink),
+                    verbose=verbose,
+                ),
             )
             run_manager: SyncManager | None = None
             if show_progress:
@@ -393,7 +396,7 @@ class Eleanor:
                 if out_handle is not None:
                     out_handle.total(expected_total)
 
-            order.id = run_sink.begin_run(order)
+            order_id = run_sink.begin_run(order)
 
             stats = RunStats()
 
@@ -404,7 +407,7 @@ class Eleanor:
                         kernel,
                         navigator,
                         simulation_size,
-                        order.id,
+                        order_id,
                         *args,
                         batch_size=effective_batch_size,
                         max_nav_attempts=max_nav_attempts,
@@ -434,7 +437,7 @@ class Eleanor:
                 if timing:
                     print(timings.summary(), file=sys.stderr)
 
-            return order.id
+            return order_id
 
     @staticmethod
     def _dispatch_window[T](
@@ -500,20 +503,20 @@ class Eleanor:
             # the pool still has while the parent is busy consuming this one.
             consume(future, len(in_flight))
 
-    def process(
+    def process[IdT](
         self,
         order: Order,
         kernel: AbstractKernel,
         navigator: AbstractNavigator,
         simulation_size: int,
-        order_id: int,
+        order_id: IdT,
         *args: object,
         batch_size: int,
         max_nav_attempts: int = 1,
         expected_total: int,
         executor: AbstractExecutor | None = None,
         chunks_per_worker: int = 1,
-        sink: AbstractOutputSink,
+        sink: AbstractOutputSink[IdT],
         sim_progress: ProgressHandle | None = None,
         out_progress: ProgressHandle | None = None,
         timings: DispatchTimings | None = None,
@@ -574,7 +577,7 @@ class Eleanor:
         # dispatch thread, so the loop can keep collecting and submitting
         # while the sink writes. Worker-commit sinks have no dispatch-thread
         # write to move.
-        writer: BackgroundWriter | None = None
+        writer: BackgroundWriter[IdT] | None = None
         if not worker_commit and sink.supports_background_commit():
             writer = BackgroundWriter(
                 sink,
@@ -704,7 +707,6 @@ class Eleanor:
                             kernel,
                             simulation_size,
                             batch_size,
-                            order_id=order_id,
                             max_attempts=max_nav_attempts,
                         ),
                     ),

@@ -35,10 +35,8 @@ def _order(*, order_id: int | None = None, eleanor_version: str | None = None) -
     )
 
 
-def _point(*, exit_code: int = 0, order_id: int | None = None) -> Point:
-    return cast(
-        Point, cast(object, SimpleNamespace(exit_code=exit_code, order_id=order_id))
-    )
+def _point(*, exit_code: int = 0) -> Point:
+    return cast(Point, cast(object, SimpleNamespace(exit_code=exit_code)))
 
 
 class TestMemorySink(TestCase):
@@ -143,17 +141,6 @@ class TestMemorySink(TestCase):
         )
 
         self.assertEqual(order.vs_points, [first, second])
-
-    def test_write_batch_stamps_order_id_on_each_point(self) -> None:
-        """Ensure write_batch overwrites each point's order_id with the batch order id."""
-        sink = MemorySink()
-        order = _order()
-        order_id = sink.begin_run(order)
-        point = _point(exit_code=0, order_id=None)
-
-        _ = _write_batch(sink, order_id, [ComputeResult(point=point)])
-
-        self.assertEqual(point.order_id, order_id)
 
     def test_write_batch_returns_committed_outcomes(self) -> None:
         """Ensure successful writes return committed outcomes with source exit codes."""

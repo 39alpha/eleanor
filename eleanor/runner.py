@@ -24,12 +24,12 @@ class Runner:
     def __init__(self, kernel: AbstractKernel) -> None:
         self.kernel = kernel
 
-    def dispatch(
+    def dispatch[IdT](
         self,
         points: vs.Point | list[vs.Point],
         *args: object,
-        sink: AbstractOutputSink,
-        order_id: int,
+        sink: AbstractOutputSink[IdT],
+        order_id: IdT,
         commit: bool = False,
         sim_progress: ProgressHandle | None = None,
         out_progress: ProgressHandle | None = None,

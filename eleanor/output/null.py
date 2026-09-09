@@ -48,7 +48,7 @@ class NullPrepared:
     exit_code: int
 
 
-class NullSink(AbstractOutputSink):
+class NullSink(AbstractOutputSink[int]):
     settings: NullSinkSettings
     _next_order_id: int
     _order_id: int | None
@@ -74,8 +74,7 @@ class NullSink(AbstractOutputSink):
 
     @override
     def prepare_batch(self, order_id: int, results: Sequence[ComputeResult]) -> Sequence[NullPrepared]:
-        for result in results:
-            result.point.order_id = order_id
+        _ = order_id
         return [NullPrepared(exit_code=result.point.exit_code) for result in results]
 
     @override

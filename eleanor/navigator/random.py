@@ -18,7 +18,6 @@ class PointGenerator(Protocol):
         order: Order,
         kernel: AbstractKernel,
         *_args: object,
-        order_id: int | None = None,
         **kwargs: object,
     ) -> vs.Point: ...
 
@@ -32,12 +31,11 @@ class RandomNavigator(AbstractNavigator):
         scale: int,
         batch_size: int,
         *args: object,
-        order_id: int | None = None,
         **kwargs: object,
     ) -> Iterator[list[vs.Point]]:
         generate = cast(PointGenerator, self.generate)
         for batch in batched(
-            (generate(order, kernel, *args, order_id=order_id, **kwargs) for _ in range(scale)),
+            (generate(order, kernel, *args, **kwargs) for _ in range(scale)),
             batch_size,
             strict=False,
         ):
@@ -48,7 +46,6 @@ class RandomNavigator(AbstractNavigator):
         order: Order,
         kernel: AbstractKernel,
         *_args: object,
-        order_id: int | None = None,
         **kwargs: object,
     ) -> vs.Point:
         max_attempts: object = kwargs.get("max_attempts", 1)
@@ -71,7 +68,7 @@ class RandomNavigator(AbstractNavigator):
                         point_builder[parameter] = point_builder[parameter].random()[0]
                     parameters = point_builder.constrain()
 
-                return point_builder.generate_vs(order_id if order_id is not None else order.id)
+                return point_builder.generate_vs()
             except Exception as e:
                 last_exception = e
                 max_attempts -= 1

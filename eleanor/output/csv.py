@@ -244,7 +244,7 @@ class CsvPrepared:
     error: str | None = None
 
 
-class CsvSink(AbstractOutputSink):
+class CsvSink(AbstractOutputSink[int]):
     settings: CsvSinkSettings
     _compiled: CompiledQuery
     _columns: list[str]

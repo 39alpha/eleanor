@@ -17,7 +17,6 @@ class AbstractNavigator(ABC):
         scale: int,
         batch_size: int,
         *args: object,
-        order_id: int | None = None,
         **kwargs: object,
     ) -> Iterator[list[vs.Point]]:
         pass

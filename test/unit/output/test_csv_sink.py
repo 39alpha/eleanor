@@ -115,10 +115,8 @@ def _query_with_vs_index_column() -> dict[str, object]:
     }
 
 
-def _point(*, exit_code: int = 0, order_id: int | None = None) -> Point:
-    return cast(
-        Point, cast(object, SimpleNamespace(exit_code=exit_code, order_id=order_id))
-    )
+def _point(*, exit_code: int = 0) -> Point:
+    return cast(Point, cast(object, SimpleNamespace(exit_code=exit_code)))
 
 
 class TestCsvSink(TestCase):
@@ -410,7 +408,7 @@ class TestCsvSink(TestCase):
             with open(_schema_path(filename)) as handle:
                 schema = yaml.safe_load(handle)
             self.assertEqual(schema["vs_points_seen"], {0: 0})
-            result = ComputeResult(point=_point(exit_code=0, order_id=None))
+            result = ComputeResult(point=_point(exit_code=0))
             with self.assertRaisesRegex(EleanorError, "requires initialize\\(\\)"):
                 _ = _write_batch(sink, 0, [result])
 
@@ -428,8 +426,8 @@ class TestCsvSink(TestCase):
             _ = sink.begin_run(order)
             original_vs_points = order.vs_points
 
-            r0 = ComputeResult(point=_point(exit_code=0, order_id=None))
-            r1 = ComputeResult(point=_point(exit_code=5, order_id=None))
+            r0 = ComputeResult(point=_point(exit_code=0))
+            r1 = ComputeResult(point=_point(exit_code=5))
             progress = mock.Mock()
             with mock.patch(
                 "eleanor.output.csv.evaluate",
@@ -474,8 +472,8 @@ class TestCsvSink(TestCase):
             _ = sink.begin_run(order)
             original_vs_points = order.vs_points
 
-            r0 = ComputeResult(point=_point(exit_code=0, order_id=None))
-            r1 = ComputeResult(point=_point(exit_code=5, order_id=None))
+            r0 = ComputeResult(point=_point(exit_code=0))
+            r1 = ComputeResult(point=_point(exit_code=5))
             expected_points = [r0.point, r1.point]
             seen_roots: list[Order] = []
 
@@ -517,7 +515,7 @@ class TestCsvSink(TestCase):
             _ = sink.begin_run(order)
             original_vs_points = order.vs_points
 
-            result = ComputeResult(point=_point(exit_code=3, order_id=None))
+            result = ComputeResult(point=_point(exit_code=3))
             captured = io.StringIO()
             with (
                 mock.patch(
@@ -561,8 +559,8 @@ class TestCsvSink(TestCase):
             sink.initialize()
             _ = sink.begin_run(_minimal_order())
 
-            ok = ComputeResult(point=_point(exit_code=0, order_id=None))
-            bad = ComputeResult(point=_point(exit_code=9, order_id=None))
+            ok = ComputeResult(point=_point(exit_code=0))
+            bad = ComputeResult(point=_point(exit_code=9))
             with mock.patch(
                 "eleanor.output.csv.evaluate",
                 side_effect=[
@@ -600,8 +598,8 @@ class TestCsvSink(TestCase):
 
             first_order = _minimal_order()
             _ = sink.begin_run(first_order)
-            r0 = ComputeResult(point=_point(exit_code=0, order_id=None))
-            r1 = ComputeResult(point=_point(exit_code=0, order_id=None))
+            r0 = ComputeResult(point=_point(exit_code=0))
+            r1 = ComputeResult(point=_point(exit_code=0))
             with mock.patch(
                 "eleanor.output.csv.evaluate",
                 side_effect=[
@@ -613,7 +611,7 @@ class TestCsvSink(TestCase):
 
             second_order = _minimal_order()
             _ = sink.begin_run(second_order)
-            r2 = ComputeResult(point=_point(exit_code=0, order_id=None))
+            r2 = ComputeResult(point=_point(exit_code=0))
             with mock.patch(
                 "eleanor.output.csv.evaluate",
                 side_effect=[iter([{"order_id": 1, "exit_code": 0}])],
@@ -636,8 +634,8 @@ class TestCsvSink(TestCase):
             sink.initialize()
             _ = sink.begin_run(_minimal_order())
 
-            r0 = ComputeResult(point=_point(exit_code=0, order_id=None))
-            r1 = ComputeResult(point=_point(exit_code=0, order_id=None))
+            r0 = ComputeResult(point=_point(exit_code=0))
+            r1 = ComputeResult(point=_point(exit_code=0))
             with mock.patch(
                 "eleanor.output.csv.evaluate",
                 side_effect=[
@@ -667,7 +665,7 @@ class TestCsvSink(TestCase):
             order.id = 10
             _ = sink.begin_run(order)
 
-            r0 = ComputeResult(point=_point(exit_code=0, order_id=None))
+            r0 = ComputeResult(point=_point(exit_code=0))
             with mock.patch(
                 "eleanor.output.csv.evaluate",
                 side_effect=[iter([{"order_id": 10, "exit_code": 0}])],
@@ -750,8 +748,8 @@ class TestCsvSink(TestCase):
 
             # First result yields zero rows and does not consume the count;
             # second result raises in evaluate. Neither advances the counter.
-            empty = ComputeResult(point=_point(exit_code=0, order_id=None))
-            bad = ComputeResult(point=_point(exit_code=0, order_id=None))
+            empty = ComputeResult(point=_point(exit_code=0))
+            bad = ComputeResult(point=_point(exit_code=0))
             with mock.patch(
                 "eleanor.output.csv.evaluate",
                 side_effect=[iter([]), RuntimeError("boom")],
@@ -776,7 +774,7 @@ class TestCsvSink(TestCase):
             _ = sink.begin_run(_minimal_order())
 
             errored = ComputeResult(
-                point=_point(exit_code=0, order_id=None),
+                point=_point(exit_code=0),
                 error=ErrorInfo(
                     type_name="RuntimeError", message="worker died", traceback_text="tb"
                 ),
@@ -811,14 +809,14 @@ class TestCsvSink(TestCase):
             sink.initialize()
             _ = sink.begin_run(_minimal_order())
 
-            ok0 = ComputeResult(point=_point(exit_code=0, order_id=None))
+            ok0 = ComputeResult(point=_point(exit_code=0))
             errored = ComputeResult(
-                point=_point(exit_code=0, order_id=None),
+                point=_point(exit_code=0),
                 error=ErrorInfo(
                     type_name="OSError", message="transport failed", traceback_text="tb"
                 ),
             )
-            ok1 = ComputeResult(point=_point(exit_code=0, order_id=None))
+            ok1 = ComputeResult(point=_point(exit_code=0))
             progress = mock.Mock()
             # ``evaluate`` is only invoked for the two healthy results.
             with mock.patch(
@@ -857,8 +855,8 @@ class TestCsvSink(TestCase):
             sink.initialize()
             _ = sink.begin_run(_minimal_order())
 
-            empty = ComputeResult(point=_point(exit_code=0, order_id=None))
-            one_row = ComputeResult(point=_point(exit_code=0, order_id=None))
+            empty = ComputeResult(point=_point(exit_code=0))
+            one_row = ComputeResult(point=_point(exit_code=0))
             progress = mock.Mock()
             with mock.patch(
                 "eleanor.output.csv.evaluate",
@@ -885,8 +883,8 @@ class TestCsvSink(TestCase):
             sink.initialize()
             _ = sink.begin_run(_minimal_order())
 
-            first = ComputeResult(point=_point(exit_code=0, order_id=None))
-            second = ComputeResult(point=_point(exit_code=0, order_id=None))
+            first = ComputeResult(point=_point(exit_code=0))
+            second = ComputeResult(point=_point(exit_code=0))
             with mock.patch(
                 "eleanor.output.csv.evaluate",
                 side_effect=[
@@ -941,7 +939,7 @@ class TestCsvSink(TestCase):
             sink.initialize()
             _ = sink.begin_run(_minimal_order())
 
-            result = ComputeResult(point=_point(exit_code=0, order_id=None))
+            result = ComputeResult(point=_point(exit_code=0))
             with mock.patch(
                 "eleanor.output.csv.evaluate",
                 side_effect=[iter([{"exit_code": 0, "scratch_zip": b"zip-bytes"}])],
@@ -968,7 +966,7 @@ class TestCsvSink(TestCase):
             sink.initialize()
             _ = sink.begin_run(_minimal_order())
 
-            result = ComputeResult(point=_point(exit_code=0, order_id=None))
+            result = ComputeResult(point=_point(exit_code=0))
             with mock.patch(
                 "eleanor.output.csv.evaluate",
                 side_effect=[iter([{"exit_code": 0, "scratch_zip": None}])],
@@ -1004,8 +1002,8 @@ class TestCsvSink(TestCase):
             sink.initialize()
             _ = sink.begin_run(_minimal_order())
 
-            first = ComputeResult(point=_point(exit_code=0, order_id=None))
-            second = ComputeResult(point=_point(exit_code=0, order_id=None))
+            first = ComputeResult(point=_point(exit_code=0))
+            second = ComputeResult(point=_point(exit_code=0))
             with mock.patch(
                 "eleanor.output.csv.evaluate",
                 side_effect=[
@@ -1033,7 +1031,7 @@ class TestCsvSink(TestCase):
             sink.initialize()
             _ = sink.begin_run(_minimal_order())
 
-            result = ComputeResult(point=_point(exit_code=0, order_id=None))
+            result = ComputeResult(point=_point(exit_code=0))
             with mock.patch(
                 "eleanor.output.csv.evaluate",
                 side_effect=[

@@ -77,7 +77,7 @@ class TestOutput(TestCase):
         opt out of worker-side writes by default.
         """
 
-        class MinimalSink(AbstractOutputSink):
+        class MinimalSink(AbstractOutputSink[int]):
             @override
             def begin_run(self, order: Order) -> int:
                 _ = order
@@ -109,7 +109,7 @@ class TestOutput(TestCase):
         from silent breakage when the progress protocol evolves.
         """
 
-        class MinimalSink(AbstractOutputSink):
+        class MinimalSink(AbstractOutputSink[int]):
             @override
             def begin_run(self, order: Order) -> int:
                 _ = order
@@ -142,7 +142,7 @@ class TestOutput(TestCase):
 
         calls: list[str] = []
 
-        class RecordingSink(AbstractOutputSink):
+        class RecordingSink(AbstractOutputSink[int]):
             @override
             def initialize(self) -> None:
                 calls.append("initialize")
@@ -544,8 +544,8 @@ class TestOutput(TestCase):
         )
         sink = PostgresSink(settings)
 
-        good_point = SimpleNamespace(exit_code=0, order_id=None)
-        bad_point = SimpleNamespace(exit_code=0, order_id=None)
+        good_point = SimpleNamespace(exit_code=0)
+        bad_point = SimpleNamespace(exit_code=0)
         results = [
             ComputeResult(point=_as_point(good_point)),
             ComputeResult(point=_as_point(bad_point)),
@@ -600,9 +600,9 @@ class TestOutput(TestCase):
         )
         sink = PostgresSink(settings)
 
-        good_a = SimpleNamespace(exit_code=0, order_id=None)
-        bad = SimpleNamespace(exit_code=0, order_id=None)
-        good_b = SimpleNamespace(exit_code=0, order_id=None)
+        good_a = SimpleNamespace(exit_code=0)
+        bad = SimpleNamespace(exit_code=0)
+        good_b = SimpleNamespace(exit_code=0)
         results = [
             ComputeResult(point=_as_point(good_a)),
             ComputeResult(point=_as_point(bad)),
@@ -650,7 +650,7 @@ class TestOutput(TestCase):
         )
         sink = PostgresSink(settings)
 
-        point = SimpleNamespace(exit_code=0, order_id=None)
+        point = SimpleNamespace(exit_code=0)
         results = [ComputeResult(point=_as_point(point))]
 
         fake_conn = mock.MagicMock()
@@ -763,12 +763,13 @@ class TestOutput(TestCase):
         self.assertEqual(outcomes, [])
         insert_point.assert_not_called()
 
-    def test_write_batch_mutates_point_order_id(self) -> None:
+    def test_write_batch_passes_order_id_to_insert_point(self) -> None:
         """
-        Ensure ``write_batch`` stamps ``order_id`` on every result's point
-        before persistence. The docstring documents this as a deliberate
-        side effect so downstream code can read ``point.order_id`` without
-        consulting the batch context.
+        Ensure the ``variable_space.order_id`` foreign key comes from the
+        ``order_id`` the sink was called with, not from any field on the
+        point. The point graph carries no order id at all, so the batch
+        context is the only source, and every point in the batch must get
+        the same one.
         """
         settings = PostgresSinkSettings(
             database=PostgresDatabaseSettings(
@@ -777,11 +778,9 @@ class TestOutput(TestCase):
         )
         sink = PostgresSink(settings)
 
-        point_a = SimpleNamespace(exit_code=0, order_id=None)
-        point_b = SimpleNamespace(exit_code=0, order_id=99)
         results = [
-            ComputeResult(point=_as_point(point_a)),
-            ComputeResult(point=_as_point(point_b)),
+            ComputeResult(point=_as_point(SimpleNamespace(exit_code=0))),
+            ComputeResult(point=_as_point(SimpleNamespace(exit_code=0))),
         ]
 
         fake_conn = mock.MagicMock()
@@ -795,14 +794,13 @@ class TestOutput(TestCase):
             mock.patch(
                 "eleanor.output.postgres.sink.repositories.insert_point",
                 return_value=1,
-            ),
+            ) as insert_point,
         ):
             _ = _write_batch(sink, 42, results)
 
-        self.assertEqual(point_a.order_id, 42)
-        # Pre-existing ``order_id`` is overwritten -- the contract is
-        # "sink owns this field for the lifetime of the batch".
-        self.assertEqual(point_b.order_id, 42)
+        self.assertEqual(insert_point.call_count, 2)
+        # insert_point(conn, order_id, point, error, settings)
+        self.assertEqual([call.args[1] for call in insert_point.call_args_list], [42, 42])
 
     def test_write_batch_logs_per_point_failure_to_stderr_with_traceback(self) -> None:
         """
@@ -819,8 +817,8 @@ class TestOutput(TestCase):
         )
         sink = PostgresSink(settings)
 
-        good = SimpleNamespace(exit_code=0, order_id=None)
-        bad = SimpleNamespace(exit_code=0, order_id=None)
+        good = SimpleNamespace(exit_code=0)
+        bad = SimpleNamespace(exit_code=0)
         results = [
             ComputeResult(point=_as_point(good)),
             ComputeResult(point=_as_point(bad)),
@@ -881,9 +879,9 @@ class TestOutput(TestCase):
         )
         sink = PostgresSink(settings)
 
-        good_a = SimpleNamespace(exit_code=0, order_id=None)
-        bad = SimpleNamespace(exit_code=0, order_id=None)
-        good_b = SimpleNamespace(exit_code=1, order_id=None)
+        good_a = SimpleNamespace(exit_code=0)
+        bad = SimpleNamespace(exit_code=0)
+        good_b = SimpleNamespace(exit_code=1)
         results = [
             ComputeResult(point=_as_point(good_a)),
             ComputeResult(point=_as_point(bad)),
@@ -972,14 +970,14 @@ class TestSinkPicklability(TestCase):
     """
 
     @staticmethod
-    def _round_trip(sink: AbstractOutputSink) -> AbstractOutputSink:
-        return cast(AbstractOutputSink, pickle.loads(pickle.dumps(sink)))
+    def _round_trip(sink: AbstractOutputSink[int]) -> AbstractOutputSink[int]:
+        return cast(AbstractOutputSink[int], pickle.loads(pickle.dumps(sink)))
 
-    def _assert_prepares_after_round_trip(self, sink: AbstractOutputSink, order: Order) -> None:
+    def _assert_prepares_after_round_trip(self, sink: AbstractOutputSink[int], order: Order) -> None:
         """A pickled sink must still be able to prepare a batch."""
         order_id = sink.begin_run(order)
         clone = self._round_trip(sink)
-        results = [ComputeResult(point=_as_point(SimpleNamespace(exit_code=0, order_id=None)))]
+        results = [ComputeResult(point=_as_point(SimpleNamespace(exit_code=0)))]
 
         prepared = clone.prepare_batch(order_id, results)
 
@@ -1027,7 +1025,7 @@ class TestSinkPicklability(TestCase):
         # No begin_run here: that would touch a database. Preparing needs only
         # the settings, which is the point -- prepare must not depend on
         # parent-side connection state.
-        prepared = clone.prepare_batch(7, [ComputeResult(point=_as_point(SimpleNamespace(exit_code=0, order_id=None)))])
+        prepared = clone.prepare_batch(7, [ComputeResult(point=_as_point(SimpleNamespace(exit_code=0)))])
         self.assertEqual(len(prepared), 1)
 
     def test_a_sink_class_defined_at_runtime_cannot_reach_a_worker(self) -> None:
@@ -1086,7 +1084,7 @@ class TestBackgroundCommitOptIn(TestCase):
     def test_the_default_is_to_opt_out(self) -> None:
         """Third-party sinks must not be enrolled without measuring."""
 
-        class MinimalSink(AbstractOutputSink):
+        class MinimalSink(AbstractOutputSink[int]):
             @override
             def begin_run(self, order: Order) -> int:
                 _ = order

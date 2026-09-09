@@ -131,7 +131,6 @@ class Point:
     special_reactants: list[SpecialReactant]
     fixed_gas_reactants: list[FixedGasReactant]
     solid_solution_reactants: list[SolidSolutionReactant]
-    order_id: int | None = None
     es_points: list[es.Point] = field(default_factory=list)
     scratch: Scratch | None = None
     exit_code: int = 0

@@ -98,7 +98,7 @@ class PointBuilder:
 
         return fully_constrained
 
-    def generate_vs(self, order_id: int | None = None) -> vs.Point:
+    def generate_vs(self) -> vs.Point:
         try:
             valuation: dict[int, ValueParameter] = {}
             for parameter_id, refined in self.valuations.items():
@@ -300,7 +300,6 @@ class PointBuilder:
                         raise Exception(msg)
 
             return vs.Point(
-                order_id=order_id,
                 kernel=deepcopy(self.order.kernel),
                 water_mass=valuation[self.registry.id(self.order.water_mass)].value,
                 temperature=valuation[self.registry.id(self.order.temperature)].value,

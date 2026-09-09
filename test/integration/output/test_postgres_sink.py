@@ -20,7 +20,8 @@ Layered coverage:
   ``_bulk_insert_returning_ids``, and the binary-COPY route in
   ``_bulk_insert``.
 * :class:`TestPostgresSinkWriteBatchIntegration` -- end-to-end through
-  :class:`PostgresSink.write_batch`, including per-VS-point savepoint
+  :class:`PostgresSink.prepare_batch` / :class:`PostgresSink.commit_batch`,
+  including per-VS-point savepoint
   isolation against an actual constraint violation.
 * :class:`TestStatementProfilerIntegration` -- a real-PG smoke for
   :class:`StatementProfiler` confirming both INSERT and COPY traffic
@@ -45,7 +46,7 @@ from eleanor.config.kernel import KernelConfig
 from eleanor.kernel.exceptions import EleanorKernelError
 from eleanor.kernel.settings import KernelSettings
 from eleanor.order import Order
-from eleanor.output.interface import ComputeResult
+from eleanor.output.interface import ComputeResult, WriteOutcome
 from eleanor.output.postgres.persistence import connection, repositories, schema
 from eleanor.output.postgres.persistence.converters import OrderRecord
 from eleanor.output.postgres.settings import (
@@ -76,6 +77,21 @@ def _config_from_env() -> PostgresDatabaseSettings | None:
         username=parsed.username,
         password=parsed.password,
     )
+
+
+def _write_batch(
+    sink: PostgresSink,
+    order_id: int,
+    results: list[ComputeResult],
+) -> list[WriteOutcome]:
+    """Drive both halves of the split write protocol, as Eleanor does.
+
+    ``prepare_batch`` runs in a worker and ``commit_batch`` persists what it
+    produced; the pairing is positional, so driving them together here is what
+    the dispatch loop does for real.
+    """
+    prepared = sink.prepare_batch(order_id, results)
+    return sink.commit_batch(order_id, prepared)
 
 
 @dataclass(init=False)
@@ -912,7 +928,7 @@ class TestRepositoriesIntegration(_RealPostgresTestCase):
 
 
 class TestPostgresSinkWriteBatchIntegration(_RealPostgresTestCase):
-    """End-to-end coverage of :class:`PostgresSink.write_batch`."""
+    """End-to-end coverage of the sink's prepare + commit write path."""
 
     def test_write_batch_commits_all_rows_when_every_point_succeeds(self) -> None:
         """
@@ -928,7 +944,7 @@ class TestPostgresSinkWriteBatchIntegration(_RealPostgresTestCase):
         point_b = _make_vs_point(water_mass=np.float64(2.0))
         results = [ComputeResult(point=point_a), ComputeResult(point=point_b)]
 
-        outcomes = sink.write_batch(order_id=order_id, results=results)
+        outcomes = _write_batch(sink, order_id, results)
 
         self.assertEqual(len(outcomes), 2)
         for outcome in outcomes:
@@ -966,7 +982,7 @@ class TestPostgresSinkWriteBatchIntegration(_RealPostgresTestCase):
         bad.water_mass = None  # pyright: ignore[reportAttributeAccessIssue]
 
         results = [ComputeResult(point=good), ComputeResult(point=bad)]
-        outcomes = sink.write_batch(order_id=order_id, results=results)
+        outcomes = _write_batch(sink, order_id, results)
 
         self.assertEqual(len(outcomes), 2)
         self.assertTrue(outcomes[0].committed)
@@ -995,7 +1011,7 @@ class TestStatementProfilerIntegration(_RealPostgresTestCase):
 
     def test_profiler_counts_inserts_and_copies_during_write_batch(self) -> None:
         """
-        Ensure a profiled ``write_batch`` with > 1000 aqueous species per
+        Ensure a profiled prepare + commit with > 1000 aqueous species per
         ES point shows up in the per-table report with the COPY-driven
         leaf row count, and that no profiler-bucketed statement leaks
         into ``other_statements`` as a literal ``COPY`` keyword.
@@ -1030,10 +1046,7 @@ class TestStatementProfilerIntegration(_RealPostgresTestCase):
         ]
 
         with StatementProfiler() as prof:
-            outcomes = sink.write_batch(
-                order_id=order_id,
-                results=[ComputeResult(point=point)],
-            )
+            outcomes = _write_batch(sink, order_id, [ComputeResult(point=point)])
 
         self.assertEqual(len(outcomes), 1)
         self.assertTrue(outcomes[0].committed)

@@ -865,9 +865,8 @@ class TestConstraints(TestCase):
         )
         point_builder = PointBuilder(_as_order(order))
 
-        point = point_builder.generate_vs(order_id=42)
+        point = point_builder.generate_vs()
 
-        self.assertEqual(point.order_id, 42)
         self.assertEqual(len(point.elements), 2)
         self.assertEqual(len(point.species), 1)
         self.assertEqual(len(point.suppressions), 1)

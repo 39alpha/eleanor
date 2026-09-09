@@ -28,10 +28,8 @@ def _order(*, order_id: int | None = None, eleanor_version: str | None = None) -
     )
 
 
-def _point(*, exit_code: int = 0, order_id: int | None = None) -> Point:
-    return cast(
-        Point, cast(object, SimpleNamespace(exit_code=exit_code, order_id=order_id))
-    )
+def _point(*, exit_code: int = 0) -> Point:
+    return cast(Point, cast(object, SimpleNamespace(exit_code=exit_code)))
 
 
 class TestNullSink(TestCase):
@@ -124,12 +122,12 @@ class TestNullSink(TestCase):
         with self.assertRaisesRegex(EleanorError, "called before begin_run"):
             _ = _write_batch(sink, wrong_order_id, [ComputeResult(point=_point())])  # type: ignore[arg-type]
 
-    def test_write_batch_returns_committed_outcomes_and_stamps_points(self) -> None:
-        """Ensure write_batch marks outcomes committed and overwrites each point's order_id."""
+    def test_write_batch_returns_committed_outcomes(self) -> None:
+        """Ensure write_batch marks every outcome committed with its source exit code."""
         sink = NullSink(NullSinkSettings(support_worker_commit=False))
         order_id = sink.begin_run(_order())  # type: ignore[arg-type]
-        first = _point(exit_code=0, order_id=None)
-        second = _point(exit_code=3, order_id=999)
+        first = _point(exit_code=0)
+        second = _point(exit_code=3)
 
         outcomes = _write_batch(sink,
             order_id,
@@ -143,8 +141,6 @@ class TestNullSink(TestCase):
                 WriteOutcome(exit_code=3, committed=True),
             ],
         )
-        self.assertEqual(first.order_id, order_id)
-        self.assertEqual(second.order_id, order_id)
 
     def test_write_batch_commits_results_across_orders(self) -> None:
         """Ensure NullSink reports committed outcomes across multiple runs."""

@@ -34,7 +34,7 @@ resources, short enough that a wedged sink cannot hang an interrupt.
 """
 
 
-class BackgroundWriter:
+class BackgroundWriter[IdT]:
     """Runs a sink's ``commit_batch`` calls on a dedicated thread.
 
     Owns the sink exclusively for the lifetime of one run: the sink is only
@@ -64,8 +64,8 @@ class BackgroundWriter:
         manager-backed queue.
     """
 
-    _sink: AbstractOutputSink
-    _order_id: int
+    _sink: AbstractOutputSink[IdT]
+    _order_id: IdT
     _progress: ProgressHandle | None
     _queue: queue.Queue[Sequence[object] | None]
     _thread: threading.Thread | None
@@ -74,8 +74,8 @@ class BackgroundWriter:
 
     def __init__(
         self,
-        sink: AbstractOutputSink,
-        order_id: int,
+        sink: AbstractOutputSink[IdT],
+        order_id: IdT,
         *,
         depth: int,
         progress: ProgressHandle | None = None,

@@ -50,7 +50,7 @@ class RunStats:
         self.failed += len(outcomes) - n
 
 
-class AbstractOutputSink(ABC):
+class AbstractOutputSink[IdT](ABC):
     """A destination for computed :class:`ComputeResult` payloads.
 
     Persisting a batch is split into two halves so that the expensive,
@@ -102,21 +102,21 @@ class AbstractOutputSink(ABC):
                 eleanor.run(..., output_sink=sink)
 
         :meth:`initialize` and :meth:`finalize` bracket the sink's
-        lifetime; :meth:`begin_run` / :meth:`write_batch` /
-        :meth:`finalize_run` bracket each individual run within that
-        lifetime.
+        lifetime; :meth:`begin_run` / :meth:`prepare_batch` /
+        :meth:`commit_batch` / :meth:`finalize_run` bracket each individual
+        run within that lifetime.
         """
         return
 
     @abstractmethod
-    def begin_run(self, order: Order) -> int:
+    def begin_run(self, order: Order) -> IdT:
         """Perform any setup required for a run and return the order id.
 
         This method is responsible for choosing an order id if the order does
         not already have one, and the sink may modify the provided order.
 
-        This method must be called before :meth:`write_batch` or
-        :meth:`finalize_run`. Repeated calls with the same order are expected
+        This method must be called before :meth:`prepare_batch`,
+        :meth:`commit_batch` or :meth:`finalize_run`. Repeated calls with the same order are expected
         to return the same id and leave the sink's backing store in the same
         observable state as a single call (e.g. no duplicate order rows),
         though they may still perform work -- opening a connection, reading
@@ -131,7 +131,7 @@ class AbstractOutputSink(ABC):
         ...
 
     @abstractmethod
-    def prepare_batch(self, order_id: int, results: Sequence[ComputeResult]) -> Sequence[object]:
+    def prepare_batch(self, order_id: IdT, results: Sequence[ComputeResult]) -> Sequence[object]:
         """Reduce ``results`` to this sink's compact representation.
 
         **Always runs in a worker process**, where the full compute graph is
@@ -161,7 +161,7 @@ class AbstractOutputSink(ABC):
     @abstractmethod
     def commit_batch(
         self,
-        order_id: int,
+        order_id: IdT,
         prepared: Sequence[object],
         progress: ProgressHandle | None = None,
     ) -> list[WriteOutcome]:
@@ -214,9 +214,9 @@ class AbstractOutputSink(ABC):
         context-manager pattern).
 
         :meth:`finalize` and :meth:`initialize` bracket the sink's
-        lifetime; :meth:`begin_run` / :meth:`write_batch` /
-        :meth:`finalize_run` bracket each individual run within that
-        lifetime.
+        lifetime; :meth:`begin_run` / :meth:`prepare_batch` /
+        :meth:`commit_batch` / :meth:`finalize_run` bracket each individual
+        run within that lifetime.
         """
         return
 

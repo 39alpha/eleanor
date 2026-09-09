@@ -39,7 +39,7 @@ class PostgresPrepared:
     error: ErrorInfo | None
 
 
-class PostgresSink(AbstractOutputSink):
+class PostgresSink(AbstractOutputSink[int]):
     """Persist Eleanor compute results into PostgreSQL via psycopg3.
 
     ``bulk_load_optimization`` (default ``False``) opts the sink in to
@@ -120,17 +120,15 @@ class PostgresSink(AbstractOutputSink):
 
     @override
     def prepare_batch(self, order_id: int, results: Sequence[ComputeResult]) -> Sequence[PostgresPrepared]:
-        """Stamp ``order_id`` onto each point and pair it with its error.
+        """Pair each point with the compute error :meth:`commit_batch` records against it.
 
-        ``order_id`` mutation is a documented side effect of writing a batch.
-        Doing it here rather than in :meth:`commit_batch` keeps it on the
-        worker side of the boundary, where the point graph already lives.
+        ``order_id`` is unused here. The ``variable_space.order_id`` foreign key
+        is stamped during the commit, where ``repositories.insert_point``
+        receives the id as its own parameter, so the point graph never has to
+        carry it.
         """
-        prepared: list[PostgresPrepared] = []
-        for result in results:
-            result.point.order_id = order_id
-            prepared.append(PostgresPrepared(point=result.point, error=result.error))
-        return prepared
+        _ = order_id
+        return [PostgresPrepared(point=result.point, error=result.error) for result in results]
 
     @override
     def commit_batch(

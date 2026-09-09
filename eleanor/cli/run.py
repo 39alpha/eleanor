@@ -126,7 +126,7 @@ def run(
             order_obj.tags = list(dict.fromkeys([*order_obj.tags, *tag]))
 
         with ExitStack() as stack:
-            output_sink: AbstractOutputSink | None = None
+            output_sink: AbstractOutputSink[int] | None = None
             if null_sink:
                 sink_settings = NullSinkSettings(support_worker_commit=executor != "serial")
                 output_sink = stack.enter_context(NullSink(sink_settings))

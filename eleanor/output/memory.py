@@ -36,7 +36,7 @@ class MemorySinkSettings(OutputSinkSettings):
         )
 
 
-class MemorySink(AbstractOutputSink):
+class MemorySink(AbstractOutputSink[int]):
     """In-memory sink that retains the whole compute graph.
 
     Its prepared payload is the :class:`~eleanor.variable_space.Point` itself,
@@ -66,8 +66,7 @@ class MemorySink(AbstractOutputSink):
 
     @override
     def prepare_batch(self, order_id: int, results: Sequence[ComputeResult]) -> Sequence[vs.Point]:
-        for result in results:
-            result.point.order_id = order_id
+        _ = order_id
         return [result.point for result in results]
 
     @override

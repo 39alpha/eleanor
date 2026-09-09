@@ -14,6 +14,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **`AbstractOutputSink` is now generic in the type of order id it issues**, as
+  `AbstractOutputSink[IdT]`.
+- **`Eleanor.run` no longer writes the order id back onto the `Order` it was given.** The id
+  returned by `begin_run` is threaded through the dispatch loop as a parameter, which it already
+  was for `prepare_batch` / `commit_batch`. Sinks that populate `Order.id` themselves continue to
+  do so, so `--order-id` is unaffected.
 - **Serial output sinks can now commit on a dedicated writer thread**, so a sink that writes in the
   parent no longer blocks the dispatch loop while it does.
 - **`AbstractOutputSink.write_batch` is replaced by `prepare_batch` + `commit_batch`.**
@@ -34,6 +40,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   idle. Chunk size is derived from `batch_size` so existing configurations get the same chunk sizes
   they had before -- `chunks_per_worker` keeps its meaning as the in-flight depth per worker, and
   no new settings are introduced.
+
+### Removed
+
+- **`variable_space.Point.order_id`.** The field was written twice -- once at point construction
+  and again by every sink's `prepare_batch` -- and read nowhere: the PostgreSQL sink stamps the
+  `variable_space.order_id` foreign key from the `order_id` argument `commit_batch` receives, not
+  from the point. The database column and its foreign key are unchanged, so no migration is
+  needed. EQL queries selecting `vs_point.order_id`, and `{splat: vs}` projections that included
+  it, must be updated.
+- **The `order_id` keyword argument to `AbstractNavigator.navigate`** and the `order_id` parameter
+  of `PointBuilder.generate_vs`. Nothing downstream of point generation needs the id any longer,
+  so a navigator no longer has to know it before it can produce points.
 
 ### Fixed
 

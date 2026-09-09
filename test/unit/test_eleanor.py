@@ -655,7 +655,7 @@ class TestEleanorProcess(TestCase):
             out_progress=out_progress,
         )
         navigator.navigate.assert_called_once_with(
-            order, kernel, 2, 2, order_id=9, max_attempts=3
+            order, kernel, 2, 2, max_attempts=3
         )
         self.assertEqual(executor.submit.call_count, 2)
         self.assertEqual(

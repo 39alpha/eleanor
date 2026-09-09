@@ -55,11 +55,13 @@ Navigator plugins must expose:
 
 - `num_systems(order: Order, scale: int) -> int`: total number of VS points the
   navigator will produce for the given scale.
-- `navigate(order: Order, kernel: AbstractKernel, scale: int, batch_size: int, *args, order_id=None, **kwargs) -> Iterator[list[vs.Point]]`:
+- `navigate(order: Order, kernel: AbstractKernel, scale: int, batch_size: int, *args, **kwargs) -> Iterator[list[vs.Point]]`:
   a batch iterator that yields lists of up to `batch_size` points.
 
-Eleanor passes `order_id` and `max_attempts` as keyword arguments to
-`navigate`; plugins should accept `**kwargs` to tolerate future additions.
+Eleanor passes `max_attempts` as a keyword argument to `navigate`; plugins
+should accept `**kwargs` to tolerate future additions. Points carry no order
+id: the id belongs to the output sink, which receives it as a parameter to
+`prepare_batch` / `commit_batch`, so a navigator never needs to know it.
 
 Across a complete `navigate(...)` iteration, the total number of yielded
 points must match `num_systems(order, scale)`. Eleanor raises an error if the
@@ -109,6 +111,14 @@ my_sink = "my_sink_plugin.output:my_sink_spec"
 ```
 
 `src/my_sink_plugin/output.py`:
+
+`AbstractOutputSink` is generic in the type of the order id it hands out:
+`AbstractOutputSink[IdT]`. A sink chooses its own id space and pins it when it
+subclasses -- `AbstractOutputSink[int]` for a database sequence,
+`AbstractOutputSink[UUID]` for a sink with nothing to draw a sequence from.
+`begin_run` returns a value of that type and Eleanor hands the same value back
+to `prepare_batch` and `commit_batch`; it never constructs or inspects one, so
+nothing constrains the type beyond being picklable.
 
 Persisting a batch is split into two halves. `prepare_batch` always runs in a
 worker process, with the whole compute graph available, and reduces it to
@@ -164,7 +174,7 @@ class MyPrepared:
     exit_code: int
 
 
-class MySink(AbstractOutputSink):
+class MySink(AbstractOutputSink[int]):
     def begin_run(self, order):
         return order.id or 0
 

@@ -1662,7 +1662,12 @@ class TestEleanorDispatchWindow(TestCase):
         )
 
     def test_window_never_exceeds_num_workers_times_chunks_per_worker(self) -> None:
-        """Ensure the window bound is respected, so memory stays bounded."""
+        """Ensure the window depth bound is respected.
+
+        This bounds outstanding *chunks*, which is not the same as bounding
+        memory -- see the points-in-flight test below for what actually
+        governs that.
+        """
         executor = _RecordingExecutor(num_workers=3)
 
         self._process(
@@ -1674,6 +1679,29 @@ class TestEleanorDispatchWindow(TestCase):
 
         peak = max(outstanding for _event, outstanding in executor.outstanding_history())
         self.assertLessEqual(peak, 3 * 2)
+
+    def test_points_in_flight_track_batch_size_not_window_depth(self) -> None:
+        """Ensure ``batch_size`` is the memory control, and the only one.
+
+        Chunk size is ``batch_size`` divided by the window depth, so the two
+        cancel: widening the window shrinks the chunks by the same factor and
+        the points held in the parent stay put. Tuning ``chunks_per_worker``
+        to reduce memory does nothing -- and since ``batch_size`` defaults to
+        the whole simulation, the default really does put every point in
+        flight at once.
+        """
+        points = [str(i) for i in range(24)]
+
+        for chunks_per_worker in (1, 2, 4):
+            with self.subTest(chunks_per_worker=chunks_per_worker):
+                executor = _RecordingExecutor(num_workers=2)
+
+                self._process(executor, [list(points)], batch_size=24, chunks_per_worker=chunks_per_worker)
+
+                window = 2 * chunks_per_worker
+                chunk_size = max(len(chunk) for chunk in executor.chunks)
+                self.assertLessEqual(chunk_size * window, 24 + window)
+                self.assertGreaterEqual(chunk_size * window, 24)
 
     def test_chunks_cross_the_worker_boundary_as_lists(self) -> None:
         """Ensure chunks are materialised as lists, not left as tuples.

@@ -614,9 +614,17 @@ class Eleanor:
 
         Keeps up to ``max_in_flight`` chunks outstanding, topping the window
         back up as each one completes rather than draining it to empty between
-        navigator batches. Point generation, worker compute and consumption
-        therefore overlap continuously, and parent memory stays bounded by the
-        window rather than by the batch.
+        navigator batches, so point generation, worker compute and consumption
+        overlap continuously.
+
+        What the window bounds is parent memory, at ``max_in_flight`` times
+        the chunk size -- and since the caller derives chunk size by dividing
+        ``batch_size`` by exactly that factor, the bound comes out at roughly
+        ``batch_size`` however the window is sized. ``batch_size`` is
+        therefore the memory control, and it defaults to the whole simulation:
+        left alone, every point is in flight at once. ``chunks_per_worker``
+        trades chunk size against window depth within that budget; it does not
+        shrink it.
 
         :param chunk_stream: Lazy stream of point chunks. Pulled from only as
             window space becomes available, which is what supplies

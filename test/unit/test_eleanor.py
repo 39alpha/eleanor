@@ -2120,6 +2120,99 @@ class TestEleanorMultipleSinks(TestCase):
             )
 
 
+class TestEleanorRunStatsReporting(TestCase):
+    """``-v`` must report what each sink actually committed.
+
+    The per-sink accumulators were being built and thrown away, so a run
+    where one sink silently dropped points looked identical to a clean one.
+    """
+
+    @staticmethod
+    def _sink(name: str, outcomes: list[WriteOutcome]) -> tuple[mock.Mock, list[WriteOutcome]]:
+        sink = mock.Mock()
+        sink.begin_run.return_value = f"{name}-id"
+        sink.supports_progress.return_value = False
+        sink.supports_worker_commit.return_value = True
+        sink.supports_resume.return_value = True
+        sink.target_key.return_value = None
+        return sink, outcomes
+
+    def _run(self, sinks: dict[str, mock.Mock], outcomes: dict[str, list[WriteOutcome]], **kwargs: object) -> str:
+        eleanor = Eleanor(
+            config=Config(),
+            output_sink=cast("dict[str, AbstractOutputSink[object]]", sinks),
+        )
+        eleanor.process = mock.Mock(return_value=outcomes)
+        stderr = io.StringIO()
+        with (
+            mock.patch("eleanor.eleanor.load_executor", return_value=_FakeExecutor()),
+            mock.patch("sys.stderr", stderr),
+        ):
+            _ = eleanor.run(
+                _make_order(),
+                1,
+                kernel=mock.MagicMock(AbstractKernel),
+                navigator=_navigator(1),
+                **cast("dict[str, bool]", kwargs),
+            )
+        return stderr.getvalue()
+
+    def test_verbose_reports_each_sink_separately(self) -> None:
+        """Ensure a sink dropping points is visible next to one that did not."""
+        pg, pg_outcomes = self._sink(
+            "pg",
+            [WriteOutcome(exit_code=0, committed=True), WriteOutcome(exit_code=1, committed=False)],
+        )
+        csv, csv_outcomes = self._sink(
+            "csv",
+            [WriteOutcome(exit_code=0, committed=True), WriteOutcome(exit_code=0, committed=True)],
+        )
+
+        output = self._run({"pg": pg, "csv": csv}, {"pg": pg_outcomes, "csv": csv_outcomes}, verbose=True)
+
+        self.assertIn("output stats:", output)
+        self.assertRegex(output, r"pg\s+2 attempted,\s+1 ok,\s+1 failed")
+        self.assertRegex(output, r"csv\s+2 attempted,\s+2 ok,\s+0 failed")
+
+    def test_nothing_is_printed_without_verbose(self) -> None:
+        """Ensure the default run stays silent."""
+        pg, outcomes = self._sink("pg", [WriteOutcome(exit_code=0, committed=True)])
+
+        output = self._run({"pg": pg}, {"pg": outcomes})
+
+        self.assertNotIn("output stats:", output)
+
+    def test_a_failed_run_reports_no_stats(self) -> None:
+        """Ensure a run that raised does not print a table of zeros.
+
+        The accumulators are only updated once ``process`` returns, so
+        printing unconditionally would report nothing but noise on the one
+        path where the numbers cannot mean anything.
+        """
+        pg, _ = self._sink("pg", [])
+        eleanor = Eleanor(
+            config=Config(),
+            output_sink=cast("dict[str, AbstractOutputSink[object]]", {"pg": pg}),
+        )
+        eleanor.process = mock.Mock(side_effect=EleanorError("worker died"))
+        stderr = io.StringIO()
+
+        with (
+            mock.patch("eleanor.eleanor.load_executor", return_value=_FakeExecutor()),
+            mock.patch("sys.stderr", stderr),
+            self.assertRaisesRegex(EleanorError, "worker died"),
+        ):
+            _ = eleanor.run(
+                _make_order(),
+                1,
+                kernel=mock.MagicMock(AbstractKernel),
+                navigator=_navigator(1),
+                verbose=True,
+            )
+
+        self.assertNotIn("output stats:", stderr.getvalue())
+
+
 class TestEleanorReservedSinkNames(TestCase):
     """A caller-supplied mapping may not claim the simulation bar's channel.
 

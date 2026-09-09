@@ -89,6 +89,20 @@ def _require_resume_tokens(
     return tokens
 
 
+def _format_stats(stats: Mapping[str, RunStats]) -> str:
+    """Render what each sink was handed and how much of it landed."""
+    name_width = max(len(name) for name in stats)
+    count_width = max(len(str(stat.attempted)) for stat in stats.values())
+
+    def line(name: str, stat: RunStats) -> str:
+        attempted = f"{stat.attempted:>{count_width}}"
+        succeeded = f"{stat.succeeded:>{count_width}}"
+        failed = f"{stat.failed:>{count_width}}"
+        return f"  {name:<{name_width}}  {attempted} attempted, {succeeded} ok, {failed} failed"
+
+    return "\n".join(["output stats:", *(line(name, stat) for name, stat in stats.items())])
+
+
 def _reject_target_clashes(sinks: Mapping[str, AbstractOutputSink[object]]) -> None:
     """Refuse a run in which two sinks write to the same store."""
     keyed = [(name, key) for name, sink in sinks.items() if (key := sink.target_key()) is not None]
@@ -472,8 +486,6 @@ class Eleanor:
         what collects the measurements, while the ``timing`` keyword
         decides whether Eleanor prints a summary.
         """
-        # Check for arguments that have been retired. The double cast lets
-        # basedpyright accept a membership test for a key outside EleanorKwargs.
         for retired_arg in ["executor", "parallel"]:
             if retired_arg in cast(dict[str, object], cast(object, kwargs)):
                 msg = f"Eleanor.run() got an unexpected keyword argument '{retired_arg}'"
@@ -532,6 +544,7 @@ class Eleanor:
             progress: Progress | None = None
             sim_handle: ManagedProgressHandle | None = None
             out_handles: dict[str, ManagedProgressHandle] = {}
+            stats_summary: str | None = None
 
             try:
                 if show_progress:
@@ -572,12 +585,16 @@ class Eleanor:
                     )
                 for name, sink_outcomes in outcomes.items():
                     stats[name].update(sink_outcomes)
+                if verbose and stats:
+                    stats_summary = _format_stats(stats)
             finally:
                 if progress is not None:
                     progress.sim.done()
                     for handle in out_handles.values():
                         handle.done()
                     progress.join()
+                if stats_summary is not None:
+                    print(stats_summary, file=sys.stderr)
                 if timing:
                     print(timings.summary(), file=sys.stderr)
 

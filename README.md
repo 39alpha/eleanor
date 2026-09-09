@@ -78,7 +78,8 @@ Common options:
 - `--bulk-load` / `--no-bulk-load`: enable/disable postgres bulk-load optimization for this run, on every configured
   postgres sink.
 - `-p, --progress`: show progress bars (disabled automatically by `--verbose`).
-- `-v, --verbose`: verbose output.
+- `-v, --verbose`: verbose output. Also reports, per sink, how many points it was handed and how many
+  it committed — so one sink dropping points alongside one that did not is visible.
 - `-s, --scratch`: persist scratch artifacts for all simulations regardless of error status.
 
 ### Built-in output sinks

@@ -211,19 +211,24 @@ class AbstractOutputSink[IdT](ABC):
         error isolation possible; a sink that needs to pool work across the
         whole batch should do so in :meth:`commit_batch` instead.
 
-        The sink instance is a per-chunk copy sent into the worker, so this
-        method **must not rely on mutating sink state**: any mutation is
-        discarded when the worker's copy is dropped. Parent-side state that
-        this method needs must either cross the pickle boundary with the sink
-        or be re-derived here.
+        The sink instance *may* be a per-chunk copy: the ``multiprocessing``
+        executor pickles one into the worker, while ``serial`` calls the live
+        object in place. This method therefore **must not rely on mutating
+        sink state** -- a mutation is discarded when the worker's copy is
+        dropped, and the sink has no way to tell which regime it is running
+        under. Mind the direction of that trap: mutations *do* persist under
+        ``serial``, so a sink developed against it will pass its tests and
+        then quietly lose every write once the run moves to a real pool.
+        Parent-side state that this method needs must either cross the pickle
+        boundary with the sink or be re-derived here.
 
-        The converse deserves as much attention, because it is the one that
-        costs. *Anything a sink accumulates in* :meth:`commit_batch` *is
-        re-pickled into every chunk submitted after it*, so a sink that
-        retains per-point state makes the run pay for its own output
-        quadratically -- exactly the cost this split exists to avoid. That
-        state is also pickled on the dispatch thread while the writer thread
-        may be midway through mutating it (see
+        When it is a copy, the converse deserves as much attention, because
+        it is the one that costs. *Anything a sink accumulates in*
+        :meth:`commit_batch` *is re-pickled into every chunk submitted after
+        it*, so a sink that retains per-point state makes the run pay for its
+        own output quadratically -- exactly the cost this split exists to
+        avoid. That state is also pickled on the dispatch thread while the
+        writer thread may be midway through mutating it (see
         :meth:`supports_background_commit`), so the worker's view of it is a
         snapshot taken at no particular moment. Keep it out of the worker
         entirely: give the sink a ``__getstate__`` that drops whatever

@@ -153,6 +153,13 @@ Because the sink itself is pickled into a worker once per chunk, your sink
 class must be importable by name, and `prepare_batch` must not depend on
 mutating sink state -- the worker's copy is discarded.
 
+Not under every executor, though: `serial` runs `prepare_batch` on the live
+sink in the parent, so mutations there *do* stick. Note which way that cuts.
+A sink developed and tested against `serial` will pass, then silently lose
+every write the first time it runs on a real pool. Write `prepare_batch` as
+if the copy is always thrown away, because under the executor you care about
+it is.
+
 The converse is the one that costs. Anything your sink accumulates in
 `commit_batch` is re-pickled into *every chunk submitted after it*, so a sink
 that retains per-point state makes the run pay for its own output

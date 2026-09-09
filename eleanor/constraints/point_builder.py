@@ -105,7 +105,7 @@ class PointBuilder:
                 original = self.registry.parameter(parameter_id)
                 if not isinstance(refined, ValueParameter):
                     msg = f"parameter {original} is not fully refined: {refined}"
-                    raise Exception(msg)
+                    raise TypeError(msg)
                 valuation[parameter_id] = refined
 
             elements = [

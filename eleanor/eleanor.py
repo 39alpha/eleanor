@@ -300,6 +300,7 @@ class Eleanor:
         kernel_args: list[object] | None = None,
         navigator: AbstractNavigator | None = None,
         output_sink: AbstractOutputSink[IdT] | None = None,
+        resume_id: str | None = None,
         timings: DispatchTimings | None = None,
         **kwargs: Unpack[EleanorKwargs],
     ) -> object:
@@ -310,6 +311,15 @@ class Eleanor:
         caller-owned: the caller is responsible for
         :meth:`~AbstractOutputSink.initialize` / :meth:`~AbstractOutputSink.finalize`.
         Eleanor only calls :meth:`~AbstractOutputSink.finalize_run` on scope exit.
+
+        ``resume_id`` extends an existing run instead of starting a new one.
+        It is passed through to :meth:`~AbstractOutputSink.begin_run`
+        untouched, as a string: the sink owns the id space, so only it can
+        say what a valid id looks like. A token the active sink does not
+        recognise is an error rather than a silent new run.
+
+        The returned id is whatever the sink allocated, typed ``object``
+        because Eleanor never inspects it.
 
         Supplying ``timings`` lets a caller read the dispatch loop's
         wall-clock attribution after the run instead of only seeing it
@@ -396,7 +406,7 @@ class Eleanor:
                 if out_handle is not None:
                     out_handle.total(expected_total)
 
-            order_id = run_sink.begin_run(order)
+            order_id = run_sink.begin_run(order, requested_id=resume_id)
 
             stats = RunStats()
 

@@ -33,9 +33,14 @@ def _preset_run_metadata(scope_table: AmbientScopeTable, args: Mapping[str, obje
     The column list is closed by spec §10.3 and is intentionally hard-coded
     here. This makes it a fourth landing site for ``Order`` schema changes
     (alongside the postgres ``ColumnDef``, the dataclass annotation, and
-    ``docs/database.qmd`` -- see ``AGENTS.md``): adding or removing a
-    metadata leaf on ``Order`` requires updating this list and spec §10.3
-    in the same change.
+    ``docs/database.qmd``): adding or removing a metadata leaf on ``Order``
+    requires updating this list and spec §10.3 in the same change.
+
+    Note what is *not* here: the run id. An id is assigned by whichever output
+    sink is persisting the run, in whatever id space that sink chose, so it is
+    not a field of ``Order`` and not reachable by an EQL path. A consumer that
+    wants it in its output emits it itself -- see ``id_columns`` on
+    :class:`~eleanor.output.csv.CsvSinkSettings`.
     """
     if args:
         msg = f"preset 'run_metadata' takes no arguments (got: {sorted(args)})"
@@ -47,7 +52,6 @@ def _preset_run_metadata(scope_table: AmbientScopeTable, args: Mapping[str, obje
         msg = "run_metadata"
         raise PresetScopeMissingError(msg, "order")
     return [
-        "order.id",
         "order.tags",
         "order.name",
         "order.creator",

@@ -30,7 +30,12 @@ def _complete_executor(_ctx: click.Context, _param: click.Parameter, incomplete:
 @click.option("-v", "--verbose", is_flag=True, help="Enable verbose output.")
 @click.option("-s", "--scratch", is_flag=True, help="Save scratch for all systems regardless of error status.")
 @click.option("-k", "--kernel-args", multiple=True, help="Arguments to pass to the kernel.")
-@click.option("--order-id", type=int, default=None, help="Override the order id.")
+@click.option(
+    "--order-id",
+    type=str,
+    default=None,
+    help="Resume/extend an existing run. The id format is the output sink's own.",
+)
 @click.option("--tag", type=str, multiple=True, help="Add order tag(s).")
 @click.option("--null-sink", is_flag=True, help="Override config output sink with NullSink.")
 @click.option(
@@ -66,7 +71,7 @@ def run(
     verbose: bool,
     scratch: bool,
     kernel_args: tuple[str, ...],
-    order_id: int | None,
+    order_id: str | None,
     tag: tuple[str, ...],
     null_sink: bool,
     bulk_load: bool | None,
@@ -120,8 +125,6 @@ def run(
             executor_settings = replace(executor_settings, num_workers=num_workers)
 
         order_obj = load_order(order)
-        if order_id is not None:
-            order_obj.id = order_id
         if tag:
             order_obj.tags = list(dict.fromkeys([*order_obj.tags, *tag]))
 
@@ -146,6 +149,7 @@ def run(
                     max_nav_attempts=max_nav_attempts,
                     timing=timing,
                     output_sink=output_sink,
+                    resume_id=order_id,
                 )
 
         if verbose:

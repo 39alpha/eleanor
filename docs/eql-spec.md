@@ -286,7 +286,7 @@ Queries that rely on the canonical bundle are portable across consumers; queries
 
 The canonical bundle defines:
 
-- **`run_metadata`** — emits leaf columns describing the source `Order`. Requires the ambient `order` alias (always present per §7). Takes no arguments. Emitted columns: `order.id`, `order.tags`, `order.name`, `order.creator`, `order.notes`, `order.eleanor_version`, `order.create_date`.
+- **`run_metadata`** — emits leaf columns describing the source `Order`. Requires the ambient `order` alias (always present per §7). Takes no arguments. Emitted columns: `order.tags`, `order.name`, `order.creator`, `order.notes`, `order.eleanor_version`, `order.create_date`. The run's identifier is deliberately absent: it is assigned by the consumer persisting the run, in an id space of that consumer's choosing, so it is not a field of the object tree and not addressable by a path (§4). A consumer that needs it in its output emits it itself.
 - **`es_scalars`** — emits one column per scalar leaf of the equilibrium-space row's `ESPoint`. Requires the ambient `es` alias. Optional `exclude: [<field>, ...]` removes named fields from the output; optional `include: [<field>, ...]` restricts the output to the named fields. `include` and `exclude` are mutually exclusive. Unknown field names raise `SplatUnknownField` against the `es` alias.
 - **`aqueous_species_table`** — emits one column per `(name, field)` pair against `es.aqueous_species`. Requires the ambient `es` alias. Required `names: [<species_name>, ...]` and `fields: [<aqueous_species_field>, ...]`; both must be non-empty lists of strings. For each pair, emits a column with path `es.aqueous_species[name=<name>].<field>` and column name `<field>_<name>`. Unknown `fields` entries raise `ParseError`; the `names` list is not validated against any data-model table.
 
@@ -438,7 +438,6 @@ row_scope: es
 on_missing: blank
 columns:
   - order.name
-  - order.id
   - {splat: vs, exclude: [scratch]}
   - {splat: es, exclude: [custom_properties]}
   - es.aqueous_species[name=Ca+2].log_molality
@@ -461,7 +460,7 @@ Evaluates to exactly one row per input `Order`.
 ```yaml
 row_scope: es.solid_solutions[*].end_members[*]
 columns:
-  - order.id
+  - order.name
   - vs.temperature
   - es.ph
   - solid_solution.name

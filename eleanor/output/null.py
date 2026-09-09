@@ -4,7 +4,7 @@ from typing import Self, cast, override
 
 from eleanor.exceptions import EleanorError
 from eleanor.order import Order
-from eleanor.output.interface import AbstractOutputSink, ComputeResult, WriteOutcome
+from eleanor.output.interface import AbstractOutputSink, ComputeResult, WriteOutcome, require_int_order_id
 from eleanor.output.settings import OutputSinkSettings
 from eleanor.progress import ProgressHandle
 from eleanor.util import guard_is_bool, require_bool
@@ -59,18 +59,27 @@ class NullSink(AbstractOutputSink[int]):
         self._order_id = None
 
     @override
-    def begin_run(self, order: Order) -> int:
-        if order.id is not None:
-            if order.id >= self._next_order_id:
-                self._next_order_id = order.id + 1
-            self._order_id = order.id
-            return order.id
+    def begin_run(self, order: Order, *, requested_id: str | None = None) -> int:
+        """Hand out the next id, or adopt ``requested_id`` as this run's id.
 
-        order.id = self._next_order_id
+        This sink retains nothing, so it has no record of a previous run to
+        check ``requested_id`` against. It therefore accepts any well-formed
+        integer rather than pretending to validate one, and only advances its
+        allocator past the id so a later fresh run cannot collide with it.
+        """
+        _ = order
+
+        if requested_id is not None:
+            order_id = require_int_order_id(requested_id, "null sink")
+            self._next_order_id = max(self._next_order_id, order_id + 1)
+            self._order_id = order_id
+            return order_id
+
+        order_id = self._next_order_id
         self._next_order_id += 1
-        self._order_id = order.id
+        self._order_id = order_id
 
-        return order.id
+        return order_id
 
     @override
     def prepare_batch(self, order_id: int, results: Sequence[ComputeResult]) -> Sequence[NullPrepared]:

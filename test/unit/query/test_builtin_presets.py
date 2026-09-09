@@ -80,7 +80,6 @@ class TestRunMetadataPreset(TestCase):
         self.assertEqual(
             [c.spec.name for c in compiled.compiled_columns],
             [
-                "id",
                 "tags",
                 "name",
                 "creator",
@@ -103,7 +102,6 @@ class TestRunMetadataPreset(TestCase):
         self.assertEqual(
             [c.spec.name for c in compiled.compiled_columns],
             [
-                "id",
                 "tags",
                 "name",
                 "creator",
@@ -570,7 +568,7 @@ class TestCompileQueryPresetsParameter(TestCase):
             Order,
             {"row_scope": "order", "columns": [{"preset": "run_metadata"}]},
         )
-        self.assertEqual(len(compiled.compiled_columns), 7)
+        self.assertEqual(len(compiled.compiled_columns), 6)
 
     def test_default_uses_canonical_bundle_with_container_terminals(self) -> None:
         """
@@ -581,7 +579,7 @@ class TestCompileQueryPresetsParameter(TestCase):
             {"row_scope": "order", "columns": [{"preset": "run_metadata"}]},
             allow_container_terminals=True,
         )
-        self.assertEqual(len(compiled.compiled_columns), 7)
+        self.assertEqual(len(compiled.compiled_columns), 6)
 
     @pytest.mark.xfail(
         strict=True,
@@ -600,7 +598,7 @@ class TestCompileQueryPresetsParameter(TestCase):
             {"row_scope": "order", "columns": [{"preset": "run_metadata"}]},
             presets=BUILTIN_PRESETS,
         )
-        self.assertEqual(len(compiled.compiled_columns), 7)
+        self.assertEqual(len(compiled.compiled_columns), 6)
 
     def test_explicit_canonical_bundle_works_with_container_terminals(self) -> None:
         """
@@ -613,7 +611,7 @@ class TestCompileQueryPresetsParameter(TestCase):
             presets=BUILTIN_PRESETS,
             allow_container_terminals=True,
         )
-        self.assertEqual(len(compiled.compiled_columns), 7)
+        self.assertEqual(len(compiled.compiled_columns), 6)
 
     def test_empty_bundle_disables_canonical_presets(self) -> None:
         """
@@ -637,7 +635,7 @@ class TestCompileQueryPresetsParameter(TestCase):
         def custom_preset(scope_table, args):
             _ = scope_table
             _ = args
-            return [{"path": "order.id", "name": "custom_id"}]
+            return [{"path": "order.name", "name": "custom_id"}]
 
         bundle = {"custom": custom_preset}
         compiled = compile_query(
@@ -671,7 +669,7 @@ class TestCompileQueryPresetsParameter(TestCase):
         def inner(scope_table, args):
             _ = scope_table
             _ = args
-            return [{"path": "order.id", "name": "inner_id"}]
+            return [{"path": "order.name", "name": "inner_id"}]
 
         compiled = compile_query(
             Order,

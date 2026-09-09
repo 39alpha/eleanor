@@ -70,7 +70,7 @@ Common options:
 - `--chunks-per-worker`: override `executor.chunks_per_worker` from config.
 - `--batch-size`: navigator batch size passed into `navigate(...)`.
 - `--max-nav-attempts`: maximum attempts per navigation point before giving up.
-- `--order-id`: resume/extend an existing order id.
+- `--order-id`: resume/extend an existing run. The id format is the output sink's own (an integer for `postgres`, a UUID for `csv`).
 - `--tag`: override the order tag loaded from the order file.
 - `--null-sink`: bypass configured output and discard writes via `NullSink`.
 - `--bulk-load` / `--no-bulk-load`: enable/disable postgres bulk-load optimization for this run.
@@ -90,20 +90,51 @@ Built-in output sink types are:
 Select a sink in your config under `output.kind`, with sink-specific settings as flat keys alongside `kind`.
 For one-off dry runs, `--null-sink` on `eleanor run` overrides config output without editing files.
 
-### Resume / extend orders with `--order-id`
+#### Identity columns on the `csv` sink
 
-Use `--order-id` to append new variable-space/equilibrium results to an existing order row:
+The `csv` sink projects each result through an EQL `query`, but identity is the
+sink's own, not part of the object graph the query walks — so ids are requested
+in settings rather than as query paths. `id_columns` accepts `order_id` (the
+run's UUID) and `point_id` (a per-run VS-point counter), and prepends them to
+the header in the order given:
+
+```yaml
+output:
+  kind: csv
+  filename: rows.csv
+  id_columns: [order_id, point_id]
+  query:
+    row_scope: vs_points[*]
+    columns:
+      - order.name
+      - vs_point.temperature
+      - vs_point.exit_code
+# header: order_id,point_id,name,temperature,exit_code
+```
+
+Omit `id_columns` for a file with no identity columns. Every row of one VS point
+shares its `point_id`, so a query emitting several rows per point repeats the
+value — `point_id` identifies the point, not the row.
+
+### Resume / extend a run with `--order-id`
+
+Use `--order-id` to append new variable-space/equilibrium results to an existing run:
 
 ```bash
+# postgres: the orders.id of the run to extend
 eleanor run --order-id 42 -c config.yaml -d eleanor_db order.yaml 50000
+
+# csv: the UUID the earlier run printed / recorded in its sidecar
+eleanor run --order-id 3f2b8c9e-... -c config.yaml order.yaml 50000
 ```
 
 Behavior:
 
-- If order `42` already exists, Eleanor extends that order.
-- If `42` does not exist, Eleanor creates a new order and continues normally.
-- The `eleanor_version` must match when extending an existing order. If your order file declares a different version, the run is rejected.
-- If the order file leaves `eleanor_version` unset, Eleanor reuses the stored version from the existing row.
+- Ids belong to the output sink, not to the order, so an order file must not declare one. Which ids are valid depends on the configured sink: `postgres` uses its `orders.id` sequence, `csv` uses UUIDs recorded in its `_schema.yaml` sidecar.
+- If the id names a run the sink holds, Eleanor extends it.
+- If the id is malformed for that sink, or names no run it holds, the run is **rejected**. Resuming is an explicit request, so Eleanor will not quietly start a new run instead.
+- The `eleanor_version` must match when extending an existing run. If your order file declares a different version, the run is rejected.
+- Omit `--order-id` to start a new run; the sink allocates the id and `eleanor run -v` prints it.
 
 ### Parallelism, batch size, and Postgres subtransaction pressure
 

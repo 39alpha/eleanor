@@ -21,10 +21,10 @@ def _write_batch(sink, order_id, results, progress=None):
     prepared = sink.prepare_batch(order_id, results)
     return sink.commit_batch(order_id, prepared, progress=progress)
 
-def _order(*, order_id: int | None = None, eleanor_version: str | None = None) -> Order:
+def _order(*, eleanor_version: str | None = None) -> Order:
     return cast(
         Order,
-        cast(object, SimpleNamespace(id=order_id, eleanor_version=eleanor_version)),
+        cast(object, SimpleNamespace(eleanor_version=eleanor_version)),
     )
 
 
@@ -68,19 +68,15 @@ class TestNullSink(TestCase):
             ).support_worker_commit
         )
 
-    def test_begin_run_assigns_sequential_ids_for_implicit_orders(self) -> None:
-        """Ensure begin_run allocates sequential ids when orders have no id."""
+    def test_begin_run_assigns_sequential_ids(self) -> None:
+        """Ensure begin_run allocates sequential ids for successive runs."""
         sink = NullSink(NullSinkSettings(support_worker_commit=False))
-        first = _order()
-        second = _order()
 
-        first_id = sink.begin_run(first)  # type: ignore[arg-type]
-        second_id = sink.begin_run(second)  # type: ignore[arg-type]
+        first_id = sink.begin_run(_order())  # type: ignore[arg-type]
+        second_id = sink.begin_run(_order())  # type: ignore[arg-type]
 
         self.assertEqual(first_id, 0)
         self.assertEqual(second_id, 1)
-        self.assertEqual(first.id, 0)
-        self.assertEqual(second.id, 1)
 
     def test_begin_run_stamps_preserves_supplied_version(self) -> None:
         """Ensure begin_run stamps missing versions and preserves caller-provided values."""
@@ -90,20 +86,28 @@ class TestNullSink(TestCase):
         _ = sink.begin_run(order)  # type: ignore[arg-type]
         self.assertEqual(order.eleanor_version, "custom-v1")
 
-    def test_begin_run_respects_explicit_ids_and_does_not_rewind_allocator(
+    def test_begin_run_adopts_a_requested_id_without_rewinding_the_allocator(
         self,
     ) -> None:
-        """Ensure explicit ids are accepted and lower explicit ids do not lower the implicit counter."""
+        """Ensure any well-formed id is adopted and the allocator only moves forward.
+
+        This sink retains nothing, so it has no record to validate a requested
+        id against and accepts whatever parses. It still keeps its allocator
+        ahead of every id it has seen so a later fresh run cannot collide.
+        """
         sink = NullSink(NullSinkSettings(support_worker_commit=False))
 
-        high = _order(order_id=42)
-        self.assertEqual(sink.begin_run(high), 42)  # type: ignore[arg-type]
+        self.assertEqual(sink.begin_run(_order(), requested_id="42"), 42)  # type: ignore[arg-type]
+        # A lower id does not drag the allocator back down.
+        self.assertEqual(sink.begin_run(_order(), requested_id="3"), 3)  # type: ignore[arg-type]
+        self.assertEqual(sink.begin_run(_order()), 43)  # type: ignore[arg-type]
 
-        low = _order(order_id=3)
-        self.assertEqual(sink.begin_run(low), 3)  # type: ignore[arg-type]
+    def test_begin_run_rejects_a_non_integer_requested_id(self) -> None:
+        """Ensure a token outside this sink's id space is rejected by name."""
+        sink = NullSink(NullSinkSettings(support_worker_commit=False))
 
-        implicit = _order()
-        self.assertEqual(sink.begin_run(implicit), 43)  # type: ignore[arg-type]
+        with self.assertRaisesRegex(EleanorError, "must be an integer"):
+            _ = sink.begin_run(_order(), requested_id="not-an-int")  # type: ignore[arg-type]
 
     def test_write_batch_raises_before_begin_run(self) -> None:
         """Ensure write_batch requires begin_run before accepting writes."""
@@ -198,7 +202,11 @@ class TestNullSink(TestCase):
         with self.assertRaisesRegex(EleanorError, "called before begin_run"):
             _ = _write_batch(sink, order_id, [ComputeResult(point=_point())])  # type: ignore[arg-type]
 
-        self.assertEqual(sink.begin_run(order), order_id)  # type: ignore[arg-type]
+        # Re-entering the same run is now explicit: ask for its id back.
+        self.assertEqual(
+            sink.begin_run(order, requested_id=str(order_id)),  # type: ignore[arg-type]
+            order_id,
+        )
         outcomes = _write_batch(sink,
             order_id, [ComputeResult(point=_point(exit_code=1))]
         )

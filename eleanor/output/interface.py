@@ -6,10 +6,25 @@ from types import TracebackType
 from typing import TYPE_CHECKING, Self
 
 import eleanor.variable_space as vs
+from eleanor.exceptions import EleanorError
 
 if TYPE_CHECKING:
     from eleanor.order import Order
     from eleanor.progress import ProgressHandle
+
+
+def require_int_order_id(requested_id: str, sink_name: str) -> int:
+    """Parse ``requested_id`` as an integer, for sinks whose ids are integers.
+
+    ``begin_run`` receives the resume token as the raw string the caller
+    supplied, because only the sink knows its own id space. The sinks backed by
+    an integer sequence share this parser so they also share one error message.
+    """
+    try:
+        return int(requested_id)
+    except ValueError as error:
+        msg = f"{sink_name} order id must be an integer, got {requested_id!r}"
+        raise EleanorError(msg) from error
 
 
 @dataclass(slots=True, frozen=True)
@@ -109,11 +124,22 @@ class AbstractOutputSink[IdT](ABC):
         return
 
     @abstractmethod
-    def begin_run(self, order: Order) -> IdT:
-        """Perform any setup required for a run and return the order id.
+    def begin_run(self, order: Order, *, requested_id: str | None = None) -> IdT:
+        """Perform any setup required for a run and return its order id.
 
-        This method is responsible for choosing an order id if the order does
-        not already have one, and the sink may modify the provided order.
+        The sink owns the id space. Nothing upstream knows what an id looks
+        like, so ``requested_id`` arrives as the raw token the caller supplied
+        (``--order-id`` on the command line) and it is the sink's job to
+        interpret it. The contract is the same for every sink:
+
+        * ``requested_id`` is ``None`` -- allocate a fresh id and start a new
+          run.
+        * ``requested_id`` names a run this sink already holds -- return that
+          id, so the new points extend the existing run.
+        * ``requested_id`` is malformed for this sink's id space, or names a
+          run it does not hold -- raise :class:`~eleanor.exceptions.EleanorError`.
+          Resuming is an explicit request, so quietly starting a new run
+          instead would discard the caller's intent.
 
         This method must be called before :meth:`prepare_batch`,
         :meth:`commit_batch` or :meth:`finalize_run`. Repeated calls with the same order are expected
@@ -123,10 +149,10 @@ class AbstractOutputSink[IdT](ABC):
         back stored metadata, or populating fields on the in-memory order.
 
         Implementations are only expected to verify identifying metadata
-        (such as the order id and the version of Eleanor that produced
-        the order); they are not expected to validate that the full order
-        contents match what is stored. Callers extending an existing order
-        are responsible for supplying a consistent order.
+        (such as the version of Eleanor that produced the order); they are
+        not expected to validate that the full order contents match what is
+        stored. Callers extending an existing run are responsible for
+        supplying a consistent order.
         """
         ...
 
@@ -300,4 +326,5 @@ __all__ = [
     "ErrorInfo",
     "RunStats",
     "WriteOutcome",
+    "require_int_order_id",
 ]

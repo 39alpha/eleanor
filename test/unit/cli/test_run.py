@@ -88,6 +88,7 @@ def test_run_uses_config_executor_defaults(
         max_nav_attempts=1,
         timing=False,
         output_sink=None,
+        resume_id=None,
     )
     assert result.exit_code == 0
 
@@ -207,9 +208,14 @@ def test_run_disables_progress_when_verbose(
     assert result.exit_code == 0
 
 
-def test_run_applies_order_id_to_loaded_order(
+def test_run_forwards_order_id_as_the_resume_token(
     mocker: MockerFixture, runner: CliRunner
 ) -> None:
+    """``--order-id`` is passed through as a string, not applied to the order.
+
+    The order no longer carries an id, and only the configured sink knows what
+    a valid one looks like, so the CLI hands the token over untouched.
+    """
     config = make_config()
     executor = make_executor(mocker)
     eleanor = make_eleanor(mocker)
@@ -226,7 +232,26 @@ def test_run_applies_order_id_to_loaded_order(
 
     assert result.exit_code == 0
     assert eleanor.run.call_args.args[0] is order
-    assert order.id == 321
+    assert eleanor.run.call_args.kwargs["resume_id"] == "321"
+
+
+def test_run_forwards_no_resume_id_by_default(
+    mocker: MockerFixture, runner: CliRunner
+) -> None:
+    config = make_config()
+    executor = make_executor(mocker)
+    eleanor = make_eleanor(mocker)
+    order = mocker.create_autospec(Order)
+
+    _ = mocker.patch("eleanor.cli.run.config_from_args", return_value=config)
+    _ = mocker.patch("eleanor.cli.run.load_order", return_value=order)
+    _ = mocker.patch("eleanor.cli.run.load_executor", return_value=executor)
+    _ = mocker.patch("eleanor.cli.run.Eleanor", return_value=eleanor)
+
+    result = invoke_run(runner, ["-c", "/fake.yaml", "-d", "sample"])
+
+    assert result.exit_code == 0
+    assert eleanor.run.call_args.kwargs["resume_id"] is None
 
 
 def test_run_applies_single_tag_to_loaded_order(

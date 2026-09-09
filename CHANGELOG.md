@@ -11,9 +11,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **`--timing` flag on `eleanor run`** reports a wall-clock attribution of the dispatch loop to
   stderr when a run finishes.
+- **`id_columns` on the `csv` sink** emits the sink's own identity columns -- `order_id` and/or
+  `point_id` -- ahead of the query's columns. Identity is not part of the object graph EQL projects,
+  so it is declared in settings rather than as a query path. See the README.
 
 ### Changed
 
+- **Output sinks now own the run id end to end, and it need not be an integer.**
+  `begin_run` gains a keyword-only `requested_id: str | None`, carrying the raw `--order-id` token
+  for the sink to interpret in its own id space, and `Eleanor.run` gains a matching
+  `resume_id: str | None`. One contract now applies to every sink: no token allocates a fresh id, a
+  token naming a run the sink holds resumes it, and a malformed or unknown token raises
+  `EleanorError`. Previously the four sinks disagreed -- notably the PostgreSQL sink quietly
+  inserted a *new* order under a different, sequence-assigned id when the requested one matched no
+  row, silently discarding the caller's request to extend.
+- **`CsvSink` now issues UUIDs rather than `max(seen) + 1` integers**, so two runs appending to one
+  file can never collide on an id. Its `_schema.yaml` sidecar keys `vs_points_seen` and
+  `order_versions` by the string form of the id, and binary-asset filenames embed the UUID.
+- **`--order-id` is now a string** whose accepted format is the configured sink's: an integer for
+  `postgres`, `memory` and `null`, a UUID for `csv`.
 - **`AbstractOutputSink` is now generic in the type of order id it issues**, as
   `AbstractOutputSink[IdT]`.
 - **`Eleanor.run` no longer writes the order id back onto the `Order` it was given.** The id
@@ -43,6 +59,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
+- **`Order.id`.** An order describes what to compute; the identity of a *run* of it belongs to
+  whichever sink persists that run. The field was also the resume channel, which is now
+  `--order-id` / `resume_id` (above). An `id` key in an order file is **rejected** rather than
+  ignored, since silently dropping it would change an existing file's meaning. Removing the field
+  also takes it out of `Order.__eq__`, where it had made an order compare unequal to its own
+  pre-run self, and out of the `orders.raw` JSONB payload, where it was always `null` because
+  `asdict` ran before the id was assigned. No migration: `orders.id` was always the authority.
+- **`order.id` from the canonical EQL `run_metadata` preset** and from spec §10.3. Paths resolve by
+  dataclass reflection, so `order.id` no longer compiles and `{splat: order}` no longer includes
+  it. This is a breaking preset change. A consumer that wants the id in its output emits it itself
+  -- see `id_columns` above.
+- **`vs_point.@index` support in the `csv` sink**, which is now **rejected** at construction with a
+  pointer to `id_columns: [point_id]`. The sink evaluates one VS point at a time against a
+  one-element `vs_points`, so the path can only ever yield `0`; the sink used to overwrite those
+  columns with its own counter, making the emitted value disagree with the path that asked for it.
 - **`variable_space.Point.order_id`.** The field was written twice -- once at point construction
   and again by every sink's `prepare_batch` -- and read nowhere: the PostgreSQL sink stamps the
   `variable_space.order_id` foreign key from the `order_id` argument `commit_batch` receives, not

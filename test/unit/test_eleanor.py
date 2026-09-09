@@ -302,13 +302,39 @@ class TestEleanorRun(TestCase):
         self.assertIs(seen_executors[1], session_executor)
         sink.finalize.assert_called_once()
 
-    def test_run_single_leaf_passes_order_with_preset_id_to_begin_run(self) -> None:
-        """Ensure begin_run is called with caller-supplied order ids intact."""
+    def test_run_forwards_resume_id_to_begin_run_and_returns_the_sinks_id(self) -> None:
+        """Ensure ``resume_id`` reaches the sink untouched and its id is returned.
+
+        Eleanor does not interpret the token or the id: the sink owns that
+        space, so the string goes down as given and whatever comes back is
+        what ``run`` reports.
+        """
         eleanor = _make_eleanor()
         order = _make_order()
-        order.id = 99
         sink = mock.Mock()
-        sink.begin_run.return_value = 99
+        sink.begin_run.return_value = "sink-chosen-id"
+        sink.supports_progress.return_value = False
+        eleanor.process = mock.Mock(return_value=[])
+
+        kernel = mock.MagicMock(AbstractKernel)
+
+        with (
+            mock.patch("eleanor.eleanor.load_executor", return_value=_FakeExecutor()),
+            mock.patch("eleanor.eleanor.load_output_sink", return_value=sink),
+        ):
+            returned = eleanor.run(
+                order, 4, kernel=kernel, navigator=_navigator(1), resume_id="99"
+            )
+
+        sink.begin_run.assert_called_once_with(order, requested_id="99")
+        self.assertEqual(returned, "sink-chosen-id")
+
+    def test_run_passes_no_resume_id_when_none_is_given(self) -> None:
+        """Ensure a plain run asks the sink for a fresh id rather than a resume."""
+        eleanor = _make_eleanor()
+        order = _make_order()
+        sink = mock.Mock()
+        sink.begin_run.return_value = 0
         sink.supports_progress.return_value = False
         eleanor.process = mock.Mock(return_value=[])
 
@@ -320,8 +346,7 @@ class TestEleanorRun(TestCase):
         ):
             _ = eleanor.run(order, 4, kernel=kernel, navigator=_navigator(1))
 
-        sink.begin_run.assert_called_once_with(order)
-        self.assertEqual(order.id, 99)
+        sink.begin_run.assert_called_once_with(order, requested_id=None)
 
     def test_run_rejects_retired_executor_kwarg(self) -> None:
         """Ensure run() rejects the retired ``executor=`` kwarg."""

@@ -36,7 +36,6 @@ _FAKE_KERNEL_SPEC = SimpleNamespace(
 def _make_order(
     raw=None,
     *,
-    order_id=None,
     tags=None,
     vs_points=None,
     create_date=None,
@@ -49,7 +48,6 @@ def _make_order(
     ):
         return Order.from_dict(
             cast(dict[str, object], cast(object, effective)),
-            order_id=order_id,
             tags=tags,
             vs_points=vs_points,
             create_date=create_date,
@@ -107,18 +105,16 @@ class TestOrder(TestCase):
         params = order.parameters()
         self.assertTrue(any(isinstance(p, ValueParameter) for p in params))
 
-    def test_order_reads_id_from_raw(self) -> None:
+    def test_order_rejects_an_id_in_raw(self) -> None:
         """
-        Ensure Order.__init__ reads an optional numeric ``id`` from raw
-        and defaults to None when the field is absent.
+        Ensure a raw ``id`` key is refused rather than ignored. The key used to
+        select which run to extend, so dropping it silently would change an
+        existing order file's meaning without saying so.
         """
-        order_with_id = _make_order(id=12)
-        self.assertEqual(order_with_id.id, 12)
+        with self.assertRaisesRegex(EleanorError, "no longer carries an id"):
+            _ = _make_order(id=12)
 
-        order_without_id = _make_order()
-        self.assertIsNone(order_without_id.id)
-
-        with self.assertRaisesRegex(EleanorError, "id must be an integer"):
+        with self.assertRaisesRegex(EleanorError, "no longer carries an id"):
             _ = _make_order(id="not-an-int")
 
     def test_order_validation_and_kernel_branches(self) -> None:
@@ -454,18 +450,8 @@ def test_order_tags_kwarg_overrides_raw() -> None:
     assert order.tags == ["kwarg-tag"]
 
 
-def test_order_kwargs_override_raw_id_and_tags() -> None:
-    order = _make_order(
-        raw=_minimal_raw(id=1, tags="raw-tag"), order_id=42, tags=["kwarg-tag"]
-    )
-    assert order.id == 42
-    assert order.tags == ["kwarg-tag"]
-
-
 def test_load_order_returns_order_as_is() -> None:
     order = _make_order(tags=["raw-tag"])
-    order.id = 7
     returned = load_order(order)
     assert returned is order
-    assert order.id == 7
     assert order.tags == ["raw-tag"]

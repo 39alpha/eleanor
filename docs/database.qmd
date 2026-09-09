@@ -116,9 +116,11 @@ the YAML/TOML/JSON file), optional `tags` for organization, and the version of
 
 - INDEX `orders_name_idx` on (`name`)
 - INDEX `orders_tags_idx` on (`tags`) USING GIN
-- INDEX `orders_eleanor_version_idx` on (`eleanor_version`)
 
 The `raw` column stores the original content of the order file in JSON format.
+It does not carry an `id`: the identifier belongs to this table's `id` column,
+assigned by the sequence when the row is inserted, and an order file may not
+declare one.
 
 The `create_date` value is the datetime at which the order was initially created.
 
@@ -156,8 +158,8 @@ SELECT id, name, tags, eleanor_version, create_date FROM orders;
 
 **Indexes:**
 
-- INDEX `variable_space_order_id_idx` on (`order_id`)
-- INDEX `variable_space_exit_code_idx` on (`exit_code`)
+- INDEX `variable_space_order_id_exit_code_idx` on (`order_id`, `exit_code`)
+- INDEX `variable_space_exit_code_failed_idx` on (`exit_code`) WHERE `exit_code <> 0`
 - INDEX `variable_space_temperature_idx` on (`temperature`)
 - INDEX `variable_space_pressure_idx` on (`pressure`)
 

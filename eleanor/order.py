@@ -17,7 +17,7 @@ from eleanor.exceptions import EleanorError
 from eleanor.parameters import Parameter, ParameterOrSource, load_parameter
 from eleanor.reactants import AbstractReactant, CombinedReactant
 from eleanor.typing import StrPath
-from eleanor.util import is_list_of, mapreduce, require, require_dict, require_opt_int, require_opt_str, require_str
+from eleanor.util import is_list_of, mapreduce, require, require_dict, require_opt_str, require_str
 from eleanor.variable_space import Point as VSPoint
 from eleanor.version import __version__
 
@@ -72,7 +72,6 @@ def _prepare_tags(tags: object) -> list[str] | None:
 @final
 @dataclass(init=False)
 class Order:
-    id: int | None
     tags: list[str]
     name: str
     notes: str
@@ -100,7 +99,6 @@ class Order:
         temperature: ParameterOrSource,
         pressure: ParameterOrSource,
         elements: Mapping[str, ParameterOrSource],
-        id: int | None = None,
         tags: list[str] | None = None,
         notes: str = "",
         water_mass: ParameterOrSource | None = None,
@@ -113,7 +111,6 @@ class Order:
         eleanor_version: str | None = None,
         create_date: datetime | None = None,
     ) -> None:
-        self.id = id
         self.tags = list(dict.fromkeys(tags)) if tags is not None else []
         self.name = name
         if self.name == "":
@@ -170,13 +167,15 @@ class Order:
         cls,
         raw: dict[str, object],
         *,
-        order_id: int | None = None,
         tags: str | list[str] | None = None,
         create_date: datetime | None = None,
         vs_points: list[VSPoint] | None = None,
     ) -> Self:
-        if order_id is None:
-            order_id = require_opt_int(raw.get("id"), "id")
+        if "id" in raw:
+            # Silently dropping this would quietly change the meaning of an
+            # existing order file: the id used to select which run to extend.
+            msg = "an order no longer carries an id; pass --order-id (or Eleanor.run(resume_id=...)) to extend a run"
+            raise EleanorError(msg)
 
         raw_tags = cast(object, raw.get("tags"))
         tags = _prepare_tags(tags) if tags is not None else _prepare_tags(raw_tags)
@@ -235,7 +234,6 @@ class Order:
         vs_points = vs_points or []
 
         return cls(
-            id=order_id,
             tags=tags,
             name=name,
             notes=notes,

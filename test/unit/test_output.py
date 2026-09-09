@@ -413,9 +413,9 @@ class TestOutput(TestCase):
         # Just verify it returns without raising / reaching the connection layer.
         sink.finalize_run()
 
-    def test_postgres_begin_run_returns_existing_order_id(self) -> None:
+    def test_postgres_begin_run_resumes_the_requested_id(self) -> None:
         """
-        Ensure begin_run returns existing order.id.
+        Ensure a requested_id naming an existing row resumes it without inserting.
         """
         settings = PostgresSinkSettings(
             database=PostgresDatabaseSettings(
@@ -424,7 +424,7 @@ class TestOutput(TestCase):
         )
         sink = PostgresSink(settings)
 
-        order = SimpleNamespace(id=17, eleanor_version="v1")
+        order = SimpleNamespace(eleanor_version="v1")
         existing = SimpleNamespace(id=17, eleanor_version="v1")
 
         with (
@@ -436,16 +436,19 @@ class TestOutput(TestCase):
                 "eleanor.output.postgres.sink.repositories.insert_order"
             ) as insert_order,
         ):
-            order_id = sink.begin_run(_as_order(order))
+            order_id = sink.begin_run(_as_order(order), requested_id="17")
 
         self.assertEqual(order_id, 17)
-        self.assertEqual(order.eleanor_version, "v1")
         get_order.assert_called_once_with(settings.database, 17)
         insert_order.assert_not_called()
 
-    def test_postgres_begin_run_writes_order_with_preassigned_id(self) -> None:
+    def test_postgres_begin_run_rejects_a_requested_id_with_no_row(self) -> None:
         """
-        Ensure begin_run inserts a caller-preassigned id when no matching row exists.
+        Ensure a requested_id naming no row is an error rather than a new order.
+
+        This previously inserted a fresh order under a different,
+        sequence-assigned id, so the caller's request to extend a specific run
+        was silently discarded.
         """
         settings = PostgresSinkSettings(
             database=PostgresDatabaseSettings(
@@ -454,23 +457,36 @@ class TestOutput(TestCase):
         )
         sink = PostgresSink(settings)
 
-        order = SimpleNamespace(id=99, eleanor_version="v1")
+        order = SimpleNamespace(eleanor_version="v1")
 
         with (
             mock.patch(
                 "eleanor.output.postgres.sink.repositories.get_order", return_value=None
             ),
             mock.patch(
-                "eleanor.output.postgres.sink.repositories.insert_order",
-                return_value=SimpleNamespace(id=99),
+                "eleanor.output.postgres.sink.repositories.insert_order"
             ) as insert_order,
+            self.assertRaisesRegex(EleanorError, "no order 99 to extend"),
         ):
-            order_id = sink.begin_run(_as_order(order))
+            _ = sink.begin_run(_as_order(order), requested_id="99")
 
-        self.assertEqual(order_id, 99)
-        self.assertEqual(order.id, 99)
-        self.assertEqual(order.eleanor_version, "v1")
-        insert_order.assert_called_once_with(settings.database, order)
+        insert_order.assert_not_called()
+
+    def test_postgres_begin_run_rejects_a_non_integer_requested_id(self) -> None:
+        """
+        Ensure a token outside this sink's id space is rejected by name.
+        """
+        settings = PostgresSinkSettings(
+            database=PostgresDatabaseSettings(
+                database="db", username="u", password="p"
+            ),
+        )
+        sink = PostgresSink(settings)
+
+        order = SimpleNamespace(eleanor_version="v1")
+
+        with self.assertRaisesRegex(EleanorError, "must be an integer"):
+            _ = sink.begin_run(_as_order(order), requested_id="not-an-int")
 
     def test_postgres_begin_run_raises_on_version_mismatch(self) -> None:
         """
@@ -483,7 +499,7 @@ class TestOutput(TestCase):
         )
         sink = PostgresSink(settings)
 
-        order = SimpleNamespace(id=17, eleanor_version="v2")
+        order = SimpleNamespace(eleanor_version="v2")
         existing = SimpleNamespace(id=17, eleanor_version="v1")
 
         with (
@@ -493,11 +509,11 @@ class TestOutput(TestCase):
             ),
             self.assertRaisesRegex(EleanorError, "different version of Eleanor"),
         ):
-            _ = sink.begin_run(_as_order(order))
+            _ = sink.begin_run(_as_order(order), requested_id="17")
 
     def test_postgres_begin_run_writes_new_order_and_returns_id(self) -> None:
         """
-        Ensure begin_run writes a new order and returns its generated id.
+        Ensure begin_run writes a new order and returns the sequence-generated id.
         """
         settings = PostgresSinkSettings(
             database=PostgresDatabaseSettings(
@@ -506,7 +522,7 @@ class TestOutput(TestCase):
         )
         sink = PostgresSink(settings)
 
-        order = SimpleNamespace(id=None, eleanor_version="v1")
+        order = SimpleNamespace(eleanor_version="v1")
         with (
             mock.patch(
                 "eleanor.output.postgres.sink.repositories.insert_order",
@@ -516,8 +532,6 @@ class TestOutput(TestCase):
             order_id = sink.begin_run(_as_order(order))
 
         self.assertEqual(order_id, 42)
-        self.assertEqual(order.id, 42)
-        self.assertEqual(order.eleanor_version, "v1")
         insert_order.assert_called_once_with(settings.database, order)
 
     def test_error_info_fields(self) -> None:
@@ -673,39 +687,6 @@ class TestOutput(TestCase):
         self.assertTrue(outcomes[0].committed)
         self.assertEqual(outcomes[0].exit_code, 0)
 
-    def test_postgres_begin_run_returns_existing_id_when_versions_match(self) -> None:
-        """
-        Ensure begin_run is a no-op insert when the caller supplies an
-        ``order.id`` whose row already exists with a matching
-        ``eleanor_version`` -- the existing id is returned without re-
-        inserting.
-        """
-        settings = PostgresSinkSettings(
-            database=PostgresDatabaseSettings(
-                database="db", username="u", password="p"
-            ),
-        )
-        sink = PostgresSink(settings)
-
-        order = SimpleNamespace(id=17, eleanor_version="v1")
-        existing = SimpleNamespace(id=17, eleanor_version="v1")
-
-        with (
-            mock.patch(
-                "eleanor.output.postgres.sink.repositories.get_order",
-                return_value=existing,
-            ) as get_order,
-            mock.patch(
-                "eleanor.output.postgres.sink.repositories.insert_order"
-            ) as insert_order,
-        ):
-            order_id = sink.begin_run(_as_order(order))
-
-        self.assertEqual(order_id, 17)
-        self.assertEqual(order.eleanor_version, "v1")
-        get_order.assert_called_once_with(settings.database, 17)
-        insert_order.assert_not_called()
-
     def test_postgres_begin_run_preserves_caller_supplied_version_on_fresh_insert(
         self,
     ) -> None:
@@ -721,7 +702,7 @@ class TestOutput(TestCase):
         )
         sink = PostgresSink(settings)
 
-        order = SimpleNamespace(id=None, eleanor_version="custom-v1")
+        order = SimpleNamespace(eleanor_version="custom-v1")
         with mock.patch(
             "eleanor.output.postgres.sink.repositories.insert_order",
             return_value=SimpleNamespace(id=42),
@@ -955,7 +936,7 @@ class TestOutput(TestCase):
 
 def _order_for_begin_run() -> Order:
     """Minimal order accepted by every in-tree sink's ``begin_run``."""
-    return _as_order(SimpleNamespace(id=0, eleanor_version="v1", vs_points=[]))
+    return _as_order(SimpleNamespace(eleanor_version="v1", vs_points=[]))
 
 
 class TestSinkPicklability(TestCase):

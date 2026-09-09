@@ -1,6 +1,13 @@
 from typing import cast
 
-from eleanor.output.interface import AbstractOutputSink, ComputeResult, ErrorInfo, RunStats, WriteOutcome
+from eleanor.output.interface import (
+    AbstractOutputSink,
+    ComputeResult,
+    ErrorInfo,
+    RunStats,
+    WriteOutcome,
+    require_int_order_id,
+)
 from eleanor.output.registry import registry
 from eleanor.output.settings import OutputSinkSettings
 from eleanor.plugin import load_plugin, load_plugin_settings
@@ -33,4 +40,5 @@ __all__ = [
     "WriteOutcome",
     "load_output_sink",
     "load_output_sink_settings",
+    "require_int_order_id",
 ]

@@ -21,16 +21,12 @@ def _write_batch(sink, order_id, results, progress=None):
     prepared = sink.prepare_batch(order_id, results)
     return sink.commit_batch(order_id, prepared, progress=progress)
 
-def _order(*, order_id: int | None = None, eleanor_version: str | None = None) -> Order:
+def _order(*, eleanor_version: str | None = None) -> Order:
     return cast(
         Order,
         cast(
             object,
-            SimpleNamespace(
-                id=order_id,
-                eleanor_version=eleanor_version,
-                vs_points=[],
-            ),
+            SimpleNamespace(eleanor_version=eleanor_version, vs_points=[]),
         ),
     )
 
@@ -70,31 +66,41 @@ class TestMemorySink(TestCase):
         """Ensure MemorySink opts in to sink-side output progress ticks."""
         self.assertTrue(MemorySink().supports_progress())
 
-    def test_begin_run_assigns_sequential_ids_when_order_id_is_none(self) -> None:
-        """Ensure begin_run allocates sequential ids for caller-unspecified orders."""
+    def test_begin_run_assigns_sequential_ids(self) -> None:
+        """Ensure begin_run allocates sequential ids for successive orders."""
         sink = MemorySink()
-        first = _order()
-        second = _order()
-
-        first_id = sink.begin_run(first)
-        second_id = sink.begin_run(second)
+        first_id = sink.begin_run(_order())
+        second_id = sink.begin_run(_order())
 
         self.assertEqual(first_id, 0)
         self.assertEqual(second_id, 1)
-        self.assertEqual(first.id, 0)
-        self.assertEqual(second.id, 1)
 
-    def test_begin_run_respects_caller_supplied_order_id(self) -> None:
-        """Ensure begin_run uses a caller-supplied order id and resumes implicit ids from max+1."""
+    def test_begin_run_resumes_a_requested_id_it_holds(self) -> None:
+        """Ensure a requested_id for a registered order resumes that order."""
         sink = MemorySink()
-        explicit = _order(order_id=42)
-        explicit_id = sink.begin_run(explicit)
-        self.assertEqual(explicit_id, 42)
-        self.assertEqual(explicit.id, 42)
+        order = _order()
+        order_id = sink.begin_run(order)
 
-        implicit = _order()
-        implicit_id = sink.begin_run(implicit)
-        self.assertEqual(implicit_id, 43)
+        resumed = sink.begin_run(_order(), requested_id=str(order_id))
+
+        self.assertEqual(resumed, order_id)
+        # The resumed run keeps the order object it was registered with, so
+        # committed points still land on the retained graph.
+        self.assertIs(sink._orders[order_id], order)
+
+    def test_begin_run_rejects_a_requested_id_it_does_not_hold(self) -> None:
+        """Ensure an unknown id is an error: a fresh sink has nothing to extend.
+
+        The retained graph lives only in this instance, so there is no store
+        to look a previous run up in.
+        """
+        sink = MemorySink()
+
+        with self.assertRaisesRegex(EleanorError, "no order 42 to extend"):
+            _ = sink.begin_run(_order(), requested_id="42")
+
+        with self.assertRaisesRegex(EleanorError, "must be an integer"):
+            _ = sink.begin_run(_order(), requested_id="not-an-int")
 
     def test_begin_run_is_idempotent(self) -> None:
         """Ensure begin_run returns the same id and keeps sink state stable for the same object."""
@@ -116,15 +122,19 @@ class TestMemorySink(TestCase):
         _ = sink.begin_run(order)
         self.assertEqual(order.eleanor_version, "custom-v1")
 
-    def test_begin_run_allows_version_mismatch_for_existing_order_id(self) -> None:
-        """Ensure begin_run permits caller version changes when reusing an order id."""
-        sink = MemorySink()
-        first = _order(order_id=7, eleanor_version="v1")
-        _ = sink.begin_run(first)
-        mismatch = _order(order_id=7, eleanor_version="v2")
+    def test_begin_run_allows_version_mismatch_when_resuming(self) -> None:
+        """Ensure this sink does not gate resumption on the Eleanor version.
 
-        order_id = sink.begin_run(mismatch)
-        self.assertEqual(order_id, 7)
+        Unlike the durable sinks, nothing here outlives the process, so there
+        is no old-format data for a version change to invalidate.
+        """
+        sink = MemorySink()
+        order_id = sink.begin_run(_order(eleanor_version="v1"))
+        mismatch = _order(eleanor_version="v2")
+
+        resumed = sink.begin_run(mismatch, requested_id=str(order_id))
+
+        self.assertEqual(resumed, order_id)
         self.assertEqual(mismatch.eleanor_version, "v2")
 
     def test_write_batch_appends_points_to_order(self) -> None:

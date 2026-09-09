@@ -302,7 +302,6 @@ class CsvSink(AbstractOutputSink[UUID]):
     _order_id: UUID | None
     _order: Order | None
     _schema_file: Path
-    _rows_written: bool
     _binary_columns: frozenset[str]
     _vs_points_seen: dict[str, int]
     _order_versions: dict[str, str]
@@ -323,7 +322,6 @@ class CsvSink(AbstractOutputSink[UUID]):
         self._order_id = None
         self._order = None
         self._schema_file = _schema_path(settings.filename)
-        self._rows_written = False
         self._binary_columns = _binary_columns(self._compiled)
         self._vs_points_seen = {}
         self._order_versions = {}
@@ -362,7 +360,6 @@ class CsvSink(AbstractOutputSink[UUID]):
             )
             self._order_id = None
             self._order = None
-            self._rows_written = False
             return
 
         if not schema_file.exists():
@@ -382,7 +379,6 @@ class CsvSink(AbstractOutputSink[UUID]):
 
         self._order_id = None
         self._order = None
-        self._rows_written = False
 
     @override
     def begin_run(self, order: Order, *, requested_id: str | None = None) -> UUID:
@@ -428,7 +424,6 @@ class CsvSink(AbstractOutputSink[UUID]):
 
         self._order = order
         self._order_id = order_id
-        self._rows_written = False
 
         return order_id
 
@@ -548,7 +543,6 @@ class CsvSink(AbstractOutputSink[UUID]):
 
                 committed = False
                 if rows:
-                    self._rows_written = True
                     committed = True
                     self._vs_points_seen[key] += 1
                 outcomes.append(WriteOutcome(exit_code=item.exit_code, committed=committed))

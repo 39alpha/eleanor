@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.21.0] - 2026-09-09
+
 ### Added
 
 - **A run can drive several output sinks at once.** `output` accepts a list of sink blocks as well

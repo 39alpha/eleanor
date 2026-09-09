@@ -55,9 +55,14 @@ class Runner:
             if sim_progress is not None:
                 sim_progress.tick()
 
+        # Every sink prepares before any sink commits, so no sink can observe
+        # the compute graph as another sink's commit left it.
+        prepared_batches = [
+            (binding, binding.sink.prepare_batch(binding.order_id, compute_results)) for binding in bindings
+        ]
+
         results: list[SinkChunkResult] = []
-        for binding in bindings:
-            prepared = binding.sink.prepare_batch(binding.order_id, compute_results)
+        for binding, prepared in prepared_batches:
             if binding.commit_in_worker:
                 progress = None if out_progress is None else out_progress.get(binding.name)
                 outcomes = binding.sink.commit_batch(binding.order_id, prepared, progress=progress)

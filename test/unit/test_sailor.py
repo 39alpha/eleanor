@@ -351,3 +351,75 @@ class TestRunner(TestCase):
             scratch = Runner.collect_scratch(".")
         assert scratch is not None
         self.assertEqual(scratch.zip, bytes("\0", "ascii"))
+
+
+class TestRunnerFanOutOrdering(TestCase):
+    """Every sink prepares before any sink commits.
+
+    Sinks are handed the *same* compute graph, so a worker-committing sink
+    that writes to it -- stamping database ids back onto the points, say --
+    would otherwise be visible to the ``prepare_batch`` of every sink after
+    it. Preparing as a phase means only ``prepare_batch`` has to stay pure.
+    """
+
+    def test_all_prepares_precede_all_commits(self) -> None:
+        """Ensure the two phases do not interleave across sinks."""
+        calls: list[str] = []
+
+        def sink(name: str) -> mock.Mock:
+            stub = mock.Mock()
+            stub.prepare_batch.side_effect = lambda _order_id, results: (
+                calls.append(f"prepare:{name}") or results
+            )
+            stub.commit_batch.side_effect = lambda _order_id, prepared, **_kw: (
+                calls.append(f"commit:{name}") or []
+            )
+            return stub
+
+        kernel = mock.Mock()
+        kernel.run.return_value = []
+        runner = Runner(kernel=kernel)
+
+        _ = runner.dispatch(
+            [_vs_point(exit_code=0)],
+            bindings=[
+                _binding(sink("first"), name="first", commit=True),
+                _binding(sink("second"), name="second", commit=True),
+            ],
+        )
+
+        self.assertEqual(calls, ["prepare:first", "prepare:second", "commit:first", "commit:second"])
+
+    def test_a_commit_cannot_disturb_a_later_sinks_prepare(self) -> None:
+        """Ensure a sink that writes to the graph at commit time is harmless.
+
+        This is the failure the phasing exists to prevent, so it is checked
+        against the graph rather than against the call order.
+        """
+        seen: list[int] = []
+
+        destructive = mock.Mock()
+        destructive.prepare_batch.side_effect = lambda _order_id, results: results
+        destructive.commit_batch.side_effect = lambda _order_id, prepared, **_kw: [
+            setattr(item.point, "exit_code", 999) for item in prepared
+        ]
+
+        observer = mock.Mock()
+        observer.prepare_batch.side_effect = lambda _order_id, results: (
+            seen.extend(r.point.exit_code for r in results) or results
+        )
+        observer.commit_batch.side_effect = lambda _order_id, prepared, **_kw: []
+
+        kernel = mock.Mock()
+        kernel.run.return_value = []
+        runner = Runner(kernel=kernel)
+
+        _ = runner.dispatch(
+            [_vs_point(exit_code=0)],
+            bindings=[
+                _binding(destructive, name="destructive", commit=True),
+                _binding(observer, name="observer", commit=True),
+            ],
+        )
+
+        self.assertEqual(seen, [0], "the observer must see the graph as the kernel left it")

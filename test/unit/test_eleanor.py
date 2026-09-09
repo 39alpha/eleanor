@@ -2077,6 +2077,67 @@ class TestEleanorMultipleSinks(TestCase):
             )
 
 
+class TestEleanorTargetClashes(TestCase):
+    """A run must refuse two sinks pointed at one store.
+
+    Distinct names are not enough: nothing correlates two sinks' counters or
+    buffers, so both writing to one file or one database corrupts it.
+    """
+
+    @staticmethod
+    def _sinks(**targets: object) -> dict[str, mock.Mock]:
+        sinks: dict[str, mock.Mock] = {}
+        for name, key in targets.items():
+            sink = mock.Mock()
+            sink.begin_run.return_value = f"{name}-id"
+            sink.supports_progress.return_value = False
+            sink.supports_worker_commit.return_value = True
+            sink.supports_resume.return_value = True
+            sink.target_key.return_value = key
+            sinks[name] = sink
+        return sinks
+
+    def _run(self, sinks: dict[str, mock.Mock]):
+        eleanor = Eleanor(
+            config=Config(),
+            output_sink=cast("dict[str, AbstractOutputSink[object]]", sinks),
+        )
+        eleanor.process = mock.Mock(return_value={name: [] for name in sinks})
+        with mock.patch("eleanor.eleanor.load_executor", return_value=_FakeExecutor()):
+            return eleanor.run(
+                _make_order(),
+                1,
+                kernel=mock.MagicMock(AbstractKernel),
+                navigator=_navigator(1),
+            )
+
+    def test_two_sinks_on_one_target_are_refused(self) -> None:
+        """Ensure the clash is caught before either sink begins a run."""
+        sinks = self._sinks(first="/tmp/rows.csv", second="/tmp/rows.csv")
+
+        with self.assertRaisesRegex(EleanorError, "'first' and 'second' both write to /tmp/rows.csv"):
+            _ = self._run(sinks)
+
+        for sink in sinks.values():
+            sink.begin_run.assert_not_called()
+
+    def test_distinct_targets_are_allowed(self) -> None:
+        """Ensure the check does not fire on the configuration it exists to enable."""
+        ids = self._run(self._sinks(first="/tmp/a.csv", second="/tmp/b.csv"))
+
+        self.assertEqual(sorted(ids), ["first", "second"])
+
+    def test_sinks_that_opt_out_never_collide(self) -> None:
+        """Ensure ``None`` means "no exclusive target" rather than one shared one.
+
+        Every sink predating this method returns ``None``, so treating that as
+        a target would reject every multi-sink run there is.
+        """
+        ids = self._run(self._sinks(first=None, second=None))
+
+        self.assertEqual(sorted(ids), ["first", "second"])
+
+
 class TestEleanorResumeRouting(TestCase):
     """Tests covering how ``resume_id`` is resolved against the active sinks."""
 

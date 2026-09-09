@@ -9,6 +9,7 @@ from uuid import UUID
 from unittest import TestCase, mock
 
 import yaml
+from eleanor.eleanor import _reject_target_clashes
 from eleanor.exceptions import EleanorError
 from eleanor.kernel.settings import KernelSettings
 from eleanor.order import Order
@@ -1241,6 +1242,27 @@ class TestTwoCsvSinksInOneRun(TestCase):
             # Separate sidecars, each tracking only its own run.
             self.assertTrue((Path(tmpdir) / "full_schema.yaml").exists())
             self.assertTrue((Path(tmpdir) / "summary_schema.yaml").exists())
+
+    def test_two_sinks_on_one_file_are_refused_by_the_run(self) -> None:
+        """Ensure the inverse case -- one file, two sinks -- never gets started.
+
+        Nothing correlates the two sinks' point counters, and each rewrites
+        the one sidecar on every commit, so the file and its ``_schema.yaml``
+        would disagree about what is in it. Note both sinks are configured
+        *identically*: differing columns are already caught by the header
+        check in ``initialize``, so a copy-pasted block is the case that
+        needs this.
+        """
+        with tempfile.TemporaryDirectory() as tmpdir:
+            shared = Path(tmpdir) / "shared.csv"
+            with (
+                CsvSink(_settings(shared)) as first,
+                CsvSink(_settings(shared)) as second,
+            ):
+                self.assertEqual(first.target_key(), second.target_key())
+
+                with self.assertRaisesRegex(EleanorError, "both write to"):
+                    _reject_target_clashes({"first": first, "second": second})
 
     def test_preparing_for_one_sink_does_not_disturb_the_other(self) -> None:
         """Ensure ``prepare_batch`` leaves the shared compute graph untouched.

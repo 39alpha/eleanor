@@ -350,6 +350,33 @@ class AbstractOutputSink[IdT](ABC):
         """
         return True
 
+    def target_key(self) -> object | None:
+        """What durable store this sink writes to, or ``None`` to opt out.
+
+        Two sinks aimed at one store corrupt each other. Nothing correlates
+        their state: two :class:`~eleanor.output.csv.CsvSink` instances on one
+        file each keep their own point counter, append through their own
+        writer thread, and overwrite each other's ``_schema.yaml``; two
+        PostgreSQL sinks on one database write every point twice and, under
+        ``bulk_load_optimization``, one can recreate the indexes the other is
+        still bulk-loading behind. Sink names are what Eleanor deduplicates,
+        and a name says nothing about where the sink points, so this is the
+        method that closes the gap.
+
+        Return whatever identifies the store -- a resolved path, a set of
+        connection settings. Eleanor compares keys with ``==`` and refuses a
+        run in which two sinks return equal non-``None`` ones, so a key need
+        only be comparable, not hashable. Equality should reflect *the store*
+        and not the sink's configuration around it: two sinks differing only
+        in, say, verbosity still collide.
+
+        The default is ``None``, meaning "no exclusive target", which is both
+        the safe answer for a sink that genuinely has none -- an in-memory
+        sink, a sink that discards -- and the backwards-compatible one for
+        third-party sinks written before this method existed.
+        """
+        return None
+
     def supports_worker_commit(self) -> bool:
         """Whether :meth:`commit_batch` is safe to invoke from worker processes.
 

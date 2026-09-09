@@ -568,6 +568,11 @@ class CsvSink(AbstractOutputSink[UUID]):
         return None
 
     @override
+    def target_key(self) -> object:
+        """The CSV file, resolved so two spellings of one path still collide."""
+        return self.settings.filename.resolve()
+
+    @override
     def supports_worker_commit(self) -> bool:
         return False
 

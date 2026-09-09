@@ -89,6 +89,19 @@ def _require_resume_tokens(
     return tokens
 
 
+def _reject_target_clashes(sinks: Mapping[str, AbstractOutputSink[object]]) -> None:
+    """Refuse a run in which two sinks write to the same store."""
+    keyed = [(name, key) for name, sink in sinks.items() if (key := sink.target_key()) is not None]
+    for index, (name, key) in enumerate(keyed):
+        for other_name, other_key in keyed[index + 1 :]:
+            if key == other_key:
+                msg = (
+                    f"output sinks {name!r} and {other_name!r} both write to {key}; "
+                    "give each sink its own target, or configure only one of them."
+                )
+                raise EleanorError(msg)
+
+
 def _as_sink_map[IdT](
     output_sink: AbstractOutputSink[IdT] | Mapping[str, AbstractOutputSink[IdT]] | None,
 ) -> dict[str, AbstractOutputSink[object]] | None:
@@ -481,6 +494,7 @@ class Eleanor:
             run_sinks = stack.enter_context(
                 self._sinks_scope(_as_sink_map(output_sink), verbose=verbose),
             )
+            _reject_target_clashes(run_sinks)
             run_manager: SyncManager | None = None
             if run_executor.num_workers <= 0:
                 msg = "executor num_workers must be >= 1"

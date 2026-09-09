@@ -236,6 +236,11 @@ class PostgresSink(AbstractOutputSink[int]):
                 self._prev_psycopg_log_level = None
 
     @override
+    def target_key(self) -> object:
+        """The database, so a second sink cannot recreate indexes mid-bulk-load."""
+        return self.settings.database
+
+    @override
     def supports_worker_commit(self) -> bool:
         return True
 

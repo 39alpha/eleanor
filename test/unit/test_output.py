@@ -1028,6 +1028,50 @@ class TestPostgresConnectionSharing(TestCase):
         close.assert_called_once_with(other_database)
 
 
+class TestSinkTargetKeys(TestCase):
+    """A sink must name the store it writes to, so two cannot share one.
+
+    Eleanor deduplicates sink *names*, and a name says nothing about where the
+    sink points, so this is the only thing standing between a copy-pasted
+    config block and two writers on one file.
+    """
+
+    def test_target_key_defaults_to_none(self) -> None:
+        """Ensure a sink with no exclusive target opts out, as do older plugins."""
+        self.assertIsNone(NullSink(NullSinkSettings(support_worker_commit=False)).target_key())
+        self.assertIsNone(MemorySink(MemorySinkSettings(support_worker_commit=False)).target_key())
+
+    def test_csv_sinks_collide_on_one_file_however_it_is_spelled(self) -> None:
+        """Ensure the path is resolved, so ``./rows.csv`` and ``rows.csv`` match."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            query = {
+                "row_scope": "vs_points[*]",
+                "columns": [{"path": "vs_point.exit_code", "name": "exit_code"}],
+            }
+            direct = CsvSink(CsvSinkSettings(filename=Path(tmpdir) / "rows.csv", query=query))
+            indirect = CsvSink(CsvSinkSettings(filename=Path(tmpdir) / "sub" / ".." / "rows.csv", query=query))
+            elsewhere = CsvSink(CsvSinkSettings(filename=Path(tmpdir) / "other.csv", query=query))
+
+            self.assertEqual(direct.target_key(), indirect.target_key())
+            self.assertNotEqual(direct.target_key(), elsewhere.target_key())
+
+    def test_postgres_sinks_collide_on_one_database(self) -> None:
+        """Ensure settings around the database do not make two sinks look distinct.
+
+        ``bulk_load_optimization`` is exactly the setting that differs between
+        two such sinks, and exactly the one that makes sharing dangerous.
+        """
+        database = PostgresDatabaseSettings(database="db", username="u", password="p")
+        loading = PostgresSink(PostgresSinkSettings(database=database, bulk_load_optimization=True))
+        plain = PostgresSink(PostgresSinkSettings(database=database, bulk_load_optimization=False))
+        other = PostgresSink(
+            PostgresSinkSettings(database=PostgresDatabaseSettings(database="other", username="u", password="p")),
+        )
+
+        self.assertEqual(loading.target_key(), plain.target_key())
+        self.assertNotEqual(loading.target_key(), other.target_key())
+
+
 class TestSinkPicklability(TestCase):
     """Every sink must survive the trip into a worker process.
 

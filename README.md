@@ -119,6 +119,13 @@ fine as long as you name them, and duplicate names are rejected. The name is
 what `--order-id` keys on, what labels the sink's progress bar, and what
 `Eleanor.run` keys its returned ids by.
 
+They must also write to *different places*. Two sinks aimed at one store have
+nothing correlating their counters or their buffers, so they corrupt each
+other: two CSVs on one file interleave rows and overwrite each other's
+`_schema.yaml`, and two postgres sinks on one database write every point twice
+and can recreate its indexes mid-bulk-load. Distinct names do not make that
+safe, so Eleanor rejects such a run at startup.
+
 Every sink keeps its own id space, its own progress bar, and its own resume
 token. Three consequences worth knowing:
 

@@ -213,6 +213,22 @@ connection pool keyed by its connection settings, say -- two instances
 configured against the same target will share it, and the first to `finalize`
 must not tear it out from under the second.
 
+Which raises the case that state cannot survive at all: two of your sinks
+pointed at *one* store. Nothing correlates their counters, their buffers or
+their file handles, so they corrupt each other. Names are what Eleanor
+deduplicates, and a name says nothing about where a sink points, so declare
+the target yourself and Eleanor will refuse the run:
+
+```python
+    def target_key(self) -> object | None:
+        return self.settings.filename.resolve()
+```
+
+Return anything that identifies the store; Eleanor compares keys with `==`,
+so they need not be hashable. The default is `None`, meaning "no exclusive
+target" -- correct for a sink that discards or keeps results in memory, and
+the backwards-compatible answer for sinks written before this existed.
+
 Sinks are addressed by the `name` in their config block, which defaults to
 `kind`. It keys the sink's resume token, labels its progress bar, and keys the
 ids `Eleanor.run` returns.

@@ -221,7 +221,7 @@ def validate_short_forms_for_root(root_type: type[object]) -> None:
 
     if collisions:
         # Report the first collision deterministically (sorted by alias).
-        alias = sorted(collisions)[0]
+        alias = min(collisions)
         raise AliasCollisionError(alias, collisions[alias])
 
 

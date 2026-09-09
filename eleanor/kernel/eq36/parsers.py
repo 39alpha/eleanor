@@ -1061,8 +1061,7 @@ class OutputParser3(OutputParser):
 
             header = "Saturation States of Hypothetical Solid Solutions"
             self.consume_to_header(header)
-            has_hypothetical = not self.eof()
-            if has_hypothetical:
+            if not self.eof():
                 self.read_product_phases(header)
                 self.read_fugacities()
         except Exception as e:

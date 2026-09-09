@@ -325,12 +325,18 @@ class AbstractOutputSink[IdT](ABC):
     def supports_resume(self) -> bool:
         """Whether this sink can extend a run it already holds.
 
-        A sink that returns ``False`` is always given ``requested_id=None``
-        and is never required to supply a resume token, because there is
-        nothing for a token to name: a live-plotting sink draws to a window,
-        a streaming sink writes to a socket, neither retains a run to go back
-        to. Eleanor still starts such a sink normally; only the resume half of
-        :meth:`begin_run`'s contract is waived.
+        A sink that returns ``False`` is always given ``requested_id=None``,
+        because there is nothing for a token to name: a live-plotting sink
+        draws to a window, a streaming sink writes to a socket, neither
+        retains a run to go back to. Eleanor still starts such a sink
+        normally; only the resume half of :meth:`begin_run`'s contract is
+        waived.
+
+        Eleanor holds up both ends of that. Such a sink is never *required* to
+        supply a token, and a token aimed at one is *rejected* rather than
+        forwarded -- resuming is an explicit request, so quietly running it
+        against a sink that cannot honour it would lose the caller's intent
+        just as surely as quietly starting a new run would.
 
         This matters once several sinks are active at once. Resume is
         per-sink -- the id space belongs to the sink, so only the sink can

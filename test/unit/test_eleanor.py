@@ -2156,6 +2156,25 @@ class TestEleanorResumeRouting(TestCase):
         self.assertEqual(sinks["pg"].begin_run.call_args.kwargs["requested_id"], "42")
         self.assertIsNone(sinks["plot"].begin_run.call_args.kwargs["requested_id"])
 
+    def test_a_token_aimed_at_a_sink_that_cannot_resume_is_an_error(self) -> None:
+        """Ensure a token is refused rather than handed to a sink that declined.
+
+        ``supports_resume() is False`` promises the sink never sees a
+        ``requested_id``; forwarding one anyway would make every such sink
+        handle a token it already said it cannot interpret.
+        """
+        sinks = self._sinks(pg=True, plot=False)
+
+        with self.assertRaisesRegex(EleanorError, "cannot resume: plot"):
+            _ = self._run(sinks, {"pg": "42", "plot": "7"})
+
+        sinks["pg"].begin_run.assert_not_called()
+
+    def test_a_bare_token_for_a_lone_sink_that_cannot_resume_is_an_error(self) -> None:
+        """Ensure the single-sink shorthand is checked too, not just the mapping."""
+        with self.assertRaisesRegex(EleanorError, "cannot resume: plot"):
+            _ = self._run(self._sinks(plot=False), "42")
+
     def test_a_token_for_an_unknown_sink_is_an_error(self) -> None:
         """Ensure a typo'd sink name fails loudly instead of being dropped."""
         with self.assertRaisesRegex(EleanorError, "no output sink named 'typo'"):

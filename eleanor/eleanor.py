@@ -66,10 +66,18 @@ def _require_resume_tokens(
     resume_id: str | Mapping[str, str] | None,
     sinks: Mapping[str, AbstractOutputSink[object]],
 ) -> dict[str, str]:
-    """Resolve ``resume_id`` and check every resumable sink has a token."""
+    """Resolve ``resume_id``; every resumable sink needs a token, and only those."""
     tokens = _resume_tokens(resume_id, list(sinks))
     if not tokens:
         return tokens
+
+    unresumable = sorted(name for name in tokens if not sinks[name].supports_resume())
+    if unresumable:
+        msg = (
+            f"output sink(s) cannot resume: {', '.join(unresumable)}. "
+            "Drop their --order-id token(s); they retain no run for one to name."
+        )
+        raise EleanorError(msg)
 
     missing = sorted(name for name, sink in sinks.items() if name not in tokens and sink.supports_resume())
     if missing:

@@ -176,7 +176,7 @@ eleanor run --order-id postgres=42 --order-id export=3f2b8c9e-... \
 Behavior:
 
 - Ids belong to the output sink, not to the order, so an order file must not declare one. Which ids are valid depends on the configured sink: `postgres` uses its `orders.id` sequence, `csv` uses UUIDs recorded in its `_schema.yaml` sidecar.
-- With several sinks configured, **every** sink must be given a token. Resuming some while silently starting the others fresh would split one run's output across two ids with nothing recording that they differ. A sink reporting `supports_resume() == False` — one with nothing to resume, such as a live-plotting sink — is exempt.
+- With several sinks configured, **every** sink must be given a token. Resuming some while silently starting the others fresh would split one run's output across two ids with nothing recording that they differ. A sink reporting `supports_resume() == False` — one with nothing to resume, such as a live-plotting sink — is exempt, and aiming a token at one is an error rather than a no-op.
 - A bare `--order-id ID` is only accepted when exactly one sink is configured; with several, the id spaces differ and there is nothing to infer from.
 - If the id names a run the sink holds, Eleanor extends it.
 - If the id is malformed for that sink, or names no run it holds, the run is **rejected**. Resuming is an explicit request, so Eleanor will not quietly start a new run instead.

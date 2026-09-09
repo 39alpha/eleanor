@@ -1,4 +1,5 @@
 from pathlib import Path
+from tempfile import TemporaryDirectory
 
 from click.testing import CliRunner
 from eleanor import Eleanor
@@ -46,9 +47,10 @@ def make_config(kind: str = "multiprocessing", chunks_per_worker: int = 1) -> Co
 
 
 def invoke_run(runner: CliRunner, extra_args: list[str]):
-    with runner.isolated_filesystem():
-        _ = Path("order.yaml").write_text("order: demo\n", encoding="utf-8")
-        return runner.invoke(main, ["run", *extra_args, "order.yaml", "10"])
+    with TemporaryDirectory() as root:
+        order_path = Path(root) / "order.yaml"
+        _ = order_path.write_text("order: demo\n", encoding="utf-8")
+        return runner.invoke(main, ["run", *extra_args, str(order_path), "10"])
 
 
 def test_run_uses_config_executor_defaults(

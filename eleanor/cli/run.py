@@ -2,11 +2,12 @@ import sys
 from contextlib import ExitStack
 from dataclasses import replace
 from traceback import print_exception
+from typing import cast
 
 import click
 
 from eleanor import Eleanor
-from eleanor.cli.util import config_from_args, config_options
+from eleanor.cli.util import config_from_args, config_options, postgres_sinks
 from eleanor.exceptions import EleanorError
 from eleanor.executor import load_executor
 from eleanor.executor.registry import available_executors
@@ -23,6 +24,27 @@ def _complete_executor(_ctx: click.Context, _param: click.Parameter, incomplete:
     return [name for name in sorted(available_executors()) if name.startswith(incomplete)]
 
 
+def _parse_order_ids(tokens: tuple[str, ...]) -> str | dict[str, str] | None:
+    """Turn repeated ``--order-id`` values into what :meth:`Eleanor.run` wants."""
+    if not tokens:
+        return None
+
+    if len(tokens) == 1 and "=" not in tokens[0]:
+        return tokens[0]
+
+    parsed: dict[str, str] = {}
+    for token in tokens:
+        name, separator, value = token.partition("=")
+        if not separator or not name:
+            msg = f"--order-id {token!r} must be given as SINK=ID when more than one is supplied"
+            raise EleanorError(msg)
+        if name in parsed:
+            msg = f"--order-id given twice for output sink {name!r}"
+            raise EleanorError(msg)
+        parsed[name] = value
+    return parsed
+
+
 @click.command()
 @click.argument("order", type=click.Path(exists=True))
 @click.argument("simulation_size", type=click.INT)
@@ -33,8 +55,12 @@ def _complete_executor(_ctx: click.Context, _param: click.Parameter, incomplete:
 @click.option(
     "--order-id",
     type=str,
-    default=None,
-    help="Resume/extend an existing run. The id format is the output sink's own.",
+    multiple=True,
+    help=(
+        "Resume/extend an existing run, as SINK=ID. Repeat once per output sink; "
+        "the bare form ID is accepted when only one sink is configured. "
+        "The id format is the output sink's own."
+    ),
 )
 @click.option("--tag", type=str, multiple=True, help="Add order tag(s).")
 @click.option("--null-sink", is_flag=True, help="Override config output sink with NullSink.")
@@ -71,7 +97,7 @@ def run(
     verbose: bool,
     scratch: bool,
     kernel_args: tuple[str, ...],
-    order_id: str | None,
+    order_id: tuple[str, ...],
     tag: tuple[str, ...],
     null_sink: bool,
     bulk_load: bool | None,
@@ -92,17 +118,20 @@ def run(
         config_obj = config_from_args(config, database, require_database=not null_sink)
 
         if bulk_load is not None and not null_sink:
-            if config_obj.output is not None and isinstance(config_obj.output.settings, PostgresSinkSettings):
-                config_obj.output.settings = replace(
-                    config_obj.output.settings,
+            targets = postgres_sinks(config_obj)
+            if not targets:
+                cause = (
+                    f"got {', '.join(sorted({e.kind for e in config_obj.output}))}"
+                    if config_obj.output
+                    else "no output sink provided"
+                )
+                msg = f"--bulk-load is only supported when an output sink has kind 'postgres' ({cause})"
+                raise EleanorError(msg)
+            for entry in targets:
+                entry.settings = replace(
+                    cast(PostgresSinkSettings, entry.settings),
                     bulk_load_optimization=bulk_load,
                 )
-            else:
-                cause = (
-                    f"got {config_obj.output.kind!r}" if config_obj.output is not None else "no output sink provided"
-                )
-                msg = f"--bulk-load is only supported when output.kind == 'postgres' ({cause})"
-                raise EleanorError(msg)
 
         if executor is None:
             executor = config_obj.executor.kind
@@ -129,10 +158,10 @@ def run(
             order_obj.tags = list(dict.fromkeys([*order_obj.tags, *tag]))
 
         with ExitStack() as stack:
-            output_sink: AbstractOutputSink[int] | None = None
+            output_sink: dict[str, AbstractOutputSink[int]] | None = None
             if null_sink:
                 sink_settings = NullSinkSettings(support_worker_commit=executor != "serial")
-                output_sink = stack.enter_context(NullSink(sink_settings))
+                output_sink = {"null": stack.enter_context(NullSink(sink_settings))}
 
             executor_obj = stack.enter_context(load_executor(kind=executor, settings=executor_settings))
 
@@ -149,11 +178,12 @@ def run(
                     max_nav_attempts=max_nav_attempts,
                     timing=timing,
                     output_sink=output_sink,
-                    resume_id=order_id,
+                    resume_id=_parse_order_ids(order_id),
                 )
 
         if verbose:
-            print("Orders created or extended:", order_ids)
+            for name, allocated in order_ids.items():
+                print(f"Order created or extended: {name}={allocated}")
     except KeyboardInterrupt as e:
         name = getattr(e, "signal_name", None) or "interrupt"
         print(f"Eleanor run interrupted by {name}; sink finalized cleanly.")

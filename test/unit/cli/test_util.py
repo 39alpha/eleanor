@@ -22,9 +22,9 @@ def test_database_overrides_postgres_database(mocker: MockerFixture) -> None:
     _ = mocker.patch("eleanor.cli.util.load_config", return_value=base)
     result = config_from_args("/fake.yaml", "override_db")
 
-    assert result.output is not None
-    assert isinstance(result.output.settings, PostgresSinkSettings)
-    assert result.output.settings.database.database == "override_db"
+    assert len(result.output) == 1
+    assert isinstance(result.output[0].settings, PostgresSinkSettings)
+    assert result.output[0].settings.database.database == "override_db"
 
 
 def test_database_override_does_not_modify_other_properties(
@@ -41,9 +41,9 @@ def test_database_override_does_not_modify_other_properties(
     _ = mocker.patch("eleanor.cli.util.load_config", return_value=base)
     result = config_from_args("/fake.yaml", "new_db")
 
-    assert result.output is not None
-    assert isinstance(result.output.settings, PostgresSinkSettings)
-    assert result.output.settings.database == PostgresDatabaseSettings(
+    assert len(result.output) == 1
+    assert isinstance(result.output[0].settings, PostgresSinkSettings)
+    assert result.output[0].settings.database == PostgresDatabaseSettings(
         database="new_db",
         username="alice",
         host="db.local",

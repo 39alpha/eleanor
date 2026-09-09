@@ -26,6 +26,8 @@ from eleanor.output.postgres.settings import (
     PostgresDatabaseSettings,
     PostgresSinkSettings,
 )
+from eleanor.output.interface import ChunkResult, SinkBinding, SinkChunkResult
+from eleanor.output.postgres.persistence import connection
 from eleanor.output.postgres.sink import PostgresSink
 from eleanor.progress import ProgressHandle
 
@@ -270,8 +272,8 @@ class TestOutput(TestCase):
 
     def test_postgres_finalize_closes_connection(self) -> None:
         """
-        Ensure PostgresSink.finalize closes the persistent connection
-        through ``connection_module.close_connection``, and -- with
+        Ensure PostgresSink.finalize releases the persistent connection
+        through ``connection_module.release``, and -- with
         bulk_load_optimization off -- does NOT call recreate_bulk_load_objects.
         """
         settings = PostgresSinkSettings(
@@ -282,7 +284,7 @@ class TestOutput(TestCase):
         sink = PostgresSink(settings)
         with (
             mock.patch(
-                "eleanor.output.postgres.sink.connection_module.close_connection"
+                "eleanor.output.postgres.sink.connection_module.release"
             ) as close,
             mock.patch(
                 "eleanor.output.postgres.sink.repositories.recreate_bulk_load_objects"
@@ -298,10 +300,10 @@ class TestOutput(TestCase):
         """
         Ensure PostgresSink.finalize calls
         :func:`repositories.recreate_bulk_load_objects` *before* the connection
-        is closed when the sink was constructed with
+        is released when the sink was constructed with
         ``bulk_load_optimization=True``. Order matters: the recreate
         uses the same connection cache, so it must run before
-        ``close_connection`` evicts the cached entry.
+        ``release`` evicts the cached entry.
         """
         settings = PostgresSinkSettings(
             database=PostgresDatabaseSettings(
@@ -317,23 +319,23 @@ class TestOutput(TestCase):
                 manager.recreate_bulk_load_objects,
             ),
             mock.patch(
-                "eleanor.output.postgres.sink.connection_module.close_connection",
-                manager.close_connection,
+                "eleanor.output.postgres.sink.connection_module.release",
+                manager.release,
             ),
         ):
             sink.finalize()
         manager.recreate_bulk_load_objects.assert_called_once_with(settings.database)
-        manager.close_connection.assert_called_once_with(settings.database)
+        manager.release.assert_called_once_with(settings.database)
         self.assertEqual(
             [c[0] for c in manager.method_calls],
-            ["recreate_bulk_load_objects", "close_connection"],
+            ["recreate_bulk_load_objects", "release"],
         )
 
     def test_postgres_finalize_still_closes_connection_when_recreate_raises(
         self,
     ) -> None:
         """
-        Ensure PostgresSink.finalize closes the persistent connection
+        Ensure PostgresSink.finalize releases the persistent connection
         even when :func:`recreate_bulk_load_objects` raises -- typically because
         the bulk-loaded data violates a constraint. The recreate
         exception must propagate to the caller (so the failure isn't
@@ -352,7 +354,7 @@ class TestOutput(TestCase):
                 side_effect=RuntimeError("check constraint violated"),
             ),
             mock.patch(
-                "eleanor.output.postgres.sink.connection_module.close_connection",
+                "eleanor.output.postgres.sink.connection_module.release",
             ) as close,
         ):
             with self.assertRaisesRegex(RuntimeError, "check constraint violated"):
@@ -391,7 +393,7 @@ class TestOutput(TestCase):
                 sink.initialize()
             self.assertEqual(logger.level, logging.DEBUG)
             with mock.patch(
-                "eleanor.output.postgres.sink.connection_module.close_connection",
+                "eleanor.output.postgres.sink.connection_module.release",
             ):
                 sink.finalize()
             self.assertEqual(logger.level, original_level)
@@ -939,6 +941,93 @@ def _order_for_begin_run() -> Order:
     return _as_order(SimpleNamespace(eleanor_version="v1", vs_points=[]))
 
 
+class TestPostgresConnectionSharing(TestCase):
+    """Two Postgres sinks on one database must not close each other's socket.
+
+    The connection cache is keyed on the database settings rather than on the
+    sink, so sinks pointed at the same database share connections. Before
+    reference counting, whichever sink finalized first closed the shared
+    socket, and the other one carried on writing through a dead connection.
+    """
+
+    def setUp(self) -> None:
+        self.database = PostgresDatabaseSettings(
+            database="db", username="u", password="p"
+        )
+        # Two sinks that differ only outside PostgresDatabaseSettings, so they
+        # collide on the cache key.
+        self.first = PostgresSink(
+            PostgresSinkSettings(database=self.database, write_unformed=True)
+        )
+        self.second = PostgresSink(
+            PostgresSinkSettings(database=self.database, write_unformed=False)
+        )
+
+    def tearDown(self) -> None:
+        connection._owners.clear()  # pyright: ignore[reportPrivateUsage]
+
+    def _initialize(self, sink: PostgresSink) -> None:
+        with mock.patch(
+            "eleanor.output.postgres.sink.repositories.apply_pending_migrations"
+        ):
+            sink.initialize()
+
+    def test_first_finalize_does_not_close_shared_connection(self) -> None:
+        """Ensure only the *last* sink to finalize actually closes."""
+        self._initialize(self.first)
+        self._initialize(self.second)
+
+        with mock.patch(
+            "eleanor.output.postgres.persistence.connection.close_connection"
+        ) as close:
+            self.first.finalize()
+            close.assert_not_called()
+
+            self.second.finalize()
+            close.assert_called_once_with(self.database)
+
+    def test_finalize_without_initialize_closes_immediately(self) -> None:
+        """Ensure an unmatched release still closes, as a bare finalize did."""
+        with mock.patch(
+            "eleanor.output.postgres.persistence.connection.close_connection"
+        ) as close:
+            self.first.finalize()
+        close.assert_called_once_with(self.database)
+
+    def test_redundant_initialize_takes_one_reference(self) -> None:
+        """Ensure a second ``initialize`` does not leave a reference stranded.
+
+        ``PostgresSink.initialize`` is documented as once-per-instance but
+        already tolerates being called twice (it guards the psycopg log-level
+        snapshot for exactly that reason). An unguarded acquire would mean the
+        single matching ``finalize`` never closed.
+        """
+        self._initialize(self.first)
+        self._initialize(self.first)
+
+        with mock.patch(
+            "eleanor.output.postgres.persistence.connection.close_connection"
+        ) as close:
+            self.first.finalize()
+        close.assert_called_once_with(self.database)
+
+    def test_distinct_databases_are_counted_separately(self) -> None:
+        """Ensure a sink on another database is not kept alive by this one."""
+        other_database = PostgresDatabaseSettings(
+            database="other", username="u", password="p"
+        )
+        other = PostgresSink(PostgresSinkSettings(database=other_database))
+
+        self._initialize(self.first)
+        self._initialize(other)
+
+        with mock.patch(
+            "eleanor.output.postgres.persistence.connection.close_connection"
+        ) as close:
+            other.finalize()
+        close.assert_called_once_with(other_database)
+
+
 class TestSinkPicklability(TestCase):
     """Every sink must survive the trip into a worker process.
 
@@ -1028,6 +1117,73 @@ class TestSinkPicklability(TestCase):
             _ = pickle.dumps(sink)
 
 
+class TestResumeOptIn(TestCase):
+    """``supports_resume`` defaults to True and is overridable."""
+
+    def test_builtin_sinks_support_resume(self) -> None:
+        """Ensure the capability is a pure extension point for now.
+
+        All four built-ins accept a resume token today, so none of them may
+        change behaviour when the flag starts being consulted.
+        """
+        sinks: list[AbstractOutputSink[object]] = [
+            cast("AbstractOutputSink[object]", NullSink(NullSinkSettings(support_worker_commit=False))),
+            cast("AbstractOutputSink[object]", MemorySink(MemorySinkSettings(support_worker_commit=False))),
+            cast(
+                "AbstractOutputSink[object]",
+                PostgresSink(
+                    PostgresSinkSettings(
+                        database=PostgresDatabaseSettings(
+                            database="db", username="u", password="p"
+                        ),
+                    ),
+                ),
+            ),
+        ]
+        for sink in sinks:
+            with self.subTest(sink=type(sink).__name__):
+                self.assertTrue(sink.supports_resume())
+
+    def test_default_is_true_for_a_bare_subclass(self) -> None:
+        """Ensure a third-party sink predating the flag keeps resuming."""
+
+        class BareSink(AbstractOutputSink[int]):
+            @override
+            def begin_run(self, order: Order, *, requested_id: str | None = None) -> int:
+                return 0
+
+            @override
+            def prepare_batch(
+                self, order_id: int, results: Sequence[ComputeResult]
+            ) -> Sequence[object]:
+                return list(results)
+
+            @override
+            def commit_batch(
+                self,
+                order_id: int,
+                prepared: Sequence[object],
+                progress: ProgressHandle | None = None,
+            ) -> list[WriteOutcome]:
+                return []
+
+            @override
+            def finalize_run(self) -> None:
+                return
+
+        self.assertTrue(BareSink().supports_resume())
+
+    def test_a_sink_can_decline(self) -> None:
+        """Ensure a sink with nothing to resume can say so."""
+
+        class EphemeralSink(NullSink):
+            @override
+            def supports_resume(self) -> bool:
+                return False
+
+        self.assertFalse(EphemeralSink(NullSinkSettings(support_worker_commit=False)).supports_resume())
+
+
 class TestBackgroundCommitOptIn(TestCase):
     """Which sinks claim the writer thread, and why.
 
@@ -1089,3 +1245,52 @@ class TestBackgroundCommitOptIn(TestCase):
                 pass
 
         self.assertFalse(MinimalSink().supports_background_commit())
+
+
+class TestSinkBindingPicklability(TestCase):
+    """A binding crosses into workers, so it and its parts must pickle.
+
+    ``prepare_batch`` always runs in a worker, so this holds for every sink
+    regardless of where it commits.
+    """
+
+    def test_a_binding_round_trips(self) -> None:
+        """Ensure the binding survives the process boundary intact."""
+        sink = NullSink(NullSinkSettings(support_worker_commit=True))
+        binding = SinkBinding.bind("null", cast("AbstractOutputSink[object]", sink), 7)
+
+        revived = cast(SinkBinding, pickle.loads(pickle.dumps(binding)))
+
+        self.assertEqual(revived.name, "null")
+        self.assertEqual(revived.order_id, 7)
+        self.assertTrue(revived.commit_in_worker)
+        self.assertIsInstance(revived.sink, NullSink)
+
+    def test_bind_snapshots_the_commit_strategy(self) -> None:
+        """Ensure the strategy is read once, so parent and worker agree."""
+        worker = NullSink(NullSinkSettings(support_worker_commit=True))
+        serial = NullSink(NullSinkSettings(support_worker_commit=False))
+
+        self.assertTrue(
+            SinkBinding.bind("a", cast("AbstractOutputSink[object]", worker), 0).commit_in_worker
+        )
+        self.assertFalse(
+            SinkBinding.bind("b", cast("AbstractOutputSink[object]", serial), 0).commit_in_worker
+        )
+
+    def test_a_chunk_result_round_trips(self) -> None:
+        """Ensure what a worker returns survives the trip home."""
+        result = ChunkResult(
+            point_count=2,
+            sinks=[
+                SinkChunkResult(name="pg", outcomes=[WriteOutcome(exit_code=0, committed=True)]),
+                SinkChunkResult(name="csv", prepared=[{"row": 1}]),
+            ],
+        )
+
+        revived = cast(ChunkResult, pickle.loads(pickle.dumps(result)))
+
+        self.assertEqual(revived.point_count, 2)
+        self.assertEqual([s.name for s in revived.sinks], ["pg", "csv"])
+        self.assertIsNone(revived.sinks[0].prepared)
+        self.assertIsNone(revived.sinks[1].outcomes)

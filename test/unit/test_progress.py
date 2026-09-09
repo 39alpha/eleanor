@@ -168,13 +168,13 @@ class TestProgressLifecycle(TestCase):
         manager = _FakeManager(queue)
 
         with mock.patch.object(progress_mod, "Process", _FakeProcess):
-            p = Progress(_typed_manager(manager))
+            p = Progress(_typed_manager(manager), ["out"])
         fake_process = cast(_FakeProcess, cast(object, p.process))
         self.assertTrue(fake_process.started)
         self.assertIs(p.queue, queue)
 
         sim_handle = p.sim
-        out_handle = p.out
+        out_handle = p.out("out")
         self.assertIsInstance(sim_handle, _ChannelHandle)
         self.assertIsInstance(out_handle, _ChannelHandle)
         self.assertEqual(cast(_ChannelHandle, sim_handle)._channel, "sim")
@@ -188,7 +188,7 @@ class TestProgressLifecycle(TestCase):
         manager = _FakeManager(queue)
 
         with mock.patch.object(progress_mod, "Process", _FakeProcess):
-            p = Progress(_typed_manager(manager))
+            p = Progress(_typed_manager(manager), ["out"])
             fake_process = cast(_FakeProcess, cast(object, p.process))
             fake_process._alive_sequence = [True, False]
             p.join()
@@ -206,7 +206,7 @@ class TestProgressLifecycle(TestCase):
         manager = _FakeManager(queue)
 
         with mock.patch.object(progress_mod, "Process", _FakeProcess):
-            p = Progress(_typed_manager(manager))
+            p = Progress(_typed_manager(manager), ["out"])
             fake_process = cast(_FakeProcess, cast(object, p.process))
             fake_process._alive_sequence = [False, False]
             p.join()
@@ -224,7 +224,7 @@ class TestProgressLifecycle(TestCase):
         manager = _FakeManager(queue)
 
         with mock.patch.object(progress_mod, "Process", _FakeProcess):
-            p = Progress(_typed_manager(manager))
+            p = Progress(_typed_manager(manager), ["out"])
             fake_process = cast(_FakeProcess, cast(object, p.process))
             fake_process._alive_sequence = [True, True]
             p.join()
@@ -247,6 +247,8 @@ class TestProgressListener(TestCase):
         queue = _FakeQueue(messages=messages)
         p = object.__new__(Progress)
         p.queue = queue
+        # ``__init__`` is bypassed, so declare the layout the listener reads.
+        p.out_channels = ("out",)
         with (
             mock.patch.object(progress_mod, "tqdm", _FakeTqdm),
             mock.patch("eleanor.progress.signal.signal") as signal_mock,
@@ -330,7 +332,7 @@ class TestProgressListener(TestCase):
         # Sim and out bars should have distinct, human-readable labels and
         # be padded to a common width so they line up vertically.
         self.assertEqual(bars["sim"].desc.strip(), "sims")
-        self.assertEqual(bars["out"].desc.strip(), "output")
+        self.assertEqual(bars["out"].desc.strip(), "out")
         self.assertEqual(len(bars["sim"].desc), len(bars["out"].desc))
 
     def test_sim_extend_without_prior_total_seeds_initial_total(self) -> None:
@@ -415,6 +417,7 @@ class TestProgressListener(TestCase):
             ]
         )
         p = object.__new__(Progress)
+        p.out_channels = ("out",)
         p.queue = queue
 
         # ``reset_timer_to_now`` reads ``bar._time()`` so it stays in the same
@@ -444,6 +447,7 @@ class TestProgressListener(TestCase):
             ]
         )
         p = object.__new__(Progress)
+        p.out_channels = ("out",)
         p.queue = queue
 
         # If ``reset_timer_to_now`` were (incorrectly) called here, both

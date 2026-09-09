@@ -12,6 +12,7 @@ from eleanor.util import require_str
 @dataclass(kw_only=True)
 class OutputSinkConfig(PluginConfig[OutputSinkSettings]):
     kind: str
+    name: str = ""
     settings: OutputSinkSettings = field(default_factory=OutputSinkSettings)
 
     def __post_init__(self) -> None:
@@ -19,14 +20,18 @@ class OutputSinkConfig(PluginConfig[OutputSinkSettings]):
             msg = f"output configuration requires {OutputSinkSettings.__name__}, got {type(self.settings).__name__}"
             raise EleanorError(msg)
 
+        if not self.name:
+            self.name = self.kind
+
         super().__post_init__()
 
     @classmethod
     def from_dict(cls, raw: dict[str, object]) -> Self:
         kind = require_str(raw.get("kind"), "kind")
-        settings_raw = {k: v for k, v in raw.items() if k != "kind"}
+        name = require_str(raw.get("name", kind), "name")
+        settings_raw = {k: v for k, v in raw.items() if k not in {"kind", "name"}}
         settings = load_plugin_settings(registry, OutputSinkSettings, kind, settings_raw) or OutputSinkSettings()
-        return cls(kind=kind, settings=settings)
+        return cls(kind=kind, name=name, settings=settings)
 
 
 __all__ = ["OutputSinkConfig"]

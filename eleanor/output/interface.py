@@ -52,6 +52,45 @@ class WriteOutcome:
     error_message: str | None = None
 
 
+@dataclass(slots=True, frozen=True)
+class SinkChunkResult:
+    """What one sink did with one chunk, as handed back from the worker.
+
+    Exactly one of :attr:`outcomes` / :attr:`prepared` is set, and which one
+    is decided before the chunk is submitted by
+    :attr:`SinkBinding.commit_in_worker`:
+
+    * :attr:`outcomes` -- the sink committed in the worker. Only the small
+      per-point verdicts travel back.
+    * :attr:`prepared` -- the sink commits in the parent, so its prepared
+      payload has to make the trip.
+
+    The sink is identified by name rather than by position so that a chunk's
+    results cannot be silently mismatched against the binding list.
+    """
+
+    name: str
+    outcomes: list[WriteOutcome] | None = None
+    prepared: Sequence[object] | None = None
+
+
+@dataclass(slots=True, frozen=True)
+class ChunkResult:
+    """Everything one chunk produced, across every active sink.
+
+    :param point_count: How many VS points the chunk held. Carried explicitly
+        because it is no longer recoverable from the payload: with several
+        sinks active, ``len(sinks)`` counts sinks, not points, and the parent
+        needs the point count to emit fallback simulation-progress ticks for
+        executors that cannot forward a progress handle into workers.
+    :param sinks: One :class:`SinkChunkResult` per active sink, in binding
+        order.
+    """
+
+    point_count: int
+    sinks: list[SinkChunkResult]
+
+
 @dataclass(slots=True)
 class RunStats:
     attempted: int = 0
@@ -181,6 +220,15 @@ class AbstractOutputSink[IdT](ABC):
         A failure that affects a single point should be recorded in that
         point's prepared item rather than raised, so the remaining points in
         the chunk can still commit. Raising aborts the whole chunk.
+
+        **This method must not mutate ``results``, nor anything reachable
+        from them.** When several sinks are active they are each handed the
+        *same* ``results`` -- computing once and fanning out is the entire
+        point -- and they prepare in the order the configuration lists them.
+        A sink that writes to the compute graph is therefore visible to every
+        sink after it, and to any sink whose prepared payload aliases the
+        graph rather than copying out of it (:class:`PostgresPrepared` holds
+        the point objects themselves).
         """
         ...
 
@@ -260,6 +308,28 @@ class AbstractOutputSink[IdT](ABC):
         """Exit the sink's lifetime: calls :meth:`finalize`."""
         self.finalize()
 
+    def supports_resume(self) -> bool:
+        """Whether this sink can extend a run it already holds.
+
+        A sink that returns ``False`` is always given ``requested_id=None``
+        and is never required to supply a resume token, because there is
+        nothing for a token to name: a live-plotting sink draws to a window,
+        a streaming sink writes to a socket, neither retains a run to go back
+        to. Eleanor still starts such a sink normally; only the resume half of
+        :meth:`begin_run`'s contract is waived.
+
+        This matters once several sinks are active at once. Resume is
+        per-sink -- the id space belongs to the sink, so only the sink can
+        interpret a token -- and Eleanor requires a token for every sink that
+        claims to support resuming, rather than silently starting some of them
+        fresh and leaving the outputs of one run split across two ids. This
+        method is how a sink opts out of that requirement.
+
+        The default is ``True`` so third-party sinks that pre-date the
+        capability keep their existing resume behaviour.
+        """
+        return True
+
     def supports_worker_commit(self) -> bool:
         """Whether :meth:`commit_batch` is safe to invoke from worker processes.
 
@@ -320,11 +390,53 @@ class AbstractOutputSink[IdT](ABC):
         return False
 
 
+@dataclass(slots=True, frozen=True)
+class SinkBinding:
+    """One active sink, together with everything a chunk needs to write to it.
+
+    A run may drive several sinks at once, each with its own id space and its
+    own commit strategy. Keeping the three together in one object -- rather
+    than in parallel lists indexed in lockstep -- is deliberate: pairing a
+    sink with the wrong order id, or crediting one sink's outcomes to another,
+    is the failure mode this whole layer is most exposed to.
+
+    Bindings cross into worker processes, so every field must pickle. The
+    sink already must (:meth:`AbstractOutputSink.prepare_batch` always runs in
+    a worker), and the order id must because the sink chose it.
+
+    :param name: The sink's configured name. Identifies it in resume tokens,
+        progress bars, per-sink statistics and error messages.
+    :param commit_in_worker: A snapshot of
+        :meth:`AbstractOutputSink.supports_worker_commit`, taken once when the
+        binding is built. Snapshotting keeps the parent and the worker
+        agreeing on where a given chunk gets committed even if a sink's answer
+        were to vary.
+    """
+
+    name: str
+    sink: AbstractOutputSink[object]
+    order_id: object
+    commit_in_worker: bool
+
+    @staticmethod
+    def bind(name: str, sink: AbstractOutputSink[object], order_id: object) -> SinkBinding:
+        """Build a binding, snapshotting the sink's commit strategy."""
+        return SinkBinding(
+            name=name,
+            sink=sink,
+            order_id=order_id,
+            commit_in_worker=sink.supports_worker_commit(),
+        )
+
+
 __all__ = [
     "AbstractOutputSink",
+    "ChunkResult",
     "ComputeResult",
     "ErrorInfo",
     "RunStats",
+    "SinkBinding",
+    "SinkChunkResult",
     "WriteOutcome",
     "require_int_order_id",
 ]

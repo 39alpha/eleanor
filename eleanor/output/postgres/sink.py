@@ -63,10 +63,12 @@ class PostgresSink(AbstractOutputSink[int]):
 
     settings: PostgresSinkSettings
     _prev_psycopg_log_level: int | None
+    _acquired: bool
 
     def __init__(self, settings: PostgresSinkSettings) -> None:
         self.settings = settings
         self._prev_psycopg_log_level = None
+        self._acquired = False
 
     @override
     def initialize(self) -> None:
@@ -77,33 +79,18 @@ class PostgresSink(AbstractOutputSink[int]):
         credentials, network problems, or schema mismatch to surface
         before any work has been queued.
         """
+        if not self._acquired:
+            connection_module.acquire(self.settings.database)
+            self._acquired = True
+
         if self.settings.verbose:
-            # psycopg3 emits its own connection-attempt and statement
-            # diagnostics through ``logging.getLogger("psycopg")``. We only
-            # adjust the level here -- handler / formatter wiring is the
-            # embedding application's responsibility, exactly as it is for
-            # any other library logger. The previous level is snapshotted
-            # so :meth:`finalize` can restore it.  Only snapshot once so a
-            # redundant ``initialize`` call doesn't clobber the original.
             logger = logging.getLogger(_PSYCOPG_LOGGER_NAME)
             if self._prev_psycopg_log_level is None:
                 self._prev_psycopg_log_level = logger.level
             logger.setLevel(logging.DEBUG)
-        # ``repositories.apply_pending_migrations`` opens a connection via
-        # ``connection.connect`` and delegates to the migration runner, which
-        # bootstraps the tracking table, holds a session-scoped advisory lock,
-        # and applies every pending ``NNNN_*.sql`` file in order. A partial
-        # schema never lands: transactional migrations roll back as a unit,
-        # and non-transactional ones (``*.notxn.sql``) are required to be
-        # idempotent.
+
         repositories.apply_pending_migrations(self.settings.database)
         if self.settings.bulk_load_optimization:
-            # Strip every secondary index + FK / CHECK constraint so the
-            # per-row INSERT / COPY work the sink is about to do does not
-            # pay maintenance / validation cost. The recreate happens in
-            # :meth:`finalize`. Run *after* ``setup_schema`` so the
-            # tables are guaranteed to exist before we try to alter them
-            # on a fresh database.
             repositories.drop_bulk_load_objects(self.settings.database)
 
     @override
@@ -159,8 +146,6 @@ class PostgresSink(AbstractOutputSink[int]):
         once per durably-written row.
         """
         outcomes: list[WriteOutcome] = []
-        # Slots in ``outcomes`` we tentatively credit to a successful
-        # savepoint; promoted to ``committed=True`` after the outer commit.
         pending_slots: list[int] = []
         pending_results: list[int] = []
 
@@ -181,13 +166,6 @@ class PostgresSink(AbstractOutputSink[int]):
                             ),
                         )
                     except Exception as e:
-                        # The savepoint already rolled this VS point's writes
-                        # back; surface the error on stderr so silent
-                        # per-point failures stop being invisible. The full
-                        # traceback is preserved in addition to the message
-                        # we stash on ``WriteOutcome.error_message`` because
-                        # ``str(e)`` on a psycopg ``DatabaseError`` typically
-                        # loses the originating call site.
                         message = (
                             f"PostgresSink.commit_batch: VS point index {index} "
                             f"failed and was rolled back: {type(e).__name__}: {e}"
@@ -202,8 +180,6 @@ class PostgresSink(AbstractOutputSink[int]):
                             ),
                         )
         except Exception as e:
-            # The outer transaction failed at commit time; every pending
-            # row is now non-durable. Surface the commit error on each.
             err = str(e)
             for slot in pending_slots:
                 outcomes[slot] = WriteOutcome(
@@ -213,10 +189,6 @@ class PostgresSink(AbstractOutputSink[int]):
                 )
             return outcomes
 
-        # The outer commit landed. Promote the pending placeholders to
-        # ``committed=True`` and tick the output bar -- once per durably
-        # written row, matching the per-row cadence the docstring on
-        # :meth:`OutputSink.commit_batch` documents.
         for slot, exit_code in zip(pending_slots, pending_results, strict=True):
             outcomes[slot] = WriteOutcome(
                 exit_code=exit_code,
@@ -233,22 +205,30 @@ class PostgresSink(AbstractOutputSink[int]):
 
     @override
     def finalize(self) -> None:
-        """Close the persistent connection on sink shutdown.
+        """Release the persistent connection on sink shutdown.
 
         When ``bulk_load_optimization`` is enabled, reattach the
         constraints + indexes stripped in :meth:`initialize` *before*
-        the connection is closed (recreate uses the same connection
+        the connection is released (recreate uses the same connection
         cache). The recreate runs inside a :keyword:`try` whose
-        :keyword:`finally` always closes the connection, so a recreate
-        failure (typically because the bulk-loaded data violates a
-        constraint) leaves the database with constraints missing and
-        propagates the exception, but never leaks the libpq socket.
+        :keyword:`finally` always releases, so a recreate failure
+        (typically because the bulk-loaded data violates a constraint)
+        leaves the database with constraints missing and propagates the
+        exception, but never leaks the libpq socket.
+
+        The release goes through
+        :func:`~eleanor.output.postgres.persistence.connection.release`
+        rather than closing outright: the connection cache is keyed on the
+        database settings, so a second sink pointed at the same database
+        shares these connections and must not have them closed under it.
+        The last sink to release is the one that actually closes.
         """
         try:
             if self.settings.bulk_load_optimization:
                 repositories.recreate_bulk_load_objects(self.settings.database)
         finally:
-            connection_module.close_connection(self.settings.database)
+            connection_module.release(self.settings.database)
+            self._acquired = False
             if self._prev_psycopg_log_level is not None:
                 logging.getLogger(_PSYCOPG_LOGGER_NAME).setLevel(
                     self._prev_psycopg_log_level,

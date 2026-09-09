@@ -50,6 +50,21 @@ output:
 
 The short-string form `navigator: random` is accepted as sugar for
 `{kind: random}`.
+
+`output` additionally accepts a **list** of such blocks, one per sink, each
+with an optional `name` (defaulting to `kind`). `name` is Eleanor's, not the
+plugin's: it is stripped alongside `kind` before the rest is forwarded to
+`parse_settings`.
+
+```yaml
+output:
+  - kind: postgres
+    database: {host: localhost, database: eleanor}
+  - kind: csv
+    name: export
+    filename: summary.csv
+    query: {...}
+```
 ### Navigator contract
 Navigator plugins must expose:
 
@@ -158,6 +173,39 @@ committing inline. In practice this means doing your row conversion in
 `commit_batch` as close to pure I/O as you can. Measure both ways before
 opting in; `eleanor.output.postgres.sink.PostgresSink` declines for exactly
 this reason.
+
+## Sinks share one run
+
+A run may drive several sinks at once. Eleanor computes each point **once** and
+hands the same `Sequence[ComputeResult]` to every sink's `prepare_batch`, in
+the order the configuration lists them. Two obligations follow.
+
+**Do not mutate `results`, or anything reachable from them.** A sink that
+writes to the compute graph is visible to every sink after it, and to any sink
+whose prepared payload aliases the graph rather than copying out of it --
+`PostgresSink`'s payload holds the point objects themselves. Eleanor cannot
+defend against this: duplicating a ~100k-object graph per sink is exactly the
+cost the prepare/commit split exists to avoid.
+
+**Own only what is yours.** Your sink's id space, files, connections and
+counters are yours alone; nothing correlates them with another sink's. If your
+sink caches a resource keyed by something other than the sink instance -- a
+connection pool keyed by its connection settings, say -- two instances
+configured against the same target will share it, and the first to `finalize`
+must not tear it out from under the second.
+
+Sinks are addressed by the `name` in their config block, which defaults to
+`kind`. It keys the sink's resume token, labels its progress bar, and keys the
+ids `Eleanor.run` returns.
+
+### Declining to resume
+
+`supports_resume()` defaults to `True`. Return `False` when there is nothing a
+resume token could name -- a sink that draws to a window, or streams to a
+socket, retains no run to go back to. Eleanor then always passes
+`requested_id=None` and never requires a token for your sink, which matters
+because with several sinks active it demands one for every sink that *does*
+claim to support resuming.
 
 ```python
 from collections.abc import Sequence

@@ -9,12 +9,18 @@ turns the parent's per-point cost from ``unpickle + commit`` into
 ``max(unpickle, commit)`` and lets the dispatch loop keep the pool fed
 meanwhile.
 
-The thread is deliberately singular. Every serial sink in the tree keeps state
-that assumes one writer -- a monotonic point counter, an open file handle, a
-single database transaction -- so the win being sought here is overlap with
-the workers, not write concurrency. A single FIFO consumer also means commits
-happen in exactly the order the dispatch loop produced them, which keeps
-``outcomes[i]`` lined up with the chunk that produced it.
+The thread is deliberately singular *per sink*. Every serial sink in the tree
+keeps state that assumes one writer -- a monotonic point counter, an open file
+handle, a single database transaction -- so the win being sought here is
+overlap with the workers, not write concurrency. A single FIFO consumer also
+means commits happen in exactly the order the dispatch loop produced them,
+which keeps ``outcomes[i]`` lined up with the chunk that produced it.
+
+A run driving several serial sinks gets one writer each rather than one
+shared writer. That keeps the same guarantee -- one thread owns one sink, so
+the sink needs no locking of its own -- without making two unrelated sinks
+wait on each other. Threads are named after their sink so a stack dump says
+which one is stuck.
 """
 
 import queue
@@ -51,21 +57,11 @@ class BackgroundWriter[IdT]:
         with BackgroundWriter(sink, order_id, depth=8) as writer:
             writer.submit(prepared)
         outcomes = writer.outcomes
-
-    :param sink: The sink to commit through. Not touched by this object on the
-        calling thread.
-    :param order_id: Forwarded to every ``commit_batch`` call.
-    :param depth: Maximum number of prepared payloads to hold. Reached only
-        when the sink cannot keep up, at which point :meth:`submit` blocks --
-        which is the intended backpressure: without it the parent would buffer
-        prepared payloads without bound.
-    :param progress: Forwarded to every ``commit_batch`` call. Safe to hand to
-        another thread: a progress handle is a stateless wrapper over a
-        manager-backed queue.
     """
 
     _sink: AbstractOutputSink[IdT]
     _order_id: IdT
+    _name: str
     _progress: ProgressHandle | None
     _queue: queue.Queue[Sequence[object] | None]
     _thread: threading.Thread | None
@@ -79,9 +75,11 @@ class BackgroundWriter[IdT]:
         *,
         depth: int,
         progress: ProgressHandle | None = None,
+        name: str | None = None,
     ) -> None:
         self._sink = sink
         self._order_id = order_id
+        self._name = name or type(sink).__name__
         self._progress = progress
         self._queue = queue.Queue(maxsize=max(1, depth))
         self._thread = None
@@ -102,9 +100,7 @@ class BackgroundWriter[IdT]:
         if self._thread is not None:
             return
 
-        # Not a daemon: a half-written batch is worse than a slow exit, and
-        # both exit paths join explicitly anyway.
-        self._thread = threading.Thread(target=self._run, name="eleanor-writer")
+        self._thread = threading.Thread(target=self._run, name=f"eleanor-writer[{self._name}]")
         self._thread.start()
 
     def submit(self, prepared: Sequence[object]) -> None:
@@ -136,10 +132,6 @@ class BackgroundWriter[IdT]:
                 raise self._error
             return self._outcomes
 
-        # A plain blocking put, deliberately: the writer thread is still
-        # consuming, so room appears on its own. Making room by discarding --
-        # as ``abort`` does -- would silently drop committed-but-not-yet-
-        # written payloads whenever the queue happened to be full here.
         self._queue.put(None)
         self._thread.join()
         self._thread = None

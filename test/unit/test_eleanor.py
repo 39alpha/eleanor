@@ -14,6 +14,7 @@ from eleanor.executor.settings import ExecutorSettings
 from eleanor.kernel import AbstractKernel
 from eleanor.order import Order
 from eleanor.output import AbstractOutputSink, ComputeResult, WriteOutcome
+from eleanor.output.interface import ChunkResult, SinkBinding, SinkChunkResult
 from eleanor.output.null import NullSinkSettings
 import eleanor.timing as timing_mod
 from eleanor.timing import DispatchTimings
@@ -56,13 +57,40 @@ class _FakeExecutor:
     def __init__(self, num_workers=2, submit_side_effect=None) -> None:
         self._num_workers = num_workers
         self.enter_count = 0
-        self.submit = mock.Mock(
-            side_effect=submit_side_effect or [_Future([]), _Future([])]
-        )
+        if submit_side_effect is None or callable(submit_side_effect):
+            effect = submit_side_effect or self._default_submit
+        else:
+            effect = self._adapting(list(submit_side_effect))
+        self.submit = mock.Mock(side_effect=effect)
         self.pop_completed_future = mock.Mock(
             side_effect=lambda futures: futures.pop(0)
         )
         self.shutdown = mock.Mock()
+
+    @staticmethod
+    def _default_submit(_fn, *args, **kwargs):
+        """Resolve to an empty ``ChunkResult`` shaped for the given bindings."""
+        return _Future(_chunk_result(args[0], kwargs["bindings"], []))
+
+    @staticmethod
+    def _adapting(futures):
+        """Serve queued futures, reshaping raw payloads into ``ChunkResult``s.
+
+        A fixture says what a chunk produced; which half of the per-sink result
+        that lands in follows from the binding's commit strategy, so the fake
+        derives it rather than making every fixture spell it out. A fixture
+        that already supplies a ``ChunkResult`` is passed through untouched.
+        """
+        queued = iter(futures)
+
+        def submit(_fn, *args, **kwargs):
+            future = next(queued)
+            value = future.result()
+            if isinstance(value, ChunkResult):
+                return future
+            return _Future(_chunk_result(args[0], kwargs["bindings"], value))
+
+        return submit
 
     @property
     def num_workers(self):
@@ -81,10 +109,12 @@ def _make_eleanor():
     """Construct an ``Eleanor`` backed by a stubbed config."""
     return Eleanor(
         config=Config(
-            output=OutputSinkConfig(
-                kind="null",
-                settings=NullSinkSettings(support_worker_commit=False),
-            ),
+            output=[
+                OutputSinkConfig(
+                    kind="null",
+                    settings=NullSinkSettings(support_worker_commit=False),
+                ),
+            ],
         )
     )
 
@@ -118,6 +148,24 @@ def _navigator(num_systems: int = 1):
     return navigator
 
 
+def _progress_factory(sim_handle, handles):
+    """Build a ``Progress`` stand-in that honours its declared channel list.
+
+    The gating on ``supports_progress`` now happens when the channel list is
+    assembled, so a stub that hands out handles regardless would not show
+    whether a declining sink was actually excluded.
+    """
+
+    def build(_manager, out_channels=()):
+        return SimpleNamespace(
+            sim=sim_handle,
+            outs=lambda: {name: handles[name] for name in out_channels},
+            join=mock.Mock(),
+        )
+
+    return build
+
+
 @contextmanager
 def _shutdown_with_state(state: SimpleNamespace):
     yield state
@@ -136,7 +184,7 @@ class TestEleanorConstruction(TestCase):
         self.assertFalse(eleanor._entered)
         self.assertIsNone(eleanor._executor)
         self.assertIsNone(eleanor._manager)
-        self.assertIsNone(eleanor._output_sink)
+        self.assertIsNone(eleanor._output_sinks)
 
     def test_init_raises_when_no_output_sink_configured(self) -> None:
         """Ensure constructor rejects a config with no output type and no sink override."""
@@ -151,7 +199,7 @@ class TestEleanorConstruction(TestCase):
         config = Config()
         sink = mock.Mock(spec=AbstractOutputSink)
         eleanor = Eleanor(config=config, output_sink=sink)
-        self.assertIs(eleanor._output_sink_override, sink)
+        self.assertEqual(eleanor._output_sink_override, {"output": sink})
 
     def test_init_rejects_positional_config(self) -> None:
         """Ensure all constructor args are keyword-only after the * sentinel move."""
@@ -174,7 +222,7 @@ class TestEleanorConstruction(TestCase):
                 )
                 self.assertIs(eleanor._executor, executor)
                 eleanor._manager = manager
-                eleanor._output_sink = sink
+                eleanor._output_sinks = {"null": sink}
 
         sink.finalize.assert_called_once()
         manager.shutdown.assert_called_once()
@@ -212,12 +260,14 @@ class TestEleanorConstruction(TestCase):
         executor = _FakeExecutor()
         manager = mock.Mock()
         sim_handle = mock.Mock()
-        progress = SimpleNamespace(sim=sim_handle, out=mock.Mock(), join=mock.Mock())
+        progress = SimpleNamespace(
+            sim=sim_handle, outs=lambda: {"null": mock.Mock()}, join=mock.Mock()
+        )
         sink = mock.Mock()
         sink.begin_run.return_value = 7
         sink.supports_progress.return_value = False
         sink.finalize.side_effect = RuntimeError("sink finalize failed")
-        eleanor.process = mock.Mock(return_value=[])
+        eleanor.process = mock.Mock(return_value={})
 
         kernel = mock.MagicMock(AbstractKernel)
 
@@ -247,7 +297,7 @@ class TestEleanorRun(TestCase):
         sink = mock.Mock()
         sink.begin_run.return_value = 7
         sink.supports_progress.return_value = False
-        eleanor.process = mock.Mock(return_value=[])
+        eleanor.process = mock.Mock(return_value={})
 
         kernel = mock.MagicMock(AbstractKernel)
 
@@ -261,11 +311,11 @@ class TestEleanorRun(TestCase):
         ):
             out = eleanor.run(order, 5, kernel=kernel, navigator=_navigator(1))
 
-        self.assertEqual(out, 7)
+        self.assertEqual(out, {"null": 7})
         load_executor.assert_called_once_with("multiprocessing", ExecutorSettings())
-        assert eleanor.config.output is not None
+        assert len(eleanor.config.output) == 1
         load_sink.assert_called_once_with(
-            eleanor.config.output.kind, eleanor.config.output.settings
+            eleanor.config.output[0].kind, eleanor.config.output[0].settings
         )
         sink.finalize.assert_called_once()
         executor.shutdown.assert_called_once_with(wait=True)
@@ -283,7 +333,7 @@ class TestEleanorRun(TestCase):
 
         def process(*_args, **kwargs):
             seen_executors.append(kwargs["executor"])
-            return []
+            return {}
 
         eleanor.process = mock.Mock(side_effect=process)
 
@@ -314,7 +364,7 @@ class TestEleanorRun(TestCase):
         sink = mock.Mock()
         sink.begin_run.return_value = "sink-chosen-id"
         sink.supports_progress.return_value = False
-        eleanor.process = mock.Mock(return_value=[])
+        eleanor.process = mock.Mock(return_value={})
 
         kernel = mock.MagicMock(AbstractKernel)
 
@@ -327,7 +377,7 @@ class TestEleanorRun(TestCase):
             )
 
         sink.begin_run.assert_called_once_with(order, requested_id="99")
-        self.assertEqual(returned, "sink-chosen-id")
+        self.assertEqual(returned, {"null": "sink-chosen-id"})
 
     def test_run_passes_no_resume_id_when_none_is_given(self) -> None:
         """Ensure a plain run asks the sink for a fresh id rather than a resume."""
@@ -336,7 +386,7 @@ class TestEleanorRun(TestCase):
         sink = mock.Mock()
         sink.begin_run.return_value = 0
         sink.supports_progress.return_value = False
-        eleanor.process = mock.Mock(return_value=[])
+        eleanor.process = mock.Mock(return_value={})
 
         kernel = mock.MagicMock(AbstractKernel)
 
@@ -407,43 +457,41 @@ class TestEleanorRun(TestCase):
 
         sim_handle_quiet = mock.Mock(name="sim_handle_quiet")
         out_handle_quiet = mock.Mock(name="out_handle_quiet")
-        progress_quiet = SimpleNamespace(
-            sim=sim_handle_quiet, out=out_handle_quiet, join=mock.Mock()
-        )
+        progress_quiet = _progress_factory(sim_handle_quiet, {"null": out_handle_quiet})
         quiet_sink = mock.Mock()
         quiet_sink.begin_run.return_value = 5
         quiet_sink.supports_progress.return_value = False
-        eleanor.process = mock.Mock(return_value=[])
+        eleanor.process = mock.Mock(return_value={})
 
         with (
             mock.patch("eleanor.eleanor.load_executor", return_value=executor),
             mock.patch("eleanor.eleanor.Manager", return_value=manager),
             mock.patch("eleanor.eleanor.load_output_sink", return_value=quiet_sink),
-            mock.patch("eleanor.eleanor.Progress", return_value=progress_quiet),
+            mock.patch("eleanor.eleanor.Progress", side_effect=progress_quiet),
         ):
             _ = eleanor.run(
                 _make_order(), 3, kernel=kernel, navigator=navigator, show_progress=True
             )
 
+        # A sink that declines progress is never declared as a channel, so no
+        # bar is created for it and it gets no handle.
         kwargs = eleanor.process.call_args.kwargs
         self.assertIs(kwargs["sim_progress"], sim_handle_quiet)
-        self.assertIsNone(kwargs["out_progress"])
+        self.assertEqual(kwargs["out_progress"], {})
 
         sim_handle_loud = mock.Mock(name="sim_handle_loud")
         out_handle_loud = mock.Mock(name="out_handle_loud")
-        progress_loud = SimpleNamespace(
-            sim=sim_handle_loud, out=out_handle_loud, join=mock.Mock()
-        )
+        progress_loud = _progress_factory(sim_handle_loud, {"null": out_handle_loud})
         loud_sink = mock.Mock()
         loud_sink.begin_run.return_value = 6
         loud_sink.supports_progress.return_value = True
-        eleanor.process = mock.Mock(return_value=[])
+        eleanor.process = mock.Mock(return_value={})
 
         with (
             mock.patch("eleanor.eleanor.load_executor", return_value=executor),
             mock.patch("eleanor.eleanor.Manager", return_value=manager),
             mock.patch("eleanor.eleanor.load_output_sink", return_value=loud_sink),
-            mock.patch("eleanor.eleanor.Progress", return_value=progress_loud),
+            mock.patch("eleanor.eleanor.Progress", side_effect=progress_loud),
         ):
             _ = eleanor.run(
                 _make_order(), 3, kernel=kernel, navigator=navigator, show_progress=True
@@ -451,14 +499,18 @@ class TestEleanorRun(TestCase):
 
         kwargs = eleanor.process.call_args.kwargs
         self.assertIs(kwargs["sim_progress"], sim_handle_loud)
-        self.assertIs(kwargs["out_progress"], out_handle_loud)
+        self.assertEqual(kwargs["out_progress"], {"null": out_handle_loud})
 
     def test_run_closes_progress_handles_when_process_raises(self) -> None:
         """Ensure progress handles are closed/joined even if process raises."""
         eleanor = _make_eleanor()
         sim_handle = mock.Mock(name="sim_handle")
         out_handle = mock.Mock(name="out_handle")
-        progress = SimpleNamespace(sim=sim_handle, out=out_handle, join=mock.Mock())
+        progress = SimpleNamespace(
+            sim=sim_handle,
+            outs=lambda: {"null": out_handle},
+            join=mock.Mock(),
+        )
         sink = mock.Mock()
         sink.begin_run.return_value = 8
         sink.supports_progress.return_value = True
@@ -490,7 +542,7 @@ class TestEleanorRun(TestCase):
         sink = mock.Mock()
         sink.begin_run.return_value = 7
         sink.supports_progress.return_value = False
-        eleanor.process = mock.Mock(return_value=[])
+        eleanor.process = mock.Mock(return_value={})
 
         kernel = mock.MagicMock(AbstractKernel)
 
@@ -514,7 +566,7 @@ class TestEleanorRun(TestCase):
         sink = mock.Mock()
         sink.begin_run.return_value = 9
         sink.supports_progress.return_value = False
-        eleanor.process = mock.Mock(return_value=[])
+        eleanor.process = mock.Mock(return_value={})
 
         kernel = mock.MagicMock(AbstractKernel)
 
@@ -532,7 +584,7 @@ class TestEleanorRun(TestCase):
         sink = mock.Mock()
         sink.begin_run.return_value = 9
         sink.supports_progress.return_value = False
-        eleanor.process = mock.Mock(return_value=[])
+        eleanor.process = mock.Mock(return_value={})
 
         kernel = mock.MagicMock(AbstractKernel)
 
@@ -577,7 +629,7 @@ class TestEleanorRun(TestCase):
         provided_sink = mock.Mock()
         provided_sink.begin_run.return_value = 7
         provided_sink.supports_progress.return_value = False
-        eleanor.process = mock.Mock(return_value=[])
+        eleanor.process = mock.Mock(return_value={})
 
         kernel = mock.MagicMock(AbstractKernel)
 
@@ -593,7 +645,7 @@ class TestEleanorRun(TestCase):
                 navigator=_navigator(1),
             )
 
-        self.assertEqual(out, 7)
+        self.assertEqual(out, {"output": 7})
         load_sink.assert_not_called()
         provided_sink.initialize.assert_not_called()
         provided_sink.finalize.assert_not_called()
@@ -638,7 +690,6 @@ class TestEleanorProcess(TestCase):
                 batch_size=1,
                 expected_total=1,
                 executor=None,
-                sink=sink,
             )
 
     def test_process_batches_for_serial_sinks(self) -> None:
@@ -670,14 +721,13 @@ class TestEleanorProcess(TestCase):
             kernel,
             navigator,
             2,
-            9,
+            [_bind(sink)],
             batch_size=2,
             max_nav_attempts=3,
             expected_total=2,
             executor=_as_executor(executor),
-            sink=sink,
             sim_progress=sim_progress,
-            out_progress=out_progress,
+            out_progress={"output": out_progress},
         )
         navigator.navigate.assert_called_once_with(
             order, kernel, 2, 2, max_attempts=3
@@ -726,12 +776,11 @@ class TestEleanorProcess(TestCase):
             kernel,
             navigator,
             2,
-            9,
+            [_bind(sink)],
             batch_size=2,
             expected_total=2,
             executor=_as_executor(executor),
-            sink=sink,
-            out_progress=out_progress,
+            out_progress={"output": out_progress},
         )
 
         self.assertEqual(
@@ -764,20 +813,21 @@ class TestEleanorProcess(TestCase):
             kernel,
             navigator,
             2,
-            9,
+            [_bind(sink)],
             batch_size=2,
             expected_total=2,
             executor=_as_executor(executor),
-            sink=sink,
             sim_progress=sim_progress,
-            out_progress=out_progress,
+            out_progress={"output": out_progress},
         )
 
         submit_kwargs = executor.submit.call_args_list[0].kwargs
-        self.assertIs(submit_kwargs["sink"], sink)
-        self.assertEqual(submit_kwargs["order_id"], 9)
+        binding = submit_kwargs["bindings"][0]
+        self.assertIs(binding.sink, sink)
+        self.assertEqual(binding.order_id, 9)
+        self.assertTrue(binding.commit_in_worker)
         self.assertIs(submit_kwargs["sim_progress"], sim_progress)
-        self.assertIs(submit_kwargs["out_progress"], out_progress)
+        self.assertEqual(submit_kwargs["out_progress"], {"output": out_progress})
 
     def test_process_falls_back_to_batch_ticks_when_executor_cannot_carry_progress(
         self,
@@ -794,7 +844,8 @@ class TestEleanorProcess(TestCase):
             WriteOutcome(exit_code=1, committed=True),
         ]
         executor = _FakeExecutor(
-            submit_side_effect=[_Future(worker_outcomes), _Future([])],
+            num_workers=1,
+            submit_side_effect=[_Future(worker_outcomes)],
         )
         executor.supports_worker_progress = False
 
@@ -808,13 +859,12 @@ class TestEleanorProcess(TestCase):
             kernel,
             navigator,
             2,
-            9,
+            [_bind(sink)],
             batch_size=2,
             expected_total=2,
             executor=_as_executor(executor),
-            sink=sink,
             sim_progress=sim_progress,
-            out_progress=out_progress,
+            out_progress={"output": out_progress},
         )
 
         submit_kwargs = executor.submit.call_args_list[0].kwargs
@@ -841,11 +891,10 @@ class TestEleanorProcess(TestCase):
                 mock.Mock(),
                 navigator,
                 10,
-                1,
+                [_bind(sink)],
                 batch_size=5,
                 expected_total=10,
                 executor=_as_executor(_FakeExecutor()),
-                sink=sink,
             )
 
     def test_process_raises_on_navigator_overproduction(self) -> None:
@@ -867,11 +916,10 @@ class TestEleanorProcess(TestCase):
                 mock.Mock(),
                 navigator,
                 5,
-                1,
+                [_bind(sink)],
                 batch_size=7,
                 expected_total=5,
                 executor=_as_executor(executor),
-                sink=sink,
             )
 
     def test_process_terminates_executor_on_interrupt(self) -> None:
@@ -902,11 +950,10 @@ class TestEleanorProcess(TestCase):
                 kernel,
                 navigator,
                 1,
-                9,
+                [_bind(sink)],
                 batch_size=1,
                 expected_total=1,
                 executor=_as_executor(executor),
-                sink=sink,
             )
 
         executor.shutdown.assert_called_once_with(wait=False)
@@ -939,11 +986,10 @@ class TestEleanorProcess(TestCase):
                 kernel,
                 navigator,
                 1,
-                9,
+                [_bind(sink)],
                 batch_size=1,
                 expected_total=1,
                 executor=_as_executor(executor),
-                sink=sink,
             )
 
         self.assertEqual(raised.exception.signal_name, "SIGTERM")
@@ -973,11 +1019,10 @@ class TestEleanorProcess(TestCase):
                 mock.Mock(),
                 navigator,
                 10,
-                1,
+                [_bind(sink)],
                 batch_size=5,
                 expected_total=10,
                 executor=_as_executor(_FakeExecutor()),
-                sink=sink,
             )
 
         self.assertEqual(raised.exception.signal_name, "SIGTERM")
@@ -996,7 +1041,7 @@ class TestEleanorConstructorOverrides(TestCase):
 
         def process(*_args, **kwargs):
             seen_executors.append(kwargs["executor"])
-            return []
+            return {}
 
         eleanor.process = mock.Mock(side_effect=process)
         sink = mock.Mock()
@@ -1029,7 +1074,7 @@ class TestEleanorConstructorOverrides(TestCase):
         eleanor = _make_eleanor()
         ctor_executor = _FakeExecutor()
         eleanor._executor_override = ctor_executor
-        eleanor.process = mock.Mock(return_value=[])
+        eleanor.process = mock.Mock(return_value={})
         sink = mock.Mock()
         sink.begin_run.return_value = 1
         sink.supports_progress.return_value = False
@@ -1055,7 +1100,7 @@ class TestEleanorConstructorOverrides(TestCase):
         ctor_executor = _FakeExecutor()
         _ = ctor_executor.__enter__()
         eleanor._executor_override = ctor_executor
-        eleanor.process = mock.Mock(return_value=[])
+        eleanor.process = mock.Mock(return_value={})
         sink = mock.Mock()
         sink.begin_run.return_value = 1
         sink.supports_progress.return_value = False
@@ -1080,8 +1125,8 @@ class TestEleanorConstructorOverrides(TestCase):
         ctor_sink = mock.Mock()
         ctor_sink.begin_run.return_value = 7
         ctor_sink.supports_progress.return_value = False
-        eleanor._output_sink_override = ctor_sink
-        eleanor.process = mock.Mock(return_value=[])
+        eleanor._output_sink_override = {"ctor": ctor_sink}
+        eleanor.process = mock.Mock(return_value={})
 
         kernel = mock.MagicMock(AbstractKernel)
 
@@ -1106,8 +1151,8 @@ class TestEleanorConstructorOverrides(TestCase):
         ctor_sink = mock.Mock()
         ctor_sink.begin_run.return_value = 3
         ctor_sink.supports_progress.return_value = False
-        eleanor._output_sink_override = ctor_sink
-        eleanor.process = mock.Mock(return_value=[])
+        eleanor._output_sink_override = {"ctor": ctor_sink}
+        eleanor.process = mock.Mock(return_value={})
 
         kernel = mock.MagicMock(AbstractKernel)
 
@@ -1129,8 +1174,8 @@ class TestEleanorConstructorOverrides(TestCase):
         per_run_sink = mock.Mock()
         per_run_sink.begin_run.return_value = 5
         per_run_sink.supports_progress.return_value = False
-        eleanor._output_sink_override = ctor_sink
-        eleanor.process = mock.Mock(return_value=[])
+        eleanor._output_sink_override = {"ctor": ctor_sink}
+        eleanor.process = mock.Mock(return_value={})
 
         kernel = mock.MagicMock(AbstractKernel)
 
@@ -1181,12 +1226,11 @@ class TestEleanorProcessTimings(TestCase):
             mock.MagicMock(AbstractKernel),
             navigator,
             4,
-            9,
+            [_bind(self._serial_sink())],
             batch_size=4,
             expected_total=4,
             executor=_as_executor(executor),
             chunks_per_worker=2,
-            sink=self._serial_sink(),
             timings=timings,
         )
 
@@ -1212,11 +1256,10 @@ class TestEleanorProcessTimings(TestCase):
             mock.MagicMock(AbstractKernel),
             navigator,
             2,
-            9,
+            [_bind(sink)],
             batch_size=2,
             expected_total=2,
             executor=_as_executor(executor),
-            sink=sink,
             timings=timings,
         )
 
@@ -1245,11 +1288,10 @@ class TestEleanorProcessTimings(TestCase):
                 mock.MagicMock(AbstractKernel),
                 navigator,
                 1,
-                9,
+                [_bind(self._serial_sink())],
                 batch_size=1,
                 expected_total=1,
                 executor=_as_executor(executor),
-                sink=self._serial_sink(),
                 timings=timings,
             )
 
@@ -1279,11 +1321,10 @@ class TestEleanorProcessTimings(TestCase):
                 mock.MagicMock(AbstractKernel),
                 navigator,
                 1,
-                9,
+                [_bind(sink)],
                 batch_size=1,
                 expected_total=1,
                 executor=_as_executor(executor),
-                sink=sink,
                 timings=timings,
             )
 
@@ -1321,12 +1362,11 @@ class TestEleanorProcessTimings(TestCase):
                 mock.MagicMock(AbstractKernel),
                 navigator,
                 2,
-                9,
+                [_bind(self._serial_sink())],
                 batch_size=2,
                 expected_total=2,
                 executor=_as_executor(executor),
                 chunks_per_worker=1,
-                sink=self._serial_sink(),
                 timings=timings,
             )
 
@@ -1348,11 +1388,10 @@ class TestEleanorProcessTimings(TestCase):
             mock.MagicMock(AbstractKernel),
             navigator,
             1,
-            9,
+            [_bind(self._serial_sink())],
             batch_size=1,
             expected_total=1,
             executor=_as_executor(executor),
-            sink=self._serial_sink(),
             timing=True,
         )
 
@@ -1368,7 +1407,7 @@ class TestEleanorRunTimingReport(TestCase):
         sink = mock.Mock()
         sink.begin_run.return_value = 3
         sink.supports_progress.return_value = False
-        eleanor.process = mock.Mock(return_value=[])
+        eleanor.process = mock.Mock(return_value={})
         captured = io.StringIO()
 
         with (
@@ -1392,7 +1431,7 @@ class TestEleanorRunTimingReport(TestCase):
         sink = mock.Mock()
         sink.begin_run.return_value = 3
         sink.supports_progress.return_value = False
-        eleanor.process = mock.Mock(return_value=[])
+        eleanor.process = mock.Mock(return_value={})
         captured = io.StringIO()
 
         with (
@@ -1435,6 +1474,38 @@ class TestEleanorRunTimingReport(TestCase):
         self.assertIn("dispatch timings", captured.getvalue())
 
 
+def _bind(sink: object, name: str = "output", order_id: object = 9) -> SinkBinding:
+    """Bind a stand-in sink, honouring its stated commit strategy."""
+    return SinkBinding(
+        name=name,
+        sink=cast("AbstractOutputSink[object]", sink),
+        order_id=order_id,
+        commit_in_worker=bool(sink.supports_worker_commit()),  # pyright: ignore[reportAttributeAccessIssue]
+    )
+
+
+def _chunk_result(points: object, bindings: object, payload: object) -> ChunkResult:
+    """Synthesize what ``Runner.dispatch`` would have returned for a chunk.
+
+    Worker-commit sinks come back with outcomes and no payload; the rest come
+    back with the prepared payload for the parent to commit.
+    """
+    items = cast("list[object]", payload)
+    sinks: list[SinkChunkResult] = []
+    for binding in cast("list[SinkBinding]", bindings):
+        if binding.commit_in_worker:
+            # A fixture that already speaks in outcomes keeps them verbatim;
+            # anything else stands in as one clean write per item.
+            if items and all(isinstance(item, WriteOutcome) for item in items):
+                outcomes = cast("list[WriteOutcome]", list(items))
+            else:
+                outcomes = [WriteOutcome(exit_code=0, committed=True) for _ in items]
+            sinks.append(SinkChunkResult(name=binding.name, outcomes=outcomes))
+        else:
+            sinks.append(SinkChunkResult(name=binding.name, prepared=list(items)))
+    return ChunkResult(point_count=len(cast("list[object]", points)), sinks=sinks)
+
+
 class _RecordingExecutor:
     """Executor stand-in that logs the order of ``submit`` / ``pop`` calls.
 
@@ -1455,10 +1526,10 @@ class _RecordingExecutor:
     def num_workers(self) -> int:
         return self._num_workers
 
-    def submit(self, _fn, *args, **_kwargs):
+    def submit(self, _fn, *args, **kwargs):
         self.log.append("submit")
         self.chunks.append(args[0])
-        return _Future(self._payload)
+        return _Future(_chunk_result(args[0], kwargs["bindings"], self._payload))
 
     def pop_completed_future(self, futures):
         self.log.append("pop")
@@ -1517,12 +1588,11 @@ class TestEleanorDispatchWindow(TestCase):
             mock.MagicMock(AbstractKernel),
             _batched_navigator(batches),
             total,
-            9,
+            [_bind(sink if sink is not None else self._serial_sink())],
             batch_size=batch_size,
             expected_total=total,
             executor=_as_executor(executor),
             chunks_per_worker=chunks_per_worker,
-            sink=sink if sink is not None else self._serial_sink(),
         )
 
     def test_window_is_never_drained_to_empty_before_the_stream_ends(self) -> None:
@@ -1632,7 +1702,6 @@ class TestEleanorDispatchWindow(TestCase):
             executor,
             [["a", "b", "c", "d"], ["e", "f", "g", "h"]],
             batch_size=4,
-            sink=sink,
         )
 
         sink.commit_batch.assert_not_called()
@@ -1654,11 +1723,10 @@ class TestEleanorDispatchWindow(TestCase):
                 mock.MagicMock(AbstractKernel),
                 _batched_navigator([["a", "b"]]),
                 4,
-                9,
+                [_bind(self._serial_sink())],
                 batch_size=4,
                 expected_total=4,
                 executor=_as_executor(executor),
-                sink=self._serial_sink(),
             )
 
 
@@ -1677,18 +1745,19 @@ class TestEleanorBackgroundCommit(TestCase):
         return sink
 
     def _process(self, sink: mock.Mock, executor: _RecordingExecutor) -> list[WriteOutcome]:
+        """Run one sink through ``process`` and return just its outcomes."""
         eleanor = _make_eleanor()
-        return eleanor.process(
+        outcomes = eleanor.process(
             _make_order(),
             mock.MagicMock(AbstractKernel),
             _batched_navigator([["a", "b", "c", "d"]]),
             4,
-            9,
+            [_bind(sink)],
             batch_size=4,
             expected_total=4,
             executor=_as_executor(executor),
-            sink=sink,
         )
+        return outcomes["output"]
 
     def test_commits_happen_off_the_dispatch_thread(self) -> None:
         """Ensure an opted-in sink is committed from the writer thread."""
@@ -1763,7 +1832,7 @@ class TestEleanorBackgroundCommit(TestCase):
 
         # A live writer thread here would mean finalize_run could race a commit.
         self.assertFalse(
-            any(t.name == "eleanor-writer" and t.is_alive() for t in threading.enumerate()),
+            any(t.name.startswith("eleanor-writer") and t.is_alive() for t in threading.enumerate()),
             "writer thread outlived process()",
         )
 
@@ -1777,7 +1846,7 @@ class TestEleanorBackgroundCommit(TestCase):
             _ = self._process(sink, executor)
 
         self.assertFalse(
-            any(t.name == "eleanor-writer" and t.is_alive() for t in threading.enumerate()),
+            any(t.name.startswith("eleanor-writer") and t.is_alive() for t in threading.enumerate()),
             "writer thread outlived a failed process()",
         )
 
@@ -1806,15 +1875,14 @@ class TestEleanorBackgroundCommit(TestCase):
                 mock.MagicMock(AbstractKernel),
                 navigator,
                 4,
-                9,
+                [_bind(sink)],
                 batch_size=4,
                 expected_total=4,
                 executor=_as_executor(executor),
-                sink=sink,
             )
 
         self.assertFalse(
-            any(t.name == "eleanor-writer" and t.is_alive() for t in threading.enumerate()),
+            any(t.name.startswith("eleanor-writer") and t.is_alive() for t in threading.enumerate()),
             "writer thread outlived a failed process()",
         )
 
@@ -1832,6 +1900,278 @@ class TestEleanorBackgroundCommit(TestCase):
 
         sink.commit_batch.assert_not_called()
         self.assertFalse(
-            any(t.name == "eleanor-writer" for t in threading.enumerate()),
+            any(t.name.startswith("eleanor-writer") for t in threading.enumerate()),
             "a worker-commit sink should not get a writer thread",
         )
+
+
+class TestEleanorMultipleSinks(TestCase):
+    """Tests covering a run driving more than one output sink at once."""
+
+    @staticmethod
+    def _sink(*, worker_commit: bool, background: bool = False) -> mock.Mock:
+        sink = mock.Mock()
+        sink.supports_worker_commit.return_value = worker_commit
+        sink.supports_background_commit.return_value = background
+        sink.supports_progress.return_value = True
+        sink.supports_resume.return_value = True
+        sink.prepare_batch.side_effect = lambda _order_id, results: results
+        sink.commit_batch.side_effect = lambda _order_id, prepared, **_kwargs: [
+            WriteOutcome(exit_code=0, committed=True) for _ in prepared
+        ]
+        return sink
+
+    def _process(self, bindings: list[SinkBinding], payload: object = None):
+        eleanor = _make_eleanor()
+        executor = _RecordingExecutor(num_workers=2, payload=payload or ["x", "y"])
+        return eleanor.process(
+            _make_order(),
+            mock.MagicMock(AbstractKernel),
+            _batched_navigator([["a", "b", "c", "d"]]),
+            4,
+            bindings,
+            batch_size=4,
+            expected_total=4,
+            executor=_as_executor(executor),
+        )
+
+    def test_outcomes_are_keyed_per_sink(self) -> None:
+        """Ensure each sink's outcomes are reported separately.
+
+        Summing them would inflate ``RunStats.attempted`` by the sink count,
+        making a healthy two-sink run look like twice the work.
+        """
+        outcomes = self._process(
+            [
+                _bind(self._sink(worker_commit=True), name="pg"),
+                _bind(self._sink(worker_commit=False), name="csv"),
+            ],
+        )
+
+        self.assertEqual(sorted(outcomes), ["csv", "pg"])
+        self.assertEqual(len(outcomes["pg"]), 4)
+        self.assertEqual(len(outcomes["csv"]), 4)
+
+    def test_mixed_commit_strategies_are_honoured_in_one_chunk(self) -> None:
+        """Ensure a worker-commit sink and a serial sink can share a run.
+
+        The dispatch loop used to pick one strategy for the whole run from a
+        single sink's answer; a chunk now has to carry both.
+        """
+        worker_sink = self._sink(worker_commit=True)
+        serial_sink = self._sink(worker_commit=False)
+
+        outcomes = self._process(
+            [_bind(worker_sink, name="pg"), _bind(serial_sink, name="csv")],
+        )
+
+        # The worker-commit sink was committed in the worker, so the parent
+        # never called it; the serial one was committed by the parent.
+        worker_sink.commit_batch.assert_not_called()
+        self.assertTrue(serial_sink.commit_batch.called)
+        self.assertEqual(len(outcomes["pg"]), 4)
+        self.assertEqual(len(outcomes["csv"]), 4)
+
+    def test_each_sink_keeps_its_own_order_id(self) -> None:
+        """Ensure ids are not shared across sinks, whatever their id space."""
+        first = self._sink(worker_commit=False)
+        second = self._sink(worker_commit=False)
+
+        _ = self._process(
+            [
+                _bind(first, name="a", order_id=42),
+                _bind(second, name="b", order_id="8f14e45f"),
+            ],
+        )
+
+        self.assertEqual(first.commit_batch.call_args.args[0], 42)
+        self.assertEqual(second.commit_batch.call_args.args[0], "8f14e45f")
+
+    def test_each_background_sink_gets_its_own_writer(self) -> None:
+        """Ensure serial sinks commit on separate threads.
+
+        ``BackgroundWriter`` guarantees one thread owns its sink for the run,
+        which is what lets sinks skip internal locking. Sharing a thread
+        between two sinks would keep that guarantee but serialise sinks that
+        have no reason to wait on each other.
+        """
+        threads: dict[str, set[str]] = {"a": set(), "b": set()}
+
+        def _recorder(name: str):
+            def commit(_order_id, prepared, **_kwargs):
+                threads[name].add(threading.current_thread().name)
+                return [WriteOutcome(exit_code=0, committed=True) for _ in prepared]
+
+            return commit
+
+        first = self._sink(worker_commit=False, background=True)
+        second = self._sink(worker_commit=False, background=True)
+        first.commit_batch.side_effect = _recorder("a")
+        second.commit_batch.side_effect = _recorder("b")
+
+        _ = self._process([_bind(first, name="a"), _bind(second, name="b")])
+
+        self.assertEqual(len(threads["a"]), 1)
+        self.assertEqual(len(threads["b"]), 1)
+        self.assertNotEqual(threads["a"], threads["b"])
+        dispatch_thread = threading.current_thread().name
+        self.assertNotIn(dispatch_thread, threads["a"] | threads["b"])
+
+    def test_a_failing_sink_aborts_the_run_and_stops_every_writer(self) -> None:
+        """Ensure one sink's commit failure takes the whole run down cleanly.
+
+        Continuing with the survivors would produce a run that reports success
+        while one of its outputs is missing rows.
+        """
+        healthy = self._sink(worker_commit=False, background=True)
+        broken = self._sink(worker_commit=False, background=True)
+        broken.commit_batch.side_effect = RuntimeError("disk full")
+
+        with self.assertRaisesRegex(RuntimeError, "disk full"):
+            _ = self._process(
+                [_bind(healthy, name="ok"), _bind(broken, name="bad")],
+            )
+
+        self.assertFalse(
+            any(t.name.startswith("eleanor-writer") for t in threading.enumerate()),
+            "a failed run must not leave a writer thread behind",
+        )
+
+    def test_progress_handles_are_routed_per_sink(self) -> None:
+        """Ensure each sink ticks its own bar, not a shared one."""
+        first = self._sink(worker_commit=False)
+        second = self._sink(worker_commit=False)
+        handle_a = mock.Mock()
+        handle_b = mock.Mock()
+
+        eleanor = _make_eleanor()
+        executor = _RecordingExecutor(num_workers=2, payload=["x"])
+        _ = eleanor.process(
+            _make_order(),
+            mock.MagicMock(AbstractKernel),
+            _batched_navigator([["a", "b"]]),
+            2,
+            [_bind(first, name="a"), _bind(second, name="b")],
+            batch_size=2,
+            expected_total=2,
+            executor=_as_executor(executor),
+            out_progress={"a": handle_a, "b": handle_b},
+        )
+
+        self.assertIs(first.commit_batch.call_args.kwargs["progress"], handle_a)
+        self.assertIs(second.commit_batch.call_args.kwargs["progress"], handle_b)
+
+    def test_process_rejects_an_empty_binding_list(self) -> None:
+        """Ensure a run with nothing to write to is an error, not a silent no-op."""
+        eleanor = _make_eleanor()
+        with self.assertRaisesRegex(EleanorError, "no output sink"):
+            _ = eleanor.process(
+                _make_order(),
+                mock.MagicMock(AbstractKernel),
+                _batched_navigator([["a"]]),
+                1,
+                [],
+                batch_size=1,
+                expected_total=1,
+                executor=_as_executor(_FakeExecutor()),
+            )
+
+
+class TestEleanorResumeRouting(TestCase):
+    """Tests covering how ``resume_id`` is resolved against the active sinks."""
+
+    @staticmethod
+    def _sinks(**resumable: bool) -> dict[str, mock.Mock]:
+        sinks: dict[str, mock.Mock] = {}
+        for name, can_resume in resumable.items():
+            sink = mock.Mock()
+            sink.begin_run.return_value = f"{name}-id"
+            sink.supports_progress.return_value = False
+            sink.supports_worker_commit.return_value = True
+            sink.supports_resume.return_value = can_resume
+            sinks[name] = sink
+        return sinks
+
+    def _run(self, sinks: dict[str, mock.Mock], resume_id: object = None):
+        eleanor = Eleanor(
+            config=Config(),
+            output_sink=cast("dict[str, AbstractOutputSink[object]]", sinks),
+        )
+        eleanor.process = mock.Mock(return_value={name: [] for name in sinks})
+        with mock.patch("eleanor.eleanor.load_executor", return_value=_FakeExecutor()):
+            return eleanor.run(
+                _make_order(),
+                1,
+                kernel=mock.MagicMock(AbstractKernel),
+                navigator=_navigator(1),
+                resume_id=cast("str | None", resume_id),
+            )
+
+    def test_tokens_are_routed_to_their_named_sink(self) -> None:
+        """Ensure each sink is handed only its own token, verbatim."""
+        sinks = self._sinks(pg=True, csv=True)
+
+        _ = self._run(sinks, {"pg": "42", "csv": "8f14e45f"})
+
+        self.assertEqual(sinks["pg"].begin_run.call_args.kwargs["requested_id"], "42")
+        self.assertEqual(
+            sinks["csv"].begin_run.call_args.kwargs["requested_id"], "8f14e45f"
+        )
+
+    def test_a_bare_token_is_accepted_for_a_lone_sink(self) -> None:
+        """Ensure the pre-existing single-sink invocation keeps working."""
+        sinks = self._sinks(pg=True)
+
+        _ = self._run(sinks, "42")
+
+        self.assertEqual(sinks["pg"].begin_run.call_args.kwargs["requested_id"], "42")
+
+    def test_a_bare_token_is_ambiguous_with_several_sinks(self) -> None:
+        """Ensure a bare token is refused rather than guessed at.
+
+        The id spaces differ per sink, so there is nothing to infer from.
+        """
+        with self.assertRaisesRegex(EleanorError, "bare resume id is ambiguous"):
+            _ = self._run(self._sinks(pg=True, csv=True), "42")
+
+    def test_a_missing_token_for_a_resumable_sink_is_an_error(self) -> None:
+        """Ensure a partial resume is refused, naming what is missing.
+
+        Silently starting the unnamed sink fresh would split one run's output
+        across two ids with nothing recording that they differ.
+        """
+        with self.assertRaisesRegex(EleanorError, "missing: csv"):
+            _ = self._run(self._sinks(pg=True, csv=True), {"pg": "42"})
+
+    def test_a_sink_that_cannot_resume_needs_no_token(self) -> None:
+        """Ensure ``supports_resume() is False`` exempts a sink.
+
+        A live-plot sink retains nothing for a token to name; demanding one
+        would make resume unusable alongside it.
+        """
+        sinks = self._sinks(pg=True, plot=False)
+
+        _ = self._run(sinks, {"pg": "42"})
+
+        self.assertEqual(sinks["pg"].begin_run.call_args.kwargs["requested_id"], "42")
+        self.assertIsNone(sinks["plot"].begin_run.call_args.kwargs["requested_id"])
+
+    def test_a_token_for_an_unknown_sink_is_an_error(self) -> None:
+        """Ensure a typo'd sink name fails loudly instead of being dropped."""
+        with self.assertRaisesRegex(EleanorError, "no output sink named 'typo'"):
+            _ = self._run(self._sinks(pg=True), {"typo": "42"})
+
+    def test_no_resume_id_starts_every_sink_fresh(self) -> None:
+        """Ensure the default path asks no sink to resume."""
+        sinks = self._sinks(pg=True, csv=True)
+
+        _ = self._run(sinks)
+
+        for sink in sinks.values():
+            self.assertIsNone(sink.begin_run.call_args.kwargs["requested_id"])
+
+    def test_run_returns_every_allocated_id_keyed_by_sink(self) -> None:
+        """Ensure the caller can tell which id belongs to which sink."""
+        ids = self._run(self._sinks(pg=True, csv=True))
+
+        self.assertEqual(ids, {"pg": "pg-id", "csv": "csv-id"})

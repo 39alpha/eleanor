@@ -55,25 +55,28 @@ def doctor(config: str | None, database: str | None) -> None:
     except EleanorError:
         cfg_obj = None
 
-    if cfg_obj is not None and cfg_obj.output is not None:
+    if cfg_obj is not None:
         from eleanor.output.postgres.settings import PostgresSinkSettings
 
-        settings = cfg_obj.output.settings
-        if isinstance(settings, PostgresSinkSettings) and settings.database.database is not None:
-            _print_postgres_health(settings)
+        for entry in cfg_obj.output:
+            settings = entry.settings
+            if isinstance(settings, PostgresSinkSettings) and settings.database.database is not None:
+                _print_postgres_health(settings, entry.name)
 
 
-def _print_postgres_health(settings: PostgresSinkSettings) -> None:
+def _print_postgres_health(settings: PostgresSinkSettings, name: str) -> None:
     from eleanor.output.postgres.persistence import connection, migrations, schema
+
+    label = "postgres" if name == "postgres" else f"postgres ({name})"
 
     try:
         conn = connection.connect(settings.database)
     except Exception as exc:
-        click.echo(f"  {click.style('postgres', bold=True)}")
+        click.echo(f"  {click.style(label, bold=True)}")
         click.echo(f"    {click.style('connection failed:', fg='red')} {exc}")
         return
 
-    click.echo(f"  {click.style('postgres', bold=True)}")
+    click.echo(f"  {click.style(label, bold=True)}")
     click.echo(f"    database: {click.style(settings.database.database or '(none)', fg='green')}")
 
     with conn.cursor() as cur:

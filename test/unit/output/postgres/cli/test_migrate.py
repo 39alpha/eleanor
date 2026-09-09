@@ -271,9 +271,9 @@ def test_read_applied_versions_returns_empty_on_undefined_table(
     cur = conn.cursor.return_value.__enter__.return_value
     cur.execute.side_effect = psycopg.errors.UndefinedTable("relation does not exist")
     mocker.patch("eleanor.output.postgres.cli._connection.connect", return_value=conn)
-    settings = _postgres_config().output
-    assert settings is not None
-    pg_settings = settings.settings
+    entries = _postgres_config().output
+    assert len(entries) == 1
+    pg_settings = entries[0].settings
     assert isinstance(pg_settings, PostgresSinkSettings)
     result = pg_cli._read_applied_versions(pg_settings)
     assert result == set()

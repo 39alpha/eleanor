@@ -160,7 +160,9 @@ def test_run_null_sink_overrides_output_sink(
         settings=ExecutorSettings(chunks_per_worker=2, num_workers=None),
     )
     eleanor_ctor.assert_called_once_with(config=config, executor=executor)
-    assert isinstance(eleanor.run.call_args.kwargs["output_sink"], NullSink)
+    sinks = eleanor.run.call_args.kwargs["output_sink"]
+    assert list(sinks) == ["null"]
+    assert isinstance(sinks["null"], NullSink)
     mock_sink_init.assert_called_once()
     mock_sink_fin.assert_called_once()
 
@@ -419,9 +421,9 @@ def test_run_bulk_load_sets_optimization_in_postgres_config(
     result = invoke_run(runner, ["-c", "/fake.yaml", "-d", "sample", "--bulk-load"])
 
     assert result.exit_code == 0
-    assert config.output is not None
-    assert isinstance(config.output.settings, PostgresSinkSettings)
-    assert config.output.settings.bulk_load_optimization
+    assert len(config.output) == 1
+    assert isinstance(config.output[0].settings, PostgresSinkSettings)
+    assert config.output[0].settings.bulk_load_optimization
 
 
 def test_run_bulk_load_rejects_non_postgres_sink(
@@ -454,9 +456,9 @@ def test_run_no_bulk_load_disables_config_optimization(
     mocker: MockerFixture, runner: CliRunner
 ) -> None:
     config = make_config()
-    assert config.output is not None
-    assert isinstance(config.output.settings, PostgresSinkSettings)
-    config.output.settings.bulk_load_optimization = True
+    assert len(config.output) == 1
+    assert isinstance(config.output[0].settings, PostgresSinkSettings)
+    config.output[0].settings.bulk_load_optimization = True
 
     executor = make_executor(mocker)
     eleanor = make_eleanor(mocker)
@@ -470,16 +472,16 @@ def test_run_no_bulk_load_disables_config_optimization(
     result = invoke_run(runner, ["-c", "/fake.yaml", "-d", "sample", "--no-bulk-load"])
 
     assert result.exit_code == 0
-    assert not config.output.settings.bulk_load_optimization
+    assert not config.output[0].settings.bulk_load_optimization
 
 
 def test_run_bulk_load_omitted_leaves_config_unchanged(
     mocker: MockerFixture, runner: CliRunner
 ) -> None:
     config = make_config()
-    assert config.output is not None
-    assert isinstance(config.output.settings, PostgresSinkSettings)
-    config.output.settings.bulk_load_optimization = True
+    assert len(config.output) == 1
+    assert isinstance(config.output[0].settings, PostgresSinkSettings)
+    config.output[0].settings.bulk_load_optimization = True
 
     executor = make_executor(mocker)
     eleanor = make_eleanor(mocker)
@@ -493,7 +495,7 @@ def test_run_bulk_load_omitted_leaves_config_unchanged(
     result = invoke_run(runner, ["-c", "/fake.yaml", "-d", "sample"])
 
     assert result.exit_code == 0
-    assert config.output.settings.bulk_load_optimization
+    assert config.output[0].settings.bulk_load_optimization
 
 
 def test_run_bulk_load_ignored_when_null_sink(
@@ -514,7 +516,9 @@ def test_run_bulk_load_ignored_when_null_sink(
     result = invoke_run(runner, ["-c", "/fake.yaml", "--null-sink", "--bulk-load"])
 
     assert result.exit_code == 0
-    assert isinstance(eleanor.run.call_args.kwargs["output_sink"], NullSink)
+    sinks = eleanor.run.call_args.kwargs["output_sink"]
+    assert list(sinks) == ["null"]
+    assert isinstance(sinks["null"], NullSink)
 
 
 def test_run_eleanor_shutdown_uses_signal_name_in_message(

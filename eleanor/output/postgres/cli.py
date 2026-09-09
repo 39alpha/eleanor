@@ -7,7 +7,7 @@ import click
 import psycopg
 
 import eleanor as _eleanor
-from eleanor.cli.util import config_from_args, config_options
+from eleanor.cli.util import config_from_args, config_options, sole_postgres_settings
 from eleanor.exceptions import EleanorError
 from eleanor.output.postgres.persistence import connection as _connection
 from eleanor.output.postgres.persistence import migrations as _migrations
@@ -30,15 +30,7 @@ def schema(output: TextIO, config: str, database: str | None) -> None:
     documentation or for capturing the body of a new migration file.
     """
 
-    cfg = config_from_args(config, database).output
-    if cfg is None:
-        msg = "no output sink configured"
-        raise EleanorError(msg)
-
-    settings = cfg.settings
-    if not isinstance(settings, PostgresSinkSettings):
-        msg = "cannot dump postgres schema for a non-postgres output sink"
-        raise EleanorError(msg)
+    settings = sole_postgres_settings(config_from_args(config, database), "dump postgres schema")
 
     if settings.database.database is None:
         msg = "no database provided"
@@ -58,16 +50,7 @@ def scratch(vs_id: int, outdir: str, config: str, database: str | None) -> None:
     directory = Path(outdir)
 
     print(f"Loading {config}")
-    cfg = config_from_args(config, database).output
-    if cfg is None:
-        msg = "no output sink configured"
-        raise EleanorError(msg)
-
-    settings = cfg.settings
-
-    if not isinstance(settings, PostgresSinkSettings):
-        msg = "cannot dump scratch from a non-postgres output sink"
-        raise EleanorError(msg)
+    settings = sole_postgres_settings(config_from_args(config, database), "dump scratch")
 
     if settings.database.database is None:
         msg = "no database provided"
@@ -124,16 +107,10 @@ def bulkload(
     --no-indexes / --no-fks / --no-checks; give ``drop`` and ``recreate`` the same
     selection so the round-trip is symmetric.
     """
-    cfg = config_from_args(config, database).output
-    if cfg is None:
-        msg = "no output sink configured"
-        raise EleanorError(msg)
-
-    settings = cfg.settings
-
-    if not isinstance(settings, PostgresSinkSettings):
-        msg = f"cannot {action} secondary indexes and constraints on a non-postgres output sink"
-        raise EleanorError(msg)
+    settings = sole_postgres_settings(
+        config_from_args(config, database),
+        f"{action} secondary indexes and constraints",
+    )
 
     if settings.database.database is None:
         msg = "no database provided"
@@ -191,14 +168,7 @@ def migrate(
     database: str | None,
 ) -> None:
     """Apply pending postgres migrations."""
-    cfg = config_from_args(config, database).output
-    if cfg is None:
-        msg = "no output sink configured"
-        raise EleanorError(msg)
-    settings = cfg.settings
-    if not isinstance(settings, PostgresSinkSettings):
-        msg = "cannot migrate a non-postgres output sink"
-        raise EleanorError(msg)
+    settings = sole_postgres_settings(config_from_args(config, database), "migrate")
     if settings.database.database is None:
         msg = "no database provided"
         raise click.ClickException(msg)

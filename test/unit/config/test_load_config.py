@@ -22,7 +22,7 @@ class Helpers(Protocol):
 def test_load_config_with_none_argument() -> None:
     config = load_config(None)
     assert config == Config(
-        output=None,
+        output=[],
         executor=ExecutorConfig(
             kind="multiprocessing",
             settings=ExecutorSettings(chunks_per_worker=10, num_workers=None),
@@ -50,18 +50,20 @@ def test_load_config_with_path(
 
     config = load_config(str(path))
     assert config == Config(
-        output=OutputSinkConfig(
-            kind="postgres",
-            settings=PostgresSinkSettings(
-                database=PostgresDatabaseSettings(
-                    host="localhost",
-                    database="sample",
-                    username="alice",
-                    password="secret",
+        output=[
+            OutputSinkConfig(
+                kind="postgres",
+                settings=PostgresSinkSettings(
+                    database=PostgresDatabaseSettings(
+                        host="localhost",
+                        database="sample",
+                        username="alice",
+                        password="secret",
+                    ),
+                    bulk_load_optimization=False,
                 ),
-                bulk_load_optimization=False,
             ),
-        )
+        ],
     )
 
 

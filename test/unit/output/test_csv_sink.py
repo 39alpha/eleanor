@@ -1172,3 +1172,104 @@ class TestCsvSink(TestCase):
             self.assertTrue(
                 os.path.exists(f"{tmpdir}/scratch_zip/{order_id}_0_1.zip")
             )
+
+
+class TestTwoCsvSinksInOneRun(TestCase):
+    """Two CSV sinks, different queries, different files -- the motivating case.
+
+    These drive both sinks the way ``Runner.dispatch`` does, over one shared
+    ``ComputeResult`` list, so they exercise the fan-out contract rather than
+    the dispatch plumbing.
+    """
+
+    @staticmethod
+    def _exit_code_and_index_query() -> dict[str, object]:
+        return {
+            "row_scope": "vs_points[*]",
+            "columns": [
+                {"path": "vs_point.exit_code", "name": "code"},
+            ],
+        }
+
+    def test_each_sink_writes_its_own_file_with_its_own_id(self) -> None:
+        """Ensure the sinks stay wholly independent: files, ids and sidecars."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            first_path = Path(tmpdir) / "full.csv"
+            second_path = Path(tmpdir) / "summary.csv"
+            order = _minimal_order()
+            results = [
+                ComputeResult(point=_point(exit_code=0)),
+                ComputeResult(point=_point(exit_code=5)),
+            ]
+
+            with (
+                CsvSink(_settings(first_path)) as first,
+                CsvSink(
+                    _settings(
+                        second_path,
+                        query=self._exit_code_and_index_query(),
+                        id_columns=["order_id", "point_id"],
+                    )
+                ) as second,
+            ):
+                first_id = first.begin_run(order)
+                second_id = second.begin_run(order)
+
+                for sink, order_id in ((first, first_id), (second, second_id)):
+                    prepared = sink.prepare_batch(order_id, results)
+                    outcomes = sink.commit_batch(order_id, prepared)
+                    self.assertTrue(all(o.committed for o in outcomes))
+
+            # Independent id spaces: nothing correlates the two runs.
+            self.assertNotEqual(first_id, second_id)
+
+            first_rows = first_path.read_text().splitlines()
+            second_rows = second_path.read_text().splitlines()
+
+            # Each file carries its own header, from its own query.
+            self.assertEqual(first_rows[0], "order_id,exit_code")
+            self.assertEqual(second_rows[0], "order_id,point_id,code")
+            self.assertEqual(len(first_rows), 3)
+            self.assertEqual(len(second_rows), 3)
+
+            # Each row is stamped with its own sink's order id.
+            self.assertTrue(all(row.startswith(str(first_id)) for row in first_rows[1:]))
+            self.assertTrue(
+                all(row.startswith(str(second_id)) for row in second_rows[1:])
+            )
+
+            # Separate sidecars, each tracking only its own run.
+            self.assertTrue((Path(tmpdir) / "full_schema.yaml").exists())
+            self.assertTrue((Path(tmpdir) / "summary_schema.yaml").exists())
+
+    def test_preparing_for_one_sink_does_not_disturb_the_other(self) -> None:
+        """Ensure ``prepare_batch`` leaves the shared compute graph untouched.
+
+        Several sinks are handed the *same* results, so a sink that wrote to
+        the graph would corrupt every sink after it. There is no way for
+        Eleanor to defend against that -- copying the graph per sink is the
+        cost the prepare/commit split exists to avoid -- so the contract is
+        checked here instead.
+        """
+        with tempfile.TemporaryDirectory() as tmpdir:
+            order = _minimal_order()
+            results = [
+                ComputeResult(point=_point(exit_code=0)),
+                ComputeResult(point=_point(exit_code=5)),
+            ]
+            before = [(r.point, r.point.exit_code, r.error) for r in results]
+
+            with (
+                CsvSink(_settings(Path(tmpdir) / "a.csv")) as first,
+                CsvSink(
+                    _settings(
+                        Path(tmpdir) / "b.csv",
+                        query=self._exit_code_and_index_query(),
+                    )
+                ) as second,
+            ):
+                for sink in (first, second):
+                    _ = sink.prepare_batch(sink.begin_run(order), results)
+
+            after = [(r.point, r.point.exit_code, r.error) for r in results]
+            self.assertEqual(before, after)

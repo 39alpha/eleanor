@@ -1,6 +1,8 @@
 # Eleanor configuration file
 # See: https://github.com/39alpha/eleanor
 
+# A list of blocks here writes to several sinks at once; give each a
+# distinct `name` when two share a `kind`.
 output:
   kind: postgres  # postgres | csv | null
   database:

@@ -1,19 +1,26 @@
-"""Dual-channel progress pump shared between the parent process and workers.
+"""Multi-channel progress pump shared between the parent process and workers.
 
-The :class:`Progress` pump drives up to two stacked :mod:`tqdm` bars:
+The :class:`Progress` pump drives a stack of :mod:`tqdm` bars, one per
+channel:
 
 ``sim``
-    Advances as variable-space points complete their kernel compute step. Ticks
-    are typically emitted from worker processes via :class:`Runner.dispatch`.
+    Always present, always first. Advances as variable-space points complete
+    their kernel compute step. Ticks are typically emitted from worker
+    processes via :class:`Runner.dispatch`.
 
-``out``
-    Advances as points are durably written by the active :class:`OutputSink`.
-    Ticks are typically emitted from inside the sink's ``write_batch`` (either
-    from workers, for ``supports_worker_writes`` sinks, or from the parent for
-    serial sinks). The bar is created lazily and only if at least one ``out``
-    channel message is ever delivered -- sinks that do not opt in to progress
-    reporting (see :meth:`OutputSink.supports_progress`) never cause an output
-    bar to render.
+one channel per output sink
+    Advances as points are durably written by that sink. Ticks are emitted
+    from inside the sink's ``commit_batch`` -- from workers for
+    ``supports_worker_commit`` sinks, from the parent (or its writer thread)
+    for serial ones. Each bar is created lazily and only if a message for its
+    channel is actually delivered, so a sink that does not opt in to progress
+    reporting (see :meth:`AbstractOutputSink.supports_progress`) never causes
+    a bar to render.
+
+Output channel names are declared up front, when the pump is constructed, and
+are laid out in that order. Discovering them from message arrival order
+instead would make the on-screen ordering depend on which sink happened to
+commit first.
 
 A single :class:`multiprocessing.Manager`-backed queue carries tagged
 :class:`ProgressMessage` objects so there is still one consumer process behind
@@ -23,7 +30,7 @@ queue proxy.
 """
 
 import signal
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from multiprocessing import Process
 from multiprocessing.managers import SyncManager
@@ -32,8 +39,20 @@ from typing import Literal, NoReturn, Protocol, cast, runtime_checkable
 
 from tqdm import tqdm
 
-Channel = Literal["sim", "out"]
+Channel = str
+"""A bar's identity: ``"sim"``, or an output sink's configured name.
+
+Not an enumeration: output channels are named after whatever sinks the
+configuration happens to declare, so the set is only known at runtime.
+"""
+
+SIM_CHANNEL: Channel = "sim"
+
 MessageKind = Literal["total", "extend", "tick", "done"]
+
+_SIM_COLOUR = "#ec5c29"
+_OUT_COLOURS = ("#2993ec", "#29ec93", "#ec29b4", "#ecc229", "#9329ec")
+"""Cycled across the output bars so adjacent sinks are distinguishable."""
 
 
 class _TimedBar(Protocol):
@@ -61,7 +80,7 @@ class _TimedBar(Protocol):
 class ProgressMessage:
     """A single tagged progress update.
 
-    :param channel: The bar the message targets -- ``'sim'`` or ``'out'``.
+    :param channel: The bar the message targets -- ``'sim'`` or a sink name.
     :param kind: The operation to perform on the bar:
 
         * ``'total'``  -- set the bar's absolute total to ``value``.
@@ -161,23 +180,29 @@ class _ChannelHandle:
 
 
 class Progress:
-    """Two-bar progress pump.
+    """Multi-bar progress pump.
 
     The pump starts a dedicated listener :class:`~multiprocessing.Process` that
-    drains tagged messages from a shared queue and renders up to two stacked
-    :mod:`tqdm` bars. The output bar is created lazily: if no ``out`` channel
-    message is ever received, only the simulation bar is displayed.
-
-    :param manager: The shared :class:`~multiprocessing.managers.SyncManager`
-        used to allocate the cross-process queue.
+    drains tagged messages from a shared queue and renders a stack of
+    :mod:`tqdm` bars -- the simulation bar first, then one per output channel
+    in the order they were declared. Every bar is created lazily: a channel
+    that never receives a message never renders.
     """
 
     queue: Queue[ProgressMessage | None]
     process: Process
+    out_channels: tuple[Channel, ...]
 
-    def __init__(self, manager: SyncManager) -> None:
-        # SyncManager.Queue() is typed as Any by the stubs; narrow it here so
-        # downstream users see the ProgressMessage shape we expect.
+    def __init__(self, manager: SyncManager, out_channels: Sequence[Channel] = ()) -> None:
+        duplicates = sorted({name for name in out_channels if list(out_channels).count(name) > 1})
+        if duplicates:
+            msg = f"duplicate progress channel name(s): {', '.join(duplicates)}"
+            raise ValueError(msg)
+        if SIM_CHANNEL in out_channels:
+            msg = f"{SIM_CHANNEL!r} is reserved for the simulation bar"
+            raise ValueError(msg)
+
+        self.out_channels = tuple(out_channels)
         self.queue = cast("Queue[ProgressMessage | None]", manager.Queue())
         self.process = Process(target=self.listen)
         self.process.start()
@@ -190,16 +215,26 @@ class Progress:
         dispatch context can call ``done()``; producers downstream are still
         typed against :class:`ProgressHandle`, which omits ``done()``.
         """
-        return _ChannelHandle(self.queue, "sim")
+        return _ChannelHandle(self.queue, SIM_CHANNEL)
 
-    @property
-    def out(self) -> ManagedProgressHandle:
-        """Handle for the output channel. Picklable for worker use.
+    def out(self, channel: Channel) -> ManagedProgressHandle:
+        """Handle for one output channel. Picklable for worker use.
 
         See :attr:`sim` for the rationale behind the parent-vs-worker
         Protocol split.
+
+        :raises KeyError: If ``channel`` was not declared at construction.
+            A typo would otherwise render a surprise bar at an arbitrary
+            position rather than failing.
         """
-        return _ChannelHandle(self.queue, "out")
+        if channel not in self.out_channels:
+            msg = f"unknown progress channel {channel!r}; declared: {', '.join(self.out_channels) or '(none)'}"
+            raise KeyError(msg)
+        return _ChannelHandle(self.queue, channel)
+
+    def outs(self) -> dict[Channel, ManagedProgressHandle]:
+        """Handles for every declared output channel, keyed by name."""
+        return {channel: self.out(channel) for channel in self.out_channels}
 
     def listen(self) -> None:
         """Drain the queue until a shutdown sentinel (``None``) arrives.
@@ -211,15 +246,19 @@ class Progress:
         read-only here except for resources that live in the queue itself.
         """
         _ = signal.signal(signal.SIGINT, signal.SIG_IGN)
-        bars: dict[Channel, tqdm[NoReturn] | None] = {"sim": None, "out": None}
-        totals: dict[Channel, int] = {"sim": 0, "out": 0}
-        positions: dict[Channel, int] = {"sim": 0, "out": 1}
-        colours: dict[Channel, str] = {"sim": "#ec5c29", "out": "#2993ec"}
-        descriptions: dict[Channel, str] = {"sim": "  sims", "out": "output"}
+        layout: tuple[Channel, ...] = (SIM_CHANNEL, *self.out_channels)
+        positions: dict[Channel, int] = {channel: index for index, channel in enumerate(layout)}
+        colours: dict[Channel, str] = {SIM_CHANNEL: _SIM_COLOUR} | {
+            channel: _OUT_COLOURS[index % len(_OUT_COLOURS)] for index, channel in enumerate(self.out_channels)
+        }
+        descriptions: dict[Channel, str] = {SIM_CHANNEL: "sims"} | {channel: channel for channel in self.out_channels}
         description_width = max(len(description) for description in descriptions.values())
-        first_total: dict[Channel, bool] = {"sim": True, "out": True}
-        first_tick: dict[Channel, bool] = {"sim": True, "out": True}
-        channel_done: dict[Channel, bool] = {"sim": False, "out": False}
+
+        bars: dict[Channel, tqdm[NoReturn] | None] = dict.fromkeys(layout)
+        totals: dict[Channel, int] = dict.fromkeys(layout, 0)
+        first_total: dict[Channel, bool] = dict.fromkeys(layout, True)
+        first_tick: dict[Channel, bool] = dict.fromkeys(layout, True)
+        channel_done: dict[Channel, bool] = dict.fromkeys(layout, False)
 
         def ensure_bar(channel: Channel) -> tqdm[NoReturn]:
             bar = bars[channel]
@@ -229,7 +268,7 @@ class Progress:
                     unit=" systems",
                     colour=colours[channel],
                     position=positions[channel],
-                    desc=descriptions[channel].ljust(description_width),
+                    desc=descriptions[channel].rjust(description_width),
                 )
                 bars[channel] = bar
             return bar
@@ -269,7 +308,7 @@ class Progress:
                 break
 
             channel = msg.channel
-            if channel_done[channel]:
+            if channel not in positions or channel_done[channel]:
                 _ = self.queue.task_done()
                 continue
 
@@ -281,8 +320,6 @@ class Progress:
                 bar.refresh()
             elif msg.kind == "extend":
                 if first_total[channel]:
-                    # Treat the first extend as the bar's initial total so a
-                    # producer that only ever sends extends still gets a bar.
                     totals[channel] = msg.value
                     first_total[channel] = False
                     bar = ensure_bar(channel)
@@ -300,9 +337,6 @@ class Progress:
                     first_tick[channel] = False
                 _ = bar.update(msg.value)
             elif msg.kind == "done":
-                # The early-continue at the top of the loop already filtered
-                # out a duplicate ``done`` for this channel, so by the time we
-                # land here ``channel_done[channel]`` is necessarily ``False``.
                 channel_done[channel] = True
                 bar = bars[channel]
                 if bar is not None:
@@ -334,7 +368,8 @@ class Progress:
 
             _ = self.queue.task_done()
 
-        for bar in bars.values():
+        for channel in sorted(bars, key=lambda name: positions[name], reverse=True):
+            bar = bars[channel]
             if bar is not None:
                 bar.close()
 

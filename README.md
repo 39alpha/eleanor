@@ -66,14 +66,17 @@ Common options:
 
 - `-c, --config` / `-d, --database`: select config and optionally override the postgres database name.
 - `-n, --num-workers`: worker count for the selected executor backend.
-- `--executor KIND`: override the executor kind from config (built-ins: `serial`, `multiprocessing`; plugins may add more, e.g. `mpi`).
+- `--executor KIND`: override the executor kind from config (built-ins: `serial`, `multiprocessing`; plugins may add
+  more, e.g. `mpi`).
 - `--chunks-per-worker`: override `executor.chunks_per_worker` from config.
 - `--batch-size`: navigator batch size passed into `navigate(...)`.
 - `--max-nav-attempts`: maximum attempts per navigation point before giving up.
-- `--order-id`: resume/extend an existing run. The id format is the output sink's own (an integer for `postgres`, a UUID for `csv`).
+- `--order-id`: resume/extend an existing run, as `SINK=ID`. Repeat once per output sink; the bare `ID` form is accepted
+  when only one sink is configured. The id format is the output sink's own (an integer for `postgres`, a UUID for `csv`).
 - `--tag`: override the order tag loaded from the order file.
-- `--null-sink`: bypass configured output and discard writes via `NullSink`.
-- `--bulk-load` / `--no-bulk-load`: enable/disable postgres bulk-load optimization for this run.
+- `--null-sink`: bypass every configured output sink and discard writes via `NullSink`.
+- `--bulk-load` / `--no-bulk-load`: enable/disable postgres bulk-load optimization for this run, on every configured
+  postgres sink.
 - `-p, --progress`: show progress bars (disabled automatically by `--verbose`).
 - `-v, --verbose`: verbose output.
 - `-s, --scratch`: persist scratch artifacts for all simulations regardless of error status.
@@ -89,6 +92,44 @@ Built-in output sink types are:
 
 Select a sink in your config under `output.kind`, with sink-specific settings as flat keys alongside `kind`.
 For one-off dry runs, `--null-sink` on `eleanor run` overrides config output without editing files.
+
+#### Writing to several sinks at once
+
+`output` also accepts a **list**, in which case the run drives every sink in it.
+The kernel still runs once per point — the compute graph is fanned out to the
+sinks inside the worker — so N sinks cost far less than N runs:
+
+```yaml
+output:
+  - kind: postgres
+    database: {host: localhost, database: eleanor_db, username: alice}
+  - kind: csv
+    name: export
+    filename: summary.csv
+    id_columns: [order_id, point_id]
+    query:
+      row_scope: vs_points[*]
+      columns:
+        - {path: vs_point.exit_code, name: exit_code}
+```
+
+Each sink is addressed by `name`, which defaults to its `kind`. Two sinks of
+the same kind — two CSVs writing different projections to different files — are
+fine as long as you name them, and duplicate names are rejected. The name is
+what `--order-id` keys on, what labels the sink's progress bar, and what
+`Eleanor.run` keys its returned ids by.
+
+Every sink keeps its own id space, its own progress bar, and its own resume
+token. Three consequences worth knowing:
+
+- **There is no cross-sink atomicity.** An interrupt, or any sink failing, can
+  leave one sink holding a chunk the others do not. A failure in any sink
+  aborts the whole run rather than continuing with the survivors.
+- **Rows from different sinks cannot be joined.** The `csv` sink's `point_id`
+  counter and the `postgres` sink's `vs_point` sequence are unrelated.
+- **Cost scales with the sink count.** Each serial sink adds a writer thread
+  and a bounded queue, and the Postgres subtransaction pressure described below
+  applies per postgres sink.
 
 #### Identity columns on the `csv` sink
 
@@ -126,11 +167,17 @@ eleanor run --order-id 42 -c config.yaml -d eleanor_db order.yaml 50000
 
 # csv: the UUID the earlier run printed / recorded in its sidecar
 eleanor run --order-id 3f2b8c9e-... -c config.yaml order.yaml 50000
+
+# several sinks: one token each, keyed by sink name
+eleanor run --order-id postgres=42 --order-id export=3f2b8c9e-... \
+  -c config.yaml order.yaml 50000
 ```
 
 Behavior:
 
 - Ids belong to the output sink, not to the order, so an order file must not declare one. Which ids are valid depends on the configured sink: `postgres` uses its `orders.id` sequence, `csv` uses UUIDs recorded in its `_schema.yaml` sidecar.
+- With several sinks configured, **every** sink must be given a token. Resuming some while silently starting the others fresh would split one run's output across two ids with nothing recording that they differ. A sink reporting `supports_resume() == False` — one with nothing to resume, such as a live-plotting sink — is exempt.
+- A bare `--order-id ID` is only accepted when exactly one sink is configured; with several, the id spaces differ and there is nothing to infer from.
 - If the id names a run the sink holds, Eleanor extends it.
 - If the id is malformed for that sink, or names no run it holds, the run is **rejected**. Resuming is an explicit request, so Eleanor will not quietly start a new run instead.
 - The `eleanor_version` must match when extending an existing run. If your order file declares a different version, the run is rejected.

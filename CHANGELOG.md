@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **A run can drive several output sinks at once.** `output` in a configuration file now accepts a
+  list of sink blocks as well as a single one, and every sink in it receives every computed point.
 - **`--timing` flag on `eleanor run`** reports a wall-clock attribution of the dispatch loop to
   stderr when a run finishes.
 - **`id_columns` on the `csv` sink** emits the sink's own identity columns -- `order_id` and/or
@@ -17,6 +19,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **`Eleanor.run` returns `dict[str, object]`** -- each sink's allocated id, keyed by sink name --
+  rather than a single id.
+- **`Eleanor(output_sink=...)` and `Eleanor.run(output_sink=...)` accept a mapping of name to
+  sink** as well as a single sink.
+- **`Config.output` is a `list[OutputSinkConfig]`**, empty rather than `None` when no sink is
+  configured.
+- **`--order-id` is repeatable and takes `SINK=ID`.**
 - **Output sinks now own the run id end to end, and it need not be an integer.**
   `begin_run` gains a keyword-only `requested_id: str | None`, carrying the raw `--order-id` token
   for the sink to interpret in its own id space, and `Eleanor.run` gains a matching

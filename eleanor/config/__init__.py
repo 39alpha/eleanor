@@ -10,13 +10,70 @@ from eleanor.config.executor import ExecutorConfig
 from eleanor.config.output import OutputSinkConfig
 from eleanor.exceptions import EleanorError
 from eleanor.typing import StrPath
-from eleanor.util import require_dict, require_opt_dict
+from eleanor.util import require_dict
+
+
+def _reject_duplicate_names(entries: list[OutputSinkConfig]) -> None:
+    """Reject two output sinks sharing a name."""
+    seen: set[str] = set()
+    duplicates: list[str] = []
+    for entry in entries:
+        if entry.name in seen and entry.name not in duplicates:
+            duplicates.append(entry.name)
+        seen.add(entry.name)
+
+    if duplicates:
+        joined = ", ".join(repr(name) for name in duplicates)
+        msg = f'duplicate output sink name(s): {joined}; give each sink a distinct "name"'
+        raise EleanorError(msg)
+
+
+def _parse_output(raw: object) -> list[OutputSinkConfig]:
+    """Parse the ``output`` key, which may name one sink or several.
+
+    A single mapping -- the only form that existed before runs could drive
+    more than one sink -- is equivalent to a one-element list, so existing
+    configurations parse unchanged::
+
+        output:
+          kind: postgres
+          database: {...}
+
+        output:
+          - kind: postgres
+            database: {...}
+          - {kind: csv, name: export, filename: out.csv, query: {...}}
+    """
+    if raw is None:
+        return []
+
+    if isinstance(raw, dict):
+        return [OutputSinkConfig.from_dict(cast(dict[str, object], raw))]
+
+    if isinstance(raw, list):
+        entries = [
+            OutputSinkConfig.from_dict(cast(dict[str, object], require_dict(entry, f"output[{index}]")))
+            for index, entry in enumerate(cast(list[object], raw))
+        ]
+        if not entries:
+            msg = 'the "output" list is empty; omit the key entirely to configure no sink'
+            raise EleanorError(msg)
+        _reject_duplicate_names(entries)
+        return entries
+
+    msg = f"output must be a mapping or a list of mappings, got {type(raw).__name__}"
+    raise EleanorError(msg)
 
 
 @dataclass(kw_only=True)
 class Config:
-    output: OutputSinkConfig | None = None
+    """Machine-side configuration: where results go, and how work is spread."""
+
+    output: list[OutputSinkConfig] = field(default_factory=list)
     executor: ExecutorConfig = field(default_factory=ExecutorConfig)
+
+    def __post_init__(self) -> None:
+        _reject_duplicate_names(self.output)
 
     @classmethod
     def from_dict(cls, raw: dict[str, object]) -> Self:
@@ -31,8 +88,7 @@ class Config:
             )
             raise EleanorError(msg)
 
-        output_raw = cast(dict[str, object] | None, require_opt_dict(raw.get("output"), "output"))
-        output_config = OutputSinkConfig.from_dict(output_raw) if output_raw is not None else None
+        output_config = _parse_output(raw.get("output"))
 
         executor_raw = cast(dict[str, object], require_dict(raw.get("executor", {}), "executor"))
         executor_config = ExecutorConfig.from_dict(executor_raw)

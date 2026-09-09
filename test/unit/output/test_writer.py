@@ -233,6 +233,23 @@ class TestBackgroundWriterAbort(TestCase):
         # than committed on the way out.
         self.assertLess(len(sink.commits), 8)
 
+    def test_the_writer_thread_is_a_daemon(self) -> None:
+        """Ensure abort's timeout is not undone by the interpreter at exit.
+
+        ``abort`` gives a wedged commit five seconds and then stops waiting,
+        so that an interrupt cannot be vetoed by a stuck sink. A non-daemon
+        thread is joined by the interpreter on the way out, which would hand
+        that veto straight back.
+        """
+        writer = BackgroundWriter(_RecordingSink(), 7, depth=2)
+        writer.start()
+        try:
+            threads = [t for t in threading.enumerate() if t.name == "eleanor-writer[_RecordingSink]"]
+            self.assertEqual(len(threads), 1)
+            self.assertTrue(threads[0].daemon)
+        finally:
+            _ = writer.join()
+
     def test_abort_is_idempotent_and_safe_before_start(self) -> None:
         writer = BackgroundWriter(_RecordingSink(), 7, depth=2)
         writer.abort()

@@ -250,6 +250,10 @@ class PostgresSink(AbstractOutputSink):
         return True
 
     @override
+    def supports_background_commit(self) -> bool:
+        return False
+
+    @override
     def supports_progress(self) -> bool:
         return True
 

@@ -1047,3 +1047,66 @@ class TestSinkPicklability(TestCase):
 
         with self.assertRaises((pickle.PicklingError, AttributeError)):
             _ = pickle.dumps(sink)
+
+
+class TestBackgroundCommitOptIn(TestCase):
+    """Which sinks claim the writer thread, and why.
+
+    The capability is not free: a writer thread overlaps with the dispatch
+    loop only while the commit releases the GIL. A commit that is CPU-bound
+    Python contends instead, and measures slower than committing inline.
+    """
+
+    def test_csv_sink_opts_in(self) -> None:
+        """Its conversion runs in prepare, leaving commit as file I/O."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            sink = CsvSink(
+                CsvSinkSettings(
+                    filename=Path(tmpdir) / "rows.csv",
+                    query={
+                        "row_scope": "vs_points[*]",
+                        "columns": [{"path": "vs_point.exit_code", "name": "exit_code"}],
+                    },
+                ),
+            )
+            self.assertTrue(sink.supports_background_commit())
+
+    def test_postgres_sink_opts_out(self) -> None:
+        """Its commit still does the row conversion, so it holds the GIL.
+
+        Pinned deliberately: flipping this to ``True`` before the conversion
+        moves into ``prepare_batch`` made a forced-serial run measurably
+        slower, not faster.
+        """
+        sink = PostgresSink(
+            PostgresSinkSettings(database=PostgresDatabaseSettings(database="unused")),
+        )
+        self.assertFalse(sink.supports_background_commit())
+
+    def test_the_default_is_to_opt_out(self) -> None:
+        """Third-party sinks must not be enrolled without measuring."""
+
+        class MinimalSink(AbstractOutputSink):
+            @override
+            def begin_run(self, order: Order) -> int:
+                _ = order
+                return 0
+
+            @override
+            def prepare_batch(
+                self, order_id: int, results: Sequence[ComputeResult]
+            ) -> Sequence[object]:
+                return list(results)
+
+            @override
+            def commit_batch(
+                self, order_id: int, prepared: Sequence[object], progress=None
+            ) -> list[WriteOutcome]:
+                _ = progress
+                return []
+
+            @override
+            def finalize_run(self) -> None:
+                pass
+
+        self.assertFalse(MinimalSink().supports_background_commit())

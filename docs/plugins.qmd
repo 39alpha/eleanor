@@ -128,6 +128,27 @@ Because the sink itself is pickled into a worker once per chunk, your sink
 class must be importable by name, and `prepare_batch` must not depend on
 mutating sink state -- the worker's copy is discarded.
 
+If your sink commits in the parent (`supports_worker_commit()` returns
+`False`), consider also returning `True` from `supports_background_commit()`.
+Eleanor then runs your commits on a dedicated writer thread, so the dispatch
+loop can keep the worker pool fed while you write. The guarantee is narrow but
+firm: a *single* thread owns the sink for the run and is joined before
+`finalize_run`, so you never see concurrent commits and need no locking of
+your own -- only the thread differs from the one that called `initialize` and
+`begin_run`. Return `False` if you hold anything thread-affine across those
+calls, such as a sqlite3 connection opened with `check_same_thread`, thread-
+local storage, or a C library with a per-thread context.
+
+Also return `False` if your `commit_batch` is CPU-bound Python. A writer
+thread overlaps with the dispatch loop only while the commit *releases* the
+GIL; a commit that holds it contends with the dispatch loop and with the
+worker pool's result-unpickling thread instead, and measures slower than
+committing inline. In practice this means doing your row conversion in
+`prepare_batch` -- where it is also parallel across workers -- and leaving
+`commit_batch` as close to pure I/O as you can. Measure both ways before
+opting in; `eleanor.output.postgres.sink.PostgresSink` declines for exactly
+this reason.
+
 ```python
 from collections.abc import Sequence
 from dataclasses import dataclass

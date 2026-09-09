@@ -106,6 +106,10 @@ class NullSink(AbstractOutputSink):
         return self.settings.support_worker_commit
 
     @override
+    def supports_background_commit(self) -> bool:
+        return True
+
+    @override
     def supports_progress(self) -> bool:
         return True
 

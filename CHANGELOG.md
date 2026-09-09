@@ -22,6 +22,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Serial output sinks can now commit on a dedicated writer thread**, so a sink that writes in the
+  parent no longer blocks the dispatch loop while it does. Opt in by returning `True` from the new
+  `AbstractOutputSink.supports_background_commit()`; all four in-tree sinks do. Eleanor guarantees a
+  single writer thread that exclusively owns the sink for the run and is joined before
+  `finalize_run`, so a sink never sees concurrent commits and needs no locking of its own -- only
+  the thread differs from the one that ran `initialize` / `begin_run`. Return `False` for anything
+  thread-affine (a sqlite3 connection opened with `check_same_thread`, thread-local state, a C
+  library with a per-thread context). The queue is bounded at one payload per worker, so a slow
+  sink applies backpressure rather than letting prepared payloads accumulate.
 - **`AbstractOutputSink.write_batch` is replaced by `prepare_batch` + `commit_batch`.**
   `prepare_batch` always runs in a worker process, with the full compute graph available, and
   reduces it to whatever compact payload the sink chooses; `commit_batch` durably persists that
@@ -44,6 +53,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   no new settings are introduced.
 
 ### Fixed
+
+- **The PostgreSQL connection cache is now keyed per thread**, not just per process. Since
+  `Connection.transaction()` is connection-scoped, two threads sharing one connection could
+  interleave transactions -- one thread's savepoint rollback discarding the other's work, or its
+  `COMMIT` committing the other's in-flight rows. psycopg's internal locking makes individual
+  statements safe but provides no isolation between threads, and there is no `check_same_thread`
+  guard to trip, so the failure mode was silent data corruption. This was latent until the writer
+  thread above made a second committing thread possible. `close_connection` now reaps every
+  connection for the current process rather than only the calling thread's, so a writer's
+  connection cannot outlive `finalize`.
 
 - **`OutputParser3` now tolerates EQ3 output files that omit the hypothetical solid solutions and
   fugacities sections.** These two sections are optional but always appear together, with the

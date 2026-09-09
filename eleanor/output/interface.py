@@ -256,6 +256,29 @@ class AbstractOutputSink(ABC):
         """
         return False
 
+    def supports_background_commit(self) -> bool:
+        """Whether :meth:`commit_batch` may run on a dedicated writer thread.
+
+        Eleanor's guarantee to a sink that returns ``True`` is narrow but
+        firm: a *single* thread owns the sink for the duration of a run and is
+        joined before :meth:`finalize_run`, so the sink never sees concurrent
+        commits and never needs its own locking. What changes is only *which*
+        thread -- :meth:`commit_batch` no longer runs on the same thread as
+        :meth:`initialize`, :meth:`begin_run`, :meth:`finalize_run` or
+        :meth:`finalize`.
+
+        Return ``False`` (the default) if the sink holds anything thread-affine
+        between those calls: a sqlite3 connection opened with
+        ``check_same_thread``, thread-local storage, a C library with a
+        per-thread context. Unlike the prepare/commit split, which every sink
+        must implement, this one is opt-in precisely because only the sink
+        knows whether its resources travel between threads.
+
+        Has no effect when :meth:`supports_worker_commit` is ``True``: that
+        commits in the worker, so there is no dispatch thread to get off.
+        """
+        return False
+
     def supports_progress(self) -> bool:
         """Whether :meth:`commit_batch` emits per-point output progress.
 

@@ -1,4 +1,5 @@
 import io
+import threading
 from contextlib import contextmanager
 from types import SimpleNamespace
 from typing import cast
@@ -631,6 +632,9 @@ class TestEleanorProcess(TestCase):
         out_progress = mock.Mock()
         sink = mock.Mock()
         sink.supports_worker_commit.return_value = False
+        # Explicit: a bare Mock returns a truthy attribute, which would
+        # silently route these through the background writer.
+        sink.supports_background_commit.return_value = False
         sink.commit_batch.side_effect = [
             [WriteOutcome(exit_code=0, committed=True)],
             [WriteOutcome(exit_code=0, committed=True)],
@@ -683,6 +687,9 @@ class TestEleanorProcess(TestCase):
 
         sink = mock.Mock()
         sink.supports_worker_commit.return_value = False
+        # Explicit: a bare Mock returns a truthy attribute, which would
+        # silently route these through the background writer.
+        sink.supports_background_commit.return_value = False
         sink.commit_batch.side_effect = [
             [WriteOutcome(exit_code=0, committed=True)],
             [WriteOutcome(exit_code=0, committed=True)],
@@ -799,6 +806,9 @@ class TestEleanorProcess(TestCase):
         navigator.navigate.return_value = iter([])
         sink = mock.Mock()
         sink.supports_worker_commit.return_value = False
+        # Explicit: a bare Mock returns a truthy attribute, which would
+        # silently route these through the background writer.
+        sink.supports_background_commit.return_value = False
 
         with self.assertRaisesRegex(EleanorError, "expected 10"):
             _ = eleanor.process(
@@ -821,6 +831,9 @@ class TestEleanorProcess(TestCase):
         navigator.navigate.return_value = iter([["a"] * 7])
         sink = mock.Mock()
         sink.supports_worker_commit.return_value = False
+        # Explicit: a bare Mock returns a truthy attribute, which would
+        # silently route these through the background writer.
+        sink.supports_background_commit.return_value = False
         executor = _FakeExecutor(num_workers=1, submit_side_effect=[_Future([])])
 
         with self.assertRaisesRegex(EleanorError, "expected 5"):
@@ -848,6 +861,9 @@ class TestEleanorProcess(TestCase):
         shutdown = SimpleNamespace(requested=False, signal_name=None)
         sink = mock.Mock()
         sink.supports_worker_commit.return_value = False
+        # Explicit: a bare Mock returns a truthy attribute, which would
+        # silently route these through the background writer.
+        sink.supports_background_commit.return_value = False
 
         with (
             mock.patch(
@@ -882,6 +898,9 @@ class TestEleanorProcess(TestCase):
         shutdown = SimpleNamespace(requested=True, signal_name="SIGTERM")
         sink = mock.Mock()
         sink.supports_worker_commit.return_value = False
+        # Explicit: a bare Mock returns a truthy attribute, which would
+        # silently route these through the background writer.
+        sink.supports_background_commit.return_value = False
 
         with (
             mock.patch(
@@ -913,6 +932,9 @@ class TestEleanorProcess(TestCase):
         shutdown = SimpleNamespace(requested=True, signal_name="SIGTERM")
         sink = mock.Mock()
         sink.supports_worker_commit.return_value = False
+        # Explicit: a bare Mock returns a truthy attribute, which would
+        # silently route these through the background writer.
+        sink.supports_background_commit.return_value = False
 
         with (
             mock.patch(
@@ -1109,6 +1131,9 @@ class TestEleanorProcessTimings(TestCase):
     def _serial_sink() -> mock.Mock:
         sink = mock.Mock()
         sink.supports_worker_commit.return_value = False
+        # Explicit: a bare Mock returns a truthy attribute, which would
+        # silently route these through the background writer.
+        sink.supports_background_commit.return_value = False
         sink.prepare_batch.side_effect = lambda _order_id, results: results
         sink.commit_batch.side_effect = lambda _order_id, prepared, **_kwargs: [
             WriteOutcome(exit_code=0, committed=True) for _ in prepared
@@ -1442,6 +1467,9 @@ class TestEleanorDispatchWindow(TestCase):
     def _serial_sink() -> mock.Mock:
         sink = mock.Mock()
         sink.supports_worker_commit.return_value = False
+        # Explicit: a bare Mock returns a truthy attribute, which would
+        # silently route these through the background writer.
+        sink.supports_background_commit.return_value = False
         sink.prepare_batch.side_effect = lambda _order_id, results: results
         sink.commit_batch.side_effect = lambda _order_id, prepared, **_kwargs: [
             WriteOutcome(exit_code=0, committed=True) for _ in prepared
@@ -1607,3 +1635,178 @@ class TestEleanorDispatchWindow(TestCase):
                 executor=_as_executor(executor),
                 sink=self._serial_sink(),
             )
+
+
+class TestEleanorBackgroundCommit(TestCase):
+    """Tests covering the background commit thread in ``Eleanor.process``."""
+
+    @staticmethod
+    def _sink(*, background: bool = True) -> mock.Mock:
+        sink = mock.Mock()
+        sink.supports_worker_commit.return_value = False
+        sink.supports_background_commit.return_value = background
+        sink.prepare_batch.side_effect = lambda _order_id, results: results
+        sink.commit_batch.side_effect = lambda _order_id, prepared, **_kwargs: [
+            WriteOutcome(exit_code=0, committed=True) for _ in prepared
+        ]
+        return sink
+
+    def _process(self, sink: mock.Mock, executor: _RecordingExecutor) -> list[WriteOutcome]:
+        eleanor = _make_eleanor()
+        return eleanor.process(
+            _make_order(),
+            mock.MagicMock(AbstractKernel),
+            _batched_navigator([["a", "b", "c", "d"]]),
+            4,
+            9,
+            batch_size=4,
+            expected_total=4,
+            executor=_as_executor(executor),
+            sink=sink,
+        )
+
+    def test_commits_happen_off_the_dispatch_thread(self) -> None:
+        """Ensure an opted-in sink is committed from the writer thread."""
+        sink = self._sink()
+        dispatch_thread = threading.current_thread().name
+        commit_threads: list[str] = []
+
+        def _record(_order_id, prepared, **_kwargs):
+            commit_threads.append(threading.current_thread().name)
+            return [WriteOutcome(exit_code=0, committed=True) for _ in prepared]
+
+        sink.commit_batch.side_effect = _record
+        executor = _RecordingExecutor(num_workers=2, payload=["x"])
+
+        _ = self._process(sink, executor)
+
+        self.assertTrue(commit_threads)
+        for name in commit_threads:
+            self.assertNotEqual(name, dispatch_thread)
+
+    def test_a_sink_that_opts_out_is_committed_inline(self) -> None:
+        """Ensure the capability is honoured, not assumed."""
+        sink = self._sink(background=False)
+        dispatch_thread = threading.current_thread().name
+        commit_threads: list[str] = []
+
+        def _record(_order_id, prepared, **_kwargs):
+            commit_threads.append(threading.current_thread().name)
+            return [WriteOutcome(exit_code=0, committed=True) for _ in prepared]
+
+        sink.commit_batch.side_effect = _record
+        executor = _RecordingExecutor(num_workers=2, payload=["x"])
+
+        _ = self._process(sink, executor)
+
+        self.assertTrue(commit_threads)
+        for name in commit_threads:
+            self.assertEqual(name, dispatch_thread)
+
+    def test_every_outcome_is_collected_before_process_returns(self) -> None:
+        """Ensure the join barrier holds, so RunStats sees the full picture.
+
+        Without it, outcomes committed after the last chunk was popped would
+        be missing from the return value.
+        """
+        sink = self._sink()
+        executor = _RecordingExecutor(num_workers=2, payload=["x", "y"])
+
+        outcomes = self._process(sink, executor)
+
+        # 4 points / (2 workers * 1 chunk each) = 2 chunks, and this fake
+        # executor resolves each future to a two-item prepared payload.
+        self.assertEqual(len(outcomes), 4)
+        self.assertTrue(all(o.committed for o in outcomes))
+
+    def test_the_writer_is_joined_before_process_returns(self) -> None:
+        """Ensure no commit is still in flight once process has returned."""
+        sink = self._sink()
+        in_flight = threading.Event()
+        released = threading.Event()
+
+        def _slow(_order_id, prepared, **_kwargs):
+            in_flight.set()
+            released.wait(timeout=5.0)
+            return [WriteOutcome(exit_code=0, committed=True) for _ in prepared]
+
+        sink.commit_batch.side_effect = _slow
+        executor = _RecordingExecutor(num_workers=2, payload=["x"])
+        released.set()
+
+        _ = self._process(sink, executor)
+
+        # A live writer thread here would mean finalize_run could race a commit.
+        self.assertFalse(
+            any(t.name == "eleanor-writer" and t.is_alive() for t in threading.enumerate()),
+            "writer thread outlived process()",
+        )
+
+    def test_a_commit_failure_propagates_out_of_process(self) -> None:
+        """Ensure a threaded failure is not swallowed."""
+        sink = self._sink()
+        sink.commit_batch.side_effect = RuntimeError("commit exploded")
+        executor = _RecordingExecutor(num_workers=2, payload=["x"])
+
+        with self.assertRaisesRegex(RuntimeError, "commit exploded"):
+            _ = self._process(sink, executor)
+
+        self.assertFalse(
+            any(t.name == "eleanor-writer" and t.is_alive() for t in threading.enumerate()),
+            "writer thread outlived a failed process()",
+        )
+
+    def test_a_dispatch_failure_does_not_leave_the_writer_running(self) -> None:
+        """Ensure the writer is torn down when the loop fails elsewhere.
+
+        The original exception must also survive: aborting rather than joining
+        is what keeps a stashed commit error from displacing it.
+        """
+        sink = self._sink()
+        eleanor = _make_eleanor()
+        navigator = mock.Mock()
+        navigator.num_systems.return_value = 4
+
+        def _explode(*_args: object, **_kwargs: object):
+            yield ["a"]
+            msg = "navigator exploded"
+            raise RuntimeError(msg)
+
+        navigator.navigate.side_effect = _explode
+        executor = _RecordingExecutor(num_workers=2, payload=["x"])
+
+        with self.assertRaisesRegex(RuntimeError, "navigator exploded"):
+            _ = eleanor.process(
+                _make_order(),
+                mock.MagicMock(AbstractKernel),
+                navigator,
+                4,
+                9,
+                batch_size=4,
+                expected_total=4,
+                executor=_as_executor(executor),
+                sink=sink,
+            )
+
+        self.assertFalse(
+            any(t.name == "eleanor-writer" and t.is_alive() for t in threading.enumerate()),
+            "writer thread outlived a failed process()",
+        )
+
+    def test_worker_commit_sinks_get_no_writer(self) -> None:
+        """Ensure the writer is not built when there is no inline commit."""
+        sink = mock.Mock()
+        sink.supports_worker_commit.return_value = True
+        sink.supports_background_commit.return_value = True
+        executor = _RecordingExecutor(
+            num_workers=2,
+            payload=[WriteOutcome(exit_code=0, committed=True)],
+        )
+
+        _ = self._process(sink, executor)
+
+        sink.commit_batch.assert_not_called()
+        self.assertFalse(
+            any(t.name == "eleanor-writer" for t in threading.enumerate()),
+            "a worker-commit sink should not get a writer thread",
+        )

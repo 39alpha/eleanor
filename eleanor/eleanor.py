@@ -19,6 +19,7 @@ from eleanor.navigator import AbstractNavigator, load_navigator
 from eleanor.order import Order
 from eleanor.output import load_output_sink
 from eleanor.output.interface import AbstractOutputSink, RunStats, WriteOutcome
+from eleanor.output.writer import BackgroundWriter
 from eleanor.progress import ManagedProgressHandle, Progress, ProgressHandle
 from eleanor.runner import Runner
 from eleanor.signals import shutdown_on_signal
@@ -569,6 +570,22 @@ class Eleanor:
         max_in_flight = executor.num_workers * chunks_per_worker
         chunk_size = max(1, -(-batch_size // max_in_flight))
 
+        # Serial sinks that tolerate it get their commits moved off the
+        # dispatch thread, so the loop can keep collecting and submitting
+        # while the sink writes. Worker-commit sinks have no dispatch-thread
+        # write to move.
+        writer: BackgroundWriter | None = None
+        if not worker_commit and sink.supports_background_commit():
+            writer = BackgroundWriter(
+                sink,
+                order_id,
+                # One payload per worker: enough that the writer always has
+                # work queued, bounded so a slow sink applies backpressure
+                # instead of letting prepared payloads pile up.
+                depth=executor.num_workers,
+                progress=out_progress,
+            )
+
         def submit_worker_commit(points: list[vs.Point]) -> AbstractFuture[list[WriteOutcome]]:
             """Dispatch a chunk whose sink also commits inside the worker.
 
@@ -651,21 +668,29 @@ class Eleanor:
             #
             # The outstanding count is handed to the timer so a commit that
             # stalls the dispatch thread while the pool runs dry is charged as
-            # starvation, not just as write time.
+            # starvation, not just as write time. With a writer thread the
+            # measured time is queue-full backpressure rather than the commit
+            # itself, which is the same question asked of it either way: how
+            # long did the sink cost the dispatch loop?
             with timings.writing(in_flight=in_flight, num_workers=executor.num_workers):
-                outcomes.extend(
-                    sink.commit_batch(
-                        order_id,
-                        prepared,
-                        progress=out_progress,
-                    ),
-                )
+                if writer is not None:
+                    writer.submit(prepared)
+                else:
+                    outcomes.extend(
+                        sink.commit_batch(
+                            order_id,
+                            prepared,
+                            progress=out_progress,
+                        ),
+                    )
 
         total_produced = 0
         # Signal handlers are intentionally installed *after* the executor pool
         # is constructed so worker processes inherit only the default SIGTERM
         # disposition.
         with shutdown_on_signal() as shutdown:
+            if writer is not None:
+                writer.start()
             try:
                 # One flat, lazy stream of chunks. Flattening across navigator
                 # batches is what removes the drain-all barrier: the window can
@@ -708,8 +733,32 @@ class Eleanor:
                         timings=timings,
                     )
             except KeyboardInterrupt:
+                # Abort before shutting the pool down: the writer may be
+                # blocking on a full queue, and aborting discards queued work
+                # rather than waiting for it to commit.
+                if writer is not None:
+                    writer.abort()
                 executor.shutdown(wait=False)
                 raise EleanorShutdown(shutdown.signal_name) from None
+            except BaseException:
+                # Abort rather than join, so a commit failure stashed on the
+                # writer cannot displace the exception already propagating.
+                if writer is not None:
+                    writer.abort()
+                raise
+            else:
+                # The join has to complete here, before ``process`` returns:
+                # ``RunStats`` needs every outcome, ``finalize_run`` is
+                # entitled to tear down state an in-flight commit is using,
+                # and closing the progress bars discards any later tick.
+                #
+                # Charged as write time, and as starvation: waiting for the
+                # writer to work through its backlog is the sink costing the
+                # parent, with every worker idle. Leaving it unattributed
+                # would report it as overhead of unknown origin.
+                if writer is not None:
+                    with timings.writing(in_flight=0, num_workers=executor.num_workers):
+                        outcomes.extend(writer.join())
 
         if total_produced != expected_total:
             msg = f"navigator produced {total_produced} points, expected {expected_total}"

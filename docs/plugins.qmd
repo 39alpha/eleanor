@@ -190,8 +190,12 @@ worker pool's result-unpickling thread instead, and measures slower than
 committing inline. In practice this means doing your row conversion in
 `prepare_batch` -- where it is also parallel across workers -- and leaving
 `commit_batch` as close to pure I/O as you can. Measure both ways before
-opting in; `eleanor.output.postgres.sink.PostgresSink` declines for exactly
-this reason.
+opting in.
+
+None of this applies if `supports_worker_commit()` returns `True`: that sink
+commits in the worker, so there is no dispatch thread to get off and
+`supports_background_commit()` is never consulted. `PostgresSink` returns
+`False` here for that reason -- not as a judgement about its commit cost.
 
 ## Sinks share one run
 

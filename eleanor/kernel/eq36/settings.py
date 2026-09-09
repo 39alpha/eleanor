@@ -493,7 +493,6 @@ EQ36_MODEL_EXTENSIONS: dict[str, str] = {
 
 @dataclass
 class Eq3Settings:
-    id: int | None = None
     iopt_1: IOPT_1 = IOPT_1.CLOSED_SYS
     iopt_2: IOPT_2 = IOPT_2.ARBITRARY_KINETICS
     iopt_3: IOPT_3 = IOPT_3.STEP_SIZE_BY_PHASE_BOUNDARIES
@@ -635,7 +634,6 @@ class Eq3Settings:
 
 @dataclass
 class Eq6Settings:
-    id: int | None = None
     jtemp: JTEMP = JTEMP.CONSTANT_T
     ttk1: np.float64 = field(default_factory=lambda: np.float64(0))
     ttk2: np.float64 = field(default_factory=lambda: np.float64(0))

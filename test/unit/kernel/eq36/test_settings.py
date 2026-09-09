@@ -114,6 +114,32 @@ class TestEq36Settings(TestCase):
         )
         self.assertIsNone(cfg.eq6_config)
 
+    def test_from_dict_ignores_legacy_config_ids(self) -> None:
+        """
+        Ensure a legacy id in the eq3/eq6 config is ignored rather than rejected.
+
+        Eq3Settings and Eq6Settings used to carry a vestigial id, so it is
+        present in the settings JSONB of every kernel row written before it was
+        dropped. Those rows must keep deserialising, which is why an id is
+        ignored here even though an id in a user-authored order file is now
+        rejected outright.
+        """
+        cfg = Eq36Settings.from_dict(
+            {
+                "model": "b-dot",
+                "charge_balance": "Cl-",
+                "eq3_config": {"id": None},
+                "eq6_config": {"id": 17, "steps_print_interval": 5},
+            }
+        )
+
+        self.assertFalse(hasattr(cfg.eq3_config, "id"))
+        eq6 = cfg.eq6_config
+        if eq6 is None:
+            raise AssertionError("expected eq6_config to be present")
+        self.assertFalse(hasattr(eq6, "id"))
+        self.assertEqual(eq6.steps_print_interval, 5)
+
     def test_from_dict_model_as_int(self) -> None:
         """
         Ensure integer model values map through IOPG_1 enum conversion.

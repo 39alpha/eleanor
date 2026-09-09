@@ -83,6 +83,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **The `order_id` keyword argument to `AbstractNavigator.navigate`** and the `order_id` parameter
   of `PointBuilder.generate_vs`. Nothing downstream of point generation needs the id any longer,
   so a navigator no longer has to know it before it can produce points.
+- **`Eq3Settings.id` and `Eq6Settings.id`.** Both were always `None`, read nowhere, and absent from
+  `Eq36Settings.from_dict`, so no order file could set them.
 
 ### Fixed
 

@@ -30,3 +30,16 @@ def test_output_config_raises_for_non_output_settings_type() -> None:
         EleanorError, match=f"requires {OutputSinkSettings.__name__}"
     ):
         _ = OutputSinkConfig(kind="null", settings=ExecutorSettings())  # pyright: ignore[reportArgumentType]
+
+
+def test_output_config_rejects_the_reserved_sim_name() -> None:
+    """The simulation progress bar owns "sim"; a sink may not also claim it.
+
+    Without this the config parses and the run only fails later, and only
+    under ``-p``, with a bare ``ValueError`` out of the progress pump.
+    """
+    with pytest.raises(EleanorError, match="reserved for the simulation progress bar"):
+        _ = OutputSinkConfig(kind="null", name="sim")
+
+    with pytest.raises(EleanorError, match="reserved for the simulation progress bar"):
+        _ = Config.from_dict({"output": [{"kind": "null", "name": "sim"}]})

@@ -2120,6 +2120,44 @@ class TestEleanorMultipleSinks(TestCase):
             )
 
 
+class TestEleanorReservedSinkNames(TestCase):
+    """A caller-supplied mapping may not claim the simulation bar's channel.
+
+    Config-derived sinks are refused by ``OutputSinkConfig``, but a mapping
+    passed to ``Eleanor(output_sink=...)`` or ``run(output_sink=...)`` never
+    goes through config at all.
+    """
+
+    def test_a_caller_supplied_sink_named_sim_is_refused_at_construction(self) -> None:
+        """Ensure the constructor-level override is checked."""
+        with self.assertRaisesRegex(EleanorError, "reserved for the simulation progress bar"):
+            _ = Eleanor(
+                config=Config(),
+                output_sink=cast("dict[str, AbstractOutputSink[object]]", {"sim": mock.Mock()}),
+            )
+
+    def test_a_caller_supplied_sink_named_sim_is_refused_per_run(self) -> None:
+        """Ensure the per-run override is checked too, before any work starts."""
+        eleanor = _make_eleanor()
+        with self.assertRaisesRegex(EleanorError, "reserved for the simulation progress bar"):
+            _ = eleanor.run(
+                _make_order(),
+                1,
+                kernel=mock.MagicMock(AbstractKernel),
+                navigator=_navigator(1),
+                output_sink=cast("dict[str, AbstractOutputSink[object]]", {"sim": mock.Mock()}),
+            )
+
+    def test_a_sink_named_anything_else_is_fine(self) -> None:
+        """Ensure the guard is exact, not a prefix or substring match."""
+        sink = mock.Mock()
+        sink.supports_progress.return_value = False
+        _ = Eleanor(
+            config=Config(),
+            output_sink=cast("dict[str, AbstractOutputSink[object]]", {"simulation": sink}),
+        )
+
+
 class TestEleanorTargetClashes(TestCase):
     """A run must refuse two sinks pointed at one store.
 

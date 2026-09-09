@@ -27,7 +27,7 @@ from eleanor.output.interface import (
     WriteOutcome,
 )
 from eleanor.output.writer import BackgroundWriter
-from eleanor.progress import ManagedProgressHandle, Progress, ProgressHandle
+from eleanor.progress import SIM_CHANNEL, ManagedProgressHandle, Progress, ProgressHandle
 from eleanor.runner import Runner
 from eleanor.signals import shutdown_on_signal
 from eleanor.timing import DispatchTimings
@@ -111,6 +111,9 @@ def _as_sink_map[IdT](
     if isinstance(output_sink, Mapping):
         if not output_sink:
             msg = "output_sink mapping is empty; pass None to fall back to the configuration"
+            raise EleanorError(msg)
+        if SIM_CHANNEL in output_sink:
+            msg = f"output sink name {SIM_CHANNEL!r} is reserved for the simulation progress bar"
             raise EleanorError(msg)
         return {name: cast("AbstractOutputSink[object]", sink) for name, sink in output_sink.items()}
     return {DEFAULT_SINK_NAME: cast("AbstractOutputSink[object]", output_sink)}

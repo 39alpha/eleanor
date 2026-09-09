@@ -6,6 +6,7 @@ from eleanor.exceptions import EleanorError
 from eleanor.output.registry import registry
 from eleanor.output.settings import OutputSinkSettings
 from eleanor.plugin import load_plugin_settings
+from eleanor.progress import SIM_CHANNEL
 from eleanor.util import require_str
 
 
@@ -22,6 +23,13 @@ class OutputSinkConfig(PluginConfig[OutputSinkSettings]):
 
         if not self.name:
             self.name = self.kind
+
+        if self.name == SIM_CHANNEL:
+            msg = (
+                f"output sink name {SIM_CHANNEL!r} is reserved for the simulation progress bar; "
+                'give the sink a different "name"'
+            )
+            raise EleanorError(msg)
 
         super().__post_init__()
 

@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.21.1] - 2026-09-10
+
 ### Fixed
 
 - **Solid solution reactant end member fractions are written in the columns EQ6 expects.** Each end

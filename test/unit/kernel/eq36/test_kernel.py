@@ -1101,6 +1101,40 @@ class TestEq36Kernel(TestCase):
         self.assertIn("nxopex=  1", output)
         self.assertIn("species= Quartz", output)
 
+    def test_write_eq6_input_starts_end_member_fractions_in_column_32(self) -> None:
+        """
+        Ensure solid solution end member fractions are written in the columns eq6 pickup files use.
+        """
+        kernel = self._kernel()
+        settings = self._settings()
+
+        solid_solution = SolidSolutionReactant(
+            name="olivine_ss",
+            log_moles=np.float64(-1.0),
+            titration_rate=np.float64(1.0),
+            end_members=[
+                SolidSolutionReactantEndMembers(
+                    name="forsterite", fraction=np.float64(0.6)
+                ),
+                SolidSolutionReactantEndMembers(
+                    name="fayalite", fraction=np.float64(0.4)
+                ),
+            ],
+        )
+
+        point = _make_point(
+            settings,
+            species=[Species(name="O2(g)", value=np.float64(-60.0))],
+            solid_solution_reactants=[solid_solution],
+        )
+        handle = _NamedStringIO("problem.6i")
+
+        kernel.write_eq6_input(point, file=handle)
+        lines = handle.getvalue().splitlines()
+
+        self.assertIn("   forsterite                  6.00000E-01", lines)
+        self.assertIn("   fayalite                    4.00000E-01", lines)
+
     def test_write_eq6_input_writes_header_and_appends_pickup_lines(self) -> None:
         """
         Ensure write_eq6_input emits basic header data and appends pickup lines verbatim.

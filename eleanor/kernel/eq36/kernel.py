@@ -563,7 +563,7 @@ class Eq36Kernel(AbstractKernel):
             for end_member in ssr.end_members:
                 name, fraction = end_member.name, end_member.fraction
                 frac = NumberFormat.SCIENTIFIC.fmt(fraction, precision=5)
-                print(f"   {name: <28}          {frac}", file=file)
+                print(f"   {name: <28}{frac}", file=file)
 
             print("   endit.", file=file)
             print("       nsk=  0               sfcar=  0.00000E+00    ssfcar=  0.00000E+00", file=file)

@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Solid solution reactant end member fractions are written in the columns EQ6 expects.** Each end
+  member line in the EQ6 input carried ten extra spaces between the name field and the mole
+  fraction, putting the value in column 42 rather than the column 32 EQ6's own pickup files use.
+
 ## [v0.21.0] - 2026-09-09
 
 ### Added

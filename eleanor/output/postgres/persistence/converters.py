@@ -88,7 +88,6 @@ def order_to_row(order: core_order.Order) -> dict[str, object]:
         "eleanor_version": order.eleanor_version,
         "raw": Jsonb(normalize_dict(order, "order")),
         "create_date": order.create_date,
-        "seed": getattr(order.navigator.settings, "seed", None),
     }
 
 
@@ -108,7 +107,6 @@ class OrderRecord:
     eleanor_version: str
     raw: dict[str, object]
     create_date: datetime
-    seed: int | None
 
 
 def row_to_order_record(row: dict[str, object]) -> OrderRecord:
@@ -120,7 +118,6 @@ def row_to_order_record(row: dict[str, object]) -> OrderRecord:
         eleanor_version=cast(str, row["eleanor_version"]),
         raw=cast(dict[str, object], row["raw"]),
         create_date=cast(datetime, row["create_date"]),
-        seed=cast(int | None, row.get("seed")),
     )
 
 

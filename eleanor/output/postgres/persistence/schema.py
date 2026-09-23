@@ -654,7 +654,6 @@ ORDERS = TableDef(
         ColumnDef("eleanor_version", "TEXT", nullable=False),
         ColumnDef("raw", "JSONB", nullable=False),
         ColumnDef("create_date", "TIMESTAMP", nullable=False),
-        ColumnDef("seed", "BIGINT", nullable=True, default=None),
     ),
     primary_key=("id",),
     indexes=(

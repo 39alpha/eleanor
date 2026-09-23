@@ -265,7 +265,6 @@ def insert_order(config: PostgresDatabaseSettings, order: Order) -> OrderRecord:
         eleanor_version=order.eleanor_version,
         raw=converters.normalize_dict(order, "order"),
         create_date=order.create_date,
-        seed=getattr(order.navigator.settings, "seed", None),
     )
 
 
@@ -284,7 +283,6 @@ def get_order(config: PostgresDatabaseSettings, order_id: int) -> OrderRecord | 
         eleanor_version=cast(str, row[3]),
         raw=cast(dict[str, object], row[4]),
         create_date=cast(datetime, row[5]),
-        seed=cast(int | None, row[6]),
     )
 
 

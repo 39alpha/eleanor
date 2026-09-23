@@ -1,2 +1,0 @@
-ALTER TABLE "orders"
-  ADD COLUMN "seed" BIGINT DEFAULT NULL;

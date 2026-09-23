@@ -9,7 +9,6 @@ import eleanor.variable_space as vs
 from eleanor.constraints.point_builder import PointBuilder
 from eleanor.exceptions import EleanorError
 from eleanor.navigator.interface import AbstractNavigator
-from eleanor.navigator.settings import SeedableNavigatorSettings
 from eleanor.parameters import Parameter, ValueParameter
 
 if TYPE_CHECKING:
@@ -72,12 +71,6 @@ class AbstractLatticeNavigator(AbstractNavigator, ABC):
 
 
 class RandomLatticeNavigator(AbstractLatticeNavigator):
-    _rng: np.random.Generator
-
-    def __init__(self, settings: SeedableNavigatorSettings) -> None:
-        super().__init__()
-        self._rng = np.random.default_rng(seed=settings.seed)
-
     @override
     def generate(
         self,

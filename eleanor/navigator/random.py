@@ -2,13 +2,10 @@ from collections.abc import Iterator
 from itertools import batched
 from typing import TYPE_CHECKING, Protocol, cast, override
 
-import numpy as np
-
 import eleanor.variable_space as vs
 from eleanor.constraints.point_builder import PointBuilder
 from eleanor.exceptions import EleanorError
 from eleanor.navigator.interface import AbstractNavigator
-from eleanor.navigator.settings import SeedableNavigatorSettings
 
 if TYPE_CHECKING:
     from eleanor.kernel import AbstractKernel
@@ -26,12 +23,6 @@ class PointGenerator(Protocol):
 
 
 class RandomNavigator(AbstractNavigator):
-    _rng: np.random.Generator
-
-    def __init__(self, settings: SeedableNavigatorSettings) -> None:
-        super().__init__()
-        self._rng = np.random.default_rng(seed=settings.seed)
-
     @override
     def navigate(
         self,

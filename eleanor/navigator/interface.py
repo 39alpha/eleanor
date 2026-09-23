@@ -1,8 +1,9 @@
 from abc import ABC, abstractmethod
-from collections.abc import Iterator
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
+
     import eleanor.variable_space as vs
     from eleanor.kernel.interface import AbstractKernel
     from eleanor.order import Order

@@ -2,8 +2,7 @@ from collections.abc import Iterator
 from itertools import batched
 from typing import TYPE_CHECKING, Protocol, cast, override
 
-import numpy.random
-from numpy.random import Generator
+import numpy as np
 
 import eleanor.variable_space as vs
 from eleanor.constraints.point_builder import PointBuilder
@@ -27,11 +26,11 @@ class PointGenerator(Protocol):
 
 
 class RandomNavigator(AbstractNavigator):
-    _rng: Generator
+    _rng: np.random.Generator
 
     def __init__(self, settings: SeedableNavigatorSettings) -> None:
         super().__init__()
-        self._rng = numpy.random.default_rng(seed=settings.seed)
+        self._rng = np.random.default_rng(seed=settings.seed)
 
     @override
     def navigate(
@@ -75,7 +74,7 @@ class RandomNavigator(AbstractNavigator):
                 parameters = point_builder.constrain()
                 while parameters:
                     for parameter in parameters:
-                        point_builder[parameter] = point_builder[parameter].random(rng=self._rng)[0]
+                        point_builder[parameter] = point_builder[parameter].random(rng=order.rng)[0]
                     parameters = point_builder.constrain()
 
                 return point_builder.generate_vs()

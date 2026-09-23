@@ -53,7 +53,7 @@ class AbstractLatticeNavigator(AbstractNavigator, ABC):
 
         if parameters:
             parameter, *rest = parameters
-            for value in self.generate(point_builder[parameter], scale, *args, **kwargs):
+            for value in self.generate(point_builder[parameter], scale, *args, rng=order.rng, **kwargs):
                 point_builder[parameter] = value
                 yield from self.iterate(order, point_builder, rest, scale, *args, **kwargs)
                 point_builder.hardset(parameter, parameter)
@@ -61,7 +61,9 @@ class AbstractLatticeNavigator(AbstractNavigator, ABC):
             yield point_builder.generate_vs()
 
     @abstractmethod
-    def generate(self, parameter: Parameter, scale: int, *args: object, **kwargs: object) -> list[ValueParameter]:
+    def generate(
+        self, parameter: Parameter, scale: int, *args: object, rng: np.random.Generator | None, **kwargs: object
+    ) -> list[ValueParameter]:
         pass
 
     @override
@@ -77,8 +79,15 @@ class RandomLatticeNavigator(AbstractLatticeNavigator):
         self._rng = np.random.default_rng(seed=settings.seed)
 
     @override
-    def generate(self, parameter: Parameter, scale: int, *_args: object, **_kwargs: object) -> list[ValueParameter]:
-        return parameter.random(size=scale, rng=self._rng)
+    def generate(
+        self,
+        parameter: Parameter,
+        scale: int,
+        *_args: object,
+        rng: np.random.Generator | None,
+        **_kwargs: object,
+    ) -> list[ValueParameter]:
+        return parameter.random(size=scale, rng=rng)
 
 
 _ = AbstractLatticeNavigator.register(RandomLatticeNavigator)

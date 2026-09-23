@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Orders carry a top-level `seed`**, generated when omitted, and expose an `Order.rng` seeded
+  from it. The navigators draw from that generator, so a run reproduces from its recorded seed.
+
+### Changed
+
+- **Plugin settings parse nested as well as inline.** `kernel`, `navigator`, `executor` and
+  `output` accept a `settings:` block, `constraints` an `args:` block, reactants a list, and
+  suppressions an `exceptions` key; mixing the two forms in one block is rejected. An order dumped
+  from `orders.raw` now re-parses to the same order.
+- **`ConstraintConfig.args` no longer carries `kind`.** `{kind: linear, terms: [...]}` yields
+  `args == {"terms": [...]}` rather than the whole block.
+- **`migrate --verify` and `doctor` check column types and nullability**, not just that declared
+  columns exist. A database diverging from `TABLES` now reports drift where it verified clean.
+- **`Parameter.random` takes an optional `rng`**, defaulting to `None` for the previous
+  global-state behaviour. Subclasses overriding `random` must accept it.
+- **`AbstractReactant.type` is a dataclass field, not an abstract property**, so it survives
+  `asdict`. Subclasses pass their type to `super().__init__` instead of overriding a property.
+
 ## [v0.21.1] - 2026-09-10
 
 ### Fixed

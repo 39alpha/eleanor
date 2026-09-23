@@ -1,9 +1,11 @@
 import json
 import operator
+import secrets
 import tomllib
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
+from functools import cached_property
 from pathlib import Path
 from typing import Self, cast, final
 
@@ -17,7 +19,7 @@ from eleanor.exceptions import EleanorError
 from eleanor.parameters import Parameter, ParameterOrSource, load_parameter
 from eleanor.reactants import AbstractReactant, CombinedReactant
 from eleanor.typing import StrPath
-from eleanor.util import is_list_of, mapreduce, require, require_dict, require_opt_str, require_str
+from eleanor.util import is_list_of, mapreduce, require, require_dict, require_opt_int, require_opt_str, require_str
 from eleanor.variable_space import Point as VSPoint
 from eleanor.version import __version__
 
@@ -76,6 +78,7 @@ class Order:
     name: str
     notes: str
     creator: str
+    seed: int
     kernel: KernelConfig
     temperature: Parameter
     water_mass: Parameter
@@ -101,6 +104,7 @@ class Order:
         elements: Mapping[str, ParameterOrSource],
         tags: list[str] | None = None,
         notes: str = "",
+        seed: int | None = None,
         water_mass: ParameterOrSource | None = None,
         navigator: NavigatorConfig | None = None,
         species: Mapping[str, ParameterOrSource] | None = None,
@@ -111,18 +115,19 @@ class Order:
         eleanor_version: str | None = None,
         create_date: datetime | None = None,
     ) -> None:
-        self.tags = list(dict.fromkeys(tags)) if tags is not None else []
         self.name = name
         if self.name == "":
             msg = "name must not be empty"
             raise EleanorError(msg)
 
-        self.notes = notes
-
         self.creator = creator
         if self.creator == "":
             msg = "creator must not be empty"
             raise EleanorError(msg)
+
+        self.tags = list(dict.fromkeys(tags)) if tags is not None else []
+        self.notes = notes
+        self.seed = seed if seed is not None else secrets.randbits(63)
 
         self.kernel = kernel
         self.water_mass = load_parameter(water_mass if water_mass is not None else 1.0)
@@ -162,11 +167,16 @@ class Order:
         self.eleanor_version = eleanor_version if eleanor_version is not None else __version__
         self.create_date = create_date if create_date is not None else datetime.now()
 
+    @cached_property
+    def rng(self) -> np.random.Generator:
+        return np.random.default_rng(seed=self.seed)
+
     @classmethod
     def from_dict(
         cls,
         raw: dict[str, object],
         *,
+        seed: int | None = None,
         tags: str | list[str] | None = None,
         create_date: datetime | None = None,
         vs_points: list[VSPoint] | None = None,
@@ -185,6 +195,8 @@ class Order:
         creator = require_str(raw.get("creator"), "creator")
 
         create_date = create_date if create_date is not None else datetime.now()
+
+        seed = seed if seed is not None else require_opt_int(raw.get("seed"), "seed")
 
         if "kernel" not in raw:
             msg = "kernel is required"
@@ -246,11 +258,11 @@ class Order:
         vs_points = vs_points or []
 
         return cls(
-            tags=tags,
             name=name,
-            notes=notes,
             creator=creator,
-            create_date=create_date,
+            tags=tags,
+            notes=notes,
+            seed=seed,
             kernel=kernel_config,
             navigator=navigator,
             water_mass=water_mass,
@@ -262,6 +274,7 @@ class Order:
             reactants=reactants,
             constraints=constraints,
             vs_points=vs_points,
+            create_date=create_date,
         )
 
     def parameters(self) -> list[Parameter]:

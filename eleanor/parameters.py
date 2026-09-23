@@ -6,6 +6,7 @@ from typing import Self, cast, override
 
 import numpy as np
 import numpy.typing as npt
+from numpy.random import Generator
 
 from eleanor.exceptions import EleanorError
 from eleanor.util import convert_to_number
@@ -53,7 +54,7 @@ class Parameter(ABC):
         return np.float64(1.0)
 
     @abstractmethod
-    def random(self, size: int = 1) -> list[ValueParameter]:
+    def random(self, size: int = 1, rng: Generator | None = None) -> list[ValueParameter]:
         pass
 
     @abstractmethod
@@ -126,7 +127,7 @@ class ValueParameter(Parameter):
         return np.float64(1.0)
 
     @override
-    def random(self, size: int = 1) -> list[Self]:
+    def random(self, size: int = 1, rng: Generator | None = None) -> list[Self]:
         return [deepcopy(self) for _ in range(size)]
 
     @override
@@ -171,10 +172,12 @@ class RangeParameter(Parameter):
         return self.max - self.min
 
     @override
-    def random(self, size: int = 1) -> list[ValueParameter]:
+    def random(self, size: int = 1, rng: Generator | None = None) -> list[ValueParameter]:
         from scipy.stats import uniform
 
-        values = _as_float_array(cast(object, uniform.rvs(loc=self.min, scale=self.volume(), size=size)))
+        values = _as_float_array(
+            cast(object, uniform.rvs(loc=self.min, scale=self.volume(), size=size, random_state=rng))
+        )
         return [ValueParameter(cast(np.float64, values[i])) for i in range(values.size)]
 
     @override
@@ -222,10 +225,10 @@ class ListParameter(Parameter):
         return np.float64(len(self.values))
 
     @override
-    def random(self, size: int = 1) -> list[ValueParameter]:
+    def random(self, size: int = 1, rng: Generator | None = None) -> list[ValueParameter]:
         from scipy.stats import randint
 
-        indices = _as_int_array(cast(object, randint.rvs(0, len(self.values), size=size)))
+        indices = _as_int_array(cast(object, randint.rvs(0, len(self.values), size=size, random_state=rng)))
         return [ValueParameter(self.values[int(indices.item(i))]) for i in range(indices.size)]
 
     @override
@@ -276,15 +279,15 @@ class NormalParameter(Parameter):
         return np.float64(1.0)
 
     @override
-    def random(self, size: int = 1) -> list[ValueParameter]:
+    def random(self, size: int = 1, rng: Generator | None = None) -> list[ValueParameter]:
         from scipy.stats import norm, truncnorm
 
         if np.isinf(self.min) and np.isinf(self.max):
-            draws = cast(object, norm.rvs(loc=self.mean, scale=self.stddev, size=size))
+            draws = cast(object, norm.rvs(loc=self.mean, scale=self.stddev, size=size, random_state=rng))
         else:
             a = (self.min - self.mean) / self.stddev
             b = (self.max - self.mean) / self.stddev
-            draws = cast(object, truncnorm.rvs(a, b, loc=self.mean, scale=self.stddev, size=size))
+            draws = cast(object, truncnorm.rvs(a, b, loc=self.mean, scale=self.stddev, size=size, random_state=rng))
 
         samples = _as_float_array(draws)
         return [ValueParameter(cast(np.float64, samples[i])) for i in range(samples.size)]

@@ -1,7 +1,7 @@
 from collections.abc import Generator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from typing import LiteralString, cast
+from typing import Final, LiteralString, cast
 
 import psycopg
 from psycopg import sql
@@ -385,6 +385,19 @@ def _columns_by_name(
     return {table: {name: (dtype, nullable) for name, dtype, nullable in cols} for table, cols in shape.items()}
 
 
+_CANONICAL_TYPES: Final[dict[str, str]] = {
+    "BIGINT": "bigint",
+    "BYTEA": "bytea",
+    "DOUBLE PRECISION": "double precision",
+    "INTEGER": "integer",
+    "JSONB": "jsonb",
+    "TEXT": "text",
+    "TEXT[]": "ARRAY",
+    "TIMESTAMP": "timestamp without time zone",
+    "TIMESTAMPTZ": "timestamp with time zone",
+}
+
+
 def verify_against_tables(
     connection: psycopg.Connection,
     schema_name: str = "public",
@@ -400,9 +413,15 @@ def verify_against_tables(
 
     live_cols = _columns_by_name(inspect_schema(connection, schema_name=schema_name))
     for table in TABLES:
-        want = {c.name: (c.sql_type, c.nullable) for c in table.columns}
+        want = {c.name: (_CANONICAL_TYPES[c.sql_type], c.nullable) for c in table.columns}
         got = live_cols.get(table.name, {})
-        problems.extend(f"column {col!r} missing from {table.name!r}" for col in want if col not in got)
+        for column_name, column_type in want.items():
+            if column_name not in got:
+                problems.append(f"column {column_name!r} missing from {table.name!r}")
+            elif column_type != got[column_name]:
+                problems.append(
+                    f"column {column_name!r} from {table.name!r} has incorrect type or nullability: expected {column_type!r}, got {got[column_name]!r}"
+                )
 
     for table, name in sorted(declared_index_names() - live_index_names(connection, schema_name)):
         problems.append(f"index {name!r} on {table!r} is missing or invalid")
@@ -635,6 +654,7 @@ ORDERS = TableDef(
         ColumnDef("eleanor_version", "TEXT", nullable=False),
         ColumnDef("raw", "JSONB", nullable=False),
         ColumnDef("create_date", "TIMESTAMP", nullable=False),
+        ColumnDef("seed", "BIGINT", nullable=True, default=None),
     ),
     primary_key=("id",),
     indexes=(

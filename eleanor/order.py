@@ -128,7 +128,7 @@ class Order:
         self.water_mass = load_parameter(water_mass if water_mass is not None else 1.0)
         self.temperature = load_parameter(temperature)
         self.pressure = load_parameter(pressure)
-        self.navigator = NavigatorConfig() if navigator is None else navigator
+        self.navigator = navigator if navigator is not None else NavigatorConfig()
 
         self.elements = {k: load_parameter(v) for k, v in elements.items()}
         if not self.elements:

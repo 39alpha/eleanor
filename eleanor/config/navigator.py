@@ -1,4 +1,4 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Self, cast
 
 from eleanor.config.plugin import PluginConfig
@@ -9,10 +9,16 @@ from eleanor.plugin import load_plugin_settings
 from eleanor.util import require_opt_str
 
 
-@dataclass(kw_only=True)
+@dataclass(init=False)
 class NavigatorConfig(PluginConfig[NavigatorSettings]):
-    kind: str = "random"
-    settings: NavigatorSettings = field(default_factory=NavigatorSettings)
+    def __init__(self, *, kind: str = "random", settings: NavigatorSettings | None = None) -> None:
+        loaded_settings = (
+            settings
+            if settings is not None
+            else load_plugin_settings(registry, NavigatorSettings, kind, {}) or NavigatorSettings()
+        )
+
+        super().__init__(kind=kind, settings=loaded_settings)
 
     def __post_init__(self) -> None:
         if not isinstance(cast(object, self.settings), NavigatorSettings):

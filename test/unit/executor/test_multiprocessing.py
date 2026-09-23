@@ -12,9 +12,7 @@ from eleanor.executor.settings import ExecutorSettings
 
 
 class _Pool:
-    def __init__(
-        self, max_workers: int | None = None, initializer: None = None
-    ) -> None:
+    def __init__(self, max_workers: int | None = None, initializer: None = None) -> None:
         self.shutdown = mock.Mock()
         self._processes: dict[int, mock.Mock] = {1: mock.Mock(), 2: mock.Mock()}
 
@@ -160,9 +158,7 @@ class TestMultiprocessingExecutor(TestCase):
             AbstractFuture[int],
             cast(
                 object,
-                type(
-                    "Fake", (), {"result": lambda self: 1, "ready": lambda self: True}
-                )(),
+                type("Fake", (), {"result": lambda self: 1, "ready": lambda self: True})(),
             ),
         )
         futures: list[AbstractFuture[int]] = [foreign]

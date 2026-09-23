@@ -26,9 +26,7 @@ def test_config_rejects_legacy_database_key() -> None:
 
 
 def test_output_config_raises_for_non_output_settings_type() -> None:
-    with pytest.raises(
-        EleanorError, match=f"requires {OutputSinkSettings.__name__}"
-    ):
+    with pytest.raises(EleanorError, match=f"requires {OutputSinkSettings.__name__}"):
         _ = OutputSinkConfig(kind="null", settings=ExecutorSettings())  # pyright: ignore[reportArgumentType]
 
 

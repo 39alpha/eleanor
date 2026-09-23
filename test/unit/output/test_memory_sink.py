@@ -9,7 +9,6 @@ from eleanor.output.memory import MemorySink, MemorySinkSettings
 from eleanor.variable_space import Point
 
 
-
 def _write_batch(sink, order_id, results, progress=None):
     """Drive both halves of the split write protocol, as Eleanor does.
 
@@ -20,6 +19,7 @@ def _write_batch(sink, order_id, results, progress=None):
     """
     prepared = sink.prepare_batch(order_id, results)
     return sink.commit_batch(order_id, prepared, progress=progress)
+
 
 def _order(*, eleanor_version: str | None = None) -> Order:
     return cast(
@@ -52,9 +52,7 @@ class TestMemorySink(TestCase):
 
     def test_memory_config_rejects_non_bool(self) -> None:
         """Ensure MemorySinkSettings raises on non-boolean support_worker_commit."""
-        with self.assertRaisesRegex(
-            EleanorError, "support_worker_commit must be a boolean"
-        ):
+        with self.assertRaisesRegex(EleanorError, "support_worker_commit must be a boolean"):
             _ = MemorySinkSettings(support_worker_commit="yes")  # pyright: ignore[reportArgumentType]
 
     def test_memory_config_from_dict_defaults(self) -> None:
@@ -145,7 +143,8 @@ class TestMemorySink(TestCase):
         first = _point(exit_code=0)
         second = _point(exit_code=1)
 
-        _ = _write_batch(sink,
+        _ = _write_batch(
+            sink,
             order_id,
             [ComputeResult(point=first), ComputeResult(point=second)],
         )
@@ -160,7 +159,8 @@ class TestMemorySink(TestCase):
         first = _point(exit_code=0)
         second = _point(exit_code=3)
 
-        outcomes = _write_batch(sink,
+        outcomes = _write_batch(
+            sink,
             order_id,
             [ComputeResult(point=first), ComputeResult(point=second)],
         )
@@ -179,11 +179,10 @@ class TestMemorySink(TestCase):
         order = _order()
         order_id = sink.begin_run(order)
         point = _point(exit_code=7)
-        error = ErrorInfo(
-            type_name="RuntimeError", message="boom", traceback_text="trace"
-        )
+        error = ErrorInfo(type_name="RuntimeError", message="boom", traceback_text="trace")
 
-        outcomes = _write_batch(sink,
+        outcomes = _write_batch(
+            sink,
             order_id,
             [ComputeResult(point=point, error=error)],
         )
@@ -226,12 +225,8 @@ class TestMemorySink(TestCase):
         first_order_id = sink.begin_run(first_order)
         second_order_id = sink.begin_run(second_order)
 
-        first_outcome = _write_batch(sink,
-            first_order_id, [ComputeResult(point=_point())]
-        )
-        second_outcome = _write_batch(sink,
-            second_order_id, [ComputeResult(point=_point())]
-        )
+        first_outcome = _write_batch(sink, first_order_id, [ComputeResult(point=_point())])
+        second_outcome = _write_batch(sink, second_order_id, [ComputeResult(point=_point())])
         self.assertTrue(first_outcome[0].committed)
         self.assertTrue(second_outcome[0].committed)
 
@@ -242,7 +237,8 @@ class TestMemorySink(TestCase):
         order_id = sink.begin_run(order)
         progress = mock.Mock()
 
-        _ = _write_batch(sink,
+        _ = _write_batch(
+            sink,
             order_id,
             [
                 ComputeResult(point=_point(exit_code=0)),

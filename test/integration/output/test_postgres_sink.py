@@ -221,9 +221,7 @@ def _make_es_point(
 class _RealPostgresTestCase(unittest.TestCase):
     """Common scaffolding: real connection, clean schema per test."""
 
-    config: PostgresDatabaseSettings = cast(
-        PostgresDatabaseSettings, cast(object, None)
-    )
+    config: PostgresDatabaseSettings = cast(PostgresDatabaseSettings, cast(object, None))
 
     @classmethod
     @override
@@ -311,16 +309,16 @@ class TestPostgresSinkIntegration(_RealPostgresTestCase):
         conn = connection.connect(self.config)
         with conn.transaction(), conn.cursor() as cur:
             _ = cur.execute(
-                "CREATE TABLE IF NOT EXISTS schema_migrations " +
-                "(version INTEGER PRIMARY KEY, name TEXT NOT NULL, " +
-                "applied_at TIMESTAMPTZ NOT NULL, eleanor_version TEXT NOT NULL)"
+                "CREATE TABLE IF NOT EXISTS schema_migrations "
+                + "(version INTEGER PRIMARY KEY, name TEXT NOT NULL, "
+                + "applied_at TIMESTAMPTZ NOT NULL, eleanor_version TEXT NOT NULL)"
             )
             _ = cur.execute(
-                "INSERT INTO schema_migrations (version, name, applied_at, eleanor_version) " +
-                "VALUES (1, 'initial_schema', NOW(), 'test')," +
-                "       (2, 'rename_tag_to_tags', NOW(), 'test')," +
-                "       (3, 'indexes', NOW(), 'test')," +
-                "       (4, 'add_exception_to_variable_space', NOW(), 'test') ON CONFLICT DO NOTHING"
+                "INSERT INTO schema_migrations (version, name, applied_at, eleanor_version) "
+                + "VALUES (1, 'initial_schema', NOW(), 'test'),"
+                + "       (2, 'rename_tag_to_tags', NOW(), 'test'),"
+                + "       (3, 'indexes', NOW(), 'test'),"
+                + "       (4, 'add_exception_to_variable_space', NOW(), 'test') ON CONFLICT DO NOTHING"
             )
         # Now apply_pending_migrations should find no pending work and succeed.
         repositories.apply_pending_migrations(self.config)
@@ -390,9 +388,7 @@ class TestRepositoriesIntegration(_RealPostgresTestCase):
             ),
         ]
         point.aqueous_reactants = [
-            core_vs.AqueousReactant(
-                name="Na+", log_moles=-np.float64(1.0), titration_rate=np.float64(1.0)
-            ),
+            core_vs.AqueousReactant(name="Na+", log_moles=-np.float64(1.0), titration_rate=np.float64(1.0)),
         ]
         point.gas_reactants = [
             core_vs.GasReactant(
@@ -402,14 +398,10 @@ class TestRepositoriesIntegration(_RealPostgresTestCase):
             ),
         ]
         point.element_reactants = [
-            core_vs.ElementReactant(
-                name="Fe", log_moles=-np.float64(6.0), titration_rate=np.float64(1.0)
-            ),
+            core_vs.ElementReactant(name="Fe", log_moles=-np.float64(6.0), titration_rate=np.float64(1.0)),
         ]
         point.fixed_gas_reactants = [
-            core_vs.FixedGasReactant(
-                name="O2(g)", log_moles=-np.float64(2.0), log_fugacity=-np.float64(2.0)
-            ),
+            core_vs.FixedGasReactant(name="O2(g)", log_moles=-np.float64(2.0), log_fugacity=-np.float64(2.0)),
         ]
         point.special_reactants = [
             core_vs.SpecialReactant(
@@ -428,12 +420,8 @@ class TestRepositoriesIntegration(_RealPostgresTestCase):
                 log_moles=np.float64(0.0),
                 titration_rate=np.float64(1.0),
                 end_members=[
-                    core_vs.SolidSolutionReactantEndMembers(
-                        name="em-a", fraction=np.float64(0.5)
-                    ),
-                    core_vs.SolidSolutionReactantEndMembers(
-                        name="em-b", fraction=np.float64(0.5)
-                    ),
+                    core_vs.SolidSolutionReactantEndMembers(name="em-a", fraction=np.float64(0.5)),
+                    core_vs.SolidSolutionReactantEndMembers(name="em-b", fraction=np.float64(0.5)),
                 ],
             ),
         ]
@@ -457,9 +445,7 @@ class TestRepositoriesIntegration(_RealPostgresTestCase):
                     ),
                 ],
                 pure_solids=[
-                    core_es.PureSolid(
-                        name="Halite", log_qk=np.float64(0.0), affinity=np.float64(0.0)
-                    ),
+                    core_es.PureSolid(name="Halite", log_qk=np.float64(0.0), affinity=np.float64(0.0)),
                 ],
                 gases=[core_es.Gas(name="CO2(g)", log_fugacity=-np.float64(3.5))],
                 # ES-side reactants are accumulated in the same
@@ -557,9 +543,7 @@ class TestRepositoriesIntegration(_RealPostgresTestCase):
                 ("equilibrium_solid_solutions", 1),
                 ("equilibrium_end_members", 2),
             ):
-                _ = cur.execute(
-                    sql.SQL("SELECT count(*) FROM {}").format(sql.Identifier(table))
-                )
+                _ = cur.execute(sql.SQL("SELECT count(*) FROM {}").format(sql.Identifier(table)))
                 row = cur.fetchone()
                 assert row is not None
                 self.assertEqual(
@@ -663,9 +647,7 @@ class TestRepositoriesIntegration(_RealPostgresTestCase):
             self.assertEqual(es_row[2], 0.0)
 
             # ES elements: small positive fraction
-            _ = cur.execute(
-                "SELECT log_molality, mass_fraction FROM equilibrium_elements WHERE name = 'Ca'"
-            )
+            _ = cur.execute("SELECT log_molality, mass_fraction FROM equilibrium_elements WHERE name = 'Ca'")
             ee_row = cur.fetchone()
             assert ee_row is not None
             self.assertEqual(ee_row[0], -4.567)
@@ -816,9 +798,7 @@ class TestRepositoriesIntegration(_RealPostgresTestCase):
             # Confirm the first and last rows survived intact through the
             # binary COPY's text encoding (both the column name list order
             # and the underlying psycopg adapter chain).
-            _ = cur.execute(
-                'SELECT name FROM equilibrium_aqueous_species ORDER BY name COLLATE "C"'
-            )
+            _ = cur.execute('SELECT name FROM equilibrium_aqueous_species ORDER BY name COLLATE "C"')
             names = {r[0] for r in cur.fetchall()}
             self.assertIn("sp0", names)
             self.assertIn(f"sp{n_aq - 1}", names)
@@ -835,9 +815,7 @@ class TestRepositoriesIntegration(_RealPostgresTestCase):
             plain_id = repositories.insert_point(conn, order_id, plain)
 
         with conn.cursor() as cur:
-            _ = cur.execute(
-                "SELECT error, exit_code FROM variable_space WHERE id = %s", (plain_id,)
-            )
+            _ = cur.execute("SELECT error, exit_code FROM variable_space WHERE id = %s", (plain_id,))
             row = cur.fetchone()
             assert row is not None
             self.assertIsNone(row[0])  # pyright: ignore[reportAny]
@@ -851,9 +829,7 @@ class TestRepositoriesIntegration(_RealPostgresTestCase):
             plain_id = repositories.insert_point(conn, order_id, plain)
 
         with conn.cursor() as cur:
-            _ = cur.execute(
-                "SELECT error, exit_code FROM variable_space WHERE id = %s", (plain_id,)
-            )
+            _ = cur.execute("SELECT error, exit_code FROM variable_space WHERE id = %s", (plain_id,))
             row = cur.fetchone()
             assert row is not None
             self.assertEqual(row[0], msg)
@@ -869,9 +845,7 @@ class TestRepositoriesIntegration(_RealPostgresTestCase):
             plain_id = repositories.insert_point(conn, order_id, plain, error)
 
         with conn.cursor() as cur:
-            _ = cur.execute(
-                "SELECT error, exit_code FROM variable_space WHERE id = %s", (plain_id,)
-            )
+            _ = cur.execute("SELECT error, exit_code FROM variable_space WHERE id = %s", (plain_id,))
             row = cur.fetchone()
             assert row is not None
             self.assertEqual(row[0], msg)
@@ -886,9 +860,7 @@ class TestRepositoriesIntegration(_RealPostgresTestCase):
             plain_id = repositories.insert_point(conn, order_id, plain, error)
 
         with conn.cursor() as cur:
-            _ = cur.execute(
-                "SELECT error, exit_code FROM variable_space WHERE id = %s", (plain_id,)
-            )
+            _ = cur.execute("SELECT error, exit_code FROM variable_space WHERE id = %s", (plain_id,))
             row = cur.fetchone()
             assert row is not None
             self.assertEqual(row[0], msg)
@@ -1027,10 +999,7 @@ class TestStatementProfilerIntegration(_RealPostgresTestCase):
         # is 1000 rows, so a 5-row leaf insert deliberately stays on the
         # ``executemany`` branch and exercises the matching profiler
         # override).
-        point.elements = [
-            core_vs.Element(name=f"el{i}", log_molality=-np.float64(1.0))
-            for i in range(5)
-        ]
+        point.elements = [core_vs.Element(name=f"el{i}", log_molality=-np.float64(1.0)) for i in range(5)]
         point.es_points = [
             _make_es_point(
                 aqueous_species=[

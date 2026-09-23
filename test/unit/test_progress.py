@@ -374,9 +374,7 @@ class TestProgressListener(TestCase):
                 ProgressMessage(channel="sim", kind="total", value=2),
                 ProgressMessage(channel="sim", kind="tick", value=1),
                 ProgressMessage(channel="sim", kind="done", value=0),
-                ProgressMessage(
-                    channel="sim", kind="tick", value=1
-                ),  # ignored after done
+                ProgressMessage(channel="sim", kind="tick", value=1),  # ignored after done
                 ProgressMessage(channel="out", kind="total", value=1),
                 ProgressMessage(channel="out", kind="tick", value=1),
                 None,

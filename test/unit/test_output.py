@@ -32,11 +32,11 @@ from eleanor.output.postgres.sink import PostgresSink
 from eleanor.progress import ProgressHandle
 
 
-
 def _write_batch(sink, order_id, results, progress=None):
     """Drive both halves of the split write protocol, as Eleanor does."""
     prepared = sink.prepare_batch(order_id, results)
     return sink.commit_batch(order_id, prepared, progress=progress)
+
 
 def _as_order(order: SimpleNamespace) -> Order:
     return cast(Order, cast(object, order))
@@ -86,15 +86,11 @@ class TestOutput(TestCase):
                 return 0
 
             @override
-            def prepare_batch(
-                self, order_id: int, results: Sequence[ComputeResult]
-            ) -> Sequence[object]:
+            def prepare_batch(self, order_id: int, results: Sequence[ComputeResult]) -> Sequence[object]:
                 return list(results)
 
             @override
-            def commit_batch(
-                self, order_id: int, prepared: Sequence[object], progress=None
-            ) -> list[WriteOutcome]:
+            def commit_batch(self, order_id: int, prepared: Sequence[object], progress=None) -> list[WriteOutcome]:
                 _ = progress
                 return []
 
@@ -118,15 +114,11 @@ class TestOutput(TestCase):
                 return 0
 
             @override
-            def prepare_batch(
-                self, order_id: int, results: Sequence[ComputeResult]
-            ) -> Sequence[object]:
+            def prepare_batch(self, order_id: int, results: Sequence[ComputeResult]) -> Sequence[object]:
                 return list(results)
 
             @override
-            def commit_batch(
-                self, order_id: int, prepared: Sequence[object], progress=None
-            ) -> list[WriteOutcome]:
+            def commit_batch(self, order_id: int, prepared: Sequence[object], progress=None) -> list[WriteOutcome]:
                 _ = progress
                 return []
 
@@ -155,9 +147,7 @@ class TestOutput(TestCase):
                 return 0
 
             @override
-            def prepare_batch(
-                self, order_id: int, results: Sequence[ComputeResult]
-            ) -> Sequence[object]:
+            def prepare_batch(self, order_id: int, results: Sequence[ComputeResult]) -> Sequence[object]:
                 return list(results)
 
             @override
@@ -189,9 +179,7 @@ class TestOutput(TestCase):
         Ensure PostgresSink opts in to worker-side writes.
         """
         settings = PostgresSinkSettings(
-            database=PostgresDatabaseSettings(
-                database="db", username="u", password="p"
-            ),
+            database=PostgresDatabaseSettings(database="db", username="u", password="p"),
         )
         sink = PostgresSink(settings)
         self.assertTrue(sink.supports_worker_commit())
@@ -201,9 +189,7 @@ class TestOutput(TestCase):
         Ensure PostgresSink opts in to per-row output progress reporting.
         """
         settings = PostgresSinkSettings(
-            database=PostgresDatabaseSettings(
-                database="db", username="u", password="p"
-            ),
+            database=PostgresDatabaseSettings(database="db", username="u", password="p"),
         )
         sink = PostgresSink(settings)
         self.assertTrue(sink.supports_progress())
@@ -215,18 +201,12 @@ class TestOutput(TestCase):
         does NOT call drop_bulk_load_objects.
         """
         settings = PostgresSinkSettings(
-            database=PostgresDatabaseSettings(
-                database="db", username="u", password="p"
-            ),
+            database=PostgresDatabaseSettings(database="db", username="u", password="p"),
         )
         sink = PostgresSink(settings)
         with (
-            mock.patch(
-                "eleanor.output.postgres.sink.repositories.apply_pending_migrations"
-            ) as apply_mig,
-            mock.patch(
-                "eleanor.output.postgres.sink.repositories.drop_bulk_load_objects"
-            ) as drop_bulk_load_objects,
+            mock.patch("eleanor.output.postgres.sink.repositories.apply_pending_migrations") as apply_mig,
+            mock.patch("eleanor.output.postgres.sink.repositories.drop_bulk_load_objects") as drop_bulk_load_objects,
         ):
             sink.initialize()
         apply_mig.assert_called_once_with(settings.database)
@@ -243,9 +223,7 @@ class TestOutput(TestCase):
         them on a fresh database.
         """
         settings = PostgresSinkSettings(
-            database=PostgresDatabaseSettings(
-                database="db", username="u", password="p"
-            ),
+            database=PostgresDatabaseSettings(database="db", username="u", password="p"),
             bulk_load_optimization=True,
         )
         sink = PostgresSink(settings)
@@ -277,18 +255,12 @@ class TestOutput(TestCase):
         bulk_load_optimization off -- does NOT call recreate_bulk_load_objects.
         """
         settings = PostgresSinkSettings(
-            database=PostgresDatabaseSettings(
-                database="db", username="u", password="p"
-            ),
+            database=PostgresDatabaseSettings(database="db", username="u", password="p"),
         )
         sink = PostgresSink(settings)
         with (
-            mock.patch(
-                "eleanor.output.postgres.sink.connection_module.release"
-            ) as close,
-            mock.patch(
-                "eleanor.output.postgres.sink.repositories.recreate_bulk_load_objects"
-            ) as recreate,
+            mock.patch("eleanor.output.postgres.sink.connection_module.release") as close,
+            mock.patch("eleanor.output.postgres.sink.repositories.recreate_bulk_load_objects") as recreate,
         ):
             sink.finalize()
         close.assert_called_once_with(settings.database)
@@ -306,9 +278,7 @@ class TestOutput(TestCase):
         ``release`` evicts the cached entry.
         """
         settings = PostgresSinkSettings(
-            database=PostgresDatabaseSettings(
-                database="db", username="u", password="p"
-            ),
+            database=PostgresDatabaseSettings(database="db", username="u", password="p"),
             bulk_load_optimization=True,
         )
         sink = PostgresSink(settings)
@@ -342,9 +312,7 @@ class TestOutput(TestCase):
         silently swallowed) but the libpq socket must not leak.
         """
         settings = PostgresSinkSettings(
-            database=PostgresDatabaseSettings(
-                database="db", username="u", password="p"
-            ),
+            database=PostgresDatabaseSettings(database="db", username="u", password="p"),
             bulk_load_optimization=True,
         )
         sink = PostgresSink(settings)
@@ -372,24 +340,18 @@ class TestOutput(TestCase):
         """
         settings = PostgresSinkSettings(
             verbose=True,
-            database=PostgresDatabaseSettings(
-                database="db", username="u", password="p"
-            ),
+            database=PostgresDatabaseSettings(database="db", username="u", password="p"),
         )
         sink = PostgresSink(settings)
         logger = logging.getLogger("psycopg")
         original_level = logging.WARNING
         logger.setLevel(original_level)
         try:
-            with mock.patch(
-                "eleanor.output.postgres.sink.repositories.apply_pending_migrations"
-            ):
+            with mock.patch("eleanor.output.postgres.sink.repositories.apply_pending_migrations"):
                 sink.initialize()
             self.assertEqual(logger.level, logging.DEBUG)
             # Second initialize must NOT overwrite the snapshot.
-            with mock.patch(
-                "eleanor.output.postgres.sink.repositories.apply_pending_migrations"
-            ):
+            with mock.patch("eleanor.output.postgres.sink.repositories.apply_pending_migrations"):
                 sink.initialize()
             self.assertEqual(logger.level, logging.DEBUG)
             with mock.patch(
@@ -407,9 +369,7 @@ class TestOutput(TestCase):
         the bulk-load follow-up).
         """
         settings = PostgresSinkSettings(
-            database=PostgresDatabaseSettings(
-                database="db", username="u", password="p"
-            ),
+            database=PostgresDatabaseSettings(database="db", username="u", password="p"),
         )
         sink = PostgresSink(settings)
         # Just verify it returns without raising / reaching the connection layer.
@@ -420,9 +380,7 @@ class TestOutput(TestCase):
         Ensure a requested_id naming an existing row resumes it without inserting.
         """
         settings = PostgresSinkSettings(
-            database=PostgresDatabaseSettings(
-                database="db", username="u", password="p"
-            ),
+            database=PostgresDatabaseSettings(database="db", username="u", password="p"),
         )
         sink = PostgresSink(settings)
 
@@ -434,9 +392,7 @@ class TestOutput(TestCase):
                 "eleanor.output.postgres.sink.repositories.get_order",
                 return_value=existing,
             ) as get_order,
-            mock.patch(
-                "eleanor.output.postgres.sink.repositories.insert_order"
-            ) as insert_order,
+            mock.patch("eleanor.output.postgres.sink.repositories.insert_order") as insert_order,
         ):
             order_id = sink.begin_run(_as_order(order), requested_id="17")
 
@@ -453,21 +409,15 @@ class TestOutput(TestCase):
         was silently discarded.
         """
         settings = PostgresSinkSettings(
-            database=PostgresDatabaseSettings(
-                database="db", username="u", password="p"
-            ),
+            database=PostgresDatabaseSettings(database="db", username="u", password="p"),
         )
         sink = PostgresSink(settings)
 
         order = SimpleNamespace(eleanor_version="v1")
 
         with (
-            mock.patch(
-                "eleanor.output.postgres.sink.repositories.get_order", return_value=None
-            ),
-            mock.patch(
-                "eleanor.output.postgres.sink.repositories.insert_order"
-            ) as insert_order,
+            mock.patch("eleanor.output.postgres.sink.repositories.get_order", return_value=None),
+            mock.patch("eleanor.output.postgres.sink.repositories.insert_order") as insert_order,
             self.assertRaisesRegex(EleanorError, "no order 99 to extend"),
         ):
             _ = sink.begin_run(_as_order(order), requested_id="99")
@@ -479,9 +429,7 @@ class TestOutput(TestCase):
         Ensure a token outside this sink's id space is rejected by name.
         """
         settings = PostgresSinkSettings(
-            database=PostgresDatabaseSettings(
-                database="db", username="u", password="p"
-            ),
+            database=PostgresDatabaseSettings(database="db", username="u", password="p"),
         )
         sink = PostgresSink(settings)
 
@@ -495,9 +443,7 @@ class TestOutput(TestCase):
         Ensure begin_run rejects extending an order from a different Eleanor version.
         """
         settings = PostgresSinkSettings(
-            database=PostgresDatabaseSettings(
-                database="db", username="u", password="p"
-            ),
+            database=PostgresDatabaseSettings(database="db", username="u", password="p"),
         )
         sink = PostgresSink(settings)
 
@@ -518,9 +464,7 @@ class TestOutput(TestCase):
         Ensure begin_run writes a new order and returns the sequence-generated id.
         """
         settings = PostgresSinkSettings(
-            database=PostgresDatabaseSettings(
-                database="db", username="u", password="p"
-            ),
+            database=PostgresDatabaseSettings(database="db", username="u", password="p"),
         )
         sink = PostgresSink(settings)
 
@@ -540,9 +484,7 @@ class TestOutput(TestCase):
         """
         Ensure ErrorInfo stores serializable error metadata fields.
         """
-        error = ErrorInfo(
-            type_name="RuntimeError", message="boom", traceback_text="traceback"
-        )
+        error = ErrorInfo(type_name="RuntimeError", message="boom", traceback_text="traceback")
         self.assertEqual(error.type_name, "RuntimeError")
         self.assertEqual(error.message, "boom")
         self.assertEqual(error.traceback_text, "traceback")
@@ -554,9 +496,7 @@ class TestOutput(TestCase):
         single outer commit.
         """
         settings = PostgresSinkSettings(
-            database=PostgresDatabaseSettings(
-                database="db", username="u", password="p"
-            ),
+            database=PostgresDatabaseSettings(database="db", username="u", password="p"),
         )
         sink = PostgresSink(settings)
 
@@ -610,9 +550,7 @@ class TestOutput(TestCase):
         written row and no tick for a row that failed to write.
         """
         settings = PostgresSinkSettings(
-            database=PostgresDatabaseSettings(
-                database="db", username="u", password="p"
-            ),
+            database=PostgresDatabaseSettings(database="db", username="u", password="p"),
         )
         sink = PostgresSink(settings)
 
@@ -660,9 +598,7 @@ class TestOutput(TestCase):
         Ensure PostgresSink.write_batch tolerates progress=None (the default).
         """
         settings = PostgresSinkSettings(
-            database=PostgresDatabaseSettings(
-                database="db", username="u", password="p"
-            ),
+            database=PostgresDatabaseSettings(database="db", username="u", password="p"),
         )
         sink = PostgresSink(settings)
 
@@ -698,9 +634,7 @@ class TestOutput(TestCase):
         gets the running ``__version__`` stamped on it.
         """
         settings = PostgresSinkSettings(
-            database=PostgresDatabaseSettings(
-                database="db", username="u", password="p"
-            ),
+            database=PostgresDatabaseSettings(database="db", username="u", password="p"),
         )
         sink = PostgresSink(settings)
 
@@ -723,9 +657,7 @@ class TestOutput(TestCase):
         an empty list as "this batch contributed zero rows".
         """
         settings = PostgresSinkSettings(
-            database=PostgresDatabaseSettings(
-                database="db", username="u", password="p"
-            ),
+            database=PostgresDatabaseSettings(database="db", username="u", password="p"),
         )
         sink = PostgresSink(settings)
 
@@ -755,9 +687,7 @@ class TestOutput(TestCase):
         the same one.
         """
         settings = PostgresSinkSettings(
-            database=PostgresDatabaseSettings(
-                database="db", username="u", password="p"
-            ),
+            database=PostgresDatabaseSettings(database="db", username="u", password="p"),
         )
         sink = PostgresSink(settings)
 
@@ -794,9 +724,7 @@ class TestOutput(TestCase):
         whole reason this branch exists.
         """
         settings = PostgresSinkSettings(
-            database=PostgresDatabaseSettings(
-                database="db", username="u", password="p"
-            ),
+            database=PostgresDatabaseSettings(database="db", username="u", password="p"),
         )
         sink = PostgresSink(settings)
 
@@ -856,9 +784,7 @@ class TestOutput(TestCase):
         ticked because no row durably committed.
         """
         settings = PostgresSinkSettings(
-            database=PostgresDatabaseSettings(
-                database="db", username="u", password="p"
-            ),
+            database=PostgresDatabaseSettings(database="db", username="u", password="p"),
         )
         sink = PostgresSink(settings)
 
@@ -951,25 +877,17 @@ class TestPostgresConnectionSharing(TestCase):
     """
 
     def setUp(self) -> None:
-        self.database = PostgresDatabaseSettings(
-            database="db", username="u", password="p"
-        )
+        self.database = PostgresDatabaseSettings(database="db", username="u", password="p")
         # Two sinks that differ only outside PostgresDatabaseSettings, so they
         # collide on the cache key.
-        self.first = PostgresSink(
-            PostgresSinkSettings(database=self.database, write_unformed=True)
-        )
-        self.second = PostgresSink(
-            PostgresSinkSettings(database=self.database, write_unformed=False)
-        )
+        self.first = PostgresSink(PostgresSinkSettings(database=self.database, write_unformed=True))
+        self.second = PostgresSink(PostgresSinkSettings(database=self.database, write_unformed=False))
 
     def tearDown(self) -> None:
         connection._owners.clear()  # pyright: ignore[reportPrivateUsage]
 
     def _initialize(self, sink: PostgresSink) -> None:
-        with mock.patch(
-            "eleanor.output.postgres.sink.repositories.apply_pending_migrations"
-        ):
+        with mock.patch("eleanor.output.postgres.sink.repositories.apply_pending_migrations"):
             sink.initialize()
 
     def test_first_finalize_does_not_close_shared_connection(self) -> None:
@@ -977,9 +895,7 @@ class TestPostgresConnectionSharing(TestCase):
         self._initialize(self.first)
         self._initialize(self.second)
 
-        with mock.patch(
-            "eleanor.output.postgres.persistence.connection.close_connection"
-        ) as close:
+        with mock.patch("eleanor.output.postgres.persistence.connection.close_connection") as close:
             self.first.finalize()
             close.assert_not_called()
 
@@ -988,9 +904,7 @@ class TestPostgresConnectionSharing(TestCase):
 
     def test_finalize_without_initialize_closes_immediately(self) -> None:
         """Ensure an unmatched release still closes, as a bare finalize did."""
-        with mock.patch(
-            "eleanor.output.postgres.persistence.connection.close_connection"
-        ) as close:
+        with mock.patch("eleanor.output.postgres.persistence.connection.close_connection") as close:
             self.first.finalize()
         close.assert_called_once_with(self.database)
 
@@ -1005,25 +919,19 @@ class TestPostgresConnectionSharing(TestCase):
         self._initialize(self.first)
         self._initialize(self.first)
 
-        with mock.patch(
-            "eleanor.output.postgres.persistence.connection.close_connection"
-        ) as close:
+        with mock.patch("eleanor.output.postgres.persistence.connection.close_connection") as close:
             self.first.finalize()
         close.assert_called_once_with(self.database)
 
     def test_distinct_databases_are_counted_separately(self) -> None:
         """Ensure a sink on another database is not kept alive by this one."""
-        other_database = PostgresDatabaseSettings(
-            database="other", username="u", password="p"
-        )
+        other_database = PostgresDatabaseSettings(database="other", username="u", password="p")
         other = PostgresSink(PostgresSinkSettings(database=other_database))
 
         self._initialize(self.first)
         self._initialize(other)
 
-        with mock.patch(
-            "eleanor.output.postgres.persistence.connection.close_connection"
-        ) as close:
+        with mock.patch("eleanor.output.postgres.persistence.connection.close_connection") as close:
             other.finalize()
         close.assert_called_once_with(other_database)
 
@@ -1224,9 +1132,7 @@ class TestResumeOptIn(TestCase):
                 "AbstractOutputSink[object]",
                 PostgresSink(
                     PostgresSinkSettings(
-                        database=PostgresDatabaseSettings(
-                            database="db", username="u", password="p"
-                        ),
+                        database=PostgresDatabaseSettings(database="db", username="u", password="p"),
                     ),
                 ),
             ),
@@ -1244,9 +1150,7 @@ class TestResumeOptIn(TestCase):
                 return 0
 
             @override
-            def prepare_batch(
-                self, order_id: int, results: Sequence[ComputeResult]
-            ) -> Sequence[object]:
+            def prepare_batch(self, order_id: int, results: Sequence[ComputeResult]) -> Sequence[object]:
                 return list(results)
 
             @override
@@ -1319,15 +1223,11 @@ class TestBackgroundCommitOptIn(TestCase):
                 return 0
 
             @override
-            def prepare_batch(
-                self, order_id: int, results: Sequence[ComputeResult]
-            ) -> Sequence[object]:
+            def prepare_batch(self, order_id: int, results: Sequence[ComputeResult]) -> Sequence[object]:
                 return list(results)
 
             @override
-            def commit_batch(
-                self, order_id: int, prepared: Sequence[object], progress=None
-            ) -> list[WriteOutcome]:
+            def commit_batch(self, order_id: int, prepared: Sequence[object], progress=None) -> list[WriteOutcome]:
                 _ = progress
                 return []
 
@@ -1362,12 +1262,8 @@ class TestSinkBindingPicklability(TestCase):
         worker = NullSink(NullSinkSettings(support_worker_commit=True))
         serial = NullSink(NullSinkSettings(support_worker_commit=False))
 
-        self.assertTrue(
-            SinkBinding.bind("a", cast("AbstractOutputSink[object]", worker), 0).commit_in_worker
-        )
-        self.assertFalse(
-            SinkBinding.bind("b", cast("AbstractOutputSink[object]", serial), 0).commit_in_worker
-        )
+        self.assertTrue(SinkBinding.bind("a", cast("AbstractOutputSink[object]", worker), 0).commit_in_worker)
+        self.assertFalse(SinkBinding.bind("b", cast("AbstractOutputSink[object]", serial), 0).commit_in_worker)
 
     def test_a_chunk_result_round_trips(self) -> None:
         """Ensure what a worker returns survives the trip home."""

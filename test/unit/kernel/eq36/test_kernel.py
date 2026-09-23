@@ -303,9 +303,7 @@ class TestEq36Kernel(TestCase):
                     filename="outside",
                     tp_curve=_DummyCurve(in_domain=False, pressure=10.0),
                 ),
-                SimpleNamespace(
-                    filename="wrong", tp_curve=_DummyCurve(in_domain=True, pressure=7.5)
-                ),
+                SimpleNamespace(filename="wrong", tp_curve=_DummyCurve(in_domain=True, pressure=7.5)),
                 SimpleNamespace(
                     filename="right",
                     tp_curve=_DummyCurve(in_domain=True, pressure=10.0),
@@ -325,11 +323,7 @@ class TestEq36Kernel(TestCase):
         kernel = self._kernel()
         kernel._data1s = cast(
             list[Data1],
-            [
-                SimpleNamespace(
-                    filename="wrong", tp_curve=_DummyCurve(in_domain=True, pressure=9.0)
-                )
-            ],
+            [SimpleNamespace(filename="wrong", tp_curve=_DummyCurve(in_domain=True, pressure=9.0))],
         )
         point = _make_point(self._settings(), temperature=25.0, pressure=10.0)
 
@@ -341,12 +335,8 @@ class TestEq36Kernel(TestCase):
         Ensure find_data1 emits verbose warning for multiple matches and returns the first match.
         """
         kernel = self._kernel()
-        first = SimpleNamespace(
-            filename="first", tp_curve=_DummyCurve(in_domain=True, pressure=10.0)
-        )
-        second = SimpleNamespace(
-            filename="second", tp_curve=_DummyCurve(in_domain=True, pressure=10.0)
-        )
+        first = SimpleNamespace(filename="first", tp_curve=_DummyCurve(in_domain=True, pressure=10.0))
+        second = SimpleNamespace(filename="second", tp_curve=_DummyCurve(in_domain=True, pressure=10.0))
         kernel._data1s = cast(list[Data1], [first, second])
         point = _make_point(self._settings(), temperature=25.0, pressure=10.0)
 
@@ -369,27 +359,17 @@ class TestEq36Kernel(TestCase):
         eq3_result = SimpleNamespace(stage="eq3")
 
         with (
-            mock.patch.object(
-                kernel, "resolve_kernel_settings", return_value=settings
-            ) as resolve,
-            mock.patch.object(
-                kernel, "find_data1", return_value=found_data1
-            ) as find_data1,
-            mock.patch.object(
-                kernel, "write_eq3_input", return_value="problem.3i"
-            ) as write_eq3_input,
+            mock.patch.object(kernel, "resolve_kernel_settings", return_value=settings) as resolve,
+            mock.patch.object(kernel, "find_data1", return_value=found_data1) as find_data1,
+            mock.patch.object(kernel, "write_eq3_input", return_value="problem.3i") as write_eq3_input,
             mock.patch("eleanor.kernel.eq36.kernel.eq3") as eq3_mock,
             mock.patch(
                 "eleanor.kernel.eq36.kernel.Eq36Kernel.read_eq3_output",
                 return_value=eq3_result,
             ) as read_eq3_output,
             mock.patch("eleanor.kernel.eq36.kernel.eq6") as eq6_mock,
-            mock.patch(
-                "eleanor.kernel.eq36.kernel.read_pickup_lines"
-            ) as read_pickup_lines,
-            mock.patch(
-                "eleanor.kernel.eq36.kernel.Eq36Kernel.read_eq6_output"
-            ) as read_eq6_output,
+            mock.patch("eleanor.kernel.eq36.kernel.read_pickup_lines") as read_pickup_lines,
+            mock.patch("eleanor.kernel.eq36.kernel.Eq36Kernel.read_eq6_output") as read_eq6_output,
             mock.patch("eleanor.kernel.eq36.kernel.Data1.from_file") as from_file,
         ):
             output = kernel.run(point, verbose=True)
@@ -398,9 +378,7 @@ class TestEq36Kernel(TestCase):
         find_data1.assert_called_once_with(point, verbose=True)
         self.assertEqual(settings.data1_file, "/tmp/found/run.d1")
         write_eq3_input.assert_called_once_with(point, found_data1, verbose=True)
-        eq3_mock.assert_called_once_with(
-            "/tmp/found/run.d1", "problem.3i", timeout=settings.timeout
-        )
+        eq3_mock.assert_called_once_with("/tmp/found/run.d1", "problem.3i", timeout=settings.timeout)
         read_eq3_output.assert_called_once_with()
         eq6_mock.assert_not_called()
         read_pickup_lines.assert_not_called()
@@ -423,16 +401,10 @@ class TestEq36Kernel(TestCase):
         pickup_lines = ["pickup-a\n", "pickup-b\n"]
 
         with (
-            mock.patch.object(
-                kernel, "resolve_kernel_settings", return_value=settings
-            ) as resolve,
+            mock.patch.object(kernel, "resolve_kernel_settings", return_value=settings) as resolve,
             mock.patch.object(kernel, "find_data1") as find_data1,
-            mock.patch(
-                "eleanor.kernel.eq36.kernel.Data1.from_file", return_value=loaded_data1
-            ) as from_file,
-            mock.patch.object(
-                kernel, "write_eq3_input", return_value="problem.3i"
-            ) as write_eq3_input,
+            mock.patch("eleanor.kernel.eq36.kernel.Data1.from_file", return_value=loaded_data1) as from_file,
+            mock.patch.object(kernel, "write_eq3_input", return_value="problem.3i") as write_eq3_input,
             mock.patch("eleanor.kernel.eq36.kernel.eq3") as eq3_mock,
             mock.patch(
                 "eleanor.kernel.eq36.kernel.Eq36Kernel.read_eq3_output",
@@ -442,9 +414,7 @@ class TestEq36Kernel(TestCase):
                 "eleanor.kernel.eq36.kernel.read_pickup_lines",
                 return_value=pickup_lines,
             ) as read_pickup_lines,
-            mock.patch.object(
-                kernel, "write_eq6_input", return_value="problem.6i"
-            ) as write_eq6_input,
+            mock.patch.object(kernel, "write_eq6_input", return_value="problem.6i") as write_eq6_input,
             mock.patch("eleanor.kernel.eq36.kernel.eq6") as eq6_mock,
             mock.patch(
                 "eleanor.kernel.eq36.kernel.Eq36Kernel.read_eq6_output",
@@ -457,17 +427,11 @@ class TestEq36Kernel(TestCase):
         find_data1.assert_not_called()
         from_file.assert_called_once_with(Path("/tmp/configured/run.d1"))
         write_eq3_input.assert_called_once_with(point, loaded_data1, verbose=True)
-        eq3_mock.assert_called_once_with(
-            Path("/tmp/configured/run.d1"), "problem.3i", timeout=settings.timeout
-        )
+        eq3_mock.assert_called_once_with(Path("/tmp/configured/run.d1"), "problem.3i", timeout=settings.timeout)
         read_eq3_output.assert_called_once_with()
         read_pickup_lines.assert_called_once_with()
-        write_eq6_input.assert_called_once_with(
-            point, pickup_lines=pickup_lines, verbose=True
-        )
-        eq6_mock.assert_called_once_with(
-            Path("/tmp/configured/run.d1"), "problem.6i", timeout=settings.timeout
-        )
+        write_eq6_input.assert_called_once_with(point, pickup_lines=pickup_lines, verbose=True)
+        eq6_mock.assert_called_once_with(Path("/tmp/configured/run.d1"), "problem.6i", timeout=settings.timeout)
         read_eq6_output.assert_called_once_with(track_path=settings.track_path)
         self.assertEqual(output, [eq3_result, *eq6_results])
         self.assertLessEqual(eq3_result.start_date, eq3_result.complete_date)
@@ -543,9 +507,7 @@ class TestEq36Kernel(TestCase):
         )
         handle = io.StringIO()
 
-        with mock.patch.object(
-            base_cfg, "make_verbose", return_value=verbose_cfg
-        ) as make_verbose:
+        with mock.patch.object(base_cfg, "make_verbose", return_value=verbose_cfg) as make_verbose:
             kernel.write_switch_grid(handle, base_cfg, verbose=True)
 
         make_verbose.assert_called_once_with()
@@ -561,9 +523,7 @@ class TestEq36Kernel(TestCase):
         point = _make_point(settings)
 
         with (
-            mock.patch.object(
-                kernel, "resolve_kernel_settings", return_value=settings
-            ) as resolve,
+            mock.patch.object(kernel, "resolve_kernel_settings", return_value=settings) as resolve,
             mock.patch.object(kernel, "find_data1") as find_data1,
             mock.patch("eleanor.kernel.eq36.kernel.copyfile") as copyfile_mock,
         ):
@@ -571,9 +531,7 @@ class TestEq36Kernel(TestCase):
 
         resolve.assert_called_once_with(point)
         find_data1.assert_not_called()
-        copyfile_mock.assert_called_once_with(
-            Path("/tmp/source/testdata.d1"), Path("target/testdata.d1")
-        )
+        copyfile_mock.assert_called_once_with(Path("/tmp/source/testdata.d1"), Path("target/testdata.d1"))
 
     def test_copy_data_finds_data1_when_missing_and_updates_settings(self) -> None:
         """
@@ -585,9 +543,7 @@ class TestEq36Kernel(TestCase):
         found = SimpleNamespace(filename=Path("/tmp/found/fresh.d1"))
 
         with (
-            mock.patch.object(
-                kernel, "resolve_kernel_settings", return_value=settings
-            ) as resolve,
+            mock.patch.object(kernel, "resolve_kernel_settings", return_value=settings) as resolve,
             mock.patch.object(kernel, "find_data1", return_value=found) as find_data1,
             mock.patch("eleanor.kernel.eq36.kernel.copyfile") as copyfile_mock,
         ):
@@ -596,9 +552,7 @@ class TestEq36Kernel(TestCase):
         resolve.assert_called_once_with(point)
         find_data1.assert_called_once_with(point, verbose=True)
         self.assertEqual(settings.data1_file, Path("/tmp/found/fresh.d1"))
-        copyfile_mock.assert_called_once_with(
-            Path("/tmp/found/fresh.d1"), Path("target/fresh.d1")
-        )
+        copyfile_mock.assert_called_once_with(Path("/tmp/found/fresh.d1"), Path("target/fresh.d1"))
 
     def test_setup_filters_data1_files_that_intersect_target_domain(self) -> None:
         """
@@ -609,12 +563,8 @@ class TestEq36Kernel(TestCase):
         order.kernel = self._config()
         order.temperature = Parameter.load({"min": 1.0, "max": 2.0})
         order.pressure = Parameter.load({"min": 3.0, "max": 4.0})
-        rejected = SimpleNamespace(
-            tp_curve=SimpleNamespace(set_domain=mock.Mock(return_value=False))
-        )
-        accepted = SimpleNamespace(
-            tp_curve=SimpleNamespace(set_domain=mock.Mock(return_value=True))
-        )
+        rejected = SimpleNamespace(tp_curve=SimpleNamespace(set_domain=mock.Mock(return_value=False)))
+        accepted = SimpleNamespace(tp_curve=SimpleNamespace(set_domain=mock.Mock(return_value=True)))
 
         with (
             mock.patch(
@@ -645,9 +595,7 @@ class TestEq36Kernel(TestCase):
         """
         kernel = self._kernel()
 
-        with self.assertRaisesRegex(
-            EleanorError, "order provided to Eq36Kernel.setup"
-        ):
+        with self.assertRaisesRegex(EleanorError, "order provided to Eq36Kernel.setup"):
             kernel.setup(cast(Order, cast(object, None)), data1_dir=".")
 
     def test_validate_order_raises_kernel_has_not_been_setup(self) -> None:
@@ -659,9 +607,7 @@ class TestEq36Kernel(TestCase):
         order.kernel = KernelSettings()
         order.temperature = Parameter.load(100.0)
         order.pressure = Parameter.load(20.0)
-        rejected = SimpleNamespace(
-            tp_curve=SimpleNamespace(set_domain=mock.Mock(return_value=False))
-        )
+        rejected = SimpleNamespace(tp_curve=SimpleNamespace(set_domain=mock.Mock(return_value=False)))
 
         with (
             mock.patch(
@@ -676,9 +622,7 @@ class TestEq36Kernel(TestCase):
                 "eleanor.kernel.eq36.kernel.os.path.realpath",
                 side_effect=lambda path: path,
             ),
-            mock.patch(
-                "eleanor.kernel.eq36.kernel.Data1.from_file", return_value=rejected
-            ),
+            mock.patch("eleanor.kernel.eq36.kernel.Data1.from_file", return_value=rejected),
         ):
             with self.assertRaises(EleanorError):
                 kernel.validate_order(order)
@@ -697,9 +641,7 @@ class TestEq36Kernel(TestCase):
         order.kernel = self._config()
         order.temperature = Parameter.load(10.0)
         order.pressure = Parameter.load(30.0)
-        rejected = SimpleNamespace(
-            tp_curve=SimpleNamespace(set_domain=mock.Mock(return_value=False))
-        )
+        rejected = SimpleNamespace(tp_curve=SimpleNamespace(set_domain=mock.Mock(return_value=False)))
 
         with (
             mock.patch(
@@ -710,9 +652,7 @@ class TestEq36Kernel(TestCase):
                 "eleanor.kernel.eq36.kernel.tool_room.find_files",
                 return_value=([], [Path("only.d1")]),
             ),
-            mock.patch(
-                "eleanor.kernel.eq36.kernel.Data1.from_file", return_value=rejected
-            ),
+            mock.patch("eleanor.kernel.eq36.kernel.Data1.from_file", return_value=rejected),
         ):
             kernel.setup(order, data1_dir=".")
             with self.assertRaises(EleanorError):
@@ -743,18 +683,14 @@ class TestEq36Kernel(TestCase):
                 "eleanor.kernel.eq36.kernel.TemperatureRangeConstraint",
                 return_value="TRANGE",
             ) as trange_mock,
-            mock.patch(
-                "eleanor.kernel.eq36.kernel.TPCurveConstraint", return_value="TPCURVE"
-            ) as tpcurve_mock,
+            mock.patch("eleanor.kernel.eq36.kernel.TPCurveConstraint", return_value="TPCURVE") as tpcurve_mock,
         ):
             out = kernel.constrain(point_builder)
 
         self.assertIs(out, point_builder)
         self.assertEqual(point_builder.constraints, ["TRANGE", "TPCURVE"])
         trange_mock.assert_called_once_with(order.temperature, kernel._data1s)
-        tpcurve_mock.assert_called_once_with(
-            order.temperature, order.pressure, kernel._data1s
-        )
+        tpcurve_mock.assert_called_once_with(order.temperature, order.pressure, kernel._data1s)
 
     def test_write_eq3_input_requires_setup_before_writing(self) -> None:
         """
@@ -774,9 +710,7 @@ class TestEq36Kernel(TestCase):
         kernel._setup = True
         settings = self._settings()
         settings.redox_species = "pe"
-        point = _make_point(
-            settings, species=[Species(name="H+", value=np.float64(-7.0))]
-        )
+        point = _make_point(settings, species=[Species(name="H+", value=np.float64(-7.0))])
 
         with self.assertRaises(EleanorKernelError):
             kernel.write_eq3_input(point, data1=self._data1())
@@ -789,9 +723,7 @@ class TestEq36Kernel(TestCase):
         kernel._setup = True
         settings = self._settings()
         settings.redox_species = "fO2"
-        point = _make_point(
-            settings, species=[Species(name="fO2", value=np.float64(-60.0))]
-        )
+        point = _make_point(settings, species=[Species(name="fO2", value=np.float64(-60.0))])
         handle = _NamedStringIO("problem.3i")
 
         data1 = mock.create_autospec(Data1, instance=True)
@@ -891,9 +823,7 @@ class TestEq36Kernel(TestCase):
         kernel = self._kernel()
         settings = self._settings()
         settings.redox_species = "pe"
-        point = _make_point(
-            settings, species=[Species(name="H+", value=np.float64(-7.0))]
-        )
+        point = _make_point(settings, species=[Species(name="H+", value=np.float64(-7.0))])
 
         with self.assertRaises(EleanorKernelError):
             kernel.write_eq6_input(point)
@@ -1035,16 +965,12 @@ class TestEq36Kernel(TestCase):
         kernel = self._kernel()
         settings = self._settings()
 
-        mineral = MineralReactant(
-            name="Calcite", log_moles=np.float64(0.0), titration_rate=np.float64(1.0)
-        )
+        mineral = MineralReactant(name="Calcite", log_moles=np.float64(0.0), titration_rate=np.float64(1.0))
         solid_solution = SolidSolutionReactant(
             name="Albite_ss",
             log_moles=np.float64(0.0),
             titration_rate=np.float64(1.0),
-            end_members=[
-                SolidSolutionReactantEndMembers(name="EM1", fraction=np.float64(1.0))
-            ],
+            end_members=[SolidSolutionReactantEndMembers(name="EM1", fraction=np.float64(1.0))],
         )
         special = SpecialReactant(
             name="SR",
@@ -1052,18 +978,10 @@ class TestEq36Kernel(TestCase):
             titration_rate=np.float64(1.0),
             composition=[SpecialReactantComposition(element="Na", count=1)],
         )
-        element = ElementReactant(
-            name="Na", log_moles=np.float64(0.0), titration_rate=np.float64(1.0)
-        )
-        aqueous = AqueousReactant(
-            name="Na+", log_moles=np.float64(0.0), titration_rate=np.float64(1.0)
-        )
-        gas = GasReactant(
-            name="CO2(g)", log_moles=np.float64(0.0), titration_rate=np.float64(1.0)
-        )
-        fixed_gas = FixedGasReactant(
-            name="O2(g)", log_moles=np.float64(0.0), log_fugacity=np.float64(-50.0)
-        )
+        element = ElementReactant(name="Na", log_moles=np.float64(0.0), titration_rate=np.float64(1.0))
+        aqueous = AqueousReactant(name="Na+", log_moles=np.float64(0.0), titration_rate=np.float64(1.0))
+        gas = GasReactant(name="CO2(g)", log_moles=np.float64(0.0), titration_rate=np.float64(1.0))
+        fixed_gas = FixedGasReactant(name="O2(g)", log_moles=np.float64(0.0), log_fugacity=np.float64(-50.0))
 
         point = _make_point(
             settings,
@@ -1113,12 +1031,8 @@ class TestEq36Kernel(TestCase):
             log_moles=np.float64(-1.0),
             titration_rate=np.float64(1.0),
             end_members=[
-                SolidSolutionReactantEndMembers(
-                    name="forsterite", fraction=np.float64(0.6)
-                ),
-                SolidSolutionReactantEndMembers(
-                    name="fayalite", fraction=np.float64(0.4)
-                ),
+                SolidSolutionReactantEndMembers(name="forsterite", fraction=np.float64(0.6)),
+                SolidSolutionReactantEndMembers(name="fayalite", fraction=np.float64(0.4)),
             ],
         )
 
@@ -1141,9 +1055,7 @@ class TestEq36Kernel(TestCase):
         """
         kernel = self._kernel()
         settings = self._settings()
-        point = _make_point(
-            settings, species=[Species(name="O2(g)", value=np.float64(-60.0))]
-        )
+        point = _make_point(settings, species=[Species(name="O2(g)", value=np.float64(-60.0))])
         handle = _NamedStringIO("problem.6i")
         pickup_lines = ["pickup-a\n", "pickup-b\n"]
 
@@ -1161,9 +1073,7 @@ class TestEq36Kernel(TestCase):
         """
         kernel = self._kernel()
         settings = self._settings()
-        point = _make_point(
-            settings, species=[Species(name="O2(g)", value=np.float64(-60.0))]
-        )
+        point = _make_point(settings, species=[Species(name="O2(g)", value=np.float64(-60.0))])
         handle = _NamedStringIO("wrapped.6i")
 
         with mock.patch.object(Path, "open", return_value=handle) as open_mock:
@@ -1178,9 +1088,7 @@ class TestEq36Kernel(TestCase):
         """
         kernel = self._kernel()
         settings = self._settings()
-        point = _make_point(
-            settings, species=[Species(name="O2(g)", value=np.float64(-60.0))]
-        )
+        point = _make_point(settings, species=[Species(name="O2(g)", value=np.float64(-60.0))])
         handle = _NamedStringIO("problem.6i")
 
         with mock.patch.object(Path, "open", return_value=handle) as open_mock:
@@ -1238,9 +1146,7 @@ class TestEq36Kernel(TestCase):
         kernel._setup = True
         settings = self._settings()
         settings.redox_species = "fO2"
-        point = _make_point(
-            settings, species=[Species(name="O2(g)", value=np.float64(-60.0))]
-        )
+        point = _make_point(settings, species=[Species(name="O2(g)", value=np.float64(-60.0))])
         data1 = mock.create_autospec(Data1, instance=True)
         data1.get_basis_species.return_value = None
         handle = _NamedStringIO("problem.3i")
@@ -1382,9 +1288,7 @@ class TestEq36Kernel(TestCase):
         parser_instance = mock.Mock()
         parser_instance.parse.return_value = SimpleNamespace(point=expected_point)
 
-        with mock.patch(
-            "eleanor.kernel.eq36.kernel.OutputParser3", return_value=parser_instance
-        ) as parser_cls:
+        with mock.patch("eleanor.kernel.eq36.kernel.OutputParser3", return_value=parser_instance) as parser_cls:
             point = Eq36Kernel.read_eq3_output(file="custom.3o")
 
         parser_cls.assert_called_once_with(file="custom.3o")
@@ -1397,9 +1301,7 @@ class TestEq36Kernel(TestCase):
         parser_instance = mock.Mock()
         parser_instance.parse.return_value = SimpleNamespace(point=None)
 
-        with mock.patch(
-            "eleanor.kernel.eq36.kernel.OutputParser3", return_value=parser_instance
-        ):
+        with mock.patch("eleanor.kernel.eq36.kernel.OutputParser3", return_value=parser_instance):
             with self.assertRaises(AssertionError):
                 Eq36Kernel.read_eq3_output()
 
@@ -1412,9 +1314,7 @@ class TestEq36Kernel(TestCase):
         parser_instance = mock.Mock()
         parser_instance.parse.return_value = SimpleNamespace(path=[first, last])
 
-        with mock.patch(
-            "eleanor.kernel.eq36.kernel.OutputParser6", return_value=parser_instance
-        ) as parser_cls:
+        with mock.patch("eleanor.kernel.eq36.kernel.OutputParser6", return_value=parser_instance) as parser_cls:
             points = Eq36Kernel.read_eq6_output(file="custom.6o", track_path=False)
 
         parser_cls.assert_called_once_with(file="custom.6o")
@@ -1431,9 +1331,7 @@ class TestEq36Kernel(TestCase):
         parser_instance = mock.Mock()
         parser_instance.parse.return_value = SimpleNamespace(path=path)
 
-        with mock.patch(
-            "eleanor.kernel.eq36.kernel.OutputParser6", return_value=parser_instance
-        ):
+        with mock.patch("eleanor.kernel.eq36.kernel.OutputParser6", return_value=parser_instance):
             points = Eq36Kernel.read_eq6_output(track_path=True)
 
         self.assertIs(points, path)
@@ -1445,9 +1343,7 @@ class TestEq36Kernel(TestCase):
         parser_instance = mock.Mock()
         parser_instance.parse.return_value = SimpleNamespace(path=[])
 
-        with mock.patch(
-            "eleanor.kernel.eq36.kernel.OutputParser6", return_value=parser_instance
-        ):
+        with mock.patch("eleanor.kernel.eq36.kernel.OutputParser6", return_value=parser_instance):
             points = Eq36Kernel.read_eq6_output(track_path=False)
 
         self.assertEqual(points, [])

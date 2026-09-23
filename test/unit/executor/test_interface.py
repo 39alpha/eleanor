@@ -31,9 +31,7 @@ class Executor(AbstractExecutor):
         return 2
 
     @override
-    def submit(
-        self, fn: Callable[..., object], *args: object, **kwargs: object
-    ) -> AbstractFuture[object]:
+    def submit(self, fn: Callable[..., object], *args: object, **kwargs: object) -> AbstractFuture[object]:
         return Future(fn(*args, **kwargs))
 
     @override

@@ -40,33 +40,21 @@ class TestCoercion(TestCase):
         Ensure primitive targets coerce valid literal values.
         """
         self.assertEqual(coerce_filter_value(int, "7", path="p", predicate="i=7"), 7)
-        self.assertEqual(
-            coerce_filter_value(float, "1.25", path="p", predicate="f=1.25"), 1.25
-        )
+        self.assertEqual(coerce_filter_value(float, "1.25", path="p", predicate="f=1.25"), 1.25)
         self.assertEqual(
             coerce_filter_value(np.float64, "1.25", path="p", predicate="f=1.25"),
             np.float64(1.25),
         )
-        self.assertIs(
-            coerce_filter_value(bool, "true", path="p", predicate="b=true"), True
-        )
-        self.assertIs(
-            coerce_filter_value(bool, "FALSE", path="p", predicate="b=FALSE"), False
-        )
-        self.assertEqual(
-            coerce_filter_value(str, "abc", path="p", predicate="s=abc"), "abc"
-        )
+        self.assertIs(coerce_filter_value(bool, "true", path="p", predicate="b=true"), True)
+        self.assertIs(coerce_filter_value(bool, "FALSE", path="p", predicate="b=FALSE"), False)
+        self.assertEqual(coerce_filter_value(str, "abc", path="p", predicate="s=abc"), "abc")
 
     def test_coerce_filter_value_for_enum_by_name_and_value(self) -> None:
         """
         Ensure enum filters accept both member names and member values.
         """
-        self.assertIs(
-            coerce_filter_value(_Kind, "LOW", path="p", predicate="k=LOW"), _Kind.LOW
-        )
-        self.assertIs(
-            coerce_filter_value(_Kind, "high", path="p", predicate="k=high"), _Kind.HIGH
-        )
+        self.assertIs(coerce_filter_value(_Kind, "LOW", path="p", predicate="k=LOW"), _Kind.LOW)
+        self.assertIs(coerce_filter_value(_Kind, "high", path="p", predicate="k=high"), _Kind.HIGH)
 
     def test_coerce_filter_value_rejects_invalid_values(self) -> None:
         """

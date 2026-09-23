@@ -37,18 +37,18 @@ def _make_order(
     raw=None,
     *,
     tags=None,
+    seed=None,
     vs_points=None,
     create_date=None,
     **overrides,
 ):
     """Build an Order with the kernel registry mocked out."""
     effective = raw if raw is not None else _minimal_raw(**overrides)
-    with mock.patch(
-        "eleanor.kernel.registry.get_factory", return_value=_FAKE_KERNEL_SPEC
-    ):
+    with mock.patch("eleanor.kernel.registry.get_factory", return_value=_FAKE_KERNEL_SPEC):
         return Order.from_dict(
             cast(dict[str, object], cast(object, effective)),
             tags=tags,
+            seed=seed,
             vs_points=vs_points,
             create_date=create_date,
         )
@@ -76,17 +76,11 @@ class TestOrder(TestCase):
         self.assertEqual(s2.type, "mineral")
 
         with self.assertRaises(EleanorError):
-            _ = Suppression.from_dict(
-                cast(dict[str, object], cast(object, {"name": 1}))
-            )
+            _ = Suppression.from_dict(cast(dict[str, object], cast(object, {"name": 1})))
         with self.assertRaises(EleanorError):
-            _ = Suppression.from_dict(
-                cast(dict[str, object], cast(object, {"name": "x", "type": 2}))
-            )
+            _ = Suppression.from_dict(cast(dict[str, object], cast(object, {"name": "x", "type": 2})))
         with self.assertRaises(EleanorError):
-            _ = Suppression.from_dict(
-                cast(dict[str, object], cast(object, {"name": "x", "except": [1]}))
-            )
+            _ = Suppression.from_dict(cast(dict[str, object], cast(object, {"name": "x", "except": [1]})))
 
     def test_order_core_methods(self) -> None:
         """
@@ -122,17 +116,11 @@ class TestOrder(TestCase):
         Ensure order validation and kernel/navigator parsing branches behave correctly.
         """
         with self.assertRaises(EleanorError):
-            _ = Order.from_dict(
-                cast(dict[str, object], cast(object, _minimal_raw(name=1)))
-            )
+            _ = Order.from_dict(cast(dict[str, object], cast(object, _minimal_raw(name=1))))
         with self.assertRaises(EleanorError):
-            _ = Order.from_dict(
-                cast(dict[str, object], cast(object, _minimal_raw(notes=1)))
-            )
+            _ = Order.from_dict(cast(dict[str, object], cast(object, _minimal_raw(notes=1))))
         with self.assertRaises(EleanorError):
-            _ = Order.from_dict(
-                cast(dict[str, object], cast(object, _minimal_raw(creator=1)))
-            )
+            _ = Order.from_dict(cast(dict[str, object], cast(object, _minimal_raw(creator=1))))
 
         order = _make_order(
             name="o",
@@ -224,9 +212,7 @@ class TestOrder(TestCase):
         )
         json_content = json.dumps(raw)
 
-        with mock.patch(
-            "eleanor.kernel.registry.get_factory", return_value=_FAKE_KERNEL_SPEC
-        ):
+        with mock.patch("eleanor.kernel.registry.get_factory", return_value=_FAKE_KERNEL_SPEC):
             with TemporaryDirectory() as tmp:
                 yml = join(tmp, "o.yaml")
                 yml2 = join(tmp, "o.yml")
@@ -267,9 +253,7 @@ class TestOrder(TestCase):
         """
         Ensure Order.from_file re-raises EleanorError from parser branches without wrapping.
         """
-        with mock.patch(
-            "eleanor.order.Order.from_yaml", side_effect=EleanorError("boom")
-        ):
+        with mock.patch("eleanor.order.Order.from_yaml", side_effect=EleanorError("boom")):
             with self.assertRaisesRegex(EleanorError, "boom"):
                 _ = Order.from_file("test.yaml")
 
@@ -288,9 +272,7 @@ class TestOrder(TestCase):
 
     def test_order_requires_temperature(self) -> None:
         """Ensure Order raises when temperature is absent."""
-        with mock.patch(
-            "eleanor.kernel.registry.get_factory", return_value=_FAKE_KERNEL_SPEC
-        ):
+        with mock.patch("eleanor.kernel.registry.get_factory", return_value=_FAKE_KERNEL_SPEC):
             with self.assertRaisesRegex(EleanorError, "temperature is required"):
                 _ = Order.from_dict(
                     {
@@ -308,9 +290,7 @@ class TestOrder(TestCase):
 
     def test_order_requires_pressure(self) -> None:
         """Ensure Order raises when pressure is absent."""
-        with mock.patch(
-            "eleanor.kernel.registry.get_factory", return_value=_FAKE_KERNEL_SPEC
-        ):
+        with mock.patch("eleanor.kernel.registry.get_factory", return_value=_FAKE_KERNEL_SPEC):
             with self.assertRaisesRegex(EleanorError, "pressure is required"):
                 _ = Order.from_dict(
                     {
@@ -328,9 +308,7 @@ class TestOrder(TestCase):
 
     def test_order_requires_nonempty_elements(self) -> None:
         """Ensure Order raises when elements is empty or absent."""
-        with mock.patch(
-            "eleanor.kernel.registry.get_factory", return_value=_FAKE_KERNEL_SPEC
-        ):
+        with mock.patch("eleanor.kernel.registry.get_factory", return_value=_FAKE_KERNEL_SPEC):
             with self.assertRaisesRegex(EleanorError, "elements must not be empty"):
                 _ = Order.from_dict(
                     {
@@ -428,16 +406,12 @@ def test_order_tags_deduplicates_preserving_order() -> None:
 
 
 def test_order_tags_rejects_non_string_raw_value() -> None:
-    with pytest.raises(
-        EleanorError, match="tags must be a string or list of strings"
-    ):
+    with pytest.raises(EleanorError, match="tags must be a string or list of strings"):
         _ = _make_order(raw=_minimal_raw(tags=123))
 
 
 def test_order_tags_rejects_list_with_non_string_element() -> None:
-    with pytest.raises(
-        EleanorError, match="tags must be a string or list of strings"
-    ):
+    with pytest.raises(EleanorError, match="tags must be a string or list of strings"):
         _ = _make_order(raw=_minimal_raw(tags=["valid", 42]))
 
 
@@ -455,3 +429,60 @@ def test_load_order_returns_order_as_is() -> None:
     returned = load_order(order)
     assert returned is order
     assert order.tags == ["raw-tag"]
+
+
+def test_order_seed_is_generated_when_raw_and_kwarg_omit_it() -> None:
+    seed = _make_order().seed
+
+    assert isinstance(seed, int)
+    assert 0 <= seed < 2**63
+
+
+def test_order_seed_is_read_from_raw() -> None:
+    assert _make_order(raw=_minimal_raw(seed=12345)).seed == 12345
+
+
+def test_order_seed_zero_from_raw_is_preserved() -> None:
+    """A falsy-but-explicit seed must not be replaced by a generated one."""
+    assert _make_order(raw=_minimal_raw(seed=0)).seed == 0
+
+
+def test_order_seed_kwarg_overrides_raw() -> None:
+    assert _make_order(raw=_minimal_raw(seed=12345), seed=999).seed == 999
+
+
+def test_order_seed_rejects_non_integer_raw_value() -> None:
+    with pytest.raises(EleanorError):
+        _ = _make_order(raw=_minimal_raw(seed="nope"))
+
+
+def test_order_rng_is_determined_by_the_seed() -> None:
+    """Two orders sharing a seed must draw the same stream."""
+    a = _make_order(seed=4242)
+    b = _make_order(seed=4242)
+
+    assert a.rng.random(5).tolist() == b.rng.random(5).tolist()
+
+
+def test_order_rng_differs_between_seeds() -> None:
+    a = _make_order(seed=1)
+    b = _make_order(seed=2)
+
+    assert a.rng.random(5).tolist() != b.rng.random(5).tolist()
+
+
+def test_order_rng_is_cached() -> None:
+    """``rng`` must be one generator per order, not a fresh one per access."""
+    order = _make_order(seed=7)
+
+    assert order.rng is order.rng
+
+
+def test_order_rng_is_not_a_dataclass_field() -> None:
+    """``rng`` must stay out of ``fields()`` so it never reaches asdict/__eq__."""
+    from dataclasses import fields
+
+    order = _make_order(seed=7)
+    _ = order.rng
+
+    assert "rng" not in {f.name for f in fields(order)}

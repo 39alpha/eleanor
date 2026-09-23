@@ -45,9 +45,7 @@ def make_sample() -> Sample:
                 chemistry=Chemistry(ph=7.1, pe=4.2),
                 minerals=[Mineral(name="calcite", amount=0.3)],
             ),
-            Point(
-                index=2, chemistry=None, minerals=[Mineral(name="quartz", amount=0.1)]
-            ),
+            Point(index=2, chemistry=None, minerals=[Mineral(name="quartz", amount=0.1)]),
         ],
         point_map={
             "a": Point(index=1, chemistry=Chemistry(ph=7.0, pe=3.1), minerals=[]),

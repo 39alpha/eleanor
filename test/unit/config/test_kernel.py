@@ -60,13 +60,9 @@ def test_kernel_settings_are_propagated(mocker: MockerFixture) -> None:
     settings_raw = {"value": 5}
     settings = Settings(value=5)
 
-    load_plugin_settings = mocker.patch(
-        "eleanor.config.kernel.load_plugin_settings", return_value=settings
-    )
+    load_plugin_settings = mocker.patch("eleanor.config.kernel.load_plugin_settings", return_value=settings)
 
     config = KernelConfig.from_dict({"kind": kind, **settings_raw})
 
-    load_plugin_settings.assert_called_once_with(
-        registry, KernelSettings, kind, {"value": 5}
-    )
+    load_plugin_settings.assert_called_once_with(registry, KernelSettings, kind, {"value": 5})
     assert config == KernelConfig(kind=kind, settings=settings)

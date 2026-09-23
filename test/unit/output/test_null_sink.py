@@ -9,7 +9,6 @@ from eleanor.output.null import NullSink, NullSinkSettings
 from eleanor.variable_space import Point
 
 
-
 def _write_batch(sink, order_id, results, progress=None):
     """Drive both halves of the split write protocol, as Eleanor does.
 
@@ -20,6 +19,7 @@ def _write_batch(sink, order_id, results, progress=None):
     """
     prepared = sink.prepare_batch(order_id, results)
     return sink.commit_batch(order_id, prepared, progress=progress)
+
 
 def _order(*, eleanor_version: str | None = None) -> Order:
     return cast(
@@ -35,38 +35,22 @@ def _point(*, exit_code: int = 0) -> Point:
 class TestNullSink(TestCase):
     def test_supports_worker_commit_reflects_config(self) -> None:
         """Ensure NullSink worker-write capability mirrors the config flag."""
-        self.assertFalse(
-            NullSink(
-                NullSinkSettings(support_worker_commit=False)
-            ).supports_worker_commit()
-        )
-        self.assertTrue(
-            NullSink(
-                NullSinkSettings(support_worker_commit=True)
-            ).supports_worker_commit()
-        )
+        self.assertFalse(NullSink(NullSinkSettings(support_worker_commit=False)).supports_worker_commit())
+        self.assertTrue(NullSink(NullSinkSettings(support_worker_commit=True)).supports_worker_commit())
 
     def test_supports_progress_returns_true(self) -> None:
         """Ensure NullSink opts in to sink-side output progress ticks."""
-        self.assertTrue(
-            NullSink(NullSinkSettings(support_worker_commit=False)).supports_progress()
-        )
+        self.assertTrue(NullSink(NullSinkSettings(support_worker_commit=False)).supports_progress())
 
     def test_null_config_rejects_non_boolean_worker_write_flag(self) -> None:
         """Ensure NullSinkSettings validates support_worker_commit as a strict boolean."""
-        with self.assertRaisesRegex(
-            EleanorError, "support_worker_commit must be a boolean"
-        ):
+        with self.assertRaisesRegex(EleanorError, "support_worker_commit must be a boolean"):
             _ = NullSinkSettings(support_worker_commit="yes")  # pyright: ignore[reportArgumentType]
 
     def test_null_config_from_dict_defaults_and_reads_flag(self) -> None:
         """Ensure NullSinkSettings.from_dict defaults to false and accepts an explicit bool."""
         self.assertFalse(NullSinkSettings.from_dict({}).support_worker_commit)
-        self.assertTrue(
-            NullSinkSettings.from_dict(
-                {"support_worker_commit": True}
-            ).support_worker_commit
-        )
+        self.assertTrue(NullSinkSettings.from_dict({"support_worker_commit": True}).support_worker_commit)
 
     def test_begin_run_assigns_sequential_ids(self) -> None:
         """Ensure begin_run allocates sequential ids for successive runs."""
@@ -133,7 +117,8 @@ class TestNullSink(TestCase):
         first = _point(exit_code=0)
         second = _point(exit_code=3)
 
-        outcomes = _write_batch(sink,
+        outcomes = _write_batch(
+            sink,
             order_id,
             [ComputeResult(point=first), ComputeResult(point=second)],
         )
@@ -151,16 +136,12 @@ class TestNullSink(TestCase):
         sink = NullSink(NullSinkSettings(support_worker_commit=False))
 
         first_order_id = sink.begin_run(_order())  # type: ignore[arg-type]
-        first_outcomes = _write_batch(sink,
-            first_order_id, [ComputeResult(point=_point())]
-        )
+        first_outcomes = _write_batch(sink, first_order_id, [ComputeResult(point=_point())])
 
         sink.finalize_run()
 
         second_order_id = sink.begin_run(_order())  # type: ignore[arg-type]
-        second_outcomes = _write_batch(sink,
-            second_order_id, [ComputeResult(point=_point())]
-        )
+        second_outcomes = _write_batch(sink, second_order_id, [ComputeResult(point=_point())])
         self.assertTrue(first_outcomes[0].committed)
         self.assertTrue(second_outcomes[0].committed)
 
@@ -170,7 +151,8 @@ class TestNullSink(TestCase):
         order_id = sink.begin_run(_order())  # type: ignore[arg-type]
         progress = mock.Mock()
 
-        _ = _write_batch(sink,
+        _ = _write_batch(
+            sink,
             order_id,
             [
                 ComputeResult(point=_point(exit_code=0)),
@@ -207,9 +189,7 @@ class TestNullSink(TestCase):
             sink.begin_run(order, requested_id=str(order_id)),  # type: ignore[arg-type]
             order_id,
         )
-        outcomes = _write_batch(sink,
-            order_id, [ComputeResult(point=_point(exit_code=1))]
-        )
+        outcomes = _write_batch(sink, order_id, [ComputeResult(point=_point(exit_code=1))])
         self.assertTrue(outcomes[0].committed)
 
     def test_import_from_submodule(self) -> None:

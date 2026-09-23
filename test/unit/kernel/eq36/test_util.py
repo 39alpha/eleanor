@@ -27,9 +27,7 @@ class TestEq36Util(TestCase):
         """
         Ensure pickup line reading supports handles/paths/default and errors on missing separators.
         """
-        with mock.patch(
-            "eleanor.kernel.eq36.util.read_pickup_lines", return_value=["x"]
-        ) as rl:
+        with mock.patch("eleanor.kernel.eq36.util.read_pickup_lines", return_value=["x"]) as rl:
             self.assertEqual(read_pickup_lines(None), ["x"])
             rl.assert_called_once_with("problem.3p")
 
@@ -43,9 +41,7 @@ class TestEq36Util(TestCase):
             self.assertEqual(read_pickup_lines("file.3p"), ["line1\n"])
 
         with self.assertRaises(EleanorKernelError) as cm:
-            _ = read_pickup_lines(
-                cast(io.TextIOWrapper, cast(object, io.StringIO("no separator\n")))
-            )
+            _ = read_pickup_lines(cast(io.TextIOWrapper, cast(object, io.StringIO("no separator\n"))))
         self.assertEqual(cm.exception.code, RunCode.FILE_ERROR_3P)
 
         with mock.patch.object(Path, "open", side_effect=FileNotFoundError("missing")):
@@ -68,6 +64,4 @@ class TestEq36Util(TestCase):
         Ensure pickup parsing returns empty content when separator is the final line.
         """
         handle = io.StringIO("header\n*---\n")
-        self.assertEqual(
-            read_pickup_lines(cast(io.TextIOWrapper, cast(object, handle))), []
-        )
+        self.assertEqual(read_pickup_lines(cast(io.TextIOWrapper, cast(object, handle))), [])

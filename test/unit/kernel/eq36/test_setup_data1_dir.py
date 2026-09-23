@@ -34,9 +34,7 @@ def test_setup_uses_absolute_data1_dir_directly_ignoring_env_var(
         "eleanor.kernel.eq36.kernel.tool_room.WorkingDirectory",
         return_value=contextlib.nullcontext(),
     )
-    _ = mocker.patch(
-        "eleanor.kernel.eq36.kernel.tool_room.find_files", return_value=([], [])
-    )
+    _ = mocker.patch("eleanor.kernel.eq36.kernel.tool_room.find_files", return_value=([], []))
     mocker.patch.dict("os.environ", {"ELEANOR_EQ36_DATA1_DIR": "/global/data1"})
 
     Eq36Kernel().setup(order, data1_dir="/absolute/path")
@@ -53,13 +51,9 @@ def test_setup_uses_relative_data1_dir_when_it_exists_locally(
         "eleanor.kernel.eq36.kernel.tool_room.WorkingDirectory",
         return_value=contextlib.nullcontext(),
     )
-    _ = mocker.patch(
-        "eleanor.kernel.eq36.kernel.tool_room.find_files", return_value=([], [])
-    )
+    _ = mocker.patch("eleanor.kernel.eq36.kernel.tool_room.find_files", return_value=([], []))
     _ = mocker.patch.object(Path, "exists", return_value=True)
-    mocker.patch.dict(
-        "os.environ", {"ELEANOR_EQ36_DATA1_DIR": "/global/data1"}, clear=True
-    )
+    mocker.patch.dict("os.environ", {"ELEANOR_EQ36_DATA1_DIR": "/global/data1"}, clear=True)
 
     Eq36Kernel().setup(order, data1_dir="local/data1")
 
@@ -75,13 +69,9 @@ def test_setup_falls_back_to_env_var_when_relative_path_does_not_exist(
         "eleanor.kernel.eq36.kernel.tool_room.WorkingDirectory",
         return_value=contextlib.nullcontext(),
     )
-    _ = mocker.patch(
-        "eleanor.kernel.eq36.kernel.tool_room.find_files", return_value=([], [])
-    )
+    _ = mocker.patch("eleanor.kernel.eq36.kernel.tool_room.find_files", return_value=([], []))
     _ = mocker.patch.object(Path, "exists", return_value=False)
-    mocker.patch.dict(
-        "os.environ", {"ELEANOR_EQ36_DATA1_DIR": "/global/data1"}, clear=True
-    )
+    mocker.patch.dict("os.environ", {"ELEANOR_EQ36_DATA1_DIR": "/global/data1"}, clear=True)
 
     Eq36Kernel().setup(order, data1_dir="relative/data1")
 
@@ -97,9 +87,7 @@ def test_setup_uses_relative_data1_dir_as_is_when_env_var_is_unset(
         "eleanor.kernel.eq36.kernel.tool_room.WorkingDirectory",
         return_value=contextlib.nullcontext(),
     )
-    _ = mocker.patch(
-        "eleanor.kernel.eq36.kernel.tool_room.find_files", return_value=([], [])
-    )
+    _ = mocker.patch("eleanor.kernel.eq36.kernel.tool_room.find_files", return_value=([], []))
     _ = mocker.patch.object(Path, "exists", return_value=False)
     mocker.patch.dict("os.environ", {}, clear=True)
 

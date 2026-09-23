@@ -31,9 +31,7 @@ def test_load_config_with_none_argument() -> None:
 
 
 @pytest.mark.parametrize("fmt", FORMATS)
-def test_load_config_with_path(
-    helpers: type[Helpers], tmp_path: Path, fmt: str
-) -> None:
+def test_load_config_with_path(helpers: type[Helpers], tmp_path: Path, fmt: str) -> None:
     data: dict[str, object] = {
         "output": {
             "kind": "postgres",

@@ -252,8 +252,7 @@ class Order:
                 msg = "each constraint must be a dict"
                 raise EleanorError(msg)
             constraint_raw = cast(dict[str, object], constraint)
-            constraint_type = require_str(constraint_raw.get("kind"), "constraint.kind")
-            constraints.append(ConstraintConfig(kind=constraint_type, args=constraint_raw))
+            constraints.append(ConstraintConfig.from_dict(constraint_raw))
 
         vs_points = vs_points or []
 

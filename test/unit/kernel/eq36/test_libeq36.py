@@ -67,9 +67,7 @@ class TestEq36Libeq36(TestCase):
             errno_ptr._obj.value = 1
 
         with (
-            mock.patch(
-                "eleanor.kernel.eq36.libeq36.open_data1", side_effect=open_side_effect
-            ) as open_mock,
+            mock.patch("eleanor.kernel.eq36.libeq36.open_data1", side_effect=open_side_effect) as open_mock,
             mock.patch("eleanor.kernel.eq36.libeq36.read_header") as header_mock,
             mock.patch("eleanor.kernel.eq36.libeq36.close_data1") as close_mock,
         ):
@@ -136,9 +134,7 @@ class TestEq36Libeq36(TestCase):
             args[-1]._obj.value = 3
 
         with (
-            mock.patch(
-                "eleanor.kernel.eq36.libeq36.open_data1", side_effect=open_side_effect
-            ) as open_mock,
+            mock.patch("eleanor.kernel.eq36.libeq36.open_data1", side_effect=open_side_effect) as open_mock,
             mock.patch(
                 "eleanor.kernel.eq36.libeq36.read_header",
                 side_effect=header_side_effect,
@@ -188,9 +184,7 @@ class TestEq36Libeq36(TestCase):
             data1_ptr._obj.value = 13
 
         with (
-            mock.patch(
-                "eleanor.kernel.eq36.libeq36.open_data1", side_effect=open_side_effect
-            ) as open_mock,
+            mock.patch("eleanor.kernel.eq36.libeq36.open_data1", side_effect=open_side_effect) as open_mock,
             mock.patch(
                 "eleanor.kernel.eq36.libeq36.read_header",
                 side_effect=RuntimeError("header exploded"),
@@ -218,9 +212,7 @@ class TestEq36Libeq36(TestCase):
             data1_ptr._obj.value = 17
 
         with (
-            mock.patch(
-                "eleanor.kernel.eq36.libeq36.open_data1", side_effect=open_side_effect
-            ) as open_mock,
+            mock.patch("eleanor.kernel.eq36.libeq36.open_data1", side_effect=open_side_effect) as open_mock,
             mock.patch(
                 "eleanor.kernel.eq36.libeq36.read_header",
                 side_effect=self._successful_header_side_effect,
@@ -263,16 +255,12 @@ class TestEq36Libeq36(TestCase):
             args[-1]._obj.value = 99
 
         with (
-            mock.patch(
-                "eleanor.kernel.eq36.libeq36.open_data1", side_effect=open_side_effect
-            ) as open_mock,
+            mock.patch("eleanor.kernel.eq36.libeq36.open_data1", side_effect=open_side_effect) as open_mock,
             mock.patch(
                 "eleanor.kernel.eq36.libeq36.read_header",
                 side_effect=self._successful_header_side_effect,
             ) as header_mock,
-            mock.patch(
-                "eleanor.kernel.eq36.libeq36.read_body", side_effect=body_sets_errno
-            ) as body_mock,
+            mock.patch("eleanor.kernel.eq36.libeq36.read_body", side_effect=body_sets_errno) as body_mock,
             mock.patch("eleanor.kernel.eq36.libeq36.close_data1") as close_mock,
         ):
             with self.assertRaisesRegex(Exception, "failed to read data1 body"):

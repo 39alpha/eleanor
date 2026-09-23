@@ -11,7 +11,7 @@ from eleanor.variable_space import Point
 
 
 def _vs_point(**kwargs: object) -> Point:
-    return cast(Point, cast(object, SimpleNamespace({'exception': None, **kwargs})))
+    return cast(Point, cast(object, SimpleNamespace({"exception": None, **kwargs})))
 
 
 def _identity_sink(outcomes: object = None) -> mock.Mock:
@@ -27,9 +27,7 @@ def _identity_sink(outcomes: object = None) -> mock.Mock:
     return sink
 
 
-def _binding(
-    sink: mock.Mock, order_id: object = 1, *, commit: bool = False, name: str = "sink"
-) -> SinkBinding:
+def _binding(sink: mock.Mock, order_id: object = 1, *, commit: bool = False, name: str = "sink") -> SinkBinding:
     """Bind a stand-in sink without consulting ``supports_worker_commit``.
 
     A ``Mock`` answers every predicate truthily, so the commit strategy is set
@@ -56,9 +54,7 @@ class TestRunner(TestCase):
         points = [_vs_point(exit_code=0), _vs_point(exit_code=0)]
 
         with mock.patch.object(Runner, "work", side_effect=points) as work_mock:
-            results = runner.dispatch(
-                [_vs_point(), _vs_point()], bindings=[_binding(_identity_sink())]
-            )
+            results = runner.dispatch([_vs_point(), _vs_point()], bindings=[_binding(_identity_sink())])
 
         prepared = cast("list[ComputeResult]", _prepared(results))
         self.assertEqual(results.point_count, 2)
@@ -98,9 +94,7 @@ class TestRunner(TestCase):
         sink = _identity_sink(outcomes)
 
         with mock.patch.object(Runner, "work", side_effect=points):
-            results = runner.dispatch(
-                [_vs_point(), _vs_point()], bindings=[_binding(sink, 42, commit=True)]
-            )
+            results = runner.dispatch([_vs_point(), _vs_point()], bindings=[_binding(sink, 42, commit=True)])
 
         self.assertEqual(results.sinks[0].outcomes, outcomes)
         # The whole point of committing in the worker: the prepared payload --
@@ -113,9 +107,7 @@ class TestRunner(TestCase):
         prepare_order_id, called_compute_results = sink.prepare_batch.call_args.args
         self.assertEqual(prepare_order_id, 42)
         self.assertEqual(len(called_compute_results), 2)
-        self.assertTrue(
-            all(isinstance(r, ComputeResult) for r in called_compute_results)
-        )
+        self.assertTrue(all(isinstance(r, ComputeResult) for r in called_compute_results))
         self.assertIs(called_compute_results[0].point, points[0])
         self.assertIs(called_compute_results[1].point, points[1])
 
@@ -158,9 +150,7 @@ class TestRunner(TestCase):
         sink = _identity_sink()
         out_progress = mock.Mock()
 
-        with mock.patch.object(
-            Runner, "work", return_value=_vs_point(exit_code=0)
-        ):
+        with mock.patch.object(Runner, "work", return_value=_vs_point(exit_code=0)):
             _ = runner.dispatch(
                 [_vs_point()],
                 bindings=[_binding(sink, 1, commit=True)],
@@ -176,12 +166,8 @@ class TestRunner(TestCase):
         """
         runner = Runner(kernel=mock.Mock())
 
-        with mock.patch.object(
-            Runner, "work", return_value=_vs_point(exit_code=0)
-        ):
-            results = runner.dispatch(
-                [_vs_point(), _vs_point()], bindings=[_binding(_identity_sink())]
-            )
+        with mock.patch.object(Runner, "work", return_value=_vs_point(exit_code=0)):
+            results = runner.dispatch([_vs_point(), _vs_point()], bindings=[_binding(_identity_sink())])
 
         # No exception, no interaction with a progress handle; just the compute path.
         self.assertEqual(results.point_count, 2)
@@ -198,9 +184,7 @@ class TestRunner(TestCase):
         """
         runner = Runner(kernel=mock.Mock())
         sink = _identity_sink()
-        with mock.patch.object(
-            Runner, "work", return_value=_vs_point(exit_code=0)
-        ):
+        with mock.patch.object(Runner, "work", return_value=_vs_point(exit_code=0)):
             with self.assertRaises(TypeError):
                 _ = runner.dispatch([_vs_point()], sink=sink)  # type: ignore[call-arg]
             with self.assertRaises(TypeError):
@@ -254,9 +238,7 @@ class TestRunner(TestCase):
 
         point = _vs_point(exit_code=1, exception=RuntimeError("boom"))
         with mock.patch.object(Runner, "work", return_value=point):
-            results = runner.dispatch(
-                [_vs_point()], bindings=[_binding(_identity_sink())]
-            )
+            results = runner.dispatch([_vs_point()], bindings=[_binding(_identity_sink())])
 
         prepared = cast("list[ComputeResult]", _prepared(results))
         self.assertEqual(len(prepared), 1)
@@ -345,9 +327,7 @@ class TestRunner(TestCase):
             assert scratch is not None
             self.assertTrue(isinstance(scratch.zip, bytes) and len(scratch.zip) > 0)
 
-        with mock.patch(
-            "eleanor.runner.zipfile.ZipFile", side_effect=RuntimeError("zip error")
-        ):
+        with mock.patch("eleanor.runner.zipfile.ZipFile", side_effect=RuntimeError("zip error")):
             scratch = Runner.collect_scratch(".")
         assert scratch is not None
         self.assertEqual(scratch.zip, bytes("\0", "ascii"))
@@ -368,12 +348,8 @@ class TestRunnerFanOutOrdering(TestCase):
 
         def sink(name: str) -> mock.Mock:
             stub = mock.Mock()
-            stub.prepare_batch.side_effect = lambda _order_id, results: (
-                calls.append(f"prepare:{name}") or results
-            )
-            stub.commit_batch.side_effect = lambda _order_id, prepared, **_kw: (
-                calls.append(f"commit:{name}") or []
-            )
+            stub.prepare_batch.side_effect = lambda _order_id, results: calls.append(f"prepare:{name}") or results
+            stub.commit_batch.side_effect = lambda _order_id, prepared, **_kw: calls.append(f"commit:{name}") or []
             return stub
 
         kernel = mock.Mock()

@@ -23,9 +23,7 @@ class TestParameters(TestCase):
         Ensure abstract placeholder bodies on :class:`Parameter` are executable directly.
         """
         placeholder = cast(Parameter, object())
-        self.assertFalse(
-            Parameter.in_domain(placeholder, cast(Parameter, cast(object, None)))
-        )
+        self.assertFalse(Parameter.in_domain(placeholder, cast(Parameter, cast(object, None))))
         self.assertEqual(Parameter.range(placeholder), (np.float64(0), np.float64(0)))
         self.assertEqual(Parameter.volume(placeholder), np.float64(1.0))
         self.assertIsNone(Parameter.random(placeholder))
@@ -79,9 +77,7 @@ class TestParameters(TestCase):
         self.assertFalse(p.in_domain(RangeParameter(np.float64(1.0), np.float64(2.0))))
         self.assertEqual(p.range(), (np.float64(2.0), np.float64(2.0)))
         self.assertEqual(p.volume(), np.float64(1.0))
-        self.assertEqual(
-            [x.value for x in p.random(size=2)], [np.float64(2.0), np.float64(2.0)]
-        )
+        self.assertEqual([x.value for x in p.random(size=2)], [np.float64(2.0), np.float64(2.0)])
         self.assertEqual(
             [x.value for x in p.lattice(size=3)],
             [np.float64(2.0), np.float64(2.0), np.float64(2.0)],
@@ -98,11 +94,7 @@ class TestParameters(TestCase):
         self.assertTrue(p.in_domain(ValueParameter(np.float64(2.0))))
         self.assertFalse(p.in_domain(ValueParameter(np.float64(4.0))))
         self.assertTrue(p.in_domain(RangeParameter(np.float64(1.5), np.float64(2.5))))
-        self.assertTrue(
-            p.in_domain(
-                ListParameter([np.float64(1.0), np.float64(2.0), np.float64(3.0)])
-            )
-        )
+        self.assertTrue(p.in_domain(ListParameter([np.float64(1.0), np.float64(2.0), np.float64(3.0)])))
         self.assertFalse(p.in_domain(ListParameter([np.float64(0.0), np.float64(2.0)])))
         self.assertFalse(p.in_domain(cast(Parameter, object())))
         self.assertEqual(p.range(), (np.float64(1.0), np.float64(3.0)))
@@ -113,9 +105,7 @@ class TestParameters(TestCase):
         self.assertEqual([x.value for x in out], [np.float64(1.0), np.float64(2.0)])
 
         out2 = p.lattice(size=3)
-        self.assertEqual(
-            [x.value for x in out2], [np.float64(1.0), np.float64(2.0), np.float64(3.0)]
-        )
+        self.assertEqual([x.value for x in out2], [np.float64(1.0), np.float64(2.0), np.float64(3.0)])
 
     def test_list_parameter_methods(self) -> None:
         """
@@ -161,9 +151,7 @@ class TestParameters(TestCase):
         p0 = NormalParameter(mean=np.float64(0.0))
         self.assertEqual(p0.stddev, np.float64(1.0))
 
-        p1 = NormalParameter(
-            mean=np.float64(0.0), a=np.float64(-3.0), b=np.float64(3.0)
-        )
+        p1 = NormalParameter(mean=np.float64(0.0), a=np.float64(-3.0), b=np.float64(3.0))
         self.assertEqual(p1.stddev, np.float64(1.0))
         self.assertEqual(p1.range(), (-np.inf, np.inf))
         self.assertEqual(p1.volume(), np.float64(1.0))

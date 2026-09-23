@@ -49,6 +49,11 @@ def test_emits_valid_order(runner: CliRunner, fmt: str) -> None:
         case _:
             pytest.fail(f"uncovered order file format {fmt!r}")
 
+    # ``seed`` is generated per parse when the source omits it; this test is about
+    # the emitted template being parseable and equivalent, not about the seed.
+    assert isinstance(expected, Order)
+    got.seed = expected.seed
+
     assert got == expected
 
 

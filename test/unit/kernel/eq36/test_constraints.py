@@ -86,12 +86,8 @@ class TestEq36Constraints(TestCase):
             temp,
             [
                 _data1_with_curve(None),
-                _data1_with_curve(
-                    _DummyCurve({"min": np.float64(10.0), "max": np.float64(40.0)})
-                ),
-                _data1_with_curve(
-                    _DummyCurve({"min": np.float64(5.0), "max": np.float64(50.0)})
-                ),
+                _data1_with_curve(_DummyCurve({"min": np.float64(10.0), "max": np.float64(40.0)})),
+                _data1_with_curve(_DummyCurve({"min": np.float64(5.0), "max": np.float64(50.0)})),
             ],
         )
         self.assertEqual(c.min_temp, np.float64(5.0))
@@ -103,11 +99,7 @@ class TestEq36Constraints(TestCase):
         """
         Ensure apply refines each supported parameter type to the curve temperature bounds.
         """
-        data1s = [
-            _data1_with_curve(
-                _DummyCurve({"min": np.float64(10.0), "max": np.float64(40.0)})
-            )
-        ]
+        data1s = [_data1_with_curve(_DummyCurve({"min": np.float64(10.0), "max": np.float64(40.0)}))]
 
         t_value = ValueParameter(np.float64(25.0))
         c_value = TemperatureRangeConstraint(t_value, data1s)
@@ -125,9 +117,7 @@ class TestEq36Constraints(TestCase):
         self.assertIsInstance(refined_range, RangeParameter)
         if not isinstance(refined_range, RangeParameter):
             raise AssertionError("expected RangeParameter")
-        self.assertEqual(
-            (refined_range.min, refined_range.max), (np.float64(10.0), np.float64(40.0))
-        )
+        self.assertEqual((refined_range.min, refined_range.max), (np.float64(10.0), np.float64(40.0)))
 
         t_list = ListParameter(
             [np.float64(1.0), np.float64(12.0), np.float64(30.0), np.float64(99.0)],
@@ -163,11 +153,7 @@ class TestEq36Constraints(TestCase):
         """
         Ensure apply raises wrapped compatibility errors and rejects unexpected parameter types.
         """
-        data1s = [
-            _data1_with_curve(
-                _DummyCurve({"min": np.float64(10.0), "max": np.float64(40.0)})
-            )
-        ]
+        data1s = [_data1_with_curve(_DummyCurve({"min": np.float64(10.0), "max": np.float64(40.0)}))]
 
         out_of_range = ValueParameter(np.float64(90.0))
         c = TemperatureRangeConstraint(out_of_range, data1s)

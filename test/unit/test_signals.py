@@ -13,9 +13,7 @@ class TestSignals(TestCase):
         prev_term = signal.SIG_DFL
 
         with (
-            mock.patch(
-                "eleanor.signals.signal.getsignal", side_effect=[prev_int, prev_term]
-            ),
+            mock.patch("eleanor.signals.signal.getsignal", side_effect=[prev_int, prev_term]),
             mock.patch("eleanor.signals.signal.signal") as signal_mock,
         ):
             with shutdown_on_signal() as state:
@@ -24,9 +22,7 @@ class TestSignals(TestCase):
                 self.assertIsNone(state.signal_name)
 
         self.assertEqual(signal_mock.call_count, 4)
-        install_int_call, install_term_call, restore_int_call, restore_term_call = (
-            signal_mock.call_args_list
-        )
+        install_int_call, install_term_call, restore_int_call, restore_term_call = signal_mock.call_args_list
 
         self.assertEqual(install_int_call.args[0], signal.SIGINT)
         handler = install_int_call.args[1]
@@ -41,9 +37,7 @@ class TestSignals(TestCase):
         prev_term = signal.SIG_DFL
 
         with (
-            mock.patch(
-                "eleanor.signals.signal.getsignal", side_effect=[prev_int, prev_term]
-            ),
+            mock.patch("eleanor.signals.signal.getsignal", side_effect=[prev_int, prev_term]),
             mock.patch("eleanor.signals.signal.signal") as signal_mock,
         ):
             with shutdown_on_signal() as state:
@@ -56,27 +50,17 @@ class TestSignals(TestCase):
                 self.assertTrue(state.requested)
                 self.assertEqual(state.signal_name, "SIGTERM")
                 self.assertEqual(signal_mock.call_count, 4)
-                self.assertEqual(
-                    signal_mock.call_args_list[2], mock.call(signal.SIGINT, prev_int)
-                )
-                self.assertEqual(
-                    signal_mock.call_args_list[3], mock.call(signal.SIGTERM, prev_term)
-                )
+                self.assertEqual(signal_mock.call_args_list[2], mock.call(signal.SIGINT, prev_int))
+                self.assertEqual(signal_mock.call_args_list[3], mock.call(signal.SIGTERM, prev_term))
 
         self.assertEqual(signal_mock.call_count, 6)
-        self.assertEqual(
-            signal_mock.call_args_list[4], mock.call(signal.SIGINT, prev_int)
-        )
-        self.assertEqual(
-            signal_mock.call_args_list[5], mock.call(signal.SIGTERM, prev_term)
-        )
+        self.assertEqual(signal_mock.call_args_list[4], mock.call(signal.SIGINT, prev_int))
+        self.assertEqual(signal_mock.call_args_list[5], mock.call(signal.SIGTERM, prev_term))
 
     def test_shutdown_on_signal_off_main_thread_is_a_no_op(self) -> None:
         """Ensure non-main-thread usage returns a no-op state and installs no handlers."""
         with (
-            mock.patch(
-                "eleanor.signals.threading.current_thread", return_value=object()
-            ),
+            mock.patch("eleanor.signals.threading.current_thread", return_value=object()),
             mock.patch("eleanor.signals.threading.main_thread", return_value=object()),
             mock.patch("eleanor.signals.signal.getsignal") as getsignal_mock,
             mock.patch("eleanor.signals.signal.signal") as signal_mock,

@@ -39,9 +39,7 @@ class TestCompilerEvaluator(TestCase):
         Ensure columns must be a sequence and not a scalar value.
         """
         with self.assertRaises(ParseError):
-            compile_query(
-                Sample, {"row_scope": "order", "columns": "order.point.index"}
-            )
+            compile_query(Sample, {"row_scope": "order", "columns": "order.point.index"})
 
     def test_evaluate_raises_path_miss_error_for_on_missing_error(self) -> None:
         """
@@ -206,16 +204,12 @@ class TestCompilerEvaluator(TestCase):
         Ensure the default column name for a meta-accessor terminal drops
         the leading ``@`` (spec §8.5).
         """
-        compiled = compile_query(
-            Sample, {"row_scope": "point_map[*]", "columns": ["point_map.@key"]}
-        )
+        compiled = compile_query(Sample, {"row_scope": "point_map[*]", "columns": ["point_map.@key"]})
         self.assertEqual([c.spec.name for c in compiled.compiled_columns], ["key"])
 
     def test_compiled_column_terminal_kind_leaf_path(self) -> None:
         """Ensure leaf terminal paths expose their resolved LeafField kind."""
-        compiled = compile_query(
-            Sample, {"row_scope": "order", "columns": ["order.point.index"]}
-        )
+        compiled = compile_query(Sample, {"row_scope": "order", "columns": ["order.point.index"]})
         terminal_kind = compiled.compiled_columns[0].terminal_kind
         self.assertIsInstance(terminal_kind, LeafField)
         assert isinstance(terminal_kind, LeafField)
@@ -237,9 +231,7 @@ class TestCompilerEvaluator(TestCase):
 
     def test_compiled_column_terminal_kind_list_match_filter_mid_path(self) -> None:
         """Ensure list match-filter branches contribute to terminal kind computation."""
-        compiled = compile_query(
-            Sample, {"row_scope": "order", "columns": ["order.points[index=1].index"]}
-        )
+        compiled = compile_query(Sample, {"row_scope": "order", "columns": ["order.points[index=1].index"]})
         terminal_kind = compiled.compiled_columns[0].terminal_kind
         self.assertIsInstance(terminal_kind, LeafField)
         assert isinstance(terminal_kind, LeafField)
@@ -247,9 +239,7 @@ class TestCompilerEvaluator(TestCase):
 
     def test_compiled_column_terminal_kind_dict_match_filter_mid_path(self) -> None:
         """Ensure dict match-filter branches are reflected in terminal_kind."""
-        compiled = compile_query(
-            Sample, {"row_scope": "order", "columns": ["order.point_map[key=c].index"]}
-        )
+        compiled = compile_query(Sample, {"row_scope": "order", "columns": ["order.point_map[key=c].index"]})
         terminal_kind = compiled.compiled_columns[0].terminal_kind
         self.assertIsInstance(terminal_kind, LeafField)
         assert isinstance(terminal_kind, LeafField)
@@ -269,9 +259,7 @@ class TestCompilerEvaluator(TestCase):
 
     def test_compiled_column_terminal_kind_excludes_meta_accessor(self) -> None:
         """Ensure terminal_kind reflects path segments only; @index/@key meta is intentionally excluded."""
-        compiled = compile_query(
-            Sample, {"row_scope": "points[*]", "columns": ["point.@index"]}
-        )
+        compiled = compile_query(Sample, {"row_scope": "points[*]", "columns": ["point.@index"]})
         terminal_kind = compiled.compiled_columns[0].terminal_kind
         self.assertIsInstance(terminal_kind, DataclassField)
         assert isinstance(terminal_kind, DataclassField)

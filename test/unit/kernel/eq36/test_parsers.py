@@ -94,15 +94,11 @@ class TestEq36Parsers(TestCase):
         """
         Ensure OutputParser6 termination checker accepts normal and rejects early termination.
         """
-        normal = OutputParser6(
-            io.StringIO("header\n --- The reaction path has terminated normally ---\n")
-        )
+        normal = OutputParser6(io.StringIO("header\n --- The reaction path has terminated normally ---\n"))
         normal.line_num = len(normal.lines)
         normal.check_path_termination()
 
-        early = OutputParser6(
-            io.StringIO("header\n --- The reaction path has terminated early ---\n")
-        )
+        early = OutputParser6(io.StringIO("header\n --- The reaction path has terminated early ---\n"))
         early.line_num = len(early.lines)
         with self.assertRaises(EleanorKernelError) as cm:
             early.check_path_termination()
@@ -123,13 +119,9 @@ class TestEq36Parsers(TestCase):
         Ensure OutputParser6.parse surfaces a strict error when Xi step separators are missing.
         """
         parser = OutputParser6(
-            io.StringIO(
-                "Stepping to Xi\nXi=0\n --- The reaction path has terminated normally ---\n"
-            )
+            io.StringIO("Stepping to Xi\nXi=0\n --- The reaction path has terminated normally ---\n")
         )
-        with self.assertRaisesRegex(
-            EleanorKernelError, "expected path separator after Stepping to Xi"
-        ):
+        with self.assertRaisesRegex(EleanorKernelError, "expected path separator after Stepping to Xi"):
             parser.parse()
 
     def test_read_pure_solid_saturation_states_rejects_invalid_state_token(
@@ -280,9 +272,7 @@ class TestEq36Parsers(TestCase):
         with (
             mock.patch.object(parser, "advance_to_xi_step", return_value=False),
             mock.patch.object(parser, "parse_step") as parse_step,
-            mock.patch.object(
-                parser, "check_path_termination"
-            ) as check_path_termination,
+            mock.patch.object(parser, "check_path_termination") as check_path_termination,
         ):
             result = parser.parse()
 
@@ -303,9 +293,7 @@ class TestEq36Parsers(TestCase):
         with (
             mock.patch.object(parser, "consume_blank_lines"),
             mock.patch.object(parser, "advance"),
-            mock.patch.object(
-                parser, "read_basic_property", side_effect=fake_read_basic_property
-            ),
+            mock.patch.object(parser, "read_basic_property", side_effect=fake_read_basic_property),
             mock.patch.object(parser, "read_reactants"),
             mock.patch.object(parser, "read_elemental_composition"),
             mock.patch.object(parser, "read_numerical_composition"),
@@ -349,16 +337,10 @@ class TestEq36Parsers(TestCase):
         with (
             mock.patch.object(parser, "consume_blank_lines"),
             mock.patch.object(parser, "advance"),
-            mock.patch.object(
-                parser, "read_basic_property", side_effect=fake_read_basic_property
-            ),
-            mock.patch.object(
-                parser, "read_reactants", side_effect=RuntimeError("boom")
-            ),
+            mock.patch.object(parser, "read_basic_property", side_effect=fake_read_basic_property),
+            mock.patch.object(parser, "read_reactants", side_effect=RuntimeError("boom")),
         ):
-            with self.assertRaisesRegex(
-                EleanorKernelError, "failed to parse EQ6 output"
-            ):
+            with self.assertRaisesRegex(EleanorKernelError, "failed to parse EQ6 output"):
                 parser.parse_step()
 
     def test_outputparser3_parse_raises_on_early_termination_marker_absence(
@@ -372,9 +354,7 @@ class TestEq36Parsers(TestCase):
         with (
             mock.patch.object(parser, "consume_to_pattern"),
             mock.patch.object(parser, "advance"),
-            mock.patch.object(
-                parser, "read_basic_property", return_value=np.float64(1.0)
-            ),
+            mock.patch.object(parser, "read_basic_property", return_value=np.float64(1.0)),
             mock.patch.object(parser, "read_elemental_composition"),
             mock.patch.object(parser, "read_numerical_composition"),
             mock.patch.object(parser, "read_sensible_composition"),
@@ -584,9 +564,7 @@ class TestEq36Parsers(TestCase):
 
         for method_name, section_header, bad_header in cases:
             with self.subTest(method=method_name):
-                parser = OutputParser6(
-                    io.StringIO(f" --- {section_header} ---\nh1\n{bad_header}\nh2\n")
-                )
+                parser = OutputParser6(io.StringIO(f" --- {section_header} ---\nh1\n{bad_header}\nh2\n"))
                 with self.assertRaises(EleanorKernelError):
                     getattr(parser, method_name)()
 
@@ -688,23 +666,15 @@ class TestEq36ParsersRealOutputs(TestCase):
                 barite = self._find_pure_solid(point, "barite")
 
                 self.assertEqual(point.stage, "eq3")
-                self.assertAlmostEqual(
-                    float(point.temperature), expected["temperature"]
-                )
+                self.assertAlmostEqual(float(point.temperature), expected["temperature"])
                 self.assertAlmostEqual(float(point.pressure), expected["pressure"])
                 self.assertAlmostEqual(float(point.log_fo2), -3.0)
                 self.assertAlmostEqual(float(point.ph), expected["nbs_pH"])
                 assert point.custom_properties.get("pcH") is not None
                 assert point.custom_properties.get("pHCl") is not None
-                self.assertAlmostEqual(
-                    cast(np.float64, point.custom_properties["pcH"]), expected["pcH"]
-                )
-                self.assertAlmostEqual(
-                    cast(np.float64, point.custom_properties["pHCl"]), expected["pHCl"]
-                )
-                self.assertAlmostEqual(
-                    float(hydrogen.log_activity), expected["h_log_activity"]
-                )
+                self.assertAlmostEqual(cast(np.float64, point.custom_properties["pcH"]), expected["pcH"])
+                self.assertAlmostEqual(cast(np.float64, point.custom_properties["pHCl"]), expected["pHCl"])
+                self.assertAlmostEqual(float(hydrogen.log_activity), expected["h_log_activity"])
                 self.assertEqual(len(point.elements), 16)
                 self.assertEqual(len(point.aqueous_species), 132)
                 self.assertEqual(len(point.pure_solids), 143)
@@ -712,9 +682,7 @@ class TestEq36ParsersRealOutputs(TestCase):
                 self.assertEqual(len(point.gases), 0)
                 self.assertEqual(len(point.redox_reactions), 1)
                 self.assertAlmostEqual(float(barite.log_qk), expected["barite_log_qk"])
-                self.assertAlmostEqual(
-                    float(barite.affinity), expected["barite_affinity"]
-                )
+                self.assertAlmostEqual(float(barite.affinity), expected["barite_affinity"])
 
     def test_outputparser6_real_outputs_have_expected_path_shape_and_endpoints(
         self,
@@ -766,9 +734,7 @@ class TestEq36ParsersRealOutputs(TestCase):
                 self.assertTrue(np.isneginf(float(first.log_xi)))
                 self.assertAlmostEqual(float(last.log_xi), -0.9188868277797307)
 
-                self.assertAlmostEqual(
-                    float(first.temperature), expected["temperature"]
-                )
+                self.assertAlmostEqual(float(first.temperature), expected["temperature"])
                 self.assertAlmostEqual(float(first.pressure), 300.0)
                 self.assertAlmostEqual(float(last.temperature), expected["temperature"])
                 self.assertAlmostEqual(float(last.pressure), 300.0)
@@ -779,25 +745,17 @@ class TestEq36ParsersRealOutputs(TestCase):
 
                 self.assertEqual(len(first.elements), 16)
                 self.assertEqual(len(last.elements), 16)
-                self.assertEqual(
-                    len(first.aqueous_species), expected["aqueous_first_count"]
-                )
-                self.assertEqual(
-                    len(last.aqueous_species), expected["aqueous_last_count"]
-                )
+                self.assertEqual(len(first.aqueous_species), expected["aqueous_first_count"])
+                self.assertEqual(len(last.aqueous_species), expected["aqueous_last_count"])
                 self.assertEqual(len(first.gases), 11)
                 self.assertEqual(len(last.gases), 11)
                 self.assertEqual(len(first.pure_solids), 143)
                 self.assertEqual(len(last.pure_solids), 144)
                 self.assertEqual(len(first.solid_solutions), 27)
                 self.assertEqual(len(last.solid_solutions), 27)
-                self.assertFalse(
-                    any(species.name == "O2(g)" for species in first.aqueous_species)
-                )
+                self.assertFalse(any(species.name == "O2(g)" for species in first.aqueous_species))
 
-                first_reactant_names = sorted(
-                    reactant.name for reactant in first.reactants
-                )
+                first_reactant_names = sorted(reactant.name for reactant in first.reactants)
                 self.assertEqual(first_reactant_names, ["olivine-ss"])
                 assert first.custom_properties.get("overall_affinity") is not None
                 assert last.custom_properties.get("overall_affinity") is not None
@@ -839,9 +797,7 @@ class TestEq36ParsersRealOutputs(TestCase):
                 eq3_hydrogen = self._find_aqueous(eq3, "H+")
                 eq6_hydrogen = self._find_aqueous(eq6_first, "H+")
 
-                self.assertAlmostEqual(
-                    float(eq3.temperature), float(eq6_first.temperature)
-                )
+                self.assertAlmostEqual(float(eq3.temperature), float(eq6_first.temperature))
                 self.assertAlmostEqual(float(eq3.pressure), float(eq6_first.pressure))
                 self.assertAlmostEqual(float(eq3.log_fo2), float(eq6_first.log_fo2))
                 self.assertAlmostEqual(float(eq3.ph), float(eq6_first.ph))
@@ -851,9 +807,7 @@ class TestEq36ParsersRealOutputs(TestCase):
                     cast(np.float64, eq3.custom_properties["pHCl"]),
                     cast(np.float64, eq6_first.custom_properties["pHCl"]),
                 )
-                self.assertAlmostEqual(
-                    eq3_hydrogen.log_activity, eq6_hydrogen.log_activity
-                )
+                self.assertAlmostEqual(eq3_hydrogen.log_activity, eq6_hydrogen.log_activity)
 
     def test_can_parse_3o_without_hypothetical_solid_solutions(self) -> None:
         """

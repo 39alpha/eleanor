@@ -150,9 +150,7 @@ class TestStatementProfilerCounters(TestCase):
         )
         prof._record_after(cursor, elapsed=0.01)
 
-        self.assertEqual(
-            prof.insert_statements_by_table["equilibrium_aqueous_species"], 1
-        )
+        self.assertEqual(prof.insert_statements_by_table["equilibrium_aqueous_species"], 1)
         self.assertEqual(prof.insert_rows_by_table["equilibrium_aqueous_species"], 1500)
         self.assertEqual(prof.total_rows_inserted, 1500)
         # COPY must not also leak into the ``other_statements`` keyword bucket.
@@ -232,9 +230,7 @@ class TestToText(TestCase):
         from psycopg import sql
 
         self.assertEqual(_to_text(sql.SQL("SELECT 1")), "SELECT 1")
-        composed = sql.SQL("INSERT INTO {t} (a) VALUES (%s)").format(
-            t=sql.Identifier("foo")
-        )
+        composed = sql.SQL("INSERT INTO {t} (a) VALUES (%s)").format(t=sql.Identifier("foo"))
         self.assertIn('INSERT INTO "foo"', _to_text(composed))
 
     def test_decodes_bytes_to_utf8_with_replacement(self) -> None:

@@ -25,9 +25,7 @@ def test_default_config() -> None:
 
 
 @pytest.mark.parametrize("fmt", FORMATS)
-def test_config_from_file_format(
-    helpers: type[Helpers], tmp_path: Path, fmt: str
-) -> None:
+def test_config_from_file_format(helpers: type[Helpers], tmp_path: Path, fmt: str) -> None:
     data: dict[str, object] = {
         "output": {
             "kind": "postgres",
@@ -73,9 +71,7 @@ def test_config_from_file_format(
 
 
 @pytest.mark.parametrize("fmt", FORMATS)
-def test_config_from_string_format(
-    helpers: type[Helpers], tmp_path: Path, fmt: str
-) -> None:
+def test_config_from_string_format(helpers: type[Helpers], tmp_path: Path, fmt: str) -> None:
     data: dict[str, object] = {
         "output": {
             "kind": "postgres",
@@ -241,9 +237,7 @@ def test_output_name_is_honoured_and_kept_out_of_settings() -> None:
     Settings parsing receives every key that is not Eleanor's own, so a
     forgotten exclusion would hand ``name`` to the plugin as a setting.
     """
-    config = Config.from_dict(
-        {"output": [{"kind": "null", "name": "discard", "verbose": True}]}
-    )
+    config = Config.from_dict({"output": [{"kind": "null", "name": "discard", "verbose": True}]})
 
     (entry,) = config.output
     assert entry.name == "discard"

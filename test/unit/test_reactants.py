@@ -82,9 +82,7 @@ class TestReactants(TestCase):
         """
         Ensure the abstract placeholder body for :meth:`AbstractReactant.parameters` is executable.
         """
-        self.assertEqual(
-            AbstractReactant.parameters(cast(AbstractReactant, object())), []
-        )
+        self.assertEqual(AbstractReactant.parameters(cast(AbstractReactant, object())), [])
 
     def test_abstract_reactant_unexpected_type_branch(self) -> None:
         """
@@ -112,16 +110,10 @@ class TestReactants(TestCase):
         """
         Ensure that typed titrated reactants parse successfully for their matching type.
         """
-        mineral = MineralReactant.from_dict(
-            {"name": "m", "type": "mineral", "amount": 1.0}
-        )
-        aqueous = AqueousReactant.from_dict(
-            {"name": "a", "type": "aqueous", "amount": 1.0}
-        )
+        mineral = MineralReactant.from_dict({"name": "m", "type": "mineral", "amount": 1.0})
+        aqueous = AqueousReactant.from_dict({"name": "a", "type": "aqueous", "amount": 1.0})
         gas = GasReactant.from_dict({"name": "g", "type": "gas", "amount": 1.0})
-        element = ElementReactant.from_dict(
-            {"name": "e", "type": "element", "amount": 1.0}
-        )
+        element = ElementReactant.from_dict({"name": "e", "type": "element", "amount": 1.0})
         special = SpecialReactant.from_dict(
             {
                 "name": "s",
@@ -147,9 +139,7 @@ class TestReactants(TestCase):
         with self.assertRaises(EleanorError):
             GasReactant.from_dict({"name": "g", "type": "aqueous", "amount": 1.0})
         with self.assertRaises(EleanorError):
-            SpecialReactant.from_dict(
-                {"name": "s", "type": "gas", "amount": 1.0, "composition": {"Na": 1}}
-            )
+            SpecialReactant.from_dict({"name": "s", "type": "gas", "amount": 1.0, "composition": {"Na": 1}})
         with self.assertRaises(EleanorError):
             ElementReactant.from_dict({"name": "e", "type": "gas", "amount": 1.0})
 
@@ -157,9 +147,7 @@ class TestReactants(TestCase):
         """
         Ensure that :class:`FixedGasReactant` parsing/volume logic works for valid configs.
         """
-        reactant = FixedGasReactant.from_dict(
-            {"name": "co2", "type": "fixed gas", "amount": 1.0, "fugacity": 0.1}
-        )
+        reactant = FixedGasReactant.from_dict({"name": "co2", "type": "fixed gas", "amount": 1.0, "fugacity": 0.1})
         self.assertEqual(reactant.type, ReactantType.FIXED_GAS)
         self.assertIsInstance(reactant.amount, ValueParameter)
         self.assertIsInstance(reactant.fugacity, ValueParameter)
@@ -171,9 +159,7 @@ class TestReactants(TestCase):
         Ensure that :class:`FixedGasReactant` rejects non-fixed-gas configs.
         """
         with self.assertRaises(EleanorError):
-            FixedGasReactant.from_dict(
-                {"name": "bad", "type": "gas", "amount": 1.0, "fugacity": 0.1}
-            )
+            FixedGasReactant.from_dict({"name": "bad", "type": "gas", "amount": 1.0, "fugacity": 0.1})
 
     def test_solid_solution_from_dict_success(self) -> None:
         """
@@ -300,9 +286,7 @@ class TestReactants(TestCase):
         """
         Ensure CombinedReactantComponent.from_dict validates type-specific payloads and constraints.
         """
-        mineral = CombinedReactantComponent.from_dict(
-            {"name": "fayalite", "type": "mineral", "fraction": 0.2}
-        )
+        mineral = CombinedReactantComponent.from_dict({"name": "fayalite", "type": "mineral", "fraction": 0.2})
         self.assertEqual(mineral.name, "fayalite")
         self.assertEqual(mineral.type, ReactantType.MINERAL)
         self.assertIsNone(mineral.relative_rate)
@@ -335,47 +319,31 @@ class TestReactants(TestCase):
         self.assertIsNotNone(solid_solution.end_members)
 
         with self.assertRaisesRegex(EleanorError, "not supported"):
-            _ = CombinedReactantComponent.from_dict(
-                {"name": "fg", "type": "fixed gas", "fraction": 0.5}
-            )
+            _ = CombinedReactantComponent.from_dict({"name": "fg", "type": "fixed gas", "fraction": 0.5})
 
         with self.assertRaisesRegex(EleanorError, "not supported"):
-            _ = CombinedReactantComponent.from_dict(
-                {"name": "nested", "type": "combined", "fraction": 0.5}
-            )
+            _ = CombinedReactantComponent.from_dict({"name": "nested", "type": "combined", "fraction": 0.5})
 
         with self.assertRaisesRegex(EleanorError, "between 0 and 1 inclusive"):
-            _ = CombinedReactantComponent.from_dict(
-                {"name": "x", "type": "mineral", "fraction": -1.0}
-            )
+            _ = CombinedReactantComponent.from_dict({"name": "x", "type": "mineral", "fraction": -1.0})
 
         with self.assertRaisesRegex(EleanorError, "between 0 and 1 inclusive"):
-            _ = CombinedReactantComponent.from_dict(
-                {"name": "x", "type": "mineral", "fraction": 2.0}
-            )
+            _ = CombinedReactantComponent.from_dict({"name": "x", "type": "mineral", "fraction": 2.0})
 
         with self.assertWarnsRegex(EleanorWarning, "that might be a mistake"):
-            _ = CombinedReactantComponent.from_dict(
-                {"name": "x", "type": "mineral", "fraction": 0.0}
-            )
+            _ = CombinedReactantComponent.from_dict({"name": "x", "type": "mineral", "fraction": 0.0})
 
         with self.assertWarnsRegex(EleanorWarning, "that might be a mistake"):
-            _ = CombinedReactantComponent.from_dict(
-                {"name": "x", "type": "mineral", "fraction": 1.0}
-            )
+            _ = CombinedReactantComponent.from_dict({"name": "x", "type": "mineral", "fraction": 1.0})
 
         with self.assertRaisesRegex(EleanorError, "must be a dictionary"):
-            _ = CombinedReactantComponent.from_dict(
-                {"name": "SiO2", "type": "special", "fraction": 0.5}
-            )
+            _ = CombinedReactantComponent.from_dict({"name": "SiO2", "type": "special", "fraction": 0.5})
 
     def test_combined_component_parameters_handles_optional_relative_rate(self) -> None:
         """
         Ensure CombinedReactantComponent.parameters() includes relative_rate only when present and always includes end members.
         """
-        proportional = CombinedReactantComponent.from_dict(
-            {"name": "fayalite", "type": "mineral", "fraction": 0.5}
-        )
+        proportional = CombinedReactantComponent.from_dict({"name": "fayalite", "type": "mineral", "fraction": 0.5})
         self.assertIsNone(proportional.relative_rate)
         self.assertEqual(proportional.parameters(), [])
 
@@ -433,9 +401,7 @@ class TestReactants(TestCase):
         )
         self.assertEqual(reactant.type, ReactantType.COMBINED)
         self.assertEqual(set(reactant.components.keys()), {"SiO2", "Na2O"})
-        self.assertAlmostEqual(
-            sum(c.fraction.value for c in reactant.components.values()), 1.0
-        )
+        self.assertAlmostEqual(sum(c.fraction.value for c in reactant.components.values()), 1.0)
 
     def test_combined_reactant_from_dict_failures(self) -> None:
         """
@@ -462,9 +428,7 @@ class TestReactants(TestCase):
                 }
             )
         with self.assertRaisesRegex(EleanorError, "has no components"):
-            CombinedReactant.from_dict(
-                {"name": "empty", "type": "combined", "amount": 1.0, "components": {}}
-            )
+            CombinedReactant.from_dict({"name": "empty", "type": "combined", "amount": 1.0, "components": {}})
         with self.assertWarnsRegex(EleanorWarning, "has only one component"):
             CombinedReactant.from_dict(
                 {
@@ -605,9 +569,7 @@ class TestReactants(TestCase):
         base_volume = reactant.amount.volume() * reactant.titration_rate.volume()
         component_contribution = sum(
             (
-                component.relative_rate.volume()
-                if component.relative_rate is not None
-                else np.float64(1.0)
+                component.relative_rate.volume() if component.relative_rate is not None else np.float64(1.0)
                 for component in reactant.components.values()
             ),
             start=np.float64(0.0),

@@ -44,9 +44,7 @@ class TestDumpSchema(TestCase):
         # designed to be runnable without further processing).
         for line in output.splitlines():
             stripped = line.strip()
-            if stripped.startswith(
-                ("CREATE TABLE", "CREATE INDEX", "CREATE UNIQUE INDEX")
-            ):
+            if stripped.startswith(("CREATE TABLE", "CREATE INDEX", "CREATE UNIQUE INDEX")):
                 self.assertTrue(
                     stripped.endswith(";") or stripped.endswith("("),
                     f"statement {stripped!r} should end with semicolon or open paren",

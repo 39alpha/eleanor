@@ -25,9 +25,7 @@ def test_navigator_config_requires_string_kind() -> None:
 
 
 def test_navigator_config_requires_settings_like_settings() -> None:
-    with pytest.raises(
-        EleanorError, match=f"requires {NavigatorSettings.__name__}"
-    ):
+    with pytest.raises(EleanorError, match=f"requires {NavigatorSettings.__name__}"):
         _ = NavigatorConfig(kind="plugin", settings=5)  # pyright: ignore[reportArgumentType]
 
 
@@ -53,15 +51,11 @@ def test_navigator_config_from_dict_kind_defaults_to_random(
 ) -> None:
     settings = NavigatorSettings()
 
-    load_plugin_settings = mocker.patch(
-        "eleanor.config.navigator.load_plugin_settings", return_value=settings
-    )
+    load_plugin_settings = mocker.patch("eleanor.config.navigator.load_plugin_settings", return_value=settings)
 
     config = NavigatorConfig.from_dict({})
 
-    load_plugin_settings.assert_called_once_with(
-        registry, NavigatorSettings, "random", {}
-    )
+    load_plugin_settings.assert_called_once_with(registry, NavigatorSettings, "random", {})
     assert config == NavigatorConfig(kind="random", settings=settings)
 
 
@@ -74,13 +68,9 @@ def test_navigator_settings_are_propagated(mocker: MockerFixture) -> None:
     settings_raw = {"value": 5}
     settings = Settings(value=5)
 
-    load_plugin_settings = mocker.patch(
-        "eleanor.config.navigator.load_plugin_settings", return_value=settings
-    )
+    load_plugin_settings = mocker.patch("eleanor.config.navigator.load_plugin_settings", return_value=settings)
 
     config = NavigatorConfig.from_dict({"kind": kind, **settings_raw})
 
-    load_plugin_settings.assert_called_once_with(
-        registry, NavigatorSettings, kind, {"value": 5}
-    )
+    load_plugin_settings.assert_called_once_with(registry, NavigatorSettings, kind, {"value": 5})
     assert config == NavigatorConfig(kind=kind, settings=settings)

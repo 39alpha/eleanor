@@ -23,9 +23,7 @@ class TestDispatchTimingsDisabled(TestCase):
 
     def test_disabled_context_managers_do_not_read_the_clock(self) -> None:
         timings = DispatchTimings()
-        with mock.patch.object(
-            timing_mod.time, "perf_counter", side_effect=AssertionError("clock read")
-        ):
+        with mock.patch.object(timing_mod.time, "perf_counter", side_effect=AssertionError("clock read")):
             with timings.measure():
                 pass
             with timings.generating():
@@ -224,9 +222,7 @@ class TestDispatchTimingsSummary(TestCase):
         # Anchor on the numeric field itself, not on a literal "s " -- some
         # labels ("idle workers") contain that substring. The section rule
         # carries no number and is skipped.
-        matches = [
-            (row, re.search(r"\d+\.\d\ds", row)) for row in timings.summary().splitlines()[1:]
-        ]
+        matches = [(row, re.search(r"\d+\.\d\ds", row)) for row in timings.summary().splitlines()[1:]]
         numeric = [(row, match) for row, match in matches if match is not None]
         columns = {match.end() for _row, match in numeric}
 

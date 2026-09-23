@@ -54,9 +54,7 @@ def test_verify_reports_missing_index_from_mocked_reader(mocker: MockerFixture) 
     reduced = full_index_names - {missing_entry}
 
     mocker.patch.object(schema, "live_index_names", return_value=reduced)
-    mocker.patch.object(
-        schema, "live_constraint_names", return_value=declared_constraint_names()
-    )
+    mocker.patch.object(schema, "live_constraint_names", return_value=declared_constraint_names())
     mocker.patch.object(schema, "inspect_schema", return_value={})
 
     problems = verify_against_tables(mocker.MagicMock())

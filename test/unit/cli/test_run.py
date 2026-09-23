@@ -53,30 +53,22 @@ def invoke_run(runner: CliRunner, extra_args: list[str]):
         return runner.invoke(main, ["run", *extra_args, str(order_path), "10"])
 
 
-def test_run_uses_config_executor_defaults(
-    mocker: MockerFixture, runner: CliRunner
-) -> None:
+def test_run_uses_config_executor_defaults(mocker: MockerFixture, runner: CliRunner) -> None:
     config = make_config(kind="serial", chunks_per_worker=6)
     executor = make_executor(mocker)
     eleanor = make_eleanor(mocker)
     order = mocker.create_autospec(Order)
 
-    config_from_args = mocker.patch(
-        "eleanor.cli.run.config_from_args", return_value=config
-    )
+    config_from_args = mocker.patch("eleanor.cli.run.config_from_args", return_value=config)
     load_order = mocker.patch("eleanor.cli.run.load_order", return_value=order)
     load_executor = mocker.patch("eleanor.cli.run.load_executor", return_value=executor)
     eleanor_ctor = mocker.patch("eleanor.cli.run.Eleanor", return_value=eleanor)
 
-    result = invoke_run(
-        runner, ["-c", "/fake.yaml", "-d", "sample", "--num-workers", "3"]
-    )
+    result = invoke_run(runner, ["-c", "/fake.yaml", "-d", "sample", "--num-workers", "3"])
 
     config_from_args.assert_called_once()
     load_order.assert_called_once()
-    load_executor.assert_called_once_with(
-        kind="serial", settings=ExecutorSettings(chunks_per_worker=6, num_workers=3)
-    )
+    load_executor.assert_called_once_with(kind="serial", settings=ExecutorSettings(chunks_per_worker=6, num_workers=3))
     eleanor_ctor.assert_called_once_with(config=config, executor=executor)
     eleanor.run.assert_called_once_with(
         order,
@@ -95,17 +87,13 @@ def test_run_uses_config_executor_defaults(
     assert result.exit_code == 0
 
 
-def test_run_cli_flags_override_config_executor_values(
-    mocker: MockerFixture, runner: CliRunner
-) -> None:
+def test_run_cli_flags_override_config_executor_values(mocker: MockerFixture, runner: CliRunner) -> None:
     config = make_config(kind="multiprocessing", chunks_per_worker=2)
     executor = make_executor(mocker)
     eleanor = make_eleanor(mocker)
     order = mocker.create_autospec(Order)
 
-    config_from_args = mocker.patch(
-        "eleanor.cli.run.config_from_args", return_value=config
-    )
+    config_from_args = mocker.patch("eleanor.cli.run.config_from_args", return_value=config)
     load_order = mocker.patch("eleanor.cli.run.load_order", return_value=order)
     load_executor = mocker.patch("eleanor.cli.run.load_executor", return_value=executor)
     eleanor_ctor = mocker.patch("eleanor.cli.run.Eleanor", return_value=eleanor)
@@ -136,9 +124,7 @@ def test_run_cli_flags_override_config_executor_values(
     assert result.exit_code == 0
 
 
-def test_run_null_sink_overrides_output_sink(
-    mocker: MockerFixture, runner: CliRunner
-) -> None:
+def test_run_null_sink_overrides_output_sink(mocker: MockerFixture, runner: CliRunner) -> None:
     config = make_config(kind="serial", chunks_per_worker=2)
     executor = make_executor(mocker)
     eleanor = make_eleanor(mocker)
@@ -146,9 +132,7 @@ def test_run_null_sink_overrides_output_sink(
 
     mock_sink_init = mocker.patch.object(NullSink, "initialize")
     mock_sink_fin = mocker.patch.object(NullSink, "finalize")
-    config_from_args = mocker.patch(
-        "eleanor.cli.run.config_from_args", return_value=config
-    )
+    config_from_args = mocker.patch("eleanor.cli.run.config_from_args", return_value=config)
     load_order = mocker.patch("eleanor.cli.run.load_order", return_value=order)
     load_executor = mocker.patch("eleanor.cli.run.load_executor", return_value=executor)
     eleanor_ctor = mocker.patch("eleanor.cli.run.Eleanor", return_value=eleanor)
@@ -171,9 +155,7 @@ def test_run_null_sink_overrides_output_sink(
     assert result.exit_code == 0
 
 
-def test_run_max_nav_attempts_is_forwarded(
-    mocker: MockerFixture, runner: CliRunner
-) -> None:
+def test_run_max_nav_attempts_is_forwarded(mocker: MockerFixture, runner: CliRunner) -> None:
     config = make_config()
     executor = make_executor(mocker)
     eleanor = make_eleanor(mocker)
@@ -184,17 +166,13 @@ def test_run_max_nav_attempts_is_forwarded(
     _ = mocker.patch("eleanor.cli.run.load_executor", return_value=executor)
     _ = mocker.patch("eleanor.cli.run.Eleanor", return_value=eleanor)
 
-    result = invoke_run(
-        runner, ["-c", "/fake.yaml", "-d", "sample", "--max-nav-attempts", "4"]
-    )
+    result = invoke_run(runner, ["-c", "/fake.yaml", "-d", "sample", "--max-nav-attempts", "4"])
 
     assert eleanor.run.call_args.kwargs["max_nav_attempts"] == 4
     assert result.exit_code == 0
 
 
-def test_run_disables_progress_when_verbose(
-    mocker: MockerFixture, runner: CliRunner
-) -> None:
+def test_run_disables_progress_when_verbose(mocker: MockerFixture, runner: CliRunner) -> None:
     config = make_config()
     eleanor = make_eleanor(mocker)
     order = mocker.create_autospec(Order)
@@ -204,17 +182,13 @@ def test_run_disables_progress_when_verbose(
     _ = mocker.patch("eleanor.cli.run.load_executor")
     _ = mocker.patch("eleanor.cli.run.Eleanor", return_value=eleanor)
 
-    result = invoke_run(
-        runner, ["-c", "/fake.yaml", "-d", "sample", "--progress", "--verbose"]
-    )
+    result = invoke_run(runner, ["-c", "/fake.yaml", "-d", "sample", "--progress", "--verbose"])
 
     assert not eleanor.run.call_args.kwargs["show_progress"]
     assert result.exit_code == 0
 
 
-def test_run_forwards_order_id_as_the_resume_token(
-    mocker: MockerFixture, runner: CliRunner
-) -> None:
+def test_run_forwards_order_id_as_the_resume_token(mocker: MockerFixture, runner: CliRunner) -> None:
     """``--order-id`` is passed through as a string, not applied to the order.
 
     The order no longer carries an id, and only the configured sink knows what
@@ -230,18 +204,14 @@ def test_run_forwards_order_id_as_the_resume_token(
     _ = mocker.patch("eleanor.cli.run.load_executor", return_value=executor)
     _ = mocker.patch("eleanor.cli.run.Eleanor", return_value=eleanor)
 
-    result = invoke_run(
-        runner, ["-c", "/fake.yaml", "-d", "sample", "--order-id", "321"]
-    )
+    result = invoke_run(runner, ["-c", "/fake.yaml", "-d", "sample", "--order-id", "321"])
 
     assert result.exit_code == 0
     assert eleanor.run.call_args.args[0] is order
     assert eleanor.run.call_args.kwargs["resume_id"] == "321"
 
 
-def test_run_forwards_no_resume_id_by_default(
-    mocker: MockerFixture, runner: CliRunner
-) -> None:
+def test_run_forwards_no_resume_id_by_default(mocker: MockerFixture, runner: CliRunner) -> None:
     config = make_config()
     executor = make_executor(mocker)
     eleanor = make_eleanor(mocker)
@@ -258,9 +228,7 @@ def test_run_forwards_no_resume_id_by_default(
     assert eleanor.run.call_args.kwargs["resume_id"] is None
 
 
-def test_run_applies_single_tag_to_loaded_order(
-    mocker: MockerFixture, runner: CliRunner
-) -> None:
+def test_run_applies_single_tag_to_loaded_order(mocker: MockerFixture, runner: CliRunner) -> None:
     config = make_config()
     executor = make_executor(mocker)
     eleanor = make_eleanor(mocker)
@@ -272,18 +240,14 @@ def test_run_applies_single_tag_to_loaded_order(
     _ = mocker.patch("eleanor.cli.run.load_executor", return_value=executor)
     _ = mocker.patch("eleanor.cli.run.Eleanor", return_value=eleanor)
 
-    result = invoke_run(
-        runner, ["-c", "/fake.yaml", "-d", "sample", "--tag", "experiment-1"]
-    )
+    result = invoke_run(runner, ["-c", "/fake.yaml", "-d", "sample", "--tag", "experiment-1"])
 
     assert result.exit_code == 0
     assert order.tags == ["experiment-1"]
     assert eleanor.run.call_args.args[0] is order
 
 
-def test_run_applies_multiple_tags_to_loaded_order(
-    mocker: MockerFixture, runner: CliRunner
-) -> None:
+def test_run_applies_multiple_tags_to_loaded_order(mocker: MockerFixture, runner: CliRunner) -> None:
     config = make_config()
     executor = make_executor(mocker)
     eleanor = make_eleanor(mocker)
@@ -295,17 +259,13 @@ def test_run_applies_multiple_tags_to_loaded_order(
     _ = mocker.patch("eleanor.cli.run.load_executor", return_value=executor)
     _ = mocker.patch("eleanor.cli.run.Eleanor", return_value=eleanor)
 
-    result = invoke_run(
-        runner, ["-c", "/fake.yaml", "-d", "sample", "--tag", "foo", "--tag", "bar"]
-    )
+    result = invoke_run(runner, ["-c", "/fake.yaml", "-d", "sample", "--tag", "foo", "--tag", "bar"])
 
     assert result.exit_code == 0
     assert order.tags == ["foo", "bar"]
 
 
-def test_run_cli_tags_merge_with_order_file_tags(
-    mocker: MockerFixture, runner: CliRunner
-) -> None:
+def test_run_cli_tags_merge_with_order_file_tags(mocker: MockerFixture, runner: CliRunner) -> None:
     config = make_config()
     executor = make_executor(mocker)
     eleanor = make_eleanor(mocker)
@@ -323,9 +283,7 @@ def test_run_cli_tags_merge_with_order_file_tags(
     assert order.tags == ["existing", "new"]
 
 
-def test_run_cli_tags_deduplicates_against_order_file_tags(
-    mocker: MockerFixture, runner: CliRunner
-) -> None:
+def test_run_cli_tags_deduplicates_against_order_file_tags(mocker: MockerFixture, runner: CliRunner) -> None:
     config = make_config()
     executor = make_executor(mocker)
     eleanor = make_eleanor(mocker)
@@ -337,17 +295,13 @@ def test_run_cli_tags_deduplicates_against_order_file_tags(
     _ = mocker.patch("eleanor.cli.run.load_executor", return_value=executor)
     _ = mocker.patch("eleanor.cli.run.Eleanor", return_value=eleanor)
 
-    result = invoke_run(
-        runner, ["-c", "/fake.yaml", "-d", "sample", "--tag", "foo", "--tag", "bar"]
-    )
+    result = invoke_run(runner, ["-c", "/fake.yaml", "-d", "sample", "--tag", "foo", "--tag", "bar"])
 
     assert result.exit_code == 0
     assert order.tags == ["foo", "bar"]
 
 
-def test_run_without_tag_flag_leaves_order_tags_unchanged(
-    mocker: MockerFixture, runner: CliRunner
-) -> None:
+def test_run_without_tag_flag_leaves_order_tags_unchanged(mocker: MockerFixture, runner: CliRunner) -> None:
     config = make_config()
     executor = make_executor(mocker)
     eleanor = make_eleanor(mocker)
@@ -365,18 +319,14 @@ def test_run_without_tag_flag_leaves_order_tags_unchanged(
     assert order.tags == ["existing"]
 
 
-def test_run_rejects_unknown_executor_kind(
-    mocker: MockerFixture, runner: CliRunner
-) -> None:
+def test_run_rejects_unknown_executor_kind(mocker: MockerFixture, runner: CliRunner) -> None:
     config = make_config()
 
     _ = mocker.patch("eleanor.cli.run.config_from_args", return_value=config)
     _ = mocker.patch("eleanor.cli.run.available_executors", return_value={"serial"})
     eleanor_ctor = mocker.patch("eleanor.cli.run.Eleanor")
 
-    result = invoke_run(
-        runner, ["-c", "/fake.yaml", "-d", "sample", "--executor", "does-not-exist"]
-    )
+    result = invoke_run(runner, ["-c", "/fake.yaml", "-d", "sample", "--executor", "does-not-exist"])
 
     eleanor_ctor.assert_not_called()
     assert result.exit_code == 0
@@ -385,9 +335,7 @@ def test_run_rejects_unknown_executor_kind(
     assert "executor" in result.output
 
 
-def test_run_keyboard_interrupt_exits_130_with_friendly_message(
-    mocker: MockerFixture, runner: CliRunner
-) -> None:
+def test_run_keyboard_interrupt_exits_130_with_friendly_message(mocker: MockerFixture, runner: CliRunner) -> None:
     config = make_config()
     executor = make_executor(mocker)
     eleanor = make_eleanor(mocker)
@@ -402,14 +350,10 @@ def test_run_keyboard_interrupt_exits_130_with_friendly_message(
     result = invoke_run(runner, ["-c", "/fake.yaml", "-d", "sample"])
 
     assert result.exit_code == 130
-    assert (
-        "Eleanor run interrupted by interrupt; sink finalized cleanly." in result.output
-    )
+    assert "Eleanor run interrupted by interrupt; sink finalized cleanly." in result.output
 
 
-def test_run_bulk_load_sets_optimization_in_postgres_config(
-    mocker: MockerFixture, runner: CliRunner
-) -> None:
+def test_run_bulk_load_sets_optimization_in_postgres_config(mocker: MockerFixture, runner: CliRunner) -> None:
     config = make_config()
     executor = make_executor(mocker)
     eleanor = make_eleanor(mocker)
@@ -428,9 +372,7 @@ def test_run_bulk_load_sets_optimization_in_postgres_config(
     assert config.output[0].settings.bulk_load_optimization
 
 
-def test_run_bulk_load_rejects_non_postgres_sink(
-    mocker: MockerFixture, runner: CliRunner
-) -> None:
+def test_run_bulk_load_rejects_non_postgres_sink(mocker: MockerFixture, runner: CliRunner) -> None:
     config = Config.from_dict(
         {
             "output": {
@@ -454,9 +396,7 @@ def test_run_bulk_load_rejects_non_postgres_sink(
     assert "postgres" in result.output
 
 
-def test_run_no_bulk_load_disables_config_optimization(
-    mocker: MockerFixture, runner: CliRunner
-) -> None:
+def test_run_no_bulk_load_disables_config_optimization(mocker: MockerFixture, runner: CliRunner) -> None:
     config = make_config()
     assert len(config.output) == 1
     assert isinstance(config.output[0].settings, PostgresSinkSettings)
@@ -477,9 +417,7 @@ def test_run_no_bulk_load_disables_config_optimization(
     assert not config.output[0].settings.bulk_load_optimization
 
 
-def test_run_bulk_load_omitted_leaves_config_unchanged(
-    mocker: MockerFixture, runner: CliRunner
-) -> None:
+def test_run_bulk_load_omitted_leaves_config_unchanged(mocker: MockerFixture, runner: CliRunner) -> None:
     config = make_config()
     assert len(config.output) == 1
     assert isinstance(config.output[0].settings, PostgresSinkSettings)
@@ -500,9 +438,7 @@ def test_run_bulk_load_omitted_leaves_config_unchanged(
     assert config.output[0].settings.bulk_load_optimization
 
 
-def test_run_bulk_load_ignored_when_null_sink(
-    mocker: MockerFixture, runner: CliRunner
-) -> None:
+def test_run_bulk_load_ignored_when_null_sink(mocker: MockerFixture, runner: CliRunner) -> None:
     config = make_config()
     executor = make_executor(mocker)
     eleanor = make_eleanor(mocker)
@@ -523,9 +459,7 @@ def test_run_bulk_load_ignored_when_null_sink(
     assert isinstance(sinks["null"], NullSink)
 
 
-def test_run_eleanor_shutdown_uses_signal_name_in_message(
-    mocker: MockerFixture, runner: CliRunner
-) -> None:
+def test_run_eleanor_shutdown_uses_signal_name_in_message(mocker: MockerFixture, runner: CliRunner) -> None:
     config = make_config()
     executor = make_executor(mocker)
     eleanor = make_eleanor(mocker)
@@ -540,6 +474,4 @@ def test_run_eleanor_shutdown_uses_signal_name_in_message(
     result = invoke_run(runner, ["-c", "/fake.yaml", "-d", "sample"])
 
     assert result.exit_code == 130
-    assert (
-        "Eleanor run interrupted by SIGTERM; sink finalized cleanly." in result.output
-    )
+    assert "Eleanor run interrupted by SIGTERM; sink finalized cleanly." in result.output

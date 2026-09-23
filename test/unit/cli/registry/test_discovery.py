@@ -12,9 +12,7 @@ type Ctor = Callable[..., object]
 
 
 @pytest.mark.usefixtures("clean_registry")
-def test_discovery_registers_entry_points(
-    mocker: MockerFixture, makeEntryPoint: Ctor, spec: SimplePluginSpec
-) -> None:
+def test_discovery_registers_entry_points(mocker: MockerFixture, makeEntryPoint: Ctor, spec: SimplePluginSpec) -> None:
     ep = makeEntryPoint("plugin", "pkg.mod:build_cli", lambda: spec)
 
     _ = mocker.patch("eleanor.plugin.entry_points", return_value=[ep])
@@ -25,25 +23,19 @@ def test_discovery_registers_entry_points(
 
 
 @pytest.mark.usefixtures("clean_registry")
-def test_discovery_raises_on_load_failure(
-    mocker: MockerFixture, makeEntryPoint: Ctor
-) -> None:
+def test_discovery_raises_on_load_failure(mocker: MockerFixture, makeEntryPoint: Ctor) -> None:
     def fail() -> Never:
         raise ImportError("boom")
 
     failing_ep = makeEntryPoint("broken", "pkg.bad:build", fail)
 
     _ = mocker.patch("eleanor.plugin.entry_points", return_value=[failing_ep])
-    with pytest.raises(
-        EleanorError, match="failed to load cli entry point 'broken'"
-    ):
+    with pytest.raises(EleanorError, match="failed to load cli entry point 'broken'"):
         _ = available_cli_commands()
 
 
 @pytest.mark.usefixtures("clean_registry")
-def test_discovery_raises_on_non_spec_entry_point(
-    mocker: MockerFixture, makeEntryPoint: Ctor
-) -> None:
+def test_discovery_raises_on_non_spec_entry_point(mocker: MockerFixture, makeEntryPoint: Ctor) -> None:
     bad_ep = makeEntryPoint("bad", "pkg.bad:NOT_A_SPEC", lambda: 42)
 
     _ = mocker.patch("eleanor.plugin.entry_points", return_value=[bad_ep])

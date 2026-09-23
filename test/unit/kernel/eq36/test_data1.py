@@ -182,9 +182,7 @@ class TestEq36Data1(TestCase):
         Ensure one-intersection and multi-intersection branches build expected subdomains.
         """
         c = self._curve()
-        with mock.patch.object(
-            TPCurve, "find_boundary_intersections", return_value=[(5.0, 1.0)]
-        ):
+        with mock.patch.object(TPCurve, "find_boundary_intersections", return_value=[(5.0, 1.0)]):
             c = self._curve()
             self.assertTrue(
                 c.set_domain(
@@ -241,7 +239,7 @@ class TestEq36Data1(TestCase):
         c3.domain = [(np.float64(0.0), np.float64(2.0))]
 
         rng = mock.MagicMock(np.random.Generator, instance=True)
-        rng.uniform.return_value= np.array([0.5, 1.5])
+        rng.uniform.return_value = np.array([0.5, 1.5])
         rng.integers.side_effect = [0, 0]
 
         Ts, Ps, selected = TPCurve.sample([c3], 2, rng=rng)
@@ -291,7 +289,7 @@ class TestEq36Data1(TestCase):
         c2.domain = [(np.float64(3.0), np.float64(4.0))]
 
         rng = mock.MagicMock(np.random.Generator, instance=True)
-        rng.uniform.return_value= np.array([0.2, 1.8])
+        rng.uniform.return_value = np.array([0.2, 1.8])
         rng.integers.side_effect = [0, 0]
 
         Ts, Ps, selected = TPCurve.sample([c1, c2], 2, rng=rng)
@@ -322,11 +320,7 @@ class TestEq36Data1(TestCase):
                 b"H2O(l)                  ",
                 b"CO2(g)                  ",
                 b"EM1                     SOLID1",
-                (
-                    b"EM1                     SOLID1"
-                    if duplicate_end_member
-                    else b"EM2                     SOLID1"
-                ),
+                (b"EM1                     SOLID1" if duplicate_end_member else b"EM2                     SOLID1"),
             ],
             dtype="|S48",
         )
@@ -372,9 +366,7 @@ class TestEq36Data1(TestCase):
                     molar_mass=np.float64(1.0),
                 )
             },
-            aqueous_species={
-                "H+": AqueousSpecies(name="H+", molar_mass=np.float64(1.0))
-            },
+            aqueous_species={"H+": AqueousSpecies(name="H+", molar_mass=np.float64(1.0))},
             minerals={},
             liquids={},
             gases={},
@@ -408,9 +400,7 @@ class TestEq36Data1(TestCase):
             parsed.liquids,
             {"H2O(l)": Liquid(name="H2O(l)", molar_mass=np.float64(18.0))},
         )
-        self.assertEqual(
-            parsed.gases, {"CO2(g)": Gas(name="CO2(g)", molar_mass=np.float64(44.01))}
-        )
+        self.assertEqual(parsed.gases, {"CO2(g)": Gas(name="CO2(g)", molar_mass=np.float64(44.01))})
         self.assertIn("SOLID1", parsed.solid_solutions)
         self.assertEqual(
             parsed.solid_solutions["SOLID1"].end_members,
@@ -428,9 +418,7 @@ class TestEq36Data1(TestCase):
             self.assertEqual(parsed.molar_mass("SOLID1"), np.float64(60.0))
 
         self.assertEqual(
-            parsed.molar_mass(
-                "SOLID1", {"EM1": np.float64(0.25), "EM2": np.float64(0.75)}
-            ),
+            parsed.molar_mass("SOLID1", {"EM1": np.float64(0.25), "EM2": np.float64(0.75)}),
             np.float64(0.25 * 50.0 + 0.75 * 70.0),
         )
         with self.assertRaises(KeyError):
@@ -718,9 +706,7 @@ class TestEq36Data1(TestCase):
             end_members={"A": np.float64(40.0), "B": np.float64(60.0)},
         )
         self.assertEqual(
-            ss.molar_mass(
-                mole_fractions={"A": np.float64(0.25), "B": np.float64(0.75)}
-            ),
+            ss.molar_mass(mole_fractions={"A": np.float64(0.25), "B": np.float64(0.75)}),
             np.float64(55.0),
         )
         self.assertEqual(

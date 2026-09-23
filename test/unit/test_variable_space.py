@@ -29,27 +29,19 @@ class TestVariableSpace(TestCase):
         if reactant_sizes is None:
             reactant_sizes = [0, 0, 0, 0, 0, 0, 0]
         mineral = [
-            MineralReactant(
-                name=f"m{i}", log_moles=np.float64(0.0), titration_rate=np.float64(1.0)
-            )
+            MineralReactant(name=f"m{i}", log_moles=np.float64(0.0), titration_rate=np.float64(1.0))
             for i in range(reactant_sizes[0])
         ]
         aqueous = [
-            AqueousReactant(
-                name=f"a{i}", log_moles=np.float64(0.0), titration_rate=np.float64(1.0)
-            )
+            AqueousReactant(name=f"a{i}", log_moles=np.float64(0.0), titration_rate=np.float64(1.0))
             for i in range(reactant_sizes[1])
         ]
         gas = [
-            GasReactant(
-                name=f"g{i}", log_moles=np.float64(0.0), titration_rate=np.float64(1.0)
-            )
+            GasReactant(name=f"g{i}", log_moles=np.float64(0.0), titration_rate=np.float64(1.0))
             for i in range(reactant_sizes[2])
         ]
         element = [
-            ElementReactant(
-                name=f"e{i}", log_moles=np.float64(0.0), titration_rate=np.float64(1.0)
-            )
+            ElementReactant(name=f"e{i}", log_moles=np.float64(0.0), titration_rate=np.float64(1.0))
             for i in range(reactant_sizes[3])
         ]
         special = [
@@ -62,9 +54,7 @@ class TestVariableSpace(TestCase):
             for i in range(reactant_sizes[4])
         ]
         fixed_gas = [
-            FixedGasReactant(
-                name=f"fg{i}", log_moles=np.float64(0.0), log_fugacity=np.float64(0.0)
-            )
+            FixedGasReactant(name=f"fg{i}", log_moles=np.float64(0.0), log_fugacity=np.float64(0.0))
             for i in range(reactant_sizes[5])
         ]
         solid_solution = [
@@ -72,9 +62,7 @@ class TestVariableSpace(TestCase):
                 name=f"ss{i}",
                 log_moles=np.float64(0.0),
                 titration_rate=np.float64(1.0),
-                end_members=[
-                    SolidSolutionReactantEndMembers(name="em", fraction=np.float64(1.0))
-                ],
+                end_members=[SolidSolutionReactantEndMembers(name="em", fraction=np.float64(1.0))],
             )
             for i in range(reactant_sizes[6])
         ]

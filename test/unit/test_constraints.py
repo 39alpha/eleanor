@@ -43,9 +43,7 @@ class EchoConstraint(AbstractConstraint):
     Test helper that fixes one dependent parameter to a chosen value.
     """
 
-    def __init__(
-        self, independent: Parameter, dependent: Parameter, value: np.float64
-    ) -> None:
+    def __init__(self, independent: Parameter, dependent: Parameter, value: np.float64) -> None:
         self._independent = independent
         self._dependent = dependent
         self._value = value
@@ -151,9 +149,7 @@ class TestConstraints(TestCase):
         """
         dummy_order = cast(Order, object())
         dummy_constraint_config = ConstraintConfig(kind="unknown", args={})
-        self.assertIsNone(
-            AbstractConstraint.from_order(dummy_order, dummy_constraint_config)
-        )
+        self.assertIsNone(AbstractConstraint.from_order(dummy_order, dummy_constraint_config))
 
     def test_abstract_constraint_placeholder_methods_are_executable(self) -> None:
         """
@@ -170,9 +166,7 @@ class TestConstraints(TestCase):
             raise AssertionError("property getter unexpectedly missing")
         self.assertIsNone(independent_getter(abstract_constraint))
         self.assertIsNone(dependent_getter(abstract_constraint))
-        self.assertIsNone(
-            AbstractConstraint.apply(abstract_constraint, registry, valuation)
-        )
+        self.assertIsNone(AbstractConstraint.apply(abstract_constraint, registry, valuation))
 
     def test_transform_forward_and_inverse(self) -> None:
         """
@@ -239,9 +233,7 @@ class TestConstraints(TestCase):
             LinearConstraintTerm(p2, np.float64(1.0), Transform.IDENTITY),
         ]
 
-        linear_constraint = LinearConstraint(
-            terms, constant=ValueParameter(np.float64(3.0))
-        )
+        linear_constraint = LinearConstraint(terms, constant=ValueParameter(np.float64(3.0)))
         self.assertEqual(linear_constraint.dependent_parameters, [])
 
     def test_linear_constraint_apply_solves_for_dependent(self) -> None:
@@ -365,9 +357,7 @@ class TestConstraints(TestCase):
         order = cast(Order, cast(object, FakeOrder()))
         self.assertIs(resolve_parameter(order, "temperature"), temp)
         self.assertIs(resolve_parameter(order, "elements[key=Na]"), na)
-        self.assertIs(
-            resolve_parameter(order, "reactants[name=calcite].amount"), amount
-        )
+        self.assertIs(resolve_parameter(order, "reactants[name=calcite].amount"), amount)
         with self.assertRaises(EleanorError):
             _ = resolve_parameter(order, "nonexistent")
         with self.assertRaises(EleanorError):
@@ -452,18 +442,14 @@ class TestConstraints(TestCase):
             "terms": [{"variable": "temperature", "coefficient": True}],
         }
         with self.assertRaises(EleanorError):
-            _ = LinearConstraint.from_order(
-                _as_order(order), ConstraintConfig(kind="linear", args=raw_bool)
-            )
+            _ = LinearConstraint.from_order(_as_order(order), ConstraintConfig(kind="linear", args=raw_bool))
 
         raw_list: dict[str, object] = {
             "type": "linear",
             "terms": [{"variable": "temperature", "coefficient": [1, 2]}],
         }
         with self.assertRaises(EleanorError):
-            _ = LinearConstraint.from_order(
-                _as_order(order), ConstraintConfig(kind="linear", args=raw_list)
-            )
+            _ = LinearConstraint.from_order(_as_order(order), ConstraintConfig(kind="linear", args=raw_list))
 
     def test_from_order_invalid_transform_raises(self) -> None:
         """
@@ -676,9 +662,7 @@ class TestConstraints(TestCase):
         self.assertEqual(updated.value, 12.0)
 
         with self.assertRaises(Exception):
-            point_builder[ValueParameter(np.float64(1.0))] = ValueParameter(
-                np.float64(1.0)
-            )
+            point_builder[ValueParameter(np.float64(1.0))] = ValueParameter(np.float64(1.0))
 
         with self.assertRaises(Exception):
             point_builder[temp] = temp.fix(np.float64(50.0))
@@ -858,9 +842,7 @@ class TestConstraints(TestCase):
             pressure=pressure,
             elements={"Na": na, "Cl": cl},
             species={"Quartz(aq)": species},
-            suppressions=[
-                Suppression(name=None, type="mineral", exceptions=["Quartz"])
-            ],
+            suppressions=[Suppression(name=None, type="mineral", exceptions=["Quartz"])],
             reactants=reactants,
         )
         point_builder = PointBuilder(_as_order(order))
@@ -949,9 +931,7 @@ class TestConstraints(TestCase):
         by_name = {r.name: r for r in point.special_reactants}
         self.assertAlmostEqual(by_name["SiO2"].titration_rate, 6.0)
         self.assertAlmostEqual(by_name["Na2O"].titration_rate, 1.5)
-        expected_log_moles = cast(np.float64, np.log10(np.float64(0.5))) + (
-            -np.float64(1.0)
-        )
+        expected_log_moles = cast(np.float64, np.log10(np.float64(0.5))) + (-np.float64(1.0))
         self.assertAlmostEqual(by_name["SiO2"].log_moles, expected_log_moles)
         self.assertAlmostEqual(by_name["Na2O"].log_moles, expected_log_moles)
 
@@ -1052,9 +1032,7 @@ class TestConstraints(TestCase):
         )
         point = PointBuilder(_as_order(order)).generate_vs()
         by_name = {r.name: r for r in point.special_reactants}
-        expected_log_moles = cast(np.float64, np.log10(np.float64(0.5))) + (
-            -np.float64(1.0)
-        )
+        expected_log_moles = cast(np.float64, np.log10(np.float64(0.5))) + (-np.float64(1.0))
         self.assertAlmostEqual(by_name["SiO2"].log_moles, expected_log_moles)
         self.assertAlmostEqual(by_name["Na2O"].log_moles, expected_log_moles)
         self.assertAlmostEqual(by_name["SiO2"].titration_rate, 6.0)
@@ -1160,9 +1138,7 @@ class TestConstraints(TestCase):
         and falls back to the hex-id sentinel when the name is empty.
         """
         p = ValueParameter(np.float64(1.0))
-        named_term = LinearConstraintTerm(
-            p, np.float64(1.0), Transform.IDENTITY, name="elements[key=Na]"
-        )
+        named_term = LinearConstraintTerm(p, np.float64(1.0), Transform.IDENTITY, name="elements[key=Na]")
         self.assertEqual(named_term.label(), "elements[key=Na]")
 
         unnamed_term = LinearConstraintTerm(p, np.float64(1.0), Transform.IDENTITY)
@@ -1182,9 +1158,7 @@ class TestConstraints(TestCase):
         registry = ParameterRegistry()
         registry.add_parameters([p, range_constant])
         valuation = registry.valuation()
-        with self.assertRaisesRegex(
-            EleanorError, "constant parameter is not resolved"
-        ):
+        with self.assertRaisesRegex(EleanorError, "constant parameter is not resolved"):
             _ = lc.apply(registry, valuation)
 
     def test_linear_constraint_apply_all_fixed_not_resolved_message(self) -> None:
@@ -1194,17 +1168,13 @@ class TestConstraints(TestCase):
         """
         p = ValueParameter(np.float64(1.0))
         constant = ValueParameter(np.float64(1.0))
-        term = LinearConstraintTerm(
-            p, np.float64(1.0), Transform.IDENTITY, name="pressure"
-        )
+        term = LinearConstraintTerm(p, np.float64(1.0), Transform.IDENTITY, name="pressure")
         lc = LinearConstraint([term], constant=constant)
         registry = ParameterRegistry()
         registry.add_parameters([p, constant])
         valuation = registry.valuation()
         valuation[registry.id(p)] = RangeParameter(np.float64(0.0), np.float64(2.0))
-        with self.assertRaisesRegex(
-            EleanorError, "parameter 'pressure' is not resolved"
-        ):
+        with self.assertRaisesRegex(EleanorError, "parameter 'pressure' is not resolved"):
             _ = lc.apply(registry, valuation)
 
     def test_linear_constraint_apply_independent_not_resolved_message(self) -> None:
@@ -1255,9 +1225,7 @@ class TestConstraints(TestCase):
                 {"variable": "elements[key=Na]", "coefficient": -1.0},
             ],
         }
-        lc = LinearConstraint.from_order(
-            _as_order(order), ConstraintConfig(kind="linear", args=raw)
-        )
+        lc = LinearConstraint.from_order(_as_order(order), ConstraintConfig(kind="linear", args=raw))
         self.assertIsInstance(lc, LinearConstraint)
 
         registry = ParameterRegistry()

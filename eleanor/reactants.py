@@ -58,9 +58,6 @@ class AbstractReactant(ABC):
             ReactantType.COMBINED: CombinedReactant.from_dict,
         }
 
-        if name is None:
-            name = require_str(raw.get("name"), "reactant.name")
-
         reactant_type = ReactantType(require_str(raw.get("type"), "reactant.type"))
 
         reactant = factories.get(reactant_type)

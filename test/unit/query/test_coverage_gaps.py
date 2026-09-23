@@ -192,20 +192,14 @@ class TestErrorsCoverage(TestCase):
         self.assertIn("invalid row_scope", str(InvalidRowScopeError("x", "why")))
         self.assertIn("invalid path", str(InvalidPathError("x", "y", dict)))
         self.assertIn("invalid filter", str(InvalidFilterError("x", "y", "z")))
-        self.assertIn(
-            "invalid filter value", str(InvalidFilterValueError("x", "p", "v", int))
-        )
+        self.assertIn("invalid filter value", str(InvalidFilterValueError("x", "p", "v", int)))
         self.assertIn("unknown scope alias", str(UnknownScopeError("a", ["b"])))
         self.assertIn("alias collision", str(AliasCollisionError("a", ["x", "y"])))
-        self.assertIn(
-            "column name collision", str(ColumnNameCollisionError("c", ["x", "y"]))
-        )
+        self.assertIn("column name collision", str(ColumnNameCollisionError("c", ["x", "y"])))
         self.assertIn("splat on", str(SplatUnknownFieldError("a", "f", ["g"])))
         self.assertIn("requires missing alias", str(PresetScopeMissingError("p", "x")))
         self.assertIn("unknown preset", str(UnknownPresetError("p")))
-        self.assertIn(
-            "invalid meta-accessor", str(InvalidMetaAccessorError("a.@b", "b", "because"))
-        )
+        self.assertIn("invalid meta-accessor", str(InvalidMetaAccessorError("a.@b", "b", "because")))
         self.assertIn("@b", str(InvalidMetaAccessorError("a.@b", "b", "because")))
         self.assertIn("path miss", str(PathMissError(1, "c", "s")))
         self.assertIn("multiple matches", str(MultipleMatchError("p", "k=1", 2)))
@@ -221,12 +215,8 @@ class TestReflectionCoverage(TestCase):
         Ensure generic type fallback classification and non-dataclass reflection behavior.
         """
         self.assertEqual(reflection_module.dataclass_fields(dict), [])
-        self.assertEqual(
-            reflection_module.unwrap_optional(int | str), (int | str, False)
-        )
-        self.assertEqual(
-            reflection_module.unwrap_optional(type(None) | int), (int, True)
-        )
+        self.assertEqual(reflection_module.unwrap_optional(int | str), (int | str, False))
+        self.assertEqual(reflection_module.unwrap_optional(type(None) | int), (int, True))
         # Multi-arm unions (3+) and 2-arm unions without ``None`` both fall
         # through to ``(t, False)`` per ``unwrap_optional``'s contract.
         self.assertEqual(
@@ -314,15 +304,9 @@ class TestScopeCoverage(TestCase):
         """
         Ensure shortname enumeration handles depth cutoff and non-dataclass continuation.
         """
-        self.assertEqual(
-            scope_module.enumerate_shortname_paths(SingleRoot, "point", max_depth=0), []
-        )
-        self.assertTrue(
-            len(scope_module.enumerate_shortname_paths(AxisRoot, "axis")) >= 1
-        )
-        self.assertEqual(
-            len(scope_module.enumerate_shortname_paths(NumberRoot, "number")), 1
-        )
+        self.assertEqual(scope_module.enumerate_shortname_paths(SingleRoot, "point", max_depth=0), [])
+        self.assertTrue(len(scope_module.enumerate_shortname_paths(AxisRoot, "axis")) >= 1)
+        self.assertEqual(len(scope_module.enumerate_shortname_paths(NumberRoot, "number")), 1)
 
     def test_resolve_row_scope_additional_terminal_cases(self) -> None:
         """
@@ -333,18 +317,12 @@ class TestScopeCoverage(TestCase):
         resolved, table = scope_module.resolve_row_scope(SingleRoot, "point")
         self.assertEqual(len(resolved.segments), 1)
         self.assertIn("point", table)
-        self.assertEqual(
-            len(scope_module.resolve_row_scope(NumberRoot, "numbers[*]")[0].segments), 1
-        )
+        self.assertEqual(len(scope_module.resolve_row_scope(NumberRoot, "numbers[*]")[0].segments), 1)
 
         fake_steps: list[StepInfo] = []
         nonempty_path = Path(segments=(Segment(name="x", filters=tuple()),))
-        self.assertFalse(
-            scope_module._valid_row_scope_terminal(nonempty_path, fake_steps)
-        )
-        self.assertTrue(
-            scope_module._valid_row_scope_terminal(Path(segments=tuple()), [])
-        )
+        self.assertFalse(scope_module._valid_row_scope_terminal(nonempty_path, fake_steps))
+        self.assertTrue(scope_module._valid_row_scope_terminal(Path(segments=tuple()), []))
 
     def test_validate_short_forms_for_root_rejects_colliding_default_alias(
         self,
@@ -437,9 +415,7 @@ class TestColumnsCoverage(TestCase):
             )
         with self.assertRaises(InvalidFilterValueError):
             columns_module.validate_column_paths(
-                columns_module.desugar_columns(
-                    ["point.minerals[amount=abc].amount"], table
-                ),
+                columns_module.desugar_columns(["point.minerals[amount=abc].amount"], table),
                 table,
                 allow_container_terminals=False,
             )
@@ -451,9 +427,7 @@ class TestColumnsCoverage(TestCase):
         number_table = scope_module.resolve_row_scope(NumberRoot, "numbers[*]")[1]
         specs = columns_module.desugar_columns(["number.value"], number_table)
         with self.assertRaises(InvalidPathError):
-            columns_module.validate_column_paths(
-                specs, number_table, allow_container_terminals=False
-            )
+            columns_module.validate_column_paths(specs, number_table, allow_container_terminals=False)
 
         empty_spec = ColumnSpec(
             name="empty",
@@ -464,9 +438,7 @@ class TestColumnsCoverage(TestCase):
             source=BarePath(),
         )
         with self.assertRaises(InvalidPathError):
-            columns_module.validate_column_paths(
-                [empty_spec], self._point_scope(), allow_container_terminals=False
-            )
+            columns_module.validate_column_paths([empty_spec], self._point_scope(), allow_container_terminals=False)
 
     def test_desugar_additional_error_branches(self) -> None:
         """
@@ -495,15 +467,11 @@ class TestColumnsCoverage(TestCase):
                 table,
             )
         with self.assertRaises(ParseError):
-            columns_module.desugar_columns(
-                [{"splat": "point", "on_missing": "nope"}], table
-            )
+            columns_module.desugar_columns([{"splat": "point", "on_missing": "nope"}], table)
         with self.assertRaises(ParseError):
             columns_module.desugar_columns([{"splat": "point", "include": 3}], table)
         with self.assertRaises(ParseError):
-            columns_module.desugar_columns(
-                [{"splat": "point", "include": ["index", 3]}], table
-            )
+            columns_module.desugar_columns([{"splat": "point", "include": ["index", 3]}], table)
         with self.assertRaises(ParseError):
             columns_module.desugar_columns([{"splat": "point", "prefix": 3}], table)
 
@@ -511,9 +479,7 @@ class TestColumnsCoverage(TestCase):
         with self.assertRaises(ParseError):
             columns_module.desugar_columns([{"splat": "number"}], number_table)
 
-        specs = columns_module.desugar_columns(
-            [{"splat": "point", "exclude": ["index"]}], table
-        )
+        specs = columns_module.desugar_columns([{"splat": "point", "exclude": ["index"]}], table)
         self.assertTrue(all(spec.name != "index" for spec in specs))
 
     def test_preset_entry_requires_string_name(self) -> None:
@@ -563,13 +529,9 @@ class TestCompilerCoverage(TestCase):
         evaluates true under Python's ``bool``-is-``int`` quirk.
         """
         with self.assertRaises(ParseError):
-            compile_query(
-                Sample, {"row_scope": "order", "columns": [], "version": True}
-            )
+            compile_query(Sample, {"row_scope": "order", "columns": [], "version": True})
         with self.assertRaises(ParseError):
-            compile_query(
-                Sample, {"row_scope": "order", "columns": [], "version": False}
-            )
+            compile_query(Sample, {"row_scope": "order", "columns": [], "version": False})
 
     def test_compile_column_private_empty_and_single_segment_paths(self) -> None:
         """
@@ -585,11 +547,7 @@ class TestCompilerCoverage(TestCase):
             source=BarePath(),
         )
         self.assertEqual(
-            len(
-                compiler_module._compile_column(
-                    empty_spec, table
-                ).compiled_path.segments
-            ),
+            len(compiler_module._compile_column(empty_spec, table).compiled_path.segments),
             0,
         )
 
@@ -602,11 +560,7 @@ class TestCompilerCoverage(TestCase):
             source=BarePath(),
         )
         self.assertEqual(
-            len(
-                compiler_module._compile_column(
-                    single_spec, table
-                ).compiled_path.segments
-            ),
+            len(compiler_module._compile_column(single_spec, table).compiled_path.segments),
             1,
         )
 
@@ -666,48 +620,34 @@ class TestCompilerCoverage(TestCase):
         ``test_compile_additional_filter_branches`` exercises the same
         branches via ``compile_query``.
         """
-        match_filter = MatchFilter(
-            (Predicate(field="x", value="1", value_quoted=False),)
-        )
+        match_filter = MatchFilter((Predicate(field="x", value="1", value_quoted=False),))
         leaf = LeafField(name="v", declared_type=int, optional=False)
         with self.assertRaises(InvalidFilterError):
             reflection_module.resolve_match_filter(leaf, match_filter, "p", "x")
 
-        bad_list = ListField(
-            name="n", element_type=int, element_kind=leaf, optional=False
-        )
+        bad_list = ListField(name="n", element_type=int, element_kind=leaf, optional=False)
         with self.assertRaises(InvalidFilterError):
             reflection_module.resolve_match_filter(bad_list, match_filter, "p", "n")
 
         good_list = ListField(
             name="points",
             element_type=Point,
-            element_kind=DataclassField(
-                name="point", dataclass_type=Point, optional=False
-            ),
+            element_kind=DataclassField(name="point", dataclass_type=Point, optional=False),
             optional=False,
         )
-        missing_filter = MatchFilter(
-            (Predicate(field="missing", value="1", value_quoted=False),)
-        )
+        missing_filter = MatchFilter((Predicate(field="missing", value="1", value_quoted=False),))
         with self.assertRaises(InvalidFilterError):
-            reflection_module.resolve_match_filter(
-                good_list, missing_filter, "p", "points"
-            )
+            reflection_module.resolve_match_filter(good_list, missing_filter, "p", "points")
 
         good_dict = DictField(
             name="points",
             key_type=str,
             value_type=Point,
-            value_kind=DataclassField(
-                name="point", dataclass_type=Point, optional=False
-            ),
+            value_kind=DataclassField(name="point", dataclass_type=Point, optional=False),
             optional=False,
         )
         with self.assertRaises(InvalidFilterError):
-            reflection_module.resolve_match_filter(
-                good_dict, missing_filter, "p", "points"
-            )
+            reflection_module.resolve_match_filter(good_dict, missing_filter, "p", "points")
 
     def test_path_predicate_text_handles_quoted_values(self) -> None:
         """
@@ -733,23 +673,15 @@ class TestEvaluatorCoverage(TestCase):
         ``SingleRoot.point``). The walker reaches the leaf binding and
         ``evaluate`` yields a single row.
         """
-        compiled = compile_query(
-            SingleRoot, {"row_scope": "point", "columns": ["self.index"]}
-        )
-        rows = list(
-            evaluate(
-                compiled, SingleRoot(point=Point(index=42, chemistry=None, minerals=[]))
-            )
-        )
+        compiled = compile_query(SingleRoot, {"row_scope": "point", "columns": ["self.index"]})
+        rows = list(evaluate(compiled, SingleRoot(point=Point(index=42, chemistry=None, minerals=[]))))
         self.assertEqual(rows, [{"index": 42}])
 
     def test_walk_row_scope_none_and_empty_values_paths(self) -> None:
         """
         Ensure row-scope walker handles None nodes and empty filtered values.
         """
-        compiled = compile_query(
-            Sample, {"row_scope": "points[*]", "columns": ["point.index"]}
-        )
+        compiled = compile_query(Sample, {"row_scope": "points[*]", "columns": ["point.index"]})
         aliases = evaluator_module._aliases_by_path(compiled)
         self.assertEqual(
             list(
@@ -787,9 +719,7 @@ class TestEvaluatorCoverage(TestCase):
         """
         Ensure column-path and segment helper edge branches are covered.
         """
-        compiled = compile_query(
-            Sample, {"row_scope": "order", "columns": ["order.point.index"]}
-        )
+        compiled = compile_query(Sample, {"row_scope": "order", "columns": ["order.point.index"]})
         spec = compiled.compiled_columns[0].spec
 
         empty_column = CompiledColumn(
@@ -804,11 +734,7 @@ class TestEvaluatorCoverage(TestCase):
             compiled_path=CompiledPath(path=Path(segments=tuple()), segments=tuple()),
             terminal_kind=None,
         )
-        self.assertTrue(
-            evaluator_module._evaluate_column_path(
-                empty_column, {"order": make_sample()}, {}
-            )[1]
-        )
+        self.assertTrue(evaluator_module._evaluate_column_path(empty_column, {"order": make_sample()}, {})[1])
 
         missing_alias_column = CompiledColumn(
             spec=spec,
@@ -829,9 +755,7 @@ class TestEvaluatorCoverage(TestCase):
         # the column-path tests above. Here we cover the
         # ``value is None`` early return for the filter case.
         self.assertEqual(
-            evaluator_module._segment_values(
-                None, (CompiledIterFilter(),), path_text="x"
-            ),
+            evaluator_module._segment_values(None, (CompiledIterFilter(),), path_text="x"),
             [],
         )
 
@@ -843,9 +767,7 @@ class TestEvaluatorCoverage(TestCase):
             },
             allow_container_terminals=True,
         ).compiled_columns[0]
-        value, missing, _ = evaluator_module._evaluate_column_path(
-            container_column, {"order": make_sample()}, {}
-        )
+        value, missing, _ = evaluator_module._evaluate_column_path(container_column, {"order": make_sample()}, {})
         self.assertFalse(missing)
         self.assertIsInstance(value, list)
 
@@ -871,17 +793,13 @@ class TestEvaluatorCoverage(TestCase):
             ),
             compiled_path=CompiledPath(
                 path=meta_path,
-                segments=(
-                    compiler_module.CompiledSegment(name="point", filters=tuple()),
-                ),
+                segments=(compiler_module.CompiledSegment(name="point", filters=tuple()),),
             ),
             terminal_kind=None,
         )
         # Anchor alias is in ``binding`` (so the head-lookup branch passes)
         # but absent from ``meta_binding``: defensive miss.
-        value, missing, segment = evaluator_module._evaluate_column_path(
-            meta_column, {"point": object()}, {}
-        )
+        value, missing, segment = evaluator_module._evaluate_column_path(meta_column, {"point": object()}, {})
         self.assertIsNone(value)
         self.assertTrue(missing)
         self.assertEqual(segment, "point")
@@ -893,9 +811,7 @@ class TestEvaluatorCoverage(TestCase):
         for the row-scope walker variant.
         """
         self.assertEqual(
-            evaluator_module._segment_values_with_meta(
-                None, (CompiledIterFilter(),), path_text="x"
-            ),
+            evaluator_module._segment_values_with_meta(None, (CompiledIterFilter(),), path_text="x"),
             [],
         )
 
@@ -917,11 +833,7 @@ class TestEvaluatorCoverage(TestCase):
         # Outer index should match each leaf's containing list (0 for ``a``
         # and ``b``, 1 for ``c``); ``key`` is None throughout (list iter).
         self.assertEqual(
-            [
-                (value, position.index, position.key)
-                for value, position in result
-                if position is not None
-            ],
+            [(value, position.index, position.key) for value, position in result if position is not None],
             [("a", 0, None), ("b", 0, None), ("c", 1, None)],
         )
 
@@ -934,9 +846,7 @@ class TestEvaluatorCoverage(TestCase):
         of the module's stable surface.
         """
         self.assertEqual(
-            evaluator_module._segment_values(
-                [1, 2, 3], (CompiledIterFilter(),), path_text="x"
-            ),
+            evaluator_module._segment_values([1, 2, 3], (CompiledIterFilter(),), path_text="x"),
             [1, 2, 3],
         )
 
@@ -949,34 +859,20 @@ class TestEvaluatorCoverage(TestCase):
         match-only row_scope segments such as ``points[index=1]``.
         """
         match_hit = CompiledMatchFilter(
-            predicates=(
-                CompiledPredicate(
-                    field="index", value="1", value_quoted=False, coerced_value=1
-                ),
-            ),
+            predicates=(CompiledPredicate(field="index", value="1", value_quoted=False, coerced_value=1),),
         )
         points = [
             Point(index=1, chemistry=None, minerals=[]),
             Point(index=2, chemistry=None, minerals=[]),
         ]
-        result = evaluator_module._segment_values_with_meta(
-            points, (match_hit,), path_text="points[index=1]"
-        )
-        self.assertEqual(
-            [(value, position) for value, position in result], [(points[0], None)]
-        )
+        result = evaluator_module._segment_values_with_meta(points, (match_hit,), path_text="points[index=1]")
+        self.assertEqual([(value, position) for value, position in result], [(points[0], None)])
 
         match_miss = CompiledMatchFilter(
-            predicates=(
-                CompiledPredicate(
-                    field="index", value="99", value_quoted=False, coerced_value=99
-                ),
-            ),
+            predicates=(CompiledPredicate(field="index", value="99", value_quoted=False, coerced_value=99),),
         )
         self.assertEqual(
-            evaluator_module._segment_values_with_meta(
-                points, (match_miss,), path_text="points[index=99]"
-            ),
+            evaluator_module._segment_values_with_meta(points, (match_miss,), path_text="points[index=99]"),
             [],
         )
 
@@ -989,11 +885,7 @@ class TestEvaluatorCoverage(TestCase):
         self.assertEqual(evaluator_module._iter_filter_values(7), [])
 
         filter_expr = CompiledMatchFilter(
-            predicates=(
-                CompiledPredicate(
-                    field="x", value='a"b', value_quoted=True, coerced_value=1
-                ),
-            ),
+            predicates=(CompiledPredicate(field="x", value='a"b', value_quoted=True, coerced_value=1),),
         )
         self.assertIs(
             evaluator_module._match_filter_value(7, filter_expr, "p"),
@@ -1003,9 +895,7 @@ class TestEvaluatorCoverage(TestCase):
             evaluator_module._match_filter_value([object()], filter_expr, "p"),
             evaluator_module._MISS,
         )
-        self.assertEqual(
-            evaluator_module._compiled_match_text(filter_expr), 'x="a\\"b"'
-        )
+        self.assertEqual(evaluator_module._compiled_match_text(filter_expr), 'x="a\\"b"')
 
         self.assertEqual(
             evaluator_module._segment_values([object()], (filter_expr,), path_text="p"),
@@ -1019,41 +909,27 @@ class TestEvaluatorCoverage(TestCase):
             evaluator_module._dict_item_matches(
                 "k",
                 Item(),
-                (
-                    CompiledPredicate(
-                        field="key", value="k", value_quoted=False, coerced_value="k"
-                    ),
-                ),
+                (CompiledPredicate(field="key", value="k", value_quoted=False, coerced_value="k"),),
             )
         )
         self.assertFalse(
             evaluator_module._dict_item_matches(
                 "k",
                 object(),
-                (
-                    CompiledPredicate(
-                        field="value", value="1", value_quoted=False, coerced_value=1
-                    ),
-                ),
+                (CompiledPredicate(field="value", value="1", value_quoted=False, coerced_value=1),),
             )
         )
         self.assertFalse(
             evaluator_module._list_item_matches(
                 object(),
-                (
-                    CompiledPredicate(
-                        field="value", value="1", value_quoted=False, coerced_value=1
-                    ),
-                ),
+                (CompiledPredicate(field="value", value="1", value_quoted=False, coerced_value=1),),
             )
         )
 
         self.assertIsNone(evaluator_module._get_attr(None, "x"))
         self.assertIsNone(evaluator_module._get_attr(object(), "x"))
 
-        column = compile_query(
-            Sample, {"row_scope": "order", "columns": ["order.point.index"]}
-        ).compiled_columns[0]
+        column = compile_query(Sample, {"row_scope": "order", "columns": ["order.point.index"]}).compiled_columns[0]
         self.assertIsNone(evaluator_module._missing_value("blank", column, 0, "x"))
         self.assertIsNone(evaluator_module._missing_value("null", column, 0, "x"))
 

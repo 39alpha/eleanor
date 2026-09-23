@@ -38,13 +38,9 @@ class TestBulkLoadCli(TestCase):
         """
         cfg = self._config()
         with (
-            mock.patch(
-                "eleanor.output.postgres.cli.config_from_args", return_value=cfg
-            ) as config_from_args,
+            mock.patch("eleanor.output.postgres.cli.config_from_args", return_value=cfg) as config_from_args,
             mock.patch("eleanor.output.postgres.cli.drop_bulk_load_objects") as drop_bulk_load_objects,
-            mock.patch(
-                "eleanor.output.postgres.cli.recreate_bulk_load_objects"
-            ) as recreate_bulk_load_objects,
+            mock.patch("eleanor.output.postgres.cli.recreate_bulk_load_objects") as recreate_bulk_load_objects,
         ):
             result = self.runner.invoke(
                 main,
@@ -72,13 +68,9 @@ class TestBulkLoadCli(TestCase):
         """Ensure 'eleanor postgres bulkload recreate' calls the recreate repository helper."""
         cfg = self._config()
         with (
-            mock.patch(
-                "eleanor.output.postgres.cli.config_from_args", return_value=cfg
-            ),
+            mock.patch("eleanor.output.postgres.cli.config_from_args", return_value=cfg),
             mock.patch("eleanor.output.postgres.cli.drop_bulk_load_objects") as drop_bulk_load_objects,
-            mock.patch(
-                "eleanor.output.postgres.cli.recreate_bulk_load_objects"
-            ) as recreate_bulk_load_objects,
+            mock.patch("eleanor.output.postgres.cli.recreate_bulk_load_objects") as recreate_bulk_load_objects,
         ):
             result = self.runner.invoke(
                 main,
@@ -125,9 +117,17 @@ class TestBulkLoadCli(TestCase):
             result = self.runner.invoke(
                 main,
                 [
-                    "postgres", "bulkload", "drop",
-                    "--no-indexes", "--no-fks", "--no-checks",
-                    "-y", "-c", "/fake.yaml", "-d", "demo_db",
+                    "postgres",
+                    "bulkload",
+                    "drop",
+                    "--no-indexes",
+                    "--no-fks",
+                    "--no-checks",
+                    "-y",
+                    "-c",
+                    "/fake.yaml",
+                    "-d",
+                    "demo_db",
                 ],
             )
 
@@ -163,17 +163,11 @@ class TestBulkLoadCli(TestCase):
         """
         bare = Config.from_dict({"output": {"kind": "postgres"}})
         with (
-            mock.patch(
-                "eleanor.output.postgres.cli.config_from_args", return_value=bare
-            ),
+            mock.patch("eleanor.output.postgres.cli.config_from_args", return_value=bare),
             mock.patch("eleanor.output.postgres.cli.drop_bulk_load_objects") as drop_bulk_load_objects,
-            mock.patch(
-                "eleanor.output.postgres.cli.recreate_bulk_load_objects"
-            ) as recreate_bulk_load_objects,
+            mock.patch("eleanor.output.postgres.cli.recreate_bulk_load_objects") as recreate_bulk_load_objects,
         ):
-            result = self.runner.invoke(
-                main, ["postgres", "bulkload", "drop", "-y", "-c", "/fake.yaml"]
-            )
+            result = self.runner.invoke(main, ["postgres", "bulkload", "drop", "-y", "-c", "/fake.yaml"])
 
         self.assertEqual(result.exit_code, 1)
         self.assertIn("no database provided", result.output)

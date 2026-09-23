@@ -170,9 +170,7 @@ class TestColumns(TestCase):
         specs = desugar_columns([{"preset": "outer"}], table, presets=bundle)
         sources_by_name = {spec.name: spec.source for spec in specs}
         self.assertEqual(sources_by_name["inner_idx"], Preset(name="inner"))
-        self.assertEqual(
-            sources_by_name["outer_index"], Splat(alias="point", prefix="outer_")
-        )
+        self.assertEqual(sources_by_name["outer_index"], Splat(alias="point", prefix="outer_"))
         self.assertEqual(sources_by_name["outer_direct"], Preset(name="outer"))
 
     def test_desugar_columns_splat_rejects_unknown_field(self) -> None:

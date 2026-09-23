@@ -69,9 +69,7 @@ class TestSchemaDdlEmission(TestCase):
             self.assertIn("CREATE TABLE IF NOT EXISTS", sql)
             self.assertIn(table.name, sql)
             for col in table.columns:
-                self.assertIn(
-                    col.name, sql, f"column {col.name} missing in {table.name} DDL"
-                )
+                self.assertIn(col.name, sql, f"column {col.name} missing in {table.name} DDL")
 
     def test_orders_ddl_includes_primary_key_and_indexes(self) -> None:
         """
@@ -169,9 +167,7 @@ class TestSchemaDdlEmission(TestCase):
         yet had the constraint added.
         """
         self.assertEqual(
-            schema.to_drop_constraint_sql(
-                "variable_space", "variable_space_order_id_fkey"
-            ),
+            schema.to_drop_constraint_sql("variable_space", "variable_space_order_id_fkey"),
             'ALTER TABLE "variable_space" DROP CONSTRAINT IF EXISTS "variable_space_order_id_fkey"',
         )
 
@@ -223,9 +219,7 @@ class TestSchemaDdlEmission(TestCase):
         """
         ddl = schema.to_add_check_sql(
             schema.SUPPRESSIONS,
-            schema.CheckDef(
-                "suppressions_well_defined", "name is not null or type is not null"
-            ),
+            schema.CheckDef("suppressions_well_defined", "name is not null or type is not null"),
         )
         self.assertIn('ALTER TABLE "suppressions"', ddl)
         self.assertIn('ADD CONSTRAINT "suppressions_well_defined"', ddl)
@@ -652,9 +646,7 @@ class TestRepositoryErrorPaths(TestCase):
             "connect",
             return_value=fake_conn,
         ):
-            with self.assertRaisesRegex(
-                EleanorError, "order INSERT did not return an id"
-            ):
+            with self.assertRaisesRegex(EleanorError, "order INSERT did not return an id"):
                 _ = repositories.insert_order(cfg, order)
 
     def test_get_order_returns_none_when_no_row_matches(self) -> None:
@@ -828,11 +820,7 @@ class TestConverterErrorAndReactantPaths(TestCase):
             core_vs.SpecialReactantComposition(element="Fe", count=1),
             special_reactant_id=11,
         )
-        expected = {
-            c.name
-            for c in schema.SPECIAL_REACTANT_COMPOSITIONS.columns
-            if not c.identity
-        }
+        expected = {c.name for c in schema.SPECIAL_REACTANT_COMPOSITIONS.columns if not c.identity}
         self.assertEqual(set(row.keys()), expected)
         self.assertEqual(row["special_reactant_id"], 11)
 
@@ -841,14 +829,10 @@ class TestConverterErrorAndReactantPaths(TestCase):
         import eleanor.variable_space as core_vs
 
         row = converters.fixed_gas_reactant_to_row(
-            core_vs.FixedGasReactant(
-                name="O2(g)", log_moles=-np.float64(2.0), log_fugacity=-np.float64(2.0)
-            ),
+            core_vs.FixedGasReactant(name="O2(g)", log_moles=-np.float64(2.0), log_fugacity=-np.float64(2.0)),
             variable_space_id=7,
         )
-        expected = {
-            c.name for c in schema.FIXED_GAS_REACTANTS.columns if not c.identity
-        }
+        expected = {c.name for c in schema.FIXED_GAS_REACTANTS.columns if not c.identity}
         self.assertEqual(set(row.keys()), expected)
         self.assertIn("log_fugacity", row)
 
@@ -868,17 +852,13 @@ class TestConverterErrorAndReactantPaths(TestCase):
             ),
             equilibrium_space_id=11,
         )
-        expected = {
-            c.name for c in schema.EQUILIBRIUM_REACTANTS.columns if not c.identity
-        }
+        expected = {c.name for c in schema.EQUILIBRIUM_REACTANTS.columns if not c.identity}
         self.assertEqual(set(row.keys()), expected)
         self.assertEqual(row["equilibrium_space_id"], 11)
 
     def test_normalize_dict_recurses_through_lists_and_enums(self) -> None:
         payload = {
-            "reactants": [
-                {"type": ReactantType.MINERAL, "log_moles": np.float64(-1.0)}
-            ],
+            "reactants": [{"type": ReactantType.MINERAL, "log_moles": np.float64(-1.0)}],
             "nested": {"v": [np.int64(2), {"x": np.float64(0.5)}]},
         }
         out = converters.normalize_dict(payload, "test")
@@ -1052,16 +1032,12 @@ class TestBulkLoadLifecycle(TestCase):
 
         def fake_execute(stmt: object, params: object = None) -> object:
             text = stmt if isinstance(stmt, str) else str(stmt)
-            if "information_schema.table_constraints" in text and isinstance(
-                params, tuple
-            ):
+            if "information_schema.table_constraints" in text and isinstance(params, tuple):
                 fk_calls_seen.append(params[1])  # the table name
             return cursor
 
         cursor.execute.side_effect = fake_execute
-        cursor.fetchall.side_effect = (
-            [(f"{table.name}_fk_synth",)] for table in schema.TABLES
-        )
+        cursor.fetchall.side_effect = ([(f"{table.name}_fk_synth",)] for table in schema.TABLES)
         conn, _ = self._fake_conn_with_cursor(cursor)
 
         schema.drop_bulk_load_objects(conn)
@@ -1078,18 +1054,12 @@ class TestBulkLoadLifecycle(TestCase):
         # matter for correctness; what matters is the substrings.
         for table in schema.TABLES:
             self.assertTrue(
-                any(
-                    f'DROP CONSTRAINT IF EXISTS "{table.name}_fk_synth"' in s
-                    for s in statements
-                ),
+                any(f'DROP CONSTRAINT IF EXISTS "{table.name}_fk_synth"' in s for s in statements),
                 f"expected synthesized FK drop for table {table.name!r}",
             )
             for check in table.checks:
                 self.assertTrue(
-                    any(
-                        f'DROP CONSTRAINT IF EXISTS "{check.name}"' in s
-                        for s in statements
-                    ),
+                    any(f'DROP CONSTRAINT IF EXISTS "{check.name}"' in s for s in statements),
                     f"expected CHECK drop for {check.name!r}",
                 )
             for idx in table.indexes:
@@ -1132,27 +1102,18 @@ class TestBulkLoadLifecycle(TestCase):
         for table in schema.TABLES:
             for idx in table.indexes:
                 self.assertTrue(
-                    any(
-                        f'CREATE INDEX IF NOT EXISTS "{idx.name}"' in s
-                        for s in statements
-                    ),
+                    any(f'CREATE INDEX IF NOT EXISTS "{idx.name}"' in s for s in statements),
                     f"missing CREATE INDEX for {idx.name!r}",
                 )
             for check in table.checks:
                 self.assertTrue(
-                    any(
-                        f'ADD CONSTRAINT "{check.name}"' in s and "CHECK" in s
-                        for s in statements
-                    ),
+                    any(f'ADD CONSTRAINT "{check.name}"' in s and "CHECK" in s for s in statements),
                     f"missing ADD CHECK for {check.name!r}",
                 )
             for fk in table.foreign_keys:
                 fk_name = schema._fk_constraint_name(table.name, fk.column)
                 self.assertTrue(
-                    any(
-                        f'ADD CONSTRAINT "{fk_name}"' in s and "FOREIGN KEY" in s
-                        for s in statements
-                    ),
+                    any(f'ADD CONSTRAINT "{fk_name}"' in s and "FOREIGN KEY" in s for s in statements),
                     f"missing ADD FK for {fk_name!r}",
                 )
 
@@ -1214,10 +1175,7 @@ class TestBulkLoadLifecycle(TestCase):
             if ctype == "CHECK":
                 return [(c.name,) for c in table.checks]
             if ctype == "FOREIGN KEY":
-                return [
-                    (schema._fk_constraint_name(table_name, fk.column),)
-                    for fk in table.foreign_keys
-                ]
+                return [(schema._fk_constraint_name(table_name, fk.column),) for fk in table.foreign_keys]
             return []
 
         cursor.execute.side_effect = fake_execute
@@ -1381,9 +1339,7 @@ class TestBulkLoadLifecycle(TestCase):
             mock.patch.object(
                 schema,
                 "bulk_load_window",
-                side_effect=lambda c, _targets=None: __import__("contextlib").contextmanager(
-                    fake_window
-                )(c),
+                side_effect=lambda c, _targets=None: __import__("contextlib").contextmanager(fake_window)(c),
             ),
         ):
             with repositories.bulk_load_window(cfg):
@@ -1460,7 +1416,6 @@ def _make_es_point(
 
 
 class TestPassesFilter(TestCase):
-
     def test_finite_value_above_threshold_passes(self) -> None:
         self.assertTrue(repositories._passes_filter(np.float64(-3.0), -10.0, True))
 
@@ -1484,7 +1439,6 @@ class TestPassesFilter(TestCase):
 
 
 class TestEsSubtreeFiltering(TestCase):
-
     def _run_subtree(
         self,
         es_points: list[core_es.Point],
@@ -1516,9 +1470,7 @@ class TestEsSubtreeFiltering(TestCase):
                 "eleanor.output.postgres.persistence.repositories._bulk_insert_returning_ids",
                 side_effect=capture_bulk_insert_returning_ids,
             ):
-                repositories._insert_es_subtree(
-                    mock.MagicMock(), vs_id=1, es_points=es_points, settings=settings
-                )
+                repositories._insert_es_subtree(mock.MagicMock(), vs_id=1, es_points=es_points, settings=settings)
         return rows_by_table
 
     def test_defaults_write_everything(self) -> None:

@@ -106,9 +106,7 @@ class TestUtils(TestCase):
         Ensure that :class:`NumberFormat` formats values correctly and rejects invalid precision.
         """
         self.assertEqual(util.NumberFormat.FLOATING.fmt(np.float64(1.23456), 2), "1.23")
-        self.assertEqual(
-            util.NumberFormat.SCIENTIFIC.fmt(np.float64(123.0), 2), "1.23E+02"
-        )
+        self.assertEqual(util.NumberFormat.SCIENTIFIC.fmt(np.float64(123.0), 2), "1.23E+02")
         with self.assertRaises(EleanorError):
             _ = util.NumberFormat.FLOATING.fmt(np.float64(1.23), -1)
 
@@ -177,20 +175,12 @@ class TestUtils(TestCase):
                 with open(path, "w") as f:
                     f.write("x")
 
-            suffix_names, suffix_paths = util.find_files(
-                ".txt", location=root, str_loc="suffix"
-            )
-            self.assertEqual(
-                sorted(suffix_names), [Path("alpha.txt"), Path("beta.txt")]
-            )
+            suffix_names, suffix_paths = util.find_files(".txt", location=root, str_loc="suffix")
+            self.assertEqual(sorted(suffix_names), [Path("alpha.txt"), Path("beta.txt")])
             self.assertEqual(len(suffix_paths), 2)
 
-            prefix_names, prefix_paths = util.find_files(
-                "alpha", location=root, str_loc="prefix"
-            )
-            self.assertEqual(
-                sorted(prefix_names), [Path("alpha.cfg"), Path("alpha.txt")]
-            )
+            prefix_names, prefix_paths = util.find_files("alpha", location=root, str_loc="prefix")
+            self.assertEqual(sorted(prefix_names), [Path("alpha.cfg"), Path("alpha.txt")])
             self.assertEqual(len(prefix_paths), 2)
 
             names0, paths0 = util.find_files("alpha", location=root, str_loc="middle")

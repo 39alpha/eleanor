@@ -15,9 +15,7 @@ class TestPostgresConfig(TestCase):
         """
         Ensure that missing credential fields are allowed at construction time.
         """
-        cfg = PostgresDatabaseSettings(
-            database="main", username=None, password="secret"
-        )
+        cfg = PostgresDatabaseSettings(database="main", username=None, password="secret")
         self.assertIsNone(cfg.username)
         self.assertEqual(cfg.password, "secret")
 
@@ -53,7 +51,6 @@ class TestPostgresConfig(TestCase):
 
 
 class TestPostgresSinkSettingsFilterFields(TestCase):
-
     def test_defaults(self) -> None:
         settings = PostgresSinkSettings(database=PostgresDatabaseSettings())
         self.assertIs(settings.write_unformed, True)
@@ -62,12 +59,14 @@ class TestPostgresSinkSettingsFilterFields(TestCase):
         self.assertEqual(settings.min_log_fugacity, float("-inf"))
 
     def test_from_dict_parses_all_filter_fields(self) -> None:
-        settings = PostgresSinkSettings.from_dict({
-            "write_unformed": False,
-            "min_log_moles": -8.0,
-            "min_log_molality": -6.0,
-            "min_log_fugacity": -4.0,
-        })
+        settings = PostgresSinkSettings.from_dict(
+            {
+                "write_unformed": False,
+                "min_log_moles": -8.0,
+                "min_log_molality": -6.0,
+                "min_log_fugacity": -4.0,
+            }
+        )
         self.assertIs(settings.write_unformed, False)
         self.assertEqual(settings.min_log_moles, -8.0)
         self.assertEqual(settings.min_log_molality, -6.0)
@@ -97,11 +96,13 @@ class TestPostgresSinkSettingsFilterFields(TestCase):
             _ = PostgresSinkSettings(database=PostgresDatabaseSettings(), min_log_fugacity="low")  # pyright: ignore[reportArgumentType]
 
     def test_from_dict_accepts_integer_thresholds(self) -> None:
-        settings = PostgresSinkSettings.from_dict({
-            "min_log_moles": -8,
-            "min_log_molality": -6,
-            "min_log_fugacity": -4,
-        })
+        settings = PostgresSinkSettings.from_dict(
+            {
+                "min_log_moles": -8,
+                "min_log_molality": -6,
+                "min_log_fugacity": -4,
+            }
+        )
         self.assertEqual(settings.min_log_moles, -8.0)
         self.assertEqual(settings.min_log_molality, -6.0)
         self.assertEqual(settings.min_log_fugacity, -4.0)

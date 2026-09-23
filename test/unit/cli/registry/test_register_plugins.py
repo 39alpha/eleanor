@@ -52,9 +52,7 @@ def test_register_rejects_too_new_api_version(spec: SimplePluginSpec) -> None:
 
 
 @pytest.mark.usefixtures("clean_registry")
-def test_register_can_override_max_plugin_version(
-    mocker: MockerFixture, spec: SimplePluginSpec
-) -> None:
+def test_register_can_override_max_plugin_version(mocker: MockerFixture, spec: SimplePluginSpec) -> None:
     mocker.patch.dict(os.environ, {registry.override_env_var: "1"})
     with pytest.warns(OverrideWarning, match="loading anyway because"):
         register_cli_command("too_new_override", replace(spec, plugin_api_version=99))

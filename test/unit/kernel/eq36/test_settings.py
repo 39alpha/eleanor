@@ -27,9 +27,7 @@ class TestEq36Settings(TestCase):
         Ensure get_setting resolves enum values from numeric and string forms.
         """
         self.assertEqual(get_setting({"iopt_2": 1}, IOPT_2), IOPT_2.TRUE_KINETICS)
-        self.assertEqual(
-            get_setting({"iopt_2": "TRUE_KINETICS"}, IOPT_2), IOPT_2.TRUE_KINETICS
-        )
+        self.assertEqual(get_setting({"iopt_2": "TRUE_KINETICS"}, IOPT_2), IOPT_2.TRUE_KINETICS)
 
     def test_get_setting_required_and_invalid_raise(self) -> None:
         """
@@ -109,9 +107,7 @@ class TestEq36Settings(TestCase):
         """
         Ensure explicitly false eq6_config disables Eq6Settings creation.
         """
-        cfg = Eq36Settings.from_dict(
-            {"model": "b-dot", "charge_balance": "Cl-", "eq6_config": False}
-        )
+        cfg = Eq36Settings.from_dict({"model": "b-dot", "charge_balance": "Cl-", "eq6_config": False})
         self.assertIsNone(cfg.eq6_config)
 
     def test_from_dict_ignores_legacy_config_ids(self) -> None:
@@ -144,9 +140,7 @@ class TestEq36Settings(TestCase):
         """
         Ensure integer model values map through IOPG_1 enum conversion.
         """
-        cfg = Eq36Settings.from_dict(
-            {"model": int(IOPG_1.DAVIES), "charge_balance": "Cl-"}
-        )
+        cfg = Eq36Settings.from_dict({"model": int(IOPG_1.DAVIES), "charge_balance": "Cl-"})
         self.assertEqual(cfg.model, IOPG_1.DAVIES)
 
     def test_from_dict_model_davies_string(self) -> None:
@@ -168,9 +162,7 @@ class TestEq36Settings(TestCase):
         Ensure invalid model types and values raise EleanorError.
         """
         with self.assertRaises(EleanorError):
-            _ = Eq36Settings.from_dict(
-                {"model": "unsupported", "charge_balance": "Cl-"}
-            )
+            _ = Eq36Settings.from_dict({"model": "unsupported", "charge_balance": "Cl-"})
 
         with self.assertRaises(EleanorError):
             _ = Eq36Settings.from_dict({"model": object(), "charge_balance": "Cl-"})
@@ -183,24 +175,16 @@ class TestEq36Settings(TestCase):
             _ = Eq36Settings.from_dict({"model": "b-dot", "charge_balance": 1})
 
         with self.assertRaises(EleanorError):
-            _ = Eq36Settings.from_dict(
-                {"model": "b-dot", "charge_balance": "Cl-", "basis_map": []}
-            )
+            _ = Eq36Settings.from_dict({"model": "b-dot", "charge_balance": "Cl-", "basis_map": []})
 
         with self.assertRaises(EleanorError):
-            _ = Eq36Settings.from_dict(
-                {"model": "b-dot", "charge_balance": "Cl-", "redox_species": 7}
-            )
+            _ = Eq36Settings.from_dict({"model": "b-dot", "charge_balance": "Cl-", "redox_species": 7})
 
         with self.assertRaises(EleanorError):
-            _ = Eq36Settings.from_dict(
-                {"model": "b-dot", "charge_balance": "Cl-", "timeout": "10"}
-            )
+            _ = Eq36Settings.from_dict({"model": "b-dot", "charge_balance": "Cl-", "timeout": "10"})
 
         with self.assertRaises(EleanorError):
-            _ = Eq36Settings.from_dict(
-                {"model": "b-dot", "charge_balance": "Cl-", "track_path": "yes"}
-            )
+            _ = Eq36Settings.from_dict({"model": "b-dot", "charge_balance": "Cl-", "track_path": "yes"})
 
     def test_from_dict_rejects_unsupported_eq3_iopt_19(self) -> None:
         """

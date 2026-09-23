@@ -28,9 +28,7 @@ class TestEq36Exec(TestCase):
         self.assertIn("eq3nr", str(cm.exception))
 
         with self.assertRaises(Eq36Error) as cm2:
-            error_guard(
-                b"Error - bad file thing", "eq6", RunCode.EQ6_ERROR, fname="sample.6i"
-            )
+            error_guard(b"Error - bad file thing", "eq6", RunCode.EQ6_ERROR, fname="sample.6i")
         self.assertEqual(cm2.exception.code, RunCode.EQ6_ERROR)
         self.assertIn("in file 'sample.6i'", str(cm2.exception))
 
@@ -68,9 +66,7 @@ class TestEq36Exec(TestCase):
         Ensure timeout without parsed errors raises timeout-specific Eq36Error.
         """
         process = SimpleNamespace(
-            communicate=mock.Mock(
-                side_effect=[TimeoutExpired(cmd="eq6", timeout=1), (b"", b"")]
-            ),
+            communicate=mock.Mock(side_effect=[TimeoutExpired(cmd="eq6", timeout=1), (b"", b"")]),
             returncode=0,
             kill=mock.Mock(),
         )
@@ -114,16 +110,12 @@ class TestEq36Exec(TestCase):
         """
         Ensure eqpt/eq3/eq6 wrappers delegate to run with expected command arguments.
         """
-        with mock.patch(
-            "eleanor.kernel.eq36.exec.run", return_value=(b"", b"")
-        ) as run_mock:
+        with mock.patch("eleanor.kernel.eq36.exec.run", return_value=(b"", b"")) as run_mock:
             eqpt("sample.d0")
             eq3("sample.d1", "sample.3i", timeout=17)
             eq6("sample.d1", "sample.6i", timeout=18)
 
-        run_mock.assert_any_call(
-            "eqpt", "sample.d0", fname="sample.d0", code=RunCode.EQPT_ERROR
-        )
+        run_mock.assert_any_call("eqpt", "sample.d0", fname="sample.d0", code=RunCode.EQPT_ERROR)
         run_mock.assert_any_call(
             "eq3nr",
             "sample.d1",

@@ -6,7 +6,7 @@ from eleanor.exceptions import EleanorError
 from eleanor.executor.registry import registry
 from eleanor.executor.settings import ExecutorSettings
 from eleanor.plugin import load_plugin_settings
-from eleanor.util import require_opt_str
+from eleanor.util import require_dict, require_opt_str
 
 
 @dataclass(kw_only=True)
@@ -24,7 +24,13 @@ class ExecutorConfig(PluginConfig[ExecutorSettings]):
     @classmethod
     def from_dict(cls, raw: dict[str, object]) -> Self:
         kind = require_opt_str(raw.get("kind"), "executor.kind") or "multiprocessing"
-        settings_raw = {k: v for k, v in raw.items() if k != "kind"}
+        if "settings" in raw:
+            if set(raw) - {"kind", "settings"}:
+                msg = "executor configuration cannot mix flat and nested settings"
+                raise EleanorError(msg)
+            settings_raw: dict[str, object] = require_dict(raw["settings"], "settings")
+        else:
+            settings_raw = {k: v for k, v in raw.items() if k != "kind"}
         settings = load_plugin_settings(registry, ExecutorSettings, kind, settings_raw) or ExecutorSettings()
         return cls(kind=kind, settings=settings)
 

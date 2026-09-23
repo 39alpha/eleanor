@@ -6,7 +6,7 @@ from eleanor.exceptions import EleanorError
 from eleanor.kernel.registry import registry
 from eleanor.kernel.settings import KernelSettings
 from eleanor.plugin import load_plugin_settings
-from eleanor.util import require_str
+from eleanor.util import require_dict, require_str
 
 
 @dataclass(kw_only=True)
@@ -21,7 +21,13 @@ class KernelConfig(PluginConfig[KernelSettings]):
     @classmethod
     def from_dict(cls, raw: dict[str, object]) -> Self:
         kind = require_str(raw.get("kind"), "kind")
-        settings_raw = {k: v for k, v in raw.items() if k != "kind"}
+        if "settings" in raw:
+            if set(raw) - {"kind", "settings"}:
+                msg = "kernel configuration cannot mix flat and nested settings"
+                raise EleanorError(msg)
+            settings_raw: dict[str, object] = require_dict(raw["settings"], "settings")
+        else:
+            settings_raw = {k: v for k, v in raw.items() if k != "kind"}
         settings = load_plugin_settings(registry, KernelSettings, kind, settings_raw) or KernelSettings()
         return cls(kind=kind, settings=settings)
 

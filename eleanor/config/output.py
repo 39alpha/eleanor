@@ -7,7 +7,7 @@ from eleanor.output.registry import registry
 from eleanor.output.settings import OutputSinkSettings
 from eleanor.plugin import load_plugin_settings
 from eleanor.progress import SIM_CHANNEL
-from eleanor.util import require_str
+from eleanor.util import require_dict, require_str
 
 
 @dataclass(kw_only=True)
@@ -37,7 +37,13 @@ class OutputSinkConfig(PluginConfig[OutputSinkSettings]):
     def from_dict(cls, raw: dict[str, object]) -> Self:
         kind = require_str(raw.get("kind"), "kind")
         name = require_str(raw.get("name", kind), "name")
-        settings_raw = {k: v for k, v in raw.items() if k not in {"kind", "name"}}
+        if "settings" in raw:
+            if set(raw) - {"kind", "settings", "name"}:
+                msg = "output configuration cannot mix flat and nested settings"
+                raise EleanorError(msg)
+            settings_raw: dict[str, object] = require_dict(raw["settings"], "settings")
+        else:
+            settings_raw = {k: v for k, v in raw.items() if k not in {"kind", "name"}}
         settings = load_plugin_settings(registry, OutputSinkSettings, kind, settings_raw) or OutputSinkSettings()
         return cls(kind=kind, name=name, settings=settings)
 

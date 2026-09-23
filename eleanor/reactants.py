@@ -27,16 +27,12 @@ class ReactantType(StrEnum):
 @dataclass(kw_only=True)
 class AbstractReactant(ABC):
     name: str
+    type: ReactantType
 
     def __post_init__(self) -> None:
         if self.name == "":
             msg = "reactant name is empty"
             raise EleanorError(msg)
-
-    @property
-    @abstractmethod
-    def type(self) -> ReactantType:
-        raise NotImplementedError
 
     @abstractmethod
     def parameters(self) -> list[Parameter]:
@@ -62,6 +58,9 @@ class AbstractReactant(ABC):
             ReactantType.COMBINED: CombinedReactant.from_dict,
         }
 
+        if name is None:
+            name = require_str(raw.get("name"), "reactant.name")
+
         reactant_type = ReactantType(require_str(raw.get("type"), "reactant.type"))
 
         reactant = factories.get(reactant_type)
@@ -85,10 +84,11 @@ class TitratedReactant(AbstractReactant, ABC):
         self,
         *,
         name: str,
+        type: ReactantType,
         amount: ParameterOrSource,
         titration_rate: ParameterOrSource | None = None,
     ) -> None:
-        super().__init__(name=name)
+        super().__init__(name=name, type=type)
         self.amount = load_parameter(amount)
         self.titration_rate = load_parameter(1.0 if titration_rate is None else titration_rate)
 
@@ -114,12 +114,7 @@ class MineralReactant(TitratedReactant):
         amount: ParameterOrSource,
         titration_rate: ParameterOrSource | None = None,
     ) -> None:
-        super().__init__(name=name, amount=amount, titration_rate=titration_rate)
-
-    @property
-    @override
-    def type(self) -> ReactantType:
-        return ReactantType.MINERAL
+        super().__init__(name=name, type=ReactantType.MINERAL, amount=amount, titration_rate=titration_rate)
 
     @classmethod
     @override
@@ -149,12 +144,7 @@ class AqueousReactant(TitratedReactant):
         amount: ParameterOrSource,
         titration_rate: ParameterOrSource | None = None,
     ) -> None:
-        super().__init__(name=name, amount=amount, titration_rate=titration_rate)
-
-    @property
-    @override
-    def type(self) -> ReactantType:
-        return ReactantType.AQUEOUS
+        super().__init__(name=name, type=ReactantType.AQUEOUS, amount=amount, titration_rate=titration_rate)
 
     @classmethod
     @override
@@ -183,12 +173,7 @@ class GasReactant(TitratedReactant):
         amount: ParameterOrSource,
         titration_rate: ParameterOrSource | None = None,
     ) -> None:
-        super().__init__(name=name, amount=amount, titration_rate=titration_rate)
-
-    @property
-    @override
-    def type(self) -> ReactantType:
-        return ReactantType.GAS
+        super().__init__(name=name, type=ReactantType.GAS, amount=amount, titration_rate=titration_rate)
 
     @classmethod
     @override
@@ -214,14 +199,9 @@ class FixedGasReactant(AbstractReactant):
     fugacity: Parameter
 
     def __init__(self, *, name: str, amount: ParameterOrSource, fugacity: ParameterOrSource) -> None:
-        super().__init__(name=name)
+        super().__init__(name=name, type=ReactantType.FIXED_GAS)
         self.amount = load_parameter(amount)
         self.fugacity = load_parameter(fugacity)
-
-    @property
-    @override
-    def type(self) -> ReactantType:
-        return ReactantType.FIXED_GAS
 
     @override
     def parameters(self) -> list[Parameter]:
@@ -263,7 +243,7 @@ class SpecialReactant(TitratedReactant):
         titration_rate: ParameterOrSource | None = None,
         composition: dict[str, int],
     ) -> None:
-        super().__init__(name=name, amount=amount, titration_rate=titration_rate)
+        super().__init__(name=name, type=ReactantType.SPECIAL, amount=amount, titration_rate=titration_rate)
         self.composition = composition
         if len(self.composition) == 0:
             msg = f"special reactant {self.name} has empty composition"
@@ -273,11 +253,6 @@ class SpecialReactant(TitratedReactant):
             if v <= 0:
                 msg = f"special reactant {self.name} has invalid stoichiometry ({v}) for element {k}"
                 raise EleanorError(msg)
-
-    @property
-    @override
-    def type(self) -> ReactantType:
-        return ReactantType.SPECIAL
 
     @classmethod
     @override
@@ -309,12 +284,7 @@ class ElementReactant(TitratedReactant):
         amount: ParameterOrSource,
         titration_rate: ParameterOrSource | None = None,
     ) -> None:
-        super().__init__(name=name, amount=amount, titration_rate=titration_rate)
-
-    @property
-    @override
-    def type(self) -> ReactantType:
-        return ReactantType.ELEMENT
+        super().__init__(name=name, type=ReactantType.ELEMENT, amount=amount, titration_rate=titration_rate)
 
     @classmethod
     @override
@@ -346,7 +316,7 @@ class SolidSolutionReactant(TitratedReactant):
         titration_rate: ParameterOrSource | None = None,
         end_members: Mapping[str, ParameterOrSource],
     ) -> None:
-        super().__init__(name=name, amount=amount, titration_rate=titration_rate)
+        super().__init__(name=name, type=ReactantType.SOLID_SOLUTION, amount=amount, titration_rate=titration_rate)
         end_members = {k: load_parameter(v) for k, v in end_members.items()}
 
         fraction = np.float64(0.0)
@@ -364,11 +334,6 @@ class SolidSolutionReactant(TitratedReactant):
             raise EleanorError(msg)
 
         self.end_members = cast(dict[str, ValueParameter], end_members)
-
-    @property
-    @override
-    def type(self) -> ReactantType:
-        return ReactantType.SOLID_SOLUTION
 
     @override
     def parameters(self) -> list[Parameter]:
@@ -569,7 +534,7 @@ class CombinedReactant(TitratedReactant):
         titration_rate: ParameterOrSource | None = None,
         components: dict[str, CombinedReactantComponent],
     ) -> None:
-        super().__init__(name=name, amount=amount, titration_rate=titration_rate)
+        super().__init__(name=name, type=ReactantType.COMBINED, amount=amount, titration_rate=titration_rate)
         self.components = components
         if len(components) == 0:
             msg = f"combined reactant {self.name!r} has no components; consider removing it"
@@ -585,11 +550,6 @@ class CombinedReactant(TitratedReactant):
         if not np.isclose(fraction, 1.0):
             msg = f"combined reactant {self.name!r} component fractions sum to {fraction}; must sum to 1.0"
             raise EleanorError(msg)
-
-    @property
-    @override
-    def type(self) -> ReactantType:
-        return ReactantType.COMBINED
 
     @override
     def parameters(self) -> list[Parameter]:

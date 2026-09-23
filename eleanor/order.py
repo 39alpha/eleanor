@@ -44,7 +44,7 @@ class Suppression:
 
         suppression_type = require_opt_str(raw.get("type"), "suppression.type")
 
-        exceptions_raw = raw.get("except", [])
+        exceptions_raw = raw.get("except", raw.get("exceptions", []))
         if not is_list_of(exceptions_raw, str):
             msg = "suppression exceptions must be a list of strings"
             raise EleanorError(msg)
@@ -214,8 +214,20 @@ class Order:
             for value in suppressions_raw
         ]
 
-        reactants_raw = cast(dict[str, dict[str, object]], require_dict(raw.get("reactants") or {}, "reactants"))
-        reactants = [AbstractReactant.from_dict(value, name=re_name) for re_name, value in reactants_raw.items()]
+        if "reactants" in raw:
+            if isinstance(raw["reactants"], dict) or raw["reactants"] is None:
+                reactants_raw = cast(dict[str, dict[str, object]], raw["reactants"] or {})
+                reactants = [
+                    AbstractReactant.from_dict(value, name=re_name) for re_name, value in reactants_raw.items()
+                ]
+            elif isinstance(raw["reactants"], list):
+                reactants_raw = cast(list[dict[str, object]], raw.get("reactants") or [])
+                reactants = [AbstractReactant.from_dict(value) for value in reactants_raw]
+            else:
+                msg = "reactants must be a dict or list of dicts"
+                raise EleanorError(msg)
+        else:
+            reactants = []
 
         constraints_obj = cast(object, raw.get("constraints") or [])
         if not isinstance(constraints_obj, list):

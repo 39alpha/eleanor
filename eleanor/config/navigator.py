@@ -6,7 +6,7 @@ from eleanor.exceptions import EleanorError
 from eleanor.navigator.registry import registry
 from eleanor.navigator.settings import NavigatorSettings
 from eleanor.plugin import load_plugin_settings
-from eleanor.util import require_opt_str
+from eleanor.util import require_dict, require_opt_str
 
 
 @dataclass(init=False)
@@ -30,7 +30,14 @@ class NavigatorConfig(PluginConfig[NavigatorSettings]):
     @classmethod
     def from_dict(cls, raw: dict[str, object]) -> Self:
         kind = require_opt_str(raw.get("kind"), "navigator.kind") or "random"
-        settings_raw = {k: v for k, v in raw.items() if k != "kind"}
+        if "settings" in raw:
+            if set(raw) - {"kind", "settings"}:
+                msg = "navigator configuration cannot mix flat and nested settings"
+                raise EleanorError(msg)
+            settings_raw: dict[str, object] = require_dict(raw["settings"], "settings")
+        else:
+            settings_raw = {k: v for k, v in raw.items() if k != "kind"}
+
         settings = load_plugin_settings(registry, NavigatorSettings, kind, settings_raw) or NavigatorSettings()
         return cls(kind=kind, settings=settings)
 

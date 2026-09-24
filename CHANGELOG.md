@@ -27,6 +27,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`AbstractReactant.type` is a dataclass field, not an abstract property**, so it survives
   `asdict`. Subclasses pass their type to `super().__init__` instead of overriding a property.
 
+### Fixed
+
+- **EQ6 outputs with suppressed solid solutions now parse.** Previously, the parser would search for
+  the solid solution product phases and hit EOF.
+
 ## [v0.21.1] - 2026-09-10
 
 ### Fixed

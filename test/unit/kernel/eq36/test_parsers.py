@@ -820,3 +820,23 @@ class TestEq36ParsersRealOutputs(TestCase):
 
         self.assertEqual(len(parser.point.solid_solutions), 0)
         self.assertEqual(len(parser.point.gases), 0)
+
+    def test_can_parse_6o_with_suppressed_minerals_and_solid_solutions(self) -> None:
+        """
+        Ensure that we can parse EQ6 outputs for which minerals and solid solutions have been suppressed
+        """
+        parser = OutputParser6(self.fixture_root / "suppressed-minerals-and-solid-solutions.6o").parse()
+        self.assertEqual(len(parser.path), 23)
+        point = parser.path[-1]
+        self.assertEqual(len(point.solid_solutions), 0)
+        self.assertEqual(len(point.gases), 11)
+
+    def test_outputparser6_rejects_unexpected_header_after_pure_liquids(self) -> None:
+        """
+        Ensure that we fail loudly when the eq6 parser finds an unexpected header after the pure liquids
+        """
+        src = (self.fixture_root / "suppressed-minerals-and-solid-solutions.6o").read_text()
+        botched = src.replace("Summary of Saturated and Supersaturated Phases", "Unexpected Header", 1)
+        with self.assertRaises(EleanorKernelError) as ctx:
+            _ = OutputParser6(io.StringIO(botched)).parse()
+        self.assertEqual(ctx.exception.code, RunCode.PARSER_ERROR)

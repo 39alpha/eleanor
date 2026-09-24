@@ -114,6 +114,14 @@ def _freeze_solid_solution(a: _SolidSolutionAccum) -> es.SolidSolution:
     )
 
 
+def _header_pattern(header: str) -> str:
+    return rf"^\s*---\s+{header}\s+---\s*$"
+
+
+def _capture_header_pattern() -> str:
+    return r"^\s*---\s+(.*)\s+---\s*$"
+
+
 class OutputParser(ABC):
     line_num: int
     lines: list[str]
@@ -264,6 +272,9 @@ class OutputParser(ABC):
             pattern = compiled
         return pattern.match(self.line())
 
+    def match_header(self, header: str) -> re.Match[str] | None:
+        return self.match_pattern(_header_pattern(header))
+
     def unconsume_to_pattern(self, pattern: str | re.Pattern[str]) -> None:
         if isinstance(pattern, str):
             compiled = _pattern_cache.get(pattern)
@@ -305,7 +316,7 @@ class OutputParser(ABC):
         self.consume_while_pattern(blank_line)
 
     def consume_to_header(self, header: str) -> None:
-        self.consume_to_pattern(rf"^\s*---\s+{header}\s+---\s*$")
+        self.consume_to_pattern(_header_pattern(header))
 
     def advance_to_xi_step(self) -> bool:
         self.consume_to_pattern(r"\s*Stepping to Xi")
@@ -819,7 +830,7 @@ class OutputParser(ABC):
             raise EleanorKernelError(msg, code=RunCode.PARSER_ERROR)
         self.advance(n=2)
         while not self.eof():
-            match = re.match(r"^\s+---\s(.*)\s---\s*$", self.line())
+            match = re.match(_capture_header_pattern(), self.line())
             if match and match[1] == "Fugacities":
                 self.line_num -= 1
                 break
@@ -1313,8 +1324,18 @@ class OutputParser6(OutputParser):
             self.read_aqueous_saturation_states()
             self.read_pure_solid_saturation_states()
             self.read_liquid_saturation_states()
-            self.read_solid_solution_saturation_states()
-            self.read_product_phases("Solid Solution Product Phases")
+            self.consume_to_header(".*")
+            if not self.eof():
+                summary_header = "Summary of Saturated and Supersaturated Phases"
+                saturation_header = "Saturation States of Solid Solutions"
+                if self.match_header(saturation_header):
+                    self.read_solid_solution_saturation_states()
+                    self.read_product_phases("Solid Solution Product Phases")
+                elif not self.match_header(summary_header):
+                    header = re.match(_capture_header_pattern(), self.line())
+                    got = f", got {header[1]!r}" if header is not None else ""
+                    msg = f"expected either {saturation_header!r} or {summary_header!r} header{got} at line {self.line_num}"
+                    raise EleanorKernelError(msg, code=RunCode.PARSER_ERROR)
             self.read_fugacities()
         except Exception as e:
             msg = f"failed to parse EQ6 output at line {self.line_num}"

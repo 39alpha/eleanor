@@ -143,7 +143,7 @@ def _apply_one(conn: psycopg.Connection, mig: MigrationFile) -> None:
             _ = cur.execute(RECORD_SQL, (mig.version, mig.slug, eleanor.__version__))
         return
     # Non-transactional: must run in autocommit (e.g. CREATE INDEX CONCURRENTLY).
-    # The migration is REQUIRED to be idempotent — see MIGRATIONS.md.
+    # The migration is REQUIRED to be idempotent.
     #
     # Diagnostic (not a guard): psycopg3 already raises if you set autocommit
     # inside an open transaction. This assert just turns that into a message

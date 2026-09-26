@@ -19,7 +19,7 @@ from eleanor.progress import ProgressHandle
 from eleanor.query import CompiledQuery, compile_query, evaluate
 from eleanor.query.reflection import DataclassField, LeafField
 from eleanor.typing import StrPath
-from eleanor.util import guard_is_dict, guard_is_path, is_list_of, require_dict, require_path
+from eleanor.util import guard_is_dict, guard_is_path, is_list_of, require_dict, require_path, require_uuid_id
 
 ID_COLUMNS: frozenset[str] = frozenset({"order_id", "point_id"})
 
@@ -398,11 +398,8 @@ class CsvSink(AbstractOutputSink[UUID]):
         if requested_id is None:
             order_id = uuid4()
         else:
-            try:
-                order_id = UUID(requested_id)
-            except ValueError as error:
-                msg = f"csv sink order id must be a UUID, got {requested_id!r}"
-                raise EleanorError(msg) from error
+            order_id = require_uuid_id(requested_id, "csv sink")
+
             if str(order_id) not in self._vs_points_seen:
                 msg = f"csv sink has no order {order_id} to extend in {schema_file.name}"
                 raise EleanorError(msg)

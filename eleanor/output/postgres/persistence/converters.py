@@ -1,3 +1,4 @@
+import uuid
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum, IntEnum, StrEnum
@@ -13,6 +14,10 @@ import eleanor.variable_space as core_vs
 from eleanor.config.kernel import KernelConfig
 from eleanor.exceptions import EleanorError
 from eleanor.output import ErrorInfo
+
+
+def _primary_key() -> uuid.UUID:
+    return uuid.uuid7()
 
 
 def _or_neg_inf(value: np.float64 | None) -> np.float64:
@@ -83,6 +88,7 @@ def order_to_row(order: core_order.Order) -> dict[str, object]:
     """Build the ``orders`` row dict for ``order``."""
 
     return {
+        "id": _primary_key(),
         "name": order.name,
         "tags": order.tags,
         "eleanor_version": order.eleanor_version,
@@ -101,7 +107,7 @@ class OrderRecord:
     metadata plus the raw config dict for any future EQL-driven re-parsing.
     """
 
-    id: int
+    id: uuid.UUID
     name: str
     tags: list[str]
     eleanor_version: str
@@ -112,7 +118,7 @@ class OrderRecord:
 def row_to_order_record(row: dict[str, object]) -> OrderRecord:
     """Inverse of :func:`order_to_row` for the ``get_order`` read path."""
     return OrderRecord(
-        id=cast(int, row["id"]),
+        id=cast(uuid.UUID, row["id"]),
         name=cast(str, row["name"]),
         tags=cast(list[str], row["tags"]),
         eleanor_version=cast(str, row["eleanor_version"]),
@@ -121,11 +127,12 @@ def row_to_order_record(row: dict[str, object]) -> OrderRecord:
     )
 
 
-def vs_point_to_row(point: core_vs.Point, error: ErrorInfo | None, order_id: int) -> dict[str, object]:
+def vs_point_to_row(point: core_vs.Point, error: ErrorInfo | None, order_id: uuid.UUID) -> dict[str, object]:
     if point.exception is not None:
         error = ErrorInfo.from_exception(point.exception)
 
     return {
+        "id": _primary_key(),
         "order_id": order_id,
         "water_mass": point.water_mass,
         "temperature": point.temperature,
@@ -138,7 +145,7 @@ def vs_point_to_row(point: core_vs.Point, error: ErrorInfo | None, order_id: int
     }
 
 
-def kernel_to_row(kernel: KernelConfig, variable_space_id: int) -> dict[str, object]:
+def kernel_to_row(kernel: KernelConfig, variable_space_id: uuid.UUID) -> dict[str, object]:
     """Build the ``kernel`` row.
 
     ``id`` is supplied explicitly (it is both the PK and the FK to
@@ -152,7 +159,7 @@ def kernel_to_row(kernel: KernelConfig, variable_space_id: int) -> dict[str, obj
     }
 
 
-def scratch_to_row(scratch: core_vs.Scratch, variable_space_id: int) -> dict[str, object]:
+def scratch_to_row(scratch: core_vs.Scratch, variable_space_id: uuid.UUID) -> dict[str, object]:
     """Build the ``scratch`` row. ``id`` doubles as the FK, like ``kernel``."""
     return {
         "id": variable_space_id,
@@ -160,7 +167,7 @@ def scratch_to_row(scratch: core_vs.Scratch, variable_space_id: int) -> dict[str
     }
 
 
-def element_to_row(element: core_vs.Element, variable_space_id: int) -> dict[str, object]:
+def element_to_row(element: core_vs.Element, variable_space_id: uuid.UUID) -> dict[str, object]:
     return {
         "variable_space_id": variable_space_id,
         "name": element.name,
@@ -168,7 +175,7 @@ def element_to_row(element: core_vs.Element, variable_space_id: int) -> dict[str
     }
 
 
-def species_to_row(species: core_vs.Species, variable_space_id: int) -> dict[str, object]:
+def species_to_row(species: core_vs.Species, variable_space_id: uuid.UUID) -> dict[str, object]:
     return {
         "variable_space_id": variable_space_id,
         "name": species.name,
@@ -178,9 +185,10 @@ def species_to_row(species: core_vs.Species, variable_space_id: int) -> dict[str
 
 def suppression_to_row(
     suppression: core_vs.Suppression,
-    variable_space_id: int,
+    variable_space_id: uuid.UUID,
 ) -> dict[str, object]:
     return {
+        "id": _primary_key(),
         "variable_space_id": variable_space_id,
         "name": suppression.name,
         "type": suppression.type,
@@ -189,7 +197,7 @@ def suppression_to_row(
 
 def suppression_exception_to_row(
     exception: core_vs.SuppressionException,
-    suppression_id: int,
+    suppression_id: uuid.UUID,
 ) -> dict[str, object]:
     return {
         "suppression_id": suppression_id,
@@ -201,39 +209,44 @@ def _reactant_row(
     name: str,
     log_moles: np.float64,
     titration_rate: np.float64,
-    variable_space_id: int,
+    variable_space_id: uuid.UUID,
+    with_id: bool = False,
 ) -> dict[str, object]:
-    return {
-        "variable_space_id": variable_space_id,
-        "name": name,
-        "log_moles": log_moles,
-        "titration_rate": titration_rate,
-    }
+    row: dict[str, object] = {"id": _primary_key()} if with_id else {}
+    row.update(
+        {
+            "variable_space_id": variable_space_id,
+            "name": name,
+            "log_moles": log_moles,
+            "titration_rate": titration_rate,
+        }
+    )
+    return row
 
 
-def mineral_reactant_to_row(r: core_vs.MineralReactant, variable_space_id: int) -> dict[str, object]:
+def mineral_reactant_to_row(r: core_vs.MineralReactant, variable_space_id: uuid.UUID) -> dict[str, object]:
     return _reactant_row(r.name, r.log_moles, r.titration_rate, variable_space_id)
 
 
-def aqueous_reactant_to_row(r: core_vs.AqueousReactant, variable_space_id: int) -> dict[str, object]:
+def aqueous_reactant_to_row(r: core_vs.AqueousReactant, variable_space_id: uuid.UUID) -> dict[str, object]:
     return _reactant_row(r.name, r.log_moles, r.titration_rate, variable_space_id)
 
 
-def gas_reactant_to_row(r: core_vs.GasReactant, variable_space_id: int) -> dict[str, object]:
+def gas_reactant_to_row(r: core_vs.GasReactant, variable_space_id: uuid.UUID) -> dict[str, object]:
     return _reactant_row(r.name, r.log_moles, r.titration_rate, variable_space_id)
 
 
-def element_reactant_to_row(r: core_vs.ElementReactant, variable_space_id: int) -> dict[str, object]:
+def element_reactant_to_row(r: core_vs.ElementReactant, variable_space_id: uuid.UUID) -> dict[str, object]:
     return _reactant_row(r.name, r.log_moles, r.titration_rate, variable_space_id)
 
 
-def special_reactant_to_row(r: core_vs.SpecialReactant, variable_space_id: int) -> dict[str, object]:
-    return _reactant_row(r.name, r.log_moles, r.titration_rate, variable_space_id)
+def special_reactant_to_row(r: core_vs.SpecialReactant, variable_space_id: uuid.UUID) -> dict[str, object]:
+    return _reactant_row(r.name, r.log_moles, r.titration_rate, variable_space_id, with_id=True)
 
 
 def special_reactant_composition_to_row(
     composition: core_vs.SpecialReactantComposition,
-    special_reactant_id: int,
+    special_reactant_id: uuid.UUID,
 ) -> dict[str, object]:
     return {
         "special_reactant_id": special_reactant_id,
@@ -244,7 +257,7 @@ def special_reactant_composition_to_row(
 
 def fixed_gas_reactant_to_row(
     r: core_vs.FixedGasReactant,
-    variable_space_id: int,
+    variable_space_id: uuid.UUID,
 ) -> dict[str, object]:
     return {
         "variable_space_id": variable_space_id,
@@ -256,14 +269,14 @@ def fixed_gas_reactant_to_row(
 
 def solid_solution_reactant_to_row(
     r: core_vs.SolidSolutionReactant,
-    variable_space_id: int,
+    variable_space_id: uuid.UUID,
 ) -> dict[str, object]:
-    return _reactant_row(r.name, r.log_moles, r.titration_rate, variable_space_id)
+    return _reactant_row(r.name, r.log_moles, r.titration_rate, variable_space_id, with_id=True)
 
 
 def solid_solution_reactant_end_member_to_row(
     em: core_vs.SolidSolutionReactantEndMembers,
-    solid_solution_reactant_id: int,
+    solid_solution_reactant_id: uuid.UUID,
 ) -> dict[str, object]:
     return {
         "solid_solution_reactant_id": solid_solution_reactant_id,
@@ -272,7 +285,7 @@ def solid_solution_reactant_end_member_to_row(
     }
 
 
-def es_point_to_row(point: core_es.Point, variable_space_id: int) -> dict[str, object]:
+def es_point_to_row(point: core_es.Point, variable_space_id: uuid.UUID) -> dict[str, object]:
     """Build the ``equilibrium_space`` row.
 
     All ~50 columns are spelled out explicitly: every batch INSERT must
@@ -281,6 +294,7 @@ def es_point_to_row(point: core_es.Point, variable_space_id: int) -> dict[str, o
     regardless of which optional fields the kernel populated.
     """
     return {
+        "id": _primary_key(),
         "variable_space_id": variable_space_id,
         "stage": point.stage,
         "log_xi": point.log_xi,
@@ -303,7 +317,7 @@ def es_point_to_row(point: core_es.Point, variable_space_id: int) -> dict[str, o
     }
 
 
-def es_element_to_row(element: core_es.Element, equilibrium_space_id: int) -> dict[str, object]:
+def es_element_to_row(element: core_es.Element, equilibrium_space_id: uuid.UUID) -> dict[str, object]:
     return {
         "equilibrium_space_id": equilibrium_space_id,
         "name": element.name,
@@ -314,7 +328,7 @@ def es_element_to_row(element: core_es.Element, equilibrium_space_id: int) -> di
 
 def es_aqueous_species_to_row(
     species: core_es.AqueousSpecies,
-    equilibrium_space_id: int,
+    equilibrium_space_id: uuid.UUID,
 ) -> dict[str, object]:
     return {
         "equilibrium_space_id": equilibrium_space_id,
@@ -327,7 +341,7 @@ def es_aqueous_species_to_row(
 
 def es_pure_solid_to_row(
     solid: core_es.PureSolid,
-    equilibrium_space_id: int,
+    equilibrium_space_id: uuid.UUID,
 ) -> dict[str, object]:
     return {
         "equilibrium_space_id": equilibrium_space_id,
@@ -342,9 +356,10 @@ def es_pure_solid_to_row(
 
 def es_solid_solution_to_row(
     ss: core_es.SolidSolution,
-    equilibrium_space_id: int,
+    equilibrium_space_id: uuid.UUID,
 ) -> dict[str, object]:
     return {
+        "id": _primary_key(),
         "equilibrium_space_id": equilibrium_space_id,
         "name": ss.name,
         "log_qk": ss.log_qk,
@@ -357,7 +372,7 @@ def es_solid_solution_to_row(
 
 def es_end_member_to_row(
     em: core_es.EndMember,
-    equilibrium_solid_solution_id: int,
+    equilibrium_solid_solution_id: uuid.UUID,
 ) -> dict[str, object]:
     return {
         "equilibrium_solid_solution_id": equilibrium_solid_solution_id,
@@ -370,7 +385,7 @@ def es_end_member_to_row(
     }
 
 
-def es_gas_to_row(gas: core_es.Gas, equilibrium_space_id: int) -> dict[str, object]:
+def es_gas_to_row(gas: core_es.Gas, equilibrium_space_id: uuid.UUID) -> dict[str, object]:
     return {
         "equilibrium_space_id": equilibrium_space_id,
         "name": gas.name,
@@ -380,7 +395,7 @@ def es_gas_to_row(gas: core_es.Gas, equilibrium_space_id: int) -> dict[str, obje
 
 def es_reactant_to_row(
     reactant: core_es.Reactant,
-    equilibrium_space_id: int,
+    equilibrium_space_id: uuid.UUID,
 ) -> dict[str, object]:
     return {
         "equilibrium_space_id": equilibrium_space_id,
@@ -396,7 +411,7 @@ def es_reactant_to_row(
 
 def es_redox_reaction_to_row(
     reaction: core_es.RedoxReaction,
-    equilibrium_space_id: int,
+    equilibrium_space_id: uuid.UUID,
 ) -> dict[str, object]:
     return {
         "equilibrium_space_id": equilibrium_space_id,
@@ -415,7 +430,7 @@ class ScratchEntry:
     Read by :func:`PostgresSink.tools.load_scratch_entry`.
     """
 
-    variable_space_id: int
+    variable_space_id: uuid.UUID
     exit_code: int
     zip: bytes
 
@@ -430,7 +445,7 @@ def row_to_scratch_entry(row: dict[str, object]) -> ScratchEntry:
     natively, so no ``memoryview`` handling is needed.
     """
     return ScratchEntry(
-        variable_space_id=cast(int, row["variable_space_id"]),
+        variable_space_id=cast(uuid.UUID, row["variable_space_id"]),
         exit_code=cast(int, row["exit_code"]),
         zip=cast(bytes, row["zip"]),
     )

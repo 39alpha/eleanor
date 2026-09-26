@@ -9,13 +9,15 @@ Note on equivalence-test circularity: while only ``0001`` exists, the
 ``apply_pending_migrations`` against ``ensure_schema``, but ``0001`` was
 generated from ``ensure_schema`` itself. The test is therefore partly
 circular on day one. Its real value comes at ``0002+`` and as a regression
-tripwire if ``0001`` ever bit-rots. (See PLAN.md D1 and MIGRATIONS.md.)
+tripwire if ``0001`` ever bit-rots.
 """
 
 import os
 import threading
 import urllib.parse
+import uuid
 from collections.abc import Generator
+from datetime import datetime
 from typing import LiteralString, cast
 
 import psycopg
@@ -177,6 +179,202 @@ def test_migrations_reach_target_schema(clean_db: PostgresDatabaseSettings) -> N
         assert schema.live_constraint_names(conn) == schema.live_constraint_names(twin_raw, "eleanor_twin")
 
 
+_CONSTRAINT_DEFS_QUERY: LiteralString = (
+    "SELECT t.relname, c.conname, c.contype, pg_get_constraintdef(c.oid) "
+    "FROM pg_constraint c "
+    "JOIN pg_class t ON t.oid = c.conrelid "
+    "JOIN pg_namespace n ON n.oid = t.relnamespace "
+    "WHERE n.nspname = %s AND t.relname = ANY(%s)"
+)
+
+_INDEX_DEFS_QUERY: LiteralString = (
+    "SELECT tablename, indexname, indexdef FROM pg_indexes WHERE schemaname = %s AND tablename = ANY(%s)"
+)
+
+
+def _definitions(
+    conn: psycopg.Connection,
+    query: LiteralString,
+    schema_name: str,
+) -> set[tuple[str, ...]]:
+    """Return catalog object *definitions* for ``schema_name``, schema qualification stripped.
+
+    ``pg_get_constraintdef`` and ``pg_indexes.indexdef`` render a table
+    unqualified only when its schema is on the search path, so the two
+    schemas under comparison would otherwise differ on the prefix alone.
+    Setting the search path *and* stripping the prefix covers both
+    renderings. Only tables :data:`schema.TABLES` declares are considered,
+    so ``schema_migrations`` -- which the runner creates and
+    ``ensure_schema`` does not -- stays out of the comparison.
+    """
+    names = [t.name for t in schema.TABLES]
+    with conn.cursor() as cur:
+        _ = cur.execute(cast(LiteralString, f"SET search_path TO {schema_name}"))
+        _ = cur.execute(query, (schema_name, names))
+        rows = cur.fetchall()
+    return {tuple(str(col).replace(f"{schema_name}.", "") for col in row) for row in rows}
+
+
+def test_migrations_reach_target_schema_definitions(clean_db: PostgresDatabaseSettings) -> None:
+    """Apply migrations; compare object *definitions* against an ensure_schema twin.
+
+    :func:`test_migrations_reach_target_schema` compares names -- which
+    columns exist, which indexes and which FK/CHECK constraints. Names alone
+    let a whole class of divergence through, and every member of that class
+    has been observed in review: a foreign key rebuilt without its
+    ``ON DELETE CASCADE``, an index recreated against the wrong table or
+    column list, a primary key never re-added (``live_constraint_names``
+    defaults to FK + CHECK, so ``'p'`` is not compared at all).
+
+    Comparing ``pg_get_constraintdef`` and ``indexdef`` closes all of it.
+    Every ``contype`` is included, which on PostgreSQL 18 also covers the
+    named ``NOT NULL`` constraints it materialises in ``pg_constraint``:
+    those are auto-named from the column at creation time and are *not*
+    renamed by ``ALTER TABLE ... RENAME COLUMN``, so a migration that sets
+    ``NOT NULL`` on scaffolding named ``foo_uuid`` before renaming it to
+    ``foo_id`` leaves a permanently mismatched name. On PostgreSQL 17 no
+    such rows exist and that leg compares empty to empty, so this test needs
+    no version branch.
+    """
+    conn = connection.connect(clean_db)
+    migrations.apply_pending_migrations(conn)
+
+    with _raw_connect(clean_db) as twin_raw:
+        with twin_raw.cursor() as cur:
+            _ = cur.execute("CREATE SCHEMA eleanor_twin")
+            _ = cur.execute("SET search_path TO eleanor_twin")
+        twin_raw.commit()
+        schema.ensure_schema(twin_raw)
+
+        for label, query in (("constraint", _CONSTRAINT_DEFS_QUERY), ("index", _INDEX_DEFS_QUERY)):
+            migrated = _definitions(conn, query, "public")
+            twin = _definitions(twin_raw, query, "eleanor_twin")
+            assert migrated, f"no {label} definitions found in the migrated schema"
+            assert migrated == twin, (
+                f"{label} definitions diverge between the migrated schema and the "
+                f"ensure_schema twin:\n"
+                f"  migrated only: {sorted(migrated - twin)}\n"
+                f"  twin only:     {sorted(twin - migrated)}"
+            )
+
+
+_ES_INSERT: LiteralString = (
+    'INSERT INTO equilibrium_space (variable_space_id, stage, temperature, pressure, "pH", '
+    '"log_fO2", "Eh", log_activity_water, log_ionic_strength, solute_mass, solvent_mass, '
+    "solution_mass, tds, start_date, complete_date, custom_properties) "
+    "VALUES (%s, %s, 25.0, 1.0, 7.0, -70.0, 0.0, 0.0, -3.0, 0.0, 1.0, 1.0, 0.0, %s, %s, '{}'::jsonb)"
+)
+
+
+def _apply_legacy_migrations(conn: psycopg.Connection) -> None:
+    """Apply every migration *preceding* the UUID switch, leaving an integer-keyed schema.
+
+    Selected by slug rather than version number so the split stays correct
+    as migrations accumulate on either side of it.
+    """
+    declared = migrations.discover()
+    switch = next(m for m in declared if m.slug == "switch_to_uuid_primary_keys")
+    with conn.transaction(), conn.cursor() as cur:
+        _ = cur.execute(cast(LiteralString, schema.to_create_table_sql(schema.SCHEMA_MIGRATIONS)))
+    for mig in declared:
+        if mig.version < switch.version:
+            migrations._apply_one(conn, mig)
+
+
+def test_migration_backfill_derives_uuids_from_creation_time(clean_db: PostgresDatabaseSettings) -> None:
+    """Seed an integer-keyed database, migrate it, and check the ids it produced.
+
+    This is the only coverage of ``0008``'s data transformation, and of the
+    ``pg17_uuidv7`` function it defines to perform it. That function matters
+    disproportionately: PostgreSQL 18 ships a ``uuidv7()`` builtin, but 17 --
+    which CI also targets -- does not, so on 17 this hand-rolled SQL is the
+    *only* thing assigning a primary key to an existing row. A version nibble
+    set wrong there would be invisible until something downstream cared.
+
+    Rows are inserted in an order deliberately scrambled against their
+    timestamps, so the integer sequence order and the creation order
+    disagree. The backfill derives each UUID from the row's own
+    ``create_date`` / ``start_date`` rather than from ``clock_timestamp()``,
+    which means sorting by the new id must reproduce *creation* order, not
+    insertion order. Getting this wrong would not fail loudly; it would just
+    silently discard the ordering that UUIDv7 exists to carry.
+    """
+    conn = connection.connect(clean_db)
+    _apply_legacy_migrations(conn)
+
+    # (marker, create_date) inserted c, a, b -- so integer ids ascend in an
+    # order that contradicts the timestamps.
+    orders = [("order-c", datetime(2024, 3, 1)), ("order-a", datetime(2024, 1, 1)), ("order-b", datetime(2024, 2, 1))]
+    points = [("vs-d", 4), ("vs-b", 2), ("vs-a", 1), ("vs-c", 3)]
+
+    order_ids: dict[str, int] = {}
+    with conn.transaction(), conn.cursor() as cur:
+        for marker, created in orders:
+            _ = cur.execute(
+                "INSERT INTO orders (name, eleanor_version, raw, create_date) "
+                "VALUES (%s, 'test', '{}'::jsonb, %s) RETURNING id",
+                (marker, created),
+            )
+            row = cur.fetchone()
+            assert row is not None
+            order_ids[marker] = cast(int, row[0])
+
+        for marker, day in points:
+            created = datetime(2024, 6, day)
+            _ = cur.execute(
+                "INSERT INTO variable_space (order_id, water_mass, temperature, pressure, exit_code, "
+                "error, create_date, start_date, complete_date) "
+                "VALUES (%s, 1.0, 25.0, 1.0, 0, %s, %s, %s, %s) RETURNING id",
+                (order_ids["order-a"], marker, created, created, created),
+            )
+            row = cur.fetchone()
+            assert row is not None
+            vs_id = cast(int, row[0])
+            # A leaf child, to prove the FK remap kept each row with its parent.
+            _ = cur.execute(
+                "INSERT INTO elements (variable_space_id, name, log_molality) VALUES (%s, %s, -3.0)",
+                (vs_id, f"{marker}-element"),
+            )
+            # equilibrium_space backfills from start_date, not create_date.
+            _ = cur.execute(_ES_INSERT, (vs_id, f"{marker}-stage", created, created))
+
+    migrations.apply_pending_migrations(conn)
+
+    with conn.cursor() as cur:
+        # Every surviving primary key is a version-7 UUID, all distinct.
+        for table in ("orders", "variable_space", "equilibrium_space"):
+            _ = cur.execute(cast(LiteralString, f"SELECT id FROM {table}"))  # noqa: S608 -- fixed literals
+            ids = [cast(uuid.UUID, r[0]) for r in cur.fetchall()]
+            assert ids, f"{table} lost its rows during the migration"
+            assert all(isinstance(i, uuid.UUID) for i in ids), f"{table}.id is not a UUID"
+            assert all(i.version == 7 for i in ids), f"{table}.id is not UUIDv7: {[i.version for i in ids]}"
+            assert len(set(ids)) == len(ids), f"{table}.id collided"
+
+        # Sorting by the new id reproduces creation order, not insertion order.
+        _ = cur.execute("SELECT name FROM orders ORDER BY id")
+        assert [r[0] for r in cur.fetchall()] == ["order-a", "order-b", "order-c"]
+
+        _ = cur.execute("SELECT error FROM variable_space ORDER BY id")
+        assert [r[0] for r in cur.fetchall()] == ["vs-a", "vs-b", "vs-c", "vs-d"]
+
+        _ = cur.execute("SELECT stage FROM equilibrium_space ORDER BY id")
+        assert [r[0] for r in cur.fetchall()] == ["vs-a-stage", "vs-b-stage", "vs-c-stage", "vs-d-stage"]
+
+        # The FK remap kept every child with the parent it started under.
+        _ = cur.execute(
+            "SELECT e.name, vs.error, o.name FROM elements e "
+            "JOIN variable_space vs ON vs.id = e.variable_space_id "
+            "JOIN orders o ON o.id = vs.order_id ORDER BY e.name"
+        )
+        assert cur.fetchall() == [(f"{m}-element", m, "order-a") for m, _ in sorted(points)]
+
+        # The helper function is scaffolding and must not outlive the migration.
+        _ = cur.execute("SELECT to_regprocedure('pg17_uuidv7(timestamp)') IS NULL")
+        row = cur.fetchone()
+        assert row is not None
+        assert row[0], "pg17_uuidv7 outlived the migration that defined it"
+
+
 def test_verify_against_tables_clean_after_migrate(
     clean_db: PostgresDatabaseSettings,
 ) -> None:
@@ -184,6 +382,39 @@ def test_verify_against_tables_clean_after_migrate(
     migrations.apply_pending_migrations(conn)
     problems = schema.verify_against_tables(conn)
     assert problems == []
+
+
+@pytest.mark.parametrize(
+    ("mutation", "column"),
+    [
+        ("ALTER TABLE orders ALTER COLUMN name DROP NOT NULL", "name"),
+        ("ALTER TABLE orders ALTER COLUMN eleanor_version TYPE VARCHAR(64)", "eleanor_version"),
+    ],
+)
+def test_verify_against_tables_detects_column_drift(
+    clean_db: PostgresDatabaseSettings,
+    mutation: str,
+    column: str,
+) -> None:
+    """A column whose type or nullability diverges from ``TABLES`` is reported.
+
+    ``verify_against_tables`` compares ``(type, nullable)`` per column, but
+    only the *presence* leg had coverage. The nullability leg is what catches
+    a :class:`ColumnDef` that loses its ``nullable=False``: on a primary key
+    that mistake still emits valid DDL, because Postgres makes a PK implicitly
+    ``NOT NULL``, so nothing else in the stack notices.
+    """
+    conn = connection.connect(clean_db)
+    migrations.apply_pending_migrations(conn)
+    assert schema.verify_against_tables(conn) == []
+
+    with conn.transaction(), conn.cursor() as cur:
+        _ = cur.execute(cast(LiteralString, mutation))
+
+    problems = schema.verify_against_tables(conn)
+    assert any(repr(column) in p and "orders" in p for p in problems), (
+        f"expected drift on orders.{column}, got: {problems}"
+    )
 
 
 def test_verify_against_tables_detects_missing_index(
@@ -200,7 +431,7 @@ def test_verify_against_tables_detects_missing_index(
 def test_live_index_names_returns_declared_indexes(
     clean_db: PostgresDatabaseSettings,
 ) -> None:
-    """Live smoke leg of the indisvalid coverage triangle (D3 in PLAN.md).
+    """Live smoke leg of the indisvalid coverage triangle.
 
     Verifies the _LIVE_VALID_INDEXES_QUERY is syntactically and semantically
     correct against the real catalog, regardless of test-role privileges.
@@ -215,7 +446,7 @@ def test_live_index_names_returns_declared_indexes(
 def test_verify_treats_invalid_index_as_missing(
     clean_db: PostgresDatabaseSettings,
 ) -> None:
-    """Privileged leg of the indisvalid coverage triangle (D3 in PLAN.md).
+    """Privileged leg of the indisvalid coverage triangle.
 
     Requires superuser (UPDATE pg_index permission). Skips if the test
     role lacks that permission. The other two legs in the triangle

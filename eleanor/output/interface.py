@@ -6,25 +6,10 @@ from types import TracebackType
 from typing import TYPE_CHECKING, Self
 
 import eleanor.variable_space as vs
-from eleanor.exceptions import EleanorError
 
 if TYPE_CHECKING:
     from eleanor.order import Order
     from eleanor.progress import ProgressHandle
-
-
-def require_int_order_id(requested_id: str, sink_name: str) -> int:
-    """Parse ``requested_id`` as an integer, for sinks whose ids are integers.
-
-    ``begin_run`` receives the resume token as the raw string the caller
-    supplied, because only the sink knows its own id space. The sinks backed by
-    an integer sequence share this parser so they also share one error message.
-    """
-    try:
-        return int(requested_id)
-    except ValueError as error:
-        msg = f"{sink_name} order id must be an integer, got {requested_id!r}"
-        raise EleanorError(msg) from error
 
 
 @dataclass(slots=True, frozen=True)
@@ -490,5 +475,4 @@ __all__ = [
     "SinkBinding",
     "SinkChunkResult",
     "WriteOutcome",
-    "require_int_order_id",
 ]

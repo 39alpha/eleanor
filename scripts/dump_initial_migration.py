@@ -5,8 +5,6 @@ DDL helpers change. The output captures what ``schema.ensure_schema`` does:
 CREATE TABLE for every table in TABLES (in TABLES order), then CREATE INDEX
 for every index declared on those tables. Foreign keys are inlined in the
 CREATE TABLE statement by ``to_create_table_sql``; do not re-emit them here.
-
-See PLAN.md §D1 for why this script is committed rather than thrown away.
 """
 
 import sys

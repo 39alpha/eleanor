@@ -1,6 +1,7 @@
 import datetime
 import hashlib
 import os
+import uuid
 from collections.abc import Callable, Iterable
 from enum import StrEnum
 from functools import reduce
@@ -414,3 +415,21 @@ def guard_is_instance_or_none[T](value: object, class_: type[T], field_name: str
     if value is not None and not isinstance(value, class_):
         msg = f"{field_name} must be type {class_.__name__} or None; got {type(value).__name__}"
         raise EleanorError(msg)
+
+
+def require_int_id(requested_id: str, name: str) -> int:
+    """Parse ``requested_id`` as an integer."""
+    try:
+        return int(requested_id)
+    except ValueError as error:
+        msg = f"{name} id must be an integer, got {requested_id!r}"
+        raise EleanorError(msg) from error
+
+
+def require_uuid_id(requested_id: str, name: str) -> uuid.UUID:
+    """Parse ``requested_id`` as a UUID."""
+    try:
+        return uuid.UUID(requested_id)
+    except ValueError as error:
+        msg = f"{name} id must be a UUID, got {requested_id!r}"
+        raise EleanorError(msg) from error

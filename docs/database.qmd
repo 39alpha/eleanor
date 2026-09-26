@@ -67,8 +67,14 @@ the other tables. For brevity we use a few abbreviations as follows:
 |FK      | Foreign Key |
 |N       | Nullable    |
 
-Every table a has single primary key (**PK**)---`id`---without exception, though
-that my change in subsequent versions of **Eleanor** (but probably not).
+A table carries a primary key (**PK**)---always named `id`, always a `UUID`---only
+when something else refers to it. The leaf tables, such as
+[`elements`](#elements) and [`equilibrium_aqueous_species`](#equilibrium_aqueous_species),
+are reached only through their parent and so have no `id` of their own.
+
+Ids are UUIDv7 values **Eleanor** generates, not integers the database assigns.
+Being version 7, they embed a millisecond timestamp in their leading bits, so
+ordering by `id` orders by creation time.
 
 As described in [Overview](#overview), the **Eleanor** database
 is somewhat hierarchical with the [`orders`](#orders) table as the root, zero
@@ -92,13 +98,18 @@ guaranteed to have a value, though that value may be some standard value
 representing "absent" or "missing", e.g. `-inf`. Columns that are nullable
 (**N**) are denoted as such.
 
+The examples throughout this document truncate ids to their first group, as
+`cf165798-...`, so the tables fit the page. The same truncation stands for the
+same row everywhere, so a foreign key can be matched to the row it references
+by eye.
+
 {{< pagebreak >}}
 
 ## orders
 
 | PK | FK | N | Column Name                                                     | Type       | Description                                                                                                                                                  | Unit          |
 |:-: |:-: |:-:|---------------------------                                      |---------   |------------------------------------------------------------                                                                                                  |---------      |
-| ✔  |    |   | `id`                                                            | `INTEGER`  | The order identifier                                                                                                                                         |               |
+| ✔  |    |   | `id`                                                            | `UUID`     | The order identifier                                                                                                                                         |               |
 |    |    |   | `name`                                                          | `VARCHAR`  | The name of the order                                                                                                                                        |               |
 |    |    |   | `tags`                                                          | `TEXT[]`   | Tags for organizing orders (default: `'{}'`)                                                                                                                 |               |
 |    |    |   | `eleanor_version`                                               | `VARCHAR`  | The version of eleanor used to run the order                                                                                                                 |               |
@@ -108,7 +119,7 @@ representing "absent" or "missing", e.g. `-inf`. Columns that are nullable
 : {.striped .bordered}
 
 When the user runs an order, **Eleanor** stores an entry in the `orders` table
-which includes the autoincremented `id`, the name of the order (extracted from
+which includes the generated `id`, the name of the order (extracted from
 the YAML/TOML/JSON file), optional `tags` for organization, and the version of
 **Eleanor** used to execute the order.
 
@@ -119,8 +130,7 @@ the YAML/TOML/JSON file), optional `tags` for organization, and the version of
 
 The `raw` column stores the original content of the order file in JSON format.
 It does not carry an `id`: the identifier belongs to this table's `id` column,
-assigned by the sequence when the row is inserted, and an order file may not
-declare one.
+generated when the row is inserted, and an order file may not declare one.
 
 The `create_date` value is the datetime at which the order was initially created.
 
@@ -129,11 +139,11 @@ The `create_date` value is the datetime at which the order was initially created
 ```sql
 SELECT id, name, tags, eleanor_version, create_date FROM orders;
 
-+----+----------------------+--------+-----------------+------------------------+
-| id | name                 | tags   | eleanor_version | create_date            |
-|----+----------------------+--------+-----------------+------------------------|
-| 1  | A Wild Example Order | {test} | 0.19.0          | 2026-01-09 10:59:01.98 |
-+----+----------------------+--------+-----------------+------------------------+
++--------------+----------------------+--------+-----------------+------------------------+
+| id           | name                 | tags   | eleanor_version | create_date            |
+|--------------+----------------------+--------+-----------------+------------------------|
+| e49c9daa-... | A Wild Example Order | {test} | 0.19.0          | 2026-01-09 10:59:01.98 |
++--------------+----------------------+--------+-----------------+------------------------+
 ```
 
 {{< pagebreak >}}
@@ -143,8 +153,8 @@ SELECT id, name, tags, eleanor_version, create_date FROM orders;
 
 | PK | FK | N | Column Name                                                     | Type       | Description                                                                                                                                                  | Unit          |
 |:-: |:-: |:-:|---------------------------                                      |---------   |------------------------------------------------------------                                                                                                  |---------      |
-| ✔  |    |   | `id`                                                            | `INTEGER`  | The variable space point identifier                                                                                                                          |               |
-|    | ✔  |   | [`order_id`](#orders)                                           | `INTEGER`  | The order id for which the point was generated                                                                                                               |               |
+| ✔  |    |   | `id`                                                            | `UUID`     | The variable space point identifier                                                                                                                          |               |
+|    | ✔  |   | [`order_id`](#orders)                                           | `UUID`     | The order id for which the point was generated                                                                                                               |               |
 |    |    |   | `water_mass`                                                    | `DOUBLE`   | The mass of water in the system                                                                                                                              | $kg$          |
 |    |    |   | `temperature`                                                   | `DOUBLE`   | The temperature                                                                                                                                              | $^\circ C$    |
 |    |    |   | `pressure`                                                      | `DOUBLE`   | The pressure                                                                                                                                                 | $bar$         |
@@ -185,7 +195,7 @@ the unspeciated initial state of a system and includes such information as:
 - Suppressions ([`suppressions`](#suppressions))
 
 The `variable_space` table stores the core information about the variable space
-point per row. This includes an autoincrementing `id`, the `water_mass` (mass
+point per row. This includes a generated `id`, the `water_mass` (mass
 of water in the system in kilograms; defaults to $1.0$ if unspecified in the
 order), the `temperature` and `pressure` of the system, and the datetime at
 which it was generated. Each point refers back to the order to which it belongs
@@ -202,18 +212,18 @@ the `error` column stores the associated error message.
 ```sql
 SELECT * FROM variable_space ORDER BY id LIMIT 1;
 
-+----+----------+------------+-------------+----------+-----------+-------+----------------------------+----------------------------+----------------------------+
-| id | order_id | water_mass | temperature | pressure | exit_code | error | create_date                | start_date                 | complete_date              |
-|----+----------+------------+-------------+----------+-----------+-------+----------------------------+----------------------------+----------------------------|
-| 1  | 1        | 1.0        | 300.0       | 500.0    | 0         | <null>| 2026-01-09 10:59:02.541519 | 2026-01-09 10:59:02.546294 | 2026-01-09 10:59:02.843071 |
-+----+----------+------------+-------------+----------+-----------+-------+----------------------------+----------------------------+----------------------------+
++--------------+--------------+------------+-------------+----------+-----------+--------+----------------------------+----------------------------+----------------------------+
+| id           | order_id     | water_mass | temperature | pressure | exit_code | error  | create_date                | start_date                 | complete_date              |
+|--------------+--------------+------------+-------------+----------+-----------+--------+----------------------------+----------------------------+----------------------------|
+| cf165798-... | e49c9daa-... | 1.0        | 300.0       | 500.0    | 0         | <null> | 2026-01-09 10:59:02.541519 | 2026-01-09 10:59:02.546294 | 2026-01-09 10:59:02.843071 |
++--------------+--------------+------------+-------------+----------+-----------+--------+----------------------------+----------------------------+----------------------------+
 ```
 
 #### scratch
 
 | PK | FK | N | Column Name                                                     | Type       | Description                                                                                                                                                  | Unit          |
 |:-: |:-: |:-:|---------------------------                                      |---------   |------------------------------------------------------------                                                                                                  |---------      |
-| ✔  | ✔  |   | [`id`](#variable_space)                                         | `INTEGER`  |  The scratch entry identifier corresponds to the variable space id                                                                                           |               |
+| ✔  | ✔  |   | [`id`](#variable_space)                                         | `UUID`     |  The scratch entry identifier corresponds to the variable space id                                                                                           |               |
 |    |    |   | `zip`                                                           | `BYTEA`    | A zip archive of the input files used and output files generated when equilibrating the variable space point. This includes a traceback when an error occurs |               |
 
 : {.striped .bordered}
@@ -233,20 +243,20 @@ file is included in the `zip` archive.
 **Example**:
 
 ```sql
-SELECT * FROM scratch WHERE id = 1;
+SELECT * FROM scratch WHERE id = 'cf165798-...';
 
-+----+----------+
-| id | zip      |
-|----+----------|
-| 1  | <binary> |
-+----+----------+
++--------------+----------+
+| id           | zip      |
+|--------------+----------|
+| cf165798-... | <binary> |
++--------------+----------+
 ```
 
 #### kernel
 
 | PK | FK | N | Column Name                                                     | Type       | Description                                                                                                                                                  | Unit          |
 |:-: |:-: |:-:|---------------------------                                      |---------   |------------------------------------------------------------                                                                                                  |---------      |
-| ✔  | ✔  |   | [`id`](#variable_space)                                         | `INTEGER`  | The kernel entry identifier corresponds to the variable space point                                                                                          |               |
+| ✔  | ✔  |   | [`id`](#variable_space)                                         | `UUID`     | The kernel entry identifier corresponds to the variable space point                                                                                          |               |
 |    |    |   | `type`                                                          | `VARCHAR`  | The type of the kernel used, e.g. `eq36`                                                                                                                     |               |
 |    |    |   | `settings`                                                      | `JSONB`    | A JSON-encoded object of the settings passed to the kernel                                                                                                   |               |
 
@@ -268,13 +278,13 @@ PostgreSQL's native JSON support.
 **Example**:
 
 ```sql
-SELECT * FROM kernel WHERE id = 1;
+SELECT * FROM kernel WHERE id = 'cf165798-...';
 
-+----+------+------------------------------------------------------+
-| id | type | settings                                             |
-|----+------+------------------------------------------------------|
-| 1  | eq36 | {"model": 0, "timeout": null, "basis_map": {}, ... } |
-+----+------+------------------------------------------------------+
++--------------+------+------------------------------------------------------+
+| id           | type | settings                                             |
+|--------------+------+------------------------------------------------------|
+| cf165798-... | eq36 | {"model": 0, "timeout": null, "basis_map": {}, ... } |
++--------------+------+------------------------------------------------------+
 ```
 
 {{< pagebreak >}}
@@ -283,8 +293,7 @@ SELECT * FROM kernel WHERE id = 1;
 
 | PK | FK | N | Column Name                                                     | Type       | Description                                                                                                                                                  | Unit          |
 |:-: |:-: |:-:|---------------------------                                      |---------   |------------------------------------------------------------                                                                                                  |---------      |
-| ✔  |    |   | `id`                                                            | `INTEGER`  | The element identifier, specific to the variable space point                                                                                                 |               |
-|    | ✔  |   | [`variable_space_id`](#variable_space)                          | `INTEGER`  | The id of the variable space point for which elemental molality was generated                                                                                |               |
+|    | ✔  |   | [`variable_space_id`](#variable_space)                          | `UUID`     | The id of the variable space point for which elemental molality was generated                                                                                |               |
 |    |    |   | `name`                                                          | `VARCHAR`  | The name of the element (atomic symbol)                                                                                                                      |               |
 |    |    |   | `log_molality`                                                  | `DOUBLE`   | The log molality of the element in the variable space solution                                                                                               | $\log{molal}$ |
 
@@ -294,31 +303,30 @@ SELECT * FROM kernel WHERE id = 1;
 
 The elemental composition of the system's fluid must be provided as part of the
 specification of a variable space point. Each element in the fluid is stored
-in the `elements` table with a unique, autoincremented `id`, the name of the
-element, and the `log_molality` that was chosen when the variable space was
-generated. Each element references the variable space point it is associated
-with by the `variable_space_id`.
+in the `elements` table with the name of the element and the `log_molality`
+that was chosen when the variable space was generated. Each element references
+the variable space point it is associated with by the `variable_space_id`.
 
 **Example**:
 
 ```sql
 SELECT *
  FROM elements
- WHERE variable_space_id = 1
+ WHERE variable_space_id = 'cf165798-...'
  ORDER BY name;
 
-+----+-------------------+------+--------------+
-| id | variable_space_id | name | log_molality |
-|----+-------------------+------+--------------|
-| 1  | 1                 | C    | -9.0         |
-| 4  | 1                 | Ca   | -9.0         |
-| 5  | 1                 | Cl   | -9.0         |
-| 7  | 1                 | Fe   | -9.0         |
-| 6  | 1                 | Mg   | -9.0         |
-| 8  | 1                 | N    | -9.0         |
-| 2  | 1                 | Na   | -9.0         |
-| 3  | 1                 | Si   | -9.0         |
-+----+-------------------+------+--------------+
++-------------------+------+--------------+
+| variable_space_id | name | log_molality |
+|-------------------+------+--------------|
+| cf165798-...      | C    | -9.0         |
+| cf165798-...      | Ca   | -9.0         |
+| cf165798-...      | Cl   | -9.0         |
+| cf165798-...      | Fe   | -9.0         |
+| cf165798-...      | Mg   | -9.0         |
+| cf165798-...      | N    | -9.0         |
+| cf165798-...      | Na   | -9.0         |
+| cf165798-...      | Si   | -9.0         |
++-------------------+------+--------------+
 ```
 
 {{< pagebreak >}}
@@ -327,8 +335,7 @@ SELECT *
 
 | PK | FK | N | Column Name                                                     | Type       | Description                                                                                                                                                  | Unit          |
 |:-: |:-: |:-:|---------------------------                                      |---------   |------------------------------------------------------------                                                                                                  |---------      |
-| ✔  |    |   | `id`                                                            | `INTEGER`  | The species identifier, specific to the variable space point                                                                                                 |               |
-|    | ✔  |   | [`variable_space_id`](#variable_space)                          | `INTEGER`  | The id of the variable space point for which the species molality/activity/fugacity was generated                                                            |               |
+|    | ✔  |   | [`variable_space_id`](#variable_space)                          | `UUID`     | The id of the variable space point for which the species molality/activity/fugacity was generated                                                            |               |
 |    |    |   | `name`                                                          | `VARCHAR`  | The name of the species                                                                                                                                      |               |
 |    |    |   | `value`                                                         | `DOUBLE`   | The log molality/activity/fugacity of the species in the variable space solution                                                                             | variable      |
 
@@ -339,26 +346,25 @@ SELECT *
 Constraints on the aqueous and gaceous species in the system may, though in some
 cases must, be provided as part of the specification of a variable space point,
 such as the $pH$ and $fO_2$ of the system. Each species constraint is stored
-in the `species` table with a unique, autoincremented `id`, the name of the
-species, and the `value` of the constraint (log molality, log activity or log
-fugacity as appropriate) that was chosen when the variable space was generated.
-Each element references the variable space point it is associated with by the
-`variable_space_id`.
+in the `species` table with the name of the species and the `value` of the
+constraint (log molality, log activity or log fugacity as appropriate) that was
+chosen when the variable space was generated. Each element references the
+variable space point it is associated with by the `variable_space_id`.
 
 **Example**:
 
 ```sql
 SELECT *
  FROM species
- WHERE variable_space_id = 1
+ WHERE variable_space_id = 'cf165798-...'
  ORDER BY name;
 
-+----+-------------------+-------+-------+
-| id | variable_space_id | name  | value |
-|----+-------------------+-------+-------|
-| 1  | 1                 | H+    | -7.0  |
-| 2  | 1                 | O2(g) | -1.0  |
-+----+-------------------+-------+-------+
++-------------------+-------+-------+
+| variable_space_id | name  | value |
+|-------------------+-------+-------|
+| cf165798-...      | H+    | -7.0  |
+| cf165798-...      | O2(g) | -1.0  |
++-------------------+-------+-------+
 ```
 
 #### Reactants
@@ -378,20 +384,24 @@ simulation of a wide variety of systems. These types are:
 and each the details of reactants are stored in tables by type. However, they
 mostly follow the same basic form:
 
-1. Each table has an autoincrementing `id`,
-2. Each table has a `variable_space_id` that associates the entry with the
+1. Each table has a `variable_space_id` that associates the entry with the
    [variable space](#variable_space) point,
-3. The `name` of the reactant,
-4. The molar amount of the reactant, `log_moles`, and
-5. Either a `titration_rate` or `log_fugacity` as appropriate for the reactant
+2. The `name` of the reactant,
+3. The molar amount of the reactant, `log_moles`, and
+4. Either a `titration_rate` or `log_fugacity` as appropriate for the reactant
    type.
+
+Only [`solid_solution_reactants`](#solid_solution_reactants) and
+[`special_reactants`](#special_reactants) also carry an `id`, because each has a
+child table---[`solid_solution_reactant_end_members`](#solid_solution_reactant_end_members)
+and [`special_reactant_compositions`](#special_reactant_compositions)---that
+refers back to it.
 
 ##### aqueous_reactants
 
 | PK | FK | N | Column Name                                                     | Type       | Description                                                                                                                                                  | Unit          |
 |:-: |:-: |:-:|---------------------------                                      |---------   |------------------------------------------------------------                                                                                                  |---------      |
-| ✔  |    |   | `id`                                                            | `INTEGER`  | The aqueous reactant identifier, specific to the variable space point                                                                                        |               |
-|    | ✔  |   | [`variable_space_id`](#variable_space)                          | `INTEGER`  | The id of the variable space point for which the aqueous reactant amount and titration rate were generated                                                   |               |
+|    | ✔  |   | [`variable_space_id`](#variable_space)                          | `UUID`     | The id of the variable space point for which the aqueous reactant amount and titration rate were generated                                                   |               |
 |    |    |   | `name`                                                          | `VARCHAR`  | The name of the aqueous reactant                                                                                                                             |               |
 |    |    |   | `log_moles`                                                     | `DOUBLE`   | The log amount of the reactant to be reacted with the fluid                                                                                                  | $\log{mol}$   |
 |    |    |   | `titration_rate`                                                | `DOUBLE`   | The rate (in $\xi$) at which the reactant will be titrated into the fluid                                                                                    | $mol/\xi$     |
@@ -409,14 +419,14 @@ quantity (`amount`) of an aqueous species into the system at a $\xi$-rate
 ```sql
 SELECT *
  FROM aqueous_reactants
- WHERE variable_space_id = 1
+ WHERE variable_space_id = 'cf165798-...'
  ORDER BY name;
 
-+----+-------------------+-------+-----------+----------------+
-| id | variable_space_id | name  | log_moles | titration_rate |
-|----+-------------------+-------+-----------+----------------|
-| 1  | 1                 | CaCl2 | -2.0      | 1.0            |
-+----+-------------------+-------+-----------+----------------+
++-------------------+-------+-----------+----------------+
+| variable_space_id | name  | log_moles | titration_rate |
+|-------------------+-------+-----------+----------------|
+| cf165798-...      | CaCl2 | -2.0      | 1.0            |
++-------------------+-------+-----------+----------------+
 ```
 
 {{< pagebreak >}}
@@ -425,8 +435,7 @@ SELECT *
 
 | PK | FK | N | Column Name                                                     | Type       | Description                                                                                                                                                  | Unit          |
 |:-: |:-: |:-:|---------------------------                                      |---------   |------------------------------------------------------------                                                                                                  |---------      |
-| ✔  |    |   | `id`                                                            | `INTEGER`  | The element reactant identifier, specific to the variable space point                                                                                        |               |
-|    | ✔  |   | [`variable_space_id`](#variable_space)                          | `INTEGER`  | The id of the variable space point for which the element reactant amount and titration rate were generated                                                   |               |
+|    | ✔  |   | [`variable_space_id`](#variable_space)                          | `UUID`     | The id of the variable space point for which the element reactant amount and titration rate were generated                                                   |               |
 |    |    |   | `name`                                                          | `VARCHAR`  | The name of the element reactant                                                                                                                             |               |
 |    |    |   | `log_moles`                                                     | `DOUBLE`   | The log amount of the reactant to be reacted with the fluid                                                                                                  | $\log{mol}$   |
 |    |    |   | `titration_rate`                                                | `DOUBLE`   | The rate (in $\xi$) at which the reactant will be titrated into the fluid                                                                                    | $mol/\xi$     |
@@ -445,22 +454,21 @@ $\xi$-rate (`titration_rate`).
 ```sql
 SELECT *
  FROM element_reactants
- WHERE variable_space_id = 1
+ WHERE variable_space_id = 'cf165798-...'
  ORDER BY name;
 
-+----+-------------------+------+-----------+----------------+
-| id | variable_space_id | name | log_moles | titration_rate |
-|----+-------------------+------+-----------+----------------|
-| 1  | 1                 | Si   | -2.0      | 1.0            |
-+----+-------------------+------+-----------+----------------+
++-------------------+------+-----------+----------------+
+| variable_space_id | name | log_moles | titration_rate |
+|-------------------+------+-----------+----------------|
+| cf165798-...      | Si   | -2.0      | 1.0            |
++-------------------+------+-----------+----------------+
 ```
 
 ##### fixed_gas_reactants
 
 | PK | FK | N | Column Name                                                     | Type       | Description                                                                                                                                                  | Unit          |
 |:-: |:-: |:-:|---------------------------                                      |---------   |------------------------------------------------------------                                                                                                  |---------      |
-| ✔  |    |   | `id`                                                            | `INTEGER`  | The fixed gas reactant identifier, specific to the variable space point                                                                                      |               |
-|    | ✔  |   | [`variable_space_id`](#variable_space)                          | `INTEGER`  | The id of the variable space point for which the fixed gas reactant amount and fugacity were generated                                                       |               |
+|    | ✔  |   | [`variable_space_id`](#variable_space)                          | `UUID`     | The id of the variable space point for which the fixed gas reactant amount and fugacity were generated                                                       |               |
 |    |    |   | `name`                                                          | `VARCHAR`  | The name of the fixed gas reactant                                                                                                                           |               |
 |    |    |   | `log_moles`                                                     | `DOUBLE`   | The log amount of the fixed gas buffer                                                                                                                       | $\log{mol}$   |
 |    |    |   | `log_fugacity`                                                  | `DOUBLE`   | The log fugacity of will be titrated into the fluid                                                                                                          | $mol/\xi$     |
@@ -480,22 +488,21 @@ enforced through mass exchange with a buffer with initial size `amount`.
 ```sql
 SELECT *
  FROM fixed_gas_reactants
- WHERE variable_space_id = 1
+ WHERE variable_space_id = 'cf165798-...'
  ORDER BY name;
 
-+----+-------------------+--------+-----------+--------------+
-| id | variable_space_id | name   | log_moles | log_fugacity |
-|----+-------------------+--------+-----------+--------------|
-| 1  | 1                 | CO2(g) | -0.3      | -3.5         |
-+----+-------------------+--------+-----------+--------------+
++-------------------+--------+-----------+--------------+
+| variable_space_id | name   | log_moles | log_fugacity |
+|-------------------+--------+-----------+--------------|
+| cf165798-...      | CO2(g) | -0.3      | -3.5         |
++-------------------+--------+-----------+--------------+
 ```
 
 ##### gas_reactants
 
 | PK | FK | N | Column Name                                                     | Type       | Description                                                                                                                                                  | Unit          |
 |:-: |:-: |:-:|---------------------------                                      |---------   |------------------------------------------------------------                                                                                                  |---------      |
-| ✔  |    |   | `id`                                                            | `INTEGER`  | The gas reactant identifier, specific to the variable space point                                                                                            |               |
-|    | ✔  |   | [`variable_space_id`](#variable_space)                          | `INTEGER`  | The id of the variable space point for which the gas reactant amount and titration rate were generated                                                       |               |
+|    | ✔  |   | [`variable_space_id`](#variable_space)                          | `UUID`     | The id of the variable space point for which the gas reactant amount and titration rate were generated                                                       |               |
 |    |    |   | `name`                                                          | `VARCHAR`  | The name of the gas reactant                                                                                                                                 |               |
 |    |    |   | `log_moles`                                                     | `DOUBLE`   | The log amount of the reactant to be reacted with the fluid                                                                                                  | $\log{mol}$   |
 |    |    |   | `titration_rate`                                                | `DOUBLE`   | The rate (in $\xi$) at which the reactant will be titrated into the fluid                                                                                    | $mol/\xi$     |
@@ -512,14 +519,14 @@ species with the fluid at some $\xi$-rate (`titration_rate`).
 ```sql
 SELECT *
  FROM gas_reactants
- WHERE variable_space_id = 1
+ WHERE variable_space_id = 'cf165798-...'
  ORDER BY name;
 
-+----+-------------------+-------+-----------+----------------+
-| id | variable_space_id | name  | log_moles | titration_rate |
-|----+-------------------+-------+-----------+----------------|
-| 1  | 1                 | N2(g) | -0.3      | 1.0            |
-+----+-------------------+-------+-----------+----------------+
++-------------------+-------+-----------+----------------+
+| variable_space_id | name  | log_moles | titration_rate |
+|-------------------+-------+-----------+----------------|
+| cf165798-...      | N2(g) | -0.3      | 1.0            |
++-------------------+-------+-----------+----------------+
 ```
 
 
@@ -527,8 +534,7 @@ SELECT *
 
 | PK | FK | N | Column Name                                                     | Type       | Description                                                                                                                                                  | Unit          |
 |:-: |:-: |:-:|---------------------------                                      |---------   |------------------------------------------------------------                                                                                                  |---------      |
-| ✔  |    |   | `id`                                                            | `INTEGER`  | The mineral reactant identifier, specific to the variable space point                                                                                        |               |
-|    | ✔  |   | [`variable_space_id`](#variable_space)                          | `INTEGER`  | The id of the variable space point for which the mineral reactant amount and titration rate were generated                                                   |               |
+|    | ✔  |   | [`variable_space_id`](#variable_space)                          | `UUID`     | The id of the variable space point for which the mineral reactant amount and titration rate were generated                                                   |               |
 |    |    |   | `name`                                                          | `VARCHAR`  | The name of the mineral reactant                                                                                                                             |               |
 |    |    |   | `log_moles`                                                     | `DOUBLE`   | The log amount of the reactant to be reacted with the fluid                                                                                                  | $\log{mol}$   |
 |    |    |   | `titration_rate`                                                | `DOUBLE`   | The rate (in $\xi$) at which the reactant will be titrated into the fluid                                                                                    | $mol/\xi$     |
@@ -545,22 +551,22 @@ mineral with the fluid at some $\xi$-rate (`titration_rate`).
 ```sql
 SELECT *
  FROM mineral_reactants
- WHERE variable_space_id = 1
+ WHERE variable_space_id = 'cf165798-...'
  ORDER BY name;
 
-+----+-------------------+----------+-----------+----------------+
-| id | variable_space_id | name     | log_moles | titration_rate |
-|----+-------------------+----------+-----------+----------------|
-| 1  | 1                 | hematite | -0.3      | 1.0            |
-+----+-------------------+----------+-----------+----------------+
++-------------------+----------+-----------+----------------+
+| variable_space_id | name     | log_moles | titration_rate |
+|-------------------+----------+-----------+----------------|
+| cf165798-...      | hematite | -0.3      | 1.0            |
++-------------------+----------+-----------+----------------+
 ```
 
 ##### solid_solution_reactants
 
 | PK | FK | N | Column Name                                                     | Type       | Description                                                                                                                                                  | Unit          |
 |:-: |:-: |:-:|---------------------------                                      |---------   |------------------------------------------------------------                                                                                                  |---------      |
-| ✔  |    |   | `id`                                                            | `INTEGER`  | The solid solution identifier, specific to the variable space point                                                                                          |               |
-|    | ✔  |   | [`variable_space_id`](#variable_space)                          | `INTEGER`  | The id of the variable space point for which the solid solution amount and titration rate were generated                                                     |               |
+| ✔  |    |   | `id`                                                            | `UUID`     | The solid solution identifier, specific to the variable space point                                                                                          |               |
+|    | ✔  |   | [`variable_space_id`](#variable_space)                          | `UUID`     | The id of the variable space point for which the solid solution amount and titration rate were generated                                                     |               |
 |    |    |   | `name`                                                          | `VARCHAR`  | The name of the solid solution                                                                                                                               |               |
 |    |    |   | `log_moles`                                                     | `DOUBLE`   | The log amount of the reactant to be reacted with the fluid                                                                                                  | $\log{mol}$   |
 |    |    |   | `titration_rate`                                                | `DOUBLE`   | The rate (in $\xi$) at which the reactant will be titrated into the fluid                                                                                    | $mol/\xi$     |
@@ -583,22 +589,21 @@ table.
 ```sql
 SELECT *
  FROM solid_solution_reactants
- WHERE variable_space_id = 1
+ WHERE variable_space_id = 'cf165798-...'
  ORDER BY name;
 
-+----+-------------------+------------+-----------+----------------+
-| id | variable_space_id | name       | log_moles | titration_rate |
-|----+-------------------+------------+-----------+----------------|
-| 1  | 1                 | olivine-ss | -0.3      | 1.0            |
-+----+-------------------+------------+-----------+----------------+
++--------------+-------------------+------------+-----------+----------------+
+| id           | variable_space_id | name       | log_moles | titration_rate |
+|--------------+-------------------+------------+-----------+----------------|
+| b3b05895-... | cf165798-...      | olivine-ss | -0.3      | 1.0            |
++--------------+-------------------+------------+-----------+----------------+
 ```
 
 ###### solid_solution_reactant_end_members
 
 | PK | FK | N | Column Name                                                     | Type       | Description                                                                                                                                                  | Unit          |
 |:-: |:-: |:-:|---------------------------                                      |---------   |------------------------------------------------------------                                                                                                  |---------      |
-| ✔  |    |   | `id`                                                            | `INTEGER`  | The solid solution end member id, specific to the solid solution                                                                                             |               |
-|    | ✔  |   | [`solid_solution_reactant_id`](#solid_solution_reactants)       | `INTEGER`  | The id of the solid solution for which this is an end member                                                                                                 |               |
+|    | ✔  |   | [`solid_solution_reactant_id`](#solid_solution_reactants)       | `UUID`     | The id of the solid solution for which this is an end member                                                                                                 |               |
 |    |    |   | `name`                                                          | `VARCHAR`  | The name of the end member                                                                                                                                   |               |
 |    |    |   | `fraction`                                                      | `DOUBLE`   | The mole-fraction of the end member in the solid solution                                                                                                    | unitless      |
 
@@ -616,23 +621,23 @@ solid solution.
 ```sql
 SELECT em.*
  FROM solid_solution_reactant_end_members AS em
- JOIN solid_solution_reactants AS ssr ON ssr.id = em.solid_solution_reactant_id AND variable_space_id = 1
+ JOIN solid_solution_reactants AS ssr ON ssr.id = em.solid_solution_reactant_id AND variable_space_id = 'cf165798-...'
  ORDER BY em.name;
 
-+----+----------------------------+------------+----------+
-| id | solid_solution_reactant_id | name       | fraction |
-|----+----------------------------+------------+----------|
-| 1  | 1                          | fayalite   | 0.6      |
-| 2  | 1                          | forsterite | 0.4      |
-+----+----------------------------+------------+----------+
++----------------------------+------------+----------+
+| solid_solution_reactant_id | name       | fraction |
+|----------------------------+------------+----------|
+| b3b05895-...               | fayalite   | 0.6      |
+| b3b05895-...               | forsterite | 0.4      |
++----------------------------+------------+----------+
 ```
 
 ##### special_reactants
 
 | PK | FK | N | Column Name                                                     | Type       | Description                                                                                                                                                  | Unit          |
 |:-: |:-: |:-:|---------------------------                                      |---------   |------------------------------------------------------------                                                                                                  |---------      |
-| ✔  |    |   | `id`                                                            | `INTEGER`  | The special reactant identifier, specific to the variable space point                                                                                        |               |
-|    | ✔  |   | [`variable_space_id`](#variable_space)                          | `INTEGER`  | The id of the variable space point for which the special reactant amount and titration rate were generated                                                   |               |
+| ✔  |    |   | `id`                                                            | `UUID`     | The special reactant identifier, specific to the variable space point                                                                                        |               |
+|    | ✔  |   | [`variable_space_id`](#variable_space)                          | `UUID`     | The id of the variable space point for which the special reactant amount and titration rate were generated                                                   |               |
 |    |    |   | `name`                                                          | `VARCHAR`  | The name of the special reactant                                                                                                                             |               |
 |    |    |   | `log_moles`                                                     | `DOUBLE`   | The log amount of the reactant to be reacted with the fluid                                                                                                  | $\log{mol}$   |
 |    |    |   | `titration_rate`                                                | `DOUBLE`   | The rate (in $\xi$) at which the reactant will be titrated into the fluid                                                                                    | $mol/\xi$     |
@@ -652,22 +657,21 @@ its stoichiometric composition, which is stored separately in the
 ```sql
 SELECT *
  FROM special_reactants
- WHERE variable_space_id = 1
+ WHERE variable_space_id = 'cf165798-...'
  ORDER BY name;
 
-+----+-------------------+------------------+-----------+----------------+
-| id | variable_space_id | name             | log_moles | titration_rate |
-|----+-------------------+------------------+-----------+----------------|
-| 1  | 1                 | CalciumHydroxide | -2.0      | 1.0            |
-+----+-------------------+------------------+-----------+----------------+
++--------------+-------------------+------------------+-----------+----------------+
+| id           | variable_space_id | name             | log_moles | titration_rate |
+|--------------+-------------------+------------------+-----------+----------------|
+| 8b31573d-... | cf165798-...      | CalciumHydroxide | -2.0      | 1.0            |
++--------------+-------------------+------------------+-----------+----------------+
 ```
 
 ###### special_reactant_compositions
 
 | PK | FK | N | Column Name                                                     | Type       | Description                                                                                                                                                  | Unit          |
 |:-: |:-: |:-:|---------------------------                                      |---------   |------------------------------------------------------------                                                                                                  |---------      |
-| ✔  |    |   | `id`                                                            | `INTEGER`  | The special reactant composition identifier                                                                                                                  |               |
-|    | ✔  |   | [`special_reactant_id`](#special_reactants)                     | `INTEGER`  | The id of the special reactant                                                                                                                               |               |
+|    | ✔  |   | [`special_reactant_id`](#special_reactants)                     | `UUID`     | The id of the special reactant                                                                                                                               |               |
 |    |    |   | `element`                                                       | `VARCHAR`  | The name of the element in the special reactant                                                                                                              |               |
 |    |    |   | `count`                                                         | `INTEGER`  | The stoichiometric count of the element in the special reactant                                                                                              |               |
 
@@ -686,24 +690,24 @@ stored in a row of the `special_reactant_composition` table.
 ```sql
 SELECT c.*
  FROM special_reactant_compositions AS c
- JOIN special_reactants AS sr ON sr.id = c.special_reactant_id AND sr.variable_space_id = 1
+ JOIN special_reactants AS sr ON sr.id = c.special_reactant_id AND sr.variable_space_id = 'cf165798-...'
  ORDER BY c.element;
 
-+----+---------------------+---------+-------+
-| id | special_reactant_id | element | count |
-|----+---------------------+---------+-------|
-| 1  | 1                   | Ca      | 1     |
-| 3  | 1                   | H       | 2     |
-| 2  | 1                   | O       | 2     |
-+----+---------------------+---------+-------+
++---------------------+---------+-------+
+| special_reactant_id | element | count |
+|---------------------+---------+-------|
+| 8b31573d-...        | Ca      | 1     |
+| 8b31573d-...        | H       | 2     |
+| 8b31573d-...        | O       | 2     |
++---------------------+---------+-------+
 ```
 
 #### suppressions
 
 | PK | FK | N | Column Name                                                     | Type       | Description                                                                                                                                                  | Unit          |
 |:-: |:-: |:-:|---------------------------                                      |---------   |------------------------------------------------------------                                                                                                  |---------      |
-| ✔  |    |   | `id`                                                            | `INTEGER`  | The suprression identifier                                                                                                                                   |               |
-|    | ✔  |   | [`variable_space_id`](#variable_space)                          | `INTEGER`  | The id of the variable space point                                                                                                                           |               |
+| ✔  |    |   | `id`                                                            | `UUID`     | The suprression identifier                                                                                                                                   |               |
+|    | ✔  |   | [`variable_space_id`](#variable_space)                          | `UUID`     | The id of the variable space point                                                                                                                           |               |
 |    |    | ✔ | `name`                                                          | `VARCHAR`  | The name of the species/phase to suppress, e.g. $H_2O_2$, methane, olivine                                                                                   |               |
 |    |    | ✔ | `type`                                                          | `VARCHAR`  | The type of species/phase to suppress, e.g. "solid solutions"                                                                                                |               |
 
@@ -720,24 +724,23 @@ exceptions can be provided. Those exceptions are stored separately in the
 **Example**:
 
 ```sql
-SELECT * FROM suppressions WHERE variable_space_id = 1;
+SELECT * FROM suppressions WHERE variable_space_id = 'cf165798-...';
 
-+----+-------------------+------------+---------+
-| id | variable_space_id | name       | type    |
-|----+-------------------+------------+---------|
-| 1  | 1                 | METHANE    | <null>  |
-| 2  | 1                 | antigorite | <null>  |
-| 3  | 1                 | <null>     | mineral |
-+----+-------------------+------------+---------+
++--------------+-------------------+------------+---------+
+| id           | variable_space_id | name       | type    |
+|--------------+-------------------+------------+---------|
+| ca8e88ce-... | cf165798-...      | METHANE    | <null>  |
+| d5c329aa-... | cf165798-...      | antigorite | <null>  |
+| f914672f-... | cf165798-...      | <null>     | mineral |
++--------------+-------------------+------------+---------+
 ```
 
 ##### suppression_exceptions
 
 | PK | FK | N | Column Name                                                     | Type       | Description                                                                                                                                                  | Unit          |
 |:-: |:-: |:-:|---------------------------                                      |---------   |------------------------------------------------------------                                                                                                  |---------      |
-| ✔  |    |   | `id`                                                            | `INTEGER`  | The suppression exception identifier                                                                                                                         |               |
 |    |    |   | `name`                                                          | `VARCHAR`  | The name the species/phase to except, e.g. H2O2, methane, olivine                                                                                            |               |
-|    | ✔  |   | [`suppression_id`](#suppressions)                               | `INTEGER`  | The id of the suppression for which to except                                                                                                                |               |
+|    | ✔  |   | [`suppression_id`](#suppressions)                               | `UUID`     | The id of the suppression for which to except                                                                                                                |               |
 
 : {.striped .bordered}
 
@@ -752,14 +755,14 @@ in the `suppression_exceptions` table, referring back to the suppression by the
 ```sql
 SELECT se.*
  FROM suppression_exceptions AS se
- JOIN suppressions AS s ON s.id = se.suppression_id AND s.variable_space_id = 1
+ JOIN suppressions AS s ON s.id = se.suppression_id AND s.variable_space_id = 'cf165798-...'
  ORDER BY se.name;
 
-+----+-----------+----------------+
-| id | name      | suppression_id |
-|----+-----------+----------------|
-| 1  | magnetite | 3              |
-+----+-----------+----------------+
++-----------+----------------+
+| name      | suppression_id |
+|-----------+----------------|
+| magnetite | f914672f-...   |
++-----------+----------------+
 ```
 
 {{< pagebreak >}}
@@ -768,8 +771,8 @@ SELECT se.*
 
 | PK | FK | N | Column Name                                                     | Type       | Description                                                                                                                                                  | Unit          |
 |:-: |:-: |:-:|---------------------------                                      |---------   |------------------------------------------------------------                                                                                                  |---------      |
-| ✔  |    |   | `id`                                                            | `INTEGER`  | The equilibrium space point identifier                                                                                                                       |               |
-|    | ✔  | ✔ | [`variable_space_id`](#variable_space)                          | `INTEGER`  | The id of the variable space point for which the equilibrium was found                                                                                       |               |
+| ✔  |    |   | `id`                                                            | `UUID`     | The equilibrium space point identifier                                                                                                                       |               |
+|    | ✔  | ✔ | [`variable_space_id`](#variable_space)                          | `UUID`     | The id of the variable space point for which the equilibrium was found                                                                                       |               |
 |    |    |   | `stage`                                                         | `VARCHAR`  | The stage of the equilibration, e.g. `"eq3"`, `"eq6"`                                                                                                        |               |
 |    |    | ✔ | `log_xi`                                                        | `DOUBLE`   | The logarithm of the $\xi$-step at which this equilibrium was found                                                                                          | unitless      |
 |    |    |   | `temperature`                                                   | `DOUBLE`   | The temperature                                                                                                                                              | $^\circ C$    |
@@ -794,17 +797,9 @@ SELECT se.*
 **Indexes:**
 
 - INDEX `equilibrium_space_variable_space_id_stage_idx` on (`variable_space_id`, `stage`)
+- INDEX `equilibrium_space_stage_variable_space_id_idx` on (`stage`, `variable_space_id`)
 - INDEX `equilibrium_space_temperature_idx` on (`temperature`)
 - INDEX `equilibrium_space_pressure_idx` on (`pressure`)
-- INDEX `equilibrium_space_ph_idx` on (`pH`)
-- INDEX `equilibrium_space_log_fo2_idx` on (`log_fO2`)
-- INDEX `equilibrium_space_eh_idx` on (`Eh`)
-- INDEX `equilibrium_space_log_ionic_strength_idx` on (`log_ionic_strength`)
-- INDEX `equilibrium_space_solute_mass_idx` on (`solute_mass`)
-- INDEX `equilibrium_space_solvent_mass_idx` on (`solvent_mass`)
-- INDEX `equilibrium_space_tds_idx` on (`tds`)
-- INDEX `equilibrium_space_reactant_mass_reacted_idx` on (`reactant_mass_reacted`)
-- INDEX `equilibrium_space_reactant_mass_remaining_idx` on (`reactant_mass_remaining`)
 
 When **Eleanor** speciates a fluid, it is the kernel's responsibility
 to perform the calculations and provide one or more equilibrium space
@@ -863,15 +858,15 @@ SELECT
    start_date,
    complete_date
  FROM equilibrium_space
- WHERE variable_space_id = 1
+ WHERE variable_space_id = 'cf165798-...'
  ORDER BY stage, log_xi;
 
-+----+-------------------+-------+---------------------+-------------+----------+--------+------------------------+------------------------+
-| id | variable_space_id | stage | log_xi              | temperature | pressure | pH     | start_date             | complete_date          |
-|----+-------------------+-------+---------------------+-------------+----------+--------+------------------------+------------------------|
-| 1  | 1                 | eq3   | <null>              | 300.0       | 500.0    | 5.4541 | 2026-01-09 10:59:02.54 | 2026-01-09 10:59:02.55 |
-| 2  | 1                 | eq6   | -0.3000002024454176 | 300.0       | 500.0    | 5.3627 | 2026-01-09 10:59:02.55 | 2026-01-09 10:59:02.80 |
-+----+-------------------+-------+---------------------+-------------+----------+--------+------------------------+------------------------+
++--------------+-------------------+-------+---------------------+-------------+----------+--------+------------------------+------------------------+
+| id           | variable_space_id | stage | log_xi              | temperature | pressure | pH     | start_date             | complete_date          |
+|--------------+-------------------+-------+---------------------+-------------+----------+--------+------------------------+------------------------|
+| 322ba26a-... | cf165798-...      | eq3   | <null>              | 300.0       | 500.0    | 5.4541 | 2026-01-09 10:59:02.54 | 2026-01-09 10:59:02.55 |
+| c38a9eea-... | cf165798-...      | eq6   | -0.3000002024454176 | 300.0       | 500.0    | 5.3627 | 2026-01-09 10:59:02.55 | 2026-01-09 10:59:02.80 |
++--------------+-------------------+-------+---------------------+-------------+----------+--------+------------------------+------------------------+
 ```
 
 {{< pagebreak >}}
@@ -889,33 +884,33 @@ SELECT
    start_date,
    complete_date
  FROM equilibrium_space
- WHERE variable_space_id = 1
+ WHERE variable_space_id = 'cf165798-...'
  ORDER BY stage, log_xi;
 
-+----+-------------------+-------+---------------------+-------------+----------+--------+------------------------+------------------------+
-| id | variable_space_id | stage | log_xi              | temperature | pressure | pH     | start_date             | complete_date          |
-|----+-------------------+-------+---------------------+-------------+----------+--------+------------------------+------------------------|
-| 1  | 1                 | eq3   | <null>              | 300.0       | 500.0    | 5.4541 | 2026-01-09 11:02:59.49 | 2026-01-09 11:02:59.50 |
-| 2  | 1                 | eq6   | -inf                | 300.0       | 500.0    | 5.4536 | 2026-01-09 11:02:59.50 | 2026-01-09 11:02:59.80 |
-| 3  | 1                 | eq6   | -8.0                | 300.0       | 500.0    | 5.454  | 2026-01-09 11:02:59.50 | 2026-01-09 11:02:59.80 |
-| 4  | 1                 | eq6   | -7.0                | 300.0       | 500.0    | 5.4574 | 2026-01-09 11:02:59.50 | 2026-01-09 11:02:59.80 |
-| 5  | 1                 | eq6   | -6.443549140627881  | 300.0       | 500.0    | 5.4706 | 2026-01-09 11:02:59.50 | 2026-01-09 11:02:59.80 |
-| 6  | 1                 | eq6   | -6.0                | 300.0       | 500.0    | 5.5368 | 2026-01-09 11:02:59.50 | 2026-01-09 11:02:59.80 |
-| 7  | 1                 | eq6   | -5.0                | 300.0       | 500.0    | 6.0213 | 2026-01-09 11:02:59.50 | 2026-01-09 11:02:59.80 |
-| 8  | 1                 | eq6   | -4.734955647654595  | 300.0       | 500.0    | 6.1948 | 2026-01-09 11:02:59.50 | 2026-01-09 11:02:59.80 |
-| 9  | 1                 | eq6   | -4.0                | 300.0       | 500.0    | 6.5286 | 2026-01-09 11:02:59.50 | 2026-01-09 11:02:59.80 |
-| 10 | 1                 | eq6   | -3.8915466083537007 | 300.0       | 500.0    | 6.6473 | 2026-01-09 11:02:59.50 | 2026-01-09 11:02:59.80 |
-| 11 | 1                 | eq6   | -3.22983825514633   | 300.0       | 500.0    | 6.3563 | 2026-01-09 11:02:59.50 | 2026-01-09 11:02:59.80 |
-| 12 | 1                 | eq6   | -3.0                | 300.0       | 500.0    | 6.3854 | 2026-01-09 11:02:59.50 | 2026-01-09 11:02:59.80 |
-| 13 | 1                 | eq6   | -2.0                | 300.0       | 500.0    | 6.2304 | 2026-01-09 11:02:59.50 | 2026-01-09 11:02:59.80 |
-| 14 | 1                 | eq6   | -2.0                | 300.0       | 500.0    | 6.2304 | 2026-01-09 11:02:59.50 | 2026-01-09 11:02:59.80 |
-| 15 | 1                 | eq6   | -1.8955811793524053 | 300.0       | 500.0    | 5.6519 | 2026-01-09 11:02:59.50 | 2026-01-09 11:02:59.80 |
-| 16 | 1                 | eq6   | -1.4778975981455702 | 300.0       | 500.0    | 5.7453 | 2026-01-09 11:02:59.50 | 2026-01-09 11:02:59.80 |
-| 17 | 1                 | eq6   | -1.4727156101843601 | 300.0       | 500.0    | 5.6938 | 2026-01-09 11:02:59.50 | 2026-01-09 11:02:59.80 |
-| 18 | 1                 | eq6   | -1.3782070009986855 | 300.0       | 500.0    | 5.3294 | 2026-01-09 11:02:59.50 | 2026-01-09 11:02:59.80 |
-| 19 | 1                 | eq6   | -1.0                | 300.0       | 500.0    | 5.3303 | 2026-01-09 11:02:59.50 | 2026-01-09 11:02:59.80 |
-| 20 | 1                 | eq6   | -0.3000002024454176 | 300.0       | 500.0    | 5.3627 | 2026-01-09 11:02:59.50 | 2026-01-09 11:02:59.80 |
-+----+-------------------+-------+---------------------+-------------+----------+--------+------------------------+------------------------+
++--------------+-------------------+-------+---------------------+-------------+----------+--------+------------------------+------------------------+
+| id           | variable_space_id | stage | log_xi              | temperature | pressure | pH     | start_date             | complete_date          |
+|--------------+-------------------+-------+---------------------+-------------+----------+--------+------------------------+------------------------|
+| 322ba26a-... | cf165798-...      | eq3   | <null>              | 300.0       | 500.0    | 5.4541 | 2026-01-09 11:02:59.49 | 2026-01-09 11:02:59.50 |
+| c38a9eea-... | cf165798-...      | eq6   | -inf                | 300.0       | 500.0    | 5.4536 | 2026-01-09 11:02:59.50 | 2026-01-09 11:02:59.80 |
+| 86ba526a-... | cf165798-...      | eq6   | -8.0                | 300.0       | 500.0    | 5.454  | 2026-01-09 11:02:59.50 | 2026-01-09 11:02:59.80 |
+| 81f617fa-... | cf165798-...      | eq6   | -7.0                | 300.0       | 500.0    | 5.4574 | 2026-01-09 11:02:59.50 | 2026-01-09 11:02:59.80 |
+| fe7c3f0e-... | cf165798-...      | eq6   | -6.443549140627881  | 300.0       | 500.0    | 5.4706 | 2026-01-09 11:02:59.50 | 2026-01-09 11:02:59.80 |
+| 090f64a9-... | cf165798-...      | eq6   | -6.0                | 300.0       | 500.0    | 5.5368 | 2026-01-09 11:02:59.50 | 2026-01-09 11:02:59.80 |
+| 2ec28757-... | cf165798-...      | eq6   | -5.0                | 300.0       | 500.0    | 6.0213 | 2026-01-09 11:02:59.50 | 2026-01-09 11:02:59.80 |
+| 37cd5c7b-... | cf165798-...      | eq6   | -4.734955647654595  | 300.0       | 500.0    | 6.1948 | 2026-01-09 11:02:59.50 | 2026-01-09 11:02:59.80 |
+| 93720f8c-... | cf165798-...      | eq6   | -4.0                | 300.0       | 500.0    | 6.5286 | 2026-01-09 11:02:59.50 | 2026-01-09 11:02:59.80 |
+| 3c939e9a-... | cf165798-...      | eq6   | -3.8915466083537007 | 300.0       | 500.0    | 6.6473 | 2026-01-09 11:02:59.50 | 2026-01-09 11:02:59.80 |
+| b78f5bf9-... | cf165798-...      | eq6   | -3.22983825514633   | 300.0       | 500.0    | 6.3563 | 2026-01-09 11:02:59.50 | 2026-01-09 11:02:59.80 |
+| 2cc13b93-... | cf165798-...      | eq6   | -3.0                | 300.0       | 500.0    | 6.3854 | 2026-01-09 11:02:59.50 | 2026-01-09 11:02:59.80 |
+| 0f840ce2-... | cf165798-...      | eq6   | -2.0                | 300.0       | 500.0    | 6.2304 | 2026-01-09 11:02:59.50 | 2026-01-09 11:02:59.80 |
+| edb77b57-... | cf165798-...      | eq6   | -2.0                | 300.0       | 500.0    | 6.2304 | 2026-01-09 11:02:59.50 | 2026-01-09 11:02:59.80 |
+| e10a638c-... | cf165798-...      | eq6   | -1.8955811793524053 | 300.0       | 500.0    | 5.6519 | 2026-01-09 11:02:59.50 | 2026-01-09 11:02:59.80 |
+| 466d301e-... | cf165798-...      | eq6   | -1.4778975981455702 | 300.0       | 500.0    | 5.7453 | 2026-01-09 11:02:59.50 | 2026-01-09 11:02:59.80 |
+| 76237ce3-... | cf165798-...      | eq6   | -1.4727156101843601 | 300.0       | 500.0    | 5.6938 | 2026-01-09 11:02:59.50 | 2026-01-09 11:02:59.80 |
+| b6a3323e-... | cf165798-...      | eq6   | -1.3782070009986855 | 300.0       | 500.0    | 5.3294 | 2026-01-09 11:02:59.50 | 2026-01-09 11:02:59.80 |
+| 868b4459-... | cf165798-...      | eq6   | -1.0                | 300.0       | 500.0    | 5.3303 | 2026-01-09 11:02:59.50 | 2026-01-09 11:02:59.80 |
+| ef5c2458-... | cf165798-...      | eq6   | -0.3000002024454176 | 300.0       | 500.0    | 5.3627 | 2026-01-09 11:02:59.50 | 2026-01-09 11:02:59.80 |
++--------------+-------------------+-------+---------------------+-------------+----------+--------+------------------------+------------------------+
 ```
 
 {{< pagebreak >}}
@@ -924,8 +919,7 @@ SELECT
 
 | PK | FK | N | Column Name                                                     | Type       | Description                                                                                                                                                  | Unit          |
 |:-: |:-: |:-:|---------------------------                                      |---------   |------------------------------------------------------------                                                                                                  |---------      |
-| ✔  |    |   | `id`                                                            | `INTEGER`  | The equilibrium reactant identifier                                                                                                                          |               |
-|    | ✔  |   | [`equilibrium_space_id`](#equilibrium_space)                    | `INTEGER`  | The id of the equilibrium space point                                                                                                                        |               |
+|    | ✔  |   | [`equilibrium_space_id`](#equilibrium_space)                    | `UUID`     | The id of the equilibrium space point                                                                                                                        |               |
 |    |    |   | `name`                                                          | `VARCHAR`  | The name of the reactant                                                                                                                                     |               |
 |    |    |   | `affinity`                                                      | `DOUBLE`   | The affinity of the reactant                                                                                                                                 |               |
 |    |    |   | `relative_rate`                                                 | `DOUBLE`   | The molar rate of reactant titration relative to the total molar quantity of all reactants                                                                   | $mol/mol$     |
@@ -935,13 +929,6 @@ SELECT
 |    |    |   | `log_mass_remaining`                                            | `DOUBLE`   | The mass of the reactant that remain to be reacted                                                                                                           | $\log{kg}$    |
 
 : {.striped .bordered}
-
-- INDEX `equilibrium_reactants_equilibrium_space_id_name_idx` on (`equilibrium_space_id`, `name`)
-- INDEX `equilibrium_reactants_affinity_idx` on (`affinity`)
-- INDEX `equilibrium_reactants_log_moles_reacted_idx` on (`log_moles_reacted`)
-- INDEX `equilibrium_reactants_log_moles_remaining_idx` on (`log_moles_remaining`)
-- INDEX `equilibrium_reactants_log_mass_reacted_idx` on (`log_mass_reacted`)
-- INDEX `equilibrium_reactants_log_mass_remaining_idx` on (`log_mass_remaining`)
 
 If an [`equilibrium_space`](#equilibrium_space) entry represents a stage
 in which mass is transfered, (i.e. reacted or precipitated) and the system
@@ -973,7 +960,6 @@ The `equilibrium_reactants` table is most useful for two purposes:
 
 ```sql
 SELECT
-   id,
    equilibrium_space_id AS eid,
    name,
    affinity,
@@ -983,35 +969,31 @@ SELECT
    log_mass_reacted,
    log_mass_remaining
  FROM equilibrium_reactants
- WHERE equilibrium_space_id = 2
+ WHERE equilibrium_space_id = 'c38a9eea-...'
  ORDER BY name;
 
-+----+-----+------------------+-----------+------+----------------------+---------------------+----------------------+--------------------+
-| id | eid | name             | affinity  | rate | moles_reacted        | log_moles_remaining | log_mass_reacted     | log_mass_remaining |
-|----+-----+------------------+-----------+------+----------------------+---------------------+----------------------+--------------------|
-| 5  | 2   | CaCl2            | 9999999.0 | 0.0  | -2.0                 | -inf                | 0.045283851395135605 | -inf               |
-| 3  | 2   | CalciumHydroxide | 9999999.0 | 0.0  | -2.0                 | -inf                | -0.13021109763031236 | -inf               |
-| 1  | 2   | hematite         | 1.43      | 1.0  | -0.29999760285774607 | -inf                | 1.903285375549671    | -inf               |
-| 6  | 2   | N2(g)            | 9999999.0 | 1.0  | -0.29999760285774607 | -inf                | 1.1473671077937864   | -inf               |
-| 2  | 2   | olivine-ss       | 1.7744    | 1.0  | -0.29999760285774607 | -inf                | 1.9517453891382763   | -inf               |
-| 4  | 2   | Si               | 9999999.0 | 0.0  | -2.0                 | -inf                | -0.5515101084889142  | -inf               |
-+----+-----+------------------+-----------+------+----------------------+---------------------+----------------------+--------------------+
++--------------+------------------+-----------+------+----------------------+---------------------+----------------------+--------------------+
+| eid          | name             | affinity  | rate | moles_reacted        | log_moles_remaining | log_mass_reacted     | log_mass_remaining |
+|--------------+------------------+-----------+------+----------------------+---------------------+----------------------+--------------------|
+| c38a9eea-... | CaCl2            | 9999999.0 | 0.0  | -2.0                 | -inf                | 0.045283851395135605 | -inf               |
+| c38a9eea-... | CalciumHydroxide | 9999999.0 | 0.0  | -2.0                 | -inf                | -0.13021109763031236 | -inf               |
+| c38a9eea-... | hematite         | 1.43      | 1.0  | -0.29999760285774607 | -inf                | 1.903285375549671    | -inf               |
+| c38a9eea-... | N2(g)            | 9999999.0 | 1.0  | -0.29999760285774607 | -inf                | 1.1473671077937864   | -inf               |
+| c38a9eea-... | olivine-ss       | 1.7744    | 1.0  | -0.29999760285774607 | -inf                | 1.9517453891382763   | -inf               |
+| c38a9eea-... | Si               | 9999999.0 | 0.0  | -2.0                 | -inf                | -0.5515101084889142  | -inf               |
++--------------+------------------+-----------+------+----------------------+---------------------+----------------------+--------------------+
 ```
 
 ##### equilibrium_elements
 
 | PK | FK | N | Column Name                                                     | Type       | Description                                                                                                                                                  | Unit          |
 |:-: |:-: |:-:|---------------------------                                      |---------   |------------------------------------------------------------                                                                                                  |---------      |
-| ✔  |    |   | `id`                                                            | `INTEGER`  | The equilibrium element identifier                                                                                                                           |               |
-|    | ✔  |   | [`equilibrium_space_id`](#equilibrium_space)                 | `INTEGER`  | The id of the equilibrium space point                                                                                                                           |               |
+|    | ✔  |   | [`equilibrium_space_id`](#equilibrium_space)                 | `UUID`     | The id of the equilibrium space point                                                                                                                           |               |
 |    |    |   | `name`                                                          | `VARCHAR`  | The name of the element (atomic symbol)                                                                                                                      |               |
 |    |    |   | `log_molality`                                                  | `DOUBLE`   | The molality of the element in solution                                                                                                                      | $\log{molal}$ |
 |    |    |   | `mass_fraction`                                                 | `DOUBLE`   | The fraction of solution mass accounted for by the element                                                                                                   | unitless      |
 
 : {.striped .bordered}
-
-- INDEX `equilibrium_elements_equilibrium_space_id_name_idx` on (`equilibrium_space_id`, `name`)
-- INDEX `equilibrium_elements_log_molality_idx` on (`log_molality`)
 
 Every [`equilibrium_space`](#equilibrium_space) entry will be associated with
 some number of rows in the `equilibrium_elements` table, one for each element in
@@ -1029,31 +1011,30 @@ to differ.
 ```sql
 SELECT *
  FROM equilibrium_elements
- WHERE equilibrium_space_id = 2
+ WHERE equilibrium_space_id = 'c38a9eea-...'
  ORDER BY name;
 
-+----+----------------------+------+----------------------+------------------------+
-| id | equilibrium_space_id | name | log_molality         | mass_fraction          |
-|----+----------------------+------+----------------------+------------------------|
-| 16 | 2                    | C    | -5.5935330597128265  | 3.01624e-08            |
-| 14 | 2                    | Ca   | -2.1571530866467845  | 0.000274913            |
-| 12 | 2                    | Cl   | -1.6971649242940714  | 0.000701302            |
-| 15 | 2                    | Fe   | -6.133895871377041   | 4.04134e-08            |
-| 13 | 2                    | H    | 2.0457140589408676   | 0.110299               |
-| 17 | 2                    | Mg   | -4.097879571162284   | 1.9108999999999998e-06 |
-| 19 | 2                    | N    | 0.002835353178722796 | 0.0138865              |
-| 18 | 2                    | Na   | -8.998192757497696   | 2.2738399999999998e-11 |
-| 11 | 2                    | O    | 1.7443829627474854   | 0.8747969999999999     |
-| 20 | 2                    | Si   | -2.838188943951825   | 4.01526e-05            |
-+----+----------------------+------+----------------------+------------------------+
++----------------------+------+----------------------+------------------------+
+| equilibrium_space_id | name | log_molality         | mass_fraction          |
+|----------------------+------+----------------------+------------------------|
+| c38a9eea-...         | C    | -5.5935330597128265  | 3.01624e-08            |
+| c38a9eea-...         | Ca   | -2.1571530866467845  | 0.000274913            |
+| c38a9eea-...         | Cl   | -1.6971649242940714  | 0.000701302            |
+| c38a9eea-...         | Fe   | -6.133895871377041   | 4.04134e-08            |
+| c38a9eea-...         | H    | 2.0457140589408676   | 0.110299               |
+| c38a9eea-...         | Mg   | -4.097879571162284   | 1.9108999999999998e-06 |
+| c38a9eea-...         | N    | 0.002835353178722796 | 0.0138865              |
+| c38a9eea-...         | Na   | -8.998192757497696   | 2.2738399999999998e-11 |
+| c38a9eea-...         | O    | 1.7443829627474854   | 0.8747969999999999     |
+| c38a9eea-...         | Si   | -2.838188943951825   | 4.01526e-05            |
++----------------------+------+----------------------+------------------------+
 ```
 
 ##### equilibrium_aqueous_species
 
 | PK | FK | N | Column Name                                                     | Type       | Description                                                                                                                                                  | Unit          |
 |:-: |:-: |:-:|---------------------------                                      |---------   |------------------------------------------------------------                                                                                                  |---------      |
-| ✔  |    |   | `id`                                                            | `INTEGER`  | The equilibrium aqueous species identifier                                                                                                                   |               |
-|    | ✔  |   | [`equilibrium_space_id`](#equilibrium_space)                    | `INTEGER`  | The id of the equilibrium space point                                                                                                                        |               |
+|    | ✔  |   | [`equilibrium_space_id`](#equilibrium_space)                    | `UUID`     | The id of the equilibrium space point                                                                                                                        |               |
 |    |    |   | `name`                                                          | `VARCHAR`  | The name of the aqueous species, e.g. "H2O2"                                                                                                                 |               |
 |    |    |   | `log_molality`                                                  | `DOUBLE`   | The logarithm of the molality of that species in solution                                                                                                    | $\log{molal}$ |
 |    |    |   | `log_activity`                                                  | `DOUBLE`   | The logarithm of the activity of that species in solution                                                                                                    | unitless      |
@@ -1061,9 +1042,8 @@ SELECT *
 
 : {.striped .bordered}
 
+- INDEX `equilibrium_aqueous_species_name_log_molality_idx` on (`name`, `log_molality`)
 - INDEX `equilibrium_aqueous_species_equilibrium_space_id_name_idx` on (`equilibrium_space_id`, `name`)
-- INDEX `equilibrium_aqueous_species_log_molality_idx` on (`log_molality`)
-- INDEX `equilibrium_aqueous_species_log_activity_idx` on (`log_activity`)
 
 Every [`equilibrium_space`](#equilibrium_space) entry will be associated
 with some number of rows in the `equilibrium_aqueous_species` table, one
@@ -1078,39 +1058,35 @@ accordance with the activity model used by the kernel.
 ```sql
 SELECT *
  FROM equilibrium_aqueous_species
- WHERE equilibrium_space_id = 2
+ WHERE equilibrium_space_id = 'c38a9eea-...'
  ORDER BY log_molality DESC, name
  LIMIT 10;
 
-+----+----------------------+-------+--------------+--------------+-----------+
-| id | equilibrium_space_id | name  | log_molality | log_activity | log_gamma |
-|----+----------------------+-------+--------------+--------------+-----------|
-| 65 | 2                    | N2    | -0.3092      | -0.3092      | 0.0       |
-| 66 | 2                    | NH3   | -1.7195      | -1.7195      | 0.0       |
-| 67 | 2                    | Cl-   | -1.7863      | -1.9078      | -0.1215   |
-| 68 | 2                    | NH4+  | -2.2149      | -2.3465      | -0.1316   |
-| 69 | 2                    | CaCl+ | -2.4406      | -2.5666      | -0.126    |
-| 70 | 2                    | Ca+2  | -2.4947      | -2.9493      | -0.4545   |
-| 71 | 2                    | SiO2  | -2.8385      | -2.8385      | 0.0       |
-| 72 | 2                    | H2    | -3.1232      | -3.1179      | 0.0052    |
-| 73 | 2                    | CaOH+ | -4.0071      | -4.1331      | -0.126    |
-| 74 | 2                    | Mg+2  | -4.3002      | -4.7213      | -0.4211   |
-+----+----------------------+-------+--------------+--------------+-----------+
++----------------------+-------+--------------+--------------+-----------+
+| equilibrium_space_id | name  | log_molality | log_activity | log_gamma |
+|----------------------+-------+--------------+--------------+-----------|
+| c38a9eea-...         | N2    | -0.3092      | -0.3092      | 0.0       |
+| c38a9eea-...         | NH3   | -1.7195      | -1.7195      | 0.0       |
+| c38a9eea-...         | Cl-   | -1.7863      | -1.9078      | -0.1215   |
+| c38a9eea-...         | NH4+  | -2.2149      | -2.3465      | -0.1316   |
+| c38a9eea-...         | CaCl+ | -2.4406      | -2.5666      | -0.126    |
+| c38a9eea-...         | Ca+2  | -2.4947      | -2.9493      | -0.4545   |
+| c38a9eea-...         | SiO2  | -2.8385      | -2.8385      | 0.0       |
+| c38a9eea-...         | H2    | -3.1232      | -3.1179      | 0.0052    |
+| c38a9eea-...         | CaOH+ | -4.0071      | -4.1331      | -0.126    |
+| c38a9eea-...         | Mg+2  | -4.3002      | -4.7213      | -0.4211   |
++----------------------+-------+--------------+--------------+-----------+
 ```
 
 ##### equilibrium_gases
 
 | PK | FK | N | Column Name                                                     | Type       | Description                                                                                                                                                  | Unit          |
 |:-: |:-: |:-:|---------------------------                                      |---------   |------------------------------------------------------------                                                                                                  |---------      |
-| ✔  |    |   | `id`                                                            | `INTEGER`  | The equilibrium gas identifier                                                                                                                               |               |
-|    | ✔  |   | [`equilibrium_space_id`](#equilibrium_space)                    | `INTEGER`  | The id of the equilibrium space point                                                                                                                        |               |
+|    | ✔  |   | [`equilibrium_space_id`](#equilibrium_space)                    | `UUID`     | The id of the equilibrium space point                                                                                                                        |               |
 |    |    |   | `name`                                                          | `VARCHAR`  | The name of the gas, e.g. "H2(g)"                                                                                                                            |               |
 |    |    |   | `log_fugacity`                                                  | `DOUBLE`   | The logarithm of the fugacity of the gas at this $\xi$ step                                                                                                  | $\log{bar}$   |
 
 : {.striped .bordered}
-
-- INDEX `equilibrium_gases_equilibrium_space_id_name_idx` on (`equilibrium_space_id`, `name`)
-- INDEX `equilibrium_gases_log_fugacity_idx` on (`log_fugacity`)
 
 Every [`equilibrium_space`](#equilibrium_space) entry will be associated
 with some number of rows in the `equilibrium_gases` table, one for
@@ -1123,31 +1099,30 @@ each gas phase. These rows record the `name` and `log_fugacity`.
 ```sql
 SELECT *
  FROM equilibrium_gases
- WHERE equilibrium_space_id = 2
+ WHERE equilibrium_space_id = 'c38a9eea-...'
  ORDER BY log_fugacity DESC, name;
 
-+----+----------------------+--------+--------------+
-| id | equilibrium_space_id | name   | log_fugacity |
-|----+----------------------+--------+--------------|
-| 1  | 2                    | N2(g)  | 2.41361      |
-| 2  | 2                    | H2O(g) | 1.85299      |
-| 3  | 2                    | H2(g)  | -0.58253     |
-| 4  | 2                    | NH3(g) | -0.83984     |
-| 5  | 2                    | CO2(g) | -3.5         |
-| 6  | 2                    | CH4(g) | -4.06719     |
-| 7  | 2                    | CO(g)  | -7.60332     |
-| 8  | 2                    | NO(g)  | -23.50603    |
-| 9  | 2                    | N2O(g) | -26.10458    |
-| 10 | 2                    | O2(g)  | -34.26937    |
-+----+----------------------+--------+--------------+
++----------------------+--------+--------------+
+| equilibrium_space_id | name   | log_fugacity |
+|----------------------+--------+--------------|
+| c38a9eea-...         | N2(g)  | 2.41361      |
+| c38a9eea-...         | H2O(g) | 1.85299      |
+| c38a9eea-...         | H2(g)  | -0.58253     |
+| c38a9eea-...         | NH3(g) | -0.83984     |
+| c38a9eea-...         | CO2(g) | -3.5         |
+| c38a9eea-...         | CH4(g) | -4.06719     |
+| c38a9eea-...         | CO(g)  | -7.60332     |
+| c38a9eea-...         | NO(g)  | -23.50603    |
+| c38a9eea-...         | N2O(g) | -26.10458    |
+| c38a9eea-...         | O2(g)  | -34.26937    |
++----------------------+--------+--------------+
 ```
 
 ##### equilibrium_pure_solids
 
 | PK | FK | N | Column Name                                                     | Type       | Description                                                                                                                                                  | Unit          |
 |:-: |:-: |:-:|---------------------------                                      |---------   |------------------------------------------------------------                                                                                                  |---------      |
-| ✔  |    |   | `id`                                                            | `INTEGER`  | The equilibrium pure solid id                                                                                                                                |               |
-|    | ✔  |   | [`equilibrium_space_id`](#equilibrium_space)                    | `INTEGER`  | The id of the equilibrium space point                                                                                                                        |               |
+|    | ✔  |   | [`equilibrium_space_id`](#equilibrium_space)                    | `UUID`     | The id of the equilibrium space point                                                                                                                        |               |
 |    |    |   | `name`                                                          | `VARCHAR`  | The name of the pure solid, e.g. "fayalite"                                                                                                                  |               |
 |    |    |   | `log_qk`                                                        | `DOUBLE`   | The saturation index of the pure solid phase                                                                                                                 | unitless      |
 |    |    |   | `affinity`                                                      | `DOUBLE`   | the affinity of the pure solid                                                                                                                               | $kcal$        |
@@ -1157,10 +1132,8 @@ SELECT *
 
 : {.striped .bordered}
 
-- INDEX `equilibrium_pure_solids_equilibrium_space_id_name_idx` on (`equilibrium_space_id`, `name`)
-- PARTIAL INDEX `equilibrium_pure_solids_log_moles_present_idx` on (`equilibrium_space_id`) WHERE `log_moles > '-Infinity'::double precision`
-- INDEX `equilibrium_pure_solids_affinity_idx` on (`affinity`)
-- INDEX `equilibrium_pure_solids_log_qk_idx` on (`log_qk`)
+- INDEX `equilibrium_pure_solids_name_present_idx` on (`name`, `equilibrium_space_id`) WHERE `log_moles > '-Infinity'::double precision`
+- INDEX `equilibrium_pure_solids_equilibrium_space_id_name_idx` on (`equilibrium_space_id`, `name`) WHERE `log_moles > '-Infinity'::double precision`
 
 Every [`equilibrium_space`](#equilibrium_space) entry will be associated
 with some number of rows in the `equilibrium_pure_solids` table, one for
@@ -1187,32 +1160,32 @@ saturation index (`log_qk`), `affinity`, `log_moles`, `log_mass` and
 ```sql
 SELECT *
  FROM equilibrium_pure_solids
- WHERE equilibrium_space_id = 2
+ WHERE equilibrium_space_id = 'c38a9eea-...'
  ORDER BY log_mass DESC, log_qk DESC, name
  LIMIT 10;
 
-+-----+----------------------+------------+----------+----------+-----------+--------------------+------------+
-| id  | equilibrium_space_id | name       | log_qk   | affinity | log_moles | log_mass           | log_volume |
-|-----+----------------------+------------+----------+----------+-----------+--------------------+------------|
-| 56  | 2                    | magnetite  | -0.0     | -0.0     | -0.2891   | 2.0755104645244136 | -inf       |
-| 62  | 2                    | antigorite | 1.67537  | 4.39389  | -inf      | -inf               | -inf       |
-| 110 | 2                    | tremolite  | -0.0     | -0.0     | -inf      | -inf               | -inf       |
-| 109 | 2                    | talc       | -0.12292 | -0.32237 | -inf      | -inf               | -inf       |
-| 68  | 2                    | chrysotile | -0.30052 | -0.78816 | -inf      | -inf               | -inf       |
-| 74  | 2                    | diopside   | -0.42799 | -1.12247 | -inf      | -inf               | -inf       |
-| 57  | 2                    | hematite   | -0.54526 | -1.43002 | -inf      | -inf               | -inf       |
-| 78  | 2                    | enstatite  | -0.739   | -1.93813 | -inf      | -inf               | -inf       |
-| 105 | 2                    | quartz     | -0.8933  | -2.34282 | -inf      | -inf               | -inf       |
-| 88  | 2                    | goethite   | -0.90359 | -2.36978 | -inf      | -inf               | -inf       |
-+-----+----------------------+------------+----------+----------+-----------+--------------------+------------+
++----------------------+------------+----------+----------+-----------+--------------------+------------+
+| equilibrium_space_id | name       | log_qk   | affinity | log_moles | log_mass           | log_volume |
+|----------------------+------------+----------+----------+-----------+--------------------+------------|
+| c38a9eea-...         | magnetite  | -0.0     | -0.0     | -0.2891   | 2.0755104645244136 | -inf       |
+| c38a9eea-...         | antigorite | 1.67537  | 4.39389  | -inf      | -inf               | -inf       |
+| c38a9eea-...         | tremolite  | -0.0     | -0.0     | -inf      | -inf               | -inf       |
+| c38a9eea-...         | talc       | -0.12292 | -0.32237 | -inf      | -inf               | -inf       |
+| c38a9eea-...         | chrysotile | -0.30052 | -0.78816 | -inf      | -inf               | -inf       |
+| c38a9eea-...         | diopside   | -0.42799 | -1.12247 | -inf      | -inf               | -inf       |
+| c38a9eea-...         | hematite   | -0.54526 | -1.43002 | -inf      | -inf               | -inf       |
+| c38a9eea-...         | enstatite  | -0.739   | -1.93813 | -inf      | -inf               | -inf       |
+| c38a9eea-...         | quartz     | -0.8933  | -2.34282 | -inf      | -inf               | -inf       |
+| c38a9eea-...         | goethite   | -0.90359 | -2.36978 | -inf      | -inf               | -inf       |
++----------------------+------------+----------+----------+-----------+--------------------+------------+
 ```
 
 ##### equilibrium_solid_solutions
 
 | PK | FK | N | Column Name                                                     | Type       | Description                                                                                                                                                  | Unit          |
 |:-: |:-: |:-:|---------------------------                                      |---------   |------------------------------------------------------------                                                                                                  |---------      |
-| ✔  |    |   | `id`                                                            | `INTEGER`  | The equilibrium solid solution identifier                                                                                                                    |               |
-|    | ✔  |   | [`equilibrium_space_id`](#equilibrium_space)                    | `INTEGER`  | The id of the equilibrium space point                                                                                                                        |               |
+| ✔  |    |   | `id`                                                            | `UUID`     | The equilibrium solid solution identifier                                                                                                                    |               |
+|    | ✔  |   | [`equilibrium_space_id`](#equilibrium_space)                    | `UUID`     | The id of the equilibrium space point                                                                                                                        |               |
 |    |    |   | `name`                                                          | `VARCHAR`  | The name of the solid solution, e.g. "olivine"                                                                                                               |               |
 |    |    |   | `log_qk`                                                        | `DOUBLE`   | The saturation index of the solid solution                                                                                                                   | unitless      |
 |    |    |   | `affinity`                                                      | `DOUBLE`   | The affinity of the solid solution                                                                                                                           | $kcal$        |
@@ -1222,10 +1195,8 @@ SELECT *
 
 : {.striped .bordered}
 
-- INDEX `equilibrium_solid_solutions_equilibrium_space_id_name_idx` on (`equilibrium_space_id`, `name`)
-- PARTIAL INDEX `equilibrium_solid_solutions_log_moles_present_idx` on (`equilibrium_space_id`) WHERE `log_moles > '-Infinity'::double precision`
-- INDEX `equilibrium_solid_solutions_affinity_idx` on (`affinity`)
-- INDEX `equilibrium_solid_solutions_log_qk_idx` on (`log_qk`)
+- INDEX `equilibrium_solid_solutions_name_present_idx` on (`name`, `equilibrium_space_id`) WHERE `log_moles > '-Infinity'::double precision`
+- INDEX `equilibrium_solid_solutions_equilibrium_space_id_name_idx` on (`equilibrium_space_id`, `name`) WHERE `log_moles > '-Infinity'::double precision`
 
 Every [`equilibrium_space`](#equilibrium_space) entry will be associated with
 some number of rows in the `equilibrium_solid_solutions` table, one for each
@@ -1252,24 +1223,24 @@ the [`equilibrium_end_members`](#equilibrium_end_members) auxiliary table.
 ```sql
 SELECT *
  FROM equilibrium_solid_solutions
- WHERE equilibrium_space_id = 2
+ WHERE equilibrium_space_id = 'c38a9eea-...'
  ORDER BY log_mass DESC, log_qk DESC, name
  LIMIT 10;
 
-+----+----------------------+---------------------+----------+-----------+-----------+--------------------+------------+
-| id | equilibrium_space_id | name                | log_qk   | affinity  | log_moles | log_mass           | log_volume |
-|----+----------------------+---------------------+----------+-----------+-----------+--------------------+------------|
-| 13 | 2                    | talc-ss             | -0.0     | -0.0      | -1.0435   | 1.5450472044011843 | -inf       |
-| 12 | 2                    | serpentine          | -0.0     | -0.0      | -1.2932   | 1.1838390370564211 | -inf       |
-| 11 | 2                    | amphib_ternary-ss   | -0.0     | -0.0      | -2.1849   | 0.7248327204665614 | -inf       |
-| 19 | 2                    | ca-amphib_binary-ss | -0.0     | -0.0      | -inf      | -inf               | -inf       |
-| 18 | 2                    | clinopyroxene-ss    | -0.41699 | -1.09361  | -inf      | -inf               | -inf       |
-| 17 | 2                    | orthopyroxene-ss    | -0.59034 | -1.54825  | -inf      | -inf               | -inf       |
-| 16 | 2                    | ideal_olivine-ss    | -0.64149 | -1.6824   | -inf      | -inf               | -inf       |
-| 14 | 2                    | olivine-ss          | -0.64149 | -1.6824   | -99999.0  | -inf               | -inf       |
-| 20 | 2                    | brucite-ss          | -1.2999  | -3.40916  | -inf      | -inf               | -inf       |
-| 15 | 2                    | carbonate-ss        | -4.07608 | -10.69009 | -inf      | -inf               | -inf       |
-+----+----------------------+---------------------+----------+-----------+-----------+--------------------+------------+
++--------------+----------------------+---------------------+----------+-----------+-----------+--------------------+------------+
+| id           | equilibrium_space_id | name                | log_qk   | affinity  | log_moles | log_mass           | log_volume |
+|--------------+----------------------+---------------------+----------+-----------+-----------+--------------------+------------|
+| f08e76bc-... | c38a9eea-...         | talc-ss             | -0.0     | -0.0      | -1.0435   | 1.5450472044011843 | -inf       |
+| 6bb83eee-... | c38a9eea-...         | serpentine          | -0.0     | -0.0      | -1.2932   | 1.1838390370564211 | -inf       |
+| 466705d0-... | c38a9eea-...         | amphib_ternary-ss   | -0.0     | -0.0      | -2.1849   | 0.7248327204665614 | -inf       |
+| c4bb1837-... | c38a9eea-...         | ca-amphib_binary-ss | -0.0     | -0.0      | -inf      | -inf               | -inf       |
+| 01e2ac2d-... | c38a9eea-...         | clinopyroxene-ss    | -0.41699 | -1.09361  | -inf      | -inf               | -inf       |
+| ad4c543e-... | c38a9eea-...         | orthopyroxene-ss    | -0.59034 | -1.54825  | -inf      | -inf               | -inf       |
+| ce9fe19a-... | c38a9eea-...         | ideal_olivine-ss    | -0.64149 | -1.6824   | -inf      | -inf               | -inf       |
+| fe1bd033-... | c38a9eea-...         | olivine-ss          | -0.64149 | -1.6824   | -99999.0  | -inf               | -inf       |
+| ef1084b4-... | c38a9eea-...         | brucite-ss          | -1.2999  | -3.40916  | -inf      | -inf               | -inf       |
+| 5250ee1e-... | c38a9eea-...         | carbonate-ss        | -4.07608 | -10.69009 | -inf      | -inf               | -inf       |
++--------------+----------------------+---------------------+----------+-----------+-----------+--------------------+------------+
 ```
 
 {{< pagebreak >}}
@@ -1278,8 +1249,7 @@ SELECT *
 
 | PK | FK | N | Column Name                                                     | Type       | Description                                                                                                                                                  | Unit          |
 |:-: |:-: |:-:|---------------------------                                      |---------   |------------------------------------------------------------                                                                                                  |---------      |
-| ✔  |    |   | `id`                                                            | `INTEGER`  | The equilibrium solid solution end member identifier                                                                                                         |               |
-|    | ✔  |   | [`equilibrium_solid_solution_id`](#equilibrium_solid_solutions) | `INTEGER`  | The id of the equilibrium solid solution                                                                                                                     |               |
+|    | ✔  |   | [`equilibrium_solid_solution_id`](#equilibrium_solid_solutions) | `UUID`     | The id of the equilibrium solid solution                                                                                                                     |               |
 |    |    |   | `name`                                                          | `VARCHAR`  | The name of the end member, e.g. "fayalite"                                                                                                                  |               |
 |    |    |   | `log_qk`                                                        | `DOUBLE`   | The saturation index of the end member                                                                                                                       | unitless      |
 |    |    |   | `affinity`                                                      | `DOUBLE`   | The affinity of the end member                                                                                                                               | $kcal$        |
@@ -1289,10 +1259,8 @@ SELECT *
 
 : {.striped .bordered}
 
-- INDEX `equilibrium_end_members_equilibrium_solid_solution_id_name_idx` on (`equilibrium_solid_solution_id`, `name`)
-- PARTIAL INDEX `equilibrium_end_members_log_moles_present_idx` on (`equilibrium_solid_solution_id`) WHERE `log_moles > '-Infinity'::double precision`
-- INDEX `equilibrium_end_members_affinity_idx` on (`affinity`)
-- INDEX `equilibrium_end_members_log_qk_idx` on (`log_qk`)
+- INDEX `equilibrium_end_members_name_present_idx` on (`name`, `equilibrium_solid_solution_id`) WHERE `log_moles > '-Infinity'::double precision`
+- INDEX `equilibrium_end_members_equilibrium_solid_solution_id_name_idx` on (`equilibrium_solid_solution_id`, `name`) WHERE `log_moles > '-Infinity'::double precision`
 
 Every [`equilibrium_solid_solutions`](#equilibrium_solid_solutions) entry will
 be associated with some number of rows in the `equilibrium_end_members` table,
@@ -1318,23 +1286,22 @@ phase.
 ```sql
 SELECT *
  FROM equilibrium_end_members
- WHERE equilibrium_solid_solution_id = 13
+ WHERE equilibrium_solid_solution_id = 'f08e76bc-...'
  ORDER BY log_mass DESC, log_qk DESC, name;
 
-+----+-------------------------------+--------------+--------+----------+-----------+--------------------+------------+
-| id | equilibrium_solid_solution_id | name         | log_qk | affinity | log_moles | log_mass           | log_volume |
-|----+-------------------------------+--------------+--------+----------+-----------+--------------------+------------|
-| 28 | 13                            | talc         | -0.0   | -0.0     | -1.0845   | 1.4944328987263986 | -inf       |
-| 29 | 13                            | minnesotaite | -0.0   | -0.0     | -2.0892   | 0.5865197925102743 | -inf       |
-+----+-------------------------------+--------------+--------+----------+-----------+--------------------+------------+
++-------------------------------+--------------+--------+----------+-----------+--------------------+------------+
+| equilibrium_solid_solution_id | name         | log_qk | affinity | log_moles | log_mass           | log_volume |
+|-------------------------------+--------------+--------+----------+-----------+--------------------+------------|
+| f08e76bc-...                  | talc         | -0.0   | -0.0     | -1.0845   | 1.4944328987263986 | -inf       |
+| f08e76bc-...                  | minnesotaite | -0.0   | -0.0     | -2.0892   | 0.5865197925102743 | -inf       |
++-------------------------------+--------------+--------+----------+-----------+--------------------+------------+
 ```
 
 ##### equilibrium_redox_reactions
 
 | PK | FK | N | Column Name                                                     | Type       | Description                                                                                                                                                  | Unit          |
 |:-: |:-: |:-:|---------------------------                                      |---------   |------------------------------------------------------------                                                                                                  |---------      |
-| ✔  |    |   | `id`                                                            | `INTEGER`  | The equilibrium redox reaction identifier                                                                                                                    |               |
-|    | ✔  |   | [`equilibrium_space_id`](#equilibrium_space)                    | `INTEGER`  | The id of the equilibrium space point                                                                                                                        |               |
+|    | ✔  |   | [`equilibrium_space_id`](#equilibrium_space)                    | `UUID`     | The id of the equilibrium space point                                                                                                                        |               |
 |    |    |   | `couple`                                                        | `VARCHAR`  | The name of the redox couple                                                                                                                                 |               |
 |    |    |   | `"Eh"`                                                          | `DOUBLE`   | The redox potential                                                                                                                                          | $V$           |
 |    |    |   | `pe`                                                            | `DOUBLE`   | The negative logarithm of the hypothetical electron activity                                                                                                 | unitless      |
@@ -1342,10 +1309,6 @@ SELECT *
 |    |    |   | `"Ah"`                                                          | `DOUBLE`   | The redox affinity                                                                                                                                           | $kcal$        |
 
 : {.striped .bordered}
-
-- INDEX `equilibrium_redox_reactions_equilibrium_space_id_couple_idx` on (`equilibrium_space_id`, `couple`)
-- INDEX `equilibrium_redox_reactions_eh_idx` on (`Eh`)
-- INDEX `equilibrium_redox_reactions_log_fo2_idx` on (`log_fO2`)
 
 Each [`equilibrium_space`](#equilibrium_space) entry can be associated with one
 or more rows in the `equilibrium_redox_reactions` table, one for each redox
@@ -1360,14 +1323,14 @@ constraint on the system.
 ```sql
 SELECT redox.*
  FROM equilibrium_redox_reactions AS redox
- JOIN equilibrium_space AS es ON es.id = redox.equilibrium_space_id AND es.variable_space_id = 1;
+ JOIN equilibrium_space AS es ON es.id = redox.equilibrium_space_id AND es.variable_space_id = 'cf165798-...';
 
-+----+----------------------+---------+--------+---------+---------+---------+
-| id | equilibrium_space_id | couple  | Eh     | pe      | log_fO2 | Ah      |
-|----+----------------------+---------+--------+---------+---------+---------|
-| 1  | 1                    | DEFAULT | 0.373  | 3.2836  | -1.0    | 8.612   |
-| 2  | 2                    | DEFAULT | -0.562 | -4.9403 | -34.269 | -12.957 |
-+----+----------------------+---------+--------+---------+---------+---------+
++----------------------+---------+--------+---------+---------+---------+
+| equilibrium_space_id | couple  | Eh     | pe      | log_fO2 | Ah      |
+|----------------------+---------+--------+---------+---------+---------|
+| 322ba26a-...         | DEFAULT | 0.373  | 3.2836  | -1.0    | 8.612   |
+| c38a9eea-...         | DEFAULT | -0.562 | -4.9403 | -34.269 | -12.957 |
++----------------------+---------+--------+---------+---------+---------+
 ```
 
 {{< pagebreak >}}

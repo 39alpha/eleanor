@@ -42,7 +42,7 @@ def test_columns_by_name_rekeys_inspect_schema_output() -> None:
 
 
 def test_verify_reports_missing_index_from_mocked_reader(mocker: MockerFixture) -> None:
-    """Unit leg of the indisvalid coverage triangle (D3 in PLAN.md).
+    """Unit leg of the indisvalid coverage triangle.
 
     Mock live_index_names to return a set missing one declared entry;
     assert verify_against_tables reports it as missing or invalid.

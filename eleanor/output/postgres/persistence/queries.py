@@ -6,9 +6,13 @@ from eleanor.output.postgres.persistence import schema
 def _insert_columns(table: schema.TableDef) -> tuple[str, ...]:
     """Return the column names that go into an INSERT statement.
 
-    Identity-PK columns (``id`` on most tables) are excluded so the DB
-    autogenerates the id at INSERT time. Every other column is
-    included, including FK columns and JSONB / BYTEA payloads.
+    Identity-PK columns are excluded so the DB autogenerates the id at INSERT
+    time. Every other column is included, including FK columns and JSONB / BYTEA
+    payloads.
+
+    NOTE: Previous versions used INT/BIGINT identity columns. Those have been
+          removed, but we continue to filter the identity columns to avoid
+          including them if we decide to add some back in the future.
     """
     return tuple(c.name for c in table.columns if not c.identity)
 

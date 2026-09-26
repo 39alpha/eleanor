@@ -1,6 +1,7 @@
 from pathlib import Path
 import pickle
 import tempfile
+import uuid
 from eleanor.output.csv import CsvSink, CsvSinkSettings
 from eleanor.output.memory import MemorySink, MemorySinkSettings
 from eleanor.output.null import NullSink, NullSinkSettings
@@ -384,8 +385,9 @@ class TestOutput(TestCase):
         )
         sink = PostgresSink(settings)
 
+        existing_id = uuid.UUID("0199c7d2-0000-7000-8000-000000000011")
         order = SimpleNamespace(eleanor_version="v1")
-        existing = SimpleNamespace(id=17, eleanor_version="v1")
+        existing = SimpleNamespace(id=existing_id, eleanor_version="v1")
 
         with (
             mock.patch(
@@ -394,10 +396,10 @@ class TestOutput(TestCase):
             ) as get_order,
             mock.patch("eleanor.output.postgres.sink.repositories.insert_order") as insert_order,
         ):
-            order_id = sink.begin_run(_as_order(order), requested_id="17")
+            order_id = sink.begin_run(_as_order(order), requested_id=str(existing_id))
 
-        self.assertEqual(order_id, 17)
-        get_order.assert_called_once_with(settings.database, 17)
+        self.assertEqual(order_id, existing_id)
+        get_order.assert_called_once_with(settings.database, existing_id)
         insert_order.assert_not_called()
 
     def test_postgres_begin_run_rejects_a_requested_id_with_no_row(self) -> None:
@@ -413,20 +415,25 @@ class TestOutput(TestCase):
         )
         sink = PostgresSink(settings)
 
+        missing_id = uuid.UUID("0199c7d2-0000-7000-8000-000000000063")
         order = SimpleNamespace(eleanor_version="v1")
 
         with (
             mock.patch("eleanor.output.postgres.sink.repositories.get_order", return_value=None),
             mock.patch("eleanor.output.postgres.sink.repositories.insert_order") as insert_order,
-            self.assertRaisesRegex(EleanorError, "no order 99 to extend"),
+            self.assertRaisesRegex(EleanorError, f"no order {missing_id} to extend"),
         ):
-            _ = sink.begin_run(_as_order(order), requested_id="99")
+            _ = sink.begin_run(_as_order(order), requested_id=str(missing_id))
 
         insert_order.assert_not_called()
 
-    def test_postgres_begin_run_rejects_a_non_integer_requested_id(self) -> None:
+    def test_postgres_begin_run_rejects_a_non_uuid_requested_id(self) -> None:
         """
         Ensure a token outside this sink's id space is rejected by name.
+
+        ``17`` is covered alongside the obviously-malformed token because a
+        bare integer used to be this sink's whole id space. It has to be
+        rejected now, not silently reinterpreted.
         """
         settings = PostgresSinkSettings(
             database=PostgresDatabaseSettings(database="db", username="u", password="p"),
@@ -435,8 +442,9 @@ class TestOutput(TestCase):
 
         order = SimpleNamespace(eleanor_version="v1")
 
-        with self.assertRaisesRegex(EleanorError, "must be an integer"):
-            _ = sink.begin_run(_as_order(order), requested_id="not-an-int")
+        for token in ("not-a-uuid", "17"):
+            with self.subTest(token=token), self.assertRaisesRegex(EleanorError, "must be a UUID"):
+                _ = sink.begin_run(_as_order(order), requested_id=token)
 
     def test_postgres_begin_run_raises_on_version_mismatch(self) -> None:
         """
@@ -447,8 +455,9 @@ class TestOutput(TestCase):
         )
         sink = PostgresSink(settings)
 
+        existing_id = uuid.UUID("0199c7d2-0000-7000-8000-000000000011")
         order = SimpleNamespace(eleanor_version="v2")
-        existing = SimpleNamespace(id=17, eleanor_version="v1")
+        existing = SimpleNamespace(id=existing_id, eleanor_version="v1")
 
         with (
             mock.patch(
@@ -457,27 +466,28 @@ class TestOutput(TestCase):
             ),
             self.assertRaisesRegex(EleanorError, "different version of Eleanor"),
         ):
-            _ = sink.begin_run(_as_order(order), requested_id="17")
+            _ = sink.begin_run(_as_order(order), requested_id=str(existing_id))
 
     def test_postgres_begin_run_writes_new_order_and_returns_id(self) -> None:
         """
-        Ensure begin_run writes a new order and returns the sequence-generated id.
+        Ensure begin_run writes a new order and returns the id the insert allocated.
         """
         settings = PostgresSinkSettings(
             database=PostgresDatabaseSettings(database="db", username="u", password="p"),
         )
         sink = PostgresSink(settings)
 
+        new_id = uuid.UUID("0199c7d2-0000-7000-8000-00000000002a")
         order = SimpleNamespace(eleanor_version="v1")
         with (
             mock.patch(
                 "eleanor.output.postgres.sink.repositories.insert_order",
-                return_value=SimpleNamespace(id=42),
+                return_value=SimpleNamespace(id=new_id),
             ) as insert_order,
         ):
             order_id = sink.begin_run(_as_order(order))
 
-        self.assertEqual(order_id, 42)
+        self.assertEqual(order_id, new_id)
         insert_order.assert_called_once_with(settings.database, order)
 
     def test_error_info_fields(self) -> None:
@@ -638,14 +648,15 @@ class TestOutput(TestCase):
         )
         sink = PostgresSink(settings)
 
+        new_id = uuid.UUID("0199c7d2-0000-7000-8000-00000000002a")
         order = SimpleNamespace(eleanor_version="custom-v1")
         with mock.patch(
             "eleanor.output.postgres.sink.repositories.insert_order",
-            return_value=SimpleNamespace(id=42),
+            return_value=SimpleNamespace(id=new_id),
         ) as insert_order:
             order_id = sink.begin_run(_as_order(order))
 
-        self.assertEqual(order_id, 42)
+        self.assertEqual(order_id, new_id)
         self.assertEqual(order.eleanor_version, "custom-v1")
         insert_order.assert_called_once_with(settings.database, order)
 
@@ -992,10 +1003,10 @@ class TestSinkPicklability(TestCase):
     """
 
     @staticmethod
-    def _round_trip(sink: AbstractOutputSink[int]) -> AbstractOutputSink[int]:
-        return cast(AbstractOutputSink[int], pickle.loads(pickle.dumps(sink)))
+    def _round_trip[IdT](sink: AbstractOutputSink[IdT]) -> AbstractOutputSink[IdT]:
+        return cast(AbstractOutputSink[IdT], pickle.loads(pickle.dumps(sink)))
 
-    def _assert_prepares_after_round_trip(self, sink: AbstractOutputSink[int], order: Order) -> None:
+    def _assert_prepares_after_round_trip[IdT](self, sink: AbstractOutputSink[IdT], order: Order) -> None:
         """A pickled sink must still be able to prepare a batch."""
         order_id = sink.begin_run(order)
         clone = self._round_trip(sink)
@@ -1094,7 +1105,7 @@ class TestSinkPicklability(TestCase):
         # No begin_run here: that would touch a database. Preparing needs only
         # the settings, which is the point -- prepare must not depend on
         # parent-side connection state.
-        prepared = clone.prepare_batch(7, [ComputeResult(point=_as_point(SimpleNamespace(exit_code=0)))])
+        prepared = clone.prepare_batch(uuid.uuid4(), [ComputeResult(point=_as_point(SimpleNamespace(exit_code=0)))])
         self.assertEqual(len(prepared), 1)
 
     def test_a_sink_class_defined_at_runtime_cannot_reach_a_worker(self) -> None:

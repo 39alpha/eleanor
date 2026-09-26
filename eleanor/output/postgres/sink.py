@@ -1,6 +1,7 @@
 import logging
 import sys
 import traceback
+import uuid
 from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import cast, override
@@ -13,12 +14,12 @@ from eleanor.output.interface import (
     ComputeResult,
     ErrorInfo,
     WriteOutcome,
-    require_int_order_id,
 )
 from eleanor.output.postgres.persistence import connection as connection_module
 from eleanor.output.postgres.persistence import repositories
 from eleanor.output.postgres.settings import PostgresSinkSettings
 from eleanor.progress import ProgressHandle
+from eleanor.util import require_uuid_id
 
 _PSYCOPG_LOGGER_NAME = "psycopg"
 
@@ -45,7 +46,7 @@ class PostgresPrepared:
     error: ErrorInfo | None
 
 
-class PostgresSink(AbstractOutputSink[int]):
+class PostgresSink(AbstractOutputSink[uuid.UUID]):
     """Persist Eleanor compute results into PostgreSQL via psycopg3.
 
     ``bulk_load_optimization`` (default ``False``) opts the sink in to
@@ -94,19 +95,12 @@ class PostgresSink(AbstractOutputSink[int]):
             repositories.drop_bulk_load_objects(self.settings.database)
 
     @override
-    def begin_run(self, order: Order, *, requested_id: str | None = None) -> int:
-        """Insert a new ``orders`` row, or resume the one ``requested_id`` names.
-
-        The id space is the ``orders.id`` identity sequence, so a fresh run
-        takes whatever the database assigns. A ``requested_id`` naming no
-        existing row is an error: previously it was quietly inserted as a new
-        order under a *different*, sequence-assigned id, which silently
-        discarded the caller's request to extend.
-        """
+    def begin_run(self, order: Order, *, requested_id: str | None = None) -> uuid.UUID:
+        """Insert a new ``orders`` row, or resume the one ``requested_id`` names."""
         if requested_id is None:
             return repositories.insert_order(self.settings.database, order).id
 
-        order_id = require_int_order_id(requested_id, "postgres sink")
+        order_id = require_uuid_id(requested_id, "postgres sink")
         existing = repositories.get_order(self.settings.database, order_id)
         if existing is None:
             msg = f"postgres sink has no order {order_id} to extend"
@@ -118,7 +112,7 @@ class PostgresSink(AbstractOutputSink[int]):
         return order_id
 
     @override
-    def prepare_batch(self, order_id: int, results: Sequence[ComputeResult]) -> Sequence[PostgresPrepared]:
+    def prepare_batch(self, order_id: uuid.UUID, results: Sequence[ComputeResult]) -> Sequence[PostgresPrepared]:
         """Pair each point with the compute error :meth:`commit_batch` records against it.
 
         ``order_id`` is unused here. The ``variable_space.order_id`` foreign key
@@ -132,7 +126,7 @@ class PostgresSink(AbstractOutputSink[int]):
     @override
     def commit_batch(
         self,
-        order_id: int,
+        order_id: uuid.UUID,
         prepared: Sequence[object],
         progress: ProgressHandle | None = None,
     ) -> list[WriteOutcome]:

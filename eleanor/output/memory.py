@@ -5,10 +5,10 @@ from typing import Self, cast, override
 import eleanor.variable_space as vs
 from eleanor.exceptions import EleanorError
 from eleanor.order import Order
-from eleanor.output.interface import AbstractOutputSink, ComputeResult, WriteOutcome, require_int_order_id
+from eleanor.output.interface import AbstractOutputSink, ComputeResult, WriteOutcome
 from eleanor.output.settings import OutputSinkSettings
 from eleanor.progress import ProgressHandle
-from eleanor.util import guard_is_bool, require_bool
+from eleanor.util import guard_is_bool, require_bool, require_int_id
 
 
 @dataclass(kw_only=True)
@@ -73,7 +73,7 @@ class MemorySink(AbstractOutputSink[int]):
                 return order_id
 
         if requested_id is not None:
-            order_id = require_int_order_id(requested_id, "memory sink")
+            order_id = require_int_id(requested_id, "memory sink")
             if order_id not in self._orders:
                 msg = f"memory sink has no order {order_id} to extend"
                 raise EleanorError(msg)

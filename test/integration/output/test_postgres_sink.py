@@ -32,6 +32,7 @@ import os
 import unittest
 import unittest.mock as mock
 import urllib.parse
+import uuid
 from dataclasses import dataclass
 from datetime import datetime
 from typing import cast, override
@@ -47,7 +48,7 @@ from eleanor.kernel.exceptions import EleanorKernelError
 from eleanor.kernel.settings import KernelSettings
 from eleanor.order import Order
 from eleanor.output.interface import ComputeResult, WriteOutcome
-from eleanor.output.postgres.persistence import connection, repositories, schema
+from eleanor.output.postgres.persistence import connection, migrations, repositories, schema
 from eleanor.output.postgres.persistence.converters import OrderRecord
 from eleanor.output.postgres.settings import (
     PostgresDatabaseSettings,
@@ -81,7 +82,7 @@ def _config_from_env() -> PostgresDatabaseSettings | None:
 
 def _write_batch(
     sink: PostgresSink,
-    order_id: int,
+    order_id: uuid.UUID,
     results: list[ComputeResult],
 ) -> list[WriteOutcome]:
     """Drive both halves of the split write protocol, as Eleanor does.
@@ -104,7 +105,7 @@ class _MinimalOrder:
     """
 
     def __init__(self, name: str, eleanor_version: str) -> None:
-        self.id: int | None = None
+        self.id: uuid.UUID | None = None
         self.name: str | None = name
         self.tags: list[str] = []
         self.eleanor_version: str | None = eleanor_version
@@ -301,11 +302,21 @@ class TestPostgresSinkIntegration(_RealPostgresTestCase):
         runner. Exercising it end-to-end keeps the sink's ``initialize``
         hook covered against a real DB.
         """
-        # ``setUp`` already created all data tables via ``ensure_schema``.
-        # The migration runner refuses to auto-stamp a database that has
-        # data tables but no tracking — so we pre-stamp to tell it "this
-        # schema was already applied via the legacy path." This mirrors
-        # the operator workflow documented in PLAN.md "Breaking change".
+        # ``setUp`` already created all data tables via ``ensure_schema``,
+        # which builds the *current* schema. The migration runner refuses to
+        # auto-stamp a database that has data tables but no tracking, so we
+        # pre-stamp to tell it "this schema was already applied via the
+        # legacy path."
+        #
+        # Every migration is stamped, not just the early ones: replaying any
+        # pending migration over an ``ensure_schema`` database is incoherent,
+        # because the migrations transform an *older* schema forward rather
+        # than being idempotent against the current one. (0007, for one,
+        # widens ``id`` to BIGINT -- meaningless once ``id`` is a UUID.)
+        # Stamping the full set is also what keeps this test from needing an
+        # edit every time a migration lands. The genuine chain-from-empty
+        # coverage lives in ``test_migrations.py``; what this test owns is
+        # the thin ``repositories`` wrapper around the runner.
         conn = connection.connect(self.config)
         with conn.transaction(), conn.cursor() as cur:
             _ = cur.execute(
@@ -313,12 +324,10 @@ class TestPostgresSinkIntegration(_RealPostgresTestCase):
                 + "(version INTEGER PRIMARY KEY, name TEXT NOT NULL, "
                 + "applied_at TIMESTAMPTZ NOT NULL, eleanor_version TEXT NOT NULL)"
             )
-            _ = cur.execute(
+            _ = cur.executemany(
                 "INSERT INTO schema_migrations (version, name, applied_at, eleanor_version) "
-                + "VALUES (1, 'initial_schema', NOW(), 'test'),"
-                + "       (2, 'rename_tag_to_tags', NOW(), 'test'),"
-                + "       (3, 'indexes', NOW(), 'test'),"
-                + "       (4, 'add_exception_to_variable_space', NOW(), 'test') ON CONFLICT DO NOTHING"
+                + "VALUES (%s, %s, NOW(), 'test') ON CONFLICT DO NOTHING",
+                [(m.version, m.slug) for m in migrations.discover()],
             )
         # Now apply_pending_migrations should find no pending work and succeed.
         repositories.apply_pending_migrations(self.config)
@@ -564,7 +573,7 @@ class TestRepositoriesIntegration(_RealPostgresTestCase):
             assert row is not None
             self.assertEqual(row[0], 0, "orphan end_members detected")
 
-        self.assertGreater(vs_id, 0)
+        self.assertIsInstance(vs_id, uuid.UUID)
 
     def test_insert_point_float64_values_round_trip(self) -> None:
         """
@@ -875,8 +884,9 @@ class TestRepositoriesIntegration(_RealPostgresTestCase):
         """
         order_id, conn = self._make_order_and_vs("scratch")
 
-        # Case 1: no variable_space row at all.
-        self.assertIsNone(repositories.get_scratch_entry(self.config, 99999))
+        # Case 1: no variable_space row at all. ``uuid4`` rather than a fixed
+        # literal so the "absent" id cannot collide with a real row.
+        self.assertIsNone(repositories.get_scratch_entry(self.config, uuid.uuid4()))
 
         # Case 2: variable_space row with no scratch -> LookupError('scratch').
         plain = _make_vs_point()

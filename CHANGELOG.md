@@ -14,6 +14,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **PostgreSQL primary keys are UUIDs.** `orders`, `variable_space`, `suppressions`,
+  `special_reactants`, `solid_solution_reactants`, `equilibrium_space` and
+  `equilibrium_solid_solutions` carry a UUIDv7 Eleanor generates, rather than an integer the
+  database assigns. `--order-id` for the `postgres` sink and the `vs_id` argument to
+  `eleanor postgres scratch` take a UUID.
+- **Tables nothing refers to no longer carry an `id`.** Seventeen leaf tables -- `elements`,
+  `species` and `equilibrium_aqueous_species` among them -- are only ever reached through their
+  parent, so the surrogate key was dead weight.
+- **`require_int_order_id` is now `eleanor.util.require_int_id`**, joined by a `require_uuid_id`
+  for the sinks whose ids are UUIDs. Neither is re-exported from `eleanor.output`.
 - **Plugin settings parse nested as well as inline.** `kernel`, `navigator`, `executor` and
   `output` accept a `settings:` block, `constraints` an `args:` block, reactants a list, and
   suppressions an `exceptions` key; mixing the two forms in one block is rejected. An order dumped

@@ -6,7 +6,6 @@ from eleanor.output.interface import (
     ErrorInfo,
     RunStats,
     WriteOutcome,
-    require_int_order_id,
 )
 from eleanor.output.registry import registry
 from eleanor.output.settings import OutputSinkSettings
@@ -40,5 +39,4 @@ __all__ = [
     "WriteOutcome",
     "load_output_sink",
     "load_output_sink_settings",
-    "require_int_order_id",
 ]

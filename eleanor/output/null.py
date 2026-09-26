@@ -4,10 +4,10 @@ from typing import Self, cast, override
 
 from eleanor.exceptions import EleanorError
 from eleanor.order import Order
-from eleanor.output.interface import AbstractOutputSink, ComputeResult, WriteOutcome, require_int_order_id
+from eleanor.output.interface import AbstractOutputSink, ComputeResult, WriteOutcome
 from eleanor.output.settings import OutputSinkSettings
 from eleanor.progress import ProgressHandle
-from eleanor.util import guard_is_bool, require_bool
+from eleanor.util import guard_is_bool, require_bool, require_int_id
 
 
 @dataclass(kw_only=True)
@@ -70,7 +70,7 @@ class NullSink(AbstractOutputSink[int]):
         _ = order
 
         if requested_id is not None:
-            order_id = require_int_order_id(requested_id, "null sink")
+            order_id = require_int_id(requested_id, "null sink")
             self._next_order_id = max(self._next_order_id, order_id + 1)
             self._order_id = order_id
             return order_id

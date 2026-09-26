@@ -129,8 +129,9 @@ my_sink = "my_sink_plugin.output:my_sink_spec"
 
 `AbstractOutputSink` is generic in the type of the order id it hands out:
 `AbstractOutputSink[IdT]`. A sink chooses its own id space and pins it when it
-subclasses -- `AbstractOutputSink[int]` for a database sequence,
-`AbstractOutputSink[UUID]` for a sink with nothing to draw a sequence from.
+subclasses -- `AbstractOutputSink[int]` for a counter it keeps itself,
+`AbstractOutputSink[UUID]` for ids minted per run. `eleanor.util` provides
+`require_int_id` and `require_uuid_id` to parse the resume token into either.
 `begin_run` returns a value of that type and Eleanor hands the same value back
 to `prepare_batch` and `commit_batch`; it never constructs or inspects one, so
 nothing constrains the type beyond being picklable.
@@ -262,9 +263,9 @@ from eleanor.output.interface import (
     AbstractOutputSink,
     ComputeResult,
     WriteOutcome,
-    require_int_order_id,
 )
 from eleanor.output.settings import OutputSinkSettings
+from eleanor.util import require_int_id
 from eleanor.plugin import ConfigurablePluginSpec
 
 
@@ -281,7 +282,7 @@ class MySink(AbstractOutputSink[int]):
         # explicit request, so starting a new run instead would lose it.
         if requested_id is None:
             return 0
-        return require_int_order_id(requested_id, "my sink")
+        return require_int_id(requested_id, "my sink")
 
     def prepare_batch(self, order_id, results: Sequence[ComputeResult]) -> Sequence[MyPrepared]:
         # Runs in a worker. One item per result, in order -- that pairing is

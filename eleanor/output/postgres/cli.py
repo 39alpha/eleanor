@@ -16,6 +16,7 @@ from eleanor.output.postgres.persistence import schema as _schema
 from eleanor.output.postgres.persistence.repositories import drop_bulk_load_objects, recreate_bulk_load_objects
 from eleanor.output.postgres.settings import PostgresSinkSettings
 from eleanor.output.postgres.tools import dump_schema, load_scratch_entry
+from eleanor.util import require_uuid_id
 
 
 @click.command()
@@ -40,13 +41,16 @@ def schema(output: TextIO, config: str, database: str | None) -> None:
 
 
 @click.command()
-@click.argument("vs_id", type=click.INT)
+@click.argument(
+    "vs_id",
+    type=click.STRING,
+)
 @click.option("-o", "--outdir", type=click.Path(file_okay=False), default=".", help="Output directory.")
 @config_options()
-def scratch(vs_id: int, outdir: str, config: str, database: str | None) -> None:
+def scratch(vs_id: str, outdir: str, config: str, database: str | None) -> None:
     """Dump scratch results to a directory."""
 
-    variable_space_id = vs_id
+    variable_space_id = require_uuid_id(vs_id, "postgres sink")
     directory = Path(outdir)
 
     print(f"Loading {config}")

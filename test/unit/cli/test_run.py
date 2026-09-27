@@ -1,6 +1,8 @@
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from typing import cast
 
+import numpy as np
 from click.testing import CliRunner
 from eleanor import Eleanor
 from eleanor.cli import main
@@ -46,10 +48,10 @@ def make_config(kind: str = "multiprocessing", chunks_per_worker: int = 1) -> Co
     )
 
 
-def invoke_run(runner: CliRunner, extra_args: list[str]):
+def invoke_run(runner: CliRunner, extra_args: list[str], order_text: str = "order: demo\n"):
     with TemporaryDirectory() as root:
         order_path = Path(root) / "order.yaml"
-        _ = order_path.write_text("order: demo\n", encoding="utf-8")
+        _ = order_path.write_text(order_text, encoding="utf-8")
         return runner.invoke(main, ["run", *extra_args, str(order_path), "10"])
 
 
@@ -317,6 +319,83 @@ def test_run_without_tag_flag_leaves_order_tags_unchanged(mocker: MockerFixture,
 
     assert result.exit_code == 0
     assert order.tags == ["existing"]
+
+
+ORDER_WITH_SEED = """\
+name: demo
+creator: tester
+seed: 4242
+kernel: {kind: eq36, model: b-dot, charge_balance: "H+"}
+temperature: 25.0
+pressure: 1.0
+elements: {Na: 1.0}
+"""
+
+
+def run_real_order(mocker: MockerFixture, runner: CliRunner, extra_args: list[str]) -> Order:
+    """Invoke ``run`` against a real order file; return the order that reached ``Eleanor.run``.
+
+    ``load_order`` is left unpatched on purpose. The seed override is applied
+    inside it, so a stub standing in for it swallows the very thing these tests
+    check -- and the order it hands back carries whatever seed the stub chose.
+    """
+    executor = make_executor(mocker)
+    eleanor = make_eleanor(mocker)
+
+    _ = mocker.patch("eleanor.cli.run.config_from_args", return_value=make_config())
+    _ = mocker.patch("eleanor.cli.run.load_executor", return_value=executor)
+    _ = mocker.patch("eleanor.cli.run.Eleanor", return_value=eleanor)
+
+    result = invoke_run(runner, extra_args, order_text=ORDER_WITH_SEED)
+
+    assert result.exit_code == 0, result.output
+    assert eleanor.run.called, result.output
+    return cast(Order, eleanor.run.call_args.args[0])
+
+
+def test_run_seed_flag_overrides_the_order_file_seed(mocker: MockerFixture, runner: CliRunner) -> None:
+    order = run_real_order(mocker, runner, ["-c", "/fake.yaml", "-d", "sample", "--seed", "99"])
+
+    assert order.seed == 99
+
+
+def test_run_seed_flag_redirects_the_order_generator(mocker: MockerFixture, runner: CliRunner) -> None:
+    """The run must draw from the override, not from the seed the order file carried."""
+    order = run_real_order(mocker, runner, ["-c", "/fake.yaml", "-d", "sample", "--seed", "99"])
+
+    expected = np.random.default_rng(99).integers(0, 2**32, size=5)
+    assert np.array_equal(order.rng.integers(0, 2**32, size=5), expected)
+
+
+def test_run_seed_flag_accepts_zero(mocker: MockerFixture, runner: CliRunner) -> None:
+    """Zero is a seed like any other; a falsy override must not be read as "unset"."""
+    order = run_real_order(mocker, runner, ["-c", "/fake.yaml", "-d", "sample", "--seed", "0"])
+
+    assert order.seed == 0
+    expected = np.random.default_rng(0).integers(0, 2**32, size=5)
+    assert np.array_equal(order.rng.integers(0, 2**32, size=5), expected)
+
+
+def test_run_without_seed_flag_keeps_the_order_file_seed(mocker: MockerFixture, runner: CliRunner) -> None:
+    order = run_real_order(mocker, runner, ["-c", "/fake.yaml", "-d", "sample"])
+
+    assert order.seed == 4242
+    expected = np.random.default_rng(4242).integers(0, 2**32, size=5)
+    assert np.array_equal(order.rng.integers(0, 2**32, size=5), expected)
+
+
+def test_run_rejects_a_negative_seed(mocker: MockerFixture, runner: CliRunner) -> None:
+    config = make_config()
+
+    _ = mocker.patch("eleanor.cli.run.config_from_args", return_value=config)
+    load_order = mocker.patch("eleanor.cli.run.load_order")
+    eleanor_ctor = mocker.patch("eleanor.cli.run.Eleanor")
+
+    result = invoke_run(runner, ["-c", "/fake.yaml", "-d", "sample", "--seed", "-1"])
+
+    load_order.assert_not_called()
+    eleanor_ctor.assert_not_called()
+    assert result.exit_code == 2
 
 
 def test_run_rejects_unknown_executor_kind(mocker: MockerFixture, runner: CliRunner) -> None:

@@ -21,7 +21,7 @@ in a Postgres. Eleanor’s modular design allows the user to swap the EQ3/6-base
 > **NOTE**: We support both Linux and MacOS systems. You might have some luck using the Linux Subsystem for Windows, but
 > we don't pretend to support it.
 
-Eleanor requires `python>=3.14` and two external runtime dependencies:
+Eleanor requires `python>=3.14` and one external runtime dependency:
 
 1. A slightly modified version of EQ3/6 found at [39alpha/eq3_6](https://github.com/39alpha/eq3_6). Future versions will
 likely add other kernels based on other speciation tools, but EQ3/6 is what we have now.
@@ -72,8 +72,9 @@ Common options:
 - `--batch-size`: navigator batch size passed into `navigate(...)`.
 - `--max-nav-attempts`: maximum attempts per navigation point before giving up.
 - `--order-id`: resume/extend an existing run, as `SINK=ID`. Repeat once per output sink; the bare `ID` form is accepted
-  when only one sink is configured. The id format is the output sink's own (an integer for `postgres`, a UUID for `csv`).
-- `--tag`: override the order tag loaded from the order file.
+  when only one sink is configured. The id format is the output sink's own (a UUID for both `postgres` and `csv`).
+- `--tag`: add a tag to the order. Repeatable; tags merge with those the order file declares, deduplicated.
+- `--seed`: override the order's random seed for this run. See [Reproducibility](#reproducibility-and-the-run-seed).
 - `--null-sink`: bypass every configured output sink and discard writes via `NullSink`.
 - `--bulk-load` / `--no-bulk-load`: enable/disable postgres bulk-load optimization for this run, on every configured
   postgres sink.
@@ -81,6 +82,37 @@ Common options:
 - `-v, --verbose`: verbose output. Also reports, per sink, how many points it was handed and how many
   it committed — so one sink dropping points alongside one that did not is visible.
 - `-s, --scratch`: persist scratch artifacts for all simulations regardless of error status.
+- `--timing`: report a wall-clock attribution of the dispatch loop to stderr when the run finishes.
+
+### Reproducibility and the run seed
+
+Every order carries a top-level `seed`:
+
+```yaml
+name: h2-generation
+creator: alice
+seed: 4242
+# ... the rest of the order
+```
+
+Omit it and Eleanor generates one. Either way the seed is recorded with the run — it is part of
+the order the sink persists — and the navigators sample from a generator seeded with it, so a run
+re-sampled from its recorded order visits the same variable-space points.
+
+`--seed` overrides what the order file declares, without editing it:
+
+```bash
+eleanor run --seed 4242 -c config.yaml -d eleanor_db order.yaml 50000
+```
+
+Two caveats:
+
+- **Points are reproducible; their order in the output is not.** Sampling happens once, in the
+  parent process, but with a parallel executor the workers commit chunks as they finish.
+- **Resuming re-draws from the same seed.** A run extended with `--order-id` starts the generator
+  over, so an unchanged seed re-samples the points the earlier run already covered. Pass a
+  different `--seed` to extend the sample rather than repeat it. The seed recorded against the
+  original run is left as it was.
 
 ### Built-in output sinks
 
@@ -171,19 +203,19 @@ Use `--order-id` to append new variable-space/equilibrium results to an existing
 
 ```bash
 # postgres: the orders.id of the run to extend
-eleanor run --order-id 42 -c config.yaml -d eleanor_db order.yaml 50000
+eleanor run --order-id 9f1c2d7a-... -c config.yaml -d eleanor_db order.yaml 50000
 
 # csv: the UUID the earlier run printed / recorded in its sidecar
 eleanor run --order-id 3f2b8c9e-... -c config.yaml order.yaml 50000
 
 # several sinks: one token each, keyed by sink name
-eleanor run --order-id postgres=42 --order-id export=3f2b8c9e-... \
+eleanor run --order-id postgres=9f1c2d7a-... --order-id export=3f2b8c9e-... \
   -c config.yaml order.yaml 50000
 ```
 
 Behavior:
 
-- Ids belong to the output sink, not to the order, so an order file must not declare one. Which ids are valid depends on the configured sink: `postgres` uses its `orders.id` sequence, `csv` uses UUIDs recorded in its `_schema.yaml` sidecar.
+- Ids belong to the output sink, not to the order, so an order file must not declare one. Which ids are valid depends on the configured sink: `postgres` uses the UUID in `orders.id`, `csv` uses UUIDs recorded in its `_schema.yaml` sidecar.
 - With several sinks configured, **every** sink must be given a token. Resuming some while silently starting the others fresh would split one run's output across two ids with nothing recording that they differ. A sink reporting `supports_resume() == False` — one with nothing to resume, such as a live-plotting sink — is exempt, and aiming a token at one is an error rather than a no-op.
 - A bare `--order-id ID` is only accepted when exactly one sink is configured; with several, the id spaces differ and there is nothing to infer from.
 - If the id names a run the sink holds, Eleanor extends it.

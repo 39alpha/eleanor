@@ -299,45 +299,137 @@ class Order:
         )
 
     @classmethod
-    def from_yaml(cls, fname: StrPath) -> Self:
+    def from_yaml(
+        cls,
+        fname: StrPath,
+        *,
+        seed: int | None = None,
+        tags: str | list[str] | None = None,
+        create_date: datetime | None = None,
+        vs_points: list[VSPoint] | None = None,
+    ) -> Self:
         with Path(fname).open("rb") as handle:
-            return cls.from_dict(cast(dict[str, object], yaml.safe_load(handle)))
+            return cls.from_dict(
+                cast(dict[str, object], yaml.safe_load(handle)),
+                seed=seed,
+                tags=tags,
+                create_date=create_date,
+                vs_points=vs_points,
+            )
 
     @classmethod
-    def from_yamls(cls, content: str) -> Self:
-        return cls.from_dict(cast(dict[str, object], yaml.safe_load(content)))
+    def from_yamls(
+        cls,
+        content: str,
+        *,
+        seed: int | None = None,
+        tags: str | list[str] | None = None,
+        create_date: datetime | None = None,
+        vs_points: list[VSPoint] | None = None,
+    ) -> Self:
+        return cls.from_dict(
+            cast(dict[str, object], yaml.safe_load(content)),
+            seed=seed,
+            tags=tags,
+            create_date=create_date,
+            vs_points=vs_points,
+        )
 
     @classmethod
-    def from_toml(cls, fname: StrPath) -> Self:
+    def from_toml(
+        cls,
+        fname: StrPath,
+        *,
+        seed: int | None = None,
+        tags: str | list[str] | None = None,
+        create_date: datetime | None = None,
+        vs_points: list[VSPoint] | None = None,
+    ) -> Self:
         with Path(fname).open("rb") as handle:
-            return cls.from_dict(cast(dict[str, object], tomllib.load(handle)))
+            return cls.from_dict(
+                cast(dict[str, object], tomllib.load(handle)),
+                seed=seed,
+                tags=tags,
+                create_date=create_date,
+                vs_points=vs_points,
+            )
 
     @classmethod
-    def from_tomls(cls, content: str) -> Self:
-        return cls.from_dict(cast(dict[str, object], tomllib.loads(content)))
+    def from_tomls(
+        cls,
+        content: str,
+        *,
+        seed: int | None = None,
+        tags: str | list[str] | None = None,
+        create_date: datetime | None = None,
+        vs_points: list[VSPoint] | None = None,
+    ) -> Self:
+        return cls.from_dict(
+            cast(dict[str, object], tomllib.loads(content)),
+            seed=seed,
+            tags=tags,
+            create_date=create_date,
+            vs_points=vs_points,
+        )
 
     @classmethod
-    def from_json(cls, fname: StrPath) -> Self:
+    def from_json(
+        cls,
+        fname: StrPath,
+        *,
+        seed: int | None = None,
+        tags: str | list[str] | None = None,
+        create_date: datetime | None = None,
+        vs_points: list[VSPoint] | None = None,
+    ) -> Self:
         with Path(fname).open("rb") as handle:
-            return cls.from_dict(cast(dict[str, object], json.load(handle)))
+            return cls.from_dict(
+                cast(dict[str, object], json.load(handle)),
+                seed=seed,
+                tags=tags,
+                create_date=create_date,
+                vs_points=vs_points,
+            )
 
     @classmethod
-    def from_jsons(cls, content: str) -> Self:
-        return cls.from_dict(cast(dict[str, object], json.loads(content)))
+    def from_jsons(
+        cls,
+        content: str,
+        *,
+        seed: int | None = None,
+        tags: str | list[str] | None = None,
+        create_date: datetime | None = None,
+        vs_points: list[VSPoint] | None = None,
+    ) -> Self:
+        return cls.from_dict(
+            cast(dict[str, object], json.loads(content)),
+            seed=seed,
+            tags=tags,
+            create_date=create_date,
+            vs_points=vs_points,
+        )
 
     @classmethod
-    def from_file(cls, fname: StrPath) -> Self:
+    def from_file(
+        cls,
+        fname: StrPath,
+        *,
+        seed: int | None = None,
+        tags: str | list[str] | None = None,
+        create_date: datetime | None = None,
+        vs_points: list[VSPoint] | None = None,
+    ) -> Self:
         try:
             fname = Path(fname)
             match fname.suffix:
                 case ".yaml":
-                    return cls.from_yaml(fname)
+                    return cls.from_yaml(fname, seed=seed, tags=tags, create_date=create_date, vs_points=vs_points)
                 case ".yml":
-                    return cls.from_yaml(fname)
+                    return cls.from_yaml(fname, seed=seed, tags=tags, create_date=create_date, vs_points=vs_points)
                 case ".toml":
-                    return cls.from_toml(fname)
+                    return cls.from_toml(fname, seed=seed, tags=tags, create_date=create_date, vs_points=vs_points)
                 case ".json":
-                    return cls.from_json(fname)
+                    return cls.from_json(fname, seed=seed, tags=tags, create_date=create_date, vs_points=vs_points)
                 case _:
                     msg = f"unsupported file extension {fname.suffix!r}"
                     raise RuntimeError(msg)
@@ -348,7 +440,14 @@ class Order:
             raise EleanorError(msg) from e
 
 
-def load_order(order: StrPath | Order) -> Order:
+def load_order(
+    order: StrPath | Order,
+    *,
+    seed: int | None = None,
+    tags: str | list[str] | None = None,
+    create_date: datetime | None = None,
+    vs_points: list[VSPoint] | None = None,
+) -> Order:
     """Load and/or override an order.
 
     If the provided :paramref:`order` is a string, it is assumed to be a
@@ -357,7 +456,7 @@ def load_order(order: StrPath | Order) -> Order:
     If the provided :paramref:`order` is an Order, then this call is a no-op.
     """
     if isinstance(order, (str, Path)):
-        order = Order.from_file(order)
+        order = Order.from_file(order, seed=seed, tags=tags, create_date=create_date, vs_points=vs_points)
     return order
 
 

@@ -78,6 +78,10 @@ should accept `**kwargs` to tolerate future additions. Points carry no order
 id: the id belongs to the output sink, which receives it as a parameter to
 `prepare_batch` / `commit_batch`, so a navigator never needs to know it.
 
+A navigator that samples should draw from `order.rng` -- the generator seeded
+from the order's `seed` -- rather than from global random state. That is what
+lets a run be reproduced from the seed recorded alongside it.
+
 Across a complete `navigate(...)` iteration, the total number of yielded
 points must match `num_systems(order, scale)`. Eleanor raises an error if the
 counts diverge.

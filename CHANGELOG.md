@@ -11,6 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Orders carry a top-level `seed`**, generated when omitted, and expose an `Order.rng` seeded
   from it. The navigators draw from that generator, so a run reproduces from its recorded seed.
+- **`eleanor run --seed INT`** overrides the order's seed for a single run, without editing the
+  order file. Extending a run with `--order-id` re-draws from the start of the stream, so a fresh
+  seed is how you sample points the original run did not cover.
 
 ### Changed
 

@@ -2,11 +2,11 @@ import copy
 import csv
 import sys
 import traceback
+import uuid
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Self, cast, override
-from uuid import UUID, uuid4
 
 import yaml
 
@@ -222,7 +222,7 @@ def _prepare_rows(
 def _extract_binary_assets(
     filename: Path,
     binary_columns: frozenset[str],
-    order_id: UUID,
+    order_id: uuid.UUID,
     point_counter: int,
     rows: Sequence[Mapping[str, object]],
 ) -> Sequence[Mapping[str, object]]:
@@ -284,7 +284,7 @@ class CsvPrepared:
     error: str | None = None
 
 
-class CsvSink(AbstractOutputSink[UUID]):
+class CsvSink(AbstractOutputSink[uuid.UUID]):
     """Appends query-projected rows to a CSV file, with a YAML sidecar.
 
     Its ids are UUIDs. There is no sequence here to draw an integer from --
@@ -299,7 +299,7 @@ class CsvSink(AbstractOutputSink[UUID]):
     _compiled: CompiledQuery
     _columns: list[str]
     _id_columns: list[str]
-    _order_id: UUID | None
+    _order_id: uuid.UUID | None
     _order: Order | None
     _schema_file: Path
     _binary_columns: frozenset[str]
@@ -381,7 +381,7 @@ class CsvSink(AbstractOutputSink[UUID]):
         self._order = None
 
     @override
-    def begin_run(self, order: Order, *, requested_id: str | None = None) -> UUID:
+    def begin_run(self, order: Order, *, requested_id: str | None = None) -> uuid.UUID:
         """Mint a UUID for a new run, or resume the one ``requested_id`` names.
 
         A resumable run is one the sidecar knows about, so a token must parse
@@ -396,7 +396,7 @@ class CsvSink(AbstractOutputSink[UUID]):
             return self._order_id
 
         if requested_id is None:
-            order_id = uuid4()
+            order_id = uuid.uuid7()
         else:
             order_id = require_uuid_id(requested_id, "csv sink")
 
@@ -425,7 +425,7 @@ class CsvSink(AbstractOutputSink[UUID]):
         return order_id
 
     @override
-    def prepare_batch(self, order_id: UUID, results: Sequence[ComputeResult]) -> Sequence[CsvPrepared]:
+    def prepare_batch(self, order_id: uuid.UUID, results: Sequence[ComputeResult]) -> Sequence[CsvPrepared]:
         """Evaluate the query for each point; return its rows.
 
         Runs in a worker. Pure with respect to sink state: the shallow
@@ -470,7 +470,7 @@ class CsvSink(AbstractOutputSink[UUID]):
 
         return prepared
 
-    def _id_values(self, order_id: UUID, point_id: int) -> Mapping[str, object]:
+    def _id_values(self, order_id: uuid.UUID, point_id: int) -> Mapping[str, object]:
         """The value for each configured id column, for one VS point's rows.
 
         Every row of a single point shares both values: the run id is constant
@@ -482,7 +482,7 @@ class CsvSink(AbstractOutputSink[UUID]):
     @override
     def commit_batch(
         self,
-        order_id: UUID,
+        order_id: uuid.UUID,
         prepared: Sequence[object],
         progress: ProgressHandle | None = None,
     ) -> list[WriteOutcome]:

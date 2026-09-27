@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **CsvSink now uses uuid7 ids** for consistency with the PostgresSink.
 - **PostgreSQL primary keys are UUIDs.** `orders`, `variable_space`, `suppressions`,
   `special_reactants`, `solid_solution_reactants`, `equilibrium_space` and
   `equilibrium_solid_solutions` carry a UUIDv7 Eleanor generates, rather than an integer the

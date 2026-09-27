@@ -182,9 +182,7 @@ class Order:
         vs_points: list[VSPoint] | None = None,
     ) -> Self:
         if "id" in raw:
-            # Silently dropping this would quietly change the meaning of an
-            # existing order file: the id used to select which run to extend.
-            msg = "an order no longer carries an id; pass --order-id (or Eleanor.run(resume_id=...)) to extend a run"
+            msg = "user-specified order ids are no longer supported"
             raise EleanorError(msg)
 
         raw_tags = cast(object, raw.get("tags"))

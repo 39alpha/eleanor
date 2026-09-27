@@ -8,7 +8,7 @@ from eleanor.order import Order
 from eleanor.output.interface import AbstractOutputSink, ComputeResult, WriteOutcome
 from eleanor.output.settings import OutputSinkSettings
 from eleanor.progress import ProgressHandle
-from eleanor.util import guard_is_bool, require_bool, require_int_id
+from eleanor.util import guard_is_bool, require_bool
 
 
 @dataclass(kw_only=True)
@@ -60,24 +60,11 @@ class MemorySink(AbstractOutputSink[int]):
         return state
 
     @override
-    def begin_run(self, order: Order, *, requested_id: str | None = None) -> int:
-        """Register ``order`` under a fresh id, or resume one this sink holds.
-
-        Because the retained graph lives only in this instance, a
-        ``requested_id`` can be resumed only within the lifetime of the same
-        sink. In a fresh sink there is nothing to extend, so an id is an error
-        rather than a silently-new run.
-        """
+    def begin_run(self, order: Order) -> int:
+        """Register ``order`` under a fresh id."""
         for order_id, existing in self._orders.items():
             if existing is order:
                 return order_id
-
-        if requested_id is not None:
-            order_id = require_int_id(requested_id, "memory sink")
-            if order_id not in self._orders:
-                msg = f"memory sink has no order {order_id} to extend"
-                raise EleanorError(msg)
-            return order_id
 
         order_id = max(self._orders.keys() or [-1]) + 1
         self._orders[order_id] = order

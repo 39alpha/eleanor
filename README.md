@@ -71,8 +71,6 @@ Common options:
 - `--chunks-per-worker`: override `executor.chunks_per_worker` from config.
 - `--batch-size`: navigator batch size passed into `navigate(...)`.
 - `--max-nav-attempts`: maximum attempts per navigation point before giving up.
-- `--order-id`: resume/extend an existing run, as `SINK=ID`. Repeat once per output sink; the bare `ID` form is accepted
-  when only one sink is configured. The id format is the output sink's own (a UUID for both `postgres` and `csv`).
 - `--tag`: add a tag to the order. Repeatable; tags merge with those the order file declares, deduplicated.
 - `--seed`: override the order's random seed for this run. See [Reproducibility](#reproducibility-and-the-run-seed).
 - `--null-sink`: bypass every configured output sink and discard writes via `NullSink`.
@@ -109,10 +107,9 @@ Two caveats:
 
 - **Points are reproducible; their order in the output is not.** Sampling happens once, in the
   parent process, but with a parallel executor the workers commit chunks as they finish.
-- **Resuming re-draws from the same seed.** A run extended with `--order-id` starts the generator
-  over, so an unchanged seed re-samples the points the earlier run already covered. Pass a
-  different `--seed` to extend the sample rather than repeat it. The seed recorded against the
-  original run is left as it was.
+- **Every run starts the generator over.** Each run of an order draws from the head of the stream,
+  so running one twice under the same seed visits the same points twice. Pass a different `--seed`
+  to sample elsewhere in the variable space.
 
 ### Built-in output sinks
 
@@ -149,8 +146,8 @@ output:
 Each sink is addressed by `name`, which defaults to its `kind`. Two sinks of
 the same kind — two CSVs writing different projections to different files — are
 fine as long as you name them, and duplicate names are rejected. The name is
-what `--order-id` keys on, what labels the sink's progress bar, and what
-`Eleanor.run` keys its returned ids by.
+what labels the sink's progress bar and what `Eleanor.run` keys its returned
+ids by.
 
 They must also write to *different places*. Two sinks aimed at one store have
 nothing correlating their counters or their buffers, so they corrupt each
@@ -159,8 +156,8 @@ other: two CSVs on one file interleave rows and overwrite each other's
 and can recreate its indexes mid-bulk-load. Distinct names do not make that
 safe, so Eleanor rejects such a run at startup.
 
-Every sink keeps its own id space, its own progress bar, and its own resume
-token. Three consequences worth knowing:
+Every sink keeps its own id space and its own progress bar. Three consequences
+worth knowing:
 
 - **There is no cross-sink atomicity.** An interrupt, or any sink failing, can
   leave one sink holding a chunk the others do not. A failure in any sink
@@ -197,31 +194,18 @@ Omit `id_columns` for a file with no identity columns. Every row of one VS point
 shares its `point_id`, so a query emitting several rows per point repeats the
 value — `point_id` identifies the point, not the row.
 
-### Resume / extend a run with `--order-id`
+#### Appending to an existing `csv` file
 
-Use `--order-id` to append new variable-space/equilibrium results to an existing run:
+Pointing the `csv` sink at a file that already exists appends to it: the run
+gets its own `order_id`, its own `point_id` counter, and its rows go on the end.
+The header must match the configured query's columns exactly, and the file's
+`_schema.yaml` sidecar must be present — a CSV without one is rejected rather
+than guessed at.
 
-```bash
-# postgres: the orders.id of the run to extend
-eleanor run --order-id 9f1c2d7a-... -c config.yaml -d eleanor_db order.yaml 50000
-
-# csv: the UUID the earlier run printed / recorded in its sidecar
-eleanor run --order-id 3f2b8c9e-... -c config.yaml order.yaml 50000
-
-# several sinks: one token each, keyed by sink name
-eleanor run --order-id postgres=9f1c2d7a-... --order-id export=3f2b8c9e-... \
-  -c config.yaml order.yaml 50000
-```
-
-Behavior:
-
-- Ids belong to the output sink, not to the order, so an order file must not declare one. Which ids are valid depends on the configured sink: `postgres` uses the UUID in `orders.id`, `csv` uses UUIDs recorded in its `_schema.yaml` sidecar.
-- With several sinks configured, **every** sink must be given a token. Resuming some while silently starting the others fresh would split one run's output across two ids with nothing recording that they differ. A sink reporting `supports_resume() == False` — one with nothing to resume, such as a live-plotting sink — is exempt, and aiming a token at one is an error rather than a no-op.
-- A bare `--order-id ID` is only accepted when exactly one sink is configured; with several, the id spaces differ and there is nothing to infer from.
-- If the id names a run the sink holds, Eleanor extends it.
-- If the id is malformed for that sink, or names no run it holds, the run is **rejected**. Resuming is an explicit request, so Eleanor will not quietly start a new run instead.
-- The `eleanor_version` must match when extending an existing run. If your order file declares a different version, the run is rejected.
-- Omit `--order-id` to start a new run; the sink allocates the id and `eleanor run -v` prints it.
+The sidecar also records the version of Eleanor that wrote the file, and
+appending under a different version is rejected. The projection a query produces
+is version-dependent, so continuing one file across an upgrade would leave rows
+of two different shapes under one header. Point the run at a new file instead.
 
 ### Parallelism, batch size, and Postgres subtransaction pressure
 

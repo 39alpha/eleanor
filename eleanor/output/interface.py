@@ -148,35 +148,24 @@ class AbstractOutputSink[IdT](ABC):
         return
 
     @abstractmethod
-    def begin_run(self, order: Order, *, requested_id: str | None = None) -> IdT:
+    def begin_run(self, order: Order) -> IdT:
         """Perform any setup required for a run and return its order id.
 
         The sink owns the id space. Nothing upstream knows what an id looks
-        like, so ``requested_id`` arrives as the raw token the caller supplied
-        (``--order-id`` on the command line) and it is the sink's job to
-        interpret it. The contract is the same for every sink:
-
-        * ``requested_id`` is ``None`` -- allocate a fresh id and start a new
-          run.
-        * ``requested_id`` names a run this sink already holds -- return that
-          id, so the new points extend the existing run.
-        * ``requested_id`` is malformed for this sink's id space, or names a
-          run it does not hold -- raise :class:`~eleanor.exceptions.EleanorError`.
-          Resuming is an explicit request, so quietly starting a new run
-          instead would discard the caller's intent.
+        like.
 
         This method must be called before :meth:`prepare_batch`,
-        :meth:`commit_batch` or :meth:`finalize_run`. Repeated calls with the same order are expected
-        to return the same id and leave the sink's backing store in the same
-        observable state as a single call (e.g. no duplicate order rows),
-        though they may still perform work -- opening a connection, reading
-        back stored metadata, or populating fields on the in-memory order.
+        :meth:`commit_batch` or :meth:`finalize_run`. Repeated calls with the
+        same order are expected to return the same id and leave the sink's
+        backing store in the same observable state as a single call (e.g. no
+        duplicate order rows), though they may still perform work -- opening a
+        connection, reading back stored metadata, or populating fields on the
+        in-memory order.
 
         Implementations are only expected to verify identifying metadata
         (such as the version of Eleanor that produced the order); they are
         not expected to validate that the full order contents match what is
-        stored. Callers extending an existing run are responsible for
-        supplying a consistent order.
+        stored.
         """
         ...
 
@@ -312,34 +301,6 @@ class AbstractOutputSink[IdT](ABC):
         """Exit the sink's lifetime: calls :meth:`finalize`."""
         self.finalize()
 
-    def supports_resume(self) -> bool:
-        """Whether this sink can extend a run it already holds.
-
-        A sink that returns ``False`` is always given ``requested_id=None``,
-        because there is nothing for a token to name: a live-plotting sink
-        draws to a window, a streaming sink writes to a socket, neither
-        retains a run to go back to. Eleanor still starts such a sink
-        normally; only the resume half of :meth:`begin_run`'s contract is
-        waived.
-
-        Eleanor holds up both ends of that. Such a sink is never *required* to
-        supply a token, and a token aimed at one is *rejected* rather than
-        forwarded -- resuming is an explicit request, so quietly running it
-        against a sink that cannot honour it would lose the caller's intent
-        just as surely as quietly starting a new run would.
-
-        This matters once several sinks are active at once. Resume is
-        per-sink -- the id space belongs to the sink, so only the sink can
-        interpret a token -- and Eleanor requires a token for every sink that
-        claims to support resuming, rather than silently starting some of them
-        fresh and leaving the outputs of one run split across two ids. This
-        method is how a sink opts out of that requirement.
-
-        The default is ``True`` so third-party sinks that pre-date the
-        capability keep their existing resume behaviour.
-        """
-        return True
-
     def target_key(self) -> object | None:
         """What durable store this sink writes to, or ``None`` to opt out.
 
@@ -441,8 +402,8 @@ class SinkBinding:
     sink already must (:meth:`AbstractOutputSink.prepare_batch` always runs in
     a worker), and the order id must because the sink chose it.
 
-    :param name: The sink's configured name. Identifies it in resume tokens,
-        progress bars, per-sink statistics and error messages.
+    :param name: The sink's configured name. Identifies it in progress bars,
+        per-sink statistics and error messages.
     :param commit_in_worker: A snapshot of
         :meth:`AbstractOutputSink.supports_worker_commit`, taken once when the
         binding is built. Snapshotting keeps the parent and the worker

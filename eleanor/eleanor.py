@@ -62,33 +62,6 @@ def _finalize_all(sinks: Iterable[AbstractOutputSink[object]]) -> None:
     _sweep(sinks, lambda sink: sink.finalize())
 
 
-def _require_resume_tokens(
-    resume_id: str | Mapping[str, str] | None,
-    sinks: Mapping[str, AbstractOutputSink[object]],
-) -> dict[str, str]:
-    """Resolve ``resume_id``; every resumable sink needs a token, and only those."""
-    tokens = _resume_tokens(resume_id, list(sinks))
-    if not tokens:
-        return tokens
-
-    unresumable = sorted(name for name in tokens if not sinks[name].supports_resume())
-    if unresumable:
-        msg = (
-            f"output sink(s) cannot resume: {', '.join(unresumable)}. "
-            "Drop their --order-id token(s); they retain no run for one to name."
-        )
-        raise EleanorError(msg)
-
-    missing = sorted(name for name, sink in sinks.items() if name not in tokens and sink.supports_resume())
-    if missing:
-        msg = (
-            f"resuming requires an id for every resumable output sink; missing: {', '.join(missing)}. "
-            "Pass one per sink, or drop --order-id to start a fresh run everywhere."
-        )
-        raise EleanorError(msg)
-    return tokens
-
-
 def _format_stats(stats: Mapping[str, RunStats]) -> str:
     """Render what each sink was handed and how much of it landed."""
     name_width = max(len(name) for name in stats)
@@ -133,32 +106,6 @@ def _as_sink_map[IdT](
     return {DEFAULT_SINK_NAME: cast("AbstractOutputSink[object]", output_sink)}
 
 
-def _resume_tokens(
-    resume_id: str | Mapping[str, str] | None,
-    names: Sequence[str],
-) -> dict[str, str]:
-    """Resolve ``resume_id`` against the active sink names."""
-    if resume_id is None:
-        return {}
-
-    if isinstance(resume_id, str):
-        if len(names) != 1:
-            joined = ", ".join(names)
-            msg = (
-                f"a bare resume id is ambiguous with {len(names)} output sinks ({joined}); "
-                "map each sink to its own id instead"
-            )
-            raise EleanorError(msg)
-        return {names[0]: resume_id}
-
-    unknown = sorted(set(resume_id) - set(names))
-    if unknown:
-        joined = ", ".join(names)
-        msg = f"no output sink named {', '.join(repr(name) for name in unknown)}; active sinks: {joined}"
-        raise EleanorError(msg)
-    return dict(resume_id)
-
-
 class Eleanor:
     """An engine for dispatching :class:`Order` runs.
 
@@ -179,9 +126,7 @@ class Eleanor:
 
     A run may drive **several sinks at once**. The kernel runs once per
     point regardless; the compute graph is fanned out to every sink inside
-    the worker, which is what makes N sinks far cheaper than N runs. Each
-    sink keeps its own id space, its own progress bar and its own resume
-    token, and :meth:`run` returns every id it allocated, keyed by sink name.
+    the worker, which is what makes N sinks far cheaper than N runs.
 
     Constructor-level ``executor`` and ``output_sink`` keyword arguments
     override the Config-derived defaults for every :meth:`run` call on
@@ -451,7 +396,6 @@ class Eleanor:
         kernel_args: list[object] | None = None,
         navigator: AbstractNavigator | None = None,
         output_sink: AbstractOutputSink[IdT] | Mapping[str, AbstractOutputSink[IdT]] | None = None,
-        resume_id: str | Mapping[str, str] | None = None,
         timings: DispatchTimings | None = None,
         **kwargs: Unpack[EleanorKwargs],
     ) -> dict[str, object]:
@@ -464,19 +408,6 @@ class Eleanor:
         :meth:`~AbstractOutputSink.finalize`.  Eleanor only calls
         :meth:`~AbstractOutputSink.finalize_run` on scope exit.
 
-        ``resume_id`` extends an existing run instead of starting a new one.
-        Tokens are passed through to :meth:`~AbstractOutputSink.begin_run`
-        untouched, as strings: the sink owns the id space, so only it can say
-        what a valid id looks like. A token the named sink does not recognise
-        is an error rather than a silent new run.
-
-        With one sink, ``resume_id`` may be that bare token. With several it
-        must be a mapping of sink name to token, and **every** sink that
-        reports :meth:`~AbstractOutputSink.supports_resume` needs an entry:
-        resuming some sinks while silently starting others fresh would split
-        one run's output across two ids with nothing recording that they
-        differ. Sinks that decline ``supports_resume`` are skipped.
-
         The return value maps each sink's name to whatever id it allocated,
         typed ``object`` because Eleanor never inspects one.
 
@@ -486,7 +417,7 @@ class Eleanor:
         what collects the measurements, while the ``timing`` keyword
         decides whether Eleanor prints a summary.
         """
-        for retired_arg in ["executor", "parallel"]:
+        for retired_arg in ["executor", "parallel", "resume_id"]:
             if retired_arg in cast(dict[str, object], cast(object, kwargs)):
                 msg = f"Eleanor.run() got an unexpected keyword argument '{retired_arg}'"
                 raise TypeError(msg)
@@ -539,8 +470,6 @@ class Eleanor:
                 msg = "batch_size must be >= 1"
                 raise EleanorError(msg)
 
-            tokens = _require_resume_tokens(resume_id, run_sinks)
-
             progress: Progress | None = None
             sim_handle: ManagedProgressHandle | None = None
             out_handles: dict[str, ManagedProgressHandle] = {}
@@ -557,10 +486,7 @@ class Eleanor:
                     for handle in out_handles.values():
                         handle.total(expected_total)
 
-                bindings = [
-                    SinkBinding.bind(name, sink, sink.begin_run(order, requested_id=tokens.get(name)))
-                    for name, sink in run_sinks.items()
-                ]
+                bindings = [SinkBinding.bind(name, sink, sink.begin_run(order)) for name, sink in run_sinks.items()]
                 order_ids = {binding.name: binding.order_id for binding in bindings}
 
                 stats = {name: RunStats() for name in run_sinks}

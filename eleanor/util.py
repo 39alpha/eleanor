@@ -417,19 +417,19 @@ def guard_is_instance_or_none[T](value: object, class_: type[T], field_name: str
         raise EleanorError(msg)
 
 
-def require_int_id(requested_id: str, name: str) -> int:
-    """Parse ``requested_id`` as an integer."""
+def require_int_id(value: str, name: str) -> int:
+    """Parse ``value`` as an integer."""
     try:
-        return int(requested_id)
+        return int(value)
     except ValueError as error:
-        msg = f"{name} id must be an integer, got {requested_id!r}"
+        msg = f"{name} id must be an integer, got {value!r}"
         raise EleanorError(msg) from error
 
 
-def require_uuid_id(requested_id: str, name: str) -> uuid.UUID:
-    """Parse ``requested_id`` as a UUID."""
+def require_uuid_id(value: str, name: str) -> uuid.UUID:
+    """Parse ``value`` as a UUID."""
     try:
-        return uuid.UUID(requested_id)
+        return uuid.UUID(value)
     except ValueError as error:
-        msg = f"{name} id must be a UUID, got {requested_id!r}"
+        msg = f"{name} id must be a UUID, got {value!r}"
         raise EleanorError(msg) from error

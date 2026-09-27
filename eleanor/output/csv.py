@@ -11,6 +11,7 @@ from typing import Self, cast, override
 import yaml
 
 import eleanor.variable_space as vs
+from eleanor import version
 from eleanor.exceptions import EleanorError
 from eleanor.order import Order
 from eleanor.output.interface import AbstractOutputSink, ComputeResult, WriteOutcome
@@ -19,7 +20,7 @@ from eleanor.progress import ProgressHandle
 from eleanor.query import CompiledQuery, compile_query, evaluate
 from eleanor.query.reflection import DataclassField, LeafField
 from eleanor.typing import StrPath
-from eleanor.util import guard_is_dict, guard_is_path, is_list_of, require_dict, require_path, require_uuid_id
+from eleanor.util import guard_is_dict, guard_is_path, is_list_of, require_dict, require_path
 
 ID_COLUMNS: frozenset[str] = frozenset({"order_id", "point_id"})
 
@@ -121,22 +122,14 @@ def _require_vs_points_seen(schema: dict[str, object], schema_path: Path) -> dic
     return cast(dict[str, int], vs_points_seen)
 
 
-def _require_order_versions(schema: dict[str, object], schema_path: Path) -> dict[str, str]:
-    order_versions = schema.get("order_versions", {})
+def _require_eleanor_version(schema: dict[str, object], schema_path: Path) -> str:
+    eleanor_version = schema.get("eleanor_version", version)
 
-    if not isinstance(order_versions, dict):
-        msg = f"csv schema {schema_path!r} has invalid order_versions"
+    if not isinstance(eleanor_version, str):
+        msg = f"csv schema {schema_path!r} has invalid eleanor_version"
         raise EleanorError(msg)
 
-    for key, value in cast(dict[object, object], order_versions).items():
-        if not isinstance(key, str):
-            msg = f"csv schema {schema_path!r} has invalid key {key!r}"
-            raise EleanorError(msg)
-        if not isinstance(value, str):
-            msg = f"csv schema {schema_path!r} has invalid version for {key}: {value!r}"
-            raise EleanorError(msg)
-
-    return cast(dict[str, str], order_versions)
+    return eleanor_version
 
 
 def _write_schema(
@@ -144,12 +137,11 @@ def _write_schema(
     query: dict[str, object],
     *,
     vs_points_seen: dict[str, int],
-    order_versions: dict[str, str],
 ) -> None:
     payload = {
         "query": query,
         "vs_points_seen": vs_points_seen,
-        "order_versions": order_versions,
+        "eleanor_version": version,
     }
     with schema_path.open("w") as handle:
         yaml.safe_dump(payload, handle, sort_keys=False)
@@ -304,7 +296,6 @@ class CsvSink(AbstractOutputSink[uuid.UUID]):
     _schema_file: Path
     _binary_columns: frozenset[str]
     _vs_points_seen: dict[str, int]
-    _order_versions: dict[str, str]
 
     def __init__(self, settings: CsvSinkSettings) -> None:
         self.settings = settings
@@ -324,7 +315,6 @@ class CsvSink(AbstractOutputSink[uuid.UUID]):
         self._schema_file = _schema_path(settings.filename)
         self._binary_columns = _binary_columns(self._compiled)
         self._vs_points_seen = {}
-        self._order_versions = {}
 
     @override
     def __getstate__(self) -> dict[str, object]:
@@ -351,12 +341,10 @@ class CsvSink(AbstractOutputSink[uuid.UUID]):
             for column in self._binary_columns:
                 _asset_dir(filename, column).mkdir(parents=True, exist_ok=True)
             self._vs_points_seen = {}
-            self._order_versions = {}
             _write_schema(
                 schema_file,
                 self.settings.query,
                 vs_points_seen=self._vs_points_seen,
-                order_versions=self._order_versions,
             )
             self._order_id = None
             self._order = None
@@ -368,7 +356,11 @@ class CsvSink(AbstractOutputSink[uuid.UUID]):
 
         schema = _read_schema(schema_file)
         self._vs_points_seen = _require_vs_points_seen(schema, schema_file)
-        self._order_versions = _require_order_versions(schema, schema_file)
+
+        eleanor_version = _require_eleanor_version(schema, schema_file)
+        if eleanor_version != version:
+            msg = "csv sink cannot append to files generated under a different version of eleanor"
+            raise EleanorError(msg)
 
         existing_header = _read_csv_header(filename)
         if existing_header != self._columns:
@@ -381,42 +373,20 @@ class CsvSink(AbstractOutputSink[uuid.UUID]):
         self._order = None
 
     @override
-    def begin_run(self, order: Order, *, requested_id: str | None = None) -> uuid.UUID:
-        """Mint a UUID for a new run, or resume the one ``requested_id`` names.
-
-        A resumable run is one the sidecar knows about, so a token must parse
-        as a UUID *and* already have a point counter; otherwise there is no
-        run here to extend and appending under it would silently start a new
-        one inside the same file.
-        """
+    def begin_run(self, order: Order) -> uuid.UUID:
+        """Mint a UUID for a new run."""
         query = self.settings.query
         schema_file = self._schema_file
         if self._order is order:
             assert self._order_id is not None
             return self._order_id
 
-        if requested_id is None:
-            order_id = uuid.uuid7()
-        else:
-            order_id = require_uuid_id(requested_id, "csv sink")
-
-            if str(order_id) not in self._vs_points_seen:
-                msg = f"csv sink has no order {order_id} to extend in {schema_file.name}"
-                raise EleanorError(msg)
-
-        key = str(order_id)
-        existing_version = self._order_versions.get(key)
-        if existing_version is not None and order.eleanor_version != existing_version:
-            msg = "cannot extend an order generated by a different version of Eleanor"
-            raise EleanorError(msg)
-        self._order_versions[key] = order.eleanor_version
-
-        self._vs_points_seen[key] = self._vs_points_seen.get(key, 0)
+        order_id = uuid.uuid7()
+        self._vs_points_seen[str(order_id)] = 0
         _write_schema(
             schema_file,
             query,
             vs_points_seen=self._vs_points_seen,
-            order_versions=self._order_versions,
         )
 
         self._order = order
@@ -550,7 +520,6 @@ class CsvSink(AbstractOutputSink[uuid.UUID]):
             self._schema_file,
             self.settings.query,
             vs_points_seen=self._vs_points_seen,
-            order_versions=self._order_versions,
         )
         return outcomes
 

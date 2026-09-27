@@ -11,9 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Orders carry a top-level `seed`**, generated when omitted, and expose an `Order.rng` seeded
   from it. The navigators draw from that generator, so a run reproduces from its recorded seed.
-- **`eleanor run --seed INT`** overrides the order's seed for a single run, without editing the
-  order file. Extending a run with `--order-id` re-draws from the start of the stream, so a fresh
-  seed is how you sample points the original run did not cover.
+- **`eleanor run --seed INT`** overrides the order's seed for one run, without editing the order
+  file. Every run draws from the start of the stream, so a fresh seed samples new points.
 
 ### Changed
 
@@ -21,8 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **PostgreSQL primary keys are UUIDs.** `orders`, `variable_space`, `suppressions`,
   `special_reactants`, `solid_solution_reactants`, `equilibrium_space` and
   `equilibrium_solid_solutions` carry a UUIDv7 Eleanor generates, rather than an integer the
-  database assigns. `--order-id` for the `postgres` sink and the `vs_id` argument to
-  `eleanor postgres scratch` take a UUID.
+  database assigns.
 - **Tables nothing refers to no longer carry an `id`.** Seventeen leaf tables -- `elements`,
   `species` and `equilibrium_aqueous_species` among them -- are only ever reached through their
   parent, so the surrogate key was dead weight.
@@ -40,6 +38,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   global-state behaviour. Subclasses overriding `random` must accept it.
 - **`AbstractReactant.type` is a dataclass field, not an abstract property**, so it survives
   `asdict`. Subclasses pass their type to `super().__init__` instead of overriding a property.
+
+### Removed
+
+- **Resumable orders.** Every run allocates a fresh id from every sink. Gone with it:
+  `--order-id`, `Eleanor.run(resume_id=...)`, `begin_run`'s `requested_id` argument and
+  `AbstractOutputSink.supports_resume`; third-party sinks must drop `requested_id`.
+- **`order_versions` in the `csv` sink's sidecar**, replaced by a single `eleanor_version` string:
+  with nothing to resume, the only version that matters is the one that wrote the file.
+  `initialize` refuses to append to a file written by a different version.
 
 ### Fixed
 

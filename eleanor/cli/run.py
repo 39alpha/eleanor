@@ -24,27 +24,6 @@ def _complete_executor(_ctx: click.Context, _param: click.Parameter, incomplete:
     return [name for name in sorted(available_executors()) if name.startswith(incomplete)]
 
 
-def _parse_order_ids(tokens: tuple[str, ...]) -> str | dict[str, str] | None:
-    """Turn repeated ``--order-id`` values into what :meth:`Eleanor.run` wants."""
-    if not tokens:
-        return None
-
-    if len(tokens) == 1 and "=" not in tokens[0]:
-        return tokens[0]
-
-    parsed: dict[str, str] = {}
-    for token in tokens:
-        name, separator, value = token.partition("=")
-        if not separator or not name:
-            msg = f"--order-id {token!r} must be given as SINK=ID when more than one is supplied"
-            raise EleanorError(msg)
-        if name in parsed:
-            msg = f"--order-id given twice for output sink {name!r}"
-            raise EleanorError(msg)
-        parsed[name] = value
-    return parsed
-
-
 @click.command()
 @click.argument("order", type=click.Path(exists=True))
 @click.argument("simulation_size", type=click.INT)
@@ -52,16 +31,6 @@ def _parse_order_ids(tokens: tuple[str, ...]) -> str | dict[str, str] | None:
 @click.option("-v", "--verbose", is_flag=True, help="Enable verbose output.")
 @click.option("-s", "--scratch", is_flag=True, help="Save scratch for all systems regardless of error status.")
 @click.option("-k", "--kernel-args", multiple=True, help="Arguments to pass to the kernel.")
-@click.option(
-    "--order-id",
-    type=str,
-    multiple=True,
-    help=(
-        "Resume/extend an existing run, as SINK=ID. Repeat once per output sink; "
-        "the bare form ID is accepted when only one sink is configured. "
-        "The id format is the output sink's own."
-    ),
-)
 @click.option("--tag", type=str, multiple=True, help="Add order tag(s).")
 @click.option("--null-sink", is_flag=True, help="Override config output sink with NullSink.")
 @click.option(
@@ -98,7 +67,6 @@ def run(
     verbose: bool,
     scratch: bool,
     kernel_args: tuple[str, ...],
-    order_id: tuple[str, ...],
     tag: tuple[str, ...],
     null_sink: bool,
     bulk_load: bool | None,
@@ -180,7 +148,6 @@ def run(
                     max_nav_attempts=max_nav_attempts,
                     timing=timing,
                     output_sink=output_sink,
-                    resume_id=_parse_order_ids(order_id),
                 )
 
         if verbose:

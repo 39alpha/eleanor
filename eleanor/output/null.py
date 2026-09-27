@@ -7,7 +7,7 @@ from eleanor.order import Order
 from eleanor.output.interface import AbstractOutputSink, ComputeResult, WriteOutcome
 from eleanor.output.settings import OutputSinkSettings
 from eleanor.progress import ProgressHandle
-from eleanor.util import guard_is_bool, require_bool, require_int_id
+from eleanor.util import guard_is_bool, require_bool
 
 
 @dataclass(kw_only=True)
@@ -59,21 +59,9 @@ class NullSink(AbstractOutputSink[int]):
         self._order_id = None
 
     @override
-    def begin_run(self, order: Order, *, requested_id: str | None = None) -> int:
-        """Hand out the next id, or adopt ``requested_id`` as this run's id.
-
-        This sink retains nothing, so it has no record of a previous run to
-        check ``requested_id`` against. It therefore accepts any well-formed
-        integer rather than pretending to validate one, and only advances its
-        allocator past the id so a later fresh run cannot collide with it.
-        """
+    def begin_run(self, order: Order) -> int:
+        """Hand out the next id."""
         _ = order
-
-        if requested_id is not None:
-            order_id = require_int_id(requested_id, "null sink")
-            self._next_order_id = max(self._next_order_id, order_id + 1)
-            self._order_id = order_id
-            return order_id
 
         order_id = self._next_order_id
         self._next_order_id += 1

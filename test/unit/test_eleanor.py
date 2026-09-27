@@ -336,12 +336,11 @@ class TestEleanorRun(TestCase):
         self.assertIs(seen_executors[1], session_executor)
         sink.finalize.assert_called_once()
 
-    def test_run_forwards_resume_id_to_begin_run_and_returns_the_sinks_id(self) -> None:
-        """Ensure ``resume_id`` reaches the sink untouched and its id is returned.
+    def test_run_asks_the_sink_to_allocate_and_returns_what_it_gave(self) -> None:
+        """Ensure ``begin_run`` is handed the order alone and its id is reported.
 
-        Eleanor does not interpret the token or the id: the sink owns that
-        space, so the string goes down as given and whatever comes back is
-        what ``run`` reports.
+        Eleanor does not interpret the id: the sink owns that space, so
+        whatever comes back is what ``run`` reports, untouched.
         """
         eleanor = _make_eleanor()
         order = _make_order()
@@ -356,29 +355,10 @@ class TestEleanorRun(TestCase):
             mock.patch("eleanor.eleanor.load_executor", return_value=_FakeExecutor()),
             mock.patch("eleanor.eleanor.load_output_sink", return_value=sink),
         ):
-            returned = eleanor.run(order, 4, kernel=kernel, navigator=_navigator(1), resume_id="99")
+            returned = eleanor.run(order, 4, kernel=kernel, navigator=_navigator(1))
 
-        sink.begin_run.assert_called_once_with(order, requested_id="99")
+        sink.begin_run.assert_called_once_with(order)
         self.assertEqual(returned, {"null": "sink-chosen-id"})
-
-    def test_run_passes_no_resume_id_when_none_is_given(self) -> None:
-        """Ensure a plain run asks the sink for a fresh id rather than a resume."""
-        eleanor = _make_eleanor()
-        order = _make_order()
-        sink = mock.Mock()
-        sink.begin_run.return_value = 0
-        sink.supports_progress.return_value = False
-        eleanor.process = mock.Mock(return_value={})
-
-        kernel = mock.MagicMock(AbstractKernel)
-
-        with (
-            mock.patch("eleanor.eleanor.load_executor", return_value=_FakeExecutor()),
-            mock.patch("eleanor.eleanor.load_output_sink", return_value=sink),
-        ):
-            _ = eleanor.run(order, 4, kernel=kernel, navigator=_navigator(1))
-
-        sink.begin_run.assert_called_once_with(order, requested_id=None)
 
     def test_run_rejects_retired_executor_kwarg(self) -> None:
         """Ensure run() rejects the retired ``executor=`` kwarg."""
@@ -391,6 +371,17 @@ class TestEleanorRun(TestCase):
         eleanor = _make_eleanor()
         with self.assertRaisesRegex(TypeError, "unexpected keyword argument 'parallel'"):
             _ = eleanor.run(_make_order(), 1, parallel="serial")  # pyright: ignore[reportCallIssue]
+
+    def test_run_rejects_retired_resume_id_kwarg(self) -> None:
+        """Ensure run() rejects the retired ``resume_id=`` kwarg.
+
+        ``run`` takes ``**kwargs``, so an argument it does not name is
+        absorbed rather than refused. Absorbing this one would hand a caller
+        a fresh run while they believed they had asked for an existing one.
+        """
+        eleanor = _make_eleanor()
+        with self.assertRaisesRegex(TypeError, "unexpected keyword argument 'resume_id'"):
+            _ = eleanor.run(_make_order(), 1, resume_id="99")  # pyright: ignore[reportCallIssue]
 
     def test_run_raises_when_num_systems_returns_zero(self) -> None:
         """Ensure run() validates navigator.num_systems >= 1."""
@@ -428,17 +419,16 @@ class TestEleanorRun(TestCase):
 
         ``Progress`` starts a subprocess as soon as it is constructed, and it
         was constructed before any sink's ``begin_run`` ran but torn down only
-        by a ``finally`` that began after. A sink rejecting a resume token
-        therefore left the listener alive holding a queue whose manager was
-        about to be shut down, and it died printing its own traceback over
-        the real error.
+        by a ``finally`` that began after. A sink refusing to start therefore
+        left the listener alive holding a queue whose manager was about to be
+        shut down, and it died printing its own traceback over the real error.
         """
         eleanor = _make_eleanor()
         sim_handle = mock.Mock(name="sim_handle")
         progress = _progress_factory(sim_handle, {"null": mock.Mock()})
         sink = mock.Mock()
         sink.supports_progress.return_value = True
-        sink.begin_run.side_effect = EleanorError("no order 999 to extend")
+        sink.begin_run.side_effect = EleanorError("cannot open the output database")
 
         built: list[SimpleNamespace] = []
 
@@ -452,7 +442,7 @@ class TestEleanorRun(TestCase):
             mock.patch("eleanor.eleanor.Manager", return_value=mock.Mock()),
             mock.patch("eleanor.eleanor.load_output_sink", return_value=sink),
             mock.patch("eleanor.eleanor.Progress", side_effect=build),
-            self.assertRaisesRegex(EleanorError, "no order 999 to extend"),
+            self.assertRaisesRegex(EleanorError, "cannot open the output database"),
         ):
             _ = eleanor.run(
                 _make_order(),
@@ -460,7 +450,6 @@ class TestEleanorRun(TestCase):
                 kernel=mock.MagicMock(AbstractKernel),
                 navigator=_navigator(3),
                 show_progress=True,
-                resume_id="999",
             )
 
         self.assertEqual(len(built), 1, "the pump must have been constructed for this to be a real test")
@@ -1941,7 +1930,6 @@ class TestEleanorMultipleSinks(TestCase):
         sink.supports_worker_commit.return_value = worker_commit
         sink.supports_background_commit.return_value = background
         sink.supports_progress.return_value = True
-        sink.supports_resume.return_value = True
         sink.prepare_batch.side_effect = lambda _order_id, results: results
         sink.commit_batch.side_effect = lambda _order_id, prepared, **_kwargs: [
             WriteOutcome(exit_code=0, committed=True) for _ in prepared
@@ -2117,7 +2105,6 @@ class TestEleanorRunStatsReporting(TestCase):
         sink.begin_run.return_value = f"{name}-id"
         sink.supports_progress.return_value = False
         sink.supports_worker_commit.return_value = True
-        sink.supports_resume.return_value = True
         sink.target_key.return_value = None
         return sink, outcomes
 
@@ -2250,7 +2237,6 @@ class TestEleanorTargetClashes(TestCase):
             sink.begin_run.return_value = f"{name}-id"
             sink.supports_progress.return_value = False
             sink.supports_worker_commit.return_value = True
-            sink.supports_resume.return_value = True
             sink.target_key.return_value = key
             sinks[name] = sink
         return sinks
@@ -2296,22 +2282,21 @@ class TestEleanorTargetClashes(TestCase):
         self.assertEqual(sorted(ids), ["first", "second"])
 
 
-class TestEleanorResumeRouting(TestCase):
-    """Tests covering how ``resume_id`` is resolved against the active sinks."""
+class TestEleanorRunIds(TestCase):
+    """Every sink allocates its own id, and ``run`` reports all of them."""
 
     @staticmethod
-    def _sinks(**resumable: bool) -> dict[str, mock.Mock]:
+    def _sinks(*names: str) -> dict[str, mock.Mock]:
         sinks: dict[str, mock.Mock] = {}
-        for name, can_resume in resumable.items():
+        for name in names:
             sink = mock.Mock()
             sink.begin_run.return_value = f"{name}-id"
             sink.supports_progress.return_value = False
             sink.supports_worker_commit.return_value = True
-            sink.supports_resume.return_value = can_resume
             sinks[name] = sink
         return sinks
 
-    def _run(self, sinks: dict[str, mock.Mock], resume_id: object = None):
+    def _run(self, sinks: dict[str, mock.Mock]):
         eleanor = Eleanor(
             config=Config(),
             output_sink=cast("dict[str, AbstractOutputSink[object]]", sinks),
@@ -2323,91 +2308,26 @@ class TestEleanorResumeRouting(TestCase):
                 1,
                 kernel=mock.MagicMock(AbstractKernel),
                 navigator=_navigator(1),
-                resume_id=cast("str | None", resume_id),
             )
-
-    def test_tokens_are_routed_to_their_named_sink(self) -> None:
-        """Ensure each sink is handed only its own token, verbatim."""
-        sinks = self._sinks(pg=True, csv=True)
-
-        _ = self._run(sinks, {"pg": "42", "csv": "8f14e45f"})
-
-        self.assertEqual(sinks["pg"].begin_run.call_args.kwargs["requested_id"], "42")
-        self.assertEqual(sinks["csv"].begin_run.call_args.kwargs["requested_id"], "8f14e45f")
-
-    def test_a_bare_token_is_accepted_for_a_lone_sink(self) -> None:
-        """Ensure the pre-existing single-sink invocation keeps working."""
-        sinks = self._sinks(pg=True)
-
-        _ = self._run(sinks, "42")
-
-        self.assertEqual(sinks["pg"].begin_run.call_args.kwargs["requested_id"], "42")
-
-    def test_a_bare_token_is_ambiguous_with_several_sinks(self) -> None:
-        """Ensure a bare token is refused rather than guessed at.
-
-        The id spaces differ per sink, so there is nothing to infer from.
-        """
-        with self.assertRaisesRegex(EleanorError, "bare resume id is ambiguous"):
-            _ = self._run(self._sinks(pg=True, csv=True), "42")
-
-    def test_a_missing_token_for_a_resumable_sink_is_an_error(self) -> None:
-        """Ensure a partial resume is refused, naming what is missing.
-
-        Silently starting the unnamed sink fresh would split one run's output
-        across two ids with nothing recording that they differ.
-        """
-        with self.assertRaisesRegex(EleanorError, "missing: csv"):
-            _ = self._run(self._sinks(pg=True, csv=True), {"pg": "42"})
-
-    def test_a_sink_that_cannot_resume_needs_no_token(self) -> None:
-        """Ensure ``supports_resume() is False`` exempts a sink.
-
-        A live-plot sink retains nothing for a token to name; demanding one
-        would make resume unusable alongside it.
-        """
-        sinks = self._sinks(pg=True, plot=False)
-
-        _ = self._run(sinks, {"pg": "42"})
-
-        self.assertEqual(sinks["pg"].begin_run.call_args.kwargs["requested_id"], "42")
-        self.assertIsNone(sinks["plot"].begin_run.call_args.kwargs["requested_id"])
-
-    def test_a_token_aimed_at_a_sink_that_cannot_resume_is_an_error(self) -> None:
-        """Ensure a token is refused rather than handed to a sink that declined.
-
-        ``supports_resume() is False`` promises the sink never sees a
-        ``requested_id``; forwarding one anyway would make every such sink
-        handle a token it already said it cannot interpret.
-        """
-        sinks = self._sinks(pg=True, plot=False)
-
-        with self.assertRaisesRegex(EleanorError, "cannot resume: plot"):
-            _ = self._run(sinks, {"pg": "42", "plot": "7"})
-
-        sinks["pg"].begin_run.assert_not_called()
-
-    def test_a_bare_token_for_a_lone_sink_that_cannot_resume_is_an_error(self) -> None:
-        """Ensure the single-sink shorthand is checked too, not just the mapping."""
-        with self.assertRaisesRegex(EleanorError, "cannot resume: plot"):
-            _ = self._run(self._sinks(plot=False), "42")
-
-    def test_a_token_for_an_unknown_sink_is_an_error(self) -> None:
-        """Ensure a typo'd sink name fails loudly instead of being dropped."""
-        with self.assertRaisesRegex(EleanorError, "no output sink named 'typo'"):
-            _ = self._run(self._sinks(pg=True), {"typo": "42"})
-
-    def test_no_resume_id_starts_every_sink_fresh(self) -> None:
-        """Ensure the default path asks no sink to resume."""
-        sinks = self._sinks(pg=True, csv=True)
-
-        _ = self._run(sinks)
-
-        for sink in sinks.values():
-            self.assertIsNone(sink.begin_run.call_args.kwargs["requested_id"])
 
     def test_run_returns_every_allocated_id_keyed_by_sink(self) -> None:
         """Ensure the caller can tell which id belongs to which sink."""
-        ids = self._run(self._sinks(pg=True, csv=True))
+        ids = self._run(self._sinks("pg", "csv"))
 
         self.assertEqual(ids, {"pg": "pg-id", "csv": "csv-id"})
+
+    def test_every_sink_begins_the_run_on_the_same_order(self) -> None:
+        """Ensure each sink is started exactly once, on the one shared order.
+
+        The sinks of a run are writing up the *same* dispatch, so a sink
+        handed a different order object than its peers would be describing a
+        run that never happened.
+        """
+        sinks = self._sinks("pg", "csv")
+
+        _ = self._run(sinks)
+
+        orders = [sink.begin_run.call_args.args[0] for sink in sinks.values()]
+        for sink in sinks.values():
+            sink.begin_run.assert_called_once()
+        self.assertIs(orders[0], orders[1])

@@ -102,13 +102,13 @@ class TestOrder(TestCase):
     def test_order_rejects_an_id_in_raw(self) -> None:
         """
         Ensure a raw ``id`` key is refused rather than ignored. The key used to
-        select which run to extend, so dropping it silently would change an
-        existing order file's meaning without saying so.
+        carry meaning, so dropping it silently would change an existing order
+        file's behaviour without saying so.
         """
-        with self.assertRaisesRegex(EleanorError, "no longer carries an id"):
+        with self.assertRaisesRegex(EleanorError, "user-specified order ids are no longer supported"):
             _ = _make_order(id=12)
 
-        with self.assertRaisesRegex(EleanorError, "no longer carries an id"):
+        with self.assertRaisesRegex(EleanorError, "user-specified order ids are no longer supported"):
             _ = _make_order(id="not-an-int")
 
     def test_order_validation_and_kernel_branches(self) -> None:

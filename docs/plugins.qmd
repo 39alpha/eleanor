@@ -134,11 +134,10 @@ my_sink = "my_sink_plugin.output:my_sink_spec"
 `AbstractOutputSink` is generic in the type of the order id it hands out:
 `AbstractOutputSink[IdT]`. A sink chooses its own id space and pins it when it
 subclasses -- `AbstractOutputSink[int]` for a counter it keeps itself,
-`AbstractOutputSink[UUID]` for ids minted per run. `eleanor.util` provides
-`require_int_id` and `require_uuid_id` to parse the resume token into either.
-`begin_run` returns a value of that type and Eleanor hands the same value back
-to `prepare_batch` and `commit_batch`; it never constructs or inspects one, so
-nothing constrains the type beyond being picklable.
+`AbstractOutputSink[UUID]` for ids minted per run. `begin_run` returns a value
+of that type and Eleanor hands the same value back to `prepare_batch` and
+`commit_batch`; it never constructs or inspects one, so nothing constrains the
+type beyond being picklable.
 
 Persisting a batch is split into two halves. `prepare_batch` always runs in a
 worker process, with the whole compute graph available, and reduces it to
@@ -246,17 +245,19 @@ target" -- correct for a sink that discards or keeps results in memory, and
 the backwards-compatible answer for sinks written before this existed.
 
 Sinks are addressed by the `name` in their config block, which defaults to
-`kind`. It keys the sink's resume token, labels its progress bar, and keys the
-ids `Eleanor.run` returns.
+`kind`. It labels the sink's progress bar and keys the ids `Eleanor.run`
+returns.
 
-### Declining to resume
+`begin_run` is called once per run and allocates that run's id. Eleanor passes
+the order and nothing else, and the id you return is yours to choose.
 
-`supports_resume()` defaults to `True`. Return `False` when there is nothing a
-resume token could name -- a sink that draws to a window, or streams to a
-socket, retains no run to go back to. Eleanor then always passes
-`requested_id=None` and never requires a token for your sink, which matters
-because with several sinks active it demands one for every sink that *does*
-claim to support resuming.
+A sink writing somewhere that outlives the process has one more decision to
+make: what it means to point a second run at a store that already holds one.
+Whether the new run's rows can share a file or a table with an earlier run's,
+and what has to match for that to be safe, is the sink's own business --
+`CsvSink` appends to an existing file under a fresh id but refuses one written
+by a different version of Eleanor, and `PostgresSink` inserts a row per run.
+Eleanor takes no part in either choice.
 
 ```python
 from collections.abc import Sequence
@@ -269,7 +270,6 @@ from eleanor.output.interface import (
     WriteOutcome,
 )
 from eleanor.output.settings import OutputSinkSettings
-from eleanor.util import require_int_id
 from eleanor.plugin import ConfigurablePluginSpec
 
 
@@ -279,14 +279,11 @@ class MyPrepared:
 
 
 class MySink(AbstractOutputSink[int]):
-    def begin_run(self, order, *, requested_id=None):
-        # The sink owns the id space, so ``requested_id`` arrives as the raw
-        # token the caller passed to ``--order-id``. Parse it yourself, and
-        # raise if it is malformed or names no run you hold -- resuming is an
-        # explicit request, so starting a new run instead would lose it.
-        if requested_id is None:
-            return 0
-        return require_int_id(requested_id, "my sink")
+    def begin_run(self, order):
+        # The sink owns the id space, so mint the id however you like --
+        # Eleanor only hands whatever you return back to prepare_batch and
+        # commit_batch. Called once per run, before either of them.
+        return 0
 
     def prepare_batch(self, order_id, results: Sequence[ComputeResult]) -> Sequence[MyPrepared]:
         # Runs in a worker. One item per result, in order -- that pairing is

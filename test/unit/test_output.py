@@ -14,7 +14,6 @@ from typing import cast, override
 from unittest import TestCase, mock
 
 import eleanor.variable_space as vs
-from eleanor.exceptions import EleanorError
 from eleanor.order import Order
 from eleanor.output import (
     AbstractOutputSink,
@@ -376,97 +375,30 @@ class TestOutput(TestCase):
         # Just verify it returns without raising / reaching the connection layer.
         sink.finalize_run()
 
-    def test_postgres_begin_run_resumes_the_requested_id(self) -> None:
+    def test_postgres_begin_run_inserts_a_row_per_run(self) -> None:
         """
-        Ensure a requested_id naming an existing row resumes it without inserting.
-        """
-        settings = PostgresSinkSettings(
-            database=PostgresDatabaseSettings(database="db", username="u", password="p"),
-        )
-        sink = PostgresSink(settings)
+        Ensure two runs of one order get two ``orders`` rows rather than sharing one.
 
-        existing_id = uuid.UUID("0199c7d2-0000-7000-8000-000000000011")
-        order = SimpleNamespace(eleanor_version="v1")
-        existing = SimpleNamespace(id=existing_id, eleanor_version="v1")
-
-        with (
-            mock.patch(
-                "eleanor.output.postgres.sink.repositories.get_order",
-                return_value=existing,
-            ) as get_order,
-            mock.patch("eleanor.output.postgres.sink.repositories.insert_order") as insert_order,
-        ):
-            order_id = sink.begin_run(_as_order(order), requested_id=str(existing_id))
-
-        self.assertEqual(order_id, existing_id)
-        get_order.assert_called_once_with(settings.database, existing_id)
-        insert_order.assert_not_called()
-
-    def test_postgres_begin_run_rejects_a_requested_id_with_no_row(self) -> None:
-        """
-        Ensure a requested_id naming no row is an error rather than a new order.
-
-        This previously inserted a fresh order under a different,
-        sequence-assigned id, so the caller's request to extend a specific run
-        was silently discarded.
+        An order dispatched twice is two runs, and each needs its own row for
+        their points to stay distinguishable.
         """
         settings = PostgresSinkSettings(
             database=PostgresDatabaseSettings(database="db", username="u", password="p"),
         )
         sink = PostgresSink(settings)
 
-        missing_id = uuid.UUID("0199c7d2-0000-7000-8000-000000000063")
-        order = SimpleNamespace(eleanor_version="v1")
+        first_id = uuid.UUID("0199c7d2-0000-7000-8000-000000000011")
+        second_id = uuid.UUID("0199c7d2-0000-7000-8000-000000000012")
+        order = _as_order(SimpleNamespace(eleanor_version="v1"))
 
-        with (
-            mock.patch("eleanor.output.postgres.sink.repositories.get_order", return_value=None),
-            mock.patch("eleanor.output.postgres.sink.repositories.insert_order") as insert_order,
-            self.assertRaisesRegex(EleanorError, f"no order {missing_id} to extend"),
-        ):
-            _ = sink.begin_run(_as_order(order), requested_id=str(missing_id))
+        with mock.patch(
+            "eleanor.output.postgres.sink.repositories.insert_order",
+            side_effect=[SimpleNamespace(id=first_id), SimpleNamespace(id=second_id)],
+        ) as insert_order:
+            self.assertEqual(sink.begin_run(order), first_id)
+            self.assertEqual(sink.begin_run(order), second_id)
 
-        insert_order.assert_not_called()
-
-    def test_postgres_begin_run_rejects_a_non_uuid_requested_id(self) -> None:
-        """
-        Ensure a token outside this sink's id space is rejected by name.
-
-        ``17`` is covered alongside the obviously-malformed token because a
-        bare integer used to be this sink's whole id space. It has to be
-        rejected now, not silently reinterpreted.
-        """
-        settings = PostgresSinkSettings(
-            database=PostgresDatabaseSettings(database="db", username="u", password="p"),
-        )
-        sink = PostgresSink(settings)
-
-        order = SimpleNamespace(eleanor_version="v1")
-
-        for token in ("not-a-uuid", "17"):
-            with self.subTest(token=token), self.assertRaisesRegex(EleanorError, "must be a UUID"):
-                _ = sink.begin_run(_as_order(order), requested_id=token)
-
-    def test_postgres_begin_run_raises_on_version_mismatch(self) -> None:
-        """
-        Ensure begin_run rejects extending an order from a different Eleanor version.
-        """
-        settings = PostgresSinkSettings(
-            database=PostgresDatabaseSettings(database="db", username="u", password="p"),
-        )
-        sink = PostgresSink(settings)
-
-        existing_id = uuid.UUID("0199c7d2-0000-7000-8000-000000000011")
-        order = SimpleNamespace(eleanor_version="v2")
-        existing = SimpleNamespace(id=existing_id, eleanor_version="v1")
-
-        with (
-            mock.patch(
-                "eleanor.output.postgres.sink.repositories.get_order",
-                return_value=existing,
-            ),
-            self.assertRaisesRegex(EleanorError, "different version of Eleanor"),
-        ):
-            _ = sink.begin_run(_as_order(order), requested_id=str(existing_id))
+        self.assertEqual(insert_order.call_count, 2)
 
     def test_postgres_begin_run_writes_new_order_and_returns_id(self) -> None:
         """
@@ -1125,69 +1057,6 @@ class TestSinkPicklability(TestCase):
 
         with self.assertRaises((pickle.PicklingError, AttributeError)):
             _ = pickle.dumps(sink)
-
-
-class TestResumeOptIn(TestCase):
-    """``supports_resume`` defaults to True and is overridable."""
-
-    def test_builtin_sinks_support_resume(self) -> None:
-        """Ensure the capability is a pure extension point for now.
-
-        All four built-ins accept a resume token today, so none of them may
-        change behaviour when the flag starts being consulted.
-        """
-        sinks: list[AbstractOutputSink[object]] = [
-            cast("AbstractOutputSink[object]", NullSink(NullSinkSettings(support_worker_commit=False))),
-            cast("AbstractOutputSink[object]", MemorySink(MemorySinkSettings(support_worker_commit=False))),
-            cast(
-                "AbstractOutputSink[object]",
-                PostgresSink(
-                    PostgresSinkSettings(
-                        database=PostgresDatabaseSettings(database="db", username="u", password="p"),
-                    ),
-                ),
-            ),
-        ]
-        for sink in sinks:
-            with self.subTest(sink=type(sink).__name__):
-                self.assertTrue(sink.supports_resume())
-
-    def test_default_is_true_for_a_bare_subclass(self) -> None:
-        """Ensure a third-party sink predating the flag keeps resuming."""
-
-        class BareSink(AbstractOutputSink[int]):
-            @override
-            def begin_run(self, order: Order, *, requested_id: str | None = None) -> int:
-                return 0
-
-            @override
-            def prepare_batch(self, order_id: int, results: Sequence[ComputeResult]) -> Sequence[object]:
-                return list(results)
-
-            @override
-            def commit_batch(
-                self,
-                order_id: int,
-                prepared: Sequence[object],
-                progress: ProgressHandle | None = None,
-            ) -> list[WriteOutcome]:
-                return []
-
-            @override
-            def finalize_run(self) -> None:
-                return
-
-        self.assertTrue(BareSink().supports_resume())
-
-    def test_a_sink_can_decline(self) -> None:
-        """Ensure a sink with nothing to resume can say so."""
-
-        class EphemeralSink(NullSink):
-            @override
-            def supports_resume(self) -> bool:
-                return False
-
-        self.assertFalse(EphemeralSink(NullSinkSettings(support_worker_commit=False)).supports_resume())
 
 
 class TestBackgroundCommitOptIn(TestCase):

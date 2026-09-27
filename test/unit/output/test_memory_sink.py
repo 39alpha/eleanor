@@ -73,32 +73,22 @@ class TestMemorySink(TestCase):
         self.assertEqual(first_id, 0)
         self.assertEqual(second_id, 1)
 
-    def test_begin_run_resumes_a_requested_id_it_holds(self) -> None:
-        """Ensure a requested_id for a registered order resumes that order."""
-        sink = MemorySink()
-        order = _order()
-        order_id = sink.begin_run(order)
+    def test_begin_run_registers_each_order_separately(self) -> None:
+        """Ensure a second order gets its own id and its own retained graph.
 
-        resumed = sink.begin_run(_order(), requested_id=str(order_id))
-
-        self.assertEqual(resumed, order_id)
-        # The resumed run keeps the order object it was registered with, so
-        # committed points still land on the retained graph.
-        self.assertIs(sink._orders[order_id], order)
-
-    def test_begin_run_rejects_a_requested_id_it_does_not_hold(self) -> None:
-        """Ensure an unknown id is an error: a fresh sink has nothing to extend.
-
-        The retained graph lives only in this instance, so there is no store
-        to look a previous run up in.
+        Identity is per order *object*, so two orders that compare equal are
+        still two runs -- committed points must not land on each other's graph.
         """
         sink = MemorySink()
+        first = _order()
+        second = _order()
 
-        with self.assertRaisesRegex(EleanorError, "no order 42 to extend"):
-            _ = sink.begin_run(_order(), requested_id="42")
+        first_id = sink.begin_run(first)
+        second_id = sink.begin_run(second)
 
-        with self.assertRaisesRegex(EleanorError, "must be an integer"):
-            _ = sink.begin_run(_order(), requested_id="not-an-int")
+        self.assertNotEqual(first_id, second_id)
+        self.assertIs(sink._orders[first_id], first)
+        self.assertIs(sink._orders[second_id], second)
 
     def test_begin_run_is_idempotent(self) -> None:
         """Ensure begin_run returns the same id and keeps sink state stable for the same object."""
@@ -120,19 +110,19 @@ class TestMemorySink(TestCase):
         _ = sink.begin_run(order)
         self.assertEqual(order.eleanor_version, "custom-v1")
 
-    def test_begin_run_allows_version_mismatch_when_resuming(self) -> None:
-        """Ensure this sink does not gate resumption on the Eleanor version.
+    def test_begin_run_does_not_gate_on_the_eleanor_version(self) -> None:
+        """Ensure orders from different Eleanor versions can share one sink.
 
         Unlike the durable sinks, nothing here outlives the process, so there
-        is no old-format data for a version change to invalidate.
+        is no stored old-format data for a version change to invalidate.
         """
         sink = MemorySink()
-        order_id = sink.begin_run(_order(eleanor_version="v1"))
+
+        first_id = sink.begin_run(_order(eleanor_version="v1"))
         mismatch = _order(eleanor_version="v2")
+        second_id = sink.begin_run(mismatch)
 
-        resumed = sink.begin_run(mismatch, requested_id=str(order_id))
-
-        self.assertEqual(resumed, order_id)
+        self.assertNotEqual(second_id, first_id)
         self.assertEqual(mismatch.eleanor_version, "v2")
 
     def test_write_batch_appends_points_to_order(self) -> None:

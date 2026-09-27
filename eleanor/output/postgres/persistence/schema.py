@@ -352,11 +352,7 @@ def live_constraint_names(
     schema_name: str = "public",
     contypes: tuple[str, ...] = ("f", "c"),
 ) -> set[tuple[str, str]]:
-    """Return ``(table, constraint_name)`` for FK ('f') + CHECK ('c').
-
-    PKs ('p') are excluded by default: :data:`TABLES` does not name them and
-    a missing PK fails loudly at the first ``RETURNING id`` insert.
-    """
+    """Return ``(table, constraint_name)`` for FK ('f') + CHECK ('c')."""
     with connection.cursor() as cur:
         _ = cur.execute(_LIVE_CONSTRAINTS_QUERY, (schema_name, list(contypes)))
         return {(cast(str, row[0]), cast(str, row[1])) for row in cur.fetchall()}

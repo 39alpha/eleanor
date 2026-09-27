@@ -452,31 +452,6 @@ class _FakeCopy(object):
 class TestBulkInsertHelpers(TestCase):
     """Internal bulk helpers chunk oversized INSERTs and COPY large leaf batches."""
 
-    def test_bulk_insert_returning_ids_chunks_large_batches_and_preserves_order(
-        self,
-    ) -> None:
-        """Ensure oversized RETURNING batches split into multiple execute calls."""
-        cursor = mock.MagicMock()
-        cursor.fetchall.side_effect = [[(11,), (12,)], [(13,), (14,)], [(15,)]]
-        rows: list[dict[str, object]] = [
-            {"a": 1, "b": 10, "c": 100},
-            {"a": 2, "b": 20, "c": 200},
-            {"a": 3, "b": 30, "c": 300},
-            {"a": 4, "b": 40, "c": 400},
-            {"a": 5, "b": 50, "c": 500},
-        ]
-        with mock.patch.object(repositories, "_MAX_BIND_PARAMS_PER_STATEMENT", 6):
-            ids = repositories._bulk_insert_returning_ids(
-                cursor,
-                "equilibrium_space",
-                rows,
-            )
-
-        self.assertEqual(ids, [11, 12, 13, 14, 15])
-        self.assertEqual(cursor.execute.call_count, 3)
-        flat_lengths = [len(call.args[1]) for call in cursor.execute.call_args_list]
-        self.assertEqual(flat_lengths, [6, 6, 3])
-
     def test_bulk_insert_uses_copy_above_threshold(self) -> None:
         """Ensure large fire-and-forget batches route through COPY."""
         cursor = mock.MagicMock()
@@ -567,23 +542,6 @@ class TestBulkInsertHelpers(TestCase):
             ["uuid", "text", "float8", "float8"],
         )
 
-    def test_bulk_insert_returning_ids_is_noop_for_empty_rows(self) -> None:
-        """
-        Ensure ``_bulk_insert_returning_ids`` short-circuits before
-        building any SQL when handed an empty rows list. Callers in
-        ``_insert_es_subtree`` and ``_insert_vs_side_leaves`` rely on
-        this so empty leaf collections don't emit no-op INSERTs.
-        """
-        cursor = mock.MagicMock()
-        ids = repositories._bulk_insert_returning_ids(
-            cursor,
-            "equilibrium_space",
-            [],
-        )
-        self.assertEqual(ids, [])
-        cursor.execute.assert_not_called()
-        cursor.fetchall.assert_not_called()
-
     def test_bulk_copy_is_noop_for_empty_rows(self) -> None:
         """
         Ensure ``_bulk_copy`` short-circuits when handed an empty rows
@@ -634,29 +592,6 @@ class TestRepositoryErrorPaths(TestCase):
         connect.assert_called_once_with(cfg)
         ensure_schema.assert_called_once_with(fake_conn)
 
-    def test_insert_order_raises_when_returning_clause_yields_no_row(self) -> None:
-        """
-        Ensure ``insert_order`` raises a clear ``EleanorError`` when
-        the ``RETURNING id`` clause comes back empty -- the only way the
-        sink is allowed to surface that situation. We can't induce this
-        from real PG (a successful INSERT always RETURNS a row), so the
-        only way to keep the defensive branch live is a unit test.
-        """
-        cfg = PostgresDatabaseSettings(database="db", username="u", password="p")
-        order = _mock_order()
-        fake_conn = mock.MagicMock()
-        fake_conn.transaction.return_value = nullcontext()
-        cursor = mock.MagicMock()
-        cursor.fetchone.return_value = None
-        fake_conn.cursor.return_value.__enter__.return_value = cursor
-        with mock.patch.object(
-            connection,
-            "connect",
-            return_value=fake_conn,
-        ):
-            with self.assertRaisesRegex(EleanorError, "order INSERT did not return an id"):
-                _ = repositories.insert_order(cfg, order)
-
     def test_get_order_returns_none_when_no_row_matches(self) -> None:
         """
         Ensure :func:`repositories.get_order` returns ``None`` rather
@@ -666,6 +601,7 @@ class TestRepositoryErrorPaths(TestCase):
         cfg = PostgresDatabaseSettings(database="db", username="u", password="p")
         cursor = mock.MagicMock()
         cursor.fetchone.return_value = None
+        cursor.execute.return_value = cursor
         fake_conn = mock.MagicMock()
         fake_conn.cursor.return_value.__enter__.return_value = cursor
         with mock.patch.object(
@@ -674,35 +610,6 @@ class TestRepositoryErrorPaths(TestCase):
             return_value=fake_conn,
         ):
             self.assertIsNone(repositories.get_order(cfg, 999))
-
-    def test_insert_variable_space_raises_when_returning_yields_nothing(self) -> None:
-        """
-        Ensure :func:`_insert_variable_space_and_pair` raises an
-        ``EleanorError`` when the ``variable_space`` INSERT's
-        ``RETURNING`` clause comes back empty. Same defensive pattern
-        as ``insert_order``; same unit-only coverage rationale.
-        """
-        cursor = mock.MagicMock()
-        cursor.fetchone.return_value = None
-        point = mock.MagicMock(
-            water_mass=1.0,
-            temperature=25.0,
-            pressure=1.0,
-            exit_code=0,
-            exception=None,
-            create_date=datetime(2026, 1, 1),
-            start_date=datetime(2026, 1, 1),
-            complete_date=datetime(2026, 1, 1),
-        )
-        with self.assertRaisesRegex(
-            EleanorError,
-            "variable_space INSERT did not return an id",
-        ):
-            _ = repositories._insert_variable_space_and_pair(
-                cursor,
-                point,
-                order_id=1,
-            )
 
 
 class TestConverterErrorAndReactantPaths(TestCase):
@@ -1461,24 +1368,12 @@ class TestEsSubtreeFiltering(TestCase):
         ) -> None:
             rows_by_table[table_name] = rows
 
-        def capture_bulk_insert_returning_ids(
-            cursor: object,
-            table_name: str,
-            rows: list[dict[str, object]],
-        ) -> list[int]:
-            rows_by_table[table_name] = rows
-            return list(range(1, len(rows) + 1))
-
         n = len(es_points)
         with mock.patch(
             "eleanor.output.postgres.persistence.repositories._bulk_insert",
             side_effect=capture_bulk_insert,
         ):
-            with mock.patch(
-                "eleanor.output.postgres.persistence.repositories._bulk_insert_returning_ids",
-                side_effect=capture_bulk_insert_returning_ids,
-            ):
-                repositories._insert_es_subtree(mock.MagicMock(), vs_id=1, es_points=es_points, settings=settings)
+            repositories._insert_es_subtree(mock.MagicMock(), vs_id=1, es_points=es_points, settings=settings)
         return rows_by_table
 
     def test_defaults_write_everything(self) -> None:

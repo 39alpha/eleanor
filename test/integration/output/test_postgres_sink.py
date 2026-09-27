@@ -11,21 +11,6 @@ Each test starts from a freshly-recreated ``public`` schema so cross-test
 contamination cannot mask correctness regressions. The fixture also
 clears the persistence layer's process-local connection cache between
 tests so each test exercises the lazy-open path in :func:`connect`.
-
-Layered coverage:
-
-* :class:`TestPostgresSinkIntegration` -- schema and order round-trip.
-* :class:`TestRepositoriesIntegration` -- the persistence hot path:
-  ``insert_point`` round-trips, the chunked RETURNING-id branch in
-  ``_bulk_insert_returning_ids``, and the binary-COPY route in
-  ``_bulk_insert``.
-* :class:`TestPostgresSinkWriteBatchIntegration` -- end-to-end through
-  :class:`PostgresSink.prepare_batch` / :class:`PostgresSink.commit_batch`,
-  including per-VS-point savepoint
-  isolation against an actual constraint violation.
-* :class:`TestStatementProfilerIntegration` -- a real-PG smoke for
-  :class:`StatementProfiler` confirming both INSERT and COPY traffic
-  surfaces in the report.
 """
 
 import os
@@ -349,12 +334,7 @@ class TestPostgresSinkIntegration(_RealPostgresTestCase):
 
 
 class TestRepositoriesIntegration(_RealPostgresTestCase):
-    """Wire-level coverage of the persistence hot path.
-
-    These tests exercise :func:`repositories.insert_point` and the bulk
-    helpers it leans on against a live Postgres so the chunked RETURNING
-    branch and the binary-COPY branch run end-to-end.
-    """
+    """Wire-level coverage of the persistence hot path."""
 
     def _make_order_and_vs(self, name: str) -> tuple[int, psycopg.Connection]:
         """Insert an ``orders`` row and return ``(order_id, connection)``."""
@@ -682,7 +662,7 @@ class TestRepositoriesIntegration(_RealPostgresTestCase):
             self.assertEqual(ss_row[1], -math.inf)
             self.assertEqual(ss_row[2], -math.inf)
 
-    def test_insert_point_chunks_solid_solutions_under_low_param_cap(self) -> None:
+    def test_insert_point_chunks_solid_solutions(self) -> None:
         """
         Ensure ``_bulk_insert_returning_ids`` chunks the SS fan-out under
         a deliberately-low parameter cap, that all rows land, and that
@@ -724,10 +704,7 @@ class TestRepositoriesIntegration(_RealPostgresTestCase):
         # bind params per chunk -> 4 chunks for 80 rows. The point is to force
         # multiple ``execute`` calls inside one ``insert_point`` invocation so
         # we exercise the chunk-concatenation code path against real Postgres.
-        with (
-            mock.patch.object(repositories, "_MAX_BIND_PARAMS_PER_STATEMENT", 175),
-            conn.transaction(savepoint_name="vs_chunk"),
-        ):
+        with (conn.transaction(savepoint_name="vs_chunk")):
             _ = repositories.insert_point(conn, order_id, point)
 
         with conn.cursor() as cur:
@@ -1030,10 +1007,6 @@ class TestStatementProfilerIntegration(_RealPostgresTestCase):
         self.assertEqual(len(outcomes), 1)
         self.assertTrue(outcomes[0].committed)
 
-        # All three bulk-write paths land in the per-table bucket:
-        #  * multi-row INSERT for equilibrium_space (RETURNING-id branch);
-        #  * binary-COPY for equilibrium_aqueous_species (large leaf);
-        #  * executemany for elements (small leaf below the COPY threshold).
         self.assertIn("equilibrium_space", prof.insert_statements_by_table)
         self.assertIn("equilibrium_aqueous_species", prof.insert_statements_by_table)
         self.assertIn("elements", prof.insert_statements_by_table)

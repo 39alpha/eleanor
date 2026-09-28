@@ -11,6 +11,7 @@ from eleanor.exceptions import EleanorError
 from eleanor.kernel.exceptions import EleanorKernelError
 from eleanor.kernel.settings import KernelSettings
 from eleanor.query import compile_query
+from eleanor.util import require_opt_path
 
 FILTER_OPERATIONS = frozenset(["lt", "le", "eq", "ne", "ge", "gt"])
 
@@ -963,12 +964,15 @@ class Eq36Settings(KernelSettings):
                 iodb_8=get_setting(raw_eq6_config, IODB_8, IODB_8.DONT_PRINT_ODE_CORRECTOR),
             )
 
+        data1_file = require_opt_path(raw.get("data1_file"), "kernel.data1_file")
+
         return cls(
             model=model,
             timeout=timeout,
             charge_balance=charge_balance,
             eq3_config=eq3_config,
             eq6_config=eq6_config,
+            data1_file=data1_file,
             basis_map=cast(dict[str, str], basis_map),
             redox_species=redox_species,
             track_path=track_path,

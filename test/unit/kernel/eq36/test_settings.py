@@ -1,3 +1,4 @@
+from pathlib import Path
 from unittest import TestCase
 
 from eleanor.exceptions import EleanorError
@@ -185,6 +186,34 @@ class TestEq36Settings(TestCase):
 
         with self.assertRaises(EleanorError):
             _ = Eq36Settings.from_dict({"model": "b-dot", "charge_balance": "Cl-", "track_path": "yes"})
+
+    def test_from_dict_defaults_data1_file_to_none(self) -> None:
+        """
+        Ensure an omitted data1_file stays None so the kernel selects one via its tp-curves.
+        """
+        cfg = Eq36Settings.from_dict({"model": "b-dot", "charge_balance": "Cl-"})
+        self.assertIsNone(cfg.data1_file)
+
+    def test_from_dict_reads_data1_file_as_a_path(self) -> None:
+        """
+        Ensure a configured data1_file is carried through as a Path, relative or absolute.
+        """
+        cfg = Eq36Settings.from_dict(
+            {"model": "b-dot", "charge_balance": "Cl-", "data1_file": "sub/custom.d1"},
+        )
+        self.assertEqual(cfg.data1_file, Path("sub/custom.d1"))
+
+        cfg = Eq36Settings.from_dict(
+            {"model": "b-dot", "charge_balance": "Cl-", "data1_file": Path("/opt/d1s/custom.d1")},
+        )
+        self.assertEqual(cfg.data1_file, Path("/opt/d1s/custom.d1"))
+
+    def test_from_dict_rejects_a_non_path_data1_file(self) -> None:
+        """
+        Ensure a data1_file that is neither a str nor a Path is reported against its config key.
+        """
+        with self.assertRaisesRegex(EleanorError, "kernel.data1_file"):
+            _ = Eq36Settings.from_dict({"model": "b-dot", "charge_balance": "Cl-", "data1_file": 7})
 
     def test_from_dict_rejects_unsupported_eq3_iopt_19(self) -> None:
         """

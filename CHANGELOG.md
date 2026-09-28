@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`kernel.data1_file` is read from the order file.** An explicit path skips the usual
+  temperature-pressure search of the data1 directory; a relative one resolves against that
+  directory, an absolute one is honoured, and recorded, as written.
+
 ### Changed
 
 - **Data1 paths the kernel selects are recorded relative to the data1 directory.** An order stored

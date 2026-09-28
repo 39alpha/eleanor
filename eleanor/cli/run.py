@@ -58,7 +58,7 @@ def _complete_executor(_ctx: click.Context, _param: click.Parameter, incomplete:
     is_flag=True,
     help="Report a wall-clock attribution of the dispatch loop to stderr when the run finishes.",
 )
-@click.option("--seed", type=click.IntRange(min=0), help="Override the random seed")
+@click.option("--seed", type=click.IntRange(min=0), help="Override the random seed.")
 @config_options()
 def run(
     order: str,

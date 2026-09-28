@@ -75,7 +75,7 @@ Common options:
 - `--seed`: override the order's random seed for this run. See [Reproducibility](#reproducibility-and-the-run-seed).
 - `--null-sink`: bypass every configured output sink and discard writes via `NullSink`.
 - `--bulk-load` / `--no-bulk-load`: enable/disable postgres bulk-load optimization for this run, on every configured
-  postgres sink.
+  postgres sink. Bulk-load mode is on by default. See [Bulk-load controls](#bulk-load-controls).
 - `-p, --progress`: show progress bars (disabled automatically by `--verbose`).
 - `-v, --verbose`: verbose output. Also reports, per sink, how many points it was handed and how many
   it committed — so one sink dropping points alongside one that did not is visible.
@@ -235,10 +235,12 @@ If you see this, reduce `--batch-size`, reduce worker count (`-n` / backend conf
 
 ### Bulk-load controls
 
-For postgres outputs, bulk-load mode drops secondary indexes/constraints during ingestion and recreates them at finalize:
+For postgres outputs, bulk-load mode drops secondary indexes/constraints during ingestion and recreates them at
+finalize. It is on by default, so a plain run already bulk-loads; `--no-bulk-load` (or
+`bulk_load_optimization: false` in the sink block) keeps the indexes and constraints in place:
 
 ```bash
-eleanor run --bulk-load -c config.yaml -d eleanor_db order.yaml 200000
+eleanor run --no-bulk-load -c config.yaml -d eleanor_db order.yaml 200000
 ```
 
 You can also control this window explicitly:

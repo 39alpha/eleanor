@@ -30,6 +30,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`eleanor postgres scratch` takes a UUID.** Its `VS_ID` argument was an integer
   `variable_space.id`; it is now that row's UUID. A script still passing an integer fails with an
   `EleanorError` rather than quietly finding nothing.
+- **Postgres bulk-load optimization is on by default.** A `postgres` sink now drops its secondary
+  indexes and constraints for the run and rebuilds them at finalize; `--no-bulk-load` or
+  `bulk_load_optimization: false` keeps them in place.
 - **`require_int_order_id` is now `eleanor.util.require_int_id`**, joined by a `require_uuid_id`
   for the sinks whose ids are UUIDs. Neither is re-exported from `eleanor.output`.
 - **Plugin settings parse nested as well as inline.** `kernel`, `navigator`, `executor` and

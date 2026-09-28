@@ -202,6 +202,7 @@ class TestOutput(TestCase):
         """
         settings = PostgresSinkSettings(
             database=PostgresDatabaseSettings(database="db", username="u", password="p"),
+            bulk_load_optimization=False,
         )
         sink = PostgresSink(settings)
         with (
@@ -256,6 +257,7 @@ class TestOutput(TestCase):
         """
         settings = PostgresSinkSettings(
             database=PostgresDatabaseSettings(database="db", username="u", password="p"),
+            bulk_load_optimization=False,
         )
         sink = PostgresSink(settings)
         with (
@@ -341,6 +343,7 @@ class TestOutput(TestCase):
         settings = PostgresSinkSettings(
             verbose=True,
             database=PostgresDatabaseSettings(database="db", username="u", password="p"),
+            bulk_load_optimization=False,
         )
         sink = PostgresSink(settings)
         logger = logging.getLogger("psycopg")
@@ -823,8 +826,12 @@ class TestPostgresConnectionSharing(TestCase):
         self.database = PostgresDatabaseSettings(database="db", username="u", password="p")
         # Two sinks that differ only outside PostgresDatabaseSettings, so they
         # collide on the cache key.
-        self.first = PostgresSink(PostgresSinkSettings(database=self.database, write_unformed=True))
-        self.second = PostgresSink(PostgresSinkSettings(database=self.database, write_unformed=False))
+        self.first = PostgresSink(
+            PostgresSinkSettings(database=self.database, write_unformed=True, bulk_load_optimization=False),
+        )
+        self.second = PostgresSink(
+            PostgresSinkSettings(database=self.database, write_unformed=False, bulk_load_optimization=False),
+        )
 
     def tearDown(self) -> None:
         connection._owners.clear()  # pyright: ignore[reportPrivateUsage]
@@ -869,7 +876,7 @@ class TestPostgresConnectionSharing(TestCase):
     def test_distinct_databases_are_counted_separately(self) -> None:
         """Ensure a sink on another database is not kept alive by this one."""
         other_database = PostgresDatabaseSettings(database="other", username="u", password="p")
-        other = PostgresSink(PostgresSinkSettings(database=other_database))
+        other = PostgresSink(PostgresSinkSettings(database=other_database, bulk_load_optimization=False))
 
         self._initialize(self.first)
         self._initialize(other)

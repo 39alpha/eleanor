@@ -58,7 +58,7 @@ def test_load_config_with_path(helpers: type[Helpers], tmp_path: Path, fmt: str)
                         username="alice",
                         password="secret",
                     ),
-                    bulk_load_optimization=False,
+                    bulk_load_optimization=True,
                 ),
             ),
         ],

@@ -47,7 +47,7 @@ class PostgresPrepared:
 class PostgresSink(AbstractOutputSink[uuid.UUID]):
     """Persist Eleanor compute results into PostgreSQL via psycopg3.
 
-    ``bulk_load_optimization`` (default ``False``) opts the sink in to
+    ``bulk_load_optimization`` (default ``True``) opts the sink in to
     a lifecycle-bracketed bulk-load window: :meth:`initialize` calls
     :func:`repositories.drop_bulk_load_objects` after the schema is in place, and
     :meth:`finalize` calls :func:`repositories.recreate_bulk_load_objects` just

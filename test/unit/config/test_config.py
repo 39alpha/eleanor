@@ -64,7 +64,7 @@ def test_config_from_file_format(helpers: type[Helpers], tmp_path: Path, fmt: st
                     password="secret",
                     sslmode="require",
                 ),
-                bulk_load_optimization=False,
+                bulk_load_optimization=True,
             ),
         )
     ]
@@ -113,7 +113,7 @@ def test_config_from_string_format(helpers: type[Helpers], tmp_path: Path, fmt: 
                     password="secret",
                     sslmode="require",
                 ),
-                bulk_load_optimization=False,
+                bulk_load_optimization=True,
             ),
         )
     ]
@@ -150,7 +150,7 @@ def test_config_from_file(helpers: type[Helpers], tmp_path: Path, fmt: str) -> N
                     password="secret",
                     sslmode="require",
                 ),
-                bulk_load_optimization=False,
+                bulk_load_optimization=True,
             ),
         )
     ]
@@ -190,7 +190,7 @@ def test_config_from_string(helpers: type[Helpers], tmp_path: Path, fmt: str) ->
                     password="secret",
                     sslmode="require",
                 ),
-                bulk_load_optimization=False,
+                bulk_load_optimization=True,
             ),
         )
     ]

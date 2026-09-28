@@ -54,7 +54,7 @@ class PostgresDatabaseSettings:
 @dataclass(kw_only=True)
 class PostgresSinkSettings(OutputSinkSettings):
     database: PostgresDatabaseSettings
-    bulk_load_optimization: bool = False
+    bulk_load_optimization: bool = True
     write_unformed: bool = True
     min_log_moles: float = float("-inf")
     min_log_molality: float = float("-inf")
@@ -79,7 +79,7 @@ class PostgresSinkSettings(OutputSinkSettings):
         database = PostgresDatabaseSettings.from_dict(database_raw)
 
         optimize = require_bool(
-            raw.get("bulk_load_optimization", False),
+            raw.get("bulk_load_optimization", True),
             "bulk_load_optimization",
         )
         write_unformed = require_bool(

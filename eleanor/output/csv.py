@@ -100,29 +100,6 @@ def _read_schema(schema_path: Path) -> dict[str, object]:
     return {str(k): v for k, v in cast(dict[object, object], raw).items()}
 
 
-def _require_vs_points_seen(schema: dict[str, object], schema_path: Path) -> dict[str, int]:
-    """Read the per-run point counters, keyed by the string form of the run id.
-
-    The keys are ``str(UUID)`` rather than the ids themselves so the sidecar
-    round-trips through plain YAML scalars.
-    """
-    vs_points_seen = schema.get("vs_points_seen", {})
-
-    if not isinstance(vs_points_seen, dict):
-        msg = f"csv schema {schema_path!r} has invalid vs_points_seen"
-        raise EleanorError(msg)
-
-    for key, value in cast(dict[object, object], vs_points_seen).items():
-        if not isinstance(key, str):
-            msg = f"csv schema {schema_path!r} has invalid key {key!r}"
-            raise EleanorError(msg)
-        if not isinstance(value, int) or isinstance(value, bool):
-            msg = f"csv schema {schema_path!r} has invalid count for {key}: {value!r}"
-            raise EleanorError(msg)
-
-    return cast(dict[str, int], vs_points_seen)
-
-
 def _require_eleanor_version(schema: dict[str, object], schema_path: Path) -> str | None:
     eleanor_version = schema.get("eleanor_version")
 
@@ -133,16 +110,10 @@ def _require_eleanor_version(schema: dict[str, object], schema_path: Path) -> st
     return eleanor_version
 
 
-def _write_schema(
-    schema_path: Path,
-    query: dict[str, object],
-    *,
-    vs_points_seen: dict[str, int],
-) -> None:
+def _write_schema(schema_path: Path, query: dict[str, object]) -> None:
     payload = {
-        "query": query,
-        "vs_points_seen": vs_points_seen,
         "eleanor_version": __version__,
+        "query": query,
     }
     with schema_path.open("w") as handle:
         yaml.safe_dump(payload, handle, sort_keys=False)
@@ -304,7 +275,7 @@ class CsvSink(AbstractOutputSink[uuid.UUID]):
     _order: Order | None
     _schema_file: Path
     _binary_columns: frozenset[str]
-    _vs_points_seen: dict[str, int]
+    _vs_points_seen: int
 
     def __init__(self, settings: CsvSinkSettings) -> None:
         self.settings = settings
@@ -323,7 +294,7 @@ class CsvSink(AbstractOutputSink[uuid.UUID]):
         self._order = None
         self._schema_file = _schema_path(settings.filename)
         self._binary_columns = _binary_columns(self._compiled)
-        self._vs_points_seen = {}
+        self._vs_points_seen = 0
 
     @override
     def __getstate__(self) -> dict[str, object]:
@@ -349,12 +320,7 @@ class CsvSink(AbstractOutputSink[uuid.UUID]):
             _write_csv_header(filename, self._columns)
             for column in self._binary_columns:
                 _asset_dir(filename, column).mkdir(parents=True, exist_ok=True)
-            self._vs_points_seen = {}
-            _write_schema(
-                schema_file,
-                self.settings.query,
-                vs_points_seen=self._vs_points_seen,
-            )
+            _write_schema(schema_file, self.settings.query)
             self._order_id = None
             self._order = None
             return
@@ -364,7 +330,6 @@ class CsvSink(AbstractOutputSink[uuid.UUID]):
             raise EleanorError(msg)
 
         schema = _read_schema(schema_file)
-        self._vs_points_seen = _require_vs_points_seen(schema, schema_file)
 
         eleanor_version = _require_eleanor_version(schema, schema_file)
         if eleanor_version is None or _release_version(eleanor_version) != _release_version(__version__):
@@ -390,14 +355,11 @@ class CsvSink(AbstractOutputSink[uuid.UUID]):
             assert self._order_id is not None
             return self._order_id
 
-        order_id = uuid.uuid7()
-        self._vs_points_seen[str(order_id)] = 0
-        _write_schema(
-            schema_file,
-            query,
-            vs_points_seen=self._vs_points_seen,
-        )
+        _write_schema(schema_file, query)
 
+        order_id = uuid.uuid7()
+
+        self._vs_points_seen = 0
         self._order = order
         self._order_id = order_id
 
@@ -465,13 +427,7 @@ class CsvSink(AbstractOutputSink[uuid.UUID]):
         prepared: Sequence[object],
         progress: ProgressHandle | None = None,
     ) -> list[WriteOutcome]:
-        """Fill each row set's id columns and append it.
-
-        Runs in the parent, which is what lets ``_vs_points_seen`` stay a
-        single authoritative counter: it feeds both the ``point_id`` column
-        and the binary-asset filenames, so it cannot be handed to concurrent
-        workers.
-        """
+        """Fill each row set's id columns and append it."""
         filename = self.settings.filename
 
         if self._order is None:
@@ -482,9 +438,8 @@ class CsvSink(AbstractOutputSink[uuid.UUID]):
             msg = "csv sink commit_batch requires initialize() to create the CSV header"
             raise EleanorError(msg)
 
-        key = str(order_id)
-        if key not in self._vs_points_seen:
-            msg = f"csv sink commit_batch called for unknown order id {order_id}"
+        if order_id != self._order_id:
+            msg = "csv sink recieved an unknown order id"
             raise EleanorError(msg)
 
         outcomes: list[WriteOutcome] = []
@@ -500,7 +455,7 @@ class CsvSink(AbstractOutputSink[uuid.UUID]):
                     )
                     continue
 
-                current_point_id = self._vs_points_seen[key]
+                current_point_id = self._vs_points_seen
                 rows = _extract_binary_assets(
                     filename,
                     self._binary_columns,
@@ -520,16 +475,11 @@ class CsvSink(AbstractOutputSink[uuid.UUID]):
                 committed = False
                 if rows:
                     committed = True
-                    self._vs_points_seen[key] += 1
+                    self._vs_points_seen += 1
                 outcomes.append(WriteOutcome(exit_code=item.exit_code, committed=committed))
                 if progress is not None:
                     progress.tick()
 
-        _write_schema(
-            self._schema_file,
-            self.settings.query,
-            vs_points_seen=self._vs_points_seen,
-        )
         return outcomes
 
     @override

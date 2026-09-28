@@ -93,9 +93,13 @@ seed: 4242
 # ... the rest of the order
 ```
 
-Omit it and Eleanor generates one. Either way the seed is recorded with the run — it is part of
-the order the sink persists — and the navigators sample from a generator seeded with it, so a run
-re-sampled from its recorded order visits the same variable-space points.
+Omit it and Eleanor generates one. Either way the navigators sample from a generator seeded with
+it, so a run re-sampled under the same seed visits the same variable-space points.
+
+Whether the seed is *recorded* depends on the sink. The `postgres` sink persists the whole order
+in `orders.raw`, seed included, so a stored run can be re-sampled from what it wrote. The `csv`
+sink persists only the rows your query projects, so a seed you did not declare is gone when the
+run ends — project `order.seed` as a column, or pass `--seed` and record it yourself.
 
 `--seed` overrides what the order file declares, without editing it:
 
@@ -203,9 +207,20 @@ The header must match the configured query's columns exactly, and the file's
 than guessed at.
 
 The sidecar also records the version of Eleanor that wrote the file, and
-appending under a different version is rejected. The projection a query produces
-is version-dependent, so continuing one file across an upgrade would leave rows
-of two different shapes under one header. Point the run at a new file instead.
+appending under a different version is rejected — as is a sidecar recording no
+version at all, which is what any file written by v0.21.1 or earlier carries.
+Two Eleanor versions are not guaranteed to produce numerically identical
+results, and a CSV has nowhere to note which build wrote which row, so a
+mixed-version file cannot be untangled after the fact. Point the run at a new
+file instead.
+
+Only the release component is compared: a `.devN+g<hash>` suffix is stripped
+first, so unreleased builds of the same version can append to one another's
+files. `0.21.2.dev1` and `0.21.2.dev9` match; `0.21.1` and `0.21.2` do not.
+
+This is stricter than the `postgres` sink, which happily accepts runs from
+several versions because `orders.eleanor_version` keeps each one attributable.
+The constraint is the CSV's missing provenance, not the version difference.
 
 ### Parallelism, batch size, and Postgres subtransaction pressure
 

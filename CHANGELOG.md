@@ -13,6 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   from it. The navigators draw from that generator, so a run reproduces from its recorded seed.
 - **`eleanor run --seed INT`** overrides the order's seed for one run, without editing the order
   file. Every run draws from the start of the stream, so a fresh seed samples new points.
+- **`Order`'s file loaders accept the same overrides as `from_dict`.** `from_yaml`, `from_yamls`,
+  `from_toml`, `from_tomls`, `from_json`, `from_jsons`, `from_file` and `load_order` all forward
+  `seed`, `tags`, `create_date` and `vs_points`, so a caller overriding one no longer has to
+  mutate the order after parsing it.
 
 ### Changed
 
@@ -24,6 +28,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Tables nothing refers to no longer carry an `id`.** Seventeen leaf tables -- `elements`,
   `species` and `equilibrium_aqueous_species` among them -- are only ever reached through their
   parent, so the surrogate key was dead weight.
+- **`eleanor postgres scratch` takes a UUID.** Its `VS_ID` argument was an integer
+  `variable_space.id`; it is now that row's UUID. A script still passing an integer fails with an
+  `EleanorError` rather than quietly finding nothing.
 - **`require_int_order_id` is now `eleanor.util.require_int_id`**, joined by a `require_uuid_id`
   for the sinks whose ids are UUIDs. Neither is re-exported from `eleanor.output`.
 - **Plugin settings parse nested as well as inline.** `kernel`, `navigator`, `executor` and
@@ -36,6 +43,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   columns exist. A database diverging from `TABLES` now reports drift where it verified clean.
 - **`Parameter.random` takes an optional `rng`**, defaulting to `None` for the previous
   global-state behaviour. Subclasses overriding `random` must accept it.
+- **`AbstractLatticeNavigator.generate` takes a required `rng` keyword.** `iterate` hands it the
+  order's generator, so subclasses must accept it: `RandomLatticeNavigator` draws from it, and
+  `LatticeNavigator`, being deterministic, ignores it.
 - **`AbstractReactant.type` is a dataclass field, not an abstract property**, so it survives
   `asdict`. Subclasses pass their type to `super().__init__` instead of overriding a property.
 

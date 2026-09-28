@@ -83,9 +83,9 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <link href="site_libs/quarto-html/quarto-syntax-highlighting-64a204ab8560d761af7679ceaba22944.css" rel="stylesheet" class="quarto-color-scheme-extra" id="quarto-text-highlighting-styles">
 <script src="site_libs/bootstrap/bootstrap.min.js"></script>
 <link href="site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
-<link href="site_libs/bootstrap/bootstrap-37d248cfadad84a146ad23bb0afae6fc.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme" id="quarto-bootstrap" data-mode="light">
-<link href="site_libs/bootstrap/bootstrap-dark-bf23c7c5c8d2ee989d4a2975cb3ccbf2.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme quarto-color-alternate" id="quarto-bootstrap" data-mode="dark">
-<link href="site_libs/bootstrap/bootstrap-37d248cfadad84a146ad23bb0afae6fc.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme-extra" id="quarto-bootstrap" data-mode="light">
+<link href="site_libs/bootstrap/bootstrap-966fe0592a357178cbe4f3e19c688190.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme" id="quarto-bootstrap" data-mode="light">
+<link href="site_libs/bootstrap/bootstrap-dark-8187d0f88d640d2405e965e8261ca551.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme quarto-color-alternate" id="quarto-bootstrap" data-mode="dark">
+<link href="site_libs/bootstrap/bootstrap-966fe0592a357178cbe4f3e19c688190.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme-extra" id="quarto-bootstrap" data-mode="light">
 <script id="quarto-search-options" type="application/json">{
   "location": "navbar",
   "copy-button": false,
@@ -382,10 +382,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   <ul>
   <li><a href="#end-to-end-example-third-party-output-sink-package" id="toc-end-to-end-example-third-party-output-sink-package" class="nav-link" data-scroll-target="#end-to-end-example-third-party-output-sink-package">End-to-end example: third-party output sink package</a></li>
   </ul></li>
-  <li><a href="#sinks-share-one-run" id="toc-sinks-share-one-run" class="nav-link" data-scroll-target="#sinks-share-one-run">Sinks share one run</a>
-  <ul>
-  <li><a href="#declining-to-resume" id="toc-declining-to-resume" class="nav-link" data-scroll-target="#declining-to-resume">Declining to resume</a></li>
-  </ul></li>
+  <li><a href="#sinks-share-one-run" id="toc-sinks-share-one-run" class="nav-link" data-scroll-target="#sinks-share-one-run">Sinks share one run</a></li>
   <li><a href="#inline-plugins" id="toc-inline-plugins" class="nav-link" data-scroll-target="#inline-plugins">Inline plugins</a></li>
   <li><a href="#writing-a-kernel-plugin" id="toc-writing-a-kernel-plugin" class="nav-link" data-scroll-target="#writing-a-kernel-plugin">Writing a kernel plugin</a></li>
   <li><a href="#commercial-plugins" id="toc-commercial-plugins" class="nav-link" data-scroll-target="#commercial-plugins">Commercial plugins</a></li>
@@ -493,6 +490,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <li><code>navigate(order: Order, kernel: AbstractKernel, scale: int, batch_size: int, *args, **kwargs) -&gt; Iterator[list[vs.Point]]</code>: a batch iterator that yields lists of up to <code>batch_size</code> points.</li>
 </ul>
 <p>Eleanor passes <code>max_attempts</code> as a keyword argument to <code>navigate</code>; plugins should accept <code>**kwargs</code> to tolerate future additions. Points carry no order id: the id belongs to the output sink, which receives it as a parameter to <code>prepare_batch</code> / <code>commit_batch</code>, so a navigator never needs to know it.</p>
+<p>A navigator that samples should draw from <code>order.rng</code> – the generator seeded from the order’s <code>seed</code> – rather than from global random state. That is what lets a run be reproduced from the seed recorded alongside it.</p>
 <p>Across a complete <code>navigate(...)</code> iteration, the total number of yielded points must match <code>num_systems(order, scale)</code>. Eleanor raises an error if the counts diverge.</p>
 </section>
 </section>
@@ -523,7 +521,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a><span class="kw">[project.entry-points."</span><span class="dt">eleanor.outputs"</span><span class="kw">]</span></span>
 <span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a><span class="dt">my_sink</span> <span class="op">=</span> <span class="st">"my_sink_plugin.output:my_sink_spec"</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p><code>src/my_sink_plugin/output.py</code>:</p>
-<p><code>AbstractOutputSink</code> is generic in the type of the order id it hands out: <code>AbstractOutputSink[IdT]</code>. A sink chooses its own id space and pins it when it subclasses – <code>AbstractOutputSink[int]</code> for a database sequence, <code>AbstractOutputSink[UUID]</code> for a sink with nothing to draw a sequence from. <code>begin_run</code> returns a value of that type and Eleanor hands the same value back to <code>prepare_batch</code> and <code>commit_batch</code>; it never constructs or inspects one, so nothing constrains the type beyond being picklable.</p>
+<p><code>AbstractOutputSink</code> is generic in the type of the order id it hands out: <code>AbstractOutputSink[IdT]</code>. A sink chooses its own id space and pins it when it subclasses – <code>AbstractOutputSink[int]</code> for a counter it keeps itself, <code>AbstractOutputSink[UUID]</code> for ids minted per run. <code>begin_run</code> returns a value of that type and Eleanor hands the same value back to <code>prepare_batch</code> and <code>commit_batch</code>; it never constructs or inspects one, so nothing constrains the type beyond being picklable.</p>
 <p>Persisting a batch is split into two halves. <code>prepare_batch</code> always runs in a worker process, with the whole compute graph available, and reduces it to whatever compact form the sink wants. <code>commit_batch</code> durably persists that payload – in the worker if <code>supports_worker_commit()</code> returns <code>True</code>, in the parent otherwise.</p>
 <p>The point of the split is that only the prepared payload crosses the process boundary, never the ~100k-object compute graph. What you return from <code>prepare_batch</code> is private to your sink; Eleanor never inspects it, and types it as <code>object</code>. The two requirements are that it pickles, and that it is <em>cheaper to unpickle</em> than the graph. That last part is about object count rather than byte count, so a columnar payload (one array per column) does far better than a row-oriented one, which keeps the graph’s object count intact.</p>
 <p>Because the sink itself is pickled into a worker once per chunk, your sink class must be importable by name, and <code>prepare_batch</code> must not depend on mutating sink state – the worker’s copy is discarded.</p>
@@ -548,10 +546,9 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb7"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> target_key(<span class="va">self</span>) <span class="op">-&gt;</span> <span class="bu">object</span> <span class="op">|</span> <span class="va">None</span>:</span>
 <span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="va">self</span>.settings.filename.resolve()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>Return anything that identifies the store; Eleanor compares keys with <code>==</code>, so they need not be hashable. The default is <code>None</code>, meaning “no exclusive target” – correct for a sink that discards or keeps results in memory, and the backwards-compatible answer for sinks written before this existed.</p>
-<p>Sinks are addressed by the <code>name</code> in their config block, which defaults to <code>kind</code>. It keys the sink’s resume token, labels its progress bar, and keys the ids <code>Eleanor.run</code> returns.</p>
-<section id="declining-to-resume" class="level3">
-<h3 class="anchored" data-anchor-id="declining-to-resume">Declining to resume</h3>
-<p><code>supports_resume()</code> defaults to <code>True</code>. Return <code>False</code> when there is nothing a resume token could name – a sink that draws to a window, or streams to a socket, retains no run to go back to. Eleanor then always passes <code>requested_id=None</code> and never requires a token for your sink, which matters because with several sinks active it demands one for every sink that <em>does</em> claim to support resuming.</p>
+<p>Sinks are addressed by the <code>name</code> in their config block, which defaults to <code>kind</code>. It labels the sink’s progress bar and keys the ids <code>Eleanor.run</code> returns.</p>
+<p><code>begin_run</code> is called once per run and allocates that run’s id. Eleanor passes the order and nothing else, and the id you return is yours to choose.</p>
+<p>A sink writing somewhere that outlives the process has one more decision to make: what it means to point a second run at a store that already holds one. Whether the new run’s rows can share a file or a table with an earlier run’s, and what has to match for that to be safe, is the sink’s own business – <code>CsvSink</code> appends to an existing file under a fresh id but refuses one written by a different version of Eleanor, and <code>PostgresSink</code> inserts a row per run. Eleanor takes no part in either choice.</p>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb8"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> collections.abc <span class="im">import</span> Sequence</span>
 <span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> dataclasses <span class="im">import</span> dataclass</span>
 <span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> typing <span class="im">import</span> cast</span>
@@ -560,66 +557,61 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a>    AbstractOutputSink,</span>
 <span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a>    ComputeResult,</span>
 <span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a>    WriteOutcome,</span>
-<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a>    require_int_order_id,</span>
-<span id="cb8-10"><a href="#cb8-10" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb8-11"><a href="#cb8-11" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> eleanor.output.settings <span class="im">import</span> OutputSinkSettings</span>
-<span id="cb8-12"><a href="#cb8-12" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> eleanor.plugin <span class="im">import</span> ConfigurablePluginSpec</span>
+<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb8-10"><a href="#cb8-10" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> eleanor.output.settings <span class="im">import</span> OutputSinkSettings</span>
+<span id="cb8-11"><a href="#cb8-11" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> eleanor.plugin <span class="im">import</span> ConfigurablePluginSpec</span>
+<span id="cb8-12"><a href="#cb8-12" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb8-13"><a href="#cb8-13" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-14"><a href="#cb8-14" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-15"><a href="#cb8-15" aria-hidden="true" tabindex="-1"></a><span class="at">@dataclass</span>(slots<span class="op">=</span><span class="va">True</span>, frozen<span class="op">=</span><span class="va">True</span>)</span>
-<span id="cb8-16"><a href="#cb8-16" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> MyPrepared:</span>
-<span id="cb8-17"><a href="#cb8-17" aria-hidden="true" tabindex="-1"></a>    exit_code: <span class="bu">int</span></span>
+<span id="cb8-14"><a href="#cb8-14" aria-hidden="true" tabindex="-1"></a><span class="at">@dataclass</span>(slots<span class="op">=</span><span class="va">True</span>, frozen<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb8-15"><a href="#cb8-15" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> MyPrepared:</span>
+<span id="cb8-16"><a href="#cb8-16" aria-hidden="true" tabindex="-1"></a>    exit_code: <span class="bu">int</span></span>
+<span id="cb8-17"><a href="#cb8-17" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb8-18"><a href="#cb8-18" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-19"><a href="#cb8-19" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-20"><a href="#cb8-20" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> MySink(AbstractOutputSink[<span class="bu">int</span>]):</span>
-<span id="cb8-21"><a href="#cb8-21" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> begin_run(<span class="va">self</span>, order, <span class="op">*</span>, requested_id<span class="op">=</span><span class="va">None</span>):</span>
-<span id="cb8-22"><a href="#cb8-22" aria-hidden="true" tabindex="-1"></a>        <span class="co"># The sink owns the id space, so ``requested_id`` arrives as the raw</span></span>
-<span id="cb8-23"><a href="#cb8-23" aria-hidden="true" tabindex="-1"></a>        <span class="co"># token the caller passed to ``--order-id``. Parse it yourself, and</span></span>
-<span id="cb8-24"><a href="#cb8-24" aria-hidden="true" tabindex="-1"></a>        <span class="co"># raise if it is malformed or names no run you hold -- resuming is an</span></span>
-<span id="cb8-25"><a href="#cb8-25" aria-hidden="true" tabindex="-1"></a>        <span class="co"># explicit request, so starting a new run instead would lose it.</span></span>
-<span id="cb8-26"><a href="#cb8-26" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> requested_id <span class="kw">is</span> <span class="va">None</span>:</span>
-<span id="cb8-27"><a href="#cb8-27" aria-hidden="true" tabindex="-1"></a>            <span class="cf">return</span> <span class="dv">0</span></span>
-<span id="cb8-28"><a href="#cb8-28" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> require_int_order_id(requested_id, <span class="st">"my sink"</span>)</span>
-<span id="cb8-29"><a href="#cb8-29" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-30"><a href="#cb8-30" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> prepare_batch(<span class="va">self</span>, order_id, results: Sequence[ComputeResult]) <span class="op">-&gt;</span> Sequence[MyPrepared]:</span>
-<span id="cb8-31"><a href="#cb8-31" aria-hidden="true" tabindex="-1"></a>        <span class="co"># Runs in a worker. One item per result, in order -- that pairing is</span></span>
-<span id="cb8-32"><a href="#cb8-32" aria-hidden="true" tabindex="-1"></a>        <span class="co"># what lets commit_batch report outcomes[i] for results[i]. Record a</span></span>
-<span id="cb8-33"><a href="#cb8-33" aria-hidden="true" tabindex="-1"></a>        <span class="co"># per-point failure here rather than raising, so one bad point does</span></span>
-<span id="cb8-34"><a href="#cb8-34" aria-hidden="true" tabindex="-1"></a>        <span class="co"># not cost the whole chunk.</span></span>
-<span id="cb8-35"><a href="#cb8-35" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> [MyPrepared(exit_code<span class="op">=</span>r.point.exit_code) <span class="cf">for</span> r <span class="kw">in</span> results]</span>
-<span id="cb8-36"><a href="#cb8-36" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-37"><a href="#cb8-37" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> commit_batch(<span class="va">self</span>, order_id, prepared: Sequence[<span class="bu">object</span>], progress<span class="op">=</span><span class="va">None</span>) <span class="op">-&gt;</span> <span class="bu">list</span>[WriteOutcome]:</span>
-<span id="cb8-38"><a href="#cb8-38" aria-hidden="true" tabindex="-1"></a>        <span class="co"># Narrow back to your own payload type: Python cannot express "some</span></span>
-<span id="cb8-39"><a href="#cb8-39" aria-hidden="true" tabindex="-1"></a>        <span class="co"># type the sink chose", so the cast is explicit and local.</span></span>
-<span id="cb8-40"><a href="#cb8-40" aria-hidden="true" tabindex="-1"></a>        items <span class="op">=</span> cast(Sequence[MyPrepared], prepared)</span>
-<span id="cb8-41"><a href="#cb8-41" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> [WriteOutcome(exit_code<span class="op">=</span>i.exit_code, committed<span class="op">=</span><span class="va">True</span>) <span class="cf">for</span> i <span class="kw">in</span> items]</span>
-<span id="cb8-42"><a href="#cb8-42" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-43"><a href="#cb8-43" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> finalize_run(<span class="va">self</span>) <span class="op">-&gt;</span> <span class="va">None</span>:</span>
-<span id="cb8-44"><a href="#cb8-44" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="va">None</span></span>
+<span id="cb8-19"><a href="#cb8-19" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> MySink(AbstractOutputSink[<span class="bu">int</span>]):</span>
+<span id="cb8-20"><a href="#cb8-20" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> begin_run(<span class="va">self</span>, order):</span>
+<span id="cb8-21"><a href="#cb8-21" aria-hidden="true" tabindex="-1"></a>        <span class="co"># The sink owns the id space, so mint the id however you like --</span></span>
+<span id="cb8-22"><a href="#cb8-22" aria-hidden="true" tabindex="-1"></a>        <span class="co"># Eleanor only hands whatever you return back to prepare_batch and</span></span>
+<span id="cb8-23"><a href="#cb8-23" aria-hidden="true" tabindex="-1"></a>        <span class="co"># commit_batch. Called once per run, before either of them.</span></span>
+<span id="cb8-24"><a href="#cb8-24" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="dv">0</span></span>
+<span id="cb8-25"><a href="#cb8-25" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-26"><a href="#cb8-26" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> prepare_batch(<span class="va">self</span>, order_id, results: Sequence[ComputeResult]) <span class="op">-&gt;</span> Sequence[MyPrepared]:</span>
+<span id="cb8-27"><a href="#cb8-27" aria-hidden="true" tabindex="-1"></a>        <span class="co"># Runs in a worker. One item per result, in order -- that pairing is</span></span>
+<span id="cb8-28"><a href="#cb8-28" aria-hidden="true" tabindex="-1"></a>        <span class="co"># what lets commit_batch report outcomes[i] for results[i]. Record a</span></span>
+<span id="cb8-29"><a href="#cb8-29" aria-hidden="true" tabindex="-1"></a>        <span class="co"># per-point failure here rather than raising, so one bad point does</span></span>
+<span id="cb8-30"><a href="#cb8-30" aria-hidden="true" tabindex="-1"></a>        <span class="co"># not cost the whole chunk.</span></span>
+<span id="cb8-31"><a href="#cb8-31" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> [MyPrepared(exit_code<span class="op">=</span>r.point.exit_code) <span class="cf">for</span> r <span class="kw">in</span> results]</span>
+<span id="cb8-32"><a href="#cb8-32" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-33"><a href="#cb8-33" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> commit_batch(<span class="va">self</span>, order_id, prepared: Sequence[<span class="bu">object</span>], progress<span class="op">=</span><span class="va">None</span>) <span class="op">-&gt;</span> <span class="bu">list</span>[WriteOutcome]:</span>
+<span id="cb8-34"><a href="#cb8-34" aria-hidden="true" tabindex="-1"></a>        <span class="co"># Narrow back to your own payload type: Python cannot express "some</span></span>
+<span id="cb8-35"><a href="#cb8-35" aria-hidden="true" tabindex="-1"></a>        <span class="co"># type the sink chose", so the cast is explicit and local.</span></span>
+<span id="cb8-36"><a href="#cb8-36" aria-hidden="true" tabindex="-1"></a>        items <span class="op">=</span> cast(Sequence[MyPrepared], prepared)</span>
+<span id="cb8-37"><a href="#cb8-37" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> [WriteOutcome(exit_code<span class="op">=</span>i.exit_code, committed<span class="op">=</span><span class="va">True</span>) <span class="cf">for</span> i <span class="kw">in</span> items]</span>
+<span id="cb8-38"><a href="#cb8-38" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-39"><a href="#cb8-39" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> finalize_run(<span class="va">self</span>) <span class="op">-&gt;</span> <span class="va">None</span>:</span>
+<span id="cb8-40"><a href="#cb8-40" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="va">None</span></span>
+<span id="cb8-41"><a href="#cb8-41" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-42"><a href="#cb8-42" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> finalize(<span class="va">self</span>) <span class="op">-&gt;</span> <span class="va">None</span>:</span>
+<span id="cb8-43"><a href="#cb8-43" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="va">None</span></span>
+<span id="cb8-44"><a href="#cb8-44" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb8-45"><a href="#cb8-45" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-46"><a href="#cb8-46" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> finalize(<span class="va">self</span>) <span class="op">-&gt;</span> <span class="va">None</span>:</span>
-<span id="cb8-47"><a href="#cb8-47" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="va">None</span></span>
+<span id="cb8-46"><a href="#cb8-46" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> _parse_settings(raw: <span class="bu">dict</span>) <span class="op">-&gt;</span> OutputSinkSettings:</span>
+<span id="cb8-47"><a href="#cb8-47" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> OutputSinkSettings.from_dict(raw)</span>
 <span id="cb8-48"><a href="#cb8-48" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb8-49"><a href="#cb8-49" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-50"><a href="#cb8-50" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> _parse_settings(raw: <span class="bu">dict</span>) <span class="op">-&gt;</span> OutputSinkSettings:</span>
-<span id="cb8-51"><a href="#cb8-51" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> OutputSinkSettings.from_dict(raw)</span>
+<span id="cb8-50"><a href="#cb8-50" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> _build_sink(settings: <span class="bu">object</span>) <span class="op">-&gt;</span> MySink:</span>
+<span id="cb8-51"><a href="#cb8-51" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> MySink()</span>
 <span id="cb8-52"><a href="#cb8-52" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb8-53"><a href="#cb8-53" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-54"><a href="#cb8-54" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> _build_sink(settings: <span class="bu">object</span>) <span class="op">-&gt;</span> MySink:</span>
-<span id="cb8-55"><a href="#cb8-55" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> MySink()</span>
-<span id="cb8-56"><a href="#cb8-56" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-57"><a href="#cb8-57" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-58"><a href="#cb8-58" aria-hidden="true" tabindex="-1"></a>my_sink_spec <span class="op">=</span> ConfigurablePluginSpec(</span>
-<span id="cb8-59"><a href="#cb8-59" aria-hidden="true" tabindex="-1"></a>    parse_settings<span class="op">=</span>_parse_settings,</span>
-<span id="cb8-60"><a href="#cb8-60" aria-hidden="true" tabindex="-1"></a>    build<span class="op">=</span>_build_sink,</span>
-<span id="cb8-61"><a href="#cb8-61" aria-hidden="true" tabindex="-1"></a>    plugin_api_version<span class="op">=</span><span class="dv">1</span>,</span>
-<span id="cb8-62"><a href="#cb8-62" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb8-54"><a href="#cb8-54" aria-hidden="true" tabindex="-1"></a>my_sink_spec <span class="op">=</span> ConfigurablePluginSpec(</span>
+<span id="cb8-55"><a href="#cb8-55" aria-hidden="true" tabindex="-1"></a>    parse_settings<span class="op">=</span>_parse_settings,</span>
+<span id="cb8-56"><a href="#cb8-56" aria-hidden="true" tabindex="-1"></a>    build<span class="op">=</span>_build_sink,</span>
+<span id="cb8-57"><a href="#cb8-57" aria-hidden="true" tabindex="-1"></a>    plugin_api_version<span class="op">=</span><span class="dv">1</span>,</span>
+<span id="cb8-58"><a href="#cb8-58" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>Install the package, then reference it in Eleanor config:</p>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb9"><pre class="sourceCode yaml code-with-copy"><code class="sourceCode yaml"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="fu">output</span><span class="kw">:</span></span>
 <span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">kind</span><span class="kw">:</span><span class="at"> my_sink</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>You can verify discovery with:</p>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb10"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="ex">eleanor</span> doctor</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-</section>
 </section>
 <section id="inline-plugins" class="level2">
 <h2 class="anchored" data-anchor-id="inline-plugins">Inline plugins</h2>

@@ -819,7 +819,7 @@ For example, the builtin `eleanor.kernel.eq36.Kernel` will produce at least $2$
 equilibrium space points: one representing the speciation of the fluid alone
 (the `"eq3"` stage), and the final equilibrium after reacting the fluid with any
 reactants (the `"eq6"` stage). In the case that the user configured the kernel
-with the `track_paths: true` option, (many) more than $2$ equilibrium space
+with the `track_path: true` option, (many) more than $2$ equilibrium space
 points will be produced: the `"eq3"` point, and some number of intermediate
 points between the `"eq3"` system and the final `"eq6"` representing a titration
 path. That is, each point along the titration path represents the equilibration
@@ -1350,10 +1350,10 @@ kernel:
   kind: eq36
   model: b-dot
   charge_balance: H+
-  track_paths: true
+  track_path: true
   eq6_config:
     xi_max: 1
-    print_step_interval: 1
+    steps_print_interval: 1
 
 elements:
   C: -5

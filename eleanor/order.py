@@ -1,3 +1,4 @@
+import contextlib
 import json
 import operator
 import secrets
@@ -455,6 +456,22 @@ def load_order(
     """
     if isinstance(order, (str, Path)):
         order = Order.from_file(order, seed=seed, tags=tags, create_date=create_date, vs_points=vs_points)
+    else:
+        if seed is not None:
+            with contextlib.suppress(AttributeError):
+                delattr(order, "rng")
+            order.seed = seed
+
+        tags = _prepare_tags(tags)
+        if tags is not None:
+            order.tags = tags
+
+        if create_date is not None:
+            order.create_date = create_date
+
+        if vs_points is not None:
+            order.vs_points = vs_points
+
     return order
 
 

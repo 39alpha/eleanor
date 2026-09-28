@@ -13,10 +13,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   from it. The navigators draw from that generator, so a run reproduces from its recorded seed.
 - **`eleanor run --seed INT`** overrides the order's seed for one run, without editing the order
   file. Every run draws from the start of the stream, so a fresh seed samples new points.
-- **`Order`'s file loaders accept the same overrides as `from_dict`.** `from_yaml`, `from_yamls`,
-  `from_toml`, `from_tomls`, `from_json`, `from_jsons`, `from_file` and `load_order` all forward
-  `seed`, `tags`, `create_date` and `vs_points`, so a caller overriding one no longer has to
-  mutate the order after parsing it.
+- **`Order`'s file loaders accept the same overrides as `from_dict`.** `from_yaml`, `from_toml`,
+  `from_json`, their string variants, `from_file` and `load_order` all forward `seed`, `tags`,
+  `create_date` and `vs_points`, so a caller no longer has to mutate the order after parsing it.
 
 ### Changed
 

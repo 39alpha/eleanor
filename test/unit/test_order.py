@@ -1,4 +1,5 @@
 import json
+from datetime import datetime
 from os.path import join
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
@@ -11,6 +12,7 @@ from eleanor.exceptions import EleanorError
 from eleanor.kernel.settings import KernelSettings
 from eleanor.order import Order, Suppression, load_order
 from eleanor.parameters import ValueParameter
+from eleanor.variable_space import Point as VSPoint
 
 
 def _minimal_raw(**overrides):
@@ -486,3 +488,178 @@ def test_order_rng_is_not_a_dataclass_field() -> None:
     _ = order.rng
 
     assert "rng" not in {f.name for f in fields(order)}
+
+
+def _sentinel_vs_points() -> list[VSPoint]:
+    """``load_order`` only rebinds ``vs_points``, so an opaque marker list suffices."""
+    return cast(list[VSPoint], cast(object, [object()]))
+
+
+def test_load_order_leaves_every_field_alone_when_no_overrides_given() -> None:
+    order = _make_order(raw=_minimal_raw(seed=11, tags=["raw-tag"]))
+    create_date, vs_points = order.create_date, order.vs_points
+
+    returned = load_order(order)
+
+    assert returned is order
+    assert order.seed == 11
+    assert order.tags == ["raw-tag"]
+    assert order.create_date == create_date
+    assert order.vs_points is vs_points
+
+
+def test_load_order_overrides_seed_on_an_order_instance() -> None:
+    order = _make_order(seed=11)
+    _ = order.rng
+
+    _ = load_order(order, seed=99)
+
+    assert order.seed == 99
+
+
+def test_load_order_seed_override_invalidates_the_cached_rng() -> None:
+    """The stale generator must not survive a reseed."""
+    order = _make_order(seed=11)
+    _ = order.rng.random(3)
+
+    _ = load_order(order, seed=99)
+
+    assert order.rng.random(3).tolist() == np.random.default_rng(99).random(3).tolist()
+
+
+def test_load_order_overrides_seed_when_the_rng_was_never_accessed() -> None:
+    order = _make_order(seed=11)
+
+    _ = load_order(order, seed=99)
+
+    assert order.seed == 99
+    assert order.rng.random(3).tolist() == np.random.default_rng(99).random(3).tolist()
+
+
+def test_load_order_seed_zero_is_applied_as_an_override() -> None:
+    """A falsy-but-explicit seed must not be read as 'no override'."""
+    order = _make_order(seed=11)
+    _ = order.rng
+
+    _ = load_order(order, seed=0)
+
+    assert order.seed == 0
+
+
+def test_load_order_overrides_tags_on_an_order_instance() -> None:
+    order = _make_order(raw=_minimal_raw(tags=["raw-tag"]))
+
+    _ = load_order(order, tags=["kwarg-tag"])
+
+    assert order.tags == ["kwarg-tag"]
+
+
+def test_load_order_tags_override_accepts_a_scalar_string() -> None:
+    order = _make_order(raw=_minimal_raw(tags=["raw-tag"]))
+
+    _ = load_order(order, tags="experiment-1")
+
+    assert order.tags == ["experiment-1"]
+
+
+def test_load_order_tags_override_deduplicates_and_drops_empties() -> None:
+    order = _make_order()
+
+    _ = load_order(order, tags=["foo", "", "bar", "foo"])
+
+    assert order.tags == ["foo", "bar"]
+
+
+def test_load_order_tags_override_of_only_empty_strings_clears_the_tags() -> None:
+    """``_prepare_tags`` returns ``[]`` rather than ``None``, so the override still lands."""
+    order = _make_order(raw=_minimal_raw(tags=["raw-tag"]))
+
+    _ = load_order(order, tags=[""])
+
+    assert order.tags == []
+
+
+def test_load_order_rejects_a_non_string_tags_override() -> None:
+    order = _make_order(raw=_minimal_raw(tags=["raw-tag"]))
+
+    with pytest.raises(EleanorError, match="tags must be a string or list of strings"):
+        _ = load_order(order, tags=cast(list[str], cast(object, 123)))
+
+    assert order.tags == ["raw-tag"]
+
+
+def test_load_order_overrides_create_date_on_an_order_instance() -> None:
+    order = _make_order()
+    stamp = datetime(2020, 1, 2, 3, 4, 5)
+
+    _ = load_order(order, create_date=stamp)
+
+    assert order.create_date == stamp
+
+
+def test_load_order_overrides_vs_points_on_an_order_instance() -> None:
+    order = _make_order()
+    points = _sentinel_vs_points()
+
+    _ = load_order(order, vs_points=points)
+
+    assert order.vs_points is points
+
+
+def test_load_order_empty_vs_points_override_is_ignored() -> None:
+    """``[]`` is falsy but not ``None``; the guard is ``is not None``, so it still applies."""
+    order = _make_order(vs_points=_sentinel_vs_points())
+
+    _ = load_order(order, vs_points=[])
+
+    assert order.vs_points == []
+
+
+def test_load_order_applies_every_override_in_one_call() -> None:
+    order = _make_order(raw=_minimal_raw(seed=11, tags=["raw-tag"]))
+    _ = order.rng
+    stamp = datetime(2020, 1, 2, 3, 4, 5)
+    points = _sentinel_vs_points()
+
+    returned = load_order(order, seed=99, tags="kwarg-tag", create_date=stamp, vs_points=points)
+
+    assert returned is order
+    assert order.seed == 99
+    assert order.tags == ["kwarg-tag"]
+    assert order.create_date == stamp
+    assert order.vs_points is points
+
+
+def test_load_order_mutates_in_place_rather_than_copying() -> None:
+    """Callers holding the original reference must see the overrides."""
+    order = _make_order(seed=11)
+    _ = order.rng
+
+    returned = load_order(order, seed=99, tags="t")
+
+    assert returned is order
+    assert (order.seed, order.tags) == (99, ["t"])
+
+
+def test_load_order_forwards_overrides_to_the_file_loader() -> None:
+    order = _make_order()
+    stamp = datetime(2020, 1, 2, 3, 4, 5)
+    points = _sentinel_vs_points()
+
+    with mock.patch("eleanor.order.Order.from_file", return_value=order) as from_file:
+        returned = load_order("o.yaml", seed=99, tags="t", create_date=stamp, vs_points=points)
+
+    assert returned is order
+    from_file.assert_called_once_with("o.yaml", seed=99, tags="t", create_date=stamp, vs_points=points)
+
+
+def test_load_order_does_not_re_apply_overrides_after_loading_from_a_file() -> None:
+    """The file loader owns the overrides; the instance branch must not run as well."""
+    order = _make_order(raw=_minimal_raw(seed=11, tags=["from-file"]))
+
+    with mock.patch("eleanor.order.Order.from_file", return_value=order):
+        returned = load_order("o.yaml", seed=99, tags="ignored")
+
+    assert returned is order
+    assert order.seed == 11
+    assert order.tags == ["from-file"]

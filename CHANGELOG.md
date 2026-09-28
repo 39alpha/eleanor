@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.22.0] - 2026-09-28
+
 ### Added
 
 - **Orders carry a top-level `seed`**, generated when omitted, and expose an `Order.rng` seeded

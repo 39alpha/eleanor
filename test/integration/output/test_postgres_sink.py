@@ -704,7 +704,7 @@ class TestRepositoriesIntegration(_RealPostgresTestCase):
         # bind params per chunk -> 4 chunks for 80 rows. The point is to force
         # multiple ``execute`` calls inside one ``insert_point`` invocation so
         # we exercise the chunk-concatenation code path against real Postgres.
-        with (conn.transaction(savepoint_name="vs_chunk")):
+        with conn.transaction(savepoint_name="vs_chunk"):
             _ = repositories.insert_point(conn, order_id, point)
 
         with conn.cursor() as cur:

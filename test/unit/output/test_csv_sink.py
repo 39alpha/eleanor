@@ -15,6 +15,7 @@ from eleanor.exceptions import EleanorError
 from eleanor.kernel.settings import KernelSettings
 from eleanor.order import Order
 from eleanor.output import ComputeResult
+import eleanor.output.csv as csv_sink_module
 from eleanor.output.csv import CsvSink, CsvSinkSettings, _binary_columns, _schema_path
 from eleanor.output.interface import ErrorInfo
 from eleanor.query import compile_query
@@ -282,7 +283,10 @@ class TestCsvSink(TestCase):
                 writer.writerow(["exit_code"])
                 writer.writerow(["not-an-int"])
             with open(_schema_path(filename), "w") as handle:
-                yaml.safe_dump({"query": _query_without_order_id()}, handle, sort_keys=False)
+                yaml.safe_dump({
+                    "eleanor_version": version,
+                    "query": _query_without_order_id(),
+                }, handle, sort_keys=False)
             sink = CsvSink(_settings(filename, _query_without_order_id(), id_columns=[]))
             sink.initialize()
             self.assertIsInstance(sink.begin_run(_minimal_order()), UUID)
@@ -334,8 +338,11 @@ class TestCsvSink(TestCase):
     def test_initialize_rejects_a_file_written_by_another_eleanor(self) -> None:
         """Ensure appending to a file from a different Eleanor version is refused.
 
-        The columns a query projects are version-dependent, so continuing one
-        file across an upgrade would put rows of two shapes under one header.
+        Two Eleanor versions are not guaranteed to produce numerically
+        identical results, and a CSV has nowhere to record which build wrote
+        which row -- unlike ``orders.eleanor_version`` on the postgres side,
+        which keeps every run attributable. So a mixed-version file cannot be
+        disentangled afterwards, and the sink refuses to create one.
         """
         with tempfile.TemporaryDirectory() as tmpdir:
             filename = Path(tmpdir) / "rows.csv"
@@ -364,6 +371,46 @@ class TestCsvSink(TestCase):
             sink.initialize()
             self.assertIsInstance(sink.begin_run(_minimal_order()), UUID)
 
+    def test_initialize_accepts_a_sidecar_from_another_dev_build_of_this_release(self) -> None:
+        """Ensure the dev suffix is normalised away before versions are compared.
+
+        ``vcs-versioning`` stamps every commit with its own
+        ``.devN+g<hash>``, so without this an unreleased build could not
+        append to a file written by the build before it.
+        """
+        with tempfile.TemporaryDirectory() as tmpdir:
+            filename = Path(tmpdir) / "rows.csv"
+            with open(filename, "w", newline="") as handle:
+                csv.writer(handle).writerow(["order_id", "exit_code"])
+            _write_sidecar(
+                filename,
+                _query_exit_code(),
+                vs_points_seen={},
+                eleanor_version="0.21.2.dev1+gaaaaaaaaa",
+            )
+
+            with mock.patch.object(csv_sink_module, "__version__", "0.21.2.dev9+gbbbbbbbbb"):
+                sink = CsvSink(_settings(filename))
+                sink.initialize()
+                self.assertIsInstance(sink.begin_run(_minimal_order()), UUID)
+
+    def test_initialize_still_rejects_a_prior_release_from_a_dev_build(self) -> None:
+        """Ensure normalising the dev suffix did not widen the guard across releases.
+
+        Only the pre-release noise within one version is discarded; the
+        release component itself must still match.
+        """
+        with tempfile.TemporaryDirectory() as tmpdir:
+            filename = Path(tmpdir) / "rows.csv"
+            with open(filename, "w", newline="") as handle:
+                csv.writer(handle).writerow(["order_id", "exit_code"])
+            _write_sidecar(filename, _query_exit_code(), vs_points_seen={}, eleanor_version="0.21.1")
+
+            with mock.patch.object(csv_sink_module, "__version__", "0.21.2.dev9+gbbbbbbbbb"):
+                sink = CsvSink(_settings(filename))
+                with self.assertRaisesRegex(EleanorError, "different version of eleanor"):
+                    sink.initialize()
+
     def test_initialize_rejects_a_non_string_eleanor_version(self) -> None:
         """Ensure a sidecar whose version is not a string is refused by name."""
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -385,12 +432,13 @@ class TestCsvSink(TestCase):
             with self.assertRaisesRegex(EleanorError, "invalid eleanor_version"):
                 sink.initialize()
 
-    def test_initialize_accepts_a_sidecar_with_no_eleanor_version(self) -> None:
-        """Ensure a sidecar carrying no version is read as this version.
+    def test_initialize_rejects_a_sidecar_with_no_eleanor_version(self) -> None:
+        """Ensure a sidecar carrying no version is refused rather than assumed.
 
-        The key is absent only in a sidecar written before it existed, and
-        treating that as a mismatch would strand those files behind an error
-        naming a version they never recorded.
+        The key is absent only in a sidecar written before it existed, so
+        defaulting it to the running version would wave through exactly the
+        upgrade it exists to catch: pre-upgrade rows and post-upgrade rows
+        under one header, with nothing recording that they differ.
         """
         with tempfile.TemporaryDirectory() as tmpdir:
             filename = Path(tmpdir) / "rows.csv"
@@ -404,8 +452,41 @@ class TestCsvSink(TestCase):
                 )
 
             sink = CsvSink(_settings(filename))
-            sink.initialize()
-            self.assertIsInstance(sink.begin_run(_minimal_order()), UUID)
+            with self.assertRaisesRegex(EleanorError, "cannot append to files"):
+                sink.initialize()
+
+    def test_initialize_rejects_a_v0_21_1_sidecar(self) -> None:
+        """Ensure a sidecar in the shape a released Eleanor actually wrote is refused.
+
+        Regression test. ``eleanor_version`` replaced the per-id
+        ``order_versions`` map, so every sidecar written by a release up to
+        v0.21.1 carries ``order_versions`` and no ``eleanor_version`` at all.
+        That is the only shape a real upgrade encounters, and it is the shape
+        the guard has to reject -- when the missing key defaulted to the
+        running version, this file was the one that slipped through while a
+        sidecar naming any *other* version was correctly refused.
+        """
+        with tempfile.TemporaryDirectory() as tmpdir:
+            filename = Path(tmpdir) / "rows.csv"
+            old_id = "8c1cf4f0-c37f-4a2f-9a4d-6a5f4a0f1d2b"
+            with open(filename, "w", newline="") as handle:
+                writer = csv.writer(handle)
+                writer.writerow(["order_id", "exit_code"])
+                writer.writerow([old_id, "0"])
+            with open(_schema_path(filename), "w") as handle:
+                yaml.safe_dump(
+                    {
+                        "query": _query_exit_code(),
+                        "vs_points_seen": {old_id: 1},
+                        "order_versions": {old_id: "0.21.1"},
+                    },
+                    handle,
+                    sort_keys=False,
+                )
+
+            sink = CsvSink(_settings(filename))
+            with self.assertRaisesRegex(EleanorError, "cannot append to files"):
+                sink.initialize()
 
     def test_begin_run_issues_distinct_ids_for_distinct_orders(self) -> None:
         """Ensure distinct order objects each get their own id and counter entry."""

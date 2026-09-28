@@ -1,5 +1,6 @@
 import copy
 import csv
+import re
 import sys
 import traceback
 import uuid
@@ -11,7 +12,6 @@ from typing import Self, cast, override
 import yaml
 
 import eleanor.variable_space as vs
-from eleanor import version
 from eleanor.exceptions import EleanorError
 from eleanor.order import Order
 from eleanor.output.interface import AbstractOutputSink, ComputeResult, WriteOutcome
@@ -21,6 +21,7 @@ from eleanor.query import CompiledQuery, compile_query, evaluate
 from eleanor.query.reflection import DataclassField, LeafField
 from eleanor.typing import StrPath
 from eleanor.util import guard_is_dict, guard_is_path, is_list_of, require_dict, require_path
+from eleanor.version import __version__
 
 ID_COLUMNS: frozenset[str] = frozenset({"order_id", "point_id"})
 
@@ -122,10 +123,10 @@ def _require_vs_points_seen(schema: dict[str, object], schema_path: Path) -> dic
     return cast(dict[str, int], vs_points_seen)
 
 
-def _require_eleanor_version(schema: dict[str, object], schema_path: Path) -> str:
-    eleanor_version = schema.get("eleanor_version", version)
+def _require_eleanor_version(schema: dict[str, object], schema_path: Path) -> str | None:
+    eleanor_version = schema.get("eleanor_version")
 
-    if not isinstance(eleanor_version, str):
+    if eleanor_version is not None and not isinstance(eleanor_version, str):
         msg = f"csv schema {schema_path!r} has invalid eleanor_version"
         raise EleanorError(msg)
 
@@ -141,7 +142,7 @@ def _write_schema(
     payload = {
         "query": query,
         "vs_points_seen": vs_points_seen,
-        "eleanor_version": version,
+        "eleanor_version": __version__,
     }
     with schema_path.open("w") as handle:
         yaml.safe_dump(payload, handle, sort_keys=False)
@@ -276,6 +277,14 @@ class CsvPrepared:
     error: str | None = None
 
 
+def _release_version(version: str) -> str:
+    """Determine the most recent major.minor.patch version from a version string.
+
+    This amounts to dropping the dev version and git commit hash if they exist.
+    """
+    return re.sub(r"\.dev.*$", "", version)
+
+
 class CsvSink(AbstractOutputSink[uuid.UUID]):
     """Appends query-projected rows to a CSV file, with a YAML sidecar.
 
@@ -358,7 +367,7 @@ class CsvSink(AbstractOutputSink[uuid.UUID]):
         self._vs_points_seen = _require_vs_points_seen(schema, schema_file)
 
         eleanor_version = _require_eleanor_version(schema, schema_file)
-        if eleanor_version != version:
+        if eleanor_version is None or _release_version(eleanor_version) != _release_version(__version__):
             msg = "csv sink cannot append to files generated under a different version of eleanor"
             raise EleanorError(msg)
 

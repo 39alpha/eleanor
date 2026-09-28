@@ -1,3 +1,7 @@
+import io
+import zipfile
+from pathlib import Path
+from tempfile import TemporaryDirectory
 from typing import cast
 from types import SimpleNamespace
 from unittest import TestCase, mock
@@ -331,6 +335,64 @@ class TestRunner(TestCase):
             scratch = Runner.collect_scratch(".")
         assert scratch is not None
         self.assertEqual(scratch.zip, bytes("\0", "ascii"))
+
+    def test_collect_scratch_preserves_nested_paths(self) -> None:
+        """
+        Ensure files in subdirectories are archived under their path relative to the scratch root.
+
+        copy_data archives a data1 at its path relative to the data1 dir, so the scratch
+        directory is no longer flat.
+        """
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "sub").mkdir()
+            _ = (root / "sub" / "foo.d1").write_text("nested")
+            _ = (root / "problem.3o").write_text("output")
+
+            scratch = Runner.collect_scratch(root)
+
+            assert scratch is not None
+            with zipfile.ZipFile(io.BytesIO(scratch.zip)) as archive:
+                self.assertEqual(sorted(archive.namelist()), ["problem.3o", "sub/foo.d1"])
+                self.assertEqual(archive.read("sub/foo.d1"), b"nested")
+
+    def test_collect_scratch_does_not_follow_directory_symlinks(self) -> None:
+        """
+        Ensure a symlinked directory is not descended into.
+
+        Following one risks an unbounded walk if it points at an ancestor, which would hang the
+        worker rather than fail into the null-byte payload. Path.walk reports a symlinked
+        directory among its *files* when follow_symlinks is false, so the link is recorded as a
+        bare directory entry and its target is never traversed.
+        """
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "real").mkdir()
+            _ = (root / "real" / "kept.txt").write_text("kept")
+            (root / "loop").symlink_to(root, target_is_directory=True)
+
+            scratch = Runner.collect_scratch(root)
+
+            assert scratch is not None
+            with zipfile.ZipFile(io.BytesIO(scratch.zip)) as archive:
+                self.assertEqual(sorted(archive.namelist()), ["loop/", "real/kept.txt"])
+
+    def test_collect_scratch_stores_the_contents_of_file_symlinks(self) -> None:
+        """
+        Ensure a symlinked file is archived by content, so a linked data1 is not stored empty.
+        """
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            outside = Path(tmp) / "outside.d1"
+            _ = outside.write_text("far")
+            (root / "nested").mkdir()
+            (root / "nested" / "link.d1").symlink_to(outside)
+
+            scratch = Runner.collect_scratch(root / "nested")
+
+            assert scratch is not None
+            with zipfile.ZipFile(io.BytesIO(scratch.zip)) as archive:
+                self.assertEqual(archive.read("link.d1"), b"far")
 
 
 class TestRunnerFanOutOrdering(TestCase):

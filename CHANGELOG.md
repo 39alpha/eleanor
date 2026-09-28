@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Data1 paths the kernel selects are recorded relative to the data1 directory.** An order stored
+  by a run no longer carries a host-specific absolute path, so it names the same data1 file on
+  another machine. Scratch archives mirror that relative layout.
+
 ### Fixed
 
 - **Do not parse Grand Summary of Solid Phases** from EQ6 output. Those values include the quantity

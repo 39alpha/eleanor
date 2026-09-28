@@ -1,10 +1,11 @@
+import contextlib
 import io
 import os
 import sys
+import warnings
 from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
-from shutil import copyfile
 from typing import TextIO, Unpack, cast, override
 
 import numpy as np
@@ -20,7 +21,7 @@ from eleanor.kernel.eq36.exec import eq3, eq6
 from eleanor.kernel.eq36.parsers import OutputParser3, OutputParser6
 from eleanor.kernel.eq36.settings import FILTER_OPERATIONS, IOPT_1, IOPT_4, Eq3Settings, Eq6Settings, Eq36Settings
 from eleanor.kernel.eq36.util import read_pickup_lines
-from eleanor.kernel.exceptions import EleanorKernelError
+from eleanor.kernel.exceptions import EleanorKernelError, EleanorKernelWarning
 from eleanor.kernel.interface import AbstractKernel
 from eleanor.order import Order
 from eleanor.query import CompiledQuery, compile_query, evaluate
@@ -110,10 +111,12 @@ def _matches_query(query: CompiledQuery) -> Callable[[es.Point], bool]:
 class Eq36Kernel(AbstractKernel):
     _setup: bool
     _data1s: list[Data1]
+    _data1_dir: Path | None
 
     def __init__(self) -> None:
         self._setup = False
         self._data1s = []
+        self._data1_dir = None
 
     @override
     def is_soft_exit(self, code: int) -> bool:
@@ -130,6 +133,22 @@ class Eq36Kernel(AbstractKernel):
                 overlap with any of the temperature-pressure curves specified in the provided data1 files."""
             raise EleanorError(msg)
 
+    def _relative_to_data1_dir(self, filename: Path, verbose: bool = False) -> Path:
+        if self._data1_dir is not None:
+            with contextlib.suppress(ValueError):
+                return filename.relative_to(self._data1_dir)
+
+            if verbose:
+                msg = f"failed to resolve data1 file {filename!r} relative to the data1 directory; using absolute path"
+                warnings.warn(msg, EleanorKernelWarning, stacklevel=2)
+
+        return self._absolute_under_data1_dir(filename)
+
+    def _absolute_under_data1_dir(self, filename: Path) -> Path:
+        root = self._data1_dir if self._data1_dir is not None else Path.cwd()
+        base = filename if filename.is_absolute() else root / filename
+        return Path(os.path.normpath(base))
+
     @override
     def copy_data(
         self,
@@ -138,13 +157,25 @@ class Eq36Kernel(AbstractKernel):
         dir: StrPath = ".",
         **kwargs: Unpack[EleanorKwargs],
     ) -> None:
-        dir = Path(dir)
+        dir = Path(dir).absolute()
         verbose = kwargs.get("verbose", False)
         settings = self.resolve_kernel_settings(vs_point)
         if settings.data1_file is None:
             data1 = self.find_data1(vs_point, verbose=verbose)
-            settings.data1_file = data1.filename
-        _ = copyfile(settings.data1_file, dir / settings.data1_file.name)
+            settings.data1_file = self._relative_to_data1_dir(data1.filename, verbose=verbose)
+
+        src = self._absolute_under_data1_dir(settings.data1_file)
+
+        dst = dir / (
+            self._relative_to_data1_dir(src)
+            if self._data1_dir is not None and self._data1_dir in src.parents
+            else settings.data1_file.name
+        )
+        dst = Path(os.path.normpath(dst))
+
+        if src != dst:
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            _ = src.copy(dst)
 
     @override
     def get_atomic_weight(self, element: str) -> np.float64 | None:
@@ -204,7 +235,10 @@ class Eq36Kernel(AbstractKernel):
             if not data1_dir.exists() and global_data1_dir is not None:
                 data1_dir = Path(global_data1_dir) / data1_dir
 
+        data1_dir = data1_dir.resolve()
+
         self._setup = False
+        self._data1_dir = data1_dir
         self._data1s = []
 
         temp_range = order.temperature.range()
@@ -213,7 +247,7 @@ class Eq36Kernel(AbstractKernel):
         with tool_room.WorkingDirectory(data1_dir):
             _, data1_files, *_ = tool_room.find_files(".d1")
             for file in data1_files:
-                data1 = Data1.from_file(file.resolve())
+                data1 = Data1.from_file(file.absolute())
                 if data1.tp_curve is not None and data1.tp_curve.set_domain(temp_range, press_range):
                     self._data1s.append(data1)
 
@@ -308,13 +342,13 @@ class Eq36Kernel(AbstractKernel):
             settings = self.resolve_kernel_settings(vs_point)
             if settings.data1_file is None:
                 data1 = self.find_data1(vs_point, verbose=verbose)
-                settings.data1_file = data1.filename
+                settings.data1_file = self._relative_to_data1_dir(data1.filename, verbose=verbose)
             else:
-                data1 = Data1.from_file(settings.data1_file)
+                data1 = Data1.from_file(self._absolute_under_data1_dir(settings.data1_file))
 
             start_date = datetime.now()
             eq3_input_path = self.write_eq3_input(vs_point, data1, verbose=verbose)
-            _ = eq3(settings.data1_file, eq3_input_path, timeout=settings.timeout)
+            _ = eq3(data1.filename, eq3_input_path, timeout=settings.timeout)
             eq3_results = self.read_eq3_output()
             complete_date = datetime.now()
             eq3_results.start_date, eq3_results.complete_date = start_date, complete_date
@@ -325,7 +359,7 @@ class Eq36Kernel(AbstractKernel):
                 start_date = datetime.now()
                 pickup_lines = read_pickup_lines()
                 eq6_input_path = self.write_eq6_input(vs_point, pickup_lines=pickup_lines, verbose=verbose)
-                _ = eq6(settings.data1_file, eq6_input_path, timeout=settings.timeout)
+                _ = eq6(data1.filename, eq6_input_path, timeout=settings.timeout)
                 eq6_results = self.read_eq6_output(track_path=settings.track_path)
                 complete_date = datetime.now()
                 for point in eq6_results:

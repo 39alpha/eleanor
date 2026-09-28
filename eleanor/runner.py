@@ -113,8 +113,10 @@ class Runner:
         try:
             buffer = io.BytesIO()
             with zipfile.ZipFile(buffer, "w", compression=zipfile.ZIP_BZIP2, allowZip64=True, compresslevel=9) as zip:
-                for filename in Path(dir).iterdir():
-                    zip.write(filename, filename.name)
+                for root, _dirs, files in Path(dir).walk():
+                    for name in files:
+                        path = root / name
+                        zip.write(path, path.relative_to(dir))
             return vs.Scratch(zip=buffer.getvalue())
         except Exception:
             return vs.Scratch(zip=bytes("\0", "ascii"))

@@ -10,4 +10,10 @@ class EleanorKernelError(EleanorError):
         self.code = require_int(code if code is not None else 1, "code")
 
 
-__all__ = ["EleanorKernelError"]
+class EleanorKernelWarning(UserWarning): ...
+
+
+__all__ = [
+    "EleanorKernelError",
+    "EleanorKernelWarning",
+]

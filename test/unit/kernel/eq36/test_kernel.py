@@ -1,6 +1,9 @@
 import contextlib
 import io
+import warnings
+from collections.abc import Iterator
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 from typing import cast
 from unittest import TestCase, mock
@@ -28,7 +31,7 @@ from eleanor.kernel.eq36.settings import (
     Eq36Settings,
     FILTER_OPERATIONS,
 )
-from eleanor.kernel.exceptions import EleanorKernelError
+from eleanor.kernel.exceptions import EleanorKernelError, EleanorKernelWarning
 from eleanor.kernel.settings import KernelSettings
 from eleanor.order import Order
 from eleanor.parameters import Parameter
@@ -355,7 +358,7 @@ class TestEq36Kernel(TestCase):
         kernel = self._kernel()
         settings = self._settings(with_eq6=False)
         point = _make_point(settings)
-        found_data1 = SimpleNamespace(filename="/tmp/found/run.d1")
+        found_data1 = SimpleNamespace(filename=Path("/tmp/found/run.d1"))
         eq3_result = SimpleNamespace(stage="eq3")
 
         with (
@@ -376,9 +379,9 @@ class TestEq36Kernel(TestCase):
 
         resolve.assert_called_once_with(point)
         find_data1.assert_called_once_with(point, verbose=True)
-        self.assertEqual(settings.data1_file, "/tmp/found/run.d1")
+        self.assertEqual(settings.data1_file, Path("/tmp/found/run.d1"))
         write_eq3_input.assert_called_once_with(point, found_data1, verbose=True)
-        eq3_mock.assert_called_once_with("/tmp/found/run.d1", "problem.3i", timeout=settings.timeout)
+        eq3_mock.assert_called_once_with(Path("/tmp/found/run.d1"), "problem.3i", timeout=settings.timeout)
         read_eq3_output.assert_called_once_with()
         eq6_mock.assert_not_called()
         read_pickup_lines.assert_not_called()
@@ -519,19 +522,26 @@ class TestEq36Kernel(TestCase):
         """
         kernel = self._kernel()
         settings = self._settings()
-        settings.data1_file = Path("/tmp").joinpath("source", "testdata.d1")
         point = _make_point(settings)
 
-        with (
-            mock.patch.object(kernel, "resolve_kernel_settings", return_value=settings) as resolve,
-            mock.patch.object(kernel, "find_data1") as find_data1,
-            mock.patch("eleanor.kernel.eq36.kernel.copyfile") as copyfile_mock,
-        ):
-            kernel.copy_data(point, dir="target")
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            source = root / "source" / "testdata.d1"
+            source.parent.mkdir()
+            _ = source.write_text("data1")
+            target = root / "target"
+            target.mkdir()
+            settings.data1_file = source
 
-        resolve.assert_called_once_with(point)
-        find_data1.assert_not_called()
-        copyfile_mock.assert_called_once_with(Path("/tmp/source/testdata.d1"), Path("target/testdata.d1"))
+            with (
+                mock.patch.object(kernel, "resolve_kernel_settings", return_value=settings) as resolve,
+                mock.patch.object(kernel, "find_data1") as find_data1,
+            ):
+                kernel.copy_data(point, dir=target)
+
+            resolve.assert_called_once_with(point)
+            find_data1.assert_not_called()
+            self.assertEqual((target / "testdata.d1").read_text(), "data1")
 
     def test_copy_data_finds_data1_when_missing_and_updates_settings(self) -> None:
         """
@@ -540,19 +550,28 @@ class TestEq36Kernel(TestCase):
         kernel = self._kernel()
         settings = self._settings()
         point = _make_point(settings)
-        found = SimpleNamespace(filename=Path("/tmp/found/fresh.d1"))
 
-        with (
-            mock.patch.object(kernel, "resolve_kernel_settings", return_value=settings) as resolve,
-            mock.patch.object(kernel, "find_data1", return_value=found) as find_data1,
-            mock.patch("eleanor.kernel.eq36.kernel.copyfile") as copyfile_mock,
-        ):
-            kernel.copy_data(point, dir="target", verbose=True)
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            source = root / "found" / "fresh.d1"
+            source.parent.mkdir()
+            _ = source.write_text("fresh")
+            target = root / "target"
+            target.mkdir()
+            found = SimpleNamespace(filename=source)
 
-        resolve.assert_called_once_with(point)
-        find_data1.assert_called_once_with(point, verbose=True)
-        self.assertEqual(settings.data1_file, Path("/tmp/found/fresh.d1"))
-        copyfile_mock.assert_called_once_with(Path("/tmp/found/fresh.d1"), Path("target/fresh.d1"))
+            with (
+                mock.patch.object(kernel, "resolve_kernel_settings", return_value=settings) as resolve,
+                mock.patch.object(kernel, "find_data1", return_value=found) as find_data1,
+            ):
+                kernel.copy_data(point, dir=target, verbose=True)
+
+            resolve.assert_called_once_with(point)
+            find_data1.assert_called_once_with(point, verbose=True)
+            # With no data1 dir configured there is nothing to relativize against, so the
+            # absolute path is recorded and the copy lands flat in the target directory.
+            self.assertEqual(settings.data1_file, source)
+            self.assertEqual((target / "fresh.d1").read_text(), "fresh")
 
     def test_setup_filters_data1_files_that_intersect_target_domain(self) -> None:
         """
@@ -582,7 +601,8 @@ class TestEq36Kernel(TestCase):
         ):
             kernel.setup(cast(Order, order), data1_dir=("."))
 
-        wd_mock.assert_called_once_with(Path("."))
+        wd_mock.assert_called_once_with(Path.cwd())
+        self.assertEqual(kernel._data1_dir, Path.cwd())
         find_files_mock.assert_called_once_with(".d1")
         rejected.tp_curve.set_domain.assert_called_once_with((1.0, 2.0), (3.0, 4.0))
         accepted.tp_curve.set_domain.assert_called_once_with((1.0, 2.0), (3.0, 4.0))
@@ -1532,3 +1552,310 @@ class TestEq36Kernel(TestCase):
         self.assertEqual(len(output), 2)
         self.assertIs(output[0], kept_eq3)
         self.assertIs(output[1], kept_absent_eq6)
+
+
+class TestEq36KernelData1Paths(TestCase):
+    """
+    Tests of data1 path handling: what the kernel stores, what it executes against,
+    and where it archives the data1 file.
+    """
+
+    def _settings(self, with_eq6: bool = True) -> Eq36Settings:
+        return Eq36Settings(
+            model=IOPG_1.B_DOT,
+            charge_balance="Cl-",
+            eq3_config=Eq3Settings(),
+            eq6_config=Eq6Settings() if with_eq6 else None,
+        )
+
+    def _kernel(self, data1_dir: Path | None) -> Eq36Kernel:
+        kernel = Eq36Kernel()
+        kernel._setup = True
+        kernel._data1_dir = data1_dir
+        return kernel
+
+    # -- _relative_to_data1_dir ------------------------------------------------
+
+    def test_relative_to_data1_dir_relativizes_a_path_under_the_data1_dir(self) -> None:
+        """
+        Ensure a data1 below the data1 dir is recorded relative to it, subdirectories included.
+        """
+        kernel = self._kernel(Path("/opt/d1s"))
+        self.assertEqual(kernel._relative_to_data1_dir(Path("/opt/d1s/sub/foo.d1")), Path("sub/foo.d1"))
+        self.assertEqual(kernel._relative_to_data1_dir(Path("/opt/d1s/foo.d1")), Path("foo.d1"))
+
+    def test_relative_to_data1_dir_falls_back_to_absolute_outside_the_data1_dir(self) -> None:
+        """
+        Ensure a data1 outside the data1 dir yields an absolute path rather than raising.
+        """
+        kernel = self._kernel(Path("/opt/d1s"))
+        self.assertEqual(kernel._relative_to_data1_dir(Path("/other/foo.d1")), Path("/other/foo.d1"))
+
+    def test_relative_to_data1_dir_warns_only_when_verbose(self) -> None:
+        """
+        Ensure the out-of-tree fallback warns under verbose and stays silent otherwise.
+        """
+        kernel = self._kernel(Path("/opt/d1s"))
+
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            _ = kernel._relative_to_data1_dir(Path("/other/foo.d1"), verbose=True)
+        self.assertEqual(len(caught), 1)
+        self.assertIs(caught[0].category, EleanorKernelWarning)
+        self.assertIn("using absolute path", str(caught[0].message))
+
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            _ = kernel._relative_to_data1_dir(Path("/other/foo.d1"))
+        self.assertEqual(caught, [])
+
+    def test_relative_to_data1_dir_without_a_data1_dir_returns_an_absolute_path(self) -> None:
+        """
+        Ensure the helper resolves against the cwd when no data1 dir has been configured.
+        """
+        kernel = self._kernel(None)
+        self.assertEqual(kernel._relative_to_data1_dir(Path("foo.d1")), Path("foo.d1").resolve())
+
+    # -- _absolute_under_data1_dir ---------------------------------------------
+
+    def test_absolute_under_data1_dir_joins_relative_paths_to_the_data1_dir(self) -> None:
+        """
+        Ensure a stored relative data1 path is resolved against the data1 dir, not the cwd.
+        """
+        kernel = self._kernel(Path("/opt/d1s"))
+        self.assertEqual(kernel._absolute_under_data1_dir(Path("sub/foo.d1")), Path("/opt/d1s/sub/foo.d1"))
+
+    def test_absolute_under_data1_dir_passes_absolute_paths_through(self) -> None:
+        """
+        Ensure an absolute data1 path is left alone rather than joined to the data1 dir.
+        """
+        kernel = self._kernel(Path("/opt/d1s"))
+        self.assertEqual(kernel._absolute_under_data1_dir(Path("/other/foo.d1")), Path("/other/foo.d1"))
+
+    def test_absolute_under_data1_dir_without_a_data1_dir_resolves_against_the_cwd(self) -> None:
+        """
+        Ensure the helper falls back to cwd resolution when no data1 dir has been configured.
+        """
+        kernel = self._kernel(None)
+        self.assertEqual(kernel._absolute_under_data1_dir(Path("foo.d1")), Path("foo.d1").resolve())
+
+    # -- copy_data destinations ------------------------------------------------
+
+    @contextlib.contextmanager
+    def _sandbox(self) -> Iterator[SimpleNamespace]:
+        """A data1 dir holding a nested and a top-level data1, a sibling tree, and a scratch dir."""
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            d1s = root / "d1s"
+            (d1s / "sub").mkdir(parents=True)
+            _ = (d1s / "sub" / "foo.d1").write_text("nested")
+            _ = (d1s / "top.d1").write_text("top")
+            outside = root / "outside"
+            outside.mkdir()
+            _ = (outside / "far.d1").write_text("far")
+            scratch = root / "scratch"
+            scratch.mkdir()
+            yield SimpleNamespace(root=root, d1s=d1s, outside=outside, scratch=scratch)
+
+    def _copy_data(self, kernel: Eq36Kernel, settings: Eq36Settings, dir: Path) -> None:
+        point = _make_point(settings)
+        with mock.patch.object(kernel, "resolve_kernel_settings", return_value=settings):
+            kernel.copy_data(point, dir=dir)
+
+    def test_copy_data_preserves_the_hierarchy_for_a_relative_data1_file(self) -> None:
+        """
+        Ensure a data1 recorded relative to the data1 dir is archived at that same relative path.
+        """
+        with self._sandbox() as box:
+            kernel = self._kernel(box.d1s)
+            settings = self._settings()
+            settings.data1_file = Path("sub/foo.d1")
+
+            self._copy_data(kernel, settings, box.scratch)
+
+            self.assertEqual((box.scratch / "sub" / "foo.d1").read_text(), "nested")
+
+    def test_copy_data_preserves_the_hierarchy_for_an_absolute_data1_file_under_the_data1_dir(self) -> None:
+        """
+        Ensure an absolute data1 below the data1 dir is archived nested, not flattened.
+        """
+        with self._sandbox() as box:
+            kernel = self._kernel(box.d1s)
+            settings = self._settings()
+            settings.data1_file = box.d1s / "sub" / "foo.d1"
+
+            self._copy_data(kernel, settings, box.scratch)
+
+            self.assertEqual((box.scratch / "sub" / "foo.d1").read_text(), "nested")
+
+    def test_copy_data_flattens_an_absolute_data1_file_outside_the_data1_dir(self) -> None:
+        """
+        Ensure a data1 with no relative form under the data1 dir is archived flat inside the target.
+        """
+        with self._sandbox() as box:
+            kernel = self._kernel(box.d1s)
+            settings = self._settings()
+            settings.data1_file = box.outside / "far.d1"
+
+            self._copy_data(kernel, settings, box.scratch)
+
+            self.assertEqual((box.scratch / "far.d1").read_text(), "far")
+
+    def test_copy_data_flattens_a_relative_data1_file_that_escapes_the_data1_dir(self) -> None:
+        """
+        Ensure a ``..``-bearing data1 path is archived inside the target rather than beside it.
+        """
+        with self._sandbox() as box:
+            kernel = self._kernel(box.d1s)
+            settings = self._settings()
+            settings.data1_file = Path("../outside/far.d1")
+
+            self._copy_data(kernel, settings, box.scratch)
+
+            self.assertEqual((box.scratch / "far.d1").read_text(), "far")
+            self.assertEqual(sorted(p.name for p in box.root.iterdir()), ["d1s", "outside", "scratch"])
+
+    def test_copy_data_skips_the_copy_when_source_and_destination_coincide(self) -> None:
+        """
+        Ensure archiving into the data1 dir itself is a no-op rather than a same-file copy error.
+        """
+        with self._sandbox() as box:
+            kernel = self._kernel(box.d1s)
+            settings = self._settings()
+            settings.data1_file = Path("top.d1")
+
+            self._copy_data(kernel, settings, box.d1s)
+
+            self.assertEqual((box.d1s / "top.d1").read_text(), "top")
+
+    # -- run ------------------------------------------------------------------
+
+    @contextlib.contextmanager
+    def _eq36_mocks(
+        self,
+        kernel: Eq36Kernel,
+        settings: Eq36Settings,
+        **extra: object,
+    ) -> Iterator[SimpleNamespace]:
+        """Patch out the eq3/eq6 pipeline, yielding the eq3 and eq6 execution mocks."""
+        with (
+            mock.patch.object(kernel, "resolve_kernel_settings", return_value=settings),
+            mock.patch.object(kernel, "write_eq3_input", return_value="problem.3i"),
+            mock.patch("eleanor.kernel.eq36.kernel.eq3") as eq3_mock,
+            mock.patch(
+                "eleanor.kernel.eq36.kernel.Eq36Kernel.read_eq3_output",
+                return_value=SimpleNamespace(stage="eq3"),
+            ),
+            mock.patch("eleanor.kernel.eq36.kernel.read_pickup_lines", return_value=[]),
+            mock.patch.object(kernel, "write_eq6_input", return_value="problem.6i"),
+            mock.patch("eleanor.kernel.eq36.kernel.eq6") as eq6_mock,
+            mock.patch(
+                "eleanor.kernel.eq36.kernel.Eq36Kernel.read_eq6_output",
+                return_value=[SimpleNamespace(stage="eq6")],
+            ),
+        ):
+            yield SimpleNamespace(eq3=eq3_mock, eq6=eq6_mock, **extra)
+
+    def test_run_records_a_relative_data1_file_but_executes_against_the_absolute_path(self) -> None:
+        """
+        Ensure run stores the data1 relative to the data1 dir while handing eq3/eq6 an absolute
+        path. eq3nr and eq6 run with the cwd set to a scratch directory, so a relative path would
+        not resolve for them.
+        """
+        with self._sandbox() as box:
+            kernel = self._kernel(box.d1s)
+            settings = self._settings(with_eq6=True)
+            point = _make_point(settings)
+            found = SimpleNamespace(filename=box.d1s / "sub" / "foo.d1")
+
+            with (
+                mock.patch.object(kernel, "find_data1", return_value=found),
+                self._eq36_mocks(kernel, settings) as mocks,
+            ):
+                _ = kernel.run(point)
+
+            self.assertEqual(settings.data1_file, Path("sub/foo.d1"))
+            mocks.eq3.assert_called_once_with(box.d1s / "sub" / "foo.d1", "problem.3i", timeout=settings.timeout)
+            mocks.eq6.assert_called_once_with(box.d1s / "sub" / "foo.d1", "problem.6i", timeout=settings.timeout)
+
+    def test_run_resolves_a_preconfigured_relative_data1_file_under_the_data1_dir(self) -> None:
+        """
+        Ensure a data1 path carried in on the settings is loaded and executed from under the data1
+        dir, and is left untouched in the settings.
+        """
+        with self._sandbox() as box:
+            kernel = self._kernel(box.d1s)
+            settings = self._settings(with_eq6=False)
+            settings.data1_file = Path("sub/foo.d1")
+            point = _make_point(settings)
+            loaded = SimpleNamespace(filename=box.d1s / "sub" / "foo.d1")
+
+            with (
+                mock.patch.object(kernel, "find_data1") as find_data1,
+                mock.patch("eleanor.kernel.eq36.kernel.Data1.from_file", return_value=loaded) as from_file,
+                self._eq36_mocks(kernel, settings) as mocks,
+            ):
+                _ = kernel.run(point)
+
+            find_data1.assert_not_called()
+            from_file.assert_called_once_with(box.d1s / "sub" / "foo.d1")
+            mocks.eq3.assert_called_once_with(box.d1s / "sub" / "foo.d1", "problem.3i", timeout=settings.timeout)
+            self.assertEqual(settings.data1_file, Path("sub/foo.d1"))
+
+    def test_run_warns_when_the_discovered_data1_falls_outside_the_data1_dir(self) -> None:
+        """
+        Ensure run threads verbose through to the relativization fallback, so an absolute path
+        reaching the stored settings is announced rather than silent.
+        """
+        with self._sandbox() as box:
+            kernel = self._kernel(box.d1s)
+            settings = self._settings(with_eq6=False)
+            point = _make_point(settings)
+            found = SimpleNamespace(filename=box.outside / "far.d1")
+
+            with (
+                mock.patch.object(kernel, "find_data1", return_value=found),
+                self._eq36_mocks(kernel, settings),
+                warnings.catch_warnings(record=True) as caught,
+            ):
+                warnings.simplefilter("always")
+                _ = kernel.run(point, verbose=True)
+
+            self.assertEqual([w.category for w in caught], [EleanorKernelWarning])
+            self.assertEqual(settings.data1_file, box.outside / "far.d1")
+
+    def test_copy_data_warns_when_the_discovered_data1_falls_outside_the_data1_dir(self) -> None:
+        """
+        Ensure copy_data threads verbose through to the relativization fallback as run does.
+        """
+        with self._sandbox() as box:
+            kernel = self._kernel(box.d1s)
+            settings = self._settings()
+            point = _make_point(settings)
+            found = SimpleNamespace(filename=box.outside / "far.d1")
+
+            with (
+                mock.patch.object(kernel, "resolve_kernel_settings", return_value=settings),
+                mock.patch.object(kernel, "find_data1", return_value=found),
+                warnings.catch_warnings(record=True) as caught,
+            ):
+                warnings.simplefilter("always")
+                kernel.copy_data(point, dir=box.scratch, verbose=True)
+
+            self.assertEqual([w.category for w in caught], [EleanorKernelWarning])
+            self.assertEqual((box.scratch / "far.d1").read_text(), "far")
+
+    def test_copy_data_archives_a_symlinked_data1_at_its_recorded_relative_path(self) -> None:
+        """
+        Ensure a data1 that is a symlink out of the tree is still archived at the relative path
+        recorded in the settings, rather than being flattened to its basename.
+        """
+        with self._sandbox() as box:
+            (box.d1s / "sub" / "link.d1").symlink_to(box.outside / "far.d1")
+            kernel = self._kernel(box.d1s)
+            settings = self._settings()
+            settings.data1_file = Path("sub/link.d1")
+
+            self._copy_data(kernel, settings, box.scratch)
+
+            self.assertEqual((box.scratch / "sub" / "link.d1").read_text(), "far")

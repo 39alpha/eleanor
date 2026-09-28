@@ -37,15 +37,17 @@ def test_setup_uses_absolute_data1_dir_directly_ignoring_env_var(
     _ = mocker.patch("eleanor.kernel.eq36.kernel.tool_room.find_files", return_value=([], []))
     mocker.patch.dict("os.environ", {"ELEANOR_EQ36_DATA1_DIR": "/global/data1"})
 
-    Eq36Kernel().setup(order, data1_dir="/absolute/path")
+    kernel = Eq36Kernel()
+    kernel.setup(order, data1_dir="/absolute/path")
 
     wd_mock.assert_called_once_with(Path("/absolute/path"))
+    assert kernel._data1_dir == Path("/absolute/path")
 
 
 def test_setup_uses_relative_data1_dir_when_it_exists_locally(
     mocker: MockerFixture,
 ) -> None:
-    """A relative path that exists locally is used as-is, even when the env var is set."""
+    """A relative path that exists locally is resolved against the cwd, even when the env var is set."""
     order = _make_order(mocker)
     wd_mock = mocker.patch(
         "eleanor.kernel.eq36.kernel.tool_room.WorkingDirectory",
@@ -55,9 +57,11 @@ def test_setup_uses_relative_data1_dir_when_it_exists_locally(
     _ = mocker.patch.object(Path, "exists", return_value=True)
     mocker.patch.dict("os.environ", {"ELEANOR_EQ36_DATA1_DIR": "/global/data1"}, clear=True)
 
-    Eq36Kernel().setup(order, data1_dir="local/data1")
+    kernel = Eq36Kernel()
+    kernel.setup(order, data1_dir="local/data1")
 
-    wd_mock.assert_called_once_with(Path("local/data1"))
+    wd_mock.assert_called_once_with(Path("local/data1").resolve())
+    assert kernel._data1_dir == Path("local/data1").resolve()
 
 
 def test_setup_falls_back_to_env_var_when_relative_path_does_not_exist(
@@ -73,15 +77,17 @@ def test_setup_falls_back_to_env_var_when_relative_path_does_not_exist(
     _ = mocker.patch.object(Path, "exists", return_value=False)
     mocker.patch.dict("os.environ", {"ELEANOR_EQ36_DATA1_DIR": "/global/data1"}, clear=True)
 
-    Eq36Kernel().setup(order, data1_dir="relative/data1")
+    kernel = Eq36Kernel()
+    kernel.setup(order, data1_dir="relative/data1")
 
     wd_mock.assert_called_once_with(Path("/global/data1") / Path("relative/data1"))
+    assert kernel._data1_dir == Path("/global/data1") / Path("relative/data1")
 
 
 def test_setup_uses_relative_data1_dir_as_is_when_env_var_is_unset(
     mocker: MockerFixture,
 ) -> None:
-    """A missing relative path is left unchanged when ELEANOR_EQ36_DATA1_DIR is not set."""
+    """A missing relative path is resolved against the cwd when ELEANOR_EQ36_DATA1_DIR is not set."""
     order = _make_order(mocker)
     wd_mock = mocker.patch(
         "eleanor.kernel.eq36.kernel.tool_room.WorkingDirectory",
@@ -91,6 +97,8 @@ def test_setup_uses_relative_data1_dir_as_is_when_env_var_is_unset(
     _ = mocker.patch.object(Path, "exists", return_value=False)
     mocker.patch.dict("os.environ", {}, clear=True)
 
-    Eq36Kernel().setup(order, data1_dir="relative/data1")
+    kernel = Eq36Kernel()
+    kernel.setup(order, data1_dir="relative/data1")
 
-    wd_mock.assert_called_once_with(Path("relative/data1"))
+    wd_mock.assert_called_once_with(Path("relative/data1").resolve())
+    assert kernel._data1_dir == Path("relative/data1").resolve()

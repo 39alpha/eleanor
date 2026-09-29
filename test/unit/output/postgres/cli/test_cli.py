@@ -15,7 +15,7 @@ class TestPostgresCli(TestCase):
     def test_postgres_help_lists_subcommands(self) -> None:
         result = self.runner.invoke(main, ["postgres", "--help"])
         self.assertEqual(result.exit_code, 0)
-        for sub in ("schema", "scratch", "bulkload"):
+        for sub in ("schema", "scratch", "bulkload", "dump"):
             self.assertIn(sub, result.output)
 
     def test_postgres_schema_help_succeeds(self) -> None:

@@ -54,7 +54,7 @@ Top-level commands:
 - `eleanor run` — run a simulation workload from an order file.
 - `eleanor doctor` — print install and plugin diagnostics.
 - `eleanor gen config|order` — emit starter config/order templates.
-- `eleanor postgres schema|scratch|bulkload|migrate` — postgres-specific helper commands.
+- `eleanor postgres schema|scratch|bulkload|migrate|dump` — postgres-specific helper commands.
 
 ### `eleanor run`
 
@@ -97,7 +97,8 @@ Omit it and Eleanor generates one. Either way the navigators sample from a gener
 it, so a run re-sampled under the same seed visits the same variable-space points.
 
 Whether the seed is *recorded* depends on the sink. The `postgres` sink persists the whole order
-in `orders.raw`, seed included, so a stored run can be re-sampled from what it wrote. The `csv`
+in `orders.raw`, seed included, so a stored run can be re-sampled from what it wrote — see
+[Recovering an order from the database](#recovering-an-order-from-the-database). The `csv`
 sink persists only the rows your query projects, so a seed you did not declare is gone when the
 run ends — project `order.seed` as a column, or pass `--seed` and record it yourself.
 
@@ -114,6 +115,31 @@ Two caveats:
 - **Every run starts the generator over.** Each run of an order draws from the head of the stream,
   so running one twice under the same seed visits the same points twice. Pass a different `--seed`
   to sample elsewhere in the variable space.
+
+### Recovering an order from the database
+
+`eleanor postgres dump order` writes a stored order back out as an order file, so a run recorded
+months ago can be re-run without hunting for the original YAML:
+
+```bash
+eleanor postgres dump order e49c9daa-... -c config.yaml -d eleanor_db -o order.yaml
+eleanor run -c config.yaml -d eleanor_db order.yaml 50000
+```
+
+The dump reproduces the order as Eleanor parsed it — seed, kernel settings, reactants and
+suppressions included — so re-running it at the original simulation size visits the same
+variable-space points. Its `id` is not part of the file: every run allocates a fresh one.
+
+Without `-o` the order goes to stdout. The format is YAML unless `--to json` is given or the
+`-o` path ends in `.json`:
+
+```bash
+eleanor postgres dump order e49c9daa-... -c config.yaml -d eleanor_db --to json | jq .kernel
+```
+
+Optional properties that are empty — `tags`, `notes`, `species`, `reactants`, `suppressions` and
+`constraints` — are left out, since an order file may simply omit them. Pass `-e`/`--keep-empty`
+to emit them anyway, which is useful as a starting point for editing.
 
 ### Built-in output sinks
 

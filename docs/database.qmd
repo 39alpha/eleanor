@@ -132,6 +132,18 @@ The `raw` column stores the original content of the order file in JSON format.
 It does not carry an `id`: the identifier belongs to this table's `id` column,
 generated when the row is inserted, and an order file may not declare one.
 
+> **Note**: Rather than reading `raw` out of the database by hand, use
+> `eleanor postgres dump order` to write it back out as an order file that
+> **Eleanor** can run:
+>
+> ```bash
+> eleanor postgres dump order e49c9daa-... -c config.yaml -d eleanor_db -o order.yaml
+> ```
+>
+> The dump is YAML unless `--to json` is given or the output path ends in
+> `.json`. Optional properties that are empty are dropped unless `--keep-empty`
+> is passed.
+
 The `create_date` value is the datetime at which the order was initially created.
 
 **Example**:

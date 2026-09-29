@@ -12,6 +12,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`kernel.data1_file` is read from the order file.** An explicit path skips the usual
   temperature-pressure search of the data1 directory; a relative one resolves against that
   directory, an absolute one is honoured, and recorded, as written.
+- **`eleanor postgres dump order ID`** writes a stored order back out as a runnable YAML or JSON
+  file.
 
 ### Changed
 

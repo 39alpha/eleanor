@@ -234,13 +234,17 @@ class TestEq36Kernel(TestCase):
         ]
         point = _make_point(self._settings(with_eq6=True), suppressions=suppressions)
 
-        with mock.patch("sys.stderr", new=io.StringIO()) as stderr:
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
             resolved = kernel.resolve_kernel_settings(point)
 
         self.assertEqual(resolved.eq3_config.iopt_4, IOPT_4.IGNORE_SOLID_SOLUTIONS)
         assert resolved.eq6_config is not None
         self.assertEqual(resolved.eq6_config.iopt_4, IOPT_4.IGNORE_SOLID_SOLUTIONS)
-        self.assertIn("all solid solutions are suppressed", stderr.getvalue())
+
+        self.assertEqual(len(caught), 1)
+        self.assertIs(caught[0].category, EleanorKernelWarning)
+        self.assertIn("all solid solutions are suppressed", str(caught[0].message))
 
     def test_resolve_kernel_settings_rejects_solid_solution_exemptions(self) -> None:
         """
@@ -343,12 +347,16 @@ class TestEq36Kernel(TestCase):
         kernel._data1s = cast(list[Data1], [first, second])
         point = _make_point(self._settings(), temperature=25.0, pressure=10.0)
 
-        with mock.patch("builtins.print") as print_mock:
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
             data1 = kernel.find_data1(point, verbose=True)
 
         self.assertIs(data1, first)
-        print_mock.assert_called_once_with(
-            "warning: multiple data1 files pass through temperature 25.0 and pressure 10.0; choosing first"
+        self.assertEqual(len(caught), 1)
+        self.assertIs(caught[0].category, EleanorKernelWarning)
+        self.assertEqual(
+            "multiple data1 files pass through temperature 25.0 and pressure 10.0; choosing first",
+            str(caught[0].message),
         )
 
     def test_run_eq3_only_finds_data1_and_sets_eq3_timestamps(self) -> None:

@@ -1,7 +1,6 @@
 import contextlib
 import io
 import os
-import sys
 import warnings
 from collections.abc import Callable
 from datetime import datetime
@@ -140,7 +139,7 @@ class Eq36Kernel(AbstractKernel):
 
             if verbose:
                 msg = f"failed to resolve data1 file {filename!r} relative to the data1 directory; using absolute path"
-                warnings.warn(msg, EleanorKernelWarning, stacklevel=2)
+                warnings.warn(msg, EleanorKernelWarning, stacklevel=1)
 
         return self._absolute_under_data1_dir(filename)
 
@@ -273,7 +272,8 @@ class Eq36Kernel(AbstractKernel):
                     suppress_named_solid_solutions = True
 
         if suppress_all_solid_solutions and suppress_named_solid_solutions:
-            print("warning: all solid solutions are suppressed some are suppressed by name", file=sys.stderr)
+            msg = "all solid solutions are suppressed, and some are explicitly suppressed by name"
+            warnings.warn(msg, EleanorKernelWarning, stacklevel=1)
 
         if not suppress_all_solid_solutions:
             settings.eq3_config.iopt_4 = IOPT_4.PERMIT_SOLID_SOLUTIONS
@@ -326,7 +326,8 @@ class Eq36Kernel(AbstractKernel):
         if len(d1s) > 1 and verbose:
             # DGM: For now we just take the first data1, but we could randomly choose. Ideally, all of the thermodynamic
             #      parameters in the files should be identical.
-            print(f"warning: multiple data1 files pass through temperature {temp} and pressure {press}; choosing first")
+            msg = f"multiple data1 files pass through temperature {temp} and pressure {press}; choosing first"
+            warnings.warn(msg, EleanorKernelWarning, stacklevel=1)
 
         return d1s[0]
 

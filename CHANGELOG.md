@@ -12,14 +12,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`kernel.data1_file` is read from the order file.** An explicit path skips the usual
   temperature-pressure search of the data1 directory; a relative one resolves against that
   directory, an absolute one is honoured, and recorded, as written.
-- **`eleanor postgres dump order ID`** writes a stored order back out as a runnable YAML or JSON
-  file.
+- **`eleanor postgres dump order`** writes a stored order back out as a runnable YAML or JSON file.
 
 ### Changed
 
 - **Data1 paths the kernel selects are recorded relative to the data1 directory.** An order stored
   by a run no longer carries a host-specific absolute path, so it names the same data1 file on
   another machine. Scratch archives mirror that relative layout.
+- **Move `eleanor postgres scratch` to `eleanor postgres dump scratch`**. The `postgres dump`
+  command group is intended for dumping data from the database, so `scratch` belongs under it.
 
 ### Fixed
 

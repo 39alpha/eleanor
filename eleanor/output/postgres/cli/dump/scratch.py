@@ -9,22 +9,18 @@ from eleanor.output.postgres.tools import load_scratch_entry
 from eleanor.util import require_uuid_id
 
 
-@click.command()
-@click.argument(
-    "vs_id",
-    type=click.STRING,
-)
+@click.command(name="scratch")
+@click.argument("vs_id", type=click.STRING)
 @click.option("-o", "--outdir", type=click.Path(file_okay=False), default=".", help="Output directory.")
 @config_options()
-def scratch(vs_id: str, outdir: str, config: str, database: str | None) -> None:
+def dump_scratch(vs_id: str, outdir: str, config: str, database: str | None) -> None:
     """Dump scratch results to a directory."""
 
     variable_space_id = require_uuid_id(vs_id, "postgres sink")
     directory = Path(outdir)
 
-    print(f"Loading {config}")
+    click.echo(f"Loading {config}")
     settings = sole_postgres_settings(config_from_args(config, database), "dump scratch")
-
     if settings.database.database is None:
         msg = "no database provided"
         raise click.ClickException(msg)
@@ -41,9 +37,9 @@ def scratch(vs_id: str, outdir: str, config: str, database: str | None) -> None:
             msg = f"no variable space point found with id {variable_space_id}"
             raise click.ClickException(msg)
 
-        print("Database:           ", settings.database.database)
-        print("Variable Space ID:  ", result.variable_space_id)
-        print("Exit Code:          ", result.exit_code)
+        click.echo(f"Database:           {settings.database.database}")
+        click.echo(f"Variable Space ID:  {result.variable_space_id}")
+        click.echo(f"Exit Code:          {result.exit_code}")
 
         if len(result.zip) == 0:
             msg = "no data in scratch zip"
@@ -58,4 +54,4 @@ def scratch(vs_id: str, outdir: str, config: str, database: str | None) -> None:
         raise SystemExit(1) from err
 
 
-__all__ = ["scratch"]
+__all__ = ["dump_scratch"]

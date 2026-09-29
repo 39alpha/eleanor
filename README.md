@@ -54,7 +54,7 @@ Top-level commands:
 - `eleanor run` — run a simulation workload from an order file.
 - `eleanor doctor` — print install and plugin diagnostics.
 - `eleanor gen config|order` — emit starter config/order templates.
-- `eleanor postgres schema|scratch|bulkload|migrate|dump` — postgres-specific helper commands.
+- `eleanor postgres schema|bulkload|migrate|dump` — postgres-specific helper commands.
 
 ### `eleanor run`
 
@@ -140,6 +140,25 @@ eleanor postgres dump order e49c9daa-... -c config.yaml -d eleanor_db --to json 
 Optional properties that are empty — `tags`, `notes`, `species`, `reactants`, `suppressions` and
 `constraints` — are left out, since an order file may simply omit them. Pass `-e`/`--keep-empty`
 to emit them anyway, which is useful as a starting point for editing.
+
+### Extracting a point's scratch archive
+
+`eleanor postgres dump scratch` unpacks the scratch archive stored for one variable-space point
+into a directory, so the kernel's own input and output files can be inspected:
+
+```bash
+eleanor postgres dump scratch cf165798-... -c config.yaml -d eleanor_db -o scratch/
+```
+
+The archive holds the files the kernel read and wrote while speciating that point. When the point
+failed it also carries a `traceback.txt` describing the error, which is usually the reason to reach
+for this command. `-o`/`--outdir` defaults to the current directory and is created if it does not
+exist; the archive's own layout is preserved beneath it.
+
+Not every point has scratch to extract. By default a run only stores it for points the kernel
+failed on, so asking for a point that succeeded reports `no scratch found for variable space
+point`. Pass `-s`/`--scratch` to `eleanor run` to store it for every point instead — in that case
+no `traceback.txt` is included, since there was no error to record.
 
 ### Built-in output sinks
 

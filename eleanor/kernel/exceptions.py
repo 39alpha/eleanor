@@ -1,4 +1,4 @@
-from eleanor.exceptions import EleanorError
+from eleanor.exceptions import EleanorError, EleanorWarning
 from eleanor.util import require_int
 
 
@@ -10,7 +10,7 @@ class EleanorKernelError(EleanorError):
         self.code = require_int(code if code is not None else 1, "code")
 
 
-class EleanorKernelWarning(UserWarning): ...
+class EleanorKernelWarning(EleanorWarning): ...
 
 
 __all__ = [

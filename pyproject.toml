@@ -54,7 +54,7 @@ memory = "eleanor.output.factories:memory_spec"
 postgres = "eleanor.output.factories:postgres_spec"
 
 [project.entry-points."eleanor.cli_commands"]
-postgres = "eleanor.cli.factories:postgres_commands_spec"
+postgres = "eleanor.output.postgres.cli.factories:postgres_commands_spec"
 
 [build-system]
 requires = ["hatchling", "hatch-vcs", "hatch-build-scripts", "meson", "ninja"]

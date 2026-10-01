@@ -237,3 +237,31 @@ class TestEq36Constraints(TestCase):
         registry, valuation = self._registry_with(temp, pressure_strict)
         with self.assertRaises(EleanorError):
             _ = c_strict.apply(registry, valuation)
+
+    def test_constraint_volumes_are_zero(self) -> None:
+        """Neither constraint owns a parameter, so neither has volume however the ones it refers to vary."""
+        temp = RangeParameter(np.float64(0.0), np.float64(100.0))
+        pressure = RangeParameter(np.float64(1.0), np.float64(500.0))
+        data1s = [_data1_with_curve(_DummyCurve({"min": np.float64(10.0), "max": np.float64(40.0)}))]
+
+        temperature_range = TemperatureRangeConstraint(temp, data1s)
+        self.assertEqual(temperature_range.parameters(), [])
+        self.assertEqual(temperature_range.volume(), np.float64(0.0))
+
+        tp_curve = TPCurveConstraint(temp, pressure, data1s)
+        self.assertEqual(tp_curve.parameters(), [])
+        self.assertEqual(tp_curve.volume(), np.float64(0.0))
+
+    def test_temperature_range_apply_collapses_a_normal_to_a_point(self) -> None:
+        """A narrowing that leaves one temperature resolves the parameter outright."""
+        temp = NormalParameter(mean=np.float64(50.0), stddev=np.float64(10.0), a=np.float64(0.0), b=np.float64(100.0))
+        data1s = [_data1_with_curve(_DummyCurve({"min": np.float64(100.0), "max": np.float64(500.0)}))]
+
+        c = TemperatureRangeConstraint(temp, data1s)
+        registry, valuation = self._registry_with(temp)
+        refined = c.apply(registry, valuation)[registry.id(temp)]
+
+        self.assertIsInstance(refined, ValueParameter)
+        if not isinstance(refined, ValueParameter):
+            raise AssertionError("expected ValueParameter")
+        self.assertEqual(refined.value, np.float64(100.0))

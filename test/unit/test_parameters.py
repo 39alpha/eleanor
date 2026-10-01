@@ -4,12 +4,14 @@ from unittest import TestCase, mock
 import numpy as np
 from eleanor.exceptions import EleanorError
 from eleanor.parameters import (
+    POS_INF,
     ListParameter,
     NormalParameter,
     Parameter,
     ParameterRegistry,
     RangeParameter,
     ValueParameter,
+    parameter_space_volume,
 )
 
 
@@ -19,15 +21,30 @@ class TestParameters(TestCase):
     """
 
     def test_parameter_abstract_placeholders(self) -> None:
-        """
-        Ensure abstract placeholder bodies on :class:`Parameter` are executable directly.
-        """
+        """Abstract placeholder bodies are executable directly."""
         placeholder = cast(Parameter, object())
         self.assertFalse(Parameter.in_domain(placeholder, cast(Parameter, cast(object, None))))
         self.assertEqual(Parameter.range(placeholder), (np.float64(0), np.float64(0)))
-        self.assertEqual(Parameter.volume(placeholder), np.float64(1.0))
+        self.assertEqual(Parameter.volume(placeholder), np.float64(0.0))
         self.assertIsNone(Parameter.random(placeholder))
         self.assertIsNone(Parameter.lattice(placeholder))
+
+    def test_parameter_space_volume(self) -> None:
+        """Fixed parameters drop out, the rest multiply, and a space with nothing free has no volume."""
+        fixed = ValueParameter(np.float64(1.0))
+        wide = RangeParameter(np.float64(0.0), np.float64(10.0))
+        pair = ListParameter([np.float64(1.0), np.float64(2.0)])
+
+        self.assertEqual(parameter_space_volume([]), np.float64(0.0))
+        self.assertEqual(parameter_space_volume([fixed, ValueParameter(np.float64(2.0))]), np.float64(0.0))
+        self.assertEqual(parameter_space_volume([wide]), np.float64(10.0))
+        self.assertEqual(parameter_space_volume([fixed, wide]), np.float64(10.0))
+        self.assertEqual(parameter_space_volume([wide, pair]), np.float64(20.0))
+
+    def test_parameter_space_volume_accepts_an_iterator(self) -> None:
+        """The parameters argument is only consumed once, so an iterator works."""
+        params = iter([RangeParameter(np.float64(0.0), np.float64(3.0)), ValueParameter(np.float64(1.0))])
+        self.assertEqual(parameter_space_volume(params), np.float64(3.0))
 
     def test_parameter_from_dict_and_load_dispatch(self) -> None:
         """
@@ -67,16 +84,41 @@ class TestParameters(TestCase):
         self.assertIsInstance(fixed, ValueParameter)
         self.assertEqual(cast(ValueParameter, fixed).value, np.float64(1.0))
 
+    def test_parameter_refine_collapses_degenerate_normal(self) -> None:
+        """A normal with no spread, or with equal bounds, refines to a fixed parameter."""
+        cases = [
+            # Equal bounds pin the value, whatever the mean, and win over the stddev branch.
+            ({"mean": 5.0, "min": 5.0, "max": 5.0}, np.float64(5.0)),
+            # A zero stddev collapses to the mean, clamped into the bounds when it falls outside.
+            ({"mean": 5.0, "stddev": 0.0}, np.float64(5.0)),
+            ({"mean": 2.0, "min": 0.0, "max": 10.0, "stddev": 0.0}, np.float64(2.0)),
+            ({"mean": 100.0, "min": 0.0, "max": 10.0, "stddev": 0.0}, np.float64(10.0)),
+            ({"mean": -100.0, "min": 0.0, "max": 10.0, "stddev": 0.0}, np.float64(0.0)),
+        ]
+        for raw, expected in cases:
+            with self.subTest(raw=raw):
+                parameter = Parameter.from_dict(raw)
+                self.assertIsInstance(parameter, ValueParameter)
+                self.assertEqual(cast(ValueParameter, parameter).value, expected)
+
+        pinned = Parameter.refine(
+            NormalParameter(mean=np.float64(50.0), stddev=np.float64(10.0), a=np.float64(100.0), b=np.float64(100.0))
+        )
+        self.assertIsInstance(pinned, ValueParameter)
+        self.assertEqual(cast(ValueParameter, pinned).value, np.float64(100.0))
+
+        for raw in ({"mean": 25.0, "stddev": 1.0}, {"mean": 25.0, "min": 20.0, "max": 30.0}):
+            with self.subTest(raw=raw):
+                self.assertIsInstance(Parameter.from_dict(raw), NormalParameter)
+
     def test_value_parameter_methods(self) -> None:
-        """
-        Ensure :class:`ValueParameter` domain/range/volume/random/lattice behave as expected.
-        """
+        """Domain, range, volume, random and lattice of a fixed parameter."""
         p = ValueParameter(np.float64(2.0))
         self.assertTrue(p.in_domain(ValueParameter(np.float64(2.0))))
         self.assertFalse(p.in_domain(ValueParameter(np.float64(3.0))))
         self.assertFalse(p.in_domain(RangeParameter(np.float64(1.0), np.float64(2.0))))
         self.assertEqual(p.range(), (np.float64(2.0), np.float64(2.0)))
-        self.assertEqual(p.volume(), np.float64(1.0))
+        self.assertEqual(p.volume(), np.float64(0.0))
         self.assertEqual([x.value for x in p.random(size=2)], [np.float64(2.0), np.float64(2.0)])
         self.assertEqual(
             [x.value for x in p.lattice(size=3)],
@@ -84,9 +126,7 @@ class TestParameters(TestCase):
         )
 
     def test_range_parameter_methods(self) -> None:
-        """
-        Ensure :class:`RangeParameter` ordering, domain checks, and generation helpers work.
-        """
+        """Ordering, domain checks, volume and generation helpers of a range."""
         p = RangeParameter(np.float64(3.0), np.float64(1.0))
         self.assertEqual((p.min, p.max), (np.float64(1.0), np.float64(3.0)))
         b0, b1 = p.bounds
@@ -108,9 +148,7 @@ class TestParameters(TestCase):
         self.assertEqual([x.value for x in out2], [np.float64(1.0), np.float64(2.0), np.float64(3.0)])
 
     def test_list_parameter_methods(self) -> None:
-        """
-        Ensure :class:`ListParameter` validation, domain checks, and generation helpers work.
-        """
+        """Validation, domain checks, volume and generation helpers of a list."""
         with self.assertRaises(EleanorError):
             _ = ListParameter([])
 
@@ -145,17 +183,15 @@ class TestParameters(TestCase):
         )
 
     def test_normal_parameter_defaults_and_generation(self) -> None:
-        """
-        Ensure :class:`NormalParameter` default stddev, random, and lattice generation behave.
-        """
+        """Default stddev, random and lattice generation of a normal."""
         p0 = NormalParameter(mean=np.float64(0.0))
         self.assertEqual(p0.stddev, np.float64(1.0))
+        self.assertEqual(p0.range(), (-np.inf, np.inf))
 
         p1 = NormalParameter(mean=np.float64(0.0), a=np.float64(-3.0), b=np.float64(3.0))
         self.assertEqual(p1.stddev, np.float64(1.0))
-        self.assertEqual(p1.range(), (-np.inf, np.inf))
-        self.assertEqual(p1.volume(), np.float64(1.0))
-        self.assertTrue(p1.in_domain(cast(Parameter, object())))
+        self.assertEqual(p1.range(), (np.float64(-3.0), np.float64(3.0)))
+        self.assertFalse(p1.in_domain(cast(Parameter, object())))
 
         with mock.patch("scipy.stats.norm.rvs", return_value=np.array([0.1, -0.2])):
             out0 = p0.random(size=2)
@@ -172,6 +208,158 @@ class TestParameters(TestCase):
         out3 = cast(list[object], p1.lattice(size=3))
         self.assertEqual(len(out3), 3)
         self.assertTrue(all(isinstance(v, ValueParameter) for v in out3))
+
+    def test_normal_parameter_volume_reflects_bounds(self) -> None:
+        """A normal parameter's volume is the six-sigma quantile interval of the distribution it samples."""
+        unbounded = NormalParameter(mean=np.float64(0.0))
+        self.assertEqual(unbounded.volume(), np.float64(6.0))
+
+        bounded = NormalParameter(mean=np.float64(0.0), a=np.float64(-3.0), b=np.float64(3.0))
+        self.assertAlmostEqual(float(bounded.volume()), 5.565227, places=6)
+
+        half_bounded = NormalParameter(
+            mean=np.float64(5.0),
+            stddev=np.float64(2.0),
+            a=np.float64(0.0),
+            b=np.float64(np.inf),
+        )
+        self.assertAlmostEqual(float(half_bounded.volume()), 10.863624, places=6)
+
+        # Truncation is negligible here, so a normal concentrated well inside wide bounds keeps its
+        # six-sigma span rather than reporting the 50 units the bounds allow.
+        concentrated = NormalParameter(
+            mean=np.float64(25.0),
+            stddev=np.float64(1.0),
+            a=np.float64(0.0),
+            b=np.float64(50.0),
+        )
+        self.assertAlmostEqual(float(concentrated.volume()), 6.0, places=6)
+
+        # A mean outside the bounds is supported: the dimension is still sampleable, so its volume
+        # is small but non-zero.
+        outside_bounds = NormalParameter(
+            mean=np.float64(100.0),
+            stddev=np.float64(1.0),
+            a=np.float64(0.0),
+            b=np.float64(10.0),
+        )
+        self.assertAlmostEqual(float(outside_bounds.volume()), 0.073365, places=6)
+
+    def test_normal_parameter_rejects_degenerate_stddev(self) -> None:
+        """A non-finite or negative stddev is refused at construction."""
+        for stddev in (np.inf, -np.inf, np.nan, -1.0):
+            with self.assertRaises(EleanorError):
+                _ = NormalParameter(mean=np.float64(0.0), stddev=np.float64(stddev))
+
+    def test_normal_parameter_zero_stddev_is_a_point_mass(self) -> None:
+        """A zero stddev has no volume and samples the mean, clamped into the bounds."""
+        cases = [
+            (NormalParameter(mean=np.float64(5.0), stddev=np.float64(0.0)), np.float64(5.0)),
+            (
+                NormalParameter(mean=np.float64(5.0), stddev=np.float64(0.0), a=np.float64(0.0), b=np.float64(10.0)),
+                np.float64(5.0),
+            ),
+            (
+                NormalParameter(mean=np.float64(10.0), stddev=np.float64(0.0), a=np.float64(0.0), b=np.float64(10.0)),
+                np.float64(10.0),
+            ),
+            # A mean outside the bounds is supported, so it clamps to the nearer bound.
+            (
+                NormalParameter(mean=np.float64(100.0), stddev=np.float64(0.0), a=np.float64(0.0), b=np.float64(10.0)),
+                np.float64(10.0),
+            ),
+        ]
+        for parameter, expected in cases:
+            self.assertEqual(parameter.volume(), np.float64(0.0))
+            self.assertEqual([x.value for x in parameter.random(size=2)], [expected, expected])
+            self.assertEqual([x.value for x in parameter.lattice(size=2)], [expected, expected])
+
+    def test_normal_parameter_equal_bounds_is_a_point_mass(self) -> None:
+        """Equal bounds pin the parameter whatever its stddev, and are not read as unbounded."""
+        derived = NormalParameter(mean=np.float64(5.0), a=np.float64(5.0), b=np.float64(5.0))
+        self.assertEqual(derived.stddev, np.float64(0.0))
+
+        pinned = NormalParameter(
+            mean=np.float64(50.0),
+            stddev=np.float64(10.0),
+            a=np.float64(100.0),
+            b=np.float64(100.0),
+        )
+        for parameter, expected in ((derived, np.float64(5.0)), (pinned, np.float64(100.0))):
+            self.assertEqual(parameter.volume(), np.float64(0.0))
+            self.assertEqual([x.value for x in parameter.random(size=2)], [expected, expected])
+            self.assertEqual([x.value for x in parameter.lattice(size=2)], [expected, expected])
+
+        # Infinite equal bounds are degenerate, not an unbounded normal of volume SIGMA_SPAN * stddev.
+        for bound in (np.inf, -np.inf):
+            infinite = NormalParameter(mean=np.float64(0.0), a=np.float64(bound), b=np.float64(bound))
+            self.assertEqual(infinite.volume(), np.float64(0.0))
+
+    def test_normal_parameter_range_and_bounds(self) -> None:
+        """Range and bounds report the truncation bounds, infinite only where untruncated."""
+        cases = [
+            ("unbounded", NormalParameter(mean=np.float64(0.0)), (-np.inf, np.inf)),
+            (
+                "bounded",
+                NormalParameter(mean=np.float64(0.0), a=np.float64(-3.0), b=np.float64(3.0)),
+                (np.float64(-3.0), np.float64(3.0)),
+            ),
+            (
+                "half-bounded",
+                NormalParameter(mean=np.float64(250.0), stddev=np.float64(10.0), a=np.float64(200.0), b=POS_INF),
+                (np.float64(200.0), np.inf),
+            ),
+        ]
+        for label, parameter, expected in cases:
+            with self.subTest(bounds=label):
+                self.assertEqual(parameter.range(), expected)
+                low, high = parameter.bounds
+                self.assertEqual((low.value, high.value), expected)
+
+    def test_normal_parameter_in_domain(self) -> None:
+        """A bounded normal admits only parameters whose own support falls inside its bounds."""
+        bounded = NormalParameter(mean=np.float64(25.0), stddev=np.float64(1.0), a=np.float64(20.0), b=np.float64(30.0))
+        unbounded = NormalParameter(mean=np.float64(25.0), stddev=np.float64(1.0))
+
+        inside: list[Parameter] = [
+            ValueParameter(np.float64(25.0)),
+            RangeParameter(np.float64(22.0), np.float64(28.0)),
+            ListParameter([np.float64(21.0), np.float64(29.0)]),
+            NormalParameter(mean=np.float64(25.0), stddev=np.float64(1.0), a=np.float64(22.0), b=np.float64(28.0)),
+        ]
+        outside: list[Parameter] = [
+            ValueParameter(np.float64(500.0)),
+            RangeParameter(np.float64(10.0), np.float64(40.0)),
+            ListParameter([np.float64(21.0), np.float64(99.0)]),
+            unbounded,
+        ]
+
+        for parameter in inside:
+            with self.subTest(parameter=parameter):
+                self.assertTrue(bounded.in_domain(parameter))
+        for parameter in outside:
+            with self.subTest(parameter=parameter):
+                self.assertFalse(bounded.in_domain(parameter))
+
+        # An untruncated normal has infinite bounds, so everything falls inside it.
+        for parameter in [*inside, *outside]:
+            with self.subTest(parameter=parameter):
+                self.assertTrue(unbounded.in_domain(parameter))
+
+    def test_range_and_list_in_domain_accept_a_normal(self) -> None:
+        """A normal refines a range or list when its bounds fall inside."""
+        bounded = NormalParameter(mean=np.float64(25.0), stddev=np.float64(1.0), a=np.float64(20.0), b=np.float64(30.0))
+        unbounded = NormalParameter(mean=np.float64(25.0), stddev=np.float64(1.0))
+        pinned = NormalParameter(mean=np.float64(25.0), stddev=np.float64(1.0), a=np.float64(25.0), b=np.float64(25.0))
+
+        self.assertTrue(RangeParameter(np.float64(0.0), np.float64(50.0)).in_domain(bounded))
+        self.assertFalse(RangeParameter(np.float64(0.0), np.float64(25.0)).in_domain(bounded))
+        self.assertFalse(RangeParameter(np.float64(0.0), np.float64(50.0)).in_domain(unbounded))
+
+        # A list only admits an interval that has collapsed to one of its values.
+        self.assertTrue(ListParameter([np.float64(25.0)]).in_domain(pinned))
+        self.assertFalse(ListParameter([np.float64(25.0)]).in_domain(bounded))
+        self.assertFalse(ListParameter([np.float64(25.0)]).in_domain(unbounded))
 
     def test_parameter_registry(self) -> None:
         """

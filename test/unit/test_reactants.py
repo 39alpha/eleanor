@@ -143,16 +143,33 @@ class TestReactants(TestCase):
         with self.assertRaises(EleanorError):
             ElementReactant.from_dict({"name": "e", "type": "gas", "amount": 1.0})
 
+    def test_titrated_reactant_volume_multiplies_variable_parameters(self) -> None:
+        """A titrated reactant's volume multiplies a range's width by a list's length."""
+        reactant = MineralReactant.from_dict(
+            {
+                "name": "quartz",
+                "type": "mineral",
+                "amount": {"min": 0.0, "max": 2.0},
+                "titration_rate": [1.0, 2.0, 3.0],
+            }
+        )
+        self.assertEqual(reactant.volume(), np.float64(6.0))
+
     def test_fixed_gas_from_dict_and_volume(self) -> None:
-        """
-        Ensure that :class:`FixedGasReactant` parsing/volume logic works for valid configs.
-        """
+        """A fully fixed fixed-gas reactant has zero volume."""
         reactant = FixedGasReactant.from_dict({"name": "co2", "type": "fixed gas", "amount": 1.0, "fugacity": 0.1})
         self.assertEqual(reactant.type, ReactantType.FIXED_GAS)
         self.assertIsInstance(reactant.amount, ValueParameter)
         self.assertIsInstance(reactant.fugacity, ValueParameter)
         self.assertEqual(reactant.parameters(), [reactant.amount, reactant.fugacity])
-        self.assertEqual(reactant.volume(), 1.0)
+        self.assertEqual(reactant.volume(), 0.0)
+
+    def test_fixed_gas_volume_uses_variable_parameters(self) -> None:
+        """A fixed-gas volume is the product of its variable parameters, the fixed ones dropped."""
+        reactant = FixedGasReactant.from_dict(
+            {"name": "co2", "type": "fixed gas", "amount": 1.0, "fugacity": {"min": 0.0, "max": 0.5}}
+        )
+        self.assertEqual(reactant.volume(), np.float64(0.5))
 
     def test_fixed_gas_from_dict_rejects_wrong_type(self) -> None:
         """
@@ -162,9 +179,7 @@ class TestReactants(TestCase):
             FixedGasReactant.from_dict({"name": "bad", "type": "gas", "amount": 1.0, "fugacity": 0.1})
 
     def test_solid_solution_from_dict_success(self) -> None:
-        """
-        Ensure that :class:`SolidSolutionReactant` parses valid end-member fractions.
-        """
+        """A solid solution parses its end-member fractions, which are fixed and so add no volume."""
         reactant = SolidSolutionReactant.from_dict(
             {
                 "name": "ss",
@@ -176,7 +191,19 @@ class TestReactants(TestCase):
         self.assertEqual(reactant.type, ReactantType.SOLID_SOLUTION)
         self.assertEqual(set(reactant.end_members.keys()), {"em1", "em2"})
         self.assertEqual(len(reactant.parameters()), 4)
-        self.assertEqual(reactant.volume(), 2.0)
+        self.assertEqual(reactant.volume(), 0.0)
+
+    def test_solid_solution_volume_excludes_fixed_end_members(self) -> None:
+        """End members are always fixed, so a solid solution's volume is its amount and rate alone."""
+        reactant = SolidSolutionReactant.from_dict(
+            {
+                "name": "ss",
+                "type": "solid solution",
+                "amount": {"min": 0.0, "max": 4.0},
+                "end_members": {"em1": 0.25, "em2": 0.75},
+            }
+        )
+        self.assertEqual(reactant.volume(), np.float64(4.0))
 
     def test_solid_solution_rejects_non_value_parameter(self) -> None:
         """
@@ -534,14 +561,8 @@ class TestReactants(TestCase):
         params = reactant.parameters()
         self.assertEqual(len(params), 6)
 
-    def test_combined_reactant_volume_folds_in_component_parameters(self) -> None:
-        """
-        Ensure CombinedReactant.volume() folds each component's parameter
-        block (relative_rate plus any nested end_members) into the parent
-        volume, mirroring the SolidSolutionReactant precedent. A component
-        whose ``relative_rate`` is ``None`` contributes the identity volume
-        (1.0), matching ``mapreduce(..., [], 1.0)`` in the implementation.
-        """
+    def test_combined_reactant_volume_multiplies_component_parameters(self) -> None:
+        """A combined volume multiplies its own parameters by each component's; a rate-less one adds nothing."""
         reactant = CombinedReactant.from_dict(
             {
                 "name": "combo",
@@ -566,22 +587,11 @@ class TestReactants(TestCase):
                 },
             }
         )
-        base_volume = reactant.amount.volume() * reactant.titration_rate.volume()
-        component_contribution = sum(
-            (
-                component.relative_rate.volume() if component.relative_rate is not None else np.float64(1.0)
-                for component in reactant.components.values()
-            ),
-            start=np.float64(0.0),
-        )
-        expected = base_volume + component_contribution
+        expected = np.float64((-1.0 - (-3.0)) * (2.0 - 0.5) * (10.0 - 0.1) * (5.0 - 0.5))
         self.assertEqual(reactant.volume(), expected)
 
-    def test_combined_reactant_volume_includes_solid_solution_end_members(self) -> None:
-        """
-        Ensure a solid-solution component contributes the product of its
-        relative_rate and end_member parameter volumes to the combined volume.
-        """
+    def test_combined_reactant_volume_includes_solid_solution_components(self) -> None:
+        """A solid-solution component contributes its relative rate; its fixed end members do not."""
         reactant = CombinedReactant.from_dict(
             {
                 "name": "combo",
@@ -602,7 +612,6 @@ class TestReactants(TestCase):
                 },
             }
         )
-        # amount=1.0 (volume 1), titration_rate default 1.0 (volume 1) -> super 1.0
-        # fayalite: relative_rate range [0, 4] -> 4.0
-        # olivine-ss: relative_rate [0, 2] (= 2.0) * end_members (each volume 1) -> 2.0 * 1 * 1
-        self.assertEqual(reactant.volume(), np.float64(1.0 + 4.0 + 2.0))
+        # amount and the default titration_rate are fixed, as are the end members, so only the two
+        # relative rates contribute: [0, 4] and [0, 2].
+        self.assertEqual(reactant.volume(), np.float64(4.0 * 2.0))

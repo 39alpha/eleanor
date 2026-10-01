@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   temperature-pressure search of the data1 directory; a relative one resolves against that
   directory, an absolute one is honoured, and recorded, as written.
 - **`eleanor postgres dump order`** writes a stored order back out as a runnable YAML or JSON file.
+- **`eleanor.parameters.parameter_space_volume`**, the shared implementation behind the `Order`,
+  reactant and constraint volumes.
 
 ### Changed
 
@@ -21,6 +23,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   another machine. Scratch archives mirror that relative layout.
 - **Move `eleanor postgres scratch` to `eleanor postgres dump scratch`**. The `postgres dump`
   command group is intended for dumping data from the database, so `scratch` belongs under it.
+- **`volume()` measures the variable subspace.** Fixed parameters no longer count, so an order,
+  reactant or constraint with nothing to vary has a volume of `0` rather than `1`, and a solid
+  solution or combined reactant multiplies its variable parameters instead of summing them.
+- **`AbstractReactant.volume` is concrete**, computed from `parameters()`; a third-party reactant
+  no longer implements it.
+- **`NormalParameter.range` reports its bounds** rather than always `(-inf, inf)`.
+- **`NormalParameter.in_domain` enforces its bounds** rather than accepting everything.
+- **A degenerate `NormalParameter` refines to a `ValueParameter`.** A zero stddev, or equal bounds,
+  collapses to a fixed parameter as a zero-width range or single-valued list already does.
+
+### Removed
+
+- **`eleanor.util.mapreduce`.** Its callers no longer use it, so it's been removed.
 
 ### Fixed
 

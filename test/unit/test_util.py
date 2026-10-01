@@ -214,13 +214,6 @@ class TestUtils(TestCase):
         with self.assertRaises(ValueError):
             util.parse_date("bad-date")
 
-    def test_mapreduce(self) -> None:
-        """
-        Ensure that :func:`mapreduce` applies the mapper and reducer over the provided iterable.
-        """
-        value = util.mapreduce(lambda x: x * x, lambda a, b: a + b, [1, 2, 3], 0)
-        self.assertEqual(value, 14)
-
     def test_convert_to_number_numpy_floating_passthrough(self) -> None:
         """
         Ensure that existing numpy floating values pass through unchanged when already typed.

@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from collections.abc import Iterable
 from copy import deepcopy
 from dataclasses import dataclass
 from itertools import cycle, islice
@@ -12,12 +13,12 @@ from eleanor.exceptions import EleanorError
 from eleanor.util import convert_to_number
 
 type ParameterScalar = int | float | np.float64 | str | bool
-
 type ParameterSource = dict[str, object] | list[ParameterScalar] | ParameterScalar
+type ParameterOrSource = Parameter | ParameterSource
+
 NEG_INF = np.float64(-np.inf)
 POS_INF = np.float64(np.inf)
-
-type ParameterOrSource = Parameter | ParameterSource
+SIGMA_SPAN = np.float64(6.0)
 
 
 def load_parameter(param: ParameterOrSource) -> Parameter:
@@ -39,6 +40,14 @@ def _as_int_array(values: object) -> npt.NDArray[np.int_]:
     return np.atleast_1d(np.asarray(values, dtype=np.int_))
 
 
+def parameter_space_volume(parameters: Iterable[Parameter]) -> np.float64:
+    volumes = [p.volume() for p in parameters if not isinstance(p, ValueParameter)]
+    if not volumes:
+        return np.float64(0.0)
+
+    return np.prod(volumes)
+
+
 @dataclass
 class Parameter(ABC):
     @abstractmethod
@@ -51,7 +60,7 @@ class Parameter(ABC):
 
     @abstractmethod
     def volume(self) -> np.float64:
-        return np.float64(1.0)
+        return np.float64(0.0)
 
     @abstractmethod
     def random(self, size: int = 1, rng: Generator | None = None) -> list[ValueParameter]:
@@ -76,6 +85,11 @@ class Parameter(ABC):
             unique = set(parameter.values)
             if len(unique) == 1:
                 return parameter.fix(unique.pop())
+        if isinstance(parameter, NormalParameter):
+            if parameter.min == parameter.max:
+                return parameter.fix(parameter.min)
+            if parameter.stddev <= 0:
+                return parameter.fix(min(max(parameter.mean, parameter.min), parameter.max))
 
         return parameter
 
@@ -124,7 +138,7 @@ class ValueParameter(Parameter):
 
     @override
     def volume(self) -> np.float64:
-        return np.float64(1.0)
+        return np.float64(0.0)
 
     @override
     def random(self, size: int = 1, rng: Generator | None = None) -> list[Self]:
@@ -156,7 +170,7 @@ class RangeParameter(Parameter):
     def in_domain(self, parameter: Parameter) -> bool:
         if isinstance(parameter, ValueParameter):
             return bool(self.min <= parameter.value <= self.max)
-        if isinstance(parameter, RangeParameter):
+        if isinstance(parameter, (RangeParameter, NormalParameter)):
             return all(self.in_domain(b) for b in parameter.bounds)
         if isinstance(parameter, ListParameter):
             return all(self.in_domain(x) for x in parameter.elements)
@@ -175,9 +189,7 @@ class RangeParameter(Parameter):
     def random(self, size: int = 1, rng: Generator | None = None) -> list[ValueParameter]:
         from scipy.stats import uniform
 
-        values = _as_float_array(
-            cast(object, uniform.rvs(loc=self.min, scale=self.volume(), size=size, random_state=rng))
-        )
+        values = _as_float_array(uniform.rvs(loc=self.min, scale=self.volume(), size=size, random_state=rng))
         return [ValueParameter(cast(np.float64, values[i])) for i in range(values.size)]
 
     @override
@@ -208,7 +220,7 @@ class ListParameter(Parameter):
     def in_domain(self, parameter: Parameter) -> bool:
         if isinstance(parameter, ValueParameter):
             return parameter.value in self.values
-        if isinstance(parameter, RangeParameter):
+        if isinstance(parameter, (RangeParameter, NormalParameter)):
             a, b = parameter.bounds
             return a == b and self.in_domain(a)
         if isinstance(parameter, ListParameter):
@@ -228,7 +240,7 @@ class ListParameter(Parameter):
     def random(self, size: int = 1, rng: Generator | None = None) -> list[ValueParameter]:
         from scipy.stats import randint
 
-        indices = _as_int_array(cast(object, randint.rvs(0, len(self.values), size=size, random_state=rng)))
+        indices = _as_int_array(randint.rvs(0, len(self.values), size=size, random_state=rng))
         return [ValueParameter(self.values[int(indices.item(i))]) for i in range(indices.size)]
 
     @override
@@ -262,32 +274,67 @@ class NormalParameter(Parameter):
             if np.isinf(self.min) or np.isinf(self.max):
                 self.stddev = np.float64(1.0)
             else:
-                self.stddev = (self.max - self.min) / 6
+                self.stddev = (self.max - self.min) / SIGMA_SPAN
         else:
             self.stddev = stddev
 
+        if not np.isfinite(self.stddev):
+            msg = "cannot create a NormalParameter with a non-finite stddev"
+            raise EleanorError(msg)
+
+        if self.stddev < 0:
+            msg = "cannot create a NormalParameter with stddev < 0"
+            raise EleanorError(msg)
+
+    @property
+    def bounds(self) -> tuple[ValueParameter, ValueParameter]:
+        return ValueParameter(self.min), ValueParameter(self.max)
+
     @override
     def in_domain(self, parameter: Parameter) -> bool:
-        return True
+        if isinstance(parameter, ValueParameter):
+            return bool(self.min <= parameter.value <= self.max)
+        if isinstance(parameter, (RangeParameter, NormalParameter)):
+            return all(self.in_domain(b) for b in parameter.bounds)
+        if isinstance(parameter, ListParameter):
+            return all(self.in_domain(x) for x in parameter.elements)
+
+        return False
 
     @override
     def range(self) -> tuple[np.float64, np.float64]:
-        return (np.float64(-np.inf), np.float64(np.inf))
+        return (self.min, self.max)
 
     @override
     def volume(self) -> np.float64:
-        return np.float64(1.0)
+        if self.stddev == 0 or self.min == self.max:
+            return np.float64(0.0)
+
+        if np.isinf(self.min) and np.isinf(self.max):
+            return SIGMA_SPAN * self.stddev
+
+        a = (self.min - self.mean) / self.stddev
+        b = (self.max - self.mean) / self.stddev
+
+        from scipy.stats import norm, truncnorm
+
+        alpha = _as_float(norm.cdf(-SIGMA_SPAN / 2))
+        interval = _as_float_array(truncnorm.ppf([alpha, 1 - alpha], a, b, loc=self.mean, scale=self.stddev))
+        return cast(np.float64, interval[1]) - cast(np.float64, interval[0])
 
     @override
     def random(self, size: int = 1, rng: Generator | None = None) -> list[ValueParameter]:
         from scipy.stats import norm, truncnorm
 
-        if np.isinf(self.min) and np.isinf(self.max):
-            draws = cast(object, norm.rvs(loc=self.mean, scale=self.stddev, size=size, random_state=rng))
+        if self.stddev == 0 or self.min == self.max:
+            value = min(max(self.mean, self.min), self.max)
+            draws = [value for _ in range(size)]
+        elif np.isinf(self.min) and np.isinf(self.max):
+            draws = norm.rvs(loc=self.mean, scale=self.stddev, size=size, random_state=rng)
         else:
             a = (self.min - self.mean) / self.stddev
             b = (self.max - self.mean) / self.stddev
-            draws = cast(object, truncnorm.rvs(a, b, loc=self.mean, scale=self.stddev, size=size, random_state=rng))
+            draws = truncnorm.rvs(a, b, loc=self.mean, scale=self.stddev, size=size, random_state=rng)
 
         samples = _as_float_array(draws)
         return [ValueParameter(cast(np.float64, samples[i])) for i in range(samples.size)]
@@ -295,6 +342,10 @@ class NormalParameter(Parameter):
     @override
     def lattice(self, size: int = 2) -> list[ValueParameter]:
         from scipy.special import erfinv
+
+        if self.stddev == 0 or self.min == self.max:
+            value = min(max(self.mean, self.min), self.max)
+            return [ValueParameter(value) for _ in range(size)]
 
         u = _as_float_array(np.linspace(0, 1, num=size + 2)[1:-1])
 
@@ -304,8 +355,8 @@ class NormalParameter(Parameter):
             a = (self.min - self.mean) / self.stddev
             b = (self.max - self.mean) / self.stddev
 
-            phi_alpha = _as_float(cast(object, norm.cdf(a)))
-            z = _as_float(cast(object, norm.cdf(b))) - phi_alpha
+            phi_alpha = _as_float(norm.cdf(a))
+            z = _as_float(norm.cdf(b)) - phi_alpha
 
             u = z * u + phi_alpha
 
@@ -349,3 +400,19 @@ class ParameterRegistry:
             msg = "parameter id not in registry"
             raise IndexError(msg)
         return self.parameters[id]
+
+
+__all__ = [
+    "ListParameter",
+    "NormalParameter",
+    "Parameter",
+    "ParameterOrSource",
+    "ParameterRegistry",
+    "ParameterScalar",
+    "ParameterSource",
+    "RangeParameter",
+    "Valuation",
+    "ValueParameter",
+    "load_parameter",
+    "parameter_space_volume",
+]

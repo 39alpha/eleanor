@@ -185,9 +185,7 @@ class TestConstraints(TestCase):
         self.assertAlmostEqual(float(Transform.POW10.inverse(np.float64(100.0))), 2.0)
 
     def test_linear_constraint_construction_sorts_by_volume(self) -> None:
-        """
-        Verify terms are stable-sorted by parameter volume descending (largest first).
-        """
+        """Terms are stable-sorted by parameter volume, largest first."""
         p_small = RangeParameter(np.float64(0.0), np.float64(1.0))
         p_big = RangeParameter(np.float64(0.0), np.float64(10.0))
         p_fixed = ValueParameter(np.float64(5.0))
@@ -203,6 +201,7 @@ class TestConstraints(TestCase):
             raise AssertionError("expected dependent term")
         self.assertIs(linear_constraint._dependent_term.parameter, p_big)
         self.assertEqual(len(linear_constraint._independent_terms), 2)
+        self.assertEqual([t.parameter for t in linear_constraint.terms], [p_big, p_small, p_fixed])
 
     def test_linear_constraint_dependent_independent_split(self) -> None:
         """
@@ -561,28 +560,24 @@ class TestConstraints(TestCase):
             _ = LinearConstraint([])
 
     def test_linear_constraint_volume_delegates_to_constant(self) -> None:
-        """
-        Verify volume() returns the constant parameter's volume.
-        """
+        """Volume is the constant's, the terms belonging to the order."""
         p = ValueParameter(np.float64(1.0))
         terms = [LinearConstraintTerm(p, np.float64(1.0), Transform.IDENTITY)]
 
         fixed_constant = ValueParameter(np.float64(5.0))
         lc_fixed = LinearConstraint(terms, constant=fixed_constant)
-        self.assertEqual(float(lc_fixed.volume()), 1.0)
+        self.assertEqual(float(lc_fixed.volume()), 0.0)
 
         range_constant = RangeParameter(np.float64(0.0), np.float64(10.0))
         lc_range = LinearConstraint(terms, constant=range_constant)
         self.assertEqual(float(lc_range.volume()), 10.0)
 
     def test_abstract_constraint_volume_default(self) -> None:
-        """
-        Verify the base AbstractConstraint.volume() returns 1.0.
-        """
+        """A constraint owning no parameters has zero volume."""
         p_ind = ValueParameter(np.float64(1.0))
         p_dep = RangeParameter(np.float64(0.0), np.float64(10.0))
         constraint = EchoConstraint(p_ind, p_dep, np.float64(2.5))
-        self.assertEqual(float(constraint.volume()), 1.0)
+        self.assertEqual(float(constraint.volume()), 0.0)
 
     def test_linear_constraint_multiple_range_terms(self) -> None:
         """

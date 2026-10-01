@@ -342,26 +342,26 @@ class TestOrder(TestCase):
                 )
 
     def test_order_volume_all_scalar(self) -> None:
-        """
-        All-scalar parameters yield a volume of 1.0 (ValueParameter.volume returns 1.0
-        for each, and the product of 1s is 1).
-        """
+        """An order with no variable parameters has zero volume."""
         order = _make_order()
-        self.assertEqual(order.volume(), np.float64(1.0))
+        self.assertEqual(order.volume(), np.float64(0.0))
+
+    def test_order_volume_ignores_a_degenerate_normal(self) -> None:
+        """A normal pinned to a point refines away rather than zeroing the whole product."""
+        order = _make_order(
+            temperature={"mean": 5.0, "min": 5.0, "max": 5.0},
+            pressure={"min": 1.0, "max": 11.0},
+        )
+        self.assertIsInstance(order.temperature, ValueParameter)
+        self.assertEqual(order.volume(), np.float64(10.0))
 
     def test_order_volume_single_range_parameter(self) -> None:
-        """
-        A single RangeParameter contributes its width (max - min); all other
-        parameters remain scalar so the total volume equals that width.
-        """
+        """A range contributes its width."""
         order = _make_order(temperature={"min": 20.0, "max": 30.0})
         self.assertEqual(order.volume(), np.float64(10.0))
 
     def test_order_volume_multiple_range_parameters(self) -> None:
-        """
-        Multiple RangeParameters each contribute their width; the total volume
-        is the product of those widths.
-        """
+        """Range widths multiply."""
         order = _make_order(
             temperature={"min": 20.0, "max": 30.0},
             elements={"Na": {"min": 0.5, "max": 2.5}},
@@ -369,21 +369,29 @@ class TestOrder(TestCase):
         self.assertEqual(order.volume(), np.float64(20.0))
 
     def test_order_volume_list_parameter(self) -> None:
-        """
-        A ListParameter contributes its length; the total volume equals that
-        count when all other parameters are scalar.
-        """
+        """A list contributes its length."""
         order = _make_order(pressure=[1.0, 2.0, 3.0])
         self.assertEqual(order.volume(), np.float64(3.0))
 
     def test_order_volume_mixed_range_and_list(self) -> None:
-        """
-        A mix of RangeParameter (width) and ListParameter (length) multiplies
-        their contributions together.
-        """
+        """A range width and a list length multiply."""
         order = _make_order(
             temperature={"min": 0.0, "max": 10.0},
             pressure=[1.0, 2.0],
+        )
+        self.assertEqual(order.volume(), np.float64(20.0))
+
+    def test_order_volume_includes_reactant_parameters(self) -> None:
+        """Variable reactant parameters contribute to the order's volume."""
+        order = _make_order(
+            temperature={"min": 20.0, "max": 30.0},
+            reactants={
+                "quartz": {
+                    "type": "mineral",
+                    "amount": {"min": 0.0, "max": 2.0},
+                    "titration_rate": 1.0,
+                },
+            },
         )
         self.assertEqual(order.volume(), np.float64(20.0))
 

@@ -1,6 +1,5 @@
 import contextlib
 import json
-import operator
 import secrets
 import tomllib
 from collections.abc import Mapping, Sequence
@@ -17,10 +16,10 @@ from eleanor.config.constraint import ConstraintConfig
 from eleanor.config.kernel import KernelConfig
 from eleanor.config.navigator import NavigatorConfig
 from eleanor.exceptions import EleanorError
-from eleanor.parameters import Parameter, ParameterOrSource, load_parameter
+from eleanor.parameters import Parameter, ParameterOrSource, load_parameter, parameter_space_volume
 from eleanor.reactants import AbstractReactant, CombinedReactant
 from eleanor.typing import StrPath
-from eleanor.util import is_list_of, mapreduce, require, require_dict, require_opt_int, require_opt_str, require_str
+from eleanor.util import is_list_of, require, require_dict, require_opt_int, require_opt_str, require_str
 from eleanor.variable_space import Point as VSPoint
 from eleanor.version import __version__
 
@@ -290,12 +289,7 @@ class Order:
         return parameters
 
     def volume(self) -> np.float64:
-        return mapreduce(
-            lambda p: p.volume(),
-            operator.mul,
-            self.parameters(),
-            np.float64(1.0),
-        )
+        return parameter_space_volume(self.parameters())
 
     @classmethod
     def from_yaml(

@@ -1,4 +1,3 @@
-import operator
 import warnings
 from abc import ABC, abstractmethod
 from collections.abc import Mapping
@@ -9,8 +8,8 @@ from typing import Self, cast, final, override
 import numpy as np
 
 from eleanor.exceptions import EleanorError, EleanorWarning
-from eleanor.parameters import Parameter, ParameterOrSource, ValueParameter, load_parameter
-from eleanor.util import mapreduce, require, require_dict, require_float, require_str
+from eleanor.parameters import Parameter, ParameterOrSource, ValueParameter, load_parameter, parameter_space_volume
+from eleanor.util import require, require_dict, require_float, require_str
 
 
 class ReactantType(StrEnum):
@@ -67,9 +66,8 @@ class AbstractReactant(ABC):
 
         return reactant(raw, name)
 
-    @abstractmethod
     def volume(self) -> np.float64:
-        raise NotImplementedError
+        return parameter_space_volume(self.parameters())
 
 
 @dataclass(init=False)
@@ -92,10 +90,6 @@ class TitratedReactant(AbstractReactant, ABC):
     @override
     def parameters(self) -> list[Parameter]:
         return [self.amount, self.titration_rate]
-
-    @override
-    def volume(self) -> np.float64:
-        return self.amount.volume() * self.titration_rate.volume()
 
 
 _ = AbstractReactant.register(TitratedReactant)
@@ -218,10 +212,6 @@ class FixedGasReactant(AbstractReactant):
         fugacity = cast(ParameterOrSource, require(raw.get("fugacity"), "reactant.fugacity"))
 
         return cls(name=name, amount=amount, fugacity=fugacity)
-
-    @override
-    def volume(self) -> np.float64:
-        return self.amount.volume() * self.fugacity.volume()
 
 
 _ = AbstractReactant.register(FixedGasReactant)
@@ -354,12 +344,6 @@ class SolidSolutionReactant(TitratedReactant):
         )
 
         return cls(name=name, amount=amount, titration_rate=titration_rate, end_members=end_members)
-
-    @override
-    def volume(self) -> np.float64:
-        volume = super().volume()
-        volume += mapreduce(lambda em: em.volume(), operator.mul, self.end_members.values(), 1.0)
-        return volume
 
 
 _ = TitratedReactant.register(SolidSolutionReactant)
@@ -543,7 +527,7 @@ class CombinedReactant(TitratedReactant):
             )
             warnings.warn(msg, EleanorWarning, stacklevel=2)
 
-        fraction = mapreduce(lambda c: c.fraction.value, operator.add, components.values(), 0.0)
+        fraction = np.float64(sum(c.fraction.value for c in components.values()))
         if not np.isclose(fraction, 1.0):
             msg = f"combined reactant {self.name!r} component fractions sum to {fraction}; must sum to 1.0"
             raise EleanorError(msg)
@@ -578,18 +562,6 @@ class CombinedReactant(TitratedReactant):
         }
 
         return cls(name=name, amount=amount, titration_rate=titration_rate, components=components)
-
-    @override
-    def volume(self) -> np.float64:
-        # Mirror SolidSolutionReactant.volume(): fold each component's own
-        # parameter block (relative_rate plus any nested end_members) into the
-        # parent volume as a sum of products. Per-component relative_rate is
-        # a first-class Parameter that may be range- or list-valued, so a
-        # variable component contributes its actual volume rather than 1.
-        volume = super().volume()
-        for component in self.components.values():
-            volume += mapreduce(lambda p: p.volume(), operator.mul, component.parameters(), 1.0)
-        return volume
 
 
 _ = TitratedReactant.register(CombinedReactant)

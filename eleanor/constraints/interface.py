@@ -8,7 +8,7 @@ import numpy as np
 from eleanor.config.constraint import ConstraintConfig
 from eleanor.exceptions import EleanorError
 from eleanor.order import Order
-from eleanor.parameters import Parameter, ParameterRegistry, Valuation, ValueParameter
+from eleanor.parameters import Parameter, ParameterRegistry, Valuation, ValueParameter, parameter_space_volume
 from eleanor.query.path import MatchFilter, Segment, parse_path
 
 
@@ -58,7 +58,7 @@ class AbstractConstraint(ABC):
         return []
 
     def volume(self) -> np.float64:
-        return np.float64(1.0)
+        return parameter_space_volume(self.parameters())
 
 
 def resolve_parameter(order: Order, path_str: str) -> Parameter:
@@ -218,10 +218,6 @@ class LinearConstraint(AbstractConstraint):
     def parameters(self) -> list[Parameter]:
         # Term parameters are owned by the Order; only the constant is constraint-local.
         return [self.constant]
-
-    @override
-    def volume(self) -> np.float64:
-        return self.constant.volume()
 
     @override
     def apply(self, registry: ParameterRegistry, valuation: Valuation) -> Valuation:

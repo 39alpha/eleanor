@@ -2,9 +2,7 @@ import datetime
 import hashlib
 import os
 import uuid
-from collections.abc import Callable, Iterable
 from enum import StrEnum
-from functools import reduce
 from pathlib import Path
 from typing import Protocol, cast
 
@@ -233,10 +231,6 @@ def parse_date(date: str) -> datetime.date | datetime.datetime:
         return datetime.date.fromisoformat(date)
     except ValueError:
         return datetime.datetime.fromisoformat(date)
-
-
-def mapreduce[S, T](mapper: Callable[[S], T], reducer: Callable[[T, T], T], values: Iterable[S], initial: T) -> T:
-    return reduce(reducer, map(mapper, values), initial)
 
 
 def require_opt_int(value: object, field_name: str) -> int | None:

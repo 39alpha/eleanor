@@ -840,3 +840,43 @@ class TestEq36ParsersRealOutputs(TestCase):
         with self.assertRaises(EleanorKernelError) as ctx:
             _ = OutputParser6(io.StringIO(botched)).parse()
         self.assertEqual(ctx.exception.code, RunCode.PARSER_ERROR)
+
+    def test_outputparser6_skips_grand_summary(self) -> None:
+        """
+        Ensure that the data from the Grand Summary of Solid Phases does not get used.
+        """
+        table: dict[str, list[tuple[int, list[str], list[str], float, float, float]]] = {
+            "200": [
+                (0, [], [], 0.0, 0.0, 0.0),
+                (13, ["hematite"], [], 4.14981e-11, 2.44626e-07, -2.44584e-07),
+                (97, ["hematite"], ["talc-ss"], 0.0041396, 0.0107527, -0.00661308),
+                (107, ["hematite"], ["serpentine-ss", "talc-ss"], 0.0121262, 0.0166993, -0.00457313),
+                (256, ["hematite", "magnetite"], ["serpentine-ss", "talc-ss"], 0.256186, 0.229253, 0.0269328),
+                (270, ["magnetite"], ["serpentine-ss", "talc-ss"], 0.324796, 0.292082, 0.0327141),
+                (332, ["magnetite"], ["serpentine-ss"], 2.46971, 2.17138, 0.298327),
+            ],
+            "250": [
+                (0, [], [], 0.0, 0.0, 0.0),
+                (7, ["hematite"], [], 2.27141e-11, 1.66461e-07, -1.66439e-07),
+                (81, ["hematite"], ["serpentine-ss"], 0.00393931, 0.0102326, -0.00629332),
+                (90, ["hematite"], ["serpentine-ss", "talc-ss"], 0.0109385, 0.0164508, -0.00551227),
+                (219, ["hematite", "magnetite"], ["serpentine-ss", "talc-ss"], 0.246305, 0.221933, 0.0243718),
+                (233, ["magnetite"], ["serpentine-ss", "talc-ss"], 0.314243, 0.284304, 0.029939),
+                (301, ["magnetite"], ["serpentine-ss"], 2.59509, 2.28514, 0.309956),
+            ],
+        }
+
+        for case in table:
+            eq6 = self._parse_eq6_path(case)
+            for i, pure_solids, solid_solutions, created, destroyed, change in table[case]:
+                with self.subTest(case=f"{case}[{i}]"):
+                    point = eq6[i]
+
+                    precipitated_pure_solids = [s.name for s in point.pure_solids if s.log_moles is not None]
+                    precipitated_solid_solutions = [s.name for s in point.solid_solutions if s.log_moles is not None]
+
+                    self.assertEqual(precipitated_pure_solids, pure_solids)
+                    self.assertEqual(precipitated_solid_solutions, solid_solutions)
+                    self.assertEqual(point.custom_properties["solid_mass_created"], created)
+                    self.assertEqual(point.custom_properties["solid_mass_destroyed"], destroyed)
+                    self.assertEqual(point.custom_properties["solid_mass_change"], change)

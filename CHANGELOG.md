@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Do not parse Grand Summary of Solid Phases** from EQ6 output. Those values include the quantity
+  of reactant remaining which makes identifying alteration products tricky.
+
 ## [v0.22.0] - 2026-09-28
 
 ### Added

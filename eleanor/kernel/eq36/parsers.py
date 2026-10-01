@@ -674,11 +674,8 @@ class OutputParser(ABC):
                 self.read_solid_blocks()
             self.advance()
         if self.match_pattern(r"^\s*---\s+Grand Summary of Solid Phases \(ES \+ PRS \+ Reactants\)\s+---\s*$"):
-            self.consume_to_pattern(r"\s*Phase/End-member\s+Log moles\s+Moles\s+Grams\s+Volume, cm3\s*")
+            self.consume_to_pattern(r"\s*Mass, grams\s+Volume, cm3\s*")
             self.advance(n=2)
-            while not self.eof() and "None" not in self.line() and not self.is_blank():
-                self.read_solid_blocks()
-            self.advance(n=3)
         else:
             self.advance(n=2)
         summary = self.read_basic_table("mass", "volume", row_names=["created", "destroyed", "net"])

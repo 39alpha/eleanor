@@ -86,9 +86,9 @@ def _freeze_pure_solid(a: _PureSolidAccum) -> es.PureSolid:
         name=a.name,
         log_qk=_require_saturation_value(a.log_qk, "log_qk", f"pure solid {a.name}"),
         affinity=_require_saturation_value(a.affinity, "affinity", f"pure solid {a.name}"),
-        log_moles=np.float64(-np.inf) if (a.moles is not None and a.moles == EQ36_NEG_INF) else a.log_moles,
-        log_mass=np.float64(-np.inf) if (a.mass is not None and a.mass == EQ36_NEG_INF) else a.log_mass,
-        log_volume=np.float64(-np.inf) if (a.volume is not None and a.volume == EQ36_NEG_INF) else a.log_volume,
+        log_moles=a.log_moles,
+        log_mass=a.log_mass,
+        log_volume=a.log_volume,
     )
 
 
@@ -608,6 +608,8 @@ class OutputParser(ABC):
                     continue
                 moles_value = field_as_float(moles_s)
                 log_moles_value = field_as_float(log_moles_s)
+                if log_moles_value == EQ36_NEG_INF:
+                    log_moles_value = np.float64(-np.inf)
                 mass_value = field_as_float(mass_s)
                 volume_value = field_as_float(volume_s)
                 if is_end_member(line):

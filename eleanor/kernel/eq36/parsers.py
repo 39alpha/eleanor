@@ -27,11 +27,8 @@ class _PureSolidAccum:
     name: str
     log_qk: np.float64 | None = None
     affinity: np.float64 | None = None
-    moles: np.float64 | None = None
     log_moles: np.float64 | None = None
-    mass: np.float64 | None = None
     log_mass: np.float64 | None = None
-    volume: np.float64 | None = None
     log_volume: np.float64 | None = None
 
 
@@ -44,11 +41,8 @@ class _EndMemberAccum:
     log_x: np.float64 | None = None
     log_lambda: np.float64 | None = None
     log_activity: np.float64 | None = None
-    moles: np.float64 | None = None
     log_moles: np.float64 | None = None
-    mass: np.float64 | None = None
     log_mass: np.float64 | None = None
-    volume: np.float64 | None = None
     log_volume: np.float64 | None = None
 
 
@@ -57,11 +51,8 @@ class _SolidSolutionAccum:
     name: str
     log_qk: np.float64 | None = None
     affinity: np.float64 | None = None
-    moles: np.float64 | None = None
     log_moles: np.float64 | None = None
-    mass: np.float64 | None = None
     log_mass: np.float64 | None = None
-    volume: np.float64 | None = None
     log_volume: np.float64 | None = None
     end_members: dict[str, _EndMemberAccum] = field(default_factory=dict)
 
@@ -606,7 +597,6 @@ class OutputParser(ABC):
                     else:
                         line_num += 1
                     continue
-                moles_value = field_as_float(moles_s)
                 log_moles_value = field_as_float(log_moles_s)
                 if log_moles_value == EQ36_NEG_INF:
                     log_moles_value = np.float64(-np.inf)
@@ -622,32 +612,23 @@ class OutputParser(ABC):
                     if solid not in end_members:
                         end_members[solid] = _EndMemberAccum(name=solid)
                     em = end_members[solid]
-                    em.moles = moles_value
                     em.log_moles = log_moles_value
-                    em.mass = mass_value
                     em.log_mass = _safe_log10(mass_value)
-                    em.volume = volume_value
                     em.log_volume = _safe_log10(volume_value)
                 elif is_end_member(next_line) and not _blank.match(next_line):
                     parent_phase = solid
                     if solid not in self._solid_solutions:
                         self._solid_solutions[solid] = _SolidSolutionAccum(name=solid)
                     ss = self._solid_solutions[solid]
-                    ss.moles = moles_value
                     ss.log_moles = log_moles_value
-                    ss.mass = mass_value
                     ss.log_mass = _safe_log10(mass_value)
-                    ss.volume = volume_value
                     ss.log_volume = _safe_log10(volume_value)
                 else:
                     if solid not in self._pure_solids:
                         self._pure_solids[solid] = _PureSolidAccum(name=solid)
                     ps = self._pure_solids[solid]
-                    ps.moles = moles_value
                     ps.log_moles = log_moles_value
-                    ps.mass = mass_value
                     ps.log_mass = _safe_log10(mass_value)
-                    ps.volume = volume_value
                     ps.log_volume = _safe_log10(volume_value)
                     if solid.startswith("fix_f"):
                         ps.log_qk = np.float64(0.0)

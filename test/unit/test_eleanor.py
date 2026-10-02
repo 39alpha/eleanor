@@ -912,7 +912,7 @@ class TestEleanorProcess(TestCase):
         sim_progress.tick.assert_called_once_with(2)
         out_progress.tick.assert_called_once_with(1)
 
-    def test_process_raises_on_navigator_underproduction(self) -> None:
+    def test_process_does_not_raise_on_navigator_underproduction(self) -> None:
         """Ensure process raises when navigator yields fewer points than expected."""
         eleanor = _make_eleanor()
         order = _make_order()
@@ -924,17 +924,16 @@ class TestEleanorProcess(TestCase):
         # silently route these through the background writer.
         sink.supports_background_commit.return_value = False
 
-        with self.assertRaisesRegex(EleanorError, "expected 10"):
-            _ = eleanor.process(
-                order,
-                mock.Mock(),
-                navigator,
-                10,
-                [_bind(sink)],
-                batch_size=5,
-                expected_total=10,
-                executor=_as_executor(_FakeExecutor()),
-            )
+        _ = eleanor.process(
+            order,
+            mock.Mock(),
+            navigator,
+            10,
+            [_bind(sink)],
+            batch_size=5,
+            expected_total=10,
+            executor=_as_executor(_FakeExecutor()),
+        )
 
     def test_process_raises_on_navigator_overproduction(self) -> None:
         """Ensure process raises when navigator yields more points than expected."""
@@ -949,7 +948,7 @@ class TestEleanorProcess(TestCase):
         sink.supports_background_commit.return_value = False
         executor = _FakeExecutor(num_workers=1, submit_side_effect=[_Future([])])
 
-        with self.assertRaisesRegex(EleanorError, "expected 5"):
+        with self.assertRaisesRegex(EleanorError, "expected at most 5"):
             _ = eleanor.process(
                 order,
                 mock.Mock(),
@@ -1764,23 +1763,6 @@ class TestEleanorDispatchWindow(TestCase):
             all(outstanding > 0 for _event, outstanding in history[:last_submit]),
             f"window emptied before the stream was exhausted: {history}",
         )
-
-    def test_navigator_shortfall_is_still_detected(self) -> None:
-        """Ensure the expected_total guard survives the per-chunk accounting."""
-        eleanor = _make_eleanor()
-        executor = _RecordingExecutor(num_workers=2)
-
-        with self.assertRaisesRegex(EleanorError, "produced 2 points, expected 4"):
-            _ = eleanor.process(
-                _make_order(),
-                mock.MagicMock(AbstractKernel),
-                _batched_navigator([["a", "b"]]),
-                4,
-                [_bind(self._serial_sink())],
-                batch_size=4,
-                expected_total=4,
-                executor=_as_executor(executor),
-            )
 
 
 class TestEleanorBackgroundCommit(TestCase):

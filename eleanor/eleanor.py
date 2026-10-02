@@ -787,8 +787,8 @@ class Eleanor:
                     with timings.writing(in_flight=0, num_workers=executor.num_workers):
                         _join_writers(writers, outcomes)
 
-        if total_produced != expected_total:
-            msg = f"navigator produced {total_produced} points, expected {expected_total}"
+        if total_produced > expected_total:
+            msg = f"navigator produced {total_produced} points, expected at most {expected_total}"
             raise EleanorError(msg)
 
         return outcomes

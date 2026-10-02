@@ -295,6 +295,25 @@ class TestParameters(TestCase):
             infinite = NormalParameter(mean=np.float64(0.0), a=np.float64(bound), b=np.float64(bound))
             self.assertEqual(infinite.volume(), np.float64(0.0))
 
+    def test_normal_parameter_lattice_survives_heavy_truncation(self) -> None:
+        """Lattice points stay inside the bounds however far outside them the mean sits."""
+        cases = [
+            NormalParameter(mean=np.float64(0.0), stddev=np.float64(1.0), a=np.float64(-11.0), b=np.float64(-10.0)),
+            NormalParameter(mean=np.float64(1.0), stddev=np.float64(0.001), a=np.float64(0.0), b=np.float64(0.5)),
+            NormalParameter(mean=np.float64(100.0), stddev=np.float64(1.0), a=np.float64(0.0), b=np.float64(10.0)),
+        ]
+        for parameter in cases:
+            with self.subTest(parameter=parameter):
+                points = parameter.lattice(size=3)
+                values = [x.value for x in points]
+
+                self.assertTrue(all(np.isfinite(v) for v in values), values)
+                self.assertTrue(all(parameter.min <= v <= parameter.max for v in values), values)
+                self.assertEqual(values, sorted(values), values)
+                self.assertEqual(len(set(values)), len(values), values)
+                # The refinement check the navigator applies to every generated value.
+                self.assertTrue(all(parameter.in_domain(point) for point in points), values)
+
     def test_normal_parameter_range_and_bounds(self) -> None:
         """Range and bounds report the truncation bounds, infinite only where untruncated."""
         cases = [

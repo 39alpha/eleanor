@@ -341,26 +341,21 @@ class NormalParameter(Parameter):
 
     @override
     def lattice(self, size: int = 2) -> list[ValueParameter]:
-        from scipy.special import erfinv
-
         if self.stddev == 0 or self.min == self.max:
             value = min(max(self.mean, self.min), self.max)
             return [ValueParameter(value) for _ in range(size)]
 
+        from scipy.stats import norm, truncnorm
+
         u = _as_float_array(np.linspace(0, 1, num=size + 2)[1:-1])
 
-        if not np.isinf(self.min) or not np.isinf(self.max):
-            from scipy.stats import norm
-
+        if np.isinf(self.min) and np.isinf(self.max):
+            values = _as_float_array(norm.ppf(u, loc=self.mean, scale=self.stddev))
+        else:
             a = (self.min - self.mean) / self.stddev
             b = (self.max - self.mean) / self.stddev
+            values = _as_float_array(truncnorm.ppf(u, a, b, loc=self.mean, scale=self.stddev))
 
-            phi_alpha = _as_float(norm.cdf(a))
-            z = _as_float(norm.cdf(b)) - phi_alpha
-
-            u = z * u + phi_alpha
-
-        values = _as_float_array(cast(object, self.stddev * np.sqrt(2) * erfinv(2 * u - 1) + self.mean))
         return [ValueParameter(cast(np.float64, values[i])) for i in range(values.size)]
 
 

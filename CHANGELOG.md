@@ -44,6 +44,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`TemperatureRangeConstraint` no longer rejects or widens a temperature when no data1 file has a
   `tp_curve`.** Its bound sentinels are ordered, leaving the parameter untouched, which means the
   constraint is treated as "no constraint".
+- **`NormalParameter.lattice` no longer returns `-inf`** when the bounds sit more than about eight
+  standard deviations from the mean; it inverts the truncated distribution directly.
 
 ## [v0.22.0] - 2026-09-28
 

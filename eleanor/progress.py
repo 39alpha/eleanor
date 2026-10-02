@@ -86,10 +86,12 @@ class ProgressMessage:
         * ``'total'``  -- set the bar's absolute total to ``value``.
         * ``'extend'`` -- add ``value`` to the bar's running total.
         * ``'tick'``   -- advance the bar by ``value`` completed units.
-        * ``'done'``   -- freeze and close the bar at its current state.
+        * ``'done'``   -- close the bar, pinning the total if ``pin_total``.
     :param value: The argument to the operation. For ``'tick'`` the value is
         the number of units to advance; for ``'total'`` / ``'extend'`` it is
-        an absolute / delta count respectively. ``'done'`` ignores ``value``.
+        an absolute / delta count respectively; for ``'done'`` the value is
+        an int-valued boolean specifying whether the run completed, e.g. so
+        that the bar total can be set appropriately.
     """
 
     channel: Channel
@@ -139,8 +141,8 @@ class ManagedProgressHandle(ProgressHandle, Protocol):
     code path that would race against other producers on the same channel.
     """
 
-    def done(self) -> None:
-        """Freeze and close this channel's bar.
+    def done(self, pin_total: bool = True) -> None:
+        """Close this channel's bar, pinning the total if ``pin_total``.
 
         Must be called only from the parent dispatch context, not from
         workers. Calling it from a worker would immediately close the bar
@@ -175,8 +177,8 @@ class _ChannelHandle:
     def tick(self, n: int = 1) -> None:
         self._queue.put(ProgressMessage(channel=self._channel, kind="tick", value=int(n)))
 
-    def done(self) -> None:
-        self._queue.put(ProgressMessage(channel=self._channel, kind="done", value=0))
+    def done(self, pin_total: bool = True) -> None:
+        self._queue.put(ProgressMessage(channel=self._channel, kind="done", value=int(pin_total)))
 
 
 class Progress:
@@ -340,6 +342,8 @@ class Progress:
                 channel_done[channel] = True
                 bar = bars[channel]
                 if bar is not None:
+                    if msg.value == 1:
+                        bar.total = cast(int, bar.n)
                     # ``tqdm.close()`` defaults to ``leave=True`` and runs its
                     # own final ``display(pos=0)`` that re-renders the bar at
                     # the cursor's current line and writes ``\n``. Calling

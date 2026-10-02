@@ -55,6 +55,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   constraint is treated as "no constraint".
 - **`NormalParameter.lattice` no longer returns `-inf`** when the bounds sit more than about eight
   standard deviations from the mean; it inverts the truncated distribution directly.
+- **A completed run's progress bars close at 100%.** `num_systems` is an upper bound, so a bar
+  declared against it used to stall short; the total is now pinned to the count actually reached.
+  An interrupted run keeps its declared total, so a partial run still reads as partial.
 
 ## [v0.22.0] - 2026-09-28
 

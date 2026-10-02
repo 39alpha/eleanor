@@ -505,8 +505,45 @@ class TestEleanorRun(TestCase):
         self.assertIs(kwargs["sim_progress"], sim_handle_loud)
         self.assertEqual(kwargs["out_progress"], {"null": out_handle_loud})
 
+    def test_run_pins_progress_totals_when_the_run_completes(self) -> None:
+        """A completed run pins each bar's total, so a loose num_systems still closes at 100%."""
+        eleanor = _make_eleanor()
+        sim_handle = mock.Mock(name="sim_handle")
+        out_handle = mock.Mock(name="out_handle")
+        progress = SimpleNamespace(
+            sim=sim_handle,
+            outs=lambda: {"null": out_handle},
+            join=mock.Mock(),
+        )
+        sink = mock.Mock()
+        sink.begin_run.return_value = 8
+        sink.supports_progress.return_value = True
+        eleanor.process = mock.Mock(return_value={})
+
+        kernel = mock.MagicMock(AbstractKernel)
+
+        with (
+            mock.patch("eleanor.eleanor.load_executor", return_value=_FakeExecutor()),
+            mock.patch("eleanor.eleanor.load_output_sink", return_value=sink),
+            mock.patch("eleanor.eleanor.Progress", return_value=progress),
+        ):
+            _ = eleanor.run(
+                _make_order(),
+                1,
+                kernel=kernel,
+                navigator=_navigator(1),
+                show_progress=True,
+            )
+
+        sim_handle.done.assert_called_once_with(pin_total=True)
+        out_handle.done.assert_called_once_with(pin_total=True)
+
     def test_run_closes_progress_handles_when_process_raises(self) -> None:
-        """Ensure progress handles are closed/joined even if process raises."""
+        """Progress handles are closed even if process raises, without pinning their totals.
+
+        Pinning a bar's total to the count it reached would render an aborted run as complete,
+        so only a run that finished asks for it.
+        """
         eleanor = _make_eleanor()
         sim_handle = mock.Mock(name="sim_handle")
         out_handle = mock.Mock(name="out_handle")
@@ -536,8 +573,8 @@ class TestEleanorRun(TestCase):
                 show_progress=True,
             )
 
-        sim_handle.done.assert_called_once_with()
-        out_handle.done.assert_called_once_with()
+        sim_handle.done.assert_called_once_with(pin_total=False)
+        out_handle.done.assert_called_once_with(pin_total=False)
         progress.join.assert_called_once_with()
 
     def test_batch_size_threads_from_run_to_process(self) -> None:

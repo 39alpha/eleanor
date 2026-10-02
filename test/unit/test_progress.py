@@ -47,6 +47,8 @@ class _FakeTqdm:
         self.position = position
         self.desc = desc
         self.update_calls: list[int] = []
+        # Real tqdm accumulates completed units here; the listener reads it to pin the total.
+        self.n: int = 0
         self.refresh_calls = 0
         self.closed = False
         # Sentinel distinguishable from any value tests install via
@@ -61,6 +63,7 @@ class _FakeTqdm:
 
     def update(self, n) -> None:
         self.update_calls.append(n)
+        self.n += n
 
     def refresh(self) -> None:
         self.refresh_calls += 1
@@ -126,7 +129,7 @@ class TestChannelHandle(TestCase):
         sim.done()
         out.total(7)
         out.tick(2)
-        out.done()
+        out.done(pin_total=False)
 
         self.assertEqual(
             queue.puts,
@@ -135,7 +138,7 @@ class TestChannelHandle(TestCase):
                 ProgressMessage(channel="sim", kind="tick", value=1),
                 ProgressMessage(channel="sim", kind="tick", value=3),
                 ProgressMessage(channel="sim", kind="extend", value=4),
-                ProgressMessage(channel="sim", kind="done", value=0),
+                ProgressMessage(channel="sim", kind="done", value=1),
                 ProgressMessage(channel="out", kind="total", value=7),
                 ProgressMessage(channel="out", kind="tick", value=2),
                 ProgressMessage(channel="out", kind="done", value=0),
@@ -364,6 +367,40 @@ class TestProgressListener(TestCase):
         bars = self._bars_by_channel()
         self.assertTrue(bars["sim"].closed)
         self.assertTrue(bars["out"].closed)
+
+    def test_done_pins_the_total_to_the_realised_count(self) -> None:
+        """A completed run closes at 100%, however loose the declared total was.
+
+        ``num_systems`` is an upper bound, so a bar declared at 9 that only ever saw 3 ticks
+        would otherwise close two thirds of the way along.
+        """
+        self._run_listener(
+            [
+                ProgressMessage(channel="sim", kind="total", value=9),
+                ProgressMessage(channel="sim", kind="tick", value=3),
+                ProgressMessage(channel="sim", kind="done", value=1),
+                None,
+            ]
+        )
+        bars = self._bars_by_channel()
+        self.assertEqual(bars["sim"].n, 3)
+        self.assertEqual(bars["sim"].total, 3)
+        self.assertTrue(bars["sim"].closed)
+
+    def test_done_leaves_the_total_alone_when_the_run_did_not_complete(self) -> None:
+        """An aborted run keeps its declared total, so a partial bar reads as partial."""
+        self._run_listener(
+            [
+                ProgressMessage(channel="sim", kind="total", value=9),
+                ProgressMessage(channel="sim", kind="tick", value=3),
+                ProgressMessage(channel="sim", kind="done", value=0),
+                None,
+            ]
+        )
+        bars = self._bars_by_channel()
+        self.assertEqual(bars["sim"].n, 3)
+        self.assertEqual(bars["sim"].total, 9)
+        self.assertTrue(bars["sim"].closed)
 
     def test_done_closes_channel_and_ignores_late_messages(self) -> None:
         """

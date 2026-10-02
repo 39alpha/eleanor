@@ -461,20 +461,24 @@ class Eleanor:
 
             if navigator is None:
                 navigator = load_navigator(order.navigator.kind, settings=order.navigator.settings)
+
             expected_total = navigator.num_systems(order, simulation_size)
             if expected_total <= 0:
                 msg = f"navigator.num_systems({simulation_size}) returned {expected_total}; must be >= 1"
                 raise EleanorError(msg)
-            effective_batch_size = batch_size if batch_size is not None else expected_total
+
             if batch_size is not None and batch_size <= 0:
                 msg = "batch_size must be >= 1"
                 raise EleanorError(msg)
+
+            effective_batch_size = batch_size if batch_size is not None else expected_total
 
             progress: Progress | None = None
             sim_handle: ManagedProgressHandle | None = None
             out_handles: dict[str, ManagedProgressHandle] = {}
             stats_summary: str | None = None
 
+            completed: bool = False
             try:
                 if show_progress:
                     run_manager = stack.enter_context(self._manager_scope())
@@ -513,11 +517,13 @@ class Eleanor:
                     stats[name].update(sink_outcomes)
                 if verbose and stats:
                     stats_summary = _format_stats(stats)
+
+                completed = True
             finally:
                 if progress is not None:
-                    progress.sim.done()
+                    progress.sim.done(pin_total=completed)
                     for handle in out_handles.values():
-                        handle.done()
+                        handle.done(pin_total=completed)
                     progress.join()
                 if stats_summary is not None:
                     print(stats_summary, file=sys.stderr)

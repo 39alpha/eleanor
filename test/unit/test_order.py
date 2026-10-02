@@ -8,6 +8,7 @@ from unittest import TestCase, mock
 
 import numpy as np
 import pytest
+from eleanor.config.constraint import ConstraintConfig
 from eleanor.exceptions import EleanorError
 from eleanor.kernel.settings import KernelSettings
 from eleanor.order import Order, Suppression, load_order
@@ -394,6 +395,78 @@ class TestOrder(TestCase):
             },
         )
         self.assertEqual(order.volume(), np.float64(20.0))
+
+    def test_order_parameters_include_constraint_locals(self) -> None:
+        """A constraint's own parameters are the order's by transitivity, so volume counts them."""
+        order = _make_order(
+            temperature={"min": 20.0, "max": 30.0},
+            pressure={"min": 1.0, "max": 5.0},
+            constraints=[
+                {
+                    "kind": "linear",
+                    "terms": [
+                        {"variable": "temperature", "coefficient": 1.0},
+                        {"variable": "pressure", "coefficient": -2.0},
+                    ],
+                    "constant": {"min": 0.0, "max": 4.0},
+                }
+            ],
+        )
+        constant = order.constraints[0].parameters()[0]
+
+        self.assertTrue(any(p is constant for p in order.parameters()))
+        self.assertEqual(order.volume(), np.float64(160.0))
+
+    def test_order_volume_ignores_a_fixed_constraint_local(self) -> None:
+        """A fixed constant varies nothing, so it drops out like any other fixed parameter."""
+        order = _make_order(
+            temperature={"min": 20.0, "max": 30.0},
+            pressure={"min": 1.0, "max": 5.0},
+            constraints=[
+                {
+                    "kind": "linear",
+                    "terms": [{"variable": "temperature", "coefficient": 1.0}],
+                    "constant": 7.0,
+                }
+            ],
+        )
+
+        self.assertEqual(order.volume(), np.float64(40.0))
+
+    def test_order_parameters_returns_the_same_objects_each_call(self) -> None:
+        """The parameter registry keys on identity, so repeated calls must not re-parse."""
+        order = _make_order(
+            temperature={"min": 20.0, "max": 30.0},
+            constraints=[
+                {
+                    "kind": "linear",
+                    "terms": [{"variable": "temperature", "coefficient": 1.0}],
+                    "constant": {"min": 0.0, "max": 4.0},
+                }
+            ],
+        )
+
+        first, second = order.parameters(), order.parameters()
+
+        self.assertEqual(len(first), len(second))
+        self.assertTrue(all(a is b for a, b in zip(first, second, strict=True)))
+
+    def test_order_picks_up_a_constraint_added_after_construction(self) -> None:
+        """Nothing is cached, so an order stays editable until it is used."""
+        order = _make_order(temperature={"min": 20.0, "max": 30.0})
+        self.assertEqual(order.volume(), np.float64(10.0))
+
+        order.constraints.append(
+            ConstraintConfig.from_dict(
+                {
+                    "kind": "linear",
+                    "terms": [{"variable": "temperature", "coefficient": 1.0}],
+                    "constant": {"min": 0.0, "max": 4.0},
+                }
+            )
+        )
+
+        self.assertEqual(order.volume(), np.float64(40.0))
 
 
 def test_order_tags_defaults_to_empty_list() -> None:

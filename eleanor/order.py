@@ -285,6 +285,8 @@ class Order:
         parameters.extend(self.species.values())
         for reactant in self.reactants:
             parameters.extend(reactant.parameters())
+        for constraint in self.constraints:
+            parameters.extend(constraint.parameters())
 
         return parameters
 

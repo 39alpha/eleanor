@@ -1,3 +1,4 @@
+from types import SimpleNamespace
 from typing import cast, final, override
 from unittest import TestCase, mock
 
@@ -99,6 +100,27 @@ class DummyOrder:
 
 def _as_order(order: DummyOrder) -> Order:
     return cast(Order, cast(object, order))
+
+
+_FAKE_KERNEL_SPEC = SimpleNamespace(
+    settings_from_dict=mock.Mock(return_value=KernelSettings(timeout=None)),
+    build=mock.Mock(),
+)
+
+
+def _make_real_order(**overrides: object) -> Order:
+    """Build a real Order, kernel registry mocked out, for exercising the config path."""
+    raw: dict[str, object] = {
+        "name": "o",
+        "creator": "u",
+        "kernel": {"kind": "eq36", "model": "b-dot", "charge_balance": "H+"},
+        "temperature": 25.0,
+        "pressure": 1.0,
+        "elements": {"Na": 1.0},
+    }
+    raw.update(overrides)
+    with mock.patch("eleanor.kernel.registry.get_factory", return_value=_FAKE_KERNEL_SPEC):
+        return Order.from_dict(raw)
 
 
 class TestConstraints(TestCase):
@@ -378,7 +400,6 @@ class TestConstraints(TestCase):
             reactants=[],
         )
         raw: dict[str, object] = {
-            "type": "linear",
             "terms": [
                 {
                     "variable": "temperature",
@@ -401,13 +422,14 @@ class TestConstraints(TestCase):
         if isinstance(result, LinearConstraint):
             self.assertEqual(len(result.terms), 2)
             self.assertAlmostEqual(float(result.tolerance), 1e-8)
+            self.assertEqual(result.constant, ValueParameter(np.float64(5.0)))
 
     def test_from_order_missing_terms_raises(self) -> None:
         """
         Verify from_order raises when the raw dict has no 'terms' key.
         """
         order = self._make_simple_order()
-        config = ConstraintConfig(kind="linear", args={"type": "linear"})
+        config = ConstraintConfig(kind="linear", args={})
         with self.assertRaises(EleanorError):
             _ = LinearConstraint.from_order(_as_order(order), config)
 
@@ -416,7 +438,7 @@ class TestConstraints(TestCase):
         Verify from_order raises when a term entry is not a dict.
         """
         order = self._make_simple_order()
-        raw: dict[str, object] = {"type": "linear", "terms": ["not_a_dict"]}
+        raw: dict[str, object] = {"terms": ["not_a_dict"]}
         config = ConstraintConfig(kind="linear", args=raw)
         with self.assertRaises(EleanorError):
             _ = LinearConstraint.from_order(_as_order(order), config)
@@ -426,7 +448,7 @@ class TestConstraints(TestCase):
         Verify from_order raises when a term has no 'variable' key.
         """
         order = self._make_simple_order()
-        raw: dict[str, object] = {"type": "linear", "terms": [{"coefficient": 1.0}]}
+        raw: dict[str, object] = {"terms": [{"coefficient": 1.0}]}
         config = ConstraintConfig(kind="linear", args=raw)
         with self.assertRaises(EleanorError):
             _ = LinearConstraint.from_order(_as_order(order), config)
@@ -437,14 +459,12 @@ class TestConstraints(TestCase):
         """
         order = self._make_simple_order()
         raw_bool: dict[str, object] = {
-            "type": "linear",
             "terms": [{"variable": "temperature", "coefficient": True}],
         }
         with self.assertRaises(EleanorError):
             _ = LinearConstraint.from_order(_as_order(order), ConstraintConfig(kind="linear", args=raw_bool))
 
         raw_list: dict[str, object] = {
-            "type": "linear",
             "terms": [{"variable": "temperature", "coefficient": [1, 2]}],
         }
         with self.assertRaises(EleanorError):
@@ -456,7 +476,6 @@ class TestConstraints(TestCase):
         """
         order = self._make_simple_order()
         raw: dict[str, object] = {
-            "type": "linear",
             "terms": [{"variable": "temperature", "transform": "ln"}],
         }
         config = ConstraintConfig(kind="linear", args=raw)
@@ -469,7 +488,6 @@ class TestConstraints(TestCase):
         """
         order = self._make_simple_order()
         raw: dict[str, object] = {
-            "type": "linear",
             "terms": [{"variable": "temperature"}],
             "tolerance": True,
         }
@@ -626,6 +644,82 @@ class TestConstraints(TestCase):
         self.assertIsInstance(resolved, ValueParameter)
         if isinstance(resolved, ValueParameter):
             self.assertAlmostEqual(float(resolved.value), 7.0)
+
+    def test_point_builder_resolves_a_constraint_declared_by_an_order(self) -> None:
+        """The config path end to end: the order owns the constant, and it is registered once."""
+        order = _make_real_order(
+            temperature={"min": 0.0, "max": 20.0},
+            pressure=3.0,
+            constraints=[
+                {
+                    "kind": "linear",
+                    "terms": [
+                        {"variable": "temperature", "coefficient": 1.0},
+                        {"variable": "pressure", "coefficient": 1.0},
+                    ],
+                    "constant": 10.0,
+                }
+            ],
+        )
+        constant = order.constraints[0].parameters()[0]
+
+        point_builder = PointBuilder(order)
+
+        registered = [p for p in point_builder.registry.parameters if p is constant]
+        self.assertEqual(len(registered), 1, "the constant must be registered exactly once")
+
+        _ = point_builder.constrain()
+        resolved = point_builder[order.temperature]
+        self.assertIsInstance(resolved, ValueParameter)
+        if isinstance(resolved, ValueParameter):
+            self.assertAlmostEqual(float(resolved.value), 7.0)
+
+    def test_point_builder_registers_a_constraint_local_however_it_is_declared(self) -> None:
+        """A declared constant comes from the order; an omitted one the constraint invents itself.
+
+        Either way it is constraint-local and has to be registered exactly once, or ``apply``
+        cannot look it up.
+        """
+        cases: list[tuple[str, object, np.float64 | None]] = [
+            # A variable constant leaves the constraint unresolvable, so temperature stays free.
+            ("a declared range", {"min": 0.0, "max": 4.0}, None),
+            ("a declared value", 10.0, np.float64(7.0)),
+            # LinearConstraint defaults the constant to 0.0, so T + 3 = 0.
+            ("no constant at all", None, np.float64(-3.0)),
+        ]
+        for label, constant, expected in cases:
+            with self.subTest(constant=label):
+                constraint: dict[str, object] = {
+                    "kind": "linear",
+                    "terms": [
+                        {"variable": "temperature", "coefficient": 1.0},
+                        {"variable": "pressure", "coefficient": 1.0},
+                    ],
+                }
+                if constant is not None:
+                    constraint["constant"] = constant
+
+                order = _make_real_order(
+                    temperature={"min": -10.0, "max": 20.0},
+                    pressure=3.0,
+                    constraints=[constraint],
+                )
+
+                point_builder = PointBuilder(order)
+                locals_ = point_builder.constraints[0].parameters()
+                self.assertEqual(len(locals_), 1)
+                for parameter in locals_:
+                    registered = [p for p in point_builder.registry.parameters if p is parameter]
+                    self.assertEqual(len(registered), 1, "the constant must be registered exactly once")
+
+                _ = point_builder.constrain()
+                resolved = point_builder[order.temperature]
+                if expected is None:
+                    self.assertNotIsInstance(resolved, ValueParameter)
+                    continue
+                self.assertIsInstance(resolved, ValueParameter)
+                if isinstance(resolved, ValueParameter):
+                    self.assertAlmostEqual(float(resolved.value), float(expected))
 
     def test_point_builder_get_set_hardset_and_domain_errors(self) -> None:
         """
@@ -1214,7 +1308,6 @@ class TestConstraints(TestCase):
             reactants=[],
         )
         raw: dict[str, object] = {
-            "type": "linear",
             "terms": [
                 {"variable": "temperature", "coefficient": 1.0},
                 {"variable": "elements[key=Na]", "coefficient": -1.0},

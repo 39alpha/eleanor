@@ -15,6 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`eleanor postgres dump order`** writes a stored order back out as a runnable YAML or JSON file.
 - **`eleanor.parameters.parameter_space_volume`**, the shared implementation behind the `Order`,
   reactant and constraint volumes.
+- **`ConstraintConfig.parameters`** reports a constraint's own parameters, as `KernelConfig` already
+  does for the kernel's.
 
 ### Changed
 
@@ -32,6 +34,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`NormalParameter.in_domain` enforces its bounds** rather than accepting everything.
 - **A degenerate `NormalParameter` refines to a `ValueParameter`.** A zero stddev, or equal bounds,
   collapses to a fixed parameter as a zero-width range or single-valued list already does.
+- **`ConstraintConfig.from_dict` parses a constraint's local parameters.** For `linear` that is
+  `constant`, so `args["constant"]` holds a `Parameter` rather than the raw specification.
+- **`Order.parameters` includes its constraints' local parameters**, so `Order.volume` counts a
+  variable constraint constant that it previously ignored.
 
 ### Removed
 

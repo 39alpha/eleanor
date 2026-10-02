@@ -42,7 +42,9 @@ class PointBuilder:
         ]
         self.constraints.extend(constraints)
         for constraint in self.constraints:
-            self.registry.add_parameters(constraint.parameters())
+            for parameter in constraint.parameters():
+                if not any(parameter is p for p in self.registry.parameters):
+                    self.registry.add_parameter(parameter)
 
         self.valuations = self.registry.valuation()
 

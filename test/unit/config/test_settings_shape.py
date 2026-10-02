@@ -8,6 +8,7 @@ the two must be rejected.
 from dataclasses import dataclass
 from typing import Any
 
+import numpy as np
 import pytest
 from eleanor.config.constraint import ConstraintConfig
 from eleanor.config.executor import ExecutorConfig
@@ -18,6 +19,7 @@ from eleanor.exceptions import EleanorError
 from eleanor.executor.settings import ExecutorSettings
 from eleanor.kernel.settings import KernelSettings
 from eleanor.navigator.settings import NavigatorSettings
+from eleanor.parameters import ListParameter, Parameter, RangeParameter, ValueParameter
 from eleanor.output.settings import OutputSinkSettings
 from pytest_mock import MockerFixture
 
@@ -121,3 +123,54 @@ def test_constraint_args_accept_the_nested_form() -> None:
 def test_constraint_rejects_mixed_flat_and_nested_args() -> None:
     with pytest.raises(EleanorError, match="cannot mix flat and nested args"):
         _ = ConstraintConfig.from_dict({"kind": "linear", "args": {"x": 1}, "stray": 2})
+
+
+_TERMS: list[object] = [{"variable": "temperature", "coefficient": 1.0}]
+
+
+@pytest.mark.parametrize(
+    ("constant", "expected"),
+    [
+        ({"min": 0.0, "max": 4.0}, RangeParameter(np.float64(0.0), np.float64(4.0))),
+        (5.0, ValueParameter(np.float64(5.0))),
+        ([1.0, 2.0], ListParameter([np.float64(1.0), np.float64(2.0)])),
+    ],
+)
+def test_a_linear_constraint_parses_its_constant(constant: object, expected: Parameter) -> None:
+    """The constant is the linear constraint's own parameter, so the config owns it parsed."""
+    config = ConstraintConfig.from_dict({"kind": "linear", "terms": _TERMS, "constant": constant})
+
+    assert config.args["constant"] == expected
+    assert config.parameters() == [expected]
+
+
+def test_a_linear_constraint_parses_its_constant_in_the_nested_form() -> None:
+    config = ConstraintConfig.from_dict(
+        {"kind": "linear", "args": {"terms": _TERMS, "constant": {"min": 0.0, "max": 4.0}}}
+    )
+
+    assert config.parameters() == [RangeParameter(np.float64(0.0), np.float64(4.0))]
+
+
+def test_constraint_terms_are_not_local_parameters() -> None:
+    """Terms name parameters the order owns, so reporting them would double-count."""
+    config = ConstraintConfig.from_dict({"kind": "linear", "terms": _TERMS})
+
+    assert config.parameters() == []
+
+
+def test_an_unknown_constraint_kind_has_no_local_parameters() -> None:
+    """An order may carry a kind this eleanor cannot build; that must not raise here."""
+    config = ConstraintConfig.from_dict({"kind": "example", "constant": {"min": 0.0, "max": 4.0}})
+
+    assert config.parameters() == []
+    assert config.args["constant"] == {"min": 0.0, "max": 4.0}
+
+
+def test_constraint_local_parameters_are_the_same_objects_each_call() -> None:
+    """The registry keys on identity, so repeated reads must not re-parse."""
+    config = ConstraintConfig.from_dict({"kind": "linear", "terms": _TERMS, "constant": {"min": 0.0, "max": 4.0}})
+
+    first, second = config.parameters(), config.parameters()
+
+    assert first[0] is second[0]

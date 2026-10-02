@@ -8,7 +8,15 @@ import numpy as np
 from eleanor.config.constraint import ConstraintConfig
 from eleanor.exceptions import EleanorError
 from eleanor.order import Order
-from eleanor.parameters import Parameter, ParameterRegistry, Valuation, ValueParameter, parameter_space_volume
+from eleanor.parameters import (
+    Parameter,
+    ParameterOrSource,
+    ParameterRegistry,
+    Valuation,
+    ValueParameter,
+    load_parameter,
+    parameter_space_volume,
+)
 from eleanor.query.path import MatchFilter, Segment, parse_path
 
 
@@ -315,7 +323,7 @@ class LinearConstraint(AbstractConstraint):
 
         constant: Parameter | None = None
         if "constant" in raw:
-            constant = Parameter.load(raw["constant"])
+            constant = load_parameter(cast(ParameterOrSource, raw["constant"]))
 
         tolerance: np.float64 | None = None
         if "tolerance" in raw:

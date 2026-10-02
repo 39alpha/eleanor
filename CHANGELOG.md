@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.23.0] - 2026-10-02
+
 ### Added
 
 - **`kernel.data1_file` is read from the order file.** An explicit path skips the usual

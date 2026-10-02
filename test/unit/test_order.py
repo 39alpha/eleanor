@@ -3,16 +3,19 @@ from datetime import datetime
 from os.path import join
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
-from typing import cast
+from collections.abc import Mapping
+from dataclasses import dataclass
+from typing import cast, override
 from unittest import TestCase, mock
 
 import numpy as np
 import pytest
 from eleanor.config.constraint import ConstraintConfig
 from eleanor.exceptions import EleanorError
+from eleanor.config.kernel import KernelConfig
 from eleanor.kernel.settings import KernelSettings
 from eleanor.order import Order, Suppression, load_order
-from eleanor.parameters import ValueParameter
+from eleanor.parameters import Parameter, ParameterOrSource, RangeParameter, ValueParameter
 from eleanor.variable_space import Point as VSPoint
 
 
@@ -34,6 +37,34 @@ _FAKE_KERNEL_SPEC = SimpleNamespace(
     settings_from_dict=mock.Mock(return_value=KernelSettings(timeout=None)),
     build=mock.Mock(),
 )
+
+
+@dataclass(kw_only=True)
+class _SettingsWithParameter(KernelSettings):
+    """Kernel settings that own a parameter, as a kernel-declared constraint local would be."""
+
+    local: Parameter
+
+    @override
+    def parameters(self) -> list[Parameter]:
+        return [self.local]
+
+
+def _make_order_with_kernel_parameter(local: Parameter, **overrides: object) -> Order:
+    """Build an Order whose kernel settings contribute ``local``.
+
+    Constructed directly rather than through ``from_dict``, which resolves settings via the
+    plugin registry and would hand back real ``Eq36Settings``.
+    """
+    raw = _minimal_raw(**overrides)
+    return Order(
+        name=cast(str, raw["name"]),
+        creator=cast(str, raw["creator"]),
+        kernel=KernelConfig(kind="eq36", settings=_SettingsWithParameter(timeout=None, local=local)),
+        temperature=cast(ParameterOrSource, raw["temperature"]),
+        pressure=cast(ParameterOrSource, raw["pressure"]),
+        elements=cast(Mapping[str, ParameterOrSource], raw["elements"]),
+    )
 
 
 def _make_order(
@@ -467,6 +498,23 @@ class TestOrder(TestCase):
         )
 
         self.assertEqual(order.volume(), np.float64(40.0))
+
+    def test_order_parameters_include_kernel_settings_parameters(self) -> None:
+        """A kernel declares its own parameters on its settings, so the order counts them too."""
+        local = RangeParameter(np.float64(0.0), np.float64(4.0))
+        order = _make_order_with_kernel_parameter(local, temperature={"min": 20.0, "max": 30.0})
+
+        self.assertTrue(any(p is local for p in order.parameters()))
+        self.assertEqual(order.volume(), np.float64(40.0))
+
+    def test_order_volume_ignores_a_fixed_kernel_settings_parameter(self) -> None:
+        """A fixed kernel parameter varies nothing, so it drops out like any other."""
+        order = _make_order_with_kernel_parameter(
+            ValueParameter(np.float64(7.0)),
+            temperature={"min": 20.0, "max": 30.0},
+        )
+
+        self.assertEqual(order.volume(), np.float64(10.0))
 
 
 def test_order_tags_defaults_to_empty_list() -> None:

@@ -617,6 +617,53 @@ class TestEq36Kernel(TestCase):
         self.assertTrue(kernel._setup)
         self.assertEqual(kernel._data1s, [accepted])
 
+    def test_setup_narrows_the_data1_search_to_a_normal_temperature_bounds(self) -> None:
+        """A bounded normal temperature narrows the data1 search; an untruncated one does not."""
+
+        def data1_covering(low: float, high: float) -> SimpleNamespace:
+            """A data1 stand-in whose curve accepts any overlapping temperature window."""
+
+            def set_domain(temperature_range, _pressure_range) -> bool:
+                temp_min, temp_max = temperature_range
+                return not (high < temp_min or temp_max < low)
+
+            return SimpleNamespace(tp_curve=SimpleNamespace(set_domain=mock.Mock(side_effect=set_domain)))
+
+        cases = [
+            ({"mean": 25.0, "min": 20.0, "max": 30.0}, (20.0, 30.0), ["cold"]),
+            ({"mean": 250.0, "stddev": 10.0, "min": 200.0}, (200.0, np.inf), ["hot"]),
+            ({"mean": 25.0, "stddev": 1.0}, (-np.inf, np.inf), ["cold", "hot"]),
+        ]
+        for raw, expected_range, expected_names in cases:
+            with self.subTest(temperature=raw):
+                kernel = self._kernel()
+                order = mock.create_autospec(Order, instance=True)
+                order.kernel = self._config()
+                order.temperature = Parameter.load(raw)
+                order.pressure = Parameter.load({"min": 3.0, "max": 4.0})
+
+                found = {"cold": data1_covering(0.0, 50.0), "hot": data1_covering(200.0, 600.0)}
+
+                with (
+                    mock.patch(
+                        "eleanor.kernel.eq36.kernel.tool_room.WorkingDirectory",
+                        return_value=contextlib.nullcontext(),
+                    ),
+                    mock.patch(
+                        "eleanor.kernel.eq36.kernel.tool_room.find_files",
+                        return_value=([], [Path("cold.d1"), Path("hot.d1")]),
+                    ),
+                    mock.patch(
+                        "eleanor.kernel.eq36.kernel.Data1.from_file",
+                        side_effect=[found["cold"], found["hot"]],
+                    ),
+                ):
+                    kernel.setup(cast(Order, order), data1_dir=".")
+
+                for data1 in found.values():
+                    data1.tp_curve.set_domain.assert_called_once_with(expected_range, (3.0, 4.0))
+                self.assertEqual(kernel._data1s, [found[name] for name in expected_names])
+
     def test_setup_raises_when_order_is_none(self) -> None:
         """
         Ensure setup raises EleanorError when called with an invalid order.

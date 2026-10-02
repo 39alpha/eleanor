@@ -293,14 +293,14 @@ class Eq36Kernel(AbstractKernel):
             msg = "kernel is not setup; cannot constraint orders"
             raise EleanorKernelError(msg)
 
-        point_builder.constraints.append(
+        point_builder.add_constraint(
             TemperatureRangeConstraint(
                 point_builder.order.temperature,
                 self._data1s,
             ),
         )
 
-        point_builder.constraints.append(
+        point_builder.add_constraint(
             TPCurveConstraint(
                 point_builder.order.temperature,
                 point_builder.order.pressure,

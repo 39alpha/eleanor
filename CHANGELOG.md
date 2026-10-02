@@ -38,6 +38,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `constant`, so `args["constant"]` holds a `Parameter` rather than the raw specification.
 - **`Order.parameters` includes its constraints' local parameters**, so `Order.volume` counts a
   variable constraint constant that it previously ignored.
+- **A kernel admits its constraints with `PointBuilder.add_constraint`.** Appending to
+  `point_builder.constraints` leaves the constraint's own parameters out of the registry, so a
+  kernel constraint owning one could not be resolved.
 
 ### Removed
 

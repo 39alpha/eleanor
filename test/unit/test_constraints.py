@@ -721,6 +721,72 @@ class TestConstraints(TestCase):
                 if isinstance(resolved, ValueParameter):
                     self.assertAlmostEqual(float(resolved.value), float(expected))
 
+    def test_point_builder_admits_a_constraint_after_construction(self) -> None:
+        """A kernel constrains an already-built builder, so a local admitted late must still land.
+
+        Registering is not sufficient on its own: ids are positional into the registry, so a
+        parameter added after ``valuations`` was built needs an entry of its own.
+        """
+        p_x = RangeParameter(np.float64(0.0), np.float64(20.0))
+        p_y = ValueParameter(np.float64(3.0))
+        order = DummyOrder(
+            parameters=[p_x, p_y],
+            temperature=p_y,
+            pressure=p_y,
+            elements={},
+            species={},
+            suppressions=[],
+            reactants=[],
+        )
+        point_builder = PointBuilder(_as_order(order))
+        before = len(point_builder.registry.parameters)
+
+        constant = RangeParameter(np.float64(0.0), np.float64(20.0))
+        constraint = LinearConstraint(
+            [
+                LinearConstraintTerm(p_x, np.float64(1.0), Transform.IDENTITY),
+                LinearConstraintTerm(p_y, np.float64(1.0), Transform.IDENTITY),
+            ],
+            constant=constant,
+        )
+
+        point_builder.add_constraint(constraint)
+
+        self.assertIn(constraint, point_builder.constraints)
+        self.assertEqual(len(point_builder.registry.parameters), before + 1)
+        self.assertIs(point_builder[constant], constant)
+
+        point_builder[constant] = constant.fix(np.float64(10.0))
+        _ = point_builder.constrain()
+
+        resolved = point_builder[p_x]
+        self.assertIsInstance(resolved, ValueParameter)
+        if isinstance(resolved, ValueParameter):
+            self.assertAlmostEqual(float(resolved.value), 7.0)
+
+    def test_point_builder_does_not_duplicate_an_already_registered_local(self) -> None:
+        """A constraint borrowing a parameter the order already owns must not re-register it."""
+        p_x = RangeParameter(np.float64(0.0), np.float64(20.0))
+        constant = RangeParameter(np.float64(0.0), np.float64(4.0))
+        order = DummyOrder(
+            parameters=[p_x, constant],
+            temperature=p_x,
+            pressure=p_x,
+            elements={},
+            species={},
+            suppressions=[],
+            reactants=[],
+        )
+        point_builder = PointBuilder(_as_order(order))
+        before = len(point_builder.registry.parameters)
+
+        point_builder.add_constraint(
+            LinearConstraint([LinearConstraintTerm(p_x, np.float64(1.0), Transform.IDENTITY)], constant=constant)
+        )
+
+        self.assertEqual(len(point_builder.registry.parameters), before)
+        self.assertEqual(len([p for p in point_builder.registry.parameters if p is constant]), 1)
+
     def test_point_builder_get_set_hardset_and_domain_errors(self) -> None:
         """
         Ensure PointBuilder item access and refinement checks enforce registry/domain constraints.

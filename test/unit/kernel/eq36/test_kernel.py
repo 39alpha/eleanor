@@ -736,9 +736,11 @@ class TestEq36Kernel(TestCase):
         self.assertTrue(kernel._setup)
         self.assertEqual(kernel._data1s, [])
 
-    def test_constrain_appends_temperature_and_tp_constraints_in_order(self) -> None:
-        """
-        Ensure constrain appends temperature-range and T/P-curve constraints and returns the same point_builder.
+    def test_constrain_adds_temperature_and_tp_constraints_in_order(self) -> None:
+        """Constrain admits both constraints through the builder, in order, and hands it back.
+
+        It goes through ``add_constraint`` rather than appending to ``constraints`` directly, so that
+        a constraint's own parameters reach the registry and the valuation.
         """
         order = mock.create_autospec(Order, instance=True)
         order.kernel = self._config()
@@ -751,7 +753,6 @@ class TestEq36Kernel(TestCase):
 
         point_builder = mock.create_autospec(PointBuilder, instance=True)
         point_builder.order = order
-        point_builder.constraints = []
 
         with (
             mock.patch(
@@ -763,7 +764,8 @@ class TestEq36Kernel(TestCase):
             out = kernel.constrain(point_builder)
 
         self.assertIs(out, point_builder)
-        self.assertEqual(point_builder.constraints, ["TRANGE", "TPCURVE"])
+        admitted = [call.args[0] for call in point_builder.add_constraint.call_args_list]
+        self.assertEqual(admitted, ["TRANGE", "TPCURVE"])
         trange_mock.assert_called_once_with(order.temperature, kernel._data1s)
         tpcurve_mock.assert_called_once_with(order.temperature, order.pressure, kernel._data1s)
 

@@ -30,23 +30,18 @@ class PointBuilder:
     def __init__(self, order: Order, *constraints: AbstractConstraint) -> None:
         self.order = order
         self.registry = ParameterRegistry()
-        self.registry.add_parameters(order.parameters())
-
         self.parameters = order.parameters()
-
-        order_constraints = self.order.constraints
-        self.constraints = [
-            loaded
-            for loaded in (AbstractConstraint.from_order(self.order, c) for c in order_constraints)
-            if loaded is not None
-        ]
-        self.constraints.extend(constraints)
-        for constraint in self.constraints:
-            for parameter in constraint.parameters():
-                if not any(parameter is p for p in self.registry.parameters):
-                    self.registry.add_parameter(parameter)
-
+        self.registry.add_parameters(order.parameters())
         self.valuations = self.registry.valuation()
+        self.constraints = []
+
+        for config in self.order.constraints:
+            built = AbstractConstraint.from_order(self.order, config)
+            if built is not None:
+                self.add_constraint(built)
+
+        for constraint in constraints:
+            self.add_constraint(constraint)
 
     def __getitem__(self, parameter: Parameter) -> Parameter:
         return self.valuations[self.registry.id(parameter)]
@@ -67,6 +62,14 @@ class PointBuilder:
             raise Exception(msg)
 
         self.valuations[parameter_id] = value
+
+    def add_constraint(self, constraint: AbstractConstraint) -> None:
+        self.constraints.append(constraint)
+        for parameter in constraint.parameters():
+            if any(parameter is p for p in self.registry.parameters):
+                continue
+            self.registry.add_parameter(parameter)
+            self.valuations[self.registry.id(parameter)] = parameter
 
     def hardset(self, parameter: Parameter, value: Parameter) -> None:
         self.valuations[self.registry.id(parameter)] = value

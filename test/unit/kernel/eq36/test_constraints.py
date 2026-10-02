@@ -95,6 +95,44 @@ class TestEq36Constraints(TestCase):
         self.assertEqual(c.independent_parameters, [])
         self.assertEqual(c.dependent_parameters, [temp])
 
+    def test_temperature_range_init_orders_its_bounds(self) -> None:
+        """The min/max sentinels are ordered, so no curves leaves an unbounded window."""
+        temp = ValueParameter(np.float64(25.0))
+
+        no_curves = TemperatureRangeConstraint(temp, [_data1_with_curve(None)])
+        self.assertEqual((no_curves.min_temp, no_curves.max_temp), (-np.inf, np.inf))
+
+        inverted = TemperatureRangeConstraint(
+            temp,
+            [_data1_with_curve(_DummyCurve({"min": np.float64(50.0), "max": np.float64(10.0)}))],
+        )
+        self.assertEqual((inverted.min_temp, inverted.max_temp), (np.float64(10.0), np.float64(50.0)))
+
+    def test_temperature_range_apply_without_curves_is_an_identity(self) -> None:
+        """With no tp_curve to constrain it, every parameter type comes back untouched."""
+        data1s = [_data1_with_curve(None)]
+
+        def refine(parameter: Parameter) -> Parameter:
+            c = TemperatureRangeConstraint(parameter, data1s)
+            registry, valuation = self._registry_with(parameter)
+            return c.apply(registry, valuation)[registry.id(parameter)]
+
+        value = refine(ValueParameter(np.float64(25.0)))
+        self.assertIsInstance(value, ValueParameter)
+        self.assertEqual(cast(ValueParameter, value).value, np.float64(25.0))
+
+        wide = refine(RangeParameter(np.float64(0.0), np.float64(100.0)))
+        self.assertIsInstance(wide, RangeParameter)
+        self.assertEqual(cast(RangeParameter, wide).range(), (np.float64(0.0), np.float64(100.0)))
+
+        listed = refine(ListParameter([np.float64(5.0), np.float64(25.0), np.float64(80.0)]))
+        self.assertIsInstance(listed, ListParameter)
+        self.assertEqual(cast(ListParameter, listed).values, [np.float64(5.0), np.float64(25.0), np.float64(80.0)])
+
+        normal = refine(NormalParameter(np.float64(50.0), np.float64(10.0), np.float64(0.0), np.float64(100.0)))
+        self.assertIsInstance(normal, NormalParameter)
+        self.assertEqual(cast(NormalParameter, normal).range(), (np.float64(0.0), np.float64(100.0)))
+
     def test_temperature_range_apply_value_range_list_normal(self) -> None:
         """
         Ensure apply refines each supported parameter type to the curve temperature bounds.

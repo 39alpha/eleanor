@@ -38,6 +38,8 @@ class TemperatureRangeConstraint(AbstractConstraint):
                 self.min_temp = min(data1.tp_curve.temperature["min"], self.min_temp)
                 self.max_temp = max(data1.tp_curve.temperature["max"], self.max_temp)
 
+        self.min_temp, self.max_temp = min(self.min_temp, self.max_temp), max(self.min_temp, self.max_temp)
+
     @property
     @override
     def independent_parameters(self) -> list[Parameter]:

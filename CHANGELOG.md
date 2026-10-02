@@ -41,6 +41,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Do not parse Grand Summary of Solid Phases** from EQ6 output. Those values include the quantity
   of reactant remaining which makes identifying alteration products tricky.
+- **`TemperatureRangeConstraint` no longer rejects or widens a temperature when no data1 file has a
+  `tp_curve`.** Its bound sentinels are ordered, leaving the parameter untouched, which means the
+  constraint is treated as "no constraint".
 
 ## [v0.22.0] - 2026-09-28
 

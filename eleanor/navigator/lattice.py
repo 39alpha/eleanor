@@ -67,7 +67,7 @@ class AbstractLatticeNavigator(AbstractNavigator, ABC):
 
     @override
     def num_systems(self, order: Order, scale: int) -> int:
-        return cast(int, scale ** len([1 for p in order.parameters() if not isinstance(p, ValueParameter)]))
+        return cast(int, scale ** sum(1 for p in order.parameters() if not isinstance(p, ValueParameter)))
 
 
 class RandomLatticeNavigator(AbstractLatticeNavigator):

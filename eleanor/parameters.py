@@ -130,7 +130,7 @@ class ValueParameter(Parameter):
     def in_domain(self, parameter: Parameter) -> bool:
         if not isinstance(parameter, ValueParameter):
             return False
-        return bool(parameter.value == self.value)  # pyright: ignore[reportAny]
+        return bool(parameter.value == self.value)
 
     @override
     def range(self) -> tuple[np.float64, np.float64]:

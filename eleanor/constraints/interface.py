@@ -141,9 +141,9 @@ class Transform(Enum):
                         return cast(np.float64, np.log10(x))
                     case Transform.POW10:
                         return cast(np.float64, np.float_power(10.0, x))
-                    case _:  # pyright: ignore[reportUnnecessaryComparison]
+                    case _:
                         msg = f"unhandled transform: {self}"
-                        raise AssertionError(msg)  # pyright: ignore[reportUnreachable]
+                        raise AssertionError(msg)
             except FloatingPointError as exc:
                 msg = f"{self.value} transform forward failed for input {x}"
                 raise EleanorError(msg) from exc
@@ -158,9 +158,9 @@ class Transform(Enum):
                         return cast(np.float64, np.float_power(10.0, y))
                     case Transform.POW10:
                         return cast(np.float64, np.log10(y))
-                    case _:  # pyright: ignore[reportUnnecessaryComparison]
+                    case _:
                         msg = f"unhandled transform: {self}"
-                        raise AssertionError(msg)  # pyright: ignore[reportUnreachable]
+                        raise AssertionError(msg)
             except FloatingPointError as exc:
                 msg = f"{self.value} transform inverse failed for input {y}"
                 raise EleanorError(msg) from exc

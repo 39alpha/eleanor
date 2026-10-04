@@ -37,14 +37,7 @@ _active: StatementProfiler | None = None
 
 
 class _ProfilingCursor(psycopg.Cursor[TupleRow]):
-    """Cursor subclass that reports execute / executemany to the active profiler.
-
-    Override signatures track ``psycopg.Cursor.execute`` /
-    ``executemany`` exactly so we satisfy LSP. The ``# pyright: ignore``
-    on ``_record_before`` / ``_record_after`` is intentional: those
-    methods are private to :class:`StatementProfiler` and the cursor is
-    its only legitimate caller.
-    """
+    """Cursor subclass that reports execute / executemany to the active profiler."""
 
     @override
     def execute(  # pyrefly: ignore[bad-override]
@@ -62,12 +55,12 @@ class _ProfilingCursor(psycopg.Cursor[TupleRow]):
         prof = _active
         if prof is None:
             return super().execute(query, params, prepare=prepare, binary=binary)
-        prof._record_before(self, _to_text(query), params, executemany=False)  # pyright: ignore[reportPrivateUsage]
+        prof._record_before(self, _to_text(query), params, executemany=False)
         t0 = time.perf_counter()
         try:
             return super().execute(query, params, prepare=prepare, binary=binary)
         finally:
-            prof._record_after(self, time.perf_counter() - t0)  # pyright: ignore[reportPrivateUsage]
+            prof._record_after(self, time.perf_counter() - t0)
 
     @override
     def executemany(
@@ -81,12 +74,12 @@ class _ProfilingCursor(psycopg.Cursor[TupleRow]):
         prof = _active
         if prof is None:
             return super().executemany(query, params_seq, returning=returning)
-        prof._record_before(self, _to_text(query), params_seq, executemany=True)  # pyright: ignore[reportPrivateUsage]
+        prof._record_before(self, _to_text(query), params_seq, executemany=True)
         t0 = time.perf_counter()
         try:
             return super().executemany(query, params_seq, returning=returning)
         finally:
-            prof._record_after(self, time.perf_counter() - t0)  # pyright: ignore[reportPrivateUsage]
+            prof._record_after(self, time.perf_counter() - t0)
 
     @override
     @contextmanager
@@ -106,13 +99,13 @@ class _ProfilingCursor(psycopg.Cursor[TupleRow]):
             with super().copy(statement, params, writer=writer) as cp:
                 yield cp
             return
-        prof._record_before(self, _to_text(statement), params, executemany=False)  # pyright: ignore[reportPrivateUsage]
+        prof._record_before(self, _to_text(statement), params, executemany=False)
         t0 = time.perf_counter()
         try:
             with super().copy(statement, params, writer=writer) as cp:
                 yield cp
         finally:
-            prof._record_after(self, time.perf_counter() - t0)  # pyright: ignore[reportPrivateUsage]
+            prof._record_after(self, time.perf_counter() - t0)
 
 
 def _to_text(query: object) -> str:
@@ -180,7 +173,7 @@ class StatementProfiler:
         # ``_connections`` is the persistence layer's process-local cache;
         # the profiler legitimately needs to see every existing connection
         # to retrofit the cursor_factory. Ignore the private-access warning.
-        for conn in list(connection_module._connections.values()):  # pyright: ignore[reportPrivateUsage]
+        for conn in list(connection_module._connections.values()):
             self._patch_factory(conn)
         # Wrap ``connect`` so connections opened during the profiling
         # window also get the profiling factory installed.

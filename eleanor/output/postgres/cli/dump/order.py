@@ -98,7 +98,7 @@ def dump_order(
 
 def _is_empty_value(value: object) -> bool:
     """Determine if a property counts as "empty" for the purposes of output."""
-    return value is None or (isinstance(value, (str, dict, list, set)) and len(value) == 0)  # pyright: ignore[reportUnknownArgumentType]
+    return value is None or (isinstance(value, (str, dict, list, set)) and len(value) == 0)
 
 
 def _prepare_order(raw: dict[str, object], keep_empty: bool = False) -> dict[str, object]:

@@ -59,8 +59,7 @@ def coerce_filter_value(target: type[object], raw: str, *, path: str, predicate:
     # ``target`` via ``reflection.coercion_target`` before calling here, so
     # ``target`` is always a ``type``. Without this guard, ``issubclass`` would
     # raise ``TypeError`` if a future caller ever passed a non-type (e.g., a
-    # generic alias). basedpyright sees the typed signature and flags the
-    # check as redundant; casting suppresses the diagnostic.
+    # generic alias).
     if coercer is None and isinstance(cast(object, target), type) and issubclass(target, enum.Enum):
 
         def enum_coercer(r: str) -> enum.Enum:

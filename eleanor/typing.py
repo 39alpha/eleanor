@@ -10,9 +10,7 @@ class EleanorKwargs(TypedDict, total=False):
     These are the keyword arguments that originate at the CLI (or at a
     programmatic caller) and flow as ``**kwargs`` through the forwarding
     methods all the way down to :class:`eleanor.runner.Runner` and the
-    concrete :class:`eleanor.kernel.interface.AbstractKernel` leaves. Typing
-    the bag as a single ``TypedDict`` lets ``pyright`` verify each hop
-    without needing ``cast(Callable[..., T], …)`` at every forwarding site.
+    concrete :class:`eleanor.kernel.interface.AbstractKernel` leaves.
     """
 
     verbose: bool

@@ -288,18 +288,11 @@ class Progress:
             # (e.g. ``time.monotonic``, which returns system uptime) here
             # would make tqdm display ``time.time() - small_uptime`` as
             # elapsed -- a number on the order of decades.
-            #
-            # Cast through ``object`` because ``tqdm[NoReturn]`` does not
-            # structurally overlap with ``_TimedBar`` from pyright's point
-            # of view: tqdm sets ``start_t`` / ``last_print_t`` / ``_time``
-            # as instance attributes inside ``__init__``, not declared class
-            # attributes the type checker can see. The Protocol is
-            # specifically a typed window into those instance attributes.
-            timed_bar = cast("_TimedBar", cast(object, bar))
+            timed_bar = cast("_TimedBar", bar)
             # ``_time`` is private to tqdm by name only; this whole reset is
             # an intentional reach into tqdm's internals, gated by the
             # ``_TimedBar`` Protocol and the tqdm version pin in pyproject.
-            now = timed_bar._time()  # pyright: ignore[reportPrivateUsage]
+            now = timed_bar._time()
             timed_bar.start_t = now
             timed_bar.last_print_t = now
 

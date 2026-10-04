@@ -27,7 +27,7 @@ def error_guard(output: bytes | str, cmd: str, code: int, fname: str | None = No
         errors = matches.group(0).split("\\n\\n")
         for error in errors:
             first_message = error.split("\\n\\n")[0]
-            trimmed_prefix = first_message.replace("Error - ", str(cmd))
+            trimmed_prefix = first_message.replace("Error - ", cmd)
             no_newline = trimmed_prefix.replace("\\n", "")
             message = re.sub("\\s+", " ", no_newline)
             if re.match("^\\s*$", message) is None:

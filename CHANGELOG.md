@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+
+- **`eleanor.util.norm_list`.** It had no callers.
+
 ## [v0.23.0] - 2026-10-02
 
 ### Added

@@ -383,9 +383,7 @@ def _expand_preset(
     fn = presets.get(name)
     if fn is None:
         raise UnknownPresetError(name)
-    args: dict[str, object] = {
-        str(key): value for key, value in entry.items() if isinstance(key, str) and key != "preset"
-    }
+    args: dict[str, object] = {key: value for key, value in entry.items() if isinstance(key, str) and key != "preset"}
     expanded = fn(scope_table, args)
     # Recursive expansion under the same bundle (spec §10): a preset's output
     # may itself contain preset/splat/structured/bare-path entries.

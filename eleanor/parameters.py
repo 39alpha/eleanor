@@ -241,7 +241,7 @@ class ListParameter(Parameter):
         from scipy.stats import randint
 
         indices = _as_int_array(randint.rvs(0, len(self.values), size=size, random_state=rng))
-        return [ValueParameter(self.values[int(indices.item(i))]) for i in range(indices.size)]
+        return [ValueParameter(self.values[indices.item(i)]) for i in range(indices.size)]
 
     @override
     def lattice(self, size: int = 2) -> list[ValueParameter]:
@@ -350,11 +350,13 @@ class NormalParameter(Parameter):
         u = _as_float_array(np.linspace(0, 1, num=size + 2)[1:-1])
 
         if np.isinf(self.min) and np.isinf(self.max):
-            values = _as_float_array(norm.ppf(u, loc=self.mean, scale=self.stddev))
+            vals: npt.NDArray[np.floating] = norm.ppf(u, loc=self.mean, scale=self.stddev)
+            values = _as_float_array(vals)
         else:
             a = (self.min - self.mean) / self.stddev
             b = (self.max - self.mean) / self.stddev
-            values = _as_float_array(truncnorm.ppf(u, a, b, loc=self.mean, scale=self.stddev))
+            vals: npt.NDArray[np.floating] = truncnorm.ppf(u, a, b, loc=self.mean, scale=self.stddev)
+            values = _as_float_array(vals)
 
         return [ValueParameter(cast(np.float64, values[i])) for i in range(values.size)]
 

@@ -78,7 +78,8 @@ def normalize_dict(value: object, field_name: str) -> dict[str, object]:
         raise EleanorError(msg)
 
     if is_order:
-        value["vs_points"] = []
+        vs_points: list[core_vs.Point] = []
+        value["vs_points"] = vs_points
 
     coerced = _coerce_property_types(cast(object, value))
     return cast(dict[str, object], coerced)

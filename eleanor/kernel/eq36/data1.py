@@ -266,7 +266,11 @@ class TPCurve:
                     raise RuntimeError(msg)
 
                 coeff = np.copy(coefficients)
-                coeff[0] -= press
+                # NOTE: The slice here deals with the fact that `ndarray.__getitem__` with an int is
+                #       typed `Any`. Without the slice, we get a type error.
+                #
+                #       An alternative is to use a cast: `coeff[0] = cast(np.float64, coeff[0]) - press`
+                coeff[:1] -= press
                 roots = np.roots(coeff[::-1])
                 real_roots: Array1D[np.float64] = np.asarray(np.real(roots[np.isreal(roots)]), dtype=np.float64)
 

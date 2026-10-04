@@ -45,7 +45,7 @@ def migrate(
         msg = "no database provided"
         raise click.ClickException(msg)
 
-    exclusive_count = sum(bool(x) for x in (verify, dry_run, list_all, stamp is not None))
+    exclusive_count = sum(int(x) for x in (verify, dry_run, list_all, stamp is not None))
     if exclusive_count > 1:
         msg = "--verify, --dry-run, --list, and --stamp are mutually exclusive"
         raise click.UsageError(msg)

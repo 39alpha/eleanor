@@ -1,15 +1,15 @@
 import re
 import time
 from collections import Counter
-from collections.abc import Callable, Generator, Iterable, Sequence
+from collections.abc import Generator, Iterable, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from types import TracebackType
-from typing import Self, override
+from typing import Protocol, Self, override
 
 import psycopg
 from psycopg import sql
-from psycopg.abc import Params, QueryNoTemplate
+from psycopg.abc import Params, Query, QueryNoTemplate
 from psycopg.copy import Copy, Writer
 from psycopg.rows import TupleRow
 
@@ -47,7 +47,7 @@ class _ProfilingCursor(psycopg.Cursor[TupleRow]):
     """
 
     @override
-    def execute(  # pyright: ignore[reportIncompatibleMethodOverride]
+    def execute(  # pyrefly: ignore[bad-override]
         self,
         query: QueryNoTemplate,
         params: Params | None = None,
@@ -70,9 +70,9 @@ class _ProfilingCursor(psycopg.Cursor[TupleRow]):
             prof._record_after(self, time.perf_counter() - t0)  # pyright: ignore[reportPrivateUsage]
 
     @override
-    def executemany(  # pyright: ignore[reportIncompatibleMethodOverride]
+    def executemany(
         self,
-        query: QueryNoTemplate,
+        query: Query,
         params_seq: Iterable[Params],
         *,
         returning: bool = False,
@@ -90,9 +90,9 @@ class _ProfilingCursor(psycopg.Cursor[TupleRow]):
 
     @override
     @contextmanager
-    def copy(  # pyright: ignore[reportIncompatibleMethodOverride]
+    def copy(
         self,
-        statement: QueryNoTemplate,
+        statement: Query,
         params: Params | None = None,
         *,
         writer: Writer | None = None,
@@ -130,6 +130,10 @@ def _to_text(query: object) -> str:
     return str(query)
 
 
+class _ConnectFunction(Protocol):
+    def __call__(self, config: PostgresDatabaseSettings) -> psycopg.Connection: ...
+
+
 @dataclass
 class StatementProfiler:
     """Counts and times SQL statements issued through any psycopg connection.
@@ -157,7 +161,7 @@ class StatementProfiler:
     _pending: dict[int, tuple[str, int] | None] = field(default_factory=dict)
     # Saved reference to the real ``connection.connect`` so ``__exit__`` can
     # restore it. Initialised in ``__enter__`` after we capture the value.
-    _real_connect: Callable[[PostgresDatabaseSettings], psycopg.Connection] | None = None
+    _real_connect: _ConnectFunction | None = None
 
     def __enter__(self) -> Self:
         global _active  # noqa: PLW0603

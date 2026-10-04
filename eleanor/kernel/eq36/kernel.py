@@ -215,7 +215,7 @@ class Eq36Kernel(AbstractKernel):
         self,
         order: Order,
         *,
-        data1_dir: object,
+        data1_dir: object = None,
         **kwargs: object,
     ) -> None:
         guard_is_instance(order, Order, f"order provided to {type(self).__name__}.setup")

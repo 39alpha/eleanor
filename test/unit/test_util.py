@@ -110,16 +110,13 @@ class TestUtils(TestCase):
         with self.assertRaises(EleanorError):
             _ = util.NumberFormat.FLOATING.fmt(np.float64(1.23), -1)
 
-    def test_log_rng_and_norm_list(self) -> None:
+    def test_log_rng(self) -> None:
         """
-        Ensure that :func:`log_rng` and :func:`norm_list` produce expected numeric outputs.
+        Ensure that :func:`log_rng` produces expected numeric outputs.
         """
         low, high = util.log_rng(np.float64(100.0), np.float64(0.1))
         self.assertAlmostEqual(low, np.log10(90.0))
         self.assertAlmostEqual(high, np.log10(110.0))
-
-        normalized = util.norm_list(np.array([2.0, 4.0, 6.0]))
-        self.assertEqual(normalized, [0.0, 0.5, 1.0])
 
     def test_hash_file_and_hash_dir(self) -> None:
         """

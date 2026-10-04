@@ -391,7 +391,10 @@ class OutputParser(ABC):
     def consume_basic_table(self, *column_names: str, row_names: list[str] | None = None) -> None:
         _ = self.read_basic_table(*column_names, row_names=row_names)
 
-    def include_aqueous_species(self, _name: str) -> bool:
+    # NOTE: The strict positional arguments are necessary to satify both ruff
+    #       and pyrefly. Otherwise we get either an unused variable or invalid
+    #       override down the line.
+    def include_aqueous_species(self, _name: str, /) -> bool:
         return True
 
     @abstractmethod

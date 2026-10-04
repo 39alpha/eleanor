@@ -7,7 +7,6 @@ from pathlib import Path
 from typing import Protocol, cast
 
 import numpy as np
-from numpy.typing import NDArray
 
 from eleanor.exceptions import EleanorError
 from eleanor.typing import StrPath
@@ -103,19 +102,6 @@ def log_rng(mid: np.floating, error_in_frac: np.floating) -> list[np.floating]:
     :rtype: list[np.float64]
     """
     return [np.log10(mid * _) for _ in [1 - error_in_frac, 1 + error_in_frac]]
-
-
-def norm_list(data: NDArray[np.floating]) -> list[np.floating]:
-    """
-    Normalize a list of floating-point values so that the minimum value is 0.0 and the maximum value is 1.0.
-
-    :param data: the list of values
-    :type data: `NDArray[np.floating]`
-
-    :return: the normalized list
-    :rtype: list[np.float64]
-    """
-    return list((data - np.min(data)) / (np.max(data) - np.min(data)))
 
 
 class WorkingDirectory:

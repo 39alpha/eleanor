@@ -169,13 +169,13 @@ class _ChannelHandle:
         self._channel = channel
 
     def total(self, n: int) -> None:
-        self._queue.put(ProgressMessage(channel=self._channel, kind="total", value=int(n)))
+        self._queue.put(ProgressMessage(channel=self._channel, kind="total", value=n))
 
     def extend(self, n: int) -> None:
-        self._queue.put(ProgressMessage(channel=self._channel, kind="extend", value=int(n)))
+        self._queue.put(ProgressMessage(channel=self._channel, kind="extend", value=n))
 
     def tick(self, n: int = 1) -> None:
-        self._queue.put(ProgressMessage(channel=self._channel, kind="tick", value=int(n)))
+        self._queue.put(ProgressMessage(channel=self._channel, kind="tick", value=n))
 
     def done(self, pin_total: bool = True) -> None:
         self._queue.put(ProgressMessage(channel=self._channel, kind="done", value=int(pin_total)))

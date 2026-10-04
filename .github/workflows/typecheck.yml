@@ -10,7 +10,7 @@ permissions:
   contents: read
 
 jobs:
-  basedpyright:
+  pyrefly:
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
@@ -35,5 +35,5 @@ jobs:
       - name: Sync dependencies (incl. dev group)
         run: uv sync --python 3.14 --group dev
 
-      - name: Run basedpyright (eleanor)
-        run: uv run --python 3.14 basedpyright eleanor
+      - name: Run pyrefly (eleanor)
+        run: uv run --python 3.14 pyrefly check

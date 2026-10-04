@@ -2,7 +2,7 @@ import dataclasses
 import sys
 import types
 from dataclasses import dataclass
-from typing import TypeGuard, cast, get_args, get_origin, get_type_hints
+from typing import TYPE_CHECKING, TypeGuard, cast, get_args, get_origin, get_type_hints
 
 from eleanor.query.aliases import singularize
 from eleanor.query.coercion import coerce_filter_value
@@ -17,6 +17,9 @@ from eleanor.query.path import (
     path_to_string,
     predicate_text,
 )
+
+if TYPE_CHECKING:
+    from _typeshed import DataclassInstance
 
 
 @dataclass(frozen=True, slots=True)
@@ -121,7 +124,7 @@ def dataclass_fields(t: type[object]) -> list[FieldKind]:
         return []
     field_kinds: list[FieldKind] = []
     hints = _resolve_hints(t)
-    for field in dataclasses.fields(t):  # pyright: ignore[reportArgumentType]
+    for field in dataclasses.fields(t):
         declared = hints.get(field.name, field.type)
         field_kinds.append(classify_field(field.name, declared))
     return field_kinds
@@ -155,7 +158,7 @@ def walk_path(start_type: type[object], path: Path) -> list[StepInfo]:
     return steps
 
 
-def is_dataclass_type(t: object) -> TypeGuard[type[object]]:
+def is_dataclass_type(t: object) -> TypeGuard[type[DataclassInstance]]:
     return dataclasses.is_dataclass(t) and isinstance(t, type)
 
 

@@ -56,7 +56,10 @@ class MemorySink(AbstractOutputSink[int]):
     def __getstate__(self) -> dict[str, object]:
         """Drop the retained orders when crossing into a worker."""
         state: dict[str, object] = dict(self.__dict__)
-        state["_orders"] = {}
+
+        empty_orders: dict[int, Order] = {}
+        state["_orders"] = empty_orders
+
         return state
 
     @override

@@ -8,7 +8,10 @@ from eleanor.cli.util import config_from_args, config_options, sole_postgres_set
 def duckdb(config: str, database: str | None) -> None:
     """Export an Eleanor PostgreSQL database for DuckDB."""
 
-    settings = sole_postgres_settings(config_from_args(config, database), "export duckdb")
+    settings = sole_postgres_settings(
+        config_from_args(config, database, assume_default_postgres=True),
+        "export duckdb",
+    )
     if settings.database.database is None:
         msg = "no database provided"
         raise click.ClickException(msg)

@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- **`eleanor postgres export duckdb`** exports a PostgreSQL database out as either a DuckDB database
+  or a DuckDB-importable parquet, CSV or JSON hive.
+
 ### Removed
 
 - **`eleanor.util.norm_list`.** It had no callers.

@@ -20,7 +20,7 @@ from xdg_base_dirs import xdg_config_home
 from eleanor.config import Config, load_config
 from eleanor.config.output import OutputSinkConfig
 from eleanor.exceptions import EleanorError
-from eleanor.output.postgres.settings import PostgresSinkSettings
+from eleanor.output.postgres.settings import PostgresDatabaseSettings, PostgresSinkSettings
 from eleanor.typing import StrPath
 
 
@@ -108,6 +108,7 @@ def config_from_args(
     config_file: StrPath,
     database: str | None,
     *,
+    assume_default_postgres: bool = False,
     require_database: bool = True,
 ) -> Config:
     """Load a config file and apply the shared ``--database`` override.
@@ -118,11 +119,23 @@ def config_from_args(
     Postgres sink, so a run cannot get halfway in before the second sink turns
     out to have no database to write to.
     """
-    config_path = Path(config_file).expanduser()
+    if config_file is None:
+        config = Config()
+    else:
+        config_path = Path(config_file).expanduser()
+        config = load_config(config_path)
 
-    config = load_config(config_path)
+    candidates = postgres_sinks(config)
+
+    if assume_default_postgres and not candidates:
+        postgres_sink_config = OutputSinkConfig(
+            kind="postgres",
+            settings=PostgresSinkSettings(database=PostgresDatabaseSettings()),
+        )
+        config.output.append(postgres_sink_config)
+        candidates.append(postgres_sink_config)
+
     if database is not None:
-        candidates = postgres_sinks(config)
         if not candidates:
             if not config.output:
                 msg = "no output sink configuration provided"
@@ -130,6 +143,7 @@ def config_from_args(
                 kinds = ", ".join(sorted({entry.kind for entry in config.output}))
                 msg = f"--database is only supported by the postgres output sink, got {kinds}"
             raise EleanorError(msg)
+
         if len(candidates) > 1:
             names = ", ".join(entry.name for entry in candidates)
             msg = f"--database is ambiguous: several postgres output sinks are configured ({names})"
@@ -144,9 +158,7 @@ def config_from_args(
         )
     elif require_database:
         undatabased = [
-            entry.name
-            for entry in postgres_sinks(config)
-            if cast(PostgresSinkSettings, entry.settings).database.database is None
+            entry.name for entry in candidates if cast(PostgresSinkSettings, entry.settings).database.database is None
         ]
         if undatabased:
             msg = f"no database provided for output sink(s): {', '.join(undatabased)}"

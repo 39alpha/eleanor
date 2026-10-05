@@ -1,6 +1,7 @@
 import click
 
 from eleanor.cli.util import config_from_args, config_options, sole_postgres_settings
+from eleanor.output.postgres.tools.duckdb import export_duckdb
 
 
 @click.command()
@@ -15,6 +16,8 @@ def duckdb(config: str, database: str | None) -> None:
     if settings.database.database is None:
         msg = "no database provided"
         raise click.ClickException(msg)
+
+    export_duckdb(settings.database)
 
 
 __all__ = ["duckdb"]

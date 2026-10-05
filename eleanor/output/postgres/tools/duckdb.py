@@ -33,12 +33,14 @@ def __attach(settings: PostgresDatabaseSettings) -> str:
 class ExportFormat(StrEnum):
     PARQUET = "parquet"
     CSV = "csv"
+    JSON = "json"
 
 
 EXPORT_FORMATS: frozenset[ExportFormat] = frozenset(
     [
         ExportFormat.PARQUET,
         ExportFormat.CSV,
+        ExportFormat.JSON,
     ]
 )
 
@@ -53,17 +55,14 @@ _DEFAULT_EXPORT_OPTIONS: dict[ExportFormat, ExportOptions] = {
         "FILENAME_PATTERN": '"{uuid}"',
         "APPEND": True,
     },
-    ExportFormat.CSV: {
-        "FILENAME_PATTERN": '"{uuid}"',
-        "APPEND": True,
-    },
 }
 
 
 def _load_options(format: ExportFormat, options: ExportOptions | None = None) -> ExportOptions:
-    opts = {**_DEFAULT_EXPORT_OPTIONS[format]}
+    opts = {**_DEFAULT_EXPORT_OPTIONS.get(format, {})}
     if options is not None:
         opts.update({key.upper(): value for key, value in options.items()})
+
     return opts
 
 
@@ -83,7 +82,13 @@ def _prepare_options(opts: ExportOptions) -> str:
 
 def _export_query(hive: Path | str, format: ExportFormat, options: ExportOptions | None = None) -> str:
     options = _load_options(format, options)
-    return f"EXPORT DATABASE '{hive}' (format {str(format).lower()!s}, {_prepare_options(options)});"
+
+    if options:
+        with_part = f"(format {str(format).lower()!s}, {_prepare_options(options)})"
+    else:
+        with_part = f"(format {str(format).lower()!s})"
+
+    return f"EXPORT DATABASE '{hive}' {with_part!s};"
 
 
 def export_duckdb(

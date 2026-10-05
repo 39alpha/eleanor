@@ -1,10 +1,15 @@
 from pathlib import Path
-from traceback import print_exception
 
 import click
 
 from eleanor.cli.util import config_from_args, config_options, sole_postgres_settings
 from eleanor.output.postgres.tools.duckdb import ExportFormat, ExportOptions, export_duckdb
+
+
+def _unquote(value: str) -> str:
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in "'\"":  # noqa: PLR2004
+        return value[1:-1]
+    return value
 
 
 def _parse_options(tokens: tuple[str, ...]) -> ExportOptions | None:
@@ -32,7 +37,7 @@ def _parse_options(tokens: tuple[str, ...]) -> ExportOptions | None:
             try:
                 parsed[name] = int(value)
             except ValueError:
-                parsed[name] = value
+                parsed[name] = _unquote(value)
     return parsed
 
 
@@ -88,10 +93,16 @@ def duckdb(
     database: str | None,
 ) -> None:
     """Export an Eleanor PostgreSQL database for DuckDB."""
-
     if output is None and hive is None:
         msg = "at least one of --output= and --hive= must be provided"
         raise click.ClickException(msg)
+
+    output = Path(output).expanduser().resolve() if output is not None else None
+    if output is not None and output.exists():
+        msg = f"cannot export to existing DuckDB database '{output!s}'"
+        raise click.ClickException(msg)
+
+    hive = Path(hive).expanduser().resolve() if hive is not None else None
 
     settings = sole_postgres_settings(
         config_from_args(config, database, assume_default_postgres=True),
@@ -114,10 +125,7 @@ def duckdb(
             options=options,
         )
     except Exception as e:
-        if verbose:
-            print_exception(e)
-
-        msg = "failed to export database"
+        msg = f"failed to export database - {e}"
         raise click.ClickException(msg) from e
 
 

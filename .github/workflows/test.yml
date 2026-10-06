@@ -48,13 +48,13 @@ jobs:
       postgres:
         image: postgres:17
         env:
-          POSTGRES_USER: eleanor
-          POSTGRES_PASSWORD: eleanor
+          POSTGRES_USER: geochemist
+          POSTGRES_PASSWORD: calcite
           POSTGRES_DB: eleanor_test
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U eleanor"
+          --health-cmd "pg_isready -U geochemist"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
@@ -82,7 +82,7 @@ jobs:
 
       - name: Run integration tests
         env:
-          ELEANOR_TEST_DATABASE_URL: postgresql://eleanor:eleanor@localhost:5432/eleanor_test
+          ELEANOR_TEST_DATABASE_URL: postgresql://geochemist:calcite@localhost:5432/eleanor_test
         run: uv run --python 3.14 pytest test/integration -q
 
   integration-postgres-18:
@@ -91,13 +91,13 @@ jobs:
       postgres:
         image: postgres:18
         env:
-          POSTGRES_USER: eleanor
-          POSTGRES_PASSWORD: eleanor
+          POSTGRES_USER: geochemist
+          POSTGRES_PASSWORD: calcite
           POSTGRES_DB: eleanor_test
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U eleanor"
+          --health-cmd "pg_isready -U geochemist"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
@@ -125,5 +125,5 @@ jobs:
 
       - name: Run integration tests
         env:
-          ELEANOR_TEST_DATABASE_URL: postgresql://eleanor:eleanor@localhost:5432/eleanor_test
+          ELEANOR_TEST_DATABASE_URL: postgresql://geochemist:calcite@localhost:5432/eleanor_test
         run: uv run --python 3.14 pytest test/integration -q

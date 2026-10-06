@@ -1,6 +1,6 @@
 import click
 
-from eleanor.output.postgres.cli.dump.order import dump_order
+from eleanor.output.postgres.cli.dump.order import order as dump_order
 from eleanor.output.postgres.cli.dump.scratch import dump_scratch
 
 

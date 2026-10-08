@@ -13,16 +13,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   or a DuckDB-importable parquet, CSV or JSON hive.
 - **`eleanor postgres dump vs`** writes a stored variable space point back out as a runnable YAML or
   JSON file.
+- **`simulation_size` or `density` sampling** to `Eleanor.run` and `Eleanor.process`.
+- **`-n <simulation_size>` and `-t <density>`** flags added to `eleanor run` to allow the user to
+  specify either the simulation size or sampling density at the command line.
 
 ### Changed
 
-- **`Eleanor.run` and `Eleanor.process` raise for `simulation_size <= 0`**
+- **`eleanor run -n <num_workers>` renamed to `eleanor run -m <num_workers>`.**
+- **`Eleanor.run` and `Eleanor.process` raise for `simulation_size <= 0`.**
 - **`Eleanor.run` and `Eleanor.process` override `simulation_size = 0`** when the volume of the
   order being run is zero.
+- **`eleanor run` sets the exit code to 1** when exiting with an error.
 
 ### Removed
 
 - **`eleanor.util.norm_list`.** It had no callers.
+- **Positional `SIMULATION_SIZE` argument from `eleanor run`.** Use `--simulation-size` or
+  `--density` to specify the simulation size.
 
 ## [v0.23.0] - 2026-10-02
 

@@ -2,6 +2,7 @@ from eleanor.exceptions import EleanorWarning
 from unittest.mock import ANY
 import io
 import threading
+import warnings
 from contextlib import contextmanager
 from types import SimpleNamespace
 from typing import cast
@@ -243,7 +244,7 @@ class TestEleanorConstruction(TestCase):
         ):
             with self.assertRaisesRegex(RuntimeError, "dispatch failed"):
                 with eleanor:
-                    _ = eleanor.run(order, 5, kernel=kernel, navigator=_navigator(1))
+                    _ = eleanor.run(order, simulation_size=5, kernel=kernel, navigator=_navigator(1))
 
         sink.finalize.assert_called_once()
         session_executor.shutdown.assert_called_once_with(wait=True)
@@ -273,7 +274,7 @@ class TestEleanorConstruction(TestCase):
             mock.patch("eleanor.eleanor.load_output_sink", return_value=sink),
             self.assertRaisesRegex(RuntimeError, "sink finalize failed"),
         ):
-            _ = eleanor.run(order, 5, kernel=kernel, navigator=_navigator(1), show_progress=True)
+            _ = eleanor.run(order, simulation_size=5, kernel=kernel, navigator=_navigator(1), show_progress=True)
 
         manager.shutdown.assert_called_once()
         executor.shutdown.assert_called_once_with(wait=True)
@@ -298,7 +299,7 @@ class TestEleanorRun(TestCase):
             mock.patch("eleanor.eleanor.load_executor", return_value=executor) as load_executor,
             mock.patch("eleanor.eleanor.load_output_sink", return_value=sink) as load_sink,
         ):
-            out = eleanor.run(order, 5, kernel=kernel, navigator=_navigator(1))
+            out = eleanor.run(order, simulation_size=5, kernel=kernel, navigator=_navigator(1))
 
         self.assertEqual(out, {"null": 7})
         load_executor.assert_called_once_with("multiprocessing", ExecutorSettings())
@@ -331,8 +332,8 @@ class TestEleanorRun(TestCase):
             mock.patch("eleanor.eleanor.load_output_sink", return_value=sink),
         ):
             with eleanor:
-                _ = eleanor.run(order1, 5, kernel=kernel, navigator=_navigator(1))
-                _ = eleanor.run(order2, 5, kernel=kernel, navigator=_navigator(1))
+                _ = eleanor.run(order1, simulation_size=5, kernel=kernel, navigator=_navigator(1))
+                _ = eleanor.run(order2, simulation_size=5, kernel=kernel, navigator=_navigator(1))
 
         self.assertEqual(len(seen_executors), 2)
         self.assertIs(seen_executors[0], session_executor)
@@ -358,7 +359,7 @@ class TestEleanorRun(TestCase):
             mock.patch("eleanor.eleanor.load_executor", return_value=_FakeExecutor()),
             mock.patch("eleanor.eleanor.load_output_sink", return_value=sink),
         ):
-            returned = eleanor.run(order, 4, kernel=kernel, navigator=_navigator(1))
+            returned = eleanor.run(order, simulation_size=4, kernel=kernel, navigator=_navigator(1))
 
         sink.begin_run.assert_called_once_with(order)
         self.assertEqual(returned, {"null": "sink-chosen-id"})
@@ -367,13 +368,13 @@ class TestEleanorRun(TestCase):
         """Ensure run() rejects the retired ``executor=`` kwarg."""
         eleanor = _make_eleanor()
         with self.assertRaisesRegex(TypeError, "unexpected keyword argument 'executor'"):
-            _ = eleanor.run(_make_order(), 1, executor=_FakeExecutor())  # pyright: ignore[reportCallIssue]
+            _ = eleanor.run(_make_order(), simulation_size=1, executor=_FakeExecutor())  # pyright: ignore[reportCallIssue]
 
     def test_run_rejects_retired_parallel_kwarg(self) -> None:
         """Ensure run() rejects the retired ``parallel=`` kwarg."""
         eleanor = _make_eleanor()
         with self.assertRaisesRegex(TypeError, "unexpected keyword argument 'parallel'"):
-            _ = eleanor.run(_make_order(), 1, parallel="serial")  # pyright: ignore[reportCallIssue]
+            _ = eleanor.run(_make_order(), simulation_size=1, parallel="serial")  # pyright: ignore[reportCallIssue]
 
     def test_run_rejects_retired_resume_id_kwarg(self) -> None:
         """Ensure run() rejects the retired ``resume_id=`` kwarg.
@@ -384,7 +385,7 @@ class TestEleanorRun(TestCase):
         """
         eleanor = _make_eleanor()
         with self.assertRaisesRegex(TypeError, "unexpected keyword argument 'resume_id'"):
-            _ = eleanor.run(_make_order(), 1, resume_id="99")  # pyright: ignore[reportCallIssue]
+            _ = eleanor.run(_make_order(), simulation_size=1, resume_id="99")  # pyright: ignore[reportCallIssue]
 
     def test_run_raises_when_num_systems_returns_zero(self) -> None:
         """Ensure run() validates navigator.num_systems >= 1."""
@@ -400,7 +401,7 @@ class TestEleanorRun(TestCase):
             mock.patch("eleanor.eleanor.load_output_sink", return_value=sink),
             self.assertRaisesRegex(EleanorError, "num_systems.*must be >= 1"),
         ):
-            _ = eleanor.run(_make_order(), 10, kernel=kernel, navigator=navigator)
+            _ = eleanor.run(_make_order(), simulation_size=10, kernel=kernel, navigator=navigator)
 
     def test_run_raises_when_explicit_batch_size_is_zero(self) -> None:
         """Ensure run() validates explicit batch_size >= 1."""
@@ -415,7 +416,7 @@ class TestEleanorRun(TestCase):
             mock.patch("eleanor.eleanor.load_output_sink", return_value=sink),
             self.assertRaisesRegex(EleanorError, "batch_size must be >= 1"),
         ):
-            _ = eleanor.run(_make_order(), 10, kernel=kernel, navigator=_navigator(5), batch_size=0)
+            _ = eleanor.run(_make_order(), simulation_size=10, kernel=kernel, navigator=_navigator(5), batch_size=0)
 
     def test_a_failing_begin_run_still_stops_the_progress_listener(self) -> None:
         """Ensure a sink refusing to start does not strand the listener process.
@@ -449,7 +450,7 @@ class TestEleanorRun(TestCase):
         ):
             _ = eleanor.run(
                 _make_order(),
-                3,
+                simulation_size=3,
                 kernel=mock.MagicMock(AbstractKernel),
                 navigator=_navigator(3),
                 show_progress=True,
@@ -480,7 +481,7 @@ class TestEleanorRun(TestCase):
             mock.patch("eleanor.eleanor.load_output_sink", return_value=quiet_sink),
             mock.patch("eleanor.eleanor.Progress", side_effect=progress_quiet),
         ):
-            _ = eleanor.run(_make_order(), 3, kernel=kernel, navigator=navigator, show_progress=True)
+            _ = eleanor.run(_make_order(), simulation_size=3, kernel=kernel, navigator=navigator, show_progress=True)
 
         # A sink that declines progress is never declared as a channel, so no
         # bar is created for it and it gets no handle.
@@ -502,7 +503,7 @@ class TestEleanorRun(TestCase):
             mock.patch("eleanor.eleanor.load_output_sink", return_value=loud_sink),
             mock.patch("eleanor.eleanor.Progress", side_effect=progress_loud),
         ):
-            _ = eleanor.run(_make_order(), 3, kernel=kernel, navigator=navigator, show_progress=True)
+            _ = eleanor.run(_make_order(), simulation_size=3, kernel=kernel, navigator=navigator, show_progress=True)
 
         kwargs = eleanor.process.call_args.kwargs
         self.assertIs(kwargs["sim_progress"], sim_handle_loud)
@@ -532,7 +533,7 @@ class TestEleanorRun(TestCase):
         ):
             _ = eleanor.run(
                 _make_order(),
-                1,
+                simulation_size=1,
                 kernel=kernel,
                 navigator=_navigator(1),
                 show_progress=True,
@@ -570,7 +571,7 @@ class TestEleanorRun(TestCase):
         ):
             _ = eleanor.run(
                 _make_order(),
-                1,
+                simulation_size=1,
                 kernel=kernel,
                 navigator=_navigator(1),
                 show_progress=True,
@@ -596,7 +597,7 @@ class TestEleanorRun(TestCase):
         ):
             _ = eleanor.run(
                 _make_order(),
-                10,
+                simulation_size=10,
                 batch_size=50,
                 kernel=kernel,
                 navigator=_navigator(50),
@@ -618,7 +619,7 @@ class TestEleanorRun(TestCase):
             mock.patch("eleanor.eleanor.load_executor", return_value=_FakeExecutor()),
             mock.patch("eleanor.eleanor.load_output_sink", return_value=sink),
         ):
-            _ = eleanor.run(_make_order(), 3, kernel=kernel, navigator=_navigator(7))
+            _ = eleanor.run(_make_order(), simulation_size=3, kernel=kernel, navigator=_navigator(7))
 
         self.assertEqual(eleanor.process.call_args.kwargs["batch_size"], 7)
 
@@ -638,7 +639,7 @@ class TestEleanorRun(TestCase):
         ):
             _ = eleanor.run(
                 _make_order(),
-                3,
+                simulation_size=3,
                 max_nav_attempts=4,
                 kernel=kernel,
                 navigator=_navigator(7),
@@ -661,7 +662,7 @@ class TestEleanorRun(TestCase):
         ):
             _ = eleanor.run(
                 _make_order(),
-                10,
+                simulation_size=10,
                 kernel=kernel,
                 navigator=_navigator(5),
                 max_nav_attempts=0,
@@ -683,7 +684,7 @@ class TestEleanorRun(TestCase):
         ):
             out = eleanor.run(
                 _make_order(),
-                1,
+                simulation_size=1,
                 output_sink=provided_sink,
                 kernel=kernel,
                 navigator=_navigator(1),
@@ -710,7 +711,7 @@ class TestEleanorRun(TestCase):
             mock.patch("eleanor.eleanor.load_output_sink", return_value=sink),
             self.assertRaises(EleanorShutdown),
         ):
-            _ = eleanor.run(_make_order(), 5, kernel=kernel, navigator=_navigator(1))
+            _ = eleanor.run(_make_order(), simulation_size=5, kernel=kernel, navigator=_navigator(1))
 
         sink.finalize_run.assert_called_once_with()
         sink.finalize.assert_called_once_with()
@@ -720,10 +721,10 @@ class TestEleanorRun(TestCase):
         order = _make_order()
 
         with self.assertRaisesRegex(EleanorError, "simulation size must be positive, non-zero"):
-            _ = eleanor.run(order, -1, kernel=mock.MagicMock(), navigator=mock.MagicMock())
+            _ = eleanor.run(order, simulation_size=-1, kernel=mock.MagicMock(), navigator=mock.MagicMock())
 
         with self.assertRaisesRegex(EleanorError, "simulation size must be positive, non-zero"):
-            _ = eleanor.run(order, 0, kernel=mock.MagicMock(), navigator=mock.MagicMock())
+            _ = eleanor.run(order, simulation_size=0, kernel=mock.MagicMock(), navigator=mock.MagicMock())
 
     def test_run_overrides_simulation_size_for_zero_volume_orders_with_warning(self):
         eleanor = _make_eleanor()
@@ -741,14 +742,15 @@ class TestEleanorRun(TestCase):
             mock.patch("eleanor.eleanor.load_output_sink", return_value=sink),
             self.assertWarnsRegex(EleanorWarning, "resetting the simulation size to 1"),
         ):
-            _ = eleanor.run(order, 5, kernel=kernel, navigator=navigator)
+            _ = eleanor.run(order, simulation_size=5, kernel=kernel, navigator=navigator)
 
         eleanor.process.assert_called_once_with(
             order,
             kernel,
             navigator,
-            1,
             ANY,
+            simulation_size=1,
+            density=None,
             batch_size=ANY,
             max_nav_attempts=ANY,
             expected_total=ANY,
@@ -758,6 +760,67 @@ class TestEleanorRun(TestCase):
             out_progress=ANY,
             timings=ANY,
         )
+
+    def _run_with_density(self, order: Order, density: float) -> mock.Mock:
+        eleanor = _make_eleanor()
+        sink = mock.Mock()
+        sink.begin_run.return_value = 7
+        sink.supports_progress.return_value = False
+        process = mock.Mock(return_value={})
+        eleanor.process = process
+
+        with (
+            mock.patch("eleanor.eleanor.load_executor", return_value=_FakeExecutor()),
+            mock.patch("eleanor.eleanor.load_output_sink", return_value=sink),
+        ):
+            _ = eleanor.run(order, density=density, kernel=mock.MagicMock(AbstractKernel), navigator=_navigator(1))
+
+        return process
+
+    def test_run_derives_simulation_size_from_density(self) -> None:
+        """Ensure run() samples density * volume systems and hands process() a resolved size."""
+        process = self._run_with_density(_make_order(volume=200), 0.25)
+
+        self.assertEqual(process.call_args.kwargs["simulation_size"], 50)
+        self.assertIsNone(process.call_args.kwargs["density"])
+
+    def test_run_rounds_density_derived_simulation_size(self) -> None:
+        """Ensure a fractional density * volume is rounded to the nearest integer."""
+        process = self._run_with_density(_make_order(volume=10), 0.37)
+
+        self.assertEqual(process.call_args.kwargs["simulation_size"], 4)
+
+    def test_run_samples_at_least_one_system_for_small_densities(self) -> None:
+        """Ensure a density that rounds to zero systems still samples one."""
+        process = self._run_with_density(_make_order(volume=10), 0.01)
+
+        self.assertEqual(process.call_args.kwargs["simulation_size"], 1)
+
+    def test_run_density_on_zero_volume_order_samples_one_system_without_warning(self) -> None:
+        """Ensure density sampling of a zero-volume order yields one system and no reset warning."""
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", EleanorWarning)
+            process = self._run_with_density(_make_order(volume=0), 5.0)
+
+        self.assertEqual(process.call_args.kwargs["simulation_size"], 1)
+
+    def test_run_raises_without_simulation_size_or_density(self) -> None:
+        eleanor = _make_eleanor()
+
+        with self.assertRaisesRegex(EleanorError, "either density or simulation_size must be provided"):
+            _ = eleanor.run(_make_order(), kernel=mock.MagicMock(), navigator=mock.MagicMock())
+
+    def test_run_raises_with_both_simulation_size_and_density(self) -> None:
+        eleanor = _make_eleanor()
+
+        with self.assertRaisesRegex(EleanorError, "exactly one of density or simulation_size must be provided"):
+            _ = eleanor.run(
+                _make_order(),
+                simulation_size=10,
+                density=0.5,
+                kernel=mock.MagicMock(),
+                navigator=mock.MagicMock(),
+            )
 
 
 class TestEleanorProcess(TestCase):
@@ -774,7 +837,8 @@ class TestEleanorProcess(TestCase):
                 mock.Mock(),
                 mock.Mock(),
                 1,
-                1,
+                simulation_size=1,
+                density=None,
                 batch_size=1,
                 expected_total=1,
                 executor=None,
@@ -808,8 +872,9 @@ class TestEleanorProcess(TestCase):
             order,
             kernel,
             navigator,
-            2,
             [_bind(sink)],
+            simulation_size=2,
+            density=None,
             batch_size=2,
             max_nav_attempts=3,
             expected_total=2,
@@ -861,8 +926,8 @@ class TestEleanorProcess(TestCase):
             order,
             kernel,
             navigator,
-            2,
             [_bind(sink)],
+            simulation_size=2,
             batch_size=2,
             expected_total=2,
             executor=_as_executor(executor),
@@ -898,8 +963,8 @@ class TestEleanorProcess(TestCase):
             order,
             kernel,
             navigator,
-            2,
             [_bind(sink)],
+            simulation_size=2,
             batch_size=2,
             expected_total=2,
             executor=_as_executor(executor),
@@ -944,8 +1009,8 @@ class TestEleanorProcess(TestCase):
             order,
             kernel,
             navigator,
-            2,
             [_bind(sink)],
+            simulation_size=2,
             batch_size=2,
             expected_total=2,
             executor=_as_executor(executor),
@@ -975,8 +1040,8 @@ class TestEleanorProcess(TestCase):
             order,
             mock.Mock(),
             navigator,
-            10,
             [_bind(sink)],
+            simulation_size=10,
             batch_size=5,
             expected_total=10,
             executor=_as_executor(_FakeExecutor()),
@@ -1000,8 +1065,8 @@ class TestEleanorProcess(TestCase):
                 order,
                 mock.Mock(),
                 navigator,
-                5,
                 [_bind(sink)],
+                simulation_size=5,
                 batch_size=7,
                 expected_total=5,
                 executor=_as_executor(executor),
@@ -1034,8 +1099,8 @@ class TestEleanorProcess(TestCase):
                 order,
                 kernel,
                 navigator,
-                1,
                 [_bind(sink)],
+                simulation_size=1,
                 batch_size=1,
                 expected_total=1,
                 executor=_as_executor(executor),
@@ -1070,8 +1135,8 @@ class TestEleanorProcess(TestCase):
                 order,
                 kernel,
                 navigator,
-                1,
                 [_bind(sink)],
+                simulation_size=1,
                 batch_size=1,
                 expected_total=1,
                 executor=_as_executor(executor),
@@ -1103,8 +1168,8 @@ class TestEleanorProcess(TestCase):
                 order,
                 mock.Mock(),
                 navigator,
-                10,
                 [_bind(sink)],
+                simulation_size=10,
                 batch_size=5,
                 expected_total=10,
                 executor=_as_executor(_FakeExecutor()),
@@ -1119,10 +1184,10 @@ class TestEleanorProcess(TestCase):
         sink = mock.MagicMock()
 
         with self.assertRaisesRegex(EleanorError, "simulation size must be positive, non-zero"):
-            _ = eleanor.process(order, mock.MagicMock(), mock.MagicMock(), -1, _bind(sink), batch_size=5, expected_total=0, executor=executor)
+            _ = eleanor.process(order, mock.MagicMock(), mock.MagicMock(), _bind(sink), simulation_size=-1, batch_size=5, expected_total=0, executor=executor)
 
         with self.assertRaisesRegex(EleanorError, "simulation size must be positive, non-zero"):
-            _ = eleanor.process(order, mock.MagicMock(), mock.MagicMock(), 0, _bind(sink), batch_size=5, expected_total=0, executor=executor)
+            _ = eleanor.process(order, mock.MagicMock(), mock.MagicMock(), _bind(sink), simulation_size=0, batch_size=5, expected_total=0, executor=executor)
 
     def test_process_overrides_simulation_size_for_zero_volume_orders_with_warning(self):
         eleanor = _make_eleanor()
@@ -1143,8 +1208,8 @@ class TestEleanorProcess(TestCase):
                 order,
                 kernel,
                 navigator,
-                10,
                 [_bind(sink)],
+                simulation_size=10,
                 batch_size=5,
                 expected_total=10,
                 executor=_as_executor(_FakeExecutor()),
@@ -1157,6 +1222,66 @@ class TestEleanorProcess(TestCase):
             5,
             max_attempts=1,
         )
+
+    def test_process_derives_simulation_size_from_density(self) -> None:
+        """Ensure process() samples density * volume systems when called directly."""
+        eleanor = _make_eleanor()
+        sink = mock.Mock()
+        sink.supports_worker_commit.return_value = False
+        sink.supports_background_commit.return_value = False
+
+        order = _make_order(volume=40)
+        kernel = mock.MagicMock(AbstractKernel)
+        navigator = _navigator(1)
+
+        _ = eleanor.process(
+            order,
+            kernel,
+            navigator,
+            [_bind(sink)],
+            density=0.5,
+            batch_size=5,
+            expected_total=0,
+            executor=_as_executor(_FakeExecutor()),
+        )
+
+        navigator.navigate.assert_called_once_with(
+            order,
+            kernel,
+            20,
+            5,
+            max_attempts=1,
+        )
+
+    def test_process_raises_without_simulation_size_or_density(self) -> None:
+        eleanor = _make_eleanor()
+
+        with self.assertRaisesRegex(EleanorError, "either density or simulation_size must be provided"):
+            _ = eleanor.process(
+                _make_order(),
+                mock.MagicMock(),
+                mock.MagicMock(),
+                [_bind(mock.MagicMock())],
+                batch_size=5,
+                expected_total=0,
+                executor=mock.MagicMock(num_workers=5),
+            )
+
+    def test_process_raises_with_both_simulation_size_and_density(self) -> None:
+        eleanor = _make_eleanor()
+
+        with self.assertRaisesRegex(EleanorError, "exactly one of density or simulation_size must be provided"):
+            _ = eleanor.process(
+                _make_order(),
+                mock.MagicMock(),
+                mock.MagicMock(),
+                [_bind(mock.MagicMock())],
+                simulation_size=10,
+                density=0.5,
+                batch_size=5,
+                expected_total=0,
+                executor=mock.MagicMock(num_workers=5),
+            )
 
 
 class TestEleanorConstructorOverrides(TestCase):
@@ -1186,8 +1311,8 @@ class TestEleanorConstructorOverrides(TestCase):
             mock.patch("eleanor.eleanor.load_output_sink", return_value=sink),
         ):
             with eleanor:
-                _ = eleanor.run(_make_order(), 5, kernel=kernel, navigator=_navigator(1))
-                _ = eleanor.run(_make_order(), 5, kernel=kernel, navigator=_navigator(1))
+                _ = eleanor.run(_make_order(), simulation_size=5, kernel=kernel, navigator=_navigator(1))
+                _ = eleanor.run(_make_order(), simulation_size=5, kernel=kernel, navigator=_navigator(1))
 
         load_executor.assert_not_called()
         self.assertEqual(len(seen_executors), 2)
@@ -1214,7 +1339,7 @@ class TestEleanorConstructorOverrides(TestCase):
         ):
             with eleanor:
                 self.assertEqual(ctor_executor.enter_count, 0)
-                _ = eleanor.run(_make_order(), 1, kernel=kernel, navigator=_navigator(1))
+                _ = eleanor.run(_make_order(), simulation_size=1, kernel=kernel, navigator=_navigator(1))
                 self.assertEqual(ctor_executor.enter_count, 0)
 
         ctor_executor.shutdown.assert_not_called()
@@ -1237,7 +1362,7 @@ class TestEleanorConstructorOverrides(TestCase):
             mock.patch("eleanor.eleanor.load_output_sink", return_value=sink),
         ):
             with eleanor:
-                _ = eleanor.run(_make_order(), 1, kernel=kernel, navigator=_navigator(1))
+                _ = eleanor.run(_make_order(), simulation_size=1, kernel=kernel, navigator=_navigator(1))
                 self.assertEqual(ctor_executor.enter_count, 1)
 
         ctor_executor.shutdown.assert_not_called()
@@ -1258,8 +1383,8 @@ class TestEleanorConstructorOverrides(TestCase):
             mock.patch("eleanor.eleanor.load_output_sink") as load_sink,
         ):
             with eleanor:
-                _ = eleanor.run(_make_order(), 5, kernel=kernel, navigator=_navigator(1))
-                _ = eleanor.run(_make_order(), 5, kernel=kernel, navigator=_navigator(1))
+                _ = eleanor.run(_make_order(), simulation_size=5, kernel=kernel, navigator=_navigator(1))
+                _ = eleanor.run(_make_order(), simulation_size=5, kernel=kernel, navigator=_navigator(1))
 
         load_sink.assert_not_called()
         self.assertEqual(ctor_sink.begin_run.call_count, 2)
@@ -1280,7 +1405,7 @@ class TestEleanorConstructorOverrides(TestCase):
             mock.patch("eleanor.eleanor.load_output_sink"),
         ):
             with eleanor:
-                _ = eleanor.run(_make_order(), 1, kernel=kernel, navigator=_navigator(1))
+                _ = eleanor.run(_make_order(), simulation_size=1, kernel=kernel, navigator=_navigator(1))
 
         ctor_sink.finalize.assert_not_called()
 
@@ -1299,7 +1424,7 @@ class TestEleanorConstructorOverrides(TestCase):
         with mock.patch("eleanor.eleanor.load_executor", return_value=_FakeExecutor()):
             _ = eleanor.run(
                 _make_order(),
-                1,
+                simulation_size=1,
                 output_sink=per_run_sink,
                 kernel=kernel,
                 navigator=_navigator(1),
@@ -1342,8 +1467,8 @@ class TestEleanorProcessTimings(TestCase):
             _make_order(),
             mock.MagicMock(AbstractKernel),
             navigator,
-            4,
             [_bind(self._serial_sink())],
+            simulation_size=4,
             batch_size=4,
             expected_total=4,
             executor=_as_executor(executor),
@@ -1372,8 +1497,8 @@ class TestEleanorProcessTimings(TestCase):
             _make_order(),
             mock.MagicMock(AbstractKernel),
             navigator,
-            2,
             [_bind(sink)],
+            simulation_size=2,
             batch_size=2,
             expected_total=2,
             executor=_as_executor(executor),
@@ -1404,8 +1529,8 @@ class TestEleanorProcessTimings(TestCase):
                 _make_order(),
                 mock.MagicMock(AbstractKernel),
                 navigator,
-                1,
                 [_bind(self._serial_sink())],
+                simulation_size=1,
                 batch_size=1,
                 expected_total=1,
                 executor=_as_executor(executor),
@@ -1437,8 +1562,8 @@ class TestEleanorProcessTimings(TestCase):
                 _make_order(),
                 mock.MagicMock(AbstractKernel),
                 navigator,
-                1,
                 [_bind(sink)],
+                simulation_size=1,
                 batch_size=1,
                 expected_total=1,
                 executor=_as_executor(executor),
@@ -1478,8 +1603,8 @@ class TestEleanorProcessTimings(TestCase):
                 _make_order(),
                 mock.MagicMock(AbstractKernel),
                 navigator,
-                2,
                 [_bind(self._serial_sink())],
+                simulation_size=2,
                 batch_size=2,
                 expected_total=2,
                 executor=_as_executor(executor),
@@ -1504,8 +1629,8 @@ class TestEleanorProcessTimings(TestCase):
             _make_order(),
             mock.MagicMock(AbstractKernel),
             navigator,
-            1,
             [_bind(self._serial_sink())],
+            simulation_size=1,
             batch_size=1,
             expected_total=1,
             executor=_as_executor(executor),
@@ -1534,7 +1659,7 @@ class TestEleanorRunTimingReport(TestCase):
         ):
             _ = eleanor.run(
                 _make_order(),
-                1,
+                simulation_size=1,
                 kernel=mock.MagicMock(AbstractKernel),
                 navigator=_navigator(1),
                 timing=True,
@@ -1558,7 +1683,7 @@ class TestEleanorRunTimingReport(TestCase):
         ):
             _ = eleanor.run(
                 _make_order(),
-                1,
+                simulation_size=1,
                 kernel=mock.MagicMock(AbstractKernel),
                 navigator=_navigator(1),
             )
@@ -1582,7 +1707,7 @@ class TestEleanorRunTimingReport(TestCase):
         ):
             _ = eleanor.run(
                 _make_order(),
-                1,
+                simulation_size=1,
                 kernel=mock.MagicMock(AbstractKernel),
                 navigator=_navigator(1),
                 timing=True,
@@ -1704,8 +1829,8 @@ class TestEleanorDispatchWindow(TestCase):
             _make_order(),
             mock.MagicMock(AbstractKernel),
             _batched_navigator(batches),
-            total,
             [_bind(sink if sink is not None else self._serial_sink())],
+            simulation_size=total,
             batch_size=batch_size,
             expected_total=total,
             executor=_as_executor(executor),
@@ -1879,8 +2004,8 @@ class TestEleanorBackgroundCommit(TestCase):
             _make_order(),
             mock.MagicMock(AbstractKernel),
             _batched_navigator([["a", "b", "c", "d"]]),
-            4,
             [_bind(sink)],
+            simulation_size=4,
             batch_size=4,
             expected_total=4,
             executor=_as_executor(executor),
@@ -2002,8 +2127,8 @@ class TestEleanorBackgroundCommit(TestCase):
                 _make_order(),
                 mock.MagicMock(AbstractKernel),
                 navigator,
-                4,
                 [_bind(sink)],
+                simulation_size=4,
                 batch_size=4,
                 expected_total=4,
                 executor=_as_executor(executor),
@@ -2055,8 +2180,8 @@ class TestEleanorMultipleSinks(TestCase):
             _make_order(),
             mock.MagicMock(AbstractKernel),
             _batched_navigator([["a", "b", "c", "d"]]),
-            4,
             bindings,
+            simulation_size=4,
             batch_size=4,
             expected_total=4,
             executor=_as_executor(executor),
@@ -2177,8 +2302,8 @@ class TestEleanorMultipleSinks(TestCase):
             _make_order(),
             mock.MagicMock(AbstractKernel),
             _batched_navigator([["a", "b"]]),
-            2,
             [_bind(first, name="a"), _bind(second, name="b")],
+            simulation_size=2,
             batch_size=2,
             expected_total=2,
             executor=_as_executor(executor),
@@ -2196,8 +2321,8 @@ class TestEleanorMultipleSinks(TestCase):
                 _make_order(),
                 mock.MagicMock(AbstractKernel),
                 _batched_navigator([["a"]]),
-                1,
                 [],
+                simulation_size=1,
                 batch_size=1,
                 expected_total=1,
                 executor=_as_executor(_FakeExecutor()),
@@ -2233,7 +2358,7 @@ class TestEleanorRunStatsReporting(TestCase):
         ):
             _ = eleanor.run(
                 _make_order(),
-                1,
+                simulation_size=1,
                 kernel=mock.MagicMock(AbstractKernel),
                 navigator=_navigator(1),
                 **cast("dict[str, bool]", kwargs),
@@ -2287,7 +2412,7 @@ class TestEleanorRunStatsReporting(TestCase):
         ):
             _ = eleanor.run(
                 _make_order(),
-                1,
+                simulation_size=1,
                 kernel=mock.MagicMock(AbstractKernel),
                 navigator=_navigator(1),
                 verbose=True,
@@ -2318,7 +2443,7 @@ class TestEleanorReservedSinkNames(TestCase):
         with self.assertRaisesRegex(EleanorError, "reserved for the simulation progress bar"):
             _ = eleanor.run(
                 _make_order(),
-                1,
+                simulation_size=1,
                 kernel=mock.MagicMock(AbstractKernel),
                 navigator=_navigator(1),
                 output_sink=cast("dict[str, AbstractOutputSink[object]]", {"sim": mock.Mock()}),
@@ -2362,7 +2487,7 @@ class TestEleanorTargetClashes(TestCase):
         with mock.patch("eleanor.eleanor.load_executor", return_value=_FakeExecutor()):
             return eleanor.run(
                 _make_order(),
-                1,
+                simulation_size=1,
                 kernel=mock.MagicMock(AbstractKernel),
                 navigator=_navigator(1),
             )
@@ -2417,7 +2542,7 @@ class TestEleanorRunIds(TestCase):
         with mock.patch("eleanor.eleanor.load_executor", return_value=_FakeExecutor()):
             return eleanor.run(
                 _make_order(),
-                1,
+                simulation_size=1,
                 kernel=mock.MagicMock(AbstractKernel),
                 navigator=_navigator(1),
             )

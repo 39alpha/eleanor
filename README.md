@@ -59,13 +59,21 @@ Top-level commands:
 ### `eleanor run`
 
 ```bash
-eleanor run [OPTIONS] ORDER SIMULATION_SIZE
+eleanor run [OPTIONS] ORDER
 ```
 
-Common options:
+**Required options**
+
+Exactly one of `--simulation-size` and `--density` is required to specify the number of systems to
+simulate.
+
+- `-n, --simulation-size N`: the number of systems to sample (mutually exclusive with `--density`)
+- `-t, --density DENSITY`: the sampling density (mutually exclusive with `--simulation-size`)
+
+**Common options**
 
 - `-c, --config` / `-d, --database`: select config and optionally override the postgres database name.
-- `-n, --num-workers`: worker count for the selected executor backend.
+- `-m, --num-workers`: worker count for the selected executor backend.
 - `--executor KIND`: override the executor kind from config (built-ins: `serial`, `multiprocessing`; plugins may add
   more, e.g. `mpi`).
 - `--chunks-per-worker`: override `executor.chunks_per_worker` from config.
@@ -105,7 +113,7 @@ run ends — project `order.seed` as a column, or pass `--seed` and record it yo
 `--seed` overrides what the order file declares, without editing it:
 
 ```bash
-eleanor run --seed 4242 -c config.yaml -d eleanor_db order.yaml 50000
+eleanor run --seed 4242 -c config.yaml -d eleanor_db -n 50000 order.yaml
 ```
 
 Two caveats:
@@ -123,7 +131,7 @@ months ago can be re-run without hunting for the original YAML:
 
 ```bash
 eleanor postgres dump order e49c9daa-... -c config.yaml -d eleanor_db -o order.yaml
-eleanor run -c config.yaml -d eleanor_db order.yaml 50000
+eleanor run -c config.yaml -d eleanor_db -n 50000 order.yaml
 ```
 
 The dump reproduces the order as Eleanor parsed it — seed, kernel settings, reactants and
@@ -285,7 +293,7 @@ finalize. It is on by default, so a plain run already bulk-loads; `--no-bulk-loa
 `bulk_load_optimization: false` in the sink block) keeps the indexes and constraints in place:
 
 ```bash
-eleanor run --no-bulk-load -c config.yaml -d eleanor_db order.yaml 200000
+eleanor run --no-bulk-load -c config.yaml -d eleanor_db -n 200000 order.yaml
 ```
 
 You can also control this window explicitly:

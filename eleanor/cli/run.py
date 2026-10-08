@@ -26,8 +26,21 @@ def _complete_executor(_ctx: click.Context, _param: click.Parameter, incomplete:
 
 @click.command()
 @click.argument("order", type=click.Path(exists=True))
-@click.argument("simulation_size", type=click.INT)
-@click.option("-n", "--num-workers", type=int, default=None, help="Number of worker processes.")
+@click.option(
+    "-n",
+    "--simulation-size",
+    type=click.IntRange(1),
+    default=None,
+    help="Number of systems to sample.",
+)
+@click.option(
+    "-t",
+    "--density",
+    type=click.FloatRange(0.0, min_open=True),
+    default=None,
+    help="Density of systems to sample.",
+)
+@click.option("-m", "--num-workers", type=int, default=None, help="Number of worker processes.")
 @click.option("-v", "--verbose", is_flag=True, help="Enable verbose output.")
 @click.option("-s", "--scratch", is_flag=True, help="Save scratch for all systems regardless of error status.")
 @click.option("-k", "--kernel-args", multiple=True, help="Arguments to pass to the kernel.")
@@ -62,7 +75,8 @@ def _complete_executor(_ctx: click.Context, _param: click.Parameter, incomplete:
 @config_options()
 def run(
     order: str,
-    simulation_size: int,
+    simulation_size: int | None,
+    density: float | None,
     num_workers: int | None,
     verbose: bool,
     scratch: bool,
@@ -83,6 +97,14 @@ def run(
     """Run eleanor."""
     kernel_args_list: list[object] = list(kernel_args)
     show_progress = progress and not verbose
+
+    if density is None and simulation_size is None:
+        msg = "either --density= or --simulation-size= must be provided"
+        raise click.ClickException(msg)
+
+    if density is not None and simulation_size is not None:
+        msg = "exactly one of --density= or --simulation-size= must be provided"
+        raise click.ClickException(msg)
 
     try:
         config_obj = config_from_args(config, database, require_database=not null_sink)
@@ -138,7 +160,8 @@ def run(
             with Eleanor(config=config_obj, executor=executor_obj) as eleanor:
                 order_ids = eleanor.run(
                     order_obj,
-                    simulation_size,
+                    simulation_size=simulation_size,
+                    density=density,
                     kernel_args=kernel_args_list,
                     scratch=scratch,
                     show_progress=show_progress,
@@ -152,10 +175,15 @@ def run(
 
         if verbose:
             for name, allocated in order_ids.items():
-                print(f"Order created or extended: {name}={allocated}")
+                print(f"Order created: {name}={allocated}")
     except KeyboardInterrupt as e:
         name = getattr(e, "signal_name", None) or "interrupt"
         print(f"Eleanor run interrupted by {name}; sink finalized cleanly.")
         sys.exit(130)
     except Exception as e:
-        print_exception(e)
+        if verbose:
+            print_exception(e)
+        else:
+            msg = f"Eleanor run failed: {e}"
+            raise click.ClickException(msg) from e
+        sys.exit(1)

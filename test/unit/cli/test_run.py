@@ -3,6 +3,7 @@ from tempfile import TemporaryDirectory
 from typing import cast
 
 import numpy as np
+import pytest
 from click.testing import CliRunner
 from eleanor import Eleanor
 from eleanor.cli import main
@@ -16,12 +17,12 @@ from eleanor.output.postgres.settings import PostgresSinkSettings
 from pytest_mock import MockerFixture
 
 
-def make_eleanor(mocker: MockerFixture, run_return: int | None = None):
+def make_eleanor(mocker: MockerFixture, run_return: dict[str, object] | None = None):
     eleanor = mocker.create_autospec(Eleanor, instance=True)
     eleanor.__enter__.return_value = eleanor
     eleanor.__exit__.return_value = None
     if run_return is None:
-        run_return = 1
+        run_return = {"sink": 1}
     eleanor.run.return_value = run_return
     return eleanor
 
@@ -52,7 +53,7 @@ def invoke_run(runner: CliRunner, extra_args: list[str], order_text: str = "orde
     with TemporaryDirectory() as root:
         order_path = Path(root) / "order.yaml"
         _ = order_path.write_text(order_text, encoding="utf-8")
-        return runner.invoke(main, ["run", *extra_args, str(order_path), "10"])
+        return runner.invoke(main, ["run", *extra_args, str(order_path)])
 
 
 def test_run_uses_config_executor_defaults(mocker: MockerFixture, runner: CliRunner) -> None:
@@ -66,7 +67,7 @@ def test_run_uses_config_executor_defaults(mocker: MockerFixture, runner: CliRun
     load_executor = mocker.patch("eleanor.cli.run.load_executor", return_value=executor)
     eleanor_ctor = mocker.patch("eleanor.cli.run.Eleanor", return_value=eleanor)
 
-    result = invoke_run(runner, ["-c", "/fake.yaml", "-d", "sample", "--num-workers", "3"])
+    result = invoke_run(runner, ["-n", "10", "-c", "/fake.yaml", "-d", "sample", "--num-workers", "3"])
 
     config_from_args.assert_called_once()
     load_order.assert_called_once()
@@ -74,7 +75,8 @@ def test_run_uses_config_executor_defaults(mocker: MockerFixture, runner: CliRun
     eleanor_ctor.assert_called_once_with(config=config, executor=executor)
     eleanor.run.assert_called_once_with(
         order,
-        10,
+        simulation_size=10,
+        density=None,
         kernel_args=[],
         scratch=False,
         show_progress=False,
@@ -102,6 +104,8 @@ def test_run_cli_flags_override_config_executor_values(mocker: MockerFixture, ru
     result = invoke_run(
         runner,
         [
+            "-n",
+            "10",
             "-c",
             "/fake.yaml",
             "-d",
@@ -138,7 +142,7 @@ def test_run_null_sink_overrides_output_sink(mocker: MockerFixture, runner: CliR
     load_executor = mocker.patch("eleanor.cli.run.load_executor", return_value=executor)
     eleanor_ctor = mocker.patch("eleanor.cli.run.Eleanor", return_value=eleanor)
 
-    result = invoke_run(runner, ["-c", "/fake.yaml", "--null-sink"])
+    result = invoke_run(runner, ["-n", "10", "-c", "/fake.yaml", "--null-sink"])
 
     config_from_args.assert_called_once_with("/fake.yaml", None, require_database=False)
     load_order.assert_called_once()
@@ -167,7 +171,7 @@ def test_run_max_nav_attempts_is_forwarded(mocker: MockerFixture, runner: CliRun
     _ = mocker.patch("eleanor.cli.run.load_executor", return_value=executor)
     _ = mocker.patch("eleanor.cli.run.Eleanor", return_value=eleanor)
 
-    result = invoke_run(runner, ["-c", "/fake.yaml", "-d", "sample", "--max-nav-attempts", "4"])
+    result = invoke_run(runner, ["-n", "10", "-c", "/fake.yaml", "-d", "sample", "--max-nav-attempts", "4"])
 
     assert eleanor.run.call_args.kwargs["max_nav_attempts"] == 4
     assert result.exit_code == 0
@@ -183,7 +187,7 @@ def test_run_disables_progress_when_verbose(mocker: MockerFixture, runner: CliRu
     _ = mocker.patch("eleanor.cli.run.load_executor")
     _ = mocker.patch("eleanor.cli.run.Eleanor", return_value=eleanor)
 
-    result = invoke_run(runner, ["-c", "/fake.yaml", "-d", "sample", "--progress", "--verbose"])
+    result = invoke_run(runner, ["-n", "10", "-c", "/fake.yaml", "-d", "sample", "--progress", "--verbose"])
 
     assert not eleanor.run.call_args.kwargs["show_progress"]
     assert result.exit_code == 0
@@ -201,7 +205,7 @@ def test_run_applies_single_tag_to_loaded_order(mocker: MockerFixture, runner: C
     _ = mocker.patch("eleanor.cli.run.load_executor", return_value=executor)
     _ = mocker.patch("eleanor.cli.run.Eleanor", return_value=eleanor)
 
-    result = invoke_run(runner, ["-c", "/fake.yaml", "-d", "sample", "--tag", "experiment-1"])
+    result = invoke_run(runner, ["-n", "10", "-c", "/fake.yaml", "-d", "sample", "--tag", "experiment-1"])
 
     assert result.exit_code == 0
     assert order.tags == ["experiment-1"]
@@ -220,7 +224,7 @@ def test_run_applies_multiple_tags_to_loaded_order(mocker: MockerFixture, runner
     _ = mocker.patch("eleanor.cli.run.load_executor", return_value=executor)
     _ = mocker.patch("eleanor.cli.run.Eleanor", return_value=eleanor)
 
-    result = invoke_run(runner, ["-c", "/fake.yaml", "-d", "sample", "--tag", "foo", "--tag", "bar"])
+    result = invoke_run(runner, ["-n", "10", "-c", "/fake.yaml", "-d", "sample", "--tag", "foo", "--tag", "bar"])
 
     assert result.exit_code == 0
     assert order.tags == ["foo", "bar"]
@@ -238,7 +242,7 @@ def test_run_cli_tags_merge_with_order_file_tags(mocker: MockerFixture, runner: 
     _ = mocker.patch("eleanor.cli.run.load_executor", return_value=executor)
     _ = mocker.patch("eleanor.cli.run.Eleanor", return_value=eleanor)
 
-    result = invoke_run(runner, ["-c", "/fake.yaml", "-d", "sample", "--tag", "new"])
+    result = invoke_run(runner, ["-n", "10", "-c", "/fake.yaml", "-d", "sample", "--tag", "new"])
 
     assert result.exit_code == 0
     assert order.tags == ["existing", "new"]
@@ -256,7 +260,7 @@ def test_run_cli_tags_deduplicates_against_order_file_tags(mocker: MockerFixture
     _ = mocker.patch("eleanor.cli.run.load_executor", return_value=executor)
     _ = mocker.patch("eleanor.cli.run.Eleanor", return_value=eleanor)
 
-    result = invoke_run(runner, ["-c", "/fake.yaml", "-d", "sample", "--tag", "foo", "--tag", "bar"])
+    result = invoke_run(runner, ["-n", "10", "-c", "/fake.yaml", "-d", "sample", "--tag", "foo", "--tag", "bar"])
 
     assert result.exit_code == 0
     assert order.tags == ["foo", "bar"]
@@ -274,7 +278,7 @@ def test_run_without_tag_flag_leaves_order_tags_unchanged(mocker: MockerFixture,
     _ = mocker.patch("eleanor.cli.run.load_executor", return_value=executor)
     _ = mocker.patch("eleanor.cli.run.Eleanor", return_value=eleanor)
 
-    result = invoke_run(runner, ["-c", "/fake.yaml", "-d", "sample"])
+    result = invoke_run(runner, ["-n", "10", "-c", "/fake.yaml", "-d", "sample"])
 
     assert result.exit_code == 0
     assert order.tags == ["existing"]
@@ -313,14 +317,13 @@ def run_real_order(mocker: MockerFixture, runner: CliRunner, extra_args: list[st
 
 
 def test_run_seed_flag_overrides_the_order_file_seed(mocker: MockerFixture, runner: CliRunner) -> None:
-    order = run_real_order(mocker, runner, ["-c", "/fake.yaml", "-d", "sample", "--seed", "99"])
-
+    order = run_real_order(mocker, runner, ["-n", "1", "-c", "/fake.yaml", "-d", "sample", "--seed", "99"])
     assert order.seed == 99
 
 
 def test_run_seed_flag_redirects_the_order_generator(mocker: MockerFixture, runner: CliRunner) -> None:
     """The run must draw from the override, not from the seed the order file carried."""
-    order = run_real_order(mocker, runner, ["-c", "/fake.yaml", "-d", "sample", "--seed", "99"])
+    order = run_real_order(mocker, runner, ["-n", "1", "-c", "/fake.yaml", "-d", "sample", "--seed", "99"])
 
     expected = np.random.default_rng(99).integers(0, 2**32, size=5)
     assert np.array_equal(order.rng.integers(0, 2**32, size=5), expected)
@@ -328,7 +331,7 @@ def test_run_seed_flag_redirects_the_order_generator(mocker: MockerFixture, runn
 
 def test_run_seed_flag_accepts_zero(mocker: MockerFixture, runner: CliRunner) -> None:
     """Zero is a seed like any other; a falsy override must not be read as "unset"."""
-    order = run_real_order(mocker, runner, ["-c", "/fake.yaml", "-d", "sample", "--seed", "0"])
+    order = run_real_order(mocker, runner, ["-n", "1", "-c", "/fake.yaml", "-d", "sample", "--seed", "0"])
 
     assert order.seed == 0
     expected = np.random.default_rng(0).integers(0, 2**32, size=5)
@@ -336,7 +339,7 @@ def test_run_seed_flag_accepts_zero(mocker: MockerFixture, runner: CliRunner) ->
 
 
 def test_run_without_seed_flag_keeps_the_order_file_seed(mocker: MockerFixture, runner: CliRunner) -> None:
-    order = run_real_order(mocker, runner, ["-c", "/fake.yaml", "-d", "sample"])
+    order = run_real_order(mocker, runner, ["-n", "1", "-c", "/fake.yaml", "-d", "sample"])
 
     assert order.seed == 4242
     expected = np.random.default_rng(4242).integers(0, 2**32, size=5)
@@ -350,7 +353,7 @@ def test_run_rejects_a_negative_seed(mocker: MockerFixture, runner: CliRunner) -
     load_order = mocker.patch("eleanor.cli.run.load_order")
     eleanor_ctor = mocker.patch("eleanor.cli.run.Eleanor")
 
-    result = invoke_run(runner, ["-c", "/fake.yaml", "-d", "sample", "--seed", "-1"])
+    result = invoke_run(runner, ["-n", "1", "-c", "/fake.yaml", "-d", "sample", "--seed", "-1"])
 
     load_order.assert_not_called()
     eleanor_ctor.assert_not_called()
@@ -364,10 +367,10 @@ def test_run_rejects_unknown_executor_kind(mocker: MockerFixture, runner: CliRun
     _ = mocker.patch("eleanor.cli.run.available_executors", return_value={"serial"})
     eleanor_ctor = mocker.patch("eleanor.cli.run.Eleanor")
 
-    result = invoke_run(runner, ["-c", "/fake.yaml", "-d", "sample", "--executor", "does-not-exist"])
+    result = invoke_run(runner, ["-n", "10", "-c", "/fake.yaml", "-d", "sample", "--executor", "does-not-exist"])
 
     eleanor_ctor.assert_not_called()
-    assert result.exit_code == 0
+    assert result.exit_code == 1
     assert "does-not-exist" in result.output
     assert "unsupported" in result.output
     assert "executor" in result.output
@@ -385,7 +388,7 @@ def test_run_keyboard_interrupt_exits_130_with_friendly_message(mocker: MockerFi
     _ = mocker.patch("eleanor.cli.run.load_executor", return_value=executor)
     _ = mocker.patch("eleanor.cli.run.Eleanor", return_value=eleanor)
 
-    result = invoke_run(runner, ["-c", "/fake.yaml", "-d", "sample"])
+    result = invoke_run(runner, ["-n", "10", "-c", "/fake.yaml", "-d", "sample"])
 
     assert result.exit_code == 130
     assert "Eleanor run interrupted by interrupt; sink finalized cleanly." in result.output
@@ -402,7 +405,7 @@ def test_run_bulk_load_sets_optimization_in_postgres_config(mocker: MockerFixtur
     _ = mocker.patch("eleanor.cli.run.load_executor", return_value=executor)
     _ = mocker.patch("eleanor.cli.run.Eleanor", return_value=eleanor)
 
-    result = invoke_run(runner, ["-c", "/fake.yaml", "-d", "sample", "--bulk-load"])
+    result = invoke_run(runner, ["-n", "10", "-c", "/fake.yaml", "-d", "sample", "--bulk-load"])
 
     assert result.exit_code == 0
     assert len(config.output) == 1
@@ -426,9 +429,9 @@ def test_run_bulk_load_rejects_non_postgres_sink(mocker: MockerFixture, runner: 
     _ = mocker.patch("eleanor.cli.run.config_from_args", return_value=config)
     eleanor_ctor = mocker.patch("eleanor.cli.run.Eleanor")
 
-    result = invoke_run(runner, ["-c", "/fake.yaml", "-d", "sample", "--bulk-load"])
+    result = invoke_run(runner, ["-n", "10", "-c", "/fake.yaml", "-d", "sample", "--bulk-load"])
 
-    assert result.exit_code == 0
+    assert result.exit_code == 1
     eleanor_ctor.assert_not_called()
     assert "--bulk-load" in result.output
     assert "postgres" in result.output
@@ -449,7 +452,7 @@ def test_run_no_bulk_load_disables_config_optimization(mocker: MockerFixture, ru
     _ = mocker.patch("eleanor.cli.run.load_executor", return_value=executor)
     _ = mocker.patch("eleanor.cli.run.Eleanor", return_value=eleanor)
 
-    result = invoke_run(runner, ["-c", "/fake.yaml", "-d", "sample", "--no-bulk-load"])
+    result = invoke_run(runner, ["-n", "10", "-c", "/fake.yaml", "-d", "sample", "--no-bulk-load"])
 
     assert result.exit_code == 0
     assert not config.output[0].settings.bulk_load_optimization
@@ -470,7 +473,7 @@ def test_run_bulk_load_omitted_leaves_config_unchanged(mocker: MockerFixture, ru
     _ = mocker.patch("eleanor.cli.run.load_executor", return_value=executor)
     _ = mocker.patch("eleanor.cli.run.Eleanor", return_value=eleanor)
 
-    result = invoke_run(runner, ["-c", "/fake.yaml", "-d", "sample"])
+    result = invoke_run(runner, ["-n", "10", "-c", "/fake.yaml", "-d", "sample"])
 
     assert result.exit_code == 0
     assert config.output[0].settings.bulk_load_optimization
@@ -489,7 +492,7 @@ def test_run_bulk_load_ignored_when_null_sink(mocker: MockerFixture, runner: Cli
     _ = mocker.patch("eleanor.cli.run.load_executor", return_value=executor)
     _ = mocker.patch("eleanor.cli.run.Eleanor", return_value=eleanor)
 
-    result = invoke_run(runner, ["-c", "/fake.yaml", "--null-sink", "--bulk-load"])
+    result = invoke_run(runner, ["-n", "10", "-c", "/fake.yaml", "--null-sink", "--bulk-load"])
 
     assert result.exit_code == 0
     sinks = eleanor.run.call_args.kwargs["output_sink"]
@@ -509,7 +512,61 @@ def test_run_eleanor_shutdown_uses_signal_name_in_message(mocker: MockerFixture,
     _ = mocker.patch("eleanor.cli.run.load_executor", return_value=executor)
     _ = mocker.patch("eleanor.cli.run.Eleanor", return_value=eleanor)
 
-    result = invoke_run(runner, ["-c", "/fake.yaml", "-d", "sample"])
+    result = invoke_run(runner, ["-n", "10", "-c", "/fake.yaml", "-d", "sample"])
 
     assert result.exit_code == 130
     assert "Eleanor run interrupted by SIGTERM; sink finalized cleanly." in result.output
+
+def test_run_raises_without_simulation_size_or_density(runner: CliRunner) -> None:
+    result = invoke_run(runner, [])
+    assert result.exit_code == 1
+    assert "either --density= or --simulation-size= must be provided" in result.output
+
+
+def test_run_raises_with_both_simulation_size_and_density(runner: CliRunner) -> None:
+    result = invoke_run(runner, ["-n", "10", "-t", "0.1"])
+    assert result.exit_code == 1
+    assert "exactly one of --density= or --simulation-size= must be provided" in result.output
+
+
+def test_run_passes_density_to_eleanor(mocker: MockerFixture, runner: CliRunner) -> None:
+    eleanor = make_eleanor(mocker)
+
+    _ = mocker.patch("eleanor.cli.run.config_from_args", return_value=make_config())
+    _ = mocker.patch("eleanor.cli.run.load_order", return_value=mocker.create_autospec(Order))
+    _ = mocker.patch("eleanor.cli.run.load_executor", return_value=make_executor(mocker))
+    _ = mocker.patch("eleanor.cli.run.Eleanor", return_value=eleanor)
+
+    result = invoke_run(runner, ["-t", "0.25", "-c", "/fake.yaml", "-d", "sample"])
+
+    assert result.exit_code == 0
+    assert eleanor.run.call_args.kwargs["simulation_size"] is None
+    assert eleanor.run.call_args.kwargs["density"] == 0.25
+
+
+def test_run_accepts_long_density_flag(mocker: MockerFixture, runner: CliRunner) -> None:
+    eleanor = make_eleanor(mocker)
+
+    _ = mocker.patch("eleanor.cli.run.config_from_args", return_value=make_config())
+    _ = mocker.patch("eleanor.cli.run.load_order", return_value=mocker.create_autospec(Order))
+    _ = mocker.patch("eleanor.cli.run.load_executor", return_value=make_executor(mocker))
+    _ = mocker.patch("eleanor.cli.run.Eleanor", return_value=eleanor)
+
+    result = invoke_run(runner, ["--density", "2.5", "-c", "/fake.yaml", "-d", "sample"])
+
+    assert result.exit_code == 0
+    assert eleanor.run.call_args.kwargs["density"] == 2.5
+
+
+@pytest.mark.parametrize("density", ["0", "-0.5"])
+def test_run_rejects_non_positive_density(runner: CliRunner, density: str) -> None:
+    result = invoke_run(runner, ["-t", density])
+    assert result.exit_code == 2
+    assert "Invalid value for '-t' / '--density'" in result.output
+
+
+@pytest.mark.parametrize("simulation_size", ["0", "-1"])
+def test_run_rejects_non_positive_simulation_size(runner: CliRunner, simulation_size: str) -> None:
+    result = invoke_run(runner, ["-n", simulation_size])
+    assert result.exit_code == 2
+    assert "Invalid value for '-n' / '--simulation-size'" in result.output

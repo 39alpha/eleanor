@@ -356,7 +356,7 @@ Every extension point supports two non-packaged registration paths:
 
    Eleanor(config=config).run(
        order,
-       simulation_size,
+       simulation_size=simulation_size,
        navigator=my_navigator_instance,
        kernel=my_kernel_instance,
        output_sink=my_output_sink_instance,

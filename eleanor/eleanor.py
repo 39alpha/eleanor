@@ -116,14 +116,14 @@ class Eleanor:
     across any number of :meth:`run` calls made inside that block::
 
         with Eleanor(config=cfg) as eleanor:
-            eleanor.run(order1, 1000)
-            eleanor.run(order2, 2000)
+            eleanor.run(order1, simulation_size=1000)
+            eleanor.run(order2, simulation_size=2000)
 
     Outside of a ``with`` block, each :meth:`run` call builds the
     resources it needs and tears them down on exit, so one-shot usage
     remains a single method call::
 
-        Eleanor(config=cfg).run(order, 1000)
+        Eleanor(config=cfg).run(order, simulation_size=1000)
 
     A run may drive **several sinks at once**. The kernel runs once per
     point regardless; the compute graph is fanned out to every sink inside
@@ -139,7 +139,7 @@ class Eleanor:
     (``initialize`` / ``finalize``).  The recommended pattern is::
 
         with MySink(...) as sink:
-            eleanor.run(order, n, output_sink=sink)
+            eleanor.run(order, simulation_size=n, output_sink=sink)
 
     ``output_sink=`` accepts a single sink (named ``"output"``) or a mapping
     of name to sink.
@@ -385,11 +385,37 @@ class Eleanor:
             finally:
                 _finalize_all(sinks.values())
 
+    def simulation_size(self, order: Order, simulation_size: int | None, density: float | None) -> int:
+        """Determine the simulation size given an order and either a desired simulation size or
+        density.
+        """
+        if simulation_size is None:
+            if density is None:
+                msg = "either density or simulation_size must be provided"
+                raise EleanorError(msg)
+
+            simulation_size = max(1, round(density * order.volume()))
+        elif density is not None:
+            msg = "exactly one of density or simulation_size must be provided, both provided"
+            raise EleanorError(msg)
+
+        if simulation_size <= 0:
+            msg = "simulation size must be positive, non-zero"
+            raise EleanorError(msg)
+
+        if order.volume() == 0 and simulation_size > 1:
+            msg = "order has no parameters; resetting the simulation size to 1"
+            warnings.warn(msg, EleanorWarning, stacklevel=2)
+            simulation_size = 1
+
+        return simulation_size
+
     def run[IdT](
         self,
         order: Order,
-        simulation_size: int,
         *args: object,
+        simulation_size: int | None = None,
+        density: float | None = None,
         chunks_per_worker: int | None = None,
         batch_size: int | None = None,
         max_nav_attempts: int = 1,
@@ -434,14 +460,7 @@ class Eleanor:
 
         executor_settings = replace(self.config.executor.settings, chunks_per_worker=chunks_per_worker)
 
-        if simulation_size <= 0:
-            msg = "simulation size must be positive, non-zero"
-            raise EleanorError(msg)
-
-        if order.volume() == 0 and simulation_size > 1:
-            msg = "order has no parameters; resetting the simulation size to 1"
-            warnings.warn(msg, EleanorWarning, stacklevel=2)
-            simulation_size = 1
+        simulation_size = self.simulation_size(order, simulation_size, density)
 
         with ExitStack() as stack:
             run_executor = stack.enter_context(
@@ -510,9 +529,10 @@ class Eleanor:
                         order,
                         kernel,
                         navigator,
-                        simulation_size,
                         bindings,
                         *args,
+                        simulation_size=simulation_size,
+                        density=None,
                         batch_size=effective_batch_size,
                         max_nav_attempts=max_nav_attempts,
                         expected_total=expected_total,
@@ -606,10 +626,11 @@ class Eleanor:
         order: Order,
         kernel: AbstractKernel,
         navigator: AbstractNavigator,
-        simulation_size: int,
         bindings: Sequence[SinkBinding],
         *args: object,
         batch_size: int,
+        simulation_size: int | None = None,
+        density: float | None = None,
         max_nav_attempts: int = 1,
         expected_total: int,
         executor: AbstractExecutor | None = None,
@@ -660,13 +681,8 @@ class Eleanor:
         if not bindings:
             msg = "no output sink provided via config or keyword option"
             raise EleanorError(msg)
-        if simulation_size <= 0:
-            msg = "simulation size must be positive, non-zero"
-            raise EleanorError(msg)
-        if order.volume() == 0 and simulation_size > 1:
-            msg = "order has no parameters; resetting the simulation size to 1"
-            warnings.warn(msg, EleanorWarning, stacklevel=2)
-            simulation_size = 1
+
+        simulation_size = self.simulation_size(order, simulation_size, density)
 
         by_name = {binding.name: binding for binding in bindings}
         outcomes: dict[str, list[WriteOutcome]] = {binding.name: [] for binding in bindings}

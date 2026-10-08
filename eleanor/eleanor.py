@@ -1,4 +1,5 @@
 import sys
+import warnings
 from collections.abc import Callable, Generator, Iterable, Iterator, Mapping, MutableMapping, Sequence
 from contextlib import ExitStack, contextmanager, suppress
 from dataclasses import replace
@@ -10,7 +11,7 @@ from typing import Self, Unpack, cast
 
 import eleanor.variable_space as vs
 from eleanor.config import Config
-from eleanor.exceptions import EleanorError, EleanorShutdown
+from eleanor.exceptions import EleanorError, EleanorShutdown, EleanorWarning
 from eleanor.executor import AbstractExecutor, AbstractFuture, load_executor
 from eleanor.executor.settings import ExecutorSettings
 from eleanor.kernel import load_kernel
@@ -433,6 +434,15 @@ class Eleanor:
 
         executor_settings = replace(self.config.executor.settings, chunks_per_worker=chunks_per_worker)
 
+        if simulation_size <= 0:
+            msg = "simulation size must be positive, non-zero"
+            raise EleanorError(msg)
+
+        if order.volume() == 0 and simulation_size > 1:
+            msg = "order has no parameters; resetting the simulation size to 1"
+            warnings.warn(msg, EleanorWarning, stacklevel=2)
+            simulation_size = 1
+
         with ExitStack() as stack:
             run_executor = stack.enter_context(
                 self._executor_scope(kind=self.config.executor.kind, settings=executor_settings),
@@ -650,6 +660,13 @@ class Eleanor:
         if not bindings:
             msg = "no output sink provided via config or keyword option"
             raise EleanorError(msg)
+        if simulation_size <= 0:
+            msg = "simulation size must be positive, non-zero"
+            raise EleanorError(msg)
+        if order.volume() == 0 and simulation_size > 1:
+            msg = "order has no parameters; resetting the simulation size to 1"
+            warnings.warn(msg, EleanorWarning, stacklevel=2)
+            simulation_size = 1
 
         by_name = {binding.name: binding for binding in bindings}
         outcomes: dict[str, list[WriteOutcome]] = {binding.name: [] for binding in bindings}

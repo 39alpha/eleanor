@@ -1,3 +1,5 @@
+from eleanor.exceptions import EleanorWarning
+from unittest.mock import ANY
 import io
 import threading
 from contextlib import contextmanager
@@ -117,7 +119,7 @@ def _make_eleanor():
     )
 
 
-def _make_order(navigator_kind: str = "random") -> Order:
+def _make_order(*, navigator_kind: str = "random", volume: int=1) -> Order:
     """Produce a minimal order-like ``SimpleNamespace`` for ``Eleanor.run``."""
     return cast(
         Order,
@@ -125,6 +127,7 @@ def _make_order(navigator_kind: str = "random") -> Order:
             object,
             SimpleNamespace(
                 navigator=SimpleNamespace(kind=navigator_kind, args={}),
+                volume=lambda: volume,
                 id=None,
             ),
         ),
@@ -712,6 +715,50 @@ class TestEleanorRun(TestCase):
         sink.finalize_run.assert_called_once_with()
         sink.finalize.assert_called_once_with()
 
+    def test_run_raises_for_invalid_simulation_size(self):
+        eleanor = _make_eleanor()
+        order = _make_order()
+
+        with self.assertRaisesRegex(EleanorError, "simulation size must be positive, non-zero"):
+            _ = eleanor.run(order, -1, kernel=mock.MagicMock(), navigator=mock.MagicMock())
+
+        with self.assertRaisesRegex(EleanorError, "simulation size must be positive, non-zero"):
+            _ = eleanor.run(order, 0, kernel=mock.MagicMock(), navigator=mock.MagicMock())
+
+    def test_run_overrides_simulation_size_for_zero_volume_orders_with_warning(self):
+        eleanor = _make_eleanor()
+        sink = mock.Mock()
+        sink.begin_run.return_value = 7
+        sink.supports_progress.return_value = False
+        eleanor.process = mock.Mock(return_value={})
+
+        order = _make_order(volume=0)
+        kernel = mock.MagicMock(AbstractKernel)
+        navigator = _navigator(1)
+
+        with (
+            mock.patch("eleanor.eleanor.load_executor", return_value=_FakeExecutor()),
+            mock.patch("eleanor.eleanor.load_output_sink", return_value=sink),
+            self.assertWarnsRegex(EleanorWarning, "resetting the simulation size to 1"),
+        ):
+            _ = eleanor.run(order, 5, kernel=kernel, navigator=navigator)
+
+        eleanor.process.assert_called_once_with(
+            order,
+            kernel,
+            navigator,
+            1,
+            ANY,
+            batch_size=ANY,
+            max_nav_attempts=ANY,
+            expected_total=ANY,
+            executor=ANY,
+            chunks_per_worker=ANY,
+            sim_progress=ANY,
+            out_progress=ANY,
+            timings=ANY,
+        )
+
 
 class TestEleanorProcess(TestCase):
     """Tests covering ``Eleanor.process`` behavior."""
@@ -1064,6 +1111,52 @@ class TestEleanorProcess(TestCase):
             )
 
         self.assertEqual(raised.exception.signal_name, "SIGTERM")
+
+    def test_process_raises_for_invalid_simulation_size(self):
+        eleanor = _make_eleanor()
+        order = _make_order()
+        executor = mock.MagicMock(num_workers=5)
+        sink = mock.MagicMock()
+
+        with self.assertRaisesRegex(EleanorError, "simulation size must be positive, non-zero"):
+            _ = eleanor.process(order, mock.MagicMock(), mock.MagicMock(), -1, _bind(sink), batch_size=5, expected_total=0, executor=executor)
+
+        with self.assertRaisesRegex(EleanorError, "simulation size must be positive, non-zero"):
+            _ = eleanor.process(order, mock.MagicMock(), mock.MagicMock(), 0, _bind(sink), batch_size=5, expected_total=0, executor=executor)
+
+    def test_process_overrides_simulation_size_for_zero_volume_orders_with_warning(self):
+        eleanor = _make_eleanor()
+        sink = mock.Mock()
+        sink.begin_run.return_value = 7
+        sink.supports_progress.return_value = False
+
+        order = _make_order(volume=0)
+        kernel = mock.MagicMock(AbstractKernel)
+        navigator = _navigator(1)
+
+        with (
+            mock.patch("eleanor.eleanor.load_executor", return_value=_FakeExecutor()),
+            mock.patch("eleanor.eleanor.load_output_sink", return_value=sink),
+            self.assertWarnsRegex(EleanorWarning, "resetting the simulation size to 1"),
+        ):
+            _ = eleanor.process(
+                order,
+                kernel,
+                navigator,
+                10,
+                [_bind(sink)],
+                batch_size=5,
+                expected_total=10,
+                executor=_as_executor(_FakeExecutor()),
+            )
+
+        navigator.navigate.assert_called_once_with(
+            order,
+            kernel,
+            1,
+            5,
+            max_attempts=1,
+        )
 
 
 class TestEleanorConstructorOverrides(TestCase):

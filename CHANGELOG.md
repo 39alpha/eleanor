@@ -14,6 +14,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`eleanor postgres dump vs`** writes a stored variable space point back out as a runnable YAML or
   JSON file.
 
+### Changed
+
+- **`Eleanor.run` and `Eleanor.process` raise for `simulation_size <= 0`**
+- **`Eleanor.run` and `Eleanor.process` override `simulation_size = 0`** when the volume of the
+  order being run is zero.
+
 ### Removed
 
 - **`eleanor.util.norm_list`.** It had no callers.

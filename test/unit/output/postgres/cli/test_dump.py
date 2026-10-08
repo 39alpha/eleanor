@@ -17,3 +17,8 @@ def test_postgres_dump_order_help_succeeds(runner: CliRunner) -> None:
 def test_postgres_dump_scratch_help_succeeds(runner: CliRunner) -> None:
     result = runner.invoke(main, ["postgres", "dump", "scratch", "--help"])
     assert result.exit_code == 0
+
+
+def test_postgres_dump_vs_help_succeeds(runner: CliRunner) -> None:
+    result = runner.invoke(main, ["postgres", "dump", "vs", "--help"])
+    assert result.exit_code == 0

@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **`eleanor postgres export duckdb`** exports a PostgreSQL database out as either a DuckDB database
   or a DuckDB-importable parquet, CSV or JSON hive.
+- **`eleanor postgres dump vs`** writes a stored variable space point back out as a runnable YAML or
+  JSON file.
 
 ### Removed
 

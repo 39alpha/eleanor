@@ -327,6 +327,24 @@ def require[T](value: T | None, field_name: str) -> T:
     return value
 
 
+def require_int_id(value: str, name: str) -> int:
+    """Parse ``value`` as an integer."""
+    try:
+        return int(value)
+    except ValueError as error:
+        msg = f"{name} id must be an integer, got {value!r}"
+        raise EleanorError(msg) from error
+
+
+def require_uuid_id(value: str, name: str) -> uuid.UUID:
+    """Parse ``value`` as a UUID."""
+    try:
+        return uuid.UUID(value)
+    except ValueError as error:
+        msg = f"{name} id must be a UUID, got {value!r}"
+        raise EleanorError(msg) from error
+
+
 def guard_is_bool(value: object, field_name: str) -> None:
     if not isinstance(value, bool):
         msg = f"{field_name} must be a boolean; got {type(value).__name__}"
@@ -381,7 +399,7 @@ def guard_is_path_or_none(value: object, field_name: str) -> None:
 
 def guard_is_dict(value: object, field_name: str) -> None:
     if not isinstance(value, dict):
-        msg = f"{field_name} must be a dictionary"
+        msg = f"{field_name} must be a dictionary; got {type(value).__name__}"
         raise EleanorError(msg)
 
 
@@ -397,19 +415,13 @@ def guard_is_instance_or_none[T](value: object, class_: type[T], field_name: str
         raise EleanorError(msg)
 
 
-def require_int_id(value: str, name: str) -> int:
-    """Parse ``value`` as an integer."""
-    try:
-        return int(value)
-    except ValueError as error:
-        msg = f"{name} id must be an integer, got {value!r}"
-        raise EleanorError(msg) from error
+def guard_is_uuid(value: object, field_name: str) -> None:
+    if not isinstance(value, uuid.UUID):
+        msg = f"{field_name} must be a UUID; got {type(value).__name__}"
+        raise EleanorError(msg)
 
 
-def require_uuid_id(value: str, name: str) -> uuid.UUID:
-    """Parse ``value`` as a UUID."""
-    try:
-        return uuid.UUID(value)
-    except ValueError as error:
-        msg = f"{name} id must be a UUID, got {value!r}"
-        raise EleanorError(msg) from error
+def guard_is_uuid_or_none(value: object, field_name: str) -> None:
+    if value is not None and not isinstance(value, uuid.UUID):
+        msg = f"{field_name} must be a UUID or None; got {type(value).__name__}"
+        raise EleanorError(msg)

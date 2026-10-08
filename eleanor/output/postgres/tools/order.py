@@ -98,7 +98,7 @@ def dump_order(
         case DumpFormat.YAML:
             yaml.safe_dump(order_raw, output, allow_unicode=True, sort_keys=False)
         case DumpFormat.JSON:
-            json.dump(order_raw, output, indent=2, ensure_ascii=False, sort_keys=False)
+            json.dump(order_raw, output, indent=2, ensure_ascii=False, sort_keys=False, default=str)
             _ = output.write("\n")
         case _:
             msg = f"unknown filetype target: {format!s}"

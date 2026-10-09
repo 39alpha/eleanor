@@ -10,7 +10,7 @@ from eleanor.exceptions import EleanorError
 from eleanor.plugin import SimplePluginSpec
 
 
-@click.group()
+@click.group(context_settings={"help_option_names": ["-h", "--help"]})
 @click.version_option(version=eleanor.__version__, prog_name="eleanor")
 def main() -> None:
     """Run eleanor or interact with a generated dataset."""

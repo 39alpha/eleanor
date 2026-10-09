@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   specify either the simulation size or sampling density at the command line.
 - **`eleanor order volume`** to compute and print the volume of an order.
 - **`eleanor.util.raise_field_error`** to centralize field related error messaging.
+- **Accept both `-h` and `--help`** for all subcommands.
 
 ### Changed
 

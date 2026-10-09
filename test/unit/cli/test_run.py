@@ -144,7 +144,7 @@ def test_run_null_sink_overrides_output_sink(mocker: MockerFixture, runner: CliR
 
     result = invoke_run(runner, ["-n", "10", "-c", "/fake.yaml", "--null-sink"])
 
-    config_from_args.assert_called_once_with("/fake.yaml", None, require_database=False)
+    config_from_args.assert_called_once_with(Path("/fake.yaml"), None, require_database=False)
     load_order.assert_called_once()
     load_executor.assert_called_once_with(
         kind="serial",
@@ -518,13 +518,13 @@ def test_run_eleanor_shutdown_uses_signal_name_in_message(mocker: MockerFixture,
     assert "Eleanor run interrupted by SIGTERM; sink finalized cleanly." in result.output
 
 def test_run_raises_without_simulation_size_or_density(runner: CliRunner) -> None:
-    result = invoke_run(runner, [])
+    result = invoke_run(runner, ["-c", "/fake.yaml"])
     assert result.exit_code == 1
     assert "either --density= or --simulation-size= must be provided" in result.output
 
 
 def test_run_raises_with_both_simulation_size_and_density(runner: CliRunner) -> None:
-    result = invoke_run(runner, ["-n", "10", "-t", "0.1"])
+    result = invoke_run(runner, ["-n", "10", "-t", "0.1", "-c", "/fake.yaml"])
     assert result.exit_code == 1
     assert "exactly one of --density= or --simulation-size= must be provided" in result.output
 
@@ -570,3 +570,31 @@ def test_run_rejects_non_positive_simulation_size(runner: CliRunner, simulation_
     result = invoke_run(runner, ["-n", simulation_size])
     assert result.exit_code == 2
     assert "Invalid value for '-n' / '--simulation-size'" in result.output
+
+
+def test_run_requires_a_config(mocker: MockerFixture, runner: CliRunner) -> None:
+    config_from_args = mocker.patch("eleanor.cli.run.config_from_args")
+    eleanor_ctor = mocker.patch("eleanor.cli.run.Eleanor")
+
+    result = invoke_run(runner, ["-n", "10", "-d", "sample"])
+
+    assert result.exit_code == 1
+    assert "configuration is required" in result.output
+    assert "-c/--config" in result.output
+    config_from_args.assert_not_called()
+    eleanor_ctor.assert_not_called()
+
+
+def test_run_reads_config_from_environment(mocker: MockerFixture, runner: CliRunner) -> None:
+    config_from_args = mocker.patch("eleanor.cli.run.config_from_args", return_value=make_config())
+    _ = mocker.patch("eleanor.cli.run.load_order", return_value=mocker.create_autospec(Order))
+    _ = mocker.patch("eleanor.cli.run.load_executor", return_value=make_executor(mocker))
+    _ = mocker.patch("eleanor.cli.run.Eleanor", return_value=make_eleanor(mocker))
+
+    with TemporaryDirectory() as root:
+        order_path = Path(root) / "order.yaml"
+        _ = order_path.write_text("order: demo\n", encoding="utf-8")
+        result = runner.invoke(main, ["run", "-n", "10", str(order_path)], env={"ELEANOR_CONFIG": "/env.yaml"})
+
+    assert result.exit_code == 0, result.output
+    config_from_args.assert_called_once_with(Path("/env.yaml"), None, require_database=True)

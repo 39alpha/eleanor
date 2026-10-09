@@ -12,18 +12,20 @@ from eleanor.util import require_uuid_id
 @click.command(name="scratch")
 @click.argument("vs_id", type=click.STRING)
 @click.option("-o", "--outdir", type=click.Path(file_okay=False), default=".", help="Output directory.")
-@config_options()
-def dump_scratch(vs_id: str, outdir: str, config: str, database: str | None) -> None:
+@config_options(required=False)
+def dump_scratch(vs_id: str, outdir: str, config: Path | None, database: str | None) -> None:
     """Dump scratch results to a directory."""
 
     variable_space_id = require_uuid_id(vs_id, "postgres sink")
     directory = Path(outdir)
 
-    click.echo(f"Loading {config}")
-    settings = sole_postgres_settings(config_from_args(config, database), "dump scratch")
-    if settings.database.database is None:
-        msg = "no database provided"
-        raise click.ClickException(msg)
+    if config is not None:
+        click.echo(f"Loading {config}")
+
+    settings = sole_postgres_settings(
+        config_from_args(config, database, assume_default_postgres=True),
+        "dump scratch",
+    )
 
     try:
         try:

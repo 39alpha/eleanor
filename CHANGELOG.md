@@ -21,17 +21,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Require `click>=8.5`.**
 - **`eleanor run -n <num_workers>` renamed to `eleanor run -m <num_workers>`.**
 - **`Eleanor.run` and `Eleanor.process` raise for `simulation_size <= 0`.**
 - **`Eleanor.run` and `Eleanor.process` override `simulation_size = 0`** when the volume of the
   order being run is zero.
 - **`eleanor run` sets the exit code to 1** when exiting with an error.
+- **`eleanor postgres` subcommands no longer require a config file** and assume a localhost server
+  with the login user's credentials. The `-d/--database` option must be provided in this case.
 
 ### Removed
 
 - **`eleanor.util.norm_list`.** It had no callers.
 - **Positional `SIMULATION_SIZE` argument from `eleanor run`.** Use `--simulation-size` or
   `--density` to specify the simulation size.
+- **`eleanor postgres schema` no longer accepts options.**
 
 ## [v0.23.0] - 2026-10-02
 

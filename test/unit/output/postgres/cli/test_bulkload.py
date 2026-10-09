@@ -1,5 +1,6 @@
 """Unit tests for the bulkload Click command."""
 
+from pathlib import Path
 from typing import override
 from unittest import TestCase, mock
 
@@ -57,7 +58,7 @@ class TestBulkLoadCli(TestCase):
             )
 
         self.assertEqual(result.exit_code, 0)
-        config_from_args.assert_called_once_with("/fake.yaml", "demo_db")
+        config_from_args.assert_called_once_with(Path("/fake.yaml"), "demo_db", assume_default_postgres=True)
         drop_bulk_load_objects.assert_called_once()
         recreate_bulk_load_objects.assert_not_called()
         passed = drop_bulk_load_objects.call_args.args[0]
@@ -163,7 +164,7 @@ class TestBulkLoadCli(TestCase):
         """
         bare = Config.from_dict({"output": {"kind": "postgres"}})
         with (
-            mock.patch("eleanor.output.postgres.cli.bulkload.config_from_args", return_value=bare),
+            mock.patch("eleanor.cli.util.load_config", return_value=bare),
             mock.patch("eleanor.output.postgres.cli.bulkload.drop_bulk_load_objects") as drop_bulk_load_objects,
             mock.patch("eleanor.output.postgres.cli.bulkload.recreate_bulk_load_objects") as recreate_bulk_load_objects,
         ):

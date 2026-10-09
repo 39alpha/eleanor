@@ -148,7 +148,7 @@ class TestCsvSink(TestCase):
         with self.assertRaisesRegex(EleanorError, "query must be a dictionary"):
             _ = CsvSinkSettings(filename=Path("x.csv"), query="bad")  # pyright: ignore[reportArgumentType]
 
-        with self.assertRaisesRegex(EleanorError, "filename must be a str or Path"):
+        with self.assertRaisesRegex(EleanorError, "filename must be a string or Path"):
             _ = CsvSinkSettings.from_dict({"filename": 1})
 
         with self.assertRaisesRegex(EleanorError, "query must be a dictionary"):

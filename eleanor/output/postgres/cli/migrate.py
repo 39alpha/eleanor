@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import LiteralString, cast
 
 import click
@@ -29,21 +30,21 @@ from eleanor.output.postgres.settings import PostgresSinkSettings
 )
 @click.option("--verify", is_flag=True, help="Run the drift check; apply no migrations.")
 @click.option("-y", "--yes", is_flag=True, help="Skip confirmation prompts.")
-@config_options()
+@config_options(required=False)
 def migrate(
     dry_run: bool,
     list_all: bool,
     stamp: int | None,
     verify: bool,
     yes: bool,
-    config: str,
+    config: Path | None,
     database: str | None,
 ) -> None:
     """Apply pending postgres migrations."""
-    settings = sole_postgres_settings(config_from_args(config, database), "migrate")
-    if settings.database.database is None:
-        msg = "no database provided"
-        raise click.ClickException(msg)
+    settings = sole_postgres_settings(
+        config_from_args(config, database, assume_default_postgres=True),
+        "migrate",
+    )
 
     exclusive_count = sum(int(x) for x in (verify, dry_run, list_all, stamp is not None))
     if exclusive_count > 1:

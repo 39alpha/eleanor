@@ -289,7 +289,8 @@ def test_a_property_missing_from_raw_reports_cleanly(mocker: MockerFixture, runn
 
 def test_missing_database_exits_before_lookup(mocker: MockerFixture, runner: CliRunner) -> None:
     """A config naming no database must fail rather than query the local default."""
-    get_order = stub_lookup(mocker, config=make_config(database=None))
+    _ = mocker.patch("eleanor.cli.util.load_config", return_value=make_config(database=None))
+    get_order = mocker.patch("eleanor.output.postgres.cli.dump.order.get_order")
 
     result = invoke_dump(runner, str(ORDER_ID))
 

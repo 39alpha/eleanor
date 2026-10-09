@@ -30,9 +30,8 @@ class TestDumpSchema(TestCase):
         line per declared index. Statements terminate with a semicolon
         so the output is directly pipe-able into ``psql``.
         """
-        cfg = PostgresDatabaseSettings(database="db", username="u", password="p")
         buf = io.StringIO()
-        dump_schema(cfg, buf)
+        dump_schema(buf)
         output = buf.getvalue()
 
         for table in schema.TABLES:
@@ -56,12 +55,11 @@ class TestDumpSchema(TestCase):
         the persistence connection module: the helper is documented as
         producing static DDL that doesn't depend on any live database.
         """
-        cfg = PostgresDatabaseSettings(database="db", username="u", password="p")
         buf = io.StringIO()
         with mock.patch(
             "eleanor.output.postgres.persistence.connection.connect",
         ) as connect:
-            dump_schema(cfg, buf)
+            dump_schema(buf)
         connect.assert_not_called()
 
 

@@ -163,7 +163,7 @@ def test_wraps_export_failure(runner: CliRunner, export: MagicMock, tmp_path: Pa
 
 
 def test_requires_a_database(runner: CliRunner, mocker: MockerFixture, tmp_path: Path) -> None:
-    _ = mocker.patch(f"{_MODULE}.config_from_args", return_value=_postgres_config(database=None))
+    _ = mocker.patch("eleanor.cli.util.load_config", return_value=_postgres_config(database=None))
     export = mocker.patch(f"{_MODULE}.export_duckdb")
 
     result = _invoke(runner, "-o", str(tmp_path / "out.db"))
@@ -180,7 +180,7 @@ def test_assumes_default_postgres_sink(runner: CliRunner, mocker: MockerFixture,
     result = _invoke(runner, "-d", "other", "-o", str(tmp_path / "out.db"))
 
     assert result.exit_code == 0, result.output
-    config_from_args.assert_called_once_with("/fake.yaml", "other", assume_default_postgres=True)
+    config_from_args.assert_called_once_with(Path("/fake.yaml"), "other", assume_default_postgres=True)
 
 
 def test_parse_options_returns_none_without_tokens() -> None:

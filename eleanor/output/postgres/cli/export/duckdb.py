@@ -80,7 +80,7 @@ def _parse_options(tokens: tuple[str, ...]) -> ExportOptions | None:
     is_flag=True,
     help="Generate verbose output",
 )
-@config_options()
+@config_options(required=False)
 def duckdb(
     output: Path | None,
     hive: Path | None,
@@ -89,7 +89,7 @@ def duckdb(
     no_export_empty: bool = False,
     verbose: bool = False,
     *,
-    config: str,
+    config: Path | None,
     database: str | None,
 ) -> None:
     """Export an Eleanor PostgreSQL database for DuckDB."""
@@ -108,9 +108,6 @@ def duckdb(
         config_from_args(config, database, assume_default_postgres=True),
         "export duckdb",
     )
-    if settings.database.database is None:
-        msg = "no database provided"
-        raise click.ClickException(msg)
 
     options = _parse_options(export_option)
 

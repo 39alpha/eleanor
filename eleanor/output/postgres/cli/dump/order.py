@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import TextIO
 
 import click
@@ -56,13 +57,13 @@ _OPTIONAL_PROPERTIES: frozenset[str] = frozenset(
     help="Output optional properties even if they are empty (e.g. None, {}, [], etc...)",
 )
 @click.argument("order_id", type=click.STRING)
-@config_options()
+@config_options(required=False)
 def order(
     output: TextIO,
     to: DumpFormat,
     keep_empty: bool,
     order_id: str,
-    config: str,
+    config: Path | None,
     database: str | None,
 ) -> None:
     """Dump an order suitable for rerunning Eleanor."""
@@ -71,9 +72,6 @@ def order(
         config_from_args(config, database, assume_default_postgres=True),
         "dump order",
     )
-    if settings.database.database is None:
-        msg = "no database provided"
-        raise click.ClickException(msg)
 
     try:
         oid = require_uuid_id(order_id, "order")

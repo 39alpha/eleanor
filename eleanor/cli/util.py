@@ -24,13 +24,15 @@ from eleanor.output.postgres.settings import PostgresDatabaseSettings, PostgresS
 from eleanor.typing import StrPath
 
 
-def _default_config_path() -> str | None:
-    try:
-        path = str(xdg_config_home().joinpath("eleanor", "config.yaml"))
-        _ = load_config(path)
-        return path
-    except Exception:
-        return None
+def _default_config_path() -> Path:
+    return xdg_config_home().joinpath("eleanor", "config.yaml")
+
+
+def require_config(config: Path | None) -> Path:
+    if config is None:
+        msg = f"configuration is required; pass -c/--config or set up {_default_config_path()}"
+        raise click.ClickException(msg)
+    return config
 
 
 def config_options[F: Callable[..., object]](*, required: bool = True) -> Callable[[F], F]:
@@ -40,11 +42,11 @@ def config_options[F: Callable[..., object]](*, required: bool = True) -> Callab
         @click.option(
             "-c",
             "--config",
-            required=required and default_path is None,
-            default=default_path,
+            default=default_path if default_path.is_file() else None,
             envvar="ELEANOR_CONFIG",
-            type=click.Path(dir_okay=False),
-            help=f"Configuration file (default: {default_path or 'required'}).",
+            type=click.Path(dir_okay=False, path_type=Path),
+            show_default=True,
+            help="Configuration file.",
         )
         @click.option(
             "-d",
@@ -56,6 +58,8 @@ def config_options[F: Callable[..., object]](*, required: bool = True) -> Callab
         )
         @functools.wraps(fn)
         def wrapper(*args: object, **kwargs: object) -> object:
+            if required:
+                kwargs["config"] = require_config(cast(Path | None, kwargs["config"]))
             return fn(*args, **kwargs)
 
         return cast(F, wrapper)
@@ -105,7 +109,7 @@ def sole_postgres_settings(config: Config, action: str) -> PostgresSinkSettings:
 
 
 def config_from_args(
-    config_file: StrPath,
+    config_file: StrPath | None,
     database: str | None,
     *,
     assume_default_postgres: bool = False,
@@ -161,7 +165,7 @@ def config_from_args(
             entry.name for entry in candidates if cast(PostgresSinkSettings, entry.settings).database.database is None
         ]
         if undatabased:
-            msg = f"no database provided for output sink(s): {', '.join(undatabased)}"
+            msg = f"no database provided for output sink(s): {', '.join(undatabased)}; pass -d/--database or provide it via config"
             raise click.ClickException(msg)
 
     return config

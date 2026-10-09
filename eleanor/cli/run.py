@@ -1,6 +1,7 @@
 import sys
 from contextlib import ExitStack
 from dataclasses import replace
+from pathlib import Path
 from traceback import print_exception
 from typing import cast
 
@@ -91,7 +92,7 @@ def run(
     max_nav_attempts: int,
     timing: bool,
     seed: int | None,
-    config: str,
+    config: Path,
     database: str | None,
 ) -> None:
     """Run eleanor."""

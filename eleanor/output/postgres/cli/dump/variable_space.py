@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import TextIO
 
 import click
@@ -24,13 +25,13 @@ from eleanor.util import require_uuid_id
     help="Output optional properties even if they are empty (e.g. None, {}, [], etc...)",
 )
 @click.argument("vs_id", type=click.STRING)
-@config_options()
+@config_options(required=False)
 def dump_variable_space(
     output: TextIO,
     to: DumpFormat,
     keep_empty: bool,
     vs_id: str,
-    config: str,
+    config: Path | None,
     database: str | None,
 ) -> None:
     """Dump a variable space point as an order suitable for rerunning Eleanor."""
@@ -39,9 +40,6 @@ def dump_variable_space(
         config_from_args(config, database, assume_default_postgres=True),
         "dump vs",
     )
-    if settings.database.database is None:
-        msg = "no database provided"
-        raise click.ClickException(msg)
 
     try:
         vsid = require_uuid_id(vs_id, "variable space")

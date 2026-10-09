@@ -4,7 +4,7 @@ import os
 import uuid
 from enum import StrEnum
 from pathlib import Path
-from typing import Protocol, cast
+from typing import Never, Protocol, cast
 
 import numpy as np
 
@@ -220,35 +220,55 @@ def parse_date(date: str) -> datetime.date | datetime.datetime:
         return datetime.datetime.fromisoformat(date)
 
 
+def raise_field_error(
+    value: object,
+    field_name: str,
+    msg: str,
+    *,
+    show_value: bool = False,
+    show_type: bool = True,
+    error_context: Exception | None = None,
+) -> Never:
+    """Raise an ``EleanorError`` for an invalid field, optionally including the value and its type."""
+    errmsg = f"{field_name} {msg}"
+    if show_value and show_type:
+        errmsg += f", got {value!r} of type {type(value).__name__}"
+    elif show_value:
+        errmsg += f", got {value!r}"
+    elif show_type:
+        errmsg += f", got {type(value).__name__}"
+
+    if error_context is not None:
+        raise EleanorError(errmsg) from error_context
+
+    raise EleanorError(errmsg)
+
+
 def require_opt_int(value: object, field_name: str) -> int | None:
     """Validate that ``value`` is an int or ``None`` at runtime."""
     if value is not None and (isinstance(value, bool) or not isinstance(value, int)):
-        msg = f"{field_name} must be an integer"
-        raise EleanorError(msg)
+        raise_field_error(value, field_name, "must be an integer or None")
     return value
 
 
 def require_int(value: object, field_name: str) -> int:
     """Validate that ``value`` is an int  at runtime."""
     if isinstance(value, bool) or not isinstance(value, int):
-        msg = f"{field_name} must be an integer"
-        raise EleanorError(msg)
+        raise_field_error(value, field_name, "must be an integer")
     return value
 
 
 def require_opt_str(value: object, field_name: str) -> str | None:
     """Validate that ``value`` is a string or ``None`` at runtime."""
     if value is not None and not isinstance(value, str):
-        msg = f"{field_name} must be a string"
-        raise EleanorError(msg)
+        raise_field_error(value, field_name, "must be a string or None")
     return value
 
 
 def require_str(value: object, field_name: str) -> str:
     """Validate that ``value`` is a string at runtime"""
     if not isinstance(value, str):
-        msg = f"{field_name} must be a string"
-        raise EleanorError(msg)
+        raise_field_error(value, field_name, "must be a string")
     return value
 
 
@@ -259,8 +279,7 @@ def require_opt_path(value: object, field_name: str) -> Path | None:
     if isinstance(value, str):
         return Path(value)
     if value is not None:
-        msg = f"{field_name} must be a str, Path or None"
-        raise EleanorError(msg)
+        raise_field_error(value, field_name, "must be a string, Path or None")
     return value
 
 
@@ -270,16 +289,7 @@ def require_path(value: object, field_name: str) -> Path:
         return value
     if isinstance(value, str):
         return Path(value)
-    msg = f"{field_name} must be a str or Path"
-    raise EleanorError(msg)
-
-
-def require_dict[T](value: object, field_name: str) -> dict[str, T]:
-    """Validate that ``value`` is a ``dict`` at runtime and return it typed."""
-    if not isinstance(value, dict):
-        msg = f"{field_name} must be a dictionary"
-        raise EleanorError(msg)
-    return cast(dict[str, T], cast(object, value))
+    raise_field_error(value, field_name, "must be a string or Path")
 
 
 def require_opt_dict[T](value: object, field_name: str) -> dict[str, T] | None:
@@ -288,9 +298,15 @@ def require_opt_dict[T](value: object, field_name: str) -> dict[str, T] | None:
         return value
 
     if not isinstance(value, dict):
-        msg = f"{field_name} must be a dictionary"
-        raise EleanorError(msg)
+        raise_field_error(value, field_name, "must be a dictionary or None")
 
+    return cast(dict[str, T], cast(object, value))
+
+
+def require_dict[T](value: object, field_name: str) -> dict[str, T]:
+    """Validate that ``value`` is a ``dict`` at runtime and return it typed."""
+    if not isinstance(value, dict):
+        raise_field_error(value, field_name, "must be a dictionary")
     return cast(dict[str, T], cast(object, value))
 
 
@@ -300,31 +316,27 @@ def require_float(value: object, field_name: str) -> np.float64:
         return np.float64(value)
     if isinstance(value, np.floating):
         return cast(np.float64, value)
-    msg = f"{field_name} must be a floating-point number"
-    raise EleanorError(msg)
-
-
-def require_bool(value: object, field_name: str) -> bool:
-    """Validate that ``value`` is an boolean at runtime."""
-    if not isinstance(value, bool):
-        msg = f"{field_name} must be a boolean"
-        raise EleanorError(msg)
-    return value
+    raise_field_error(value, field_name, "must be a floating-point number")
 
 
 def require_opt_bool(value: object, field_name: str) -> bool | None:
     """Validate that ``value`` is an boolean or None at runtime."""
     if value is not None and not isinstance(value, bool):
-        msg = f"{field_name} must be a boolean or None"
-        raise EleanorError(msg)
+        raise_field_error(value, field_name, "must be a boolean or None")
+    return value
+
+
+def require_bool(value: object, field_name: str) -> bool:
+    """Validate that ``value`` is an boolean at runtime."""
+    if not isinstance(value, bool):
+        raise_field_error(value, field_name, "must be a boolean")
     return value
 
 
 def require[T](value: T | None, field_name: str) -> T:
     """Validate that ``value`` is a not ``None`` at runtime"""
     if value is None:
-        msg = f"{field_name} is required"
-        raise EleanorError(msg)
+        raise_field_error(value, field_name, "is required", show_type=False)
     return value
 
 
@@ -333,8 +345,14 @@ def require_int_id(value: str, name: str) -> int:
     try:
         return int(value)
     except ValueError as error:
-        msg = f"{name} id must be an integer, got {value!r}"
-        raise EleanorError(msg) from error
+        raise_field_error(
+            value,
+            name,
+            "id must be an integer",
+            show_value=True,
+            show_type=False,
+            error_context=error,
+        )
 
 
 def require_uuid_id(value: str, name: str) -> uuid.UUID:
@@ -342,14 +360,19 @@ def require_uuid_id(value: str, name: str) -> uuid.UUID:
     try:
         return uuid.UUID(value)
     except ValueError as error:
-        msg = f"{name} id must be a UUID, got {value!r}"
-        raise EleanorError(msg) from error
+        raise_field_error(
+            value,
+            name,
+            "id must be a UUID",
+            show_value=True,
+            show_type=False,
+            error_context=error,
+        )
 
 
 def guard_is_bool(value: object, field_name: str) -> None:
     if not isinstance(value, bool):
-        msg = f"{field_name} must be a boolean; got {type(value).__name__}"
-        raise EleanorError(msg)
+        raise_field_error(value, field_name, "must be a boolean")
 
 
 def guard_is_float(value: object, field_name: str) -> None:
@@ -358,71 +381,59 @@ def guard_is_float(value: object, field_name: str) -> None:
         or (isinstance(value, int) and not isinstance(value, bool))
         or isinstance(value, np.floating)
     ):
-        msg = f"{field_name} must be a floating-point number; got {type(value).__name__}"
-        raise EleanorError(msg)
+        raise_field_error(value, field_name, "must be a floating-point number")
 
 
 def guard_is_int(value: object, field_name: str) -> None:
     if isinstance(value, bool) or not isinstance(value, int):
-        msg = f"{field_name} must be an int; got {type(value).__name__}"
-        raise EleanorError(msg)
+        raise_field_error(value, field_name, "must be an integer")
 
 
 def guard_is_int_or_none(value: object, field_name: str) -> None:
     if value is not None and (isinstance(value, bool) or not isinstance(value, int)):
-        msg = f"{field_name} must be an int or None; got {type(value).__name__}"
-        raise EleanorError(msg)
+        raise_field_error(value, field_name, "must be an integer or None")
 
 
 def guard_is_str(value: object, field_name: str) -> None:
     if not isinstance(value, str):
-        msg = f"{field_name} must be a string; got {type(value).__name__}"
-        raise EleanorError(msg)
+        raise_field_error(value, field_name, "must be a string")
 
 
 def guard_is_str_or_none(value: object, field_name: str) -> None:
     if value is not None and not isinstance(value, str):
-        msg = f"{field_name} must be an string or None; got {type(value).__name__}"
-        raise EleanorError(msg)
+        raise_field_error(value, field_name, "must be a string or None")
 
 
 def guard_is_path(value: object, field_name: str) -> None:
     if not isinstance(value, Path):
-        msg = f"{field_name} must be a Path; got {type(value).__name__}"
-        raise EleanorError(msg)
+        raise_field_error(value, field_name, "must be a Path")
 
 
 def guard_is_path_or_none(value: object, field_name: str) -> None:
     if value is not None and not isinstance(value, Path):
-        msg = f"{field_name} must be a Path or None; got {type(value).__name__}"
-        raise EleanorError(msg)
+        raise_field_error(value, field_name, "must be a Path or None")
 
 
 def guard_is_dict(value: object, field_name: str) -> None:
     if not isinstance(value, dict):
-        msg = f"{field_name} must be a dictionary; got {type(value).__name__}"
-        raise EleanorError(msg)
+        raise_field_error(value, field_name, "must be a dictionary")
 
 
 def guard_is_instance[T](value: object, class_: type[T], field_name: str) -> None:
     if not isinstance(value, class_):
-        msg = f"{field_name} must be type {class_.__name__}; got {type(value).__name__}"
-        raise EleanorError(msg)
+        raise_field_error(value, field_name, f"must have type {class_.__name__}")
 
 
 def guard_is_instance_or_none[T](value: object, class_: type[T], field_name: str) -> None:
     if value is not None and not isinstance(value, class_):
-        msg = f"{field_name} must be type {class_.__name__} or None; got {type(value).__name__}"
-        raise EleanorError(msg)
+        raise_field_error(value, field_name, f"must have type {class_.__name__} or None")
 
 
 def guard_is_uuid(value: object, field_name: str) -> None:
     if not isinstance(value, uuid.UUID):
-        msg = f"{field_name} must be a UUID; got {type(value).__name__}"
-        raise EleanorError(msg)
+        raise_field_error(value, field_name, "must be a UUID")
 
 
 def guard_is_uuid_or_none(value: object, field_name: str) -> None:
     if value is not None and not isinstance(value, uuid.UUID):
-        msg = f"{field_name} must be a UUID or None; got {type(value).__name__}"
-        raise EleanorError(msg)
+        raise_field_error(value, field_name, "must be a UUID or None")

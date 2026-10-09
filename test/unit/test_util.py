@@ -237,3 +237,101 @@ def test_number_format_members(fmt: util.NumberFormat, expected: str) -> None:
 def test_number_format_rejects_negative_precision(fmt: util.NumberFormat) -> None:
     with pytest.raises(EleanorError, match="invalid precision -1 < 0"):
         _ = fmt.fmt(np.float64(1.0), precision=-1)
+
+
+@pytest.mark.parametrize(
+    ("show_value", "show_type", "expected"),
+    [
+        (False, True, "port must be an integer, got str"),
+        (True, False, "port must be an integer, got '5432'"),
+        (True, True, "port must be an integer, got '5432' of type str"),
+        (False, False, "port must be an integer"),
+    ],
+)
+def test_raise_field_error_message(show_value: bool, show_type: bool, expected: str) -> None:
+    with pytest.raises(EleanorError) as excinfo:
+        util.raise_field_error("5432", "port", "must be an integer", show_value=show_value, show_type=show_type)
+    assert str(excinfo.value) == expected
+
+
+def test_raise_field_error_chains_error_context() -> None:
+    cause = ValueError("bad")
+    with pytest.raises(EleanorError) as excinfo:
+        util.raise_field_error("x", "field", "is invalid", error_context=cause)
+    assert excinfo.value.__cause__ is cause
+
+
+def test_raise_field_error_keeps_implicit_context_without_error_context() -> None:
+    with pytest.raises(EleanorError) as excinfo:
+        try:
+            raise ValueError("bad")
+        except ValueError:
+            util.raise_field_error("x", "field", "is invalid")
+    assert isinstance(excinfo.value.__context__, ValueError)
+    assert not excinfo.value.__suppress_context__
+
+
+@pytest.mark.parametrize(
+    ("parse", "kind"),
+    [(util.require_uuid_id, "a UUID"), (util.require_int_id, "an integer")],
+)
+def test_require_id_reports_the_offending_value(parse: object, kind: str) -> None:
+    assert callable(parse)
+    with pytest.raises(EleanorError) as excinfo:
+        _ = parse("not-an-id", "order")
+    assert str(excinfo.value) == f"order id must be {kind}, got 'not-an-id'"
+    assert isinstance(excinfo.value.__cause__, ValueError)
+
+
+def test_require_reports_only_the_missing_field() -> None:
+    with pytest.raises(EleanorError) as excinfo:
+        _ = util.require(None, "kernel")
+    assert str(excinfo.value) == "kernel is required"
+
+
+@pytest.mark.parametrize(
+    ("check", "value", "expected"),
+    [
+        (util.require_int, "1", "field must be an integer, got str"),
+        (util.require_opt_int, True, "field must be an integer or None, got bool"),
+        (util.require_str, 1, "field must be a string, got int"),
+        (util.require_opt_str, 1, "field must be a string or None, got int"),
+        (util.require_path, 1, "field must be a string or Path, got int"),
+        (util.require_opt_path, 1, "field must be a string, Path or None, got int"),
+        (util.require_dict, [], "field must be a dictionary, got list"),
+        (util.require_opt_dict, [], "field must be a dictionary or None, got list"),
+        (util.require_float, "1.0", "field must be a floating-point number, got str"),
+        (util.require_bool, 1, "field must be a boolean, got int"),
+        (util.require_opt_bool, 1, "field must be a boolean or None, got int"),
+        (util.guard_is_bool, 1, "field must be a boolean, got int"),
+        (util.guard_is_float, "1.0", "field must be a floating-point number, got str"),
+        (util.guard_is_int, 1.0, "field must be an integer, got float"),
+        (util.guard_is_int_or_none, 1.0, "field must be an integer or None, got float"),
+        (util.guard_is_str, 1, "field must be a string, got int"),
+        (util.guard_is_str_or_none, 1, "field must be a string or None, got int"),
+        (util.guard_is_path, "x", "field must be a Path, got str"),
+        (util.guard_is_path_or_none, "x", "field must be a Path or None, got str"),
+        (util.guard_is_dict, [], "field must be a dictionary, got list"),
+        (util.guard_is_uuid, "x", "field must be a UUID, got str"),
+        (util.guard_is_uuid_or_none, "x", "field must be a UUID or None, got str"),
+    ],
+)
+def test_field_checks_report_expected_and_actual_type(check: object, value: object, expected: str) -> None:
+    assert callable(check)
+    with pytest.raises(EleanorError) as excinfo:
+        _ = check(value, "field")
+    assert str(excinfo.value) == expected
+
+
+@pytest.mark.parametrize(
+    ("check", "expected"),
+    [
+        (util.guard_is_instance, "field must have type Path, got str"),
+        (util.guard_is_instance_or_none, "field must have type Path or None, got str"),
+    ],
+)
+def test_instance_guards_report_expected_and_actual_type(check: object, expected: str) -> None:
+    assert callable(check)
+    with pytest.raises(EleanorError) as excinfo:
+        _ = check("x", Path, "field")
+    assert str(excinfo.value) == expected

@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`-n <simulation_size>` and `-t <density>`** flags added to `eleanor run` to allow the user to
   specify either the simulation size or sampling density at the command line.
 - **`eleanor order volume`** to compute and print the volume of an order.
+- **`eleanor.util.raise_field_error`** to centralize field related error messaging.
 
 ### Changed
 

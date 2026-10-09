@@ -8,6 +8,7 @@ from unittest import TestCase
 
 import eleanor.util as util
 import numpy as np
+import pytest
 from eleanor.exceptions import EleanorError
 
 
@@ -218,3 +219,21 @@ class TestUtils(TestCase):
         value = np.float64(1.25)
         result = util.convert_to_number(value)
         self.assertIsInstance(result, np.float64)
+
+
+@pytest.mark.parametrize(
+    ("fmt", "expected"),
+    [
+        (util.NumberFormat.SCIENTIFIC, "1.23E+03"),
+        (util.NumberFormat.FLOATING, "1234.57"),
+        (util.NumberFormat.ADAPTIVE, "1.2e+03"),
+    ],
+)
+def test_number_format_members(fmt: util.NumberFormat, expected: str) -> None:
+    assert fmt.fmt(np.float64(1234.5678), precision=2) == expected
+
+
+@pytest.mark.parametrize("fmt", list(util.NumberFormat))
+def test_number_format_rejects_negative_precision(fmt: util.NumberFormat) -> None:
+    with pytest.raises(EleanorError, match="invalid precision -1 < 0"):
+        _ = fmt.fmt(np.float64(1.0), precision=-1)

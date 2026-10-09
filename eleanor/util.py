@@ -68,6 +68,7 @@ class NumberFormat(StrEnum):
 
     SCIENTIFIC = "E"
     FLOATING = "f"
+    ADAPTIVE = "g"
 
     def fmt(self, value: np.float64, precision: int) -> str:
         """

@@ -3,6 +3,7 @@ import click
 import eleanor
 from eleanor.cli.doctor import doctor
 from eleanor.cli.gen import gen
+from eleanor.cli.order import order
 from eleanor.cli.registry import available_cli_commands, get_factory
 from eleanor.cli.run import run
 from eleanor.exceptions import EleanorError
@@ -18,6 +19,7 @@ def main() -> None:
 main.add_command(run)
 main.add_command(doctor)
 main.add_command(gen)
+main.add_command(order)
 
 for _name in sorted(available_cli_commands()):
     _spec = get_factory(_name)

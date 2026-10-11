@@ -62,6 +62,14 @@ Top-level commands:
 eleanor run [OPTIONS] ORDER
 ```
 
+`ORDER` is a YAML, TOML or JSON order file. The format is taken from the file extension, or detected
+from the content when the extension is missing or unrecognized. Pass `-` to read the order from
+stdin, in which case the format is always detected:
+
+```bash
+eleanor gen order | eleanor run -c config.yaml -n 50000 -
+```
+
 **Required options**
 
 Exactly one of `--simulation-size` and `--density` is required to specify the number of systems to
@@ -137,6 +145,12 @@ eleanor run -c config.yaml -d eleanor_db -n 50000 order.yaml
 The dump reproduces the order as Eleanor parsed it — seed, kernel settings, reactants and
 suppressions included — so re-running it at the original simulation size visits the same
 variable-space points. Its `id` is not part of the file: every run allocates a fresh one.
+
+To re-run without writing the file, pipe the dump straight into `eleanor run`:
+
+```bash
+eleanor postgres dump order e49c9daa-... -c config.yaml -d eleanor_db | eleanor run -c config.yaml -d eleanor_db -n 50000 -
+```
 
 Without `-o` the order goes to stdout. The format is YAML unless `--to json` is given or the
 `-o` path ends in `.json`:

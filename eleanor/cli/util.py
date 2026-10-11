@@ -9,10 +9,12 @@ versioning policy as the ``eleanor.cli_commands`` entry-point group.
 """
 
 import functools
+import sys
 from collections.abc import Callable
 from dataclasses import replace
 from pathlib import Path
-from typing import cast
+from traceback import print_exception
+from typing import Never, cast
 
 import click
 from xdg_base_dirs import xdg_config_home
@@ -169,3 +171,13 @@ def config_from_args(
             raise click.ClickException(msg)
 
     return config
+
+
+def handle_exception(exception: Exception, base_msg: str | None = None, *, verbose: bool = False) -> Never:
+    if verbose:
+        print_exception(exception)
+        sys.exit(1)
+
+    detail = str(exception) or type(exception).__name__
+    msg = f"{base_msg} - {detail}" if base_msg else f"{detail}"
+    raise click.ClickException(msg) from exception

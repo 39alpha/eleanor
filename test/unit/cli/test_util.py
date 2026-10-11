@@ -3,7 +3,7 @@ from pathlib import Path
 import click
 import pytest
 from click.testing import CliRunner
-from eleanor.cli.util import config_from_args, config_options, require_config
+from eleanor.cli.util import config_from_args, config_options, handle_exception, require_config
 from eleanor.config import Config
 from eleanor.exceptions import EleanorError
 from eleanor.output.postgres.settings import (
@@ -274,3 +274,70 @@ def test_config_options_help_shows_existing_default(xdg_home: Path) -> None:
 
     assert result.exit_code == 0, result.output
     assert str(default) in result.output
+
+
+def _failing_command(error: Exception, base_msg: str | None) -> click.Command:
+    @click.command()
+    @click.option("-v", "--verbose", is_flag=True)
+    def fail(verbose: bool) -> None:
+        try:
+            raise error
+        except Exception as e:
+            handle_exception(e, base_msg, verbose=verbose)
+
+    return fail
+
+
+def test_handle_exception_prefixes_the_base_message() -> None:
+    with pytest.raises(click.ClickException) as excinfo:
+        handle_exception(RuntimeError("boom"), "failed to frobnicate")
+
+    assert excinfo.value.message == "failed to frobnicate - boom"
+
+
+def test_handle_exception_without_base_message_uses_the_exception_message() -> None:
+    with pytest.raises(click.ClickException) as excinfo:
+        handle_exception(RuntimeError("boom"))
+
+    assert excinfo.value.message == "boom"
+
+
+@pytest.mark.parametrize("error", [RuntimeError(), AssertionError(), RuntimeError("")], ids=["no-args", "assert", "empty"])
+def test_handle_exception_names_the_type_of_an_exception_without_a_message(error: Exception) -> None:
+    with pytest.raises(click.ClickException) as excinfo:
+        handle_exception(error)
+
+    assert excinfo.value.message == type(error).__name__
+
+
+def test_handle_exception_names_the_type_after_the_base_message() -> None:
+    with pytest.raises(click.ClickException) as excinfo:
+        handle_exception(RuntimeError(), "failed to frobnicate")
+
+    assert excinfo.value.message == "failed to frobnicate - RuntimeError"
+
+
+def test_handle_exception_chains_the_original_exception() -> None:
+    error = RuntimeError("boom")
+
+    with pytest.raises(click.ClickException) as excinfo:
+        handle_exception(error, "failed")
+
+    assert excinfo.value.__cause__ is error
+
+
+def test_handle_exception_reports_without_traceback() -> None:
+    result = CliRunner().invoke(_failing_command(RuntimeError("boom"), "failed to frobnicate"), [])
+
+    assert result.exit_code == 1
+    assert result.stderr == "Error: failed to frobnicate - boom\n"
+
+
+def test_handle_exception_verbose_prints_the_traceback() -> None:
+    result = CliRunner().invoke(_failing_command(RuntimeError("boom"), "failed to frobnicate"), ["-v"])
+
+    assert result.exit_code == 1
+    assert "Traceback" in result.stderr
+    assert "RuntimeError: boom" in result.stderr
+    assert "failed to frobnicate" not in result.stderr
+    assert result.stdout == ""

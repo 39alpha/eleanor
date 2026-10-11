@@ -2,7 +2,7 @@ from pathlib import Path
 
 import click
 
-from eleanor.cli.util import config_from_args, config_options, sole_postgres_settings
+from eleanor.cli.util import config_from_args, config_options, handle_exception, sole_postgres_settings
 from eleanor.output.postgres.tools.duckdb import ExportFormat, ExportOptions, export_duckdb
 
 
@@ -122,8 +122,7 @@ def duckdb(
             options=options,
         )
     except Exception as e:
-        msg = f"failed to export database - {e}"
-        raise click.ClickException(msg) from e
+        handle_exception(e, "failed to export database", verbose=verbose)
 
 
 __all__ = ["duckdb"]

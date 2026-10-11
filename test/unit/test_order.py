@@ -287,9 +287,13 @@ class TestOrder(TestCase):
         """
         Ensure Order.from_file re-raises EleanorError from parser branches without wrapping.
         """
-        with mock.patch("eleanor.order.Order.from_yaml", side_effect=EleanorError("boom")):
-            with self.assertRaisesRegex(EleanorError, "boom"):
-                _ = Order.from_file("test.yaml")
+        with TemporaryDirectory() as tmp:
+            path = join(tmp, "test.yaml")
+            with open(path, "w") as handle:
+                _ = handle.write("name: o\n")
+            with mock.patch("eleanor.order.Order.from_yamls", side_effect=EleanorError("boom")):
+                with self.assertRaisesRegex(EleanorError, "^boom$"):
+                    _ = Order.from_file(path)
 
     def test_order_requires_kernel(self) -> None:
         """Ensure Order raises when kernel is absent."""

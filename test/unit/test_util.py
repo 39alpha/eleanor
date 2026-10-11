@@ -1,6 +1,8 @@
 import datetime
 import hashlib
+import io
 import os
+from collections.abc import Iterator
 from os.path import join
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -10,6 +12,7 @@ import eleanor.util as util
 import numpy as np
 import pytest
 from eleanor.exceptions import EleanorError
+from eleanor.typing import ReadStream
 
 
 class TestUtils(TestCase):

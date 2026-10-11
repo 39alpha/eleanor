@@ -5,6 +5,7 @@ import numpy as np
 import pytest
 from click.testing import CliRunner
 from eleanor.cli import main
+from eleanor.cli.gen import FORMATS, _load_template
 from eleanor.order import Order
 from pytest_mock import MockerFixture
 
@@ -221,28 +222,43 @@ def test_order_volume_rejects_a_directory(runner: CliRunner, tmp_path: Path) -> 
     assert "is a directory" in result.output
 
 
-def test_order_volume_reports_an_unsupported_extension(runner: CliRunner, tmp_path: Path) -> None:
-    result = _invoke_volume(runner, _write_order(tmp_path / "order.txt"))
+def test_order_volume_detects_the_format_of_an_unrecognized_extension(runner: CliRunner, tmp_path: Path) -> None:
+    path = _write_order(tmp_path / "order.txt", temperature={"min": 20.0, "max": 30.0})
+    result = _invoke_volume(runner, path)
+    assert result.exit_code == 0, result.output
+    assert result.output == "10\n"
+
+
+def test_order_volume_reports_unparseable_content_with_an_unrecognized_extension(
+    runner: CliRunner,
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "order.txt"
+    _ = path.write_text("[kernel]\nkind = \n", encoding="utf-8")
+    result = _invoke_volume(runner, path)
     assert result.exit_code == 1
-    assert "Error: failed to compute the order volume" in result.stderr
+    assert f"Error: failed to load the order" in result.stderr
     assert "Traceback" not in result.stderr
 
 
-def test_order_volume_reports_the_underlying_error(runner: CliRunner, tmp_path: Path) -> None:
+def test_order_volume_reports_failure_to_load_the_order(runner: CliRunner, tmp_path: Path) -> None:
     path = tmp_path / "order.json"
     _ = path.write_text(json.dumps({"name": "o"}), encoding="utf-8")
     result = _invoke_volume(runner, path)
     assert result.exit_code == 1
-    assert "Error: failed to compute the order volume - creator must be a string" in result.stderr
+    assert result.stderr.startswith("Error: ")
+    assert "creator must be a string" in result.stderr
     assert "Traceback" not in result.stderr
 
 
-def test_order_volume_reports_a_volume_failure(runner: CliRunner, tmp_path: Path, mocker: MockerFixture) -> None:
+def test_order_volume_reports_failure_to_compute_volume(
+    runner: CliRunner, tmp_path: Path, mocker: MockerFixture
+) -> None:
     load_order = _mock_volume(mocker, 0.0)
     load_order.return_value.volume.side_effect = RuntimeError("boom")
     result = _invoke_volume(runner, _write_order(tmp_path / "order.json"))
     assert result.exit_code == 1
-    assert "Error: failed to compute the order volume - boom" in result.stderr
+    assert result.stderr == "Error: failed to compute the order volume - boom\n"
 
 
 @pytest.mark.parametrize("flag", ["-v", "--verbose"])
@@ -253,7 +269,7 @@ def test_order_volume_verbose_prints_traceback(runner: CliRunner, tmp_path: Path
     assert result.exit_code == 1
     assert "Traceback" in result.stderr
     assert "EleanorError: creator must be a string" in result.stderr
-    assert "failed to compute the order volume" not in result.stderr
+    assert "failed to load the order" not in result.stderr
     assert result.stdout == ""
 
 
@@ -262,3 +278,53 @@ def test_order_volume_verbose_has_no_effect_on_success(runner: CliRunner, tmp_pa
     result = _invoke_volume(runner, path, "-v")
     assert result.exit_code == 0
     assert result.output == "10\n"
+
+
+def _template(fmt: str) -> str:
+    content = _load_template("order", fmt)
+    assert content is not None
+    return content
+
+
+@pytest.mark.parametrize("fmt", FORMATS)
+def test_order_volume_reads_each_format_from_stdin(runner: CliRunner, fmt: str) -> None:
+    result = runner.invoke(main, ["order", "volume", "-"], input=_template(fmt))
+    assert result.exit_code == 0, result.output
+    assert result.output == "750\n"
+
+
+def test_order_volume_reads_bytes_from_stdin(runner: CliRunner) -> None:
+    result = runner.invoke(main, ["order", "volume", "-"], input=_template("toml").encode())
+    assert result.exit_code == 0, result.output
+    assert result.output == "750\n"
+
+
+def test_order_volume_names_stdin_in_parse_errors(runner: CliRunner) -> None:
+    result = runner.invoke(main, ["order", "volume", "-"], input="[kernel]\nkind = \n")
+    assert result.exit_code == 1
+    assert "failed to load the order" in result.stderr
+    assert "Traceback" not in result.stderr
+
+
+def test_order_volume_reports_validation_errors_from_stdin(runner: CliRunner) -> None:
+    result = runner.invoke(main, ["order", "volume", "-"], input="name: o\n")
+    assert result.exit_code == 1
+    assert "creator must be a string" in result.stderr
+
+
+def test_order_volume_reports_empty_stdin_as_an_empty_order(runner: CliRunner) -> None:
+    result = runner.invoke(main, ["order", "volume", "-"], input="")
+    assert result.exit_code == 1
+    assert "order is empty" in result.stderr
+
+
+def test_order_volume_help_documents_stdin(runner: CliRunner) -> None:
+    result = runner.invoke(main, ["order", "volume", "--help"], terminal_width=1000)
+    assert result.exit_code == 0
+    assert "pass - to read" in result.output
+
+
+def test_order_volume_help_does_not_limit_stdin_to_yaml(runner: CliRunner) -> None:
+    result = runner.invoke(main, ["order", "volume", "--help"], terminal_width=1000)
+    assert result.exit_code == 0
+    assert "YAML" not in result.output

@@ -19,6 +19,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`eleanor order volume`** to compute and print the volume of an order.
 - **`eleanor.util.raise_field_error`** to centralize field related error messaging.
 - **Accept both `-h` and `--help`** for all subcommands.
+- **`eleanor run -` and `eleanor order volume -`** read the order from stdin
+- **`Order.from_*` and `load_order` accept streams** as well as paths; the string loaders accept bytes.
+- **`eleanor.order.detect_format`** picks an order's format from its extension, else its content.
 
 ### Changed
 
@@ -30,6 +33,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`eleanor run` sets the exit code to 1** when exiting with an error.
 - **`eleanor postgres` subcommands no longer require a config file** and assume a localhost server
   with the login user's credentials. The `-d/--database` option must be provided in this case.
+- **Order files with a missing or unrecognized extension** are loaded by detecting their format.
+- **`Order.from_file`, `from_yaml`, `from_toml` and `from_json` take `source`** in place of `fname`.
+  `from_file`'s `fname=` now only names the source and hints at its format.
+- **Order loaders no longer wrap parser and decode errors** in `EleanorError`.
 
 ### Removed
 

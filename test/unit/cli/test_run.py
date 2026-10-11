@@ -1,12 +1,14 @@
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import cast
+from unittest.mock import MagicMock
 
 import numpy as np
 import pytest
 from click.testing import CliRunner
 from eleanor import Eleanor
 from eleanor.cli import main
+from eleanor.cli.gen import FORMATS, _load_template
 from eleanor.config import Config
 from eleanor.exceptions import EleanorShutdown
 from eleanor.executor import AbstractExecutor
@@ -517,6 +519,7 @@ def test_run_eleanor_shutdown_uses_signal_name_in_message(mocker: MockerFixture,
     assert result.exit_code == 130
     assert "Eleanor run interrupted by SIGTERM; sink finalized cleanly." in result.output
 
+
 def test_run_raises_without_simulation_size_or_density(runner: CliRunner) -> None:
     result = invoke_run(runner, ["-c", "/fake.yaml"])
     assert result.exit_code == 1
@@ -598,3 +601,76 @@ def test_run_reads_config_from_environment(mocker: MockerFixture, runner: CliRun
 
     assert result.exit_code == 0, result.output
     config_from_args.assert_called_once_with(Path("/env.yaml"), None, require_database=True)
+
+
+def _order_template(fmt: str) -> str:
+    content = _load_template("order", fmt)
+    assert content is not None
+    return content
+
+
+def _stub_run(mocker: MockerFixture) -> MagicMock:
+    eleanor = make_eleanor(mocker)
+    _ = mocker.patch("eleanor.cli.run.config_from_args", return_value=make_config())
+    _ = mocker.patch("eleanor.cli.run.load_executor", return_value=make_executor(mocker))
+    _ = mocker.patch("eleanor.cli.run.Eleanor", return_value=eleanor)
+    return cast(MagicMock, eleanor)
+
+
+@pytest.mark.parametrize("fmt", FORMATS)
+def test_run_reads_the_order_from_stdin(mocker: MockerFixture, runner: CliRunner, fmt: str) -> None:
+    eleanor = _stub_run(mocker)
+
+    result = runner.invoke(main, ["run", "-n", "10", "-c", "/fake.yaml", "-"], input=_order_template(fmt))
+
+    assert result.exit_code == 0, result.output
+    order = cast(object, eleanor.run.call_args.args[0])
+    assert isinstance(order, Order)
+    assert order.name == "My Order"
+
+
+def test_run_applies_seed_and_tags_to_an_order_from_stdin(mocker: MockerFixture, runner: CliRunner) -> None:
+    eleanor = _stub_run(mocker)
+
+    result = runner.invoke(
+        main,
+        ["run", "-n", "10", "-c", "/fake.yaml", "--seed", "7", "--tag", "piped", "-"],
+        input=_order_template("yaml"),
+    )
+
+    assert result.exit_code == 0, result.output
+    order = cast(object, eleanor.run.call_args.args[0])
+    assert isinstance(order, Order)
+    assert order.seed == 7
+    assert "piped" in order.tags
+
+
+def test_run_reports_an_invalid_order_from_stdin(mocker: MockerFixture, runner: CliRunner) -> None:
+    eleanor = _stub_run(mocker)
+
+    result = runner.invoke(main, ["run", "-n", "10", "-c", "/fake.yaml", "-"], input="name: o\n")
+
+    assert result.exit_code == 1
+    assert "creator must be a string" in result.output
+    eleanor.run.assert_not_called()
+
+
+def test_run_rejects_a_directory_as_the_order(runner: CliRunner, tmp_path: Path) -> None:
+    result = runner.invoke(main, ["run", "-n", "10", "-c", "/fake.yaml", str(tmp_path)])
+
+    assert result.exit_code == 2
+    assert "is a directory" in result.output
+
+
+def test_run_help_documents_stdin(runner: CliRunner) -> None:
+    result = runner.invoke(main, ["run", "--help"], terminal_width=1000)
+
+    assert result.exit_code == 0
+    assert "pass - to read" in result.output
+
+
+def test_run_help_does_not_limit_stdin_to_yaml(runner: CliRunner) -> None:
+    result = runner.invoke(main, ["run", "--help"], terminal_width=1000)
+
+    assert result.exit_code == 0
+    assert "YAML" not in result.output

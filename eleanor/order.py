@@ -1,5 +1,6 @@
 import contextlib
 import json
+import re
 import secrets
 import tomllib
 from collections.abc import Mapping, Sequence
@@ -7,7 +8,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from functools import cached_property
 from pathlib import Path
-from typing import Self, cast, final
+from typing import Literal, Self, TypedDict, Unpack, cast, final
 
 import numpy as np
 import yaml
@@ -18,10 +19,63 @@ from eleanor.config.navigator import NavigatorConfig
 from eleanor.exceptions import EleanorError
 from eleanor.parameters import Parameter, ParameterOrSource, load_parameter, parameter_space_volume
 from eleanor.reactants import AbstractReactant, CombinedReactant
-from eleanor.typing import StrPath
-from eleanor.util import is_list_of, require, require_dict, require_opt_int, require_opt_str, require_str
+from eleanor.typing import ReadStream, StrPath
+from eleanor.util import (
+    is_list_of,
+    require,
+    require_dict,
+    require_opt_int,
+    require_opt_str,
+    require_str,
+)
 from eleanor.variable_space import Point as VSPoint
 from eleanor.version import __version__
+
+_TOML_LINE = re.compile(r"^\s*(\[\[?[\w.\"' -]+\]\]?|[\w.\"'-]+\s*=)")
+
+type OrderFormat = Literal["yaml", "toml", "json"]
+
+_ORDER_EXTENSIONS: dict[OrderFormat, list[str]] = {
+    "yaml": [".yaml", ".yml"],
+    "toml": [".toml"],
+    "json": [".json"],
+}
+
+
+def detect_format(content: str, fname: StrPath | None = None) -> OrderFormat:
+    ext = Path(fname).suffix.lower() if fname is not None else None
+
+    for file_format, extensions in _ORDER_EXTENSIONS.items():
+        if ext in extensions:
+            return file_format
+
+    for line in content.splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        if stripped.startswith("{"):
+            return "json"
+        if _TOML_LINE.match(stripped):
+            return "toml"
+        return "yaml"
+    return "yaml"
+
+
+def _is_blank(content: str) -> bool:
+    return all(not (s := line.strip()) or s.startswith("#") for line in content.splitlines())
+
+
+def _normalize(content: str | bytes) -> str:
+    if isinstance(content, bytes):
+        content = content.decode("utf-8")
+    return content.removeprefix("\ufeff")
+
+
+class OrderFromDictKwargs(TypedDict, total=False):
+    seed: int | None
+    tags: str | list[str] | None
+    create_date: datetime | None
+    vs_points: list[VSPoint] | None
 
 
 @dataclass(init=False)
@@ -172,29 +226,26 @@ class Order:
         return np.random.default_rng(seed=self.seed)
 
     @classmethod
-    def from_dict(
-        cls,
-        raw: dict[str, object],
-        *,
-        seed: int | None = None,
-        tags: str | list[str] | None = None,
-        create_date: datetime | None = None,
-        vs_points: list[VSPoint] | None = None,
-    ) -> Self:
+    def from_dict(cls, raw: dict[str, object], **kwargs: Unpack[OrderFromDictKwargs]) -> Self:
+        if len(raw) == 0:
+            msg = "order is empty"
+            raise EleanorError(msg)
+
         if "id" in raw:
             msg = "user-specified order ids are no longer supported"
             raise EleanorError(msg)
 
         raw_tags = cast(object, raw.get("tags"))
-        tags = _prepare_tags(tags) if tags is not None else _prepare_tags(raw_tags)
+
+        tags = _prepare_tags(tags) if (tags := kwargs.get("tags")) is not None else _prepare_tags(raw_tags)
 
         name = require_str(raw.get("name"), "name")
         notes = require_str(raw.get("notes", ""), "notes")
         creator = require_str(raw.get("creator"), "creator")
 
-        create_date = create_date if create_date is not None else datetime.now()
+        create_date = create_date if (create_date := kwargs.get("create_date")) is not None else datetime.now()
 
-        seed = seed if seed is not None else require_opt_int(raw.get("seed"), "seed")
+        seed = seed if (seed := kwargs.get("seed")) is not None else require_opt_int(raw.get("seed"), "seed")
 
         if "kernel" not in raw:
             msg = "kernel is required"
@@ -251,7 +302,7 @@ class Order:
             constraint_raw = cast(dict[str, object], constraint)
             constraints.append(ConstraintConfig.from_dict(constraint_raw))
 
-        vs_points = vs_points or []
+        vs_points = vs_points if (vs_points := kwargs.get("vs_points")) is not None else []
 
         return cls(
             name=name,
@@ -293,179 +344,117 @@ class Order:
         return parameter_space_volume(self.parameters())
 
     @classmethod
-    def from_yaml(
-        cls,
-        fname: StrPath,
-        *,
-        seed: int | None = None,
-        tags: str | list[str] | None = None,
-        create_date: datetime | None = None,
-        vs_points: list[VSPoint] | None = None,
-    ) -> Self:
-        with Path(fname).open("rb") as handle:
-            return cls.from_dict(
-                cast(dict[str, object], yaml.safe_load(handle)),
-                seed=seed,
-                tags=tags,
-                create_date=create_date,
-                vs_points=vs_points,
-            )
+    def _from_parsed_file(cls, raw: object, content: str, **kwargs: Unpack[OrderFromDictKwargs]) -> Self:
+        if raw is None and _is_blank(content):
+            raw = dict[str, object]()
+
+        raw = require_dict(raw, "order")
+        return cls.from_dict(raw, **kwargs)
 
     @classmethod
-    def from_yamls(
-        cls,
-        content: str,
-        *,
-        seed: int | None = None,
-        tags: str | list[str] | None = None,
-        create_date: datetime | None = None,
-        vs_points: list[VSPoint] | None = None,
-    ) -> Self:
-        return cls.from_dict(
-            cast(dict[str, object], yaml.safe_load(content)),
-            seed=seed,
-            tags=tags,
-            create_date=create_date,
-            vs_points=vs_points,
-        )
+    def from_yaml(cls, source: StrPath | ReadStream, **kwargs: Unpack[OrderFromDictKwargs]) -> Self:
+        if isinstance(source, (str, Path)):
+            with Path(source).open("rb") as handle:
+                return cls.from_yaml(handle, **kwargs)
+
+        return cls.from_yamls(source.read(), **kwargs)
 
     @classmethod
-    def from_toml(
-        cls,
-        fname: StrPath,
-        *,
-        seed: int | None = None,
-        tags: str | list[str] | None = None,
-        create_date: datetime | None = None,
-        vs_points: list[VSPoint] | None = None,
-    ) -> Self:
-        with Path(fname).open("rb") as handle:
-            return cls.from_dict(
-                cast(dict[str, object], tomllib.load(handle)),
-                seed=seed,
-                tags=tags,
-                create_date=create_date,
-                vs_points=vs_points,
-            )
+    def from_yamls(cls, content: str | bytes, **kwargs: Unpack[OrderFromDictKwargs]) -> Self:
+        content = _normalize(content)
+        raw = yaml.safe_load(content)
+        return cls._from_parsed_file(raw, content, **kwargs)
 
     @classmethod
-    def from_tomls(
-        cls,
-        content: str,
-        *,
-        seed: int | None = None,
-        tags: str | list[str] | None = None,
-        create_date: datetime | None = None,
-        vs_points: list[VSPoint] | None = None,
-    ) -> Self:
-        return cls.from_dict(
-            cast(dict[str, object], tomllib.loads(content)),
-            seed=seed,
-            tags=tags,
-            create_date=create_date,
-            vs_points=vs_points,
-        )
+    def from_toml(cls, source: StrPath | ReadStream, **kwargs: Unpack[OrderFromDictKwargs]) -> Self:
+        if isinstance(source, (str, Path)):
+            with Path(source).open("rb") as handle:
+                return cls.from_toml(handle, **kwargs)
+
+        return cls.from_tomls(source.read(), **kwargs)
 
     @classmethod
-    def from_json(
-        cls,
-        fname: StrPath,
-        *,
-        seed: int | None = None,
-        tags: str | list[str] | None = None,
-        create_date: datetime | None = None,
-        vs_points: list[VSPoint] | None = None,
-    ) -> Self:
-        with Path(fname).open("rb") as handle:
-            return cls.from_dict(
-                cast(dict[str, object], json.load(handle)),
-                seed=seed,
-                tags=tags,
-                create_date=create_date,
-                vs_points=vs_points,
-            )
+    def from_tomls(cls, content: str | bytes, **kwargs: Unpack[OrderFromDictKwargs]) -> Self:
+        content = _normalize(content)
+        raw = tomllib.loads(content)
+        return cls._from_parsed_file(raw, content, **kwargs)
 
     @classmethod
-    def from_jsons(
-        cls,
-        content: str,
-        *,
-        seed: int | None = None,
-        tags: str | list[str] | None = None,
-        create_date: datetime | None = None,
-        vs_points: list[VSPoint] | None = None,
-    ) -> Self:
-        return cls.from_dict(
-            cast(dict[str, object], json.loads(content)),
-            seed=seed,
-            tags=tags,
-            create_date=create_date,
-            vs_points=vs_points,
-        )
+    def from_json(cls, source: StrPath | ReadStream, **kwargs: Unpack[OrderFromDictKwargs]) -> Self:
+        if isinstance(source, (str, Path)):
+            with Path(source).open("rb") as handle:
+                return cls.from_json(handle, **kwargs)
+
+        return cls.from_jsons(source.read(), **kwargs)
+
+    @classmethod
+    def from_jsons(cls, content: str | bytes, **kwargs: Unpack[OrderFromDictKwargs]) -> Self:
+        content = _normalize(content)
+        try:
+            raw = json.loads(content)
+        except Exception:
+            if content.strip():
+                raise
+            raw: dict[str, object] = {}
+        return cls._from_parsed_file(raw, content, **kwargs)
 
     @classmethod
     def from_file(
         cls,
-        fname: StrPath,
+        source: StrPath | ReadStream,
         *,
-        seed: int | None = None,
-        tags: str | list[str] | None = None,
-        create_date: datetime | None = None,
-        vs_points: list[VSPoint] | None = None,
+        fname: StrPath | None = None,
+        file_format: OrderFormat | None = None,
+        **kwargs: Unpack[OrderFromDictKwargs],
     ) -> Self:
-        try:
-            fname = Path(fname)
-            match fname.suffix:
-                case ".yaml":
-                    return cls.from_yaml(fname, seed=seed, tags=tags, create_date=create_date, vs_points=vs_points)
-                case ".yml":
-                    return cls.from_yaml(fname, seed=seed, tags=tags, create_date=create_date, vs_points=vs_points)
-                case ".toml":
-                    return cls.from_toml(fname, seed=seed, tags=tags, create_date=create_date, vs_points=vs_points)
-                case ".json":
-                    return cls.from_json(fname, seed=seed, tags=tags, create_date=create_date, vs_points=vs_points)
-                case _:
-                    msg = f"unsupported file extension {fname.suffix!r}"
-                    raise RuntimeError(msg)
-        except EleanorError:
-            raise
-        except Exception as e:
-            msg = f"failed to parse {str(fname)!r} as yaml, toml or json"
-            raise EleanorError(msg) from e
+        if isinstance(source, (str, Path)):
+            source_fname = Path(source)
+            with source_fname.open("rb") as handle:
+                return cls.from_file(
+                    handle,
+                    fname=fname if fname is not None else source_fname,
+                    file_format=file_format,
+                    **kwargs,
+                )
+
+        if fname is None:
+            source_name = getattr(source, "name", None)
+            if isinstance(source_name, str):
+                fname = Path(source_name)
+
+        content = _normalize(source.read())
+
+        if file_format is None:
+            file_format = detect_format(content, fname=fname)
+
+        match file_format:
+            case "toml":
+                return cls.from_tomls(content, **kwargs)
+            case "json":
+                return cls.from_jsons(content, **kwargs)
+            case _:
+                return cls.from_yamls(content, **kwargs)
 
 
-def load_order(
-    order: StrPath | Order,
-    *,
-    seed: int | None = None,
-    tags: str | list[str] | None = None,
-    create_date: datetime | None = None,
-    vs_points: list[VSPoint] | None = None,
-) -> Order:
-    """Load and/or override an order.
+def load_order(order: StrPath | Order | ReadStream, **kwargs: Unpack[OrderFromDictKwargs]) -> Order:
+    """Load and/or override an order."""
+    if not isinstance(order, Order):
+        return Order.from_file(order, **kwargs)
 
-    If the provided :paramref:`order` is a string, it is assumed to be a
-    filename and the order is first loaded from disk.
+    if kwargs.get("seed") is not None:
+        with contextlib.suppress(AttributeError):
+            delattr(order, "rng")
+        order.seed = kwargs.get("seed")
 
-    If the provided :paramref:`order` is an Order, then this call is a no-op.
-    """
-    if isinstance(order, (str, Path)):
-        order = Order.from_file(order, seed=seed, tags=tags, create_date=create_date, vs_points=vs_points)
-    else:
-        if seed is not None:
-            with contextlib.suppress(AttributeError):
-                delattr(order, "rng")
-            order.seed = seed
+    tags = _prepare_tags(kwargs.get("tags"))
+    if tags is not None:
+        order.tags = tags
 
-        tags = _prepare_tags(tags)
-        if tags is not None:
-            order.tags = tags
+    if kwargs.get("create_date") is not None:
+        order.create_date = kwargs.get("create_date")
 
-        if create_date is not None:
-            order.create_date = create_date
-
-        if vs_points is not None:
-            order.vs_points = vs_points
+    if kwargs.get("vs_points") is not None:
+        order.vs_points = kwargs.get("vs_points")
 
     return order
 

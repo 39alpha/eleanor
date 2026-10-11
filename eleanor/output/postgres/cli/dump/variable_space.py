@@ -3,7 +3,7 @@ from typing import TextIO
 
 import click
 
-from eleanor.cli.util import config_from_args, config_options, sole_postgres_settings
+from eleanor.cli.util import config_from_args, config_options, handle_exception, sole_postgres_settings
 from eleanor.exceptions import EleanorError
 from eleanor.output.postgres.tools.order import DumpFormat, dump_order
 from eleanor.output.postgres.tools.variable_space import get_vs_as_order
@@ -24,12 +24,14 @@ from eleanor.util import require_uuid_id
     is_flag=True,
     help="Output optional properties even if they are empty (e.g. None, {}, [], etc...)",
 )
+@click.option("-v", "--verbose", is_flag=True, default=False, help="Enable verbose output.")
 @click.argument("vs_id", type=click.STRING)
 @config_options(required=False)
 def dump_variable_space(
     output: TextIO,
     to: DumpFormat,
     keep_empty: bool,
+    verbose: bool,
     vs_id: str,
     config: Path | None,
     database: str | None,
@@ -49,8 +51,7 @@ def dump_variable_space(
     try:
         order = get_vs_as_order(settings.database, vsid)
     except Exception as e:
-        msg = f"failed to dump variable space point - {e}"
-        raise click.ClickException(msg) from e
+        handle_exception(e, "failed to dump variable space point", verbose=verbose)
 
     if order is None:
         msg = f"no variable space point found with id {vsid}"

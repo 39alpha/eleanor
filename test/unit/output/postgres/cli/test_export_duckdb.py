@@ -162,6 +162,16 @@ def test_wraps_export_failure(runner: CliRunner, export: MagicMock, tmp_path: Pa
     assert "failed to export database - boom" in result.output
 
 
+def test_verbose_export_failure_prints_the_traceback(runner: CliRunner, export: MagicMock, tmp_path: Path) -> None:
+    export.side_effect = RuntimeError("boom")
+
+    result = _invoke(runner, "-v", "-o", str(tmp_path / "out.db"))
+
+    assert result.exit_code == 1
+    assert "Traceback" in result.stderr
+    assert "RuntimeError: boom" in result.stderr
+
+
 def test_requires_a_database(runner: CliRunner, mocker: MockerFixture, tmp_path: Path) -> None:
     _ = mocker.patch("eleanor.cli.util.load_config", return_value=_postgres_config(database=None))
     export = mocker.patch(f"{_MODULE}.export_duckdb")

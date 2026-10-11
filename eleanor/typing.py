@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import TypedDict
+from typing import IO, TypedDict
 
 import numpy as np
 
@@ -24,9 +24,12 @@ type Array1D[ScalarT: np.generic] = np.ndarray[tuple[int], np.dtype[ScalarT]]
 type Array2D[ScalarT: np.generic] = np.ndarray[tuple[int, int], np.dtype[ScalarT]]
 type StrPath = str | Path
 
+type ReadStream = IO[str] | IO[bytes]
+
 __all__ = [
     "Array1D",
     "Array2D",
     "EleanorKwargs",
+    "ReadStream",
     "StrPath",
 ]

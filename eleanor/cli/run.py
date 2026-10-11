@@ -2,13 +2,12 @@ import sys
 from contextlib import ExitStack
 from dataclasses import replace
 from pathlib import Path
-from traceback import print_exception
 from typing import cast
 
 import click
 
 from eleanor import Eleanor
-from eleanor.cli.util import config_from_args, config_options, postgres_sinks
+from eleanor.cli.util import config_from_args, config_options, handle_exception, postgres_sinks
 from eleanor.exceptions import EleanorError
 from eleanor.executor import load_executor
 from eleanor.executor.registry import available_executors
@@ -26,7 +25,11 @@ def _complete_executor(_ctx: click.Context, _param: click.Parameter, incomplete:
 
 
 @click.command()
-@click.argument("order", type=click.Path(exists=True))
+@click.argument(
+    "order",
+    type=click.Path(exists=True, dir_okay=False, allow_dash=True),
+    help="A path to an order file; pass - to read an order from stdin",
+)
 @click.option(
     "-n",
     "--simulation-size",
@@ -146,7 +149,8 @@ def run(
         if num_workers is not None:
             executor_settings = replace(executor_settings, num_workers=num_workers)
 
-        order_obj = load_order(order, seed=seed)
+        source = sys.stdin if order == "-" else order
+        order_obj = load_order(source, seed=seed)
         if tag:
             order_obj.tags = list(dict.fromkeys([*order_obj.tags, *tag]))
 
@@ -182,9 +186,4 @@ def run(
         print(f"Eleanor run interrupted by {name}; sink finalized cleanly.")
         sys.exit(130)
     except Exception as e:
-        if verbose:
-            print_exception(e)
-        else:
-            msg = f"Eleanor run failed: {e}"
-            raise click.ClickException(msg) from e
-        sys.exit(1)
+        handle_exception(e, verbose=verbose)

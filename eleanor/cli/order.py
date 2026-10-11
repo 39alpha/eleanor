@@ -1,8 +1,8 @@
 import sys
-from traceback import print_exception
 
 import click
 
+from eleanor.cli.util import handle_exception
 from eleanor.order import load_order
 from eleanor.util import NumberFormat
 
@@ -13,7 +13,11 @@ def order() -> None:
 
 
 @order.command("volume")
-@click.argument("order", type=click.Path(exists=True, dir_okay=False))
+@click.argument(
+    "order",
+    type=click.Path(exists=True, dir_okay=False, allow_dash=True),
+    help="A path to an order file; pass - to read an order from stdin",
+)
 @click.option(
     "-p",
     "--precision",
@@ -39,13 +43,15 @@ def order_volume(
 ) -> None:
     """Print the volume of an order's parameter space."""
     try:
-        volume = format.fmt(load_order(order).volume(), precision=precision).lower()
+        source = sys.stdin if order == "-" else order
+        parsed_order = load_order(source)
     except Exception as e:
-        if verbose:
-            print_exception(e)
-            sys.exit(1)
-        else:
-            msg = f"failed to compute the order volume - {e}"
-            raise click.ClickException(msg) from e
+        handle_exception(e, "failed to load the order", verbose=verbose)
 
-    click.echo(volume)
+    try:
+        volume = parsed_order.volume()
+    except Exception as e:
+        handle_exception(e, "failed to compute the order volume", verbose=verbose)
+
+    volume_str = format.fmt(volume, precision=precision).lower()
+    click.echo(volume_str)

@@ -1,4 +1,4 @@
-from eleanor.navigator.interface import AbstractNavigator
+from eleanor.navigator.interface import AbstractNavigator, SampleDensity, SimulationSize, SystemCount
 from eleanor.navigator.registry import registry
 from eleanor.navigator.settings import NavigatorSettings
 from eleanor.plugin import load_plugin, load_plugin_settings
@@ -14,6 +14,9 @@ def load_navigator(kind: str, settings: NavigatorSettings | None = None) -> Abst
 
 __all__ = [
     "AbstractNavigator",
+    "SampleDensity",
+    "SimulationSize",
+    "SystemCount",
     "load_navigator",
     "load_navigator_settings",
 ]

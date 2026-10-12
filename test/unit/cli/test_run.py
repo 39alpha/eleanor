@@ -13,6 +13,7 @@ from eleanor.config import Config
 from eleanor.exceptions import EleanorShutdown
 from eleanor.executor import AbstractExecutor
 from eleanor.executor.settings import ExecutorSettings
+from eleanor.navigator import SampleDensity, SystemCount
 from eleanor.order import Order
 from eleanor.output.null import NullSink
 from eleanor.output.postgres.settings import PostgresSinkSettings
@@ -77,8 +78,7 @@ def test_run_uses_config_executor_defaults(mocker: MockerFixture, runner: CliRun
     eleanor_ctor.assert_called_once_with(config=config, executor=executor)
     eleanor.run.assert_called_once_with(
         order,
-        simulation_size=10,
-        density=None,
+        SystemCount(10),
         kernel_args=[],
         scratch=False,
         show_progress=False,
@@ -520,16 +520,16 @@ def test_run_eleanor_shutdown_uses_signal_name_in_message(mocker: MockerFixture,
     assert "Eleanor run interrupted by SIGTERM; sink finalized cleanly." in result.output
 
 
-def test_run_raises_without_simulation_size_or_density(runner: CliRunner) -> None:
+def test_run_raises_without_count_or_density(runner: CliRunner) -> None:
     result = invoke_run(runner, ["-c", "/fake.yaml"])
     assert result.exit_code == 1
-    assert "either --density= or --simulation-size= must be provided" in result.output
+    assert "either --density= or --count= must be provided" in result.output
 
 
-def test_run_raises_with_both_simulation_size_and_density(runner: CliRunner) -> None:
+def test_run_raises_with_both_count_and_density(runner: CliRunner) -> None:
     result = invoke_run(runner, ["-n", "10", "-t", "0.1", "-c", "/fake.yaml"])
     assert result.exit_code == 1
-    assert "exactly one of --density= or --simulation-size= must be provided" in result.output
+    assert "exactly one of --density= or --count= must be provided" in result.output
 
 
 def test_run_passes_density_to_eleanor(mocker: MockerFixture, runner: CliRunner) -> None:
@@ -543,8 +543,7 @@ def test_run_passes_density_to_eleanor(mocker: MockerFixture, runner: CliRunner)
     result = invoke_run(runner, ["-t", "0.25", "-c", "/fake.yaml", "-d", "sample"])
 
     assert result.exit_code == 0
-    assert eleanor.run.call_args.kwargs["simulation_size"] is None
-    assert eleanor.run.call_args.kwargs["density"] == 0.25
+    assert eleanor.run.call_args.args[1] == SampleDensity(0.25)
 
 
 def test_run_accepts_long_density_flag(mocker: MockerFixture, runner: CliRunner) -> None:
@@ -558,7 +557,7 @@ def test_run_accepts_long_density_flag(mocker: MockerFixture, runner: CliRunner)
     result = invoke_run(runner, ["--density", "2.5", "-c", "/fake.yaml", "-d", "sample"])
 
     assert result.exit_code == 0
-    assert eleanor.run.call_args.kwargs["density"] == 2.5
+    assert eleanor.run.call_args.args[1] == SampleDensity(2.5)
 
 
 @pytest.mark.parametrize("density", ["0", "-0.5"])
@@ -568,11 +567,11 @@ def test_run_rejects_non_positive_density(runner: CliRunner, density: str) -> No
     assert "Invalid value for '-t' / '--density'" in result.output
 
 
-@pytest.mark.parametrize("simulation_size", ["0", "-1"])
-def test_run_rejects_non_positive_simulation_size(runner: CliRunner, simulation_size: str) -> None:
-    result = invoke_run(runner, ["-n", simulation_size])
+@pytest.mark.parametrize("count", ["0", "-1"])
+def test_run_rejects_non_positive_count(runner: CliRunner, count: str) -> None:
+    result = invoke_run(runner, ["-n", count])
     assert result.exit_code == 2
-    assert "Invalid value for '-n' / '--simulation-size'" in result.output
+    assert "Invalid value for '-n' / '--count'" in result.output
 
 
 def test_run_requires_a_config(mocker: MockerFixture, runner: CliRunner) -> None:

@@ -72,11 +72,16 @@ eleanor gen order | eleanor run -c config.yaml -n 50000 -
 
 **Required options**
 
-Exactly one of `--simulation-size` and `--density` is required to specify the number of systems to
-simulate.
+Exactly one of `--count` and `--density` is required to specify the number of systems to simulate.
 
-- `-n, --simulation-size N`: the number of systems to sample (mutually exclusive with `--density`)
-- `-t, --density DENSITY`: the sampling density (mutually exclusive with `--simulation-size`)
+- `-n, --count N`: the number of systems to sample (mutually exclusive with `--density`)
+- `-t, --density DENSITY`: the number of systems to sample per unit of the order's volume (mutually
+  exclusive with `--count`)
+
+Either option sets a target. The `lattice` and `random_lattice` navigators sample `scale` values for
+each of the order's `d` variable parameters, where `scale` is the `d`-th root of the target rounded
+to the nearest integer, so they run `scale^d` systems. When that differs from the target, Eleanor
+warns before the run starts.
 
 **Common options**
 
@@ -143,7 +148,7 @@ eleanor run -c config.yaml -d eleanor_db -n 50000 order.yaml
 ```
 
 The dump reproduces the order as Eleanor parsed it — seed, kernel settings, reactants and
-suppressions included — so re-running it at the original simulation size visits the same
+suppressions included — so re-running it with the original `--count` visits the same
 variable-space points. Its `id` is not part of the file: every run allocates a fresh one.
 
 To re-run without writing the file, pipe the dump straight into `eleanor run`:

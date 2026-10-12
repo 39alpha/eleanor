@@ -13,6 +13,7 @@ from eleanor.exceptions import EleanorError
 from eleanor.executor import load_executor
 from eleanor.executor.registry import available_executors
 from eleanor.executor.settings import ExecutorSettings
+from eleanor.navigator.interface import SampleDensity, SystemCount
 from eleanor.order import load_order
 from eleanor.output.interface import AbstractOutputSink
 from eleanor.output.null import NullSink, NullSinkSettings
@@ -33,7 +34,7 @@ def _complete_executor(_ctx: click.Context, _param: click.Parameter, incomplete:
 )
 @click.option(
     "-n",
-    "--simulation-size",
+    "--count",
     type=click.IntRange(1),
     default=None,
     help="Number of systems to sample.",
@@ -79,7 +80,7 @@ def _complete_executor(_ctx: click.Context, _param: click.Parameter, incomplete:
 @config_options()
 def run(
     order: str,
-    simulation_size: int | None,
+    count: int | None,
     density: float | None,
     num_workers: int | None,
     scratch: bool,
@@ -103,13 +104,16 @@ def run(
     kernel_args_list: list[object] = list(kernel_args)
     show_progress = progress and not verbose
 
-    if density is None and simulation_size is None:
-        msg = "either --density= or --simulation-size= must be provided"
-        raise click.ClickException(msg)
-
-    if density is not None and simulation_size is not None:
-        msg = "exactly one of --density= or --simulation-size= must be provided"
-        raise click.ClickException(msg)
+    if count is None:
+        if density is None:
+            msg = "either --density= or --count= must be provided"
+            raise click.ClickException(msg)
+        simulation_size = SampleDensity(density)
+    else:
+        if density is not None:
+            msg = "exactly one of --density= or --count= must be provided"
+            raise click.ClickException(msg)
+        simulation_size = SystemCount(count)
 
     try:
         config_obj = config_from_args(config, database, require_database=not null_sink)
@@ -166,8 +170,7 @@ def run(
             with Eleanor(config=config_obj, executor=executor_obj) as eleanor:
                 order_ids = eleanor.run(
                     order_obj,
-                    simulation_size=simulation_size,
-                    density=density,
+                    simulation_size,
                     kernel_args=kernel_args_list,
                     scratch=scratch,
                     show_progress=show_progress,

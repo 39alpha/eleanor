@@ -796,3 +796,54 @@ def test_load_order_does_not_re_apply_overrides_after_loading_from_a_file() -> N
     assert returned is order
     assert order.seed == 11
     assert order.tags == ["from-file"]
+
+
+@pytest.mark.parametrize(
+    ("overrides", "expected"),
+    [
+        ({}, 0),
+        ({"temperature": {"min": 20.0, "max": 30.0}}, 1),
+        ({"pressure": [1.0, 2.0, 3.0]}, 1),
+        ({"temperature": {"min": 0.0, "max": 10.0}, "pressure": [1.0, 2.0]}, 2),
+        ({"temperature": {"min": 20.0, "max": 30.0}, "elements": {"Na": {"min": 0.5, "max": 2.5}}}, 2),
+        ({"temperature": {"mean": 5.0, "min": 5.0, "max": 5.0}, "pressure": {"min": 1.0, "max": 11.0}}, 1),
+        (
+            {
+                "temperature": {"min": 20.0, "max": 30.0},
+                "reactants": {
+                    "quartz": {"type": "mineral", "amount": {"min": 0.0, "max": 2.0}, "titration_rate": 1.0},
+                },
+            },
+            2,
+        ),
+        (
+            {
+                "temperature": {"min": 20.0, "max": 30.0},
+                "pressure": {"min": 1.0, "max": 5.0},
+                "constraints": [
+                    {
+                        "kind": "linear",
+                        "terms": [
+                            {"variable": "temperature", "coefficient": 1.0},
+                            {"variable": "pressure", "coefficient": -2.0},
+                        ],
+                        "constant": {"min": 0.0, "max": 4.0},
+                    }
+                ],
+            },
+            3,
+        ),
+    ],
+    ids=[
+        "all-scalar",
+        "one-range",
+        "one-list",
+        "range-and-list",
+        "range-and-element",
+        "degenerate-normal",
+        "reactant-parameter",
+        "constraint-local",
+    ],
+)
+def test_order_dimensions_counts_variable_parameters(overrides: dict[str, object], expected: int) -> None:
+    assert _make_order(**overrides).dimensions() == expected

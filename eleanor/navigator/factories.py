@@ -15,7 +15,7 @@ def build_random() -> RandomNavigator:
 
 random_spec = SimplePluginSpec(
     build=build_random,
-    plugin_api_version=1,
+    plugin_api_version=2,
 )
 
 
@@ -27,7 +27,7 @@ def build_random_lattice() -> RandomLatticeNavigator:
 
 random_lattice_spec = SimplePluginSpec(
     build=build_random_lattice,
-    plugin_api_version=1,
+    plugin_api_version=2,
 )
 
 
@@ -39,7 +39,7 @@ def build_lattice() -> LatticeNavigator:
 
 lattice_spec = SimplePluginSpec(
     build=build_lattice,
-    plugin_api_version=1,
+    plugin_api_version=2,
 )
 
 __all__ = [

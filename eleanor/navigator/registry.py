@@ -3,8 +3,8 @@ from eleanor.plugin import PluginRegistry, PluginSpec
 registry: PluginRegistry = PluginRegistry(
     kind="navigator",
     builtin_names=frozenset({"random", "lattice", "random_lattice"}),
-    api_version=1,
-    min_api_version=1,
+    api_version=2,
+    min_api_version=2,
 )
 
 

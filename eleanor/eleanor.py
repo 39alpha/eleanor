@@ -16,7 +16,7 @@ from eleanor.executor import AbstractExecutor, AbstractFuture, load_executor
 from eleanor.executor.settings import ExecutorSettings
 from eleanor.kernel import load_kernel
 from eleanor.kernel.interface import AbstractKernel
-from eleanor.navigator import AbstractNavigator, load_navigator
+from eleanor.navigator import AbstractNavigator, SimulationSize, SystemCount, load_navigator
 from eleanor.order import Order
 from eleanor.output import load_output_sink
 from eleanor.output.interface import (
@@ -116,14 +116,14 @@ class Eleanor:
     across any number of :meth:`run` calls made inside that block::
 
         with Eleanor(config=cfg) as eleanor:
-            eleanor.run(order1, simulation_size=1000)
-            eleanor.run(order2, simulation_size=2000)
+            eleanor.run(order1, SystemCount(1000))
+            eleanor.run(order2, SystemCount(2000))
 
     Outside of a ``with`` block, each :meth:`run` call builds the
     resources it needs and tears them down on exit, so one-shot usage
     remains a single method call::
 
-        Eleanor(config=cfg).run(order, simulation_size=1000)
+        Eleanor(config=cfg).run(order, SystemCount(1000))
 
     A run may drive **several sinks at once**. The kernel runs once per
     point regardless; the compute graph is fanned out to every sink inside
@@ -139,7 +139,7 @@ class Eleanor:
     (``initialize`` / ``finalize``).  The recommended pattern is::
 
         with MySink(...) as sink:
-            eleanor.run(order, simulation_size=n, output_sink=sink)
+            eleanor.run(order, SystemCount(n), output_sink=sink)
 
     ``output_sink=`` accepts a single sink (named ``"output"``) or a mapping
     of name to sink.
@@ -385,37 +385,18 @@ class Eleanor:
             finally:
                 _finalize_all(sinks.values())
 
-    def simulation_size(self, order: Order, simulation_size: int | None, density: float | None) -> int:
-        """Determine the simulation size given an order and either a desired simulation size or
-        density.
-        """
-        if simulation_size is None:
-            if density is None:
-                msg = "either density or simulation_size must be provided"
-                raise EleanorError(msg)
-
-            simulation_size = max(1, round(density * order.volume()))
-        elif density is not None:
-            msg = "exactly one of density or simulation_size must be provided, both provided"
-            raise EleanorError(msg)
-
-        if simulation_size <= 0:
-            msg = "simulation size must be positive, non-zero"
-            raise EleanorError(msg)
-
-        if order.volume() == 0 and simulation_size > 1:
+    def _clamp_simulation_size(self, simulation_size: SimulationSize, order: Order) -> SimulationSize:
+        if order.volume() == 0 and simulation_size.num_systems(order) > 1:
             msg = "order has no parameters; resetting the simulation size to 1"
             warnings.warn(msg, EleanorWarning, stacklevel=2)
-            simulation_size = 1
-
+            return SystemCount(1)
         return simulation_size
 
     def run[IdT](
         self,
         order: Order,
+        simulation_size: SimulationSize,
         *args: object,
-        simulation_size: int | None = None,
-        density: float | None = None,
         chunks_per_worker: int | None = None,
         batch_size: int | None = None,
         max_nav_attempts: int = 1,
@@ -426,7 +407,7 @@ class Eleanor:
         timings: DispatchTimings | None = None,
         **kwargs: Unpack[EleanorKwargs],
     ) -> dict[str, object]:
-        """Dispatch ``order`` against ``simulation_size`` VS points.
+        """Run the ``order`` against ``simulation_size``.
         See the class docstring for the session-vs-per-run resource model.
 
         If an explicit ``output_sink`` is supplied — a single sink, or a
@@ -460,7 +441,7 @@ class Eleanor:
 
         executor_settings = replace(self.config.executor.settings, chunks_per_worker=chunks_per_worker)
 
-        simulation_size = self.simulation_size(order, simulation_size, density)
+        simulation_size = self._clamp_simulation_size(simulation_size, order)
 
         with ExitStack() as stack:
             run_executor = stack.enter_context(
@@ -491,10 +472,16 @@ class Eleanor:
             if navigator is None:
                 navigator = load_navigator(order.navigator.kind, settings=order.navigator.settings)
 
+            target_total = simulation_size.num_systems(order)
             expected_total = navigator.num_systems(order, simulation_size)
             if expected_total <= 0:
-                msg = f"navigator.num_systems({simulation_size}) returned {expected_total}; must be >= 1"
+                msg = f"navigator.num_systems(order, {simulation_size}) returned {expected_total}; must be >= 1"
                 raise EleanorError(msg)
+
+            if expected_total != target_total:
+                comparison = "more" if expected_total > target_total else "fewer"
+                msg = f"navigator will produce up to {expected_total} systems, {comparison} than the {target_total} requested with {simulation_size}"
+                warnings.warn(msg, EleanorWarning, stacklevel=2)
 
             if batch_size is not None and batch_size <= 0:
                 msg = "batch_size must be >= 1"
@@ -530,9 +517,8 @@ class Eleanor:
                         kernel,
                         navigator,
                         bindings,
+                        simulation_size,
                         *args,
-                        simulation_size=simulation_size,
-                        density=None,
                         batch_size=effective_batch_size,
                         max_nav_attempts=max_nav_attempts,
                         expected_total=expected_total,
@@ -627,10 +613,9 @@ class Eleanor:
         kernel: AbstractKernel,
         navigator: AbstractNavigator,
         bindings: Sequence[SinkBinding],
+        simulation_size: SimulationSize,
         *args: object,
         batch_size: int,
-        simulation_size: int | None = None,
-        density: float | None = None,
         max_nav_attempts: int = 1,
         expected_total: int,
         executor: AbstractExecutor | None = None,
@@ -682,7 +667,7 @@ class Eleanor:
             msg = "no output sink provided via config or keyword option"
             raise EleanorError(msg)
 
-        simulation_size = self.simulation_size(order, simulation_size, density)
+        simulation_size = self._clamp_simulation_size(simulation_size, order)
 
         by_name = {binding.name: binding for binding in bindings}
         outcomes: dict[str, list[WriteOutcome]] = {binding.name: [] for binding in bindings}
@@ -820,9 +805,9 @@ class Eleanor:
                     with timings.writing(in_flight=0, num_workers=executor.num_workers):
                         _join_writers(writers, outcomes)
 
-        if total_produced > expected_total:
-            msg = f"navigator produced {total_produced} points, expected at most {expected_total}"
-            raise EleanorError(msg)
+        if total_produced != expected_total:
+            msg = f"navigator produced {total_produced} points, expected {expected_total}"
+            warnings.warn(msg, EleanorWarning, stacklevel=1)
 
         return outcomes
 

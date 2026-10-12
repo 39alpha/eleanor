@@ -8,7 +8,7 @@ import numpy as np
 import eleanor.variable_space as vs
 from eleanor.constraints.point_builder import PointBuilder
 from eleanor.exceptions import EleanorError
-from eleanor.navigator.interface import AbstractNavigator
+from eleanor.navigator.interface import AbstractNavigator, SimulationSize
 from eleanor.parameters import Parameter, ValueParameter
 
 if TYPE_CHECKING:
@@ -22,11 +22,13 @@ class AbstractLatticeNavigator(AbstractNavigator, ABC):
         self,
         order: Order,
         kernel: AbstractKernel,
-        scale: int,
+        simulation_size: SimulationSize,
         batch_size: int,
         *args: object,
         **kwargs: object,
     ) -> Iterator[list[vs.Point]]:
+        scale = self.scale(order, simulation_size)
+
         point_builder = PointBuilder(order)
         _ = kernel.constrain(point_builder)
 
@@ -66,8 +68,16 @@ class AbstractLatticeNavigator(AbstractNavigator, ABC):
         pass
 
     @override
-    def num_systems(self, order: Order, scale: int) -> int:
-        return cast(int, scale ** sum(1 for p in order.parameters() if not isinstance(p, ValueParameter)))
+    def num_systems(self, order: Order, simulation_size: SimulationSize) -> int:
+        return max(1, self.scale(order, simulation_size) ** order.dimensions())
+
+    def scale(self, order: Order, simulation_size: SimulationSize) -> int:
+        num_dimensions = order.dimensions()
+        if num_dimensions == 0:
+            return 1
+
+        count = simulation_size.num_systems(order)
+        return max(1, int(np.round(np.exp(cast(np.float64, np.log(count) / num_dimensions)))))
 
 
 class RandomLatticeNavigator(AbstractLatticeNavigator):

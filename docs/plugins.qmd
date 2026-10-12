@@ -66,12 +66,28 @@ output:
     query: {...}
 ```
 ### Navigator contract
-Navigator plugins must expose:
+Navigator plugins target navigator API v2 (`plugin_api_version=2`) and must
+expose:
 
-- `num_systems(order: Order, scale: int) -> int`: total number of VS points the
-  navigator will produce for the given scale.
-- `navigate(order: Order, kernel: AbstractKernel, scale: int, batch_size: int, *args, **kwargs) -> Iterator[list[vs.Point]]`:
+- `num_systems(order: Order, simulation_size: SimulationSize) -> int`: total
+  number of VS points the navigator will produce for the requested size. The
+  default on `AbstractNavigator` returns `simulation_size.num_systems(order)`;
+  override it when the navigator cannot hit the request exactly.
+- `navigate(order: Order, kernel: AbstractKernel, simulation_size: SimulationSize, batch_size: int, *args, **kwargs) -> Iterator[list[vs.Point]]`:
   a batch iterator that yields lists of up to `batch_size` points.
+
+`simulation_size` is a request, not a count. Call
+`simulation_size.num_systems(order)` to get the target number of systems and
+decide how to approach it. Eleanor ships two implementations in
+`eleanor.navigator`:
+
+- `SystemCount(count)`: exactly `count` systems.
+- `SampleDensity(density)`: `density * order.volume()` systems, rounded, and
+  at least one.
+
+The lattice navigators, for example, round the `d`-th root of the target to
+get `scale` values for each of the order's `d` variable parameters, so they
+produce `scale ** d` systems, which may differ from the target.
 
 Eleanor passes `max_attempts` as a keyword argument to `navigate`; plugins
 should accept `**kwargs` to tolerate future additions. Points carry no order
@@ -83,8 +99,9 @@ from the order's `seed` -- rather than from global random state. That is what
 lets a run be reproduced from the seed recorded alongside it.
 
 Across a complete `navigate(...)` iteration, the total number of yielded
-points must match `num_systems(order, scale)`. Eleanor raises an error if the
-counts diverge.
+points should match `num_systems(order, simulation_size)`. Eleanor warns
+before the run if `num_systems` differs from the target, and again after the
+run if the number of yielded points differs from `num_systems`.
 
 ## Distributing a third-party plugin
 
@@ -345,7 +362,7 @@ Every extension point supports two non-packaged registration paths:
    from eleanor.plugin import SimplePluginSpec
    from my_script import MyNavigator
 
-   register_navigator("my_nav", SimplePluginSpec(build=MyNavigator))
+   register_navigator("my_nav", SimplePluginSpec(build=MyNavigator, plugin_api_version=2))
    ```
 
 2. **Direct instance override.** `Eleanor.run` accepts already-constructed
@@ -353,10 +370,11 @@ Every extension point supports two non-packaged registration paths:
 
    ```python
    from eleanor import Eleanor
+   from eleanor.navigator import SystemCount
 
    Eleanor(config=config).run(
        order,
-       simulation_size=simulation_size,
+       SystemCount(1000),
        navigator=my_navigator_instance,
        kernel=my_kernel_instance,
        output_sink=my_output_sink_instance,

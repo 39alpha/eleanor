@@ -17,7 +17,7 @@ from eleanor.config.constraint import ConstraintConfig
 from eleanor.config.kernel import KernelConfig
 from eleanor.config.navigator import NavigatorConfig
 from eleanor.exceptions import EleanorError
-from eleanor.parameters import Parameter, ParameterOrSource, load_parameter, parameter_space_volume
+from eleanor.parameters import Parameter, ParameterOrSource, ValueParameter, load_parameter, parameter_space_volume
 from eleanor.reactants import AbstractReactant, CombinedReactant
 from eleanor.typing import ReadStream, StrPath
 from eleanor.util import (
@@ -342,6 +342,9 @@ class Order:
 
     def volume(self) -> np.float64:
         return parameter_space_volume(self.parameters())
+
+    def dimensions(self) -> int:
+        return sum(1 for p in self.parameters() if not isinstance(p, ValueParameter))
 
     @classmethod
     def _from_parsed_file(cls, raw: object, content: str, **kwargs: Unpack[OrderFromDictKwargs]) -> Self:

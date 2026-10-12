@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Protocol, cast, override
 import eleanor.variable_space as vs
 from eleanor.constraints.point_builder import PointBuilder
 from eleanor.exceptions import EleanorError
-from eleanor.navigator.interface import AbstractNavigator
+from eleanor.navigator.interface import AbstractNavigator, SimulationSize
 
 if TYPE_CHECKING:
     from eleanor.kernel import AbstractKernel
@@ -28,14 +28,16 @@ class RandomNavigator(AbstractNavigator):
         self,
         order: Order,
         kernel: AbstractKernel,
-        scale: int,
+        simulation_size: SimulationSize,
         batch_size: int,
         *args: object,
         **kwargs: object,
     ) -> Iterator[list[vs.Point]]:
+        count = simulation_size.num_systems(order)
+
         generate = cast(PointGenerator, self.generate)
         for batch in batched(
-            (generate(order, kernel, *args, **kwargs) for _ in range(scale)),
+            (generate(order, kernel, *args, **kwargs) for _ in range(count)),
             batch_size,
             strict=False,
         ):

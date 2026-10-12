@@ -1,12 +1,15 @@
 from collections.abc import Iterator
+from dataclasses import FrozenInstanceError
+from types import SimpleNamespace
 from typing import cast, final, override
 from unittest import TestCase, mock
 
 import eleanor.variable_space as vs
 import numpy as np
+import pytest
 from eleanor.exceptions import EleanorError
 from eleanor.kernel import AbstractKernel
-from eleanor.navigator import AbstractNavigator
+from eleanor.navigator import AbstractNavigator, SampleDensity, SimulationSize, SystemCount
 from eleanor.navigator.lattice import (
     AbstractLatticeNavigator,
     LatticeNavigator,
@@ -23,14 +26,14 @@ class DummyNavigator(AbstractNavigator):
         self,
         order: Order,
         kernel: AbstractKernel,
-        scale: int,
+        simulation_size: SimulationSize,
         batch_size: int,
         *args: object,
         **kwargs: object,
     ) -> Iterator[list[vs.Point]]:
         _ = args
         _ = kwargs
-        points = [cast(vs.Point, cast(object, f"p{i}")) for i in range(scale)]
+        points = [cast(vs.Point, cast(object, f"p{i}")) for i in range(simulation_size.num_systems(order))]
         for start in range(0, len(points), batch_size):
             yield points[start : start + batch_size]
 
@@ -60,7 +63,7 @@ class TestNavigator(TestCase):
         Ensure that :class:`AbstractNavigator` default helper methods behave as documented.
         """
         nav = DummyNavigator()
-        self.assertEqual(nav.num_systems(mock.Mock(), 3), 3)
+        self.assertEqual(nav.num_systems(mock.Mock(), SystemCount(3)), 3)
 
     def test_abstract_placeholder_methods(self) -> None:
         """
@@ -69,7 +72,7 @@ class TestNavigator(TestCase):
         abstract_navigator = cast(AbstractNavigator, object())
         lattice_navigator = cast(AbstractLatticeNavigator, object())
         parameter = cast(Parameter, object())
-        self.assertIsNone(AbstractNavigator.navigate(abstract_navigator, mock.Mock(), mock.Mock(), 1, 1))
+        self.assertIsNone(AbstractNavigator.navigate(abstract_navigator, mock.Mock(), mock.Mock(), SystemCount(1), 1))
         self.assertIsNone(AbstractLatticeNavigator.generate(lattice_navigator, parameter, 1, rng=None))
 
     def test_random_navigate_and_num_systems(self) -> None:
@@ -78,12 +81,12 @@ class TestNavigator(TestCase):
         """
         nav = RandomNavigator()
         with mock.patch.object(RandomNavigator, "generate", side_effect=["a", "b", "c"]) as gen_mock:
-            batches = list(nav.navigate(mock.Mock(), mock.Mock(), 3, 2))
+            batches = list(nav.navigate(mock.Mock(), mock.Mock(), SystemCount(3), 2))
 
         self.assertEqual(batches, [["a", "b"], ["c"]])
         self.assertEqual(gen_mock.call_count, 3)
         self.assertTrue(all(len(batch) <= 2 for batch in batches))
-        self.assertEqual(nav.num_systems(mock.Mock(), 7), 7)
+        self.assertEqual(nav.num_systems(mock.Mock(), SystemCount(7)), 7)
 
     def test_random_generate_success(self) -> None:
         """
@@ -270,7 +273,7 @@ class TestNavigator(TestCase):
         """
         nav = RandomNavigator()
         with mock.patch.object(RandomNavigator, "generate", return_value="point") as gen_mock:
-            _ = list(nav.navigate(mock.Mock(), mock.Mock(), 3, 2, max_attempts=5))
+            _ = list(nav.navigate(mock.Mock(), mock.Mock(), SystemCount(3), 2, max_attempts=5))
 
         self.assertEqual(gen_mock.call_count, 3)
         for call in gen_mock.call_args_list:
@@ -306,7 +309,7 @@ class TestNavigator(TestCase):
 
         nav = DummyLatticeNavigator()
         with mock.patch("eleanor.navigator.lattice.PointBuilder", FakePointBuilder):
-            batches = list(nav.navigate(mock.Mock(), kernel, 2, 1))
+            batches = list(nav.navigate(mock.Mock(dimensions=mock.Mock(return_value=1)), kernel, SystemCount(2), 1))
         points = [point for batch in batches for point in batch]
 
         kernel.constrain.assert_called_once()
@@ -318,8 +321,9 @@ class TestNavigator(TestCase):
             ValueParameter(np.float64(1)),
             RangeParameter(np.float64(0), np.float64(1)),
         ]
+        order.dimensions.side_effect = lambda: Order.dimensions(order)
         nav2 = DummyLatticeNavigator()
-        self.assertEqual(nav2.num_systems(order, 3), 3)
+        self.assertEqual(nav2.num_systems(order, SystemCount(3)), 3)
 
     def test_lattice_iterate_handles_generation_errors(self) -> None:
         """
@@ -340,7 +344,7 @@ class TestNavigator(TestCase):
         """
         nav = RandomNavigator()
         with mock.patch.object(RandomNavigator, "generate", side_effect=[f"p{i}" for i in range(10)]):
-            batches = list(nav.navigate(mock.Mock(), mock.Mock(), 10, 3))
+            batches = list(nav.navigate(mock.Mock(), mock.Mock(), SystemCount(10), 3))
 
         self.assertEqual([len(batch) for batch in batches], [3, 3, 3, 1])
 
@@ -357,7 +361,9 @@ class TestNavigator(TestCase):
                 return_value=iter([f"p{i}" for i in range(9)]),
             ),
         ):
-            batches = list(nav.navigate(mock.Mock(), mock.Mock(), 3, 4))
+            batches = list(
+                nav.navigate(mock.Mock(dimensions=mock.Mock(return_value=2)), mock.Mock(), SystemCount(9), 4)
+            )
 
         self.assertEqual([len(batch) for batch in batches], [4, 4, 1])
 
@@ -379,3 +385,210 @@ class TestNavigator(TestCase):
 
         with self.assertRaises(EleanorError):
             _ = lattice.generate(param, 0)
+
+
+class TestSimulationSize(TestCase):
+    """
+    Tests of the :class:`SimulationSize` implementations.
+    """
+
+    def test_system_count_rejects_non_positive_counts(self) -> None:
+        """
+        Ensure that :class:`SystemCount` rejects zero and negative counts.
+        """
+        for count in (0, -1):
+            with self.subTest(count=count), self.assertRaisesRegex(EleanorError, "count must be positive, non-zero"):
+                _ = SystemCount(count)
+
+    def test_sample_density_rejects_non_positive_densities(self) -> None:
+        """
+        Ensure that :class:`SampleDensity` rejects zero and negative densities.
+        """
+        for density in (0.0, -0.5):
+            with (
+                self.subTest(density=density),
+                self.assertRaisesRegex(EleanorError, "density must be positive, non-zero"),
+            ):
+                _ = SampleDensity(density)
+
+    def test_sample_density_rejects_non_finite_densities(self) -> None:
+        """
+        Ensure that :class:`SampleDensity` rejects NaN and infinite densities.
+        """
+        for density in (float("nan"), float("inf")):
+            with self.subTest(density=density), self.assertRaisesRegex(EleanorError, "density must be finite"):
+                _ = SampleDensity(density)
+
+
+def _order(*, dimensions: int = 1, volume: float = 1.0) -> Order:
+    """Produce an order-like stand-in exposing only ``dimensions``, ``volume`` and ``rng``."""
+    return cast(Order, SimpleNamespace(dimensions=lambda: dimensions, volume=lambda: np.float64(volume), rng=None))
+
+
+@pytest.mark.parametrize("count", [1, 2, 17, 1_000_000])
+def test_system_count_num_systems_is_the_count(count: int) -> None:
+    assert SystemCount(count).num_systems(_order(volume=3.0)) == count
+
+
+@pytest.mark.parametrize(
+    ("density", "volume", "expected"),
+    [
+        (0.25, 200.0, 50),
+        (2.0, 3.0, 6),
+        (1, 7.0, 7),
+        (0.37, 10.0, 4),
+        (0.34, 10.0, 3),
+        (0.01, 10.0, 1),
+        (5.0, 0.0, 1),
+        (1e-9, 1.0, 1),
+    ],
+)
+def test_sample_density_num_systems(density: float, volume: float, expected: int) -> None:
+    num_systems = SampleDensity(density).num_systems(_order(volume=volume))
+    assert num_systems == expected
+    assert isinstance(num_systems, int)
+
+
+@pytest.mark.parametrize("count", [True, 1.0, "3", None])
+def test_system_count_rejects_non_integers(count: object) -> None:
+    with pytest.raises(EleanorError, match="count must be an integer"):
+        _ = SystemCount(cast(int, count))
+
+
+@pytest.mark.parametrize("density", [True, "0.5", None])
+def test_sample_density_rejects_non_numbers(density: object) -> None:
+    with pytest.raises(EleanorError, match="density must be a floating-point number"):
+        _ = SampleDensity(cast(float, density))
+
+
+@pytest.mark.parametrize(
+    ("size", "field", "value"),
+    [(SystemCount(3), "count", 4), (SampleDensity(0.5), "density", 1.0)],
+)
+def test_simulation_sizes_are_frozen(size: SimulationSize, field: str, value: object) -> None:
+    with pytest.raises(FrozenInstanceError):
+        setattr(size, field, value)
+
+
+@pytest.mark.parametrize(
+    ("simulation_size", "volume", "expected"),
+    [(SystemCount(7), 100.0, 7), (SampleDensity(0.5), 100.0, 50)],
+)
+def test_abstract_navigator_num_systems_delegates_to_simulation_size(
+    simulation_size: SimulationSize, volume: float, expected: int
+) -> None:
+    assert DummyNavigator().num_systems(_order(volume=volume), simulation_size) == expected
+
+
+@pytest.mark.parametrize(
+    ("simulation_size", "volume", "expected"),
+    [(SystemCount(5), 1.0, 5), (SampleDensity(0.5), 8.0, 4)],
+)
+def test_random_navigate_generates_the_requested_number_of_points(
+    simulation_size: SimulationSize, volume: float, expected: int
+) -> None:
+    nav = RandomNavigator()
+    with mock.patch.object(RandomNavigator, "generate", return_value="point") as gen_mock:
+        batches = list(nav.navigate(_order(volume=volume), mock.Mock(), simulation_size, 3))
+
+    assert sum(len(batch) for batch in batches) == expected
+    assert gen_mock.call_count == expected
+
+
+LATTICE_SIZES = [
+    # (count, dimensions, scale, num_systems)
+    (1, 1, 1, 1),
+    (10, 1, 10, 10),
+    (3, 2, 2, 4),
+    (9, 2, 3, 9),
+    (10, 2, 3, 9),
+    (12, 2, 3, 9),
+    (13, 2, 4, 16),
+    (2, 3, 1, 1),
+    (64, 3, 4, 64),
+    (100, 3, 5, 125),
+    (1000, 3, 10, 1000),
+    (1_000_000, 6, 10, 1_000_000),
+    (1, 0, 1, 1),
+    (5, 0, 1, 1),
+]
+
+
+@pytest.mark.parametrize(("count", "dimensions", "scale", "num_systems"), LATTICE_SIZES)
+def test_lattice_scale_and_num_systems(count: int, dimensions: int, scale: int, num_systems: int) -> None:
+    order = _order(dimensions=dimensions)
+    nav = DummyLatticeNavigator()
+
+    assert nav.scale(order, SystemCount(count)) == scale
+    assert nav.num_systems(order, SystemCount(count)) == num_systems
+
+
+@pytest.mark.parametrize("dimensions", [1, 2, 3, 4, 5, 6])
+@pytest.mark.parametrize("scale", [2, 3, 7, 10, 13, 20])
+def test_lattice_scale_inverts_perfect_powers(scale: int, dimensions: int) -> None:
+    order = _order(dimensions=dimensions)
+    nav = DummyLatticeNavigator()
+
+    assert nav.scale(order, SystemCount(scale**dimensions)) == scale
+    assert nav.num_systems(order, SystemCount(scale**dimensions)) == scale**dimensions
+
+
+@pytest.mark.parametrize(
+    ("density", "volume", "dimensions", "scale", "num_systems"),
+    [
+        (0.5, 50.0, 2, 5, 25),
+        (1.0, 10.0, 2, 3, 9),
+        (2.0, 500.0, 3, 10, 1000),
+    ],
+)
+def test_lattice_scale_and_num_systems_from_density(
+    density: float, volume: float, dimensions: int, scale: int, num_systems: int
+) -> None:
+    order = _order(dimensions=dimensions, volume=volume)
+    nav = DummyLatticeNavigator()
+
+    assert nav.scale(order, SampleDensity(density)) == scale
+    assert nav.num_systems(order, SampleDensity(density)) == num_systems
+
+
+MAX_NAVIGATED_SYSTEMS = 1000
+
+
+@pytest.mark.parametrize(
+    ("count", "dimensions", "scale", "num_systems"),
+    [row for row in LATTICE_SIZES if row[3] <= MAX_NAVIGATED_SYSTEMS],
+)
+def test_lattice_navigate_produces_num_systems_points(
+    count: int, dimensions: int, scale: int, num_systems: int
+) -> None:
+    names = [f"p{i}" for i in range(dimensions)]
+
+    @final
+    class FakePointBuilder:
+        def __init__(self, order) -> None:
+            self.values = {}
+
+        def constrain(self):
+            return [name for name in names if name not in self.values]
+
+        def __getitem__(self, key):
+            return key
+
+        def __setitem__(self, key, value) -> None:
+            self.values[key] = value
+
+        def hardset(self, key, value) -> None:
+            self.values.pop(key, None)
+
+        def generate_vs(self):
+            return dict(self.values)
+
+    order = _order(dimensions=dimensions)
+    nav = DummyLatticeNavigator()
+    with mock.patch("eleanor.navigator.lattice.PointBuilder", FakePointBuilder):
+        points = [point for batch in nav.navigate(order, mock.Mock(), SystemCount(count), 4) for point in batch]
+
+    assert len(points) == num_systems
+    assert len(points) == nav.num_systems(order, SystemCount(count))
+    for name in names:
+        assert {point[name] for point in points} == {f"v{i}" for i in range(scale)}

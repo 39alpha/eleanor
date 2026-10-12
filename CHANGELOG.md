@@ -13,9 +13,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   or a DuckDB-importable parquet, CSV or JSON hive.
 - **`eleanor postgres dump vs`** writes a stored variable space point back out as a runnable YAML or
   JSON file.
-- **`simulation_size` or `density` sampling** to `Eleanor.run` and `Eleanor.process`.
-- **`-n <simulation_size>` and `-t <density>`** flags added to `eleanor run` to allow the user to
-  specify either the simulation size or sampling density at the command line.
+- **`SystemCount` or `SampleDensity` sampling** via the `simulation_size` argument of `Eleanor.run`
+  and `Eleanor.process`.
+- **`-n/--count` and `-t/--density`** flags added to `eleanor run` to allow the user to specify
+  either the number of systems or the sampling density at the command line.
+- **`Order.dimensions`** counts the order's variable parameters.
+- **`EleanorWarning` when the navigator's total differs from the requested simulation size,** and
+  when the number of points it produces differs from that total.
 - **`eleanor order volume`** to compute and print the volume of an order.
 - **`eleanor.util.raise_field_error`** to centralize field related error messaging.
 - **Accept both `-h` and `--help`** for all subcommands.
@@ -30,9 +34,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Require `click>=8.5`.**
 - **`eleanor run -n <num_workers>` renamed to `eleanor run -m <num_workers>`.**
-- **`Eleanor.run` and `Eleanor.process` raise for `simulation_size <= 0`.**
-- **`Eleanor.run` and `Eleanor.process` override `simulation_size = 0`** when the volume of the
-  order being run is zero.
+- **`Eleanor.run` and `Eleanor.process` reduce the simulation size to one system** when the volume
+  of the order being run is zero.
+- **Navigator API v2.** `navigate` and `num_systems` take a `SimulationSize` in place of `scale`;
+  v1 navigators are rejected.
+- **Lattice navigators treat the simulation size as a target total** and derive their
+  per-parameter scale from it.
+- **A navigator that produces more points than `num_systems` warns** rather than raises.
 - **`eleanor run` sets the exit code to 1** when exiting with an error.
 - **`eleanor postgres` subcommands no longer require a config file** and assume a localhost server
   with the login user's credentials. The `-d/--database` option must be provided in this case.
@@ -45,8 +53,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 
 - **`eleanor.util.norm_list`.** It had no callers.
-- **Positional `SIMULATION_SIZE` argument from `eleanor run`.** Use `--simulation-size` or
-  `--density` to specify the simulation size.
+- **Positional `SIMULATION_SIZE` argument from `eleanor run`.** Use `--count` or `--density` to
+  specify the simulation size.
 - **`eleanor postgres schema` no longer accepts options.**
 
 ## [v0.23.0] - 2026-10-02

@@ -2,7 +2,7 @@
 <html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
 
 <meta charset="utf-8">
-<meta name="generator" content="quarto-1.10.18">
+<meta name="generator" content="quarto-1.10.19">
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
@@ -78,9 +78,9 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <script src="site_libs/quarto-html/tippy.umd.min.js"></script>
 <script src="site_libs/quarto-html/anchor.min.js"></script>
 <link href="site_libs/quarto-html/tippy.css" rel="stylesheet">
-<link href="site_libs/quarto-html/quarto-syntax-highlighting-64a204ab8560d761af7679ceaba22944.css" rel="stylesheet" class="quarto-color-scheme" id="quarto-text-highlighting-styles">
-<link href="site_libs/quarto-html/quarto-syntax-highlighting-dark-b85bc7c33db8c58e0ec93c3465666fed.css" rel="stylesheet" class="quarto-color-scheme quarto-color-alternate" id="quarto-text-highlighting-styles">
-<link href="site_libs/quarto-html/quarto-syntax-highlighting-64a204ab8560d761af7679ceaba22944.css" rel="stylesheet" class="quarto-color-scheme-extra" id="quarto-text-highlighting-styles">
+<link href="site_libs/quarto-html/quarto-syntax-highlighting-bf27225e3a48a9273f3daa8f8e829971.css" rel="stylesheet" class="quarto-color-scheme" id="quarto-text-highlighting-styles">
+<link href="site_libs/quarto-html/quarto-syntax-highlighting-dark-b626d73c4c936ccc3cb08be7d45d1df6.css" rel="stylesheet" class="quarto-color-scheme quarto-color-alternate" id="quarto-text-highlighting-styles">
+<link href="site_libs/quarto-html/quarto-syntax-highlighting-bf27225e3a48a9273f3daa8f8e829971.css" rel="stylesheet" class="quarto-color-scheme-extra" id="quarto-text-highlighting-styles">
 <script src="site_libs/bootstrap/bootstrap.min.js"></script>
 <link href="site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
 <link href="site_libs/bootstrap/bootstrap-966fe0592a357178cbe4f3e19c688190.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme" id="quarto-bootstrap" data-mode="light">
@@ -484,14 +484,20 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">query</span><span class="kw">:</span><span class="at"> </span><span class="kw">{</span><span class="at">...</span><span class="kw">}</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <section id="navigator-contract" class="level3">
 <h3 class="anchored" data-anchor-id="navigator-contract">Navigator contract</h3>
-<p>Navigator plugins must expose:</p>
+<p>Navigator plugins target navigator API v2 (<code>plugin_api_version=2</code>) and must expose:</p>
 <ul>
-<li><code>num_systems(order: Order, scale: int) -&gt; int</code>: total number of VS points the navigator will produce for the given scale.</li>
-<li><code>navigate(order: Order, kernel: AbstractKernel, scale: int, batch_size: int, *args, **kwargs) -&gt; Iterator[list[vs.Point]]</code>: a batch iterator that yields lists of up to <code>batch_size</code> points.</li>
+<li><code>num_systems(order: Order, simulation_size: SimulationSize) -&gt; int</code>: total number of VS points the navigator will produce for the requested size. The default on <code>AbstractNavigator</code> returns <code>simulation_size.num_systems(order)</code>; override it when the navigator cannot hit the request exactly.</li>
+<li><code>navigate(order: Order, kernel: AbstractKernel, simulation_size: SimulationSize, batch_size: int, *args, **kwargs) -&gt; Iterator[list[vs.Point]]</code>: a batch iterator that yields lists of up to <code>batch_size</code> points.</li>
 </ul>
+<p><code>simulation_size</code> is a request, not a count. Call <code>simulation_size.num_systems(order)</code> to get the target number of systems and decide how to approach it. Eleanor ships two implementations in <code>eleanor.navigator</code>:</p>
+<ul>
+<li><code>SystemCount(count)</code>: exactly <code>count</code> systems.</li>
+<li><code>SampleDensity(density)</code>: <code>density * order.volume()</code> systems, rounded, and at least one.</li>
+</ul>
+<p>The lattice navigators, for example, round the <code>d</code>-th root of the target to get <code>scale</code> values for each of the order’s <code>d</code> variable parameters, so they produce <code>scale ** d</code> systems, which may differ from the target.</p>
 <p>Eleanor passes <code>max_attempts</code> as a keyword argument to <code>navigate</code>; plugins should accept <code>**kwargs</code> to tolerate future additions. Points carry no order id: the id belongs to the output sink, which receives it as a parameter to <code>prepare_batch</code> / <code>commit_batch</code>, so a navigator never needs to know it.</p>
 <p>A navigator that samples should draw from <code>order.rng</code> – the generator seeded from the order’s <code>seed</code> – rather than from global random state. That is what lets a run be reproduced from the seed recorded alongside it.</p>
-<p>Across a complete <code>navigate(...)</code> iteration, the total number of yielded points must match <code>num_systems(order, scale)</code>. Eleanor raises an error if the counts diverge.</p>
+<p>Across a complete <code>navigate(...)</code> iteration, the total number of yielded points should match <code>num_systems(order, simulation_size)</code>. Eleanor warns before the run if <code>num_systems</code> differs from the target, and again after the run if the number of yielded points differs from <code>num_systems</code>.</p>
 </section>
 </section>
 <section id="distributing-a-third-party-plugin" class="level2">
@@ -622,17 +628,18 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> eleanor.plugin <span class="im">import</span> SimplePluginSpec</span>
 <span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> my_script <span class="im">import</span> MyNavigator</span>
 <span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a>register_navigator(<span class="st">"my_nav"</span>, SimplePluginSpec(build<span class="op">=</span>MyNavigator))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div></li>
+<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a>register_navigator(<span class="st">"my_nav"</span>, SimplePluginSpec(build<span class="op">=</span>MyNavigator, plugin_api_version<span class="op">=</span><span class="dv">2</span>))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div></li>
 <li><p><strong>Direct instance override.</strong> <code>Eleanor.run</code> accepts already-constructed objects that bypass the registry entirely:</p>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb12"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> eleanor <span class="im">import</span> Eleanor</span>
-<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a>Eleanor(config<span class="op">=</span>config).run(</span>
-<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a>    order,</span>
-<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a>    simulation_size,</span>
-<span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a>    navigator<span class="op">=</span>my_navigator_instance,</span>
-<span id="cb12-7"><a href="#cb12-7" aria-hidden="true" tabindex="-1"></a>    kernel<span class="op">=</span>my_kernel_instance,</span>
-<span id="cb12-8"><a href="#cb12-8" aria-hidden="true" tabindex="-1"></a>    output_sink<span class="op">=</span>my_output_sink_instance,</span>
-<span id="cb12-9"><a href="#cb12-9" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> eleanor.navigator <span class="im">import</span> SystemCount</span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a>Eleanor(config<span class="op">=</span>config).run(</span>
+<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a>    order,</span>
+<span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a>    SystemCount(<span class="dv">1000</span>),</span>
+<span id="cb12-7"><a href="#cb12-7" aria-hidden="true" tabindex="-1"></a>    navigator<span class="op">=</span>my_navigator_instance,</span>
+<span id="cb12-8"><a href="#cb12-8" aria-hidden="true" tabindex="-1"></a>    kernel<span class="op">=</span>my_kernel_instance,</span>
+<span id="cb12-9"><a href="#cb12-9" aria-hidden="true" tabindex="-1"></a>    output_sink<span class="op">=</span>my_output_sink_instance,</span>
+<span id="cb12-10"><a href="#cb12-10" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>The override, when supplied, short-circuits the registry lookup for that extension point only. The <code>executor</code> override must be supplied at construction time (<code>Eleanor(executor=my_executor)</code>), not per-run.</p></li>
 </ol>
 </section>

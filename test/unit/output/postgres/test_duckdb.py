@@ -286,7 +286,7 @@ def test_export_duckdb_rejects_an_existing_database_file(tmp_path: Path, mocker:
     _ = db_file.write_bytes(b"keep me")
     made = _patch_connect(mocker)
 
-    with pytest.raises(EleanorError, match="cannot export to existing DuckDB database"):
+    with pytest.raises(EleanorError, match="cannot export to an existing DuckDB database"):
         export_duckdb(_SETTINGS, db_file=db_file)
 
     assert made == []

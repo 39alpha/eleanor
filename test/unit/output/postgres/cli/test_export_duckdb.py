@@ -153,13 +153,13 @@ def test_rejects_malformed_export_option(runner: CliRunner, export: MagicMock, t
     export.assert_not_called()
 
 
-def test_wraps_export_failure(runner: CliRunner, export: MagicMock, tmp_path: Path) -> None:
+def test_reports_export_failure(runner: CliRunner, export: MagicMock, tmp_path: Path) -> None:
     export.side_effect = RuntimeError("boom")
 
     result = _invoke(runner, "-o", str(tmp_path / "out.db"))
 
-    assert result.exit_code != 0
-    assert "failed to export database - boom" in result.output
+    assert result.exit_code == 1
+    assert result.stderr == "Error: failed to export database - boom\n"
 
 
 def test_verbose_export_failure_prints_the_traceback(runner: CliRunner, export: MagicMock, tmp_path: Path) -> None:
@@ -365,3 +365,23 @@ def test_unquote_strips_one_matching_pair(value: str, expected: str) -> None:
 )
 def test_parse_options_handles_unbalanced_and_nested_quotes(token: str, expected: ExportOptions) -> None:
     assert _parse_options((token,)) == expected
+
+
+@pytest.mark.parametrize(
+    "args",
+    [
+        pytest.param(["-v", "postgres", "export", "duckdb"], id="root"),
+        pytest.param(["postgres", "-v", "export", "duckdb"], id="group"),
+        pytest.param(["postgres", "export", "duckdb", "-v"], id="command"),
+    ],
+)
+def test_verbose_from_any_position_reaches_the_export(
+    runner: CliRunner,
+    export: MagicMock,
+    tmp_path: Path,
+    args: list[str],
+) -> None:
+    result = runner.invoke(main, [*args, "-c", "/fake.yaml", "-o", str(tmp_path / "out.db")])
+
+    assert result.exit_code == 0, result.output
+    assert export.call_args.kwargs["verbose"] is True

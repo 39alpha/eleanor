@@ -437,3 +437,8 @@ def guard_is_uuid(value: object, field_name: str) -> None:
 def guard_is_uuid_or_none(value: object, field_name: str) -> None:
     if value is not None and not isinstance(value, uuid.UUID):
         raise_field_error(value, field_name, "must be a UUID or None")
+
+
+def first_line(content: str) -> str:
+    lines = content.splitlines()
+    return lines[0] if lines else ""

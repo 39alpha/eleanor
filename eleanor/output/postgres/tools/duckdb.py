@@ -138,7 +138,7 @@ def export_duckdb(
     if db_file is not None:
         db_file = Path(db_file).expanduser().absolute()
         if db_file.exists():
-            msg = f"cannot export to existing DuckDB database '{db_file!s}'"
+            msg = f"cannot export to an existing DuckDB database '{db_file!s}'"
             raise EleanorError(msg)
 
         created_parents.extend(_make_parents(db_file))

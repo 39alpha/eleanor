@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING, cast
 import click
 
 import eleanor
+from eleanor.cli.command import command
 from eleanor.cli.registry import available_cli_commands
 from eleanor.cli.util import config_from_args, config_options
 from eleanor.exceptions import EleanorError
@@ -17,7 +18,7 @@ if TYPE_CHECKING:
     from eleanor.output.postgres.settings import PostgresSinkSettings
 
 
-@click.command()
+@command()
 @config_options(required=False)
 def doctor(config: str | None, database: str | None) -> None:
     """Print diagnostic information about this eleanor installation."""

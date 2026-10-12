@@ -155,6 +155,44 @@ class TestBulkLoadCli(TestCase):
         self.assertNotIn("CHECK constraints", result.output)
         drop_bulk_load_objects.assert_not_called()
 
+    def test_declining_the_confirmation_aborts_without_an_error(self) -> None:
+        """Ensure answering no to the drop prompt is reported as an abort, not a failure."""
+        cfg = self._config()
+        with (
+            mock.patch("eleanor.output.postgres.cli.bulkload.config_from_args", return_value=cfg),
+            mock.patch("eleanor.output.postgres.cli.bulkload.drop_bulk_load_objects") as drop_bulk_load_objects,
+            mock.patch("eleanor.output.postgres.cli.bulkload.recreate_bulk_load_objects"),
+        ):
+            result = self.runner.invoke(
+                main,
+                ["postgres", "bulkload", "drop", "-c", "/fake.yaml", "-d", "demo_db"],
+                input="n\n",
+            )
+
+        self.assertEqual(result.exit_code, 1)
+        self.assertIn("Aborted!", result.stderr)
+        self.assertNotIn("Error", result.stderr)
+        drop_bulk_load_objects.assert_not_called()
+
+    def test_repository_failures_are_prefixed_with_bulkload_failed(self) -> None:
+        """Ensure a failing drop is reported on one line with the command's error message."""
+        cfg = self._config()
+        with (
+            mock.patch("eleanor.output.postgres.cli.bulkload.config_from_args", return_value=cfg),
+            mock.patch(
+                "eleanor.output.postgres.cli.bulkload.drop_bulk_load_objects",
+                side_effect=RuntimeError("boom"),
+            ),
+            mock.patch("eleanor.output.postgres.cli.bulkload.recreate_bulk_load_objects"),
+        ):
+            result = self.runner.invoke(
+                main,
+                ["postgres", "bulkload", "drop", "-y", "-c", "/fake.yaml", "-d", "demo_db"],
+            )
+
+        self.assertEqual(result.exit_code, 1)
+        self.assertEqual(result.stderr, "Error: bulkload failed - boom\n")
+
     def test_missing_database_exits_before_dispatch(self) -> None:
         """
         Ensure 'bulkload' exits with code 1 and never calls the

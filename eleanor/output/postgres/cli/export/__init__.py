@@ -1,9 +1,8 @@
-import click
-
+from eleanor.cli.command import group
 from eleanor.output.postgres.cli.export.duckdb import duckdb
 
 
-@click.group()
+@group()
 def export() -> None:
     """Export data from the postgres database in various formats"""
 

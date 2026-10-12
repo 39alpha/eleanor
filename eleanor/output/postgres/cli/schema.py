@@ -2,10 +2,11 @@ from typing import TextIO
 
 import click
 
+from eleanor.cli.command import command
 from eleanor.output.postgres.tools import dump_schema
 
 
-@click.command()
+@command()
 @click.option("-o", "--output", type=click.File("w"), default="-", help="Output file (default: stdout).")
 def schema(output: TextIO) -> None:
     """Dump an Eleanor database schema.

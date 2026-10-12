@@ -338,3 +338,17 @@ def test_instance_guards_report_expected_and_actual_type(check: object, expected
     with pytest.raises(EleanorError) as excinfo:
         _ = check("x", Path, "field")
     assert str(excinfo.value) == expected
+
+
+@pytest.mark.parametrize(
+    ("content", "expected"),
+    [
+        ("one line", "one line"),
+        ("first\nsecond", "first"),
+        ("first\r\nsecond", "first"),
+        ("", ""),
+        ("\nsecond", ""),
+    ],
+)
+def test_first_line(content: str, expected: str) -> None:
+    assert util.first_line(content) == expected

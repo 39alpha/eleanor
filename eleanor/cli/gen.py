@@ -9,6 +9,7 @@ from importlib.resources import as_file, files
 
 import click
 
+from eleanor.cli.command import group
 from eleanor.config import Config, load_config
 from eleanor.order import Order, load_order
 
@@ -47,7 +48,7 @@ def _emit_template(target: str, fmt: str) -> None:
     click.echo(template, nl=False)
 
 
-@click.group()
+@group()
 def gen() -> None:
     """Generate starter template files."""
 

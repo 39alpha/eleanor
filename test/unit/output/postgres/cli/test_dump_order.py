@@ -383,3 +383,34 @@ def test_dump_order_help_succeeds(runner: CliRunner) -> None:
     result = runner.invoke(main, ["postgres", "dump", "order", "--help"])
 
     assert result.exit_code == 0
+
+
+def test_lookup_failures_name_the_order_on_one_line(mocker: MockerFixture, runner: CliRunner) -> None:
+    get_order = stub_lookup(mocker)
+    get_order.side_effect = RuntimeError("connection refused\n  is the server running?")
+
+    result = invoke_dump(runner, str(ORDER_ID))
+
+    assert result.exit_code == 1
+    assert result.stderr == f"Error: failed to fetch order {ORDER_ID} - connection refused\n"
+
+
+def test_lookup_failures_without_a_message_name_the_exception_type(mocker: MockerFixture, runner: CliRunner) -> None:
+    get_order = stub_lookup(mocker)
+    get_order.side_effect = RuntimeError()
+
+    result = invoke_dump(runner, str(ORDER_ID))
+
+    assert result.exit_code == 1
+    assert result.stderr == f"Error: failed to fetch order {ORDER_ID} - RuntimeError\n"
+
+
+def test_verbose_lookup_failures_print_the_traceback(mocker: MockerFixture, runner: CliRunner) -> None:
+    get_order = stub_lookup(mocker)
+    get_order.side_effect = RuntimeError("boom")
+
+    result = invoke_dump(runner, str(ORDER_ID), "-v")
+
+    assert result.exit_code == 1
+    assert "Traceback" in result.stderr
+    assert "RuntimeError: boom" in result.stderr

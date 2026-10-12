@@ -7,7 +7,8 @@ from typing import cast
 import click
 
 from eleanor import Eleanor
-from eleanor.cli.util import config_from_args, config_options, handle_exception, postgres_sinks
+from eleanor.cli.command import command
+from eleanor.cli.util import config_from_args, config_options, postgres_sinks, show_verbose_output
 from eleanor.exceptions import EleanorError
 from eleanor.executor import load_executor
 from eleanor.executor.registry import available_executors
@@ -24,7 +25,7 @@ def _complete_executor(_ctx: click.Context, _param: click.Parameter, incomplete:
     return [name for name in sorted(available_executors()) if name.startswith(incomplete)]
 
 
-@click.command()
+@command()
 @click.argument(
     "order",
     type=click.Path(exists=True, dir_okay=False, allow_dash=True),
@@ -45,7 +46,6 @@ def _complete_executor(_ctx: click.Context, _param: click.Parameter, incomplete:
     help="Density of systems to sample.",
 )
 @click.option("-m", "--num-workers", type=int, default=None, help="Number of worker processes.")
-@click.option("-v", "--verbose", is_flag=True, help="Enable verbose output.")
 @click.option("-s", "--scratch", is_flag=True, help="Save scratch for all systems regardless of error status.")
 @click.option("-k", "--kernel-args", multiple=True, help="Arguments to pass to the kernel.")
 @click.option("--tag", type=str, multiple=True, help="Add order tag(s).")
@@ -82,7 +82,6 @@ def run(
     simulation_size: int | None,
     density: float | None,
     num_workers: int | None,
-    verbose: bool,
     scratch: bool,
     kernel_args: tuple[str, ...],
     tag: tuple[str, ...],
@@ -99,6 +98,8 @@ def run(
     database: str | None,
 ) -> None:
     """Run eleanor."""
+    verbose = show_verbose_output()
+
     kernel_args_list: list[object] = list(kernel_args)
     show_progress = progress and not verbose
 
@@ -185,5 +186,3 @@ def run(
         name = getattr(e, "signal_name", None) or "interrupt"
         print(f"Eleanor run interrupted by {name}; sink finalized cleanly.")
         sys.exit(130)
-    except Exception as e:
-        handle_exception(e, verbose=verbose)

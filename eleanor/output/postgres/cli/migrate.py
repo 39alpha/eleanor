@@ -5,8 +5,8 @@ import click
 import psycopg
 
 import eleanor as _eleanor
+from eleanor.cli.command import command
 from eleanor.cli.util import config_from_args, config_options, sole_postgres_settings
-from eleanor.exceptions import EleanorError
 from eleanor.output.postgres.persistence import connection as _connection
 from eleanor.output.postgres.persistence import migrations as _migrations
 from eleanor.output.postgres.persistence import repositories
@@ -14,7 +14,7 @@ from eleanor.output.postgres.persistence import schema as _schema
 from eleanor.output.postgres.settings import PostgresSinkSettings
 
 
-@click.command()
+@command()
 @click.option("--dry-run", is_flag=True, help="List pending migrations; apply none.")
 @click.option("--list", "list_all", is_flag=True, help="List every migration and its applied status.")
 @click.option(
@@ -116,10 +116,7 @@ def _cmd_stamp(settings: PostgresSinkSettings, target: int, yes: bool) -> None:
 
 
 def _cmd_apply(settings: PostgresSinkSettings) -> None:
-    try:
-        repositories.apply_pending_migrations(settings.database)
-    except EleanorError as exc:
-        raise click.ClickException(str(exc)) from exc
+    repositories.apply_pending_migrations(settings.database)
 
 
 def _read_applied_versions(settings: PostgresSinkSettings) -> set[int]:

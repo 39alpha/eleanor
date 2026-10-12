@@ -38,7 +38,7 @@ def test_dump_vs_reports_lookup_failures(runner: CliRunner, mocker: MockerFixtur
     result = runner.invoke(main, ["postgres", "dump", "vs", _VS_ID, "-d", "demo_db"])
 
     assert result.exit_code == 1
-    assert result.stderr == "Error: failed to dump variable space point - boom\n"
+    assert result.stderr == f"Error: failed to fetch variable space point {_VS_ID} - boom\n"
 
 
 @pytest.mark.parametrize("flag", ["-v", "--verbose"])

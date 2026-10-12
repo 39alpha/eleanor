@@ -674,3 +674,56 @@ def test_run_help_does_not_limit_stdin_to_yaml(runner: CliRunner) -> None:
 
     assert result.exit_code == 0
     assert "YAML" not in result.output
+
+
+@pytest.mark.parametrize(
+    ("before", "after"),
+    [
+        pytest.param(["-v"], [], id="root"),
+        pytest.param([], ["-v"], id="command"),
+        pytest.param([], [], id="off"),
+    ],
+)
+def test_run_reads_verbose_from_any_position(
+    mocker: MockerFixture,
+    runner: CliRunner,
+    before: list[str],
+    after: list[str],
+) -> None:
+    eleanor = _stub_run(mocker)
+    _ = mocker.patch("eleanor.cli.run.load_order", return_value=mocker.create_autospec(Order))
+
+    with TemporaryDirectory() as root:
+        order_path = Path(root) / "order.yaml"
+        _ = order_path.write_text("order: demo\n", encoding="utf-8")
+        result = runner.invoke(main, [*before, "run", "-n", "10", "-c", "/fake.yaml", *after, str(order_path)])
+
+    assert result.exit_code == 0, result.output
+    assert eleanor.run.call_args.kwargs["verbose"] is bool(before or after)
+
+
+def test_run_reports_failures_without_traceback(mocker: MockerFixture, runner: CliRunner) -> None:
+    eleanor = _stub_run(mocker)
+    _ = mocker.patch("eleanor.cli.run.load_order", return_value=mocker.create_autospec(Order))
+    eleanor.run.side_effect = RuntimeError("boom")
+
+    result = invoke_run(runner, ["-n", "10", "-c", "/fake.yaml"])
+
+    assert result.exit_code == 1
+    assert result.stderr == "Error: boom\n"
+
+
+@pytest.mark.parametrize("args", [["-v", "run"], ["run", "-v"]], ids=["root", "command"])
+def test_run_verbose_failures_print_the_traceback(mocker: MockerFixture, runner: CliRunner, args: list[str]) -> None:
+    eleanor = _stub_run(mocker)
+    _ = mocker.patch("eleanor.cli.run.load_order", return_value=mocker.create_autospec(Order))
+    eleanor.run.side_effect = RuntimeError("boom")
+
+    with TemporaryDirectory() as root:
+        order_path = Path(root) / "order.yaml"
+        _ = order_path.write_text("order: demo\n", encoding="utf-8")
+        result = runner.invoke(main, [*args, "-n", "10", "-c", "/fake.yaml", str(order_path)])
+
+    assert result.exit_code == 1
+    assert "Traceback" in result.stderr
+    assert "RuntimeError: boom" in result.stderr

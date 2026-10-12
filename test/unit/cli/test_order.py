@@ -269,7 +269,7 @@ def test_order_volume_verbose_prints_traceback(runner: CliRunner, tmp_path: Path
     assert result.exit_code == 1
     assert "Traceback" in result.stderr
     assert "EleanorError: creator must be a string" in result.stderr
-    assert "failed to load the order" not in result.stderr
+    assert "EleanorError: failed to load the order - creator must be a string" in result.stderr
     assert result.stdout == ""
 
 

@@ -2,7 +2,13 @@ from pathlib import Path
 
 import click
 
-from eleanor.cli.util import config_from_args, config_options, handle_exception, sole_postgres_settings
+from eleanor.cli.command import command
+from eleanor.cli.util import (
+    config_from_args,
+    config_options,
+    show_verbose_output,
+    sole_postgres_settings,
+)
 from eleanor.output.postgres.tools.duckdb import ExportFormat, ExportOptions, export_duckdb
 
 
@@ -41,7 +47,7 @@ def _parse_options(tokens: tuple[str, ...]) -> ExportOptions | None:
     return parsed
 
 
-@click.command()
+@command(error_message="failed to export database")
 @click.option(
     "-o",
     "--output",
@@ -74,12 +80,6 @@ def _parse_options(tokens: tuple[str, ...]) -> ExportOptions | None:
     is_flag=True,
     help="Do not export empty tables",
 )
-@click.option(
-    "-v",
-    "--verbose",
-    is_flag=True,
-    help="Generate verbose output",
-)
 @config_options(required=False)
 def duckdb(
     output: Path | None,
@@ -87,15 +87,16 @@ def duckdb(
     hive_type: ExportFormat,
     export_option: tuple[str, ...],
     no_export_empty: bool = False,
-    verbose: bool = False,
     *,
     config: Path | None,
     database: str | None,
 ) -> None:
     """Export an Eleanor PostgreSQL database for DuckDB."""
+    verbose = show_verbose_output()
+
     if output is None and hive is None:
         msg = "at least one of --output= and --hive= must be provided"
-        raise click.ClickException(msg)
+        raise click.UsageError(msg)
 
     output = Path(output).expanduser().resolve() if output is not None else None
     if output is not None and output.exists():
@@ -111,18 +112,15 @@ def duckdb(
 
     options = _parse_options(export_option)
 
-    try:
-        export_duckdb(
-            settings.database,
-            db_file=output,
-            hive=hive,
-            format=hive_type,
-            no_export_empty=no_export_empty,
-            verbose=verbose,
-            options=options,
-        )
-    except Exception as e:
-        handle_exception(e, "failed to export database", verbose=verbose)
+    export_duckdb(
+        settings.database,
+        db_file=output,
+        hive=hive,
+        format=hive_type,
+        no_export_empty=no_export_empty,
+        verbose=verbose,
+        options=options,
+    )
 
 
 __all__ = ["duckdb"]

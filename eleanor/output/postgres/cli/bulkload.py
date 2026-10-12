@@ -2,13 +2,13 @@ from pathlib import Path
 
 import click
 
+from eleanor.cli.command import command
 from eleanor.cli.util import config_from_args, config_options, sole_postgres_settings
-from eleanor.exceptions import EleanorError
 from eleanor.output.postgres.persistence import schema as _schema
 from eleanor.output.postgres.persistence.repositories import drop_bulk_load_objects, recreate_bulk_load_objects
 
 
-@click.command()
+@command(error_message="bulkload failed")
 @click.argument("action", type=click.Choice(["drop", "recreate"]))
 @click.option("-y", "--yes", is_flag=True, help="Skip confirmation prompt for destructive actions.")
 @click.option("--indexes/--no-indexes", default=True, help="Include secondary indexes (default: on).")
@@ -37,7 +37,7 @@ def bulkload(
 
     targets = _schema.BulkLoadTargets(indexes=indexes, checks=checks, foreign_keys=foreign_keys)
     if not targets:
-        msg = "nothing selected: pass at least one of --indexes / --fks / --checks"
+        msg = "nothing selected; pass at least one of --indexes / --fks / --checks"
         raise click.UsageError(msg)
 
     selected = ", ".join(
@@ -57,7 +57,7 @@ def bulkload(
         recreate_bulk_load_objects(settings.database, targets)
     else:
         msg = f"unknown bulkload action: {action!r}"
-        raise EleanorError(msg)
+        raise click.UsageError(msg)
 
 
 __all__ = ["bulkload"]

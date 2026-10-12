@@ -22,6 +22,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`eleanor run -` and `eleanor order volume -`** read the order from stdin
 - **`Order.from_*` and `load_order` accept streams** as well as paths; the string loaders accept bytes.
 - **`eleanor.order.detect_format`** picks an order's format from its extension, else its content.
+- **`eleanor.cli.command`** provides `command` and `group` decorators that give every command
+  `-v/--verbose` and uniform error reporting.
+- **`-v/--verbose` is accepted at any level**, e.g. `eleanor -v run` or `eleanor run -v`.
 
 ### Changed
 
@@ -37,6 +40,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`Order.from_file`, `from_yaml`, `from_toml` and `from_json` take `source`** in place of `fname`.
   `from_file`'s `fname=` now only names the source and hints at its format.
 - **Order loaders no longer wrap parser and decode errors** in `EleanorError`.
+- **CLI errors are a single line;** pass `-v` for the full traceback.
 
 ### Removed
 

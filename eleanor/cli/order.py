@@ -2,12 +2,13 @@ import sys
 
 import click
 
-from eleanor.cli.util import handle_exception
+from eleanor.cli.command import group
+from eleanor.exceptions import EleanorError
 from eleanor.order import load_order
 from eleanor.util import NumberFormat
 
 
-@click.group()
+@group()
 def order() -> None:
     """Perform operations on orders."""
 
@@ -34,24 +35,24 @@ def order() -> None:
     show_default=True,
     help="Floating-point format.",
 )
-@click.option("-v", "--verbose", is_flag=True, default=False, help="Enable verbose output.")
 def order_volume(
     order: str,
     precision: int = 3,
     format: NumberFormat = NumberFormat.ADAPTIVE,
-    verbose: bool = False,
 ) -> None:
     """Print the volume of an order's parameter space."""
     try:
         source = sys.stdin if order == "-" else order
         parsed_order = load_order(source)
     except Exception as e:
-        handle_exception(e, "failed to load the order", verbose=verbose)
+        msg = f"failed to load the order - {e}"
+        raise EleanorError(msg) from e
 
     try:
         volume = parsed_order.volume()
     except Exception as e:
-        handle_exception(e, "failed to compute the order volume", verbose=verbose)
+        msg = f"failed to compute the order volume - {e}"
+        raise EleanorError(msg) from e
 
     volume_str = format.fmt(volume, precision=precision).lower()
     click.echo(volume_str)

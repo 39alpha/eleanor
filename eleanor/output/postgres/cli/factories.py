@@ -7,15 +7,14 @@ if TYPE_CHECKING:
 
 
 def build_postgres_group() -> click.Group:
-    import click
-
+    from eleanor.cli.command import EleanorGroup
     from eleanor.output.postgres.cli.bulkload import bulkload
     from eleanor.output.postgres.cli.dump import dump
     from eleanor.output.postgres.cli.export import export
     from eleanor.output.postgres.cli.migrate import migrate
     from eleanor.output.postgres.cli.schema import schema
 
-    cmd = click.Group("postgres", help="Postgres output sink commands.")
+    cmd = EleanorGroup("postgres", help="Postgres output sink commands.")
     cmd.add_command(bulkload)
     cmd.add_command(dump)
     cmd.add_command(export)

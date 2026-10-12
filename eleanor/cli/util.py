@@ -1,12 +1,4 @@
-"""Shared CLI utilities for built-in commands and CLI plugins.
-
-This module is part of the supported CLI-plugin contract: third-party
-plugins registered through ``eleanor.cli_commands`` may import
-:func:`config_options` and :func:`config_from_args` to inherit the
-``--config`` / ``--database`` flags and the standard config-resolution
-behaviour. The names exported here are covered by the same plugin-API
-versioning policy as the ``eleanor.cli_commands`` entry-point group.
-"""
+"""Shared CLI utilities for built-in commands and CLI plugins."""
 
 import functools
 import sys
@@ -24,6 +16,7 @@ from eleanor.config.output import OutputSinkConfig
 from eleanor.exceptions import EleanorError
 from eleanor.output.postgres.settings import PostgresDatabaseSettings, PostgresSinkSettings
 from eleanor.typing import StrPath
+from eleanor.util import first_line
 
 
 def _default_config_path() -> Path:
@@ -173,11 +166,25 @@ def config_from_args(
     return config
 
 
-def handle_exception(exception: Exception, base_msg: str | None = None, *, verbose: bool = False) -> Never:
-    if verbose:
+def _record_verbose(ctx: click.Context, _param: click.Parameter, value: bool) -> bool:
+    if value:
+        ctx.meta["eleanor.verbose"] = True
+    return value
+
+
+def show_verbose_output() -> bool:
+    ctx = click.get_current_context(silent=True)
+    return ctx is not None and bool(ctx.meta.get("eleanor.verbose", False))
+
+
+def handle_exception(exception: Exception, base_msg: str | None = None, *, verbose: bool | None = None) -> Never:
+    if isinstance(exception, (click.Abort, click.ClickException, click.exceptions.Exit)):
+        raise exception
+
+    if verbose or (verbose is None and show_verbose_output()):
         print_exception(exception)
         sys.exit(1)
 
-    detail = str(exception) or type(exception).__name__
+    detail = first_line(str(exception)) or type(exception).__name__
     msg = f"{base_msg} - {detail}" if base_msg else f"{detail}"
     raise click.ClickException(msg) from exception

@@ -1,4 +1,4 @@
-import datetime
+import datetime as dt
 import hashlib
 import os
 import uuid
@@ -213,11 +213,11 @@ def is_list_of(value: object, types: type | tuple[type, ...]) -> bool:
     return all(isinstance(item, types) for item in items)
 
 
-def parse_date(date: str) -> datetime.date | datetime.datetime:
+def parse_date(date: str) -> dt.date | dt.datetime:
     try:
-        return datetime.date.fromisoformat(date)
+        return dt.date.fromisoformat(date)
     except ValueError:
-        return datetime.datetime.fromisoformat(date)
+        return dt.datetime.fromisoformat(date)
 
 
 def raise_field_error(

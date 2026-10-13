@@ -202,3 +202,149 @@ def test_plain_click_commands_under_an_eleanor_group_get_generic_handling() -> N
 
     assert quiet.stderr == "Error: boom\n"
     assert "Traceback" in verbose.stderr
+
+
+def test_verbose_option_can_be_suppressed() -> None:
+    @command(verbose_option=False)
+    def cmd() -> None: ...
+
+    @group(verbose_option=False)
+    def grp() -> None: ...
+
+    for suppressed in (cmd, grp):
+        assert not [opt for param in suppressed.params for opt in param.opts if opt in ("-v", "--verbose")]
+
+    result = CliRunner().invoke(cmd, ["-v"])
+
+    assert result.exit_code == 2
+    assert "No such option '-v'" in result.stderr
+
+
+def test_suppressing_verbose_frees_the_flag_for_the_command() -> None:
+    @command(verbose_option=False)
+    @click.option("-v", "--version", "version", is_flag=True)
+    def cmd(*, version: bool) -> None:
+        click.echo(f"version={version} verbose={show_verbose_output()}")
+
+    result = CliRunner().invoke(cmd, ["-v"])
+
+    assert result.exit_code == 0, result.output
+    assert result.output == "version=True verbose=False\n"
+
+
+def test_verbose_from_a_parent_still_reaches_a_suppressed_subcommand() -> None:
+    seen: list[bool] = []
+
+    @group()
+    def root() -> None: ...
+
+    @root.command(verbose_option=False)
+    def leaf() -> None:
+        seen.append(show_verbose_output())
+
+    result = CliRunner().invoke(root, ["-v", "leaf"])
+
+    assert result.exit_code == 0, result.output
+    assert seen == [True]
+
+
+def test_subcommand_helpers_forward_the_suppression_flags() -> None:
+    @group()
+    def root() -> None: ...
+
+    @root.group(handle_errors=False, verbose_option=False)
+    def sub() -> None: ...
+
+    @sub.command(handle_errors=False, verbose_option=False)
+    def leaf() -> None: ...
+
+    for cmd in (sub, leaf):
+        assert isinstance(cmd, EleanorCommand)
+        assert cmd.handle_errors is False
+        assert not [opt for param in cmd.params for opt in param.opts if opt in ("-v", "--verbose")]
+
+
+def test_error_handling_is_on_by_default() -> None:
+    @command()
+    def cmd() -> None: ...
+
+    @group()
+    def grp() -> None: ...
+
+    assert cmd.handle_errors is True
+    assert grp.handle_errors is True
+
+
+def test_unhandled_command_errors_propagate_unchanged() -> None:
+    error = RuntimeError("boom")
+
+    @command(handle_errors=False, error_message="cmd failed")
+    def cmd() -> None:
+        raise error
+
+    result = CliRunner().invoke(cmd, [])
+
+    assert result.exception is error
+    assert result.stderr == ""
+
+
+def test_unhandled_group_errors_propagate_unchanged() -> None:
+    error = RuntimeError("boom")
+
+    @group(handle_errors=False, error_message="grp failed")
+    def grp() -> None:
+        raise error
+
+    @grp.command()
+    def leaf() -> None: ...
+
+    result = CliRunner().invoke(grp, ["leaf"])
+
+    assert result.exception is error
+    assert result.stderr == ""
+
+
+def test_an_unhandled_group_still_lets_its_subcommands_handle_errors() -> None:
+    @group(handle_errors=False)
+    def root() -> None: ...
+
+    @root.command(error_message="leaf failed")
+    def leaf() -> None:
+        raise RuntimeError("boom")
+
+    result = CliRunner().invoke(root, ["leaf"])
+
+    assert result.exit_code == 1
+    assert result.stderr == "Error: leaf failed - boom\n"
+
+
+def test_unhandled_errors_still_propagate_with_verbose() -> None:
+    error = RuntimeError("boom")
+
+    @command(handle_errors=False)
+    def cmd() -> None:
+        raise error
+
+    result = CliRunner().invoke(cmd, ["-v"])
+
+    assert result.exception is error
+    assert "Traceback" not in result.stderr
+
+
+def test_an_unhandled_subcommand_is_not_rehandled_by_its_parent() -> None:
+    # Opting out on a leaf should let its exception escape the whole CLI; today
+    # the enclosing group catches it and reports it as if the leaf were a plain
+    # click command, so the opt-out only has an effect under an opted-out parent.
+    error = RuntimeError("boom")
+
+    @group()
+    def root() -> None: ...
+
+    @root.command(handle_errors=False, error_message="leaf failed")
+    def leaf() -> None:
+        raise error
+
+    result = CliRunner().invoke(root, ["leaf"])
+
+    assert result.exception is error
+    assert result.stderr == ""

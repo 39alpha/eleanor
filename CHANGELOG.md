@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Enable suppression of `-v` and error handling in `eleanor.cli.command` helpers** for cases in
+  which a command or group need to explicitly disable them.
+
 ## [v0.24.0] - 2026-10-12
 
 ### Added

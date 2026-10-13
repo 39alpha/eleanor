@@ -12,6 +12,7 @@ import pytest
 from eleanor.order import Order
 from eleanor.output.postgres.persistence.connection import _json_dumps
 from eleanor.output.postgres.persistence.converters import normalize_dict
+from eleanor.reactants import CombinedReactant
 
 
 def _rich_raw() -> dict[str, object]:
@@ -43,6 +44,15 @@ def _rich_raw() -> dict[str, object]:
                     "titration_rate": -9,
                 },
                 "quartz": {"type": "mineral", "amount": 1.0},
+                # component fractions are scalars; asdict emits them as parameter dicts
+                "rock": {
+                    "type": "combined",
+                    "amount": -3,
+                    "components": {
+                        "fayalite": {"type": "mineral", "fraction": 0.4},
+                        "albite": {"type": "mineral", "fraction": 0.6, "relative_rate": 0.5},
+                    },
+                },
             },
         },
     )
@@ -90,8 +100,17 @@ def test_round_trip_preserves_reactant_identity() -> None:
     order = Order.from_dict(_rich_raw())
     reactants = _through_json(order).reactants
 
-    assert {r.name for r in reactants} == {"forsterite", "quartz"}
-    assert {str(r.type) for r in reactants} == {"mineral"}
+    assert {r.name for r in reactants} == {"forsterite", "quartz", "rock"}
+    assert {str(r.type) for r in reactants} == {"mineral", "combined"}
+
+
+def test_round_trip_preserves_combined_components() -> None:
+    """Component fractions are authored as scalars but dumped as parameter dicts."""
+    order = Order.from_dict(_rich_raw())
+    (got,) = [r for r in _through_json(order).reactants if isinstance(r, CombinedReactant)]
+    (want,) = [r for r in order.reactants if isinstance(r, CombinedReactant)]
+
+    assert got.components == want.components
 
 
 def test_round_trip_preserves_plugin_config_kinds() -> None:

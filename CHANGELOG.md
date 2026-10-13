@@ -12,6 +12,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Enable suppression of `-v` and error handling in `eleanor.cli.command` helpers** for cases in
   which a command or group need to explicitly disable them.
 
+### Fixed
+
+- **`CombinedReactantComponent.from_dict` reads `ParameterOrSource` `fraction`** to support
+  round-tripping.
+- **`CombinedReactantComponent.__init__` validates `fraction`** ensuring it is in [0, 1] and warning
+  at the boundaries.
+
 ## [v0.24.0] - 2026-10-12
 
 ### Added
@@ -31,7 +38,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`eleanor.util.raise_field_error`** to centralize field related error messaging.
 - **Accept both `-h` and `--help`** for all subcommands.
 - **`eleanor run -` and `eleanor order volume -`** read the order from stdin
-- **`Order.from_*` and `load_order` accept streams** as well as paths; the string loaders accept bytes.
+- **`Order.from_*` and `load_order` accept streams** as well as paths; the string loaders accept
+  bytes.
 - **`eleanor.order.detect_format`** picks an order's format from its extension, else its content.
 - **`eleanor.cli.command`** provides `command` and `group` decorators that give every command
   `-v/--verbose` and uniform error reporting.
@@ -276,14 +284,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`--[no-]indexes` / `--[no-]fks` / `--[no-]checks` flags** on `eleanor postgres bulkload
   drop/recreate` give granular control over which object classes are dropped and recreated around a
   bulk-load window (all on by default). `recreate` is now idempotent per class — it skips CHECK/FK
-  constraints that are already present — so an asymmetric drop/recreate is safe rather than an error.
+  constraints that are already present — so an asymmetric drop/recreate is safe rather than an
+  error.
 
 ### Changed
 
 - **Widened the `equilibrium_*` identity primary keys from `INTEGER` to `BIGINT`.** The
   per-equilibrium-point tables accumulate one row per species/solid/gas/reactant per point, so
   their `int4` identity range was the first thing to overflow on large runs. The foreign-key columns
-  that store these ids (`equilibrium_space_id`, `equilibrium_solid_solution_id`) are widened to match.
+  that store these ids (`equilibrium_space_id`, `equilibrium_solid_solution_id`) are widened to
+  match.
 - **Curated the PostgreSQL indexes.** The existing set of indexes didn't achieve the query
   performance we hoped for out of the box and ultimately just bloated the on-disc storage footprint.
   We spent some time profiling known, real-world queries and tried to balance the performance
@@ -292,9 +302,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   A recreate is a one-shot bulk build over write-once data, so the B-tree default of 90 -- which
   reserves ~10% of each page for in-place inserts that never happen -- only wasted disk. GIN/BRIN
   indexes are unaffected.
-- **Renamed the bulk-load helpers** `drop_indexes` / `recreate_indexes` to `drop_bulk_load_objects` /
-  `recreate_bulk_load_objects` (in `eleanor.output.postgres.persistence.schema` and its
-  `repositories` wrappers). The new names reflect that they act on secondary indexes *and* FK / CHECK
+- **Renamed the bulk-load helpers** `drop_indexes` / `recreate_indexes` to `drop_bulk_load_objects`
+  / `recreate_bulk_load_objects` (in `eleanor.output.postgres.persistence.schema` and its
+  `repositories` wrappers). The new names reflect that they act on secondary indexes *and*
+  FK / CHECK
   constraints. Update any code importing the old names.
 
 ### Fixed

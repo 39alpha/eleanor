@@ -9,7 +9,7 @@ import numpy as np
 
 from eleanor.exceptions import EleanorError, EleanorWarning
 from eleanor.parameters import Parameter, ParameterOrSource, ValueParameter, load_parameter, parameter_space_volume
-from eleanor.util import require, require_dict, require_float, require_str
+from eleanor.util import require, require_dict, require_str
 
 
 class ReactantType(StrEnum):
@@ -384,6 +384,13 @@ class CombinedReactantComponent:
         if not isinstance(fraction, ValueParameter):
             msg = f"combined component {self.name!r} has a non-value parameter; list and range parameters are not supported yet"
             raise EleanorError(msg)
+        if fraction.value < 0.0 or fraction.value > 1.0:
+            msg = f"combined component {self.name!r} has a value {fraction.value}; must be between 0 and 1 inclusive"
+            raise EleanorError(msg)
+        if np.isclose(fraction.value, 0.0) or np.isclose(fraction.value, 1.0):
+            msg = f"combined component {self.name!r} has a value {fraction.value}; that might be a mistake"
+            warnings.warn(msg, EleanorWarning, stacklevel=2)
+
         self.fraction = fraction
         self.relative_rate = None if relative_rate is None else load_parameter(relative_rate)
         self.composition = composition
@@ -468,14 +475,10 @@ class CombinedReactantComponent:
             )
             raise EleanorError(msg)
 
-        fraction = require_float(raw.get("fraction"), f"combined component {name!r} fraction specification")
-
-        if fraction < 0.0 or fraction > 1.0:
-            msg = f"combined component {name!r} has a value {fraction}; must be between 0 and 1 inclusive"
-            raise EleanorError(msg)
-        if np.isclose(fraction, 0.0) or np.isclose(fraction, 1.0):
-            msg = f"combined component {name!r} has a value {fraction}; that might be a mistake"
-            warnings.warn(msg, EleanorWarning, stacklevel=2)
+        fraction = cast(
+            ParameterOrSource,
+            require(raw.get("fraction"), f"combined component {name!r} fraction specification"),
+        )
 
         relative_rate = cast(ParameterOrSource | None, raw.get("relative_rate"))
         composition: dict[str, int] | None = None

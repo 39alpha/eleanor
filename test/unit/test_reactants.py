@@ -1,3 +1,4 @@
+from dataclasses import asdict
 from typing import cast
 from unittest import TestCase, mock
 
@@ -365,6 +366,62 @@ class TestReactants(TestCase):
 
         with self.assertRaisesRegex(EleanorError, "must be a dictionary"):
             _ = CombinedReactantComponent.from_dict({"name": "SiO2", "type": "special", "fraction": 0.5})
+
+    def test_combined_component_init_validates_fraction(self) -> None:
+        """
+        Ensure CombinedReactantComponent.__init__ validates fraction without going through from_dict.
+        """
+        component = CombinedReactantComponent(name="x", type=ReactantType.MINERAL, fraction=0.5, relative_rate=None)
+        self.assertEqual(component.fraction, ValueParameter(np.float64(0.5)))
+
+        with self.assertRaisesRegex(EleanorError, "between 0 and 1 inclusive"):
+            _ = CombinedReactantComponent(name="x", type=ReactantType.MINERAL, fraction=-1.0, relative_rate=None)
+
+        with self.assertRaisesRegex(EleanorError, "between 0 and 1 inclusive"):
+            _ = CombinedReactantComponent(name="x", type=ReactantType.MINERAL, fraction=2.0, relative_rate=None)
+
+        with self.assertWarnsRegex(EleanorWarning, "that might be a mistake"):
+            _ = CombinedReactantComponent(name="x", type=ReactantType.MINERAL, fraction=0.0, relative_rate=None)
+
+        with self.assertWarnsRegex(EleanorWarning, "that might be a mistake"):
+            _ = CombinedReactantComponent(name="x", type=ReactantType.MINERAL, fraction=1.0, relative_rate=None)
+
+        with self.assertRaisesRegex(EleanorError, "non-value parameter"):
+            _ = CombinedReactantComponent(
+                name="x",
+                type=ReactantType.MINERAL,
+                fraction={"min": 0.2, "max": 0.4},
+                relative_rate=None,
+            )
+
+    def test_combined_component_from_dict_round_trips_asdict(self) -> None:
+        """
+        Ensure CombinedReactantComponent.from_dict accepts the asdict form, where fraction is a parameter dict.
+        """
+        components = [
+            CombinedReactantComponent.from_dict({"name": "fayalite", "type": "mineral", "fraction": 0.2}),
+            CombinedReactantComponent.from_dict(
+                {
+                    "name": "SiO2",
+                    "type": "special",
+                    "composition": {"Si": 1, "O": 2},
+                    "fraction": 0.5,
+                    "relative_rate": 2.5,
+                },
+            ),
+            CombinedReactantComponent.from_dict(
+                {
+                    "name": "olivine",
+                    "type": "solid solution",
+                    "fraction": 0.3,
+                    "end_members": {"fayalite": 0.6, "forsterite": 0.4},
+                },
+            ),
+        ]
+        for component in components:
+            with self.subTest(component=component.name):
+                raw = cast(dict[str, object], asdict(component))
+                self.assertEqual(CombinedReactantComponent.from_dict(raw), component)
 
     def test_combined_component_parameters_handles_optional_relative_rate(self) -> None:
         """
